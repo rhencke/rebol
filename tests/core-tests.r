@@ -34,6 +34,8 @@
 %datatypes/event.test.reb
 %datatypes/file.test.reb
 %datatypes/function.test.reb
+%datatypes/get-block.test.reb
+%datatypes/get-group.test.reb
 %datatypes/get-path.test.reb
 %datatypes/get-word.test.reb
 %datatypes/gob.test.reb
@@ -59,6 +61,8 @@
 %datatypes/port.test.reb
 %datatypes/quoted.test.reb
 %datatypes/refinement.test.reb
+%datatypes/set-block.test.reb
+%datatypes/set-group.test.reb
 %datatypes/set-path.test.reb
 %datatypes/set-word.test.reb
 %datatypes/string.test.reb

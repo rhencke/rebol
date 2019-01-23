@@ -97,6 +97,9 @@ Script: [
     ambiguous-infix:    {Ambiguous infix expression--use GROUP! to clarify}
     literal-left-path:  {Use -> to pass literal left PATH! parameters right}
 
+    bad-get-group:      {GET-GROUP! gets WORD!/PATH!/BLOCK!, arity-0 ACTION!}
+    bad-set-group:      {SET-GROUP! sets WORD!/PATH!/BLOCK!, arity-1 ACTION!}
+
     do-running-frame:   [{Must COPY a FRAME! that's RUNNING? before DOing it}]
     do-expired-frame:   [{Cannot DO a FRAME! whose stack storage expired}]
 
@@ -110,7 +113,6 @@ Script: [
 
     enfix-path-group:   [:arg1 {GROUP! can't be in a lookback quoted PATH!}]
 
-    reduce-made-null:   {Expression in REDUCE was null, see REDUCE/OPT, /TRY}
     break-not-continue: {Use BREAK/WITH when body is the breaking condition}
 
     use-eval-for-eval:  {Use EVAL or APPLY on actions of arity > 0, not DO}

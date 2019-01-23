@@ -429,15 +429,29 @@ static const RELVAL *Get_Parse_Value(
 //
 // Historically a single group in PARSE ran code, discarding the value (with
 // a few exceptions when appearing in an argument position to a rule).  Ren-C
-// adds another behavior for when groups are "doubled", e.g. ((...)).  This
-// makes them act like a COMPOSE/ONLY that runs each time they are visited.
+// adds another behavior for GET-GROUP!, e.g. :(...).  This makes them act
+// like a COMPOSE/ONLY that runs each time they are visited.
 //
 REB_R Process_Group_For_Parse(
     REBFRM *f,
     REBVAL *cell,
     const RELVAL *group
 ){
-    assert(IS_GROUP(group));
+  #if 0
+    // !!! Unfortunately, the bootstrap process still loads source and molds
+    // it out.  This dependency needs to go away.  Until it does, GET-GROUP!
+    // can't be used in mezzanine code...so doubled groups remain as an
+    // alternative expression.
+    //
+    if (Is_Doubled_Group(group)) {
+      #if !defined(NDEBUG)
+        PROBE(group);
+      #endif
+        fail ("Doubled group behavior is now performed by GET-GROUP!");
+    }
+  #endif
+
+    assert(IS_GROUP(group) or IS_GET_GROUP(group));
     REBSPC *derived = Derive_Specifier(P_RULE_SPECIFIER, group);
 
     // Evaluator should optimize execution of a GROUP! with only one element.
@@ -453,8 +467,11 @@ REB_R Process_Group_For_Parse(
         P_POS = SER_LEN(P_INPUT);
 
     if (
-        IS_NULLED(cell) // even for doubled groups, null evals are discarded
-        or not Is_Doubled_Group(group) // non-doubled groups always discard
+        IS_NULLED(cell) // even for GET-GROUP!, null evals are discarded
+        or not (
+            IS_GET_GROUP(group) // plain groups always discard
+            or Is_Doubled_Group(group) // !!! Temp hack, see above
+        )
     ){
         return R_INVISIBLE;
     }
@@ -485,7 +502,7 @@ static REBIXO Parse_One_Rule(
 ){
     assert(IS_END(P_OUT));
 
-    if (IS_GROUP(rule)) {
+    if (IS_GROUP(rule) or IS_GET_GROUP(rule)) {
         rule = Process_Group_For_Parse(f, P_CELL, rule);
         if (rule == R_THROWN) {
             Move_Value(P_OUT, P_CELL);
@@ -495,7 +512,7 @@ static REBIXO Parse_One_Rule(
             assert(pos <= SER_LEN(P_INPUT)); // !!! Process_Group ensures
             return pos;
         }
-        // was a doubled group ((...)), use result as rule
+        // was a GET-GROUP! :(...), use result as rule
     }
 
     if (P_POS == SER_LEN(P_INPUT)) { // at end of input
@@ -731,7 +748,7 @@ static REBIXO To_Thru_Block_Rule(
                 fail (Error_Parse_Rule()); // !!! Shouldn't `TO [|]` succeed?
 
             const RELVAL *rule;
-            if (not IS_GROUP(blk))
+            if (not (IS_GROUP(blk) or IS_GET_GROUP(blk)))
                 rule = blk;
             else {
                 rule = Process_Group_For_Parse(f, cell, blk);
@@ -1384,7 +1401,7 @@ REBNATIVE(subparse)
     //=//// HANDLE BAR! FIRST... BEFORE GROUP! ////////////////////////////=//
 
         // BAR!s cannot be abstracted.  If they could be, then you'd have to
-        // run all doubled groups `((...))` to find them in alternates lists.
+        // run all GET-GROUP! `:(...)` to find them in alternates lists.
 
         if (IS_BAR(P_RULE)) { // reached BAR! without a match failure, good!
             //
@@ -1395,31 +1412,32 @@ REBNATIVE(subparse)
 
         const RELVAL *rule = P_RULE; // start w/rule in block, may eval/fetch
 
-    //=//// (GROUP!) AND ((DOUBLED GROUP!)) PROCESSING ////////////////////=//
+    //=//// (GROUP!) AND :(GET-GROUP!) PROCESSING /////////////////////////=//
 
-        if (IS_GROUP(rule)) {
+        if (IS_GROUP(rule) or IS_GET_GROUP(rule)) {
             //
             // Code below may jump here to re-process groups, consider:
             //
             //    rule: lit (print "Hi")
-            //    parse "a" [(('rule)) "a"]
+            //    parse "a" [:('rule) "a"]
             //
             // First it processes the group to get RULE, then it looks that
             // up and gets another group.  In theory this could continue
-            // indefinitely, but for now a doubled group can't return another.
-            //
+            // indefinitely, but for now a GET-GROUP! can't return another.
+
           process_group:;
+
             rule = Process_Group_For_Parse(f, save, P_RULE);
             if (rule == R_THROWN) {
                 Move_Value(P_OUT, save);
                 return R_THROWN;
             }
-            if (rule == R_INVISIBLE) { // was a (...), or null-bearing ((...))
+            if (rule == R_INVISIBLE) { // was a (...), or null-bearing :(...)
                 FETCH_NEXT_RULE(f); // ignore result and go on to next rule
                 continue;
             }
-            // was a doubled GROUP!, e.g. ((...)), fall through so its result
-            // will act as a rule in its own right.
+            // was a GET-GROUP!, e.g. :(...), fall through so its result will
+            // act as a rule in its own right.
             //
             assert(IS_SPECIFIC(rule)); // can use w/P_RULE_SPECIFIER, harmless
         }
@@ -1450,8 +1468,7 @@ REBNATIVE(subparse)
         //
         const RELVAL *subrule = nullptr;
 
-        // If word, set-word, or get-word, process it:
-        if (VAL_TYPE(rule) >= REB_WORD and VAL_TYPE(rule) <= REB_GET_WORD) {
+        if (ANY_PLAIN_GET_SET_WORD(rule)) { // word!, set-word!, or get-word!
 
             REBSYM cmd = VAL_CMD(rule);
             if (cmd != SYM_0) {
@@ -1690,6 +1707,16 @@ REBNATIVE(subparse)
 
             if (P_POS > SER_LEN(P_INPUT))
                 P_POS = SER_LEN(P_INPUT);
+        }
+        else if (IS_SET_GROUP(rule)) {
+            //
+            // Don't run the group yet, just hold onto it...will run and set
+            // the contents (or pass found value to function as parameter)
+            // only if a match happens.
+            //
+            FETCH_NEXT_RULE_KEEP_LAST(&set_or_copy_word, f);
+            flags |= PF_SET;
+            continue;
         }
 
         assert(not IS_NULLED(rule));
@@ -2118,32 +2145,52 @@ REBNATIVE(subparse)
 
                     Quotify(sink, P_NUM_QUOTES);
                 }
-                else if (flags & PF_SET) {
+                else if ((flags & PF_SET) and (count != 0)) { // 0-leave alone
+                    //
+                    // We waited to eval the SET-GROUP! until we knew we had
+                    // something we wanted to set.  Do so, and then go through
+                    // a normal setting procedure.
+                    //
+                    if (IS_SET_GROUP(set_or_copy_word)) {
+                        if (Do_At_Throws(
+                            P_CELL,
+                            VAL_ARRAY(set_or_copy_word),
+                            VAL_INDEX(set_or_copy_word),
+                            f->specifier
+                        )){
+                            Move_Value(P_OUT, P_CELL);
+                            return R_THROWN;
+                        }
+
+                        // !!! What SET-GROUP! can do in PARSE is more
+                        // ambitious than just an indirection for naming
+                        // variables or paths...but for starters it does
+                        // that just to show where more work could be done.
+
+                        if (not (IS_WORD(P_CELL) or IS_SET_WORD(P_CELL)))
+                            fail (Error_Parse_Variable_Raw(P_CELL));
+
+                        set_or_copy_word = P_CELL;
+                    }
+
                     if (IS_SER_ARRAY(P_INPUT)) {
-                        if (count != 0)
-                            Derelativize(
-                                Sink_Var_May_Fail(
-                                    set_or_copy_word, P_RULE_SPECIFIER
-                                ),
-                                ARR_AT(ARR(P_INPUT), begin),
-                                P_INPUT_SPECIFIER
-                            );
-                        else
-                            NOOP; // !!! leave as-is on 0 count?
+                        Derelativize(
+                            Sink_Var_May_Fail(
+                                set_or_copy_word, P_RULE_SPECIFIER
+                            ),
+                            ARR_AT(ARR(P_INPUT), begin),
+                            P_INPUT_SPECIFIER
+                        );
                     }
                     else {
-                        if (count != 0) {
-                            REBVAL *var = Sink_Var_May_Fail(
-                                set_or_copy_word, P_RULE_SPECIFIER
-                            );
-                            REBUNI ch = GET_ANY_CHAR(P_INPUT, begin);
-                            if (P_TYPE == REB_BINARY)
-                                Init_Integer(var, ch);
-                            else
-                                Init_Char(var, ch);
-                        }
+                        REBVAL *var = Sink_Var_May_Fail(
+                            set_or_copy_word, P_RULE_SPECIFIER
+                        );
+                        REBUNI ch = GET_ANY_CHAR(P_INPUT, begin);
+                        if (P_TYPE == REB_BINARY)
+                            Init_Integer(var, ch);
                         else
-                            NOOP; // !!! leave as-is on 0 count?
+                            Init_Char(var, ch);
                     }
                 }
 

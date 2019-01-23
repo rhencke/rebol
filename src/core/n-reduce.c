@@ -36,17 +36,19 @@
 //
 bool Reduce_To_Stack_Throws(
     REBVAL *out,
-    REBVAL *any_array,
-    REBFLGS flags
+    const RELVAL *any_array,
+    REBSPC *specifier
 ){
-    // Can't have more than one policy on null conversion in effect.
-    //
-    assert(not ((flags & REDUCE_FLAG_TRY) and (flags & REDUCE_FLAG_OPT)));
-
     REBDSP dsp_orig = DSP;
 
     DECLARE_FRAME (f);
-    Push_Frame(f, any_array);
+    Push_Frame_At(
+        f,
+        VAL_ARRAY(any_array),
+        VAL_INDEX(any_array),
+        specifier,
+        DO_MASK_DEFAULT
+    );
 
     while (NOT_END(f->value)) {
         bool line = GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE);
@@ -62,20 +64,13 @@ bool Reduce_To_Stack_Throws(
             break;
         }
 
-        if (IS_NULLED(out)) {
-            if (flags & REDUCE_FLAG_TRY) {
-                Init_Blank(DS_PUSH());
-                if (line)
-                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
-            }
-            else if (not (flags & REDUCE_FLAG_OPT))
-                fail (Error_Reduce_Made_Null_Raw());
-        }
-        else {
+        if (IS_NULLED(out)) // can't put nulls in blocks, so voidify it
+            Init_Void(DS_PUSH());
+        else
             Move_Value(DS_PUSH(), out);
-            if (line)
-                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
-        }
+
+        if (line)
+            SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
     }
 
     Drop_Frame_Unbalanced(f); // Drop_Frame() asserts on accumulation
@@ -92,39 +87,27 @@ bool Reduce_To_Stack_Throws(
 //          [<opt> any-value!]
 //      value "GROUP! and BLOCK! evaluate each item, single values evaluate"
 //          [any-value!]
-//      /try "If an evaluation returns null, convert to blank vs. failing"
-//      /opt "If an evaluation returns null, omit the result" ; !!! EXPERIMENT
 //  ]
 //
 REBNATIVE(reduce)
 {
     INCLUDE_PARAMS_OF_REDUCE;
 
-    REBVAL *value = ARG(value);
+    REBVAL *v = ARG(value);
 
-    if (REF(opt) and REF(try))
-        fail (Error_Bad_Refines_Raw());
-
-    if (IS_BLOCK(value) or IS_GROUP(value)) {
+    if (IS_BLOCK(v) or IS_GROUP(v)) {
         REBDSP dsp_orig = DSP;
 
-        if (Reduce_To_Stack_Throws(
-            D_OUT,
-            value,
-            REDUCE_MASK_NONE
-                | (REF(try) ? REDUCE_FLAG_TRY : 0)
-                | (REF(opt) ? REDUCE_FLAG_OPT : 0)
-        )){
+        if (Reduce_To_Stack_Throws(D_OUT, v, VAL_SPECIFIER(v)))
             return R_THROWN;
-        }
 
         REBFLGS pop_flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
-        if (GET_SER_FLAG(VAL_ARRAY(value), ARRAY_FLAG_TAIL_NEWLINE))
+        if (GET_SER_FLAG(VAL_ARRAY(v), ARRAY_FLAG_TAIL_NEWLINE))
             pop_flags |= ARRAY_FLAG_TAIL_NEWLINE;
 
         return Init_Any_Array(
             D_OUT,
-            VAL_TYPE(value),
+            VAL_TYPE(v),
             Pop_Stack_Values_Core(dsp_orig, pop_flags)
         );
     }
@@ -135,19 +118,10 @@ REBNATIVE(reduce)
     //
     // !!! Should the error be more "reduce-specific" if args were required?
 
-    if (ANY_INERT(value)) // don't bother with the evaluation
-        RETURN (value);
-
-    if (Eval_Value_Throws(D_OUT, value))
+    if (Eval_Value_Throws(D_OUT, v))
         return R_THROWN;
 
-    if (not IS_NULLED(D_OUT))
-        return D_OUT;
-
-    if (REF(try))
-        return Init_Blank(D_OUT);
-
-    return nullptr; // let caller worry about whether to error on nulls
+    return D_OUT; // let caller worry about whether to error on nulls
 }
 
 

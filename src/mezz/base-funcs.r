@@ -656,12 +656,12 @@ lambda: function [
     return: [action!]
     :args [<end> word! block!]
         {Block of argument words, or a single word (if only one argument)}
-    body [block!]
+    :body [any-value! <...>]
         {Block that serves as the body or variadic elements for the body}
 ][
     make action! compose [
         ((blockify :args))
-        ((body))
+        ((if block? first body [take body] else [make block! body]))
     ]
 ]
 

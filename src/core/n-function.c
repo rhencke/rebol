@@ -320,7 +320,7 @@ REBNATIVE(chain)
         chainees = COPY_ANY_ARRAY_AT_DEEP_MANAGED(pipeline);
     else {
         REBDSP dsp_orig = DSP;
-        if (Reduce_To_Stack_Throws(out, pipeline, REDUCE_MASK_NONE))
+        if (Reduce_To_Stack_Throws(out, pipeline, VAL_SPECIFIER(pipeline)))
             return out;
 
         // No more evaluations *should* run before putting this array in a

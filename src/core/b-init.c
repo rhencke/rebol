@@ -243,8 +243,8 @@ static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
 
     RELVAL *word = ARR_HEAD(boot_types);
 
-    if (VAL_WORD_SYM(word) != SYM_ACTION_X)
-        panic (word); // First type should be ACTION!
+    if (VAL_WORD_SYM(word) != SYM_QUOTED_X)
+        panic (word); // First type should be QUOTED!
 
     REBARR *catalog = Make_Arr(REB_MAX - 1);
 

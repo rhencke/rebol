@@ -248,33 +248,46 @@
 )
 
 
-;; DOUBLED GROUPS
-;; Doubled groups inject their material into the PARSE, if it is not null.
-;; They act like a COMPOSE/ONLY that runs each time the GROUP! is passed.
+; GET-GROUP!
+; These evaluate and inject their material into the PARSE, if it is not null.
+; They act like a COMPOSE/ONLY that runs each time the GET-GROUP! is passed.
 
-(did parse "aaabbb" [(([some "a"])) (([some "b"]))])
-(did parse "aaabbb" [(([some "a"])) ((if false [some "c"])) (([some "b"]))])
-(did parse "aaa" [(('some)) "a" end])
-(not parse "aaa" [((1 + 1)) "a" end])
-(did parse "aaa" [((1 + 2)) "a" end])
+(did parse "aaabbb" [:([some "a"]) :([some "b"])])
+(did parse "aaabbb" [:([some "a"]) :(if false [some "c"]) :([some "b"])])
+(did parse "aaa" [:('some) "a" end])
+(not parse "aaa" [:(1 + 1) "a" end])
+(did parse "aaa" [:(1 + 2) "a" end])
 (
     count: 0
-    did parse ["a" "aa" "aaa"] [some [into [((count: count + 1)) "a"]] end]
+    did parse ["a" "aa" "aaa"] [some [into [:(count: count + 1) "a"]] end]
 )
 
+; SET-GROUP!
+; What these might do in PARSE could be more ambitious, but for starters they
+; provide a level of indirection in SET.
 
-;; LOGIC! BEHAVIOR
-;; A logic true acts as a no-op, while a logic false causes matches to fail
-;;
+(
+    m: null
+    word: 'm
+    did all [
+        parse [1020] [(word): integer!]
+        word = 'm
+        m = 1020
+    ]
+)
+
+; LOGIC! BEHAVIOR
+; A logic true acts as a no-op, while a logic false causes matches to fail
+
 (did parse "ab" ["a" true "b" end])
 (not parse "ab" ["a" false "b" end])
-(did parse "ab" ["a" ((1 = 1)) "b" end])
-(not parse "ab" ["a" ((1 = 2)) "b" end])
+(did parse "ab" ["a" :(1 = 1) "b" end])
+(not parse "ab" ["a" :(1 = 2) "b" end])
 
 
-;; QUOTED! BEHAVIOR
-;; Support for the new literal types
-;;
+; QUOTED! BEHAVIOR
+; Support for the new literal types
+
 (
     [[a b]] == parse [... [a b]] [to '[a b]]
 )(

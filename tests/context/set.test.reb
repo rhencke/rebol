@@ -1,8 +1,18 @@
 ; functions/context/set.r
 [#1763
-    (a: 1 all [error? trap [set [a] reduce [null]] a = 1])
+    (
+        a: <before>
+        [#void] = set [a] reduce [null]
+        void? :a
+    )
 ]
-(a: 1 attempt [set [a b] reduce [2 null]] a = 1)
+(
+    a: <a-before>
+    b: <b-before>
+    [2 #[void]] = set [a b] reduce [2 null]
+    a = 2
+    void? :b
+)
 (x: has [a: 1] all [error? trap [set x reduce [()]] x/a = 1])
 (x: has [a: 1 b: 2] all [error? trap [set x reduce [3 ()]] x/a = 1])
 ; set [:get-word] [word]

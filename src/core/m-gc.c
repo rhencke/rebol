@@ -401,8 +401,12 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
       case REB_PATH:
       case REB_SET_PATH:
       case REB_GET_PATH:
-      case REB_BLOCK:
-      case REB_GROUP: {
+      case REB_GROUP:
+      case REB_SET_GROUP:
+      case REB_GET_GROUP:
+      case REB_SET_BLOCK:
+      case REB_GET_BLOCK:
+      case REB_BLOCK: {
         REBSER *s = v->payload.any_series.series;
         if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE)) {
             //

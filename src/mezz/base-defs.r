@@ -232,11 +232,15 @@ eval func [
     bitset?:
     image?:
     vector?:
-    block?:
-    group?:
     path?:
     set-path?:
     get-path?:
+    block?:
+    set-block?:
+    get-block?:
+    group?:
+    get-group?:
+    set-group?:
     map?:
     datatype?:
     typeset?:

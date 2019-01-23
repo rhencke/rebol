@@ -447,6 +447,63 @@ inline static bool Dampen_Lookahead(REBFRM *f) {
 }
 
 
+// SET-WORD!, SET-PATH!, SET-GROUP!, and SET-BLOCK! all want to do roughly
+// the same thing as the first step of their evaluation.  They want to make
+// sure they don't corrupt whatever is in current (e.g. remember the WORD!
+// or PATH! so they can set it), while evaluating the right hand side to
+// know what to put there.
+//
+// What makes this slightly complicated is that the current value may be in
+// a place that doing a Fetch_Next_In_Frame() might corrupt it.  This must
+// be accounted for by using a subframe.
+//
+inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
+    REBFRM *f,
+    const RELVAL *current
+){
+    if (IS_END(f->value)) // `do [x:]`, `do [o/x:]`, etc. are illegal
+        fail (Error_Need_Non_End_Core(current, f->specifier));
+
+    // !!! While assigning `x: #[void]` is not legal, we make a special
+    // exemption for quoted voids, e.g. '#[void]`.  This means a molded
+    // object with void fields can be safely MAKE'd back.
+    //
+    if (KIND_BYTE(f->value) == REB_VOID + REB_64) {
+        Init_Void(f->out);
+        Fetch_Next_In_Frame(nullptr, f); // advances f->value
+        return false;
+    }
+
+    // Using a SET-XXX! means you always have at least two elements; it's like
+    // an arity-1 function.  `1 + x: whatever ...`.  This overrides the no
+    // lookahead behavior flag right up front.
+    //
+    f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
+
+    REBFLGS flags =
+        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+        | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
+        | (f->flags.bits & DO_FLAG_CONST);
+
+    Init_Void(f->out); // `1 x: comment "hi"` shouldn't set x to 1!
+
+    if (CURRENT_CHANGES_IF_FETCH_NEXT) { // must use new frame
+        DECLARE_SUBFRAME(child, f);
+        if (Eval_Step_In_Subframe_Throws(f->out, f, flags, child))
+            return true;
+    }
+    else {
+        if (Eval_Step_Mid_Frame_Throws(f, flags)) // light reuse of `f`
+            return true;
+    }
+
+    if (IS_VOID(f->out)) // some set operations accept null, none take void
+        fail (Error_Need_Non_Void_Core(current, f->specifier));
+
+    return false;
+}
+
+
 //
 //  Eval_Core_Throws: C
 //
@@ -493,13 +550,15 @@ bool Eval_Core_Throws(REBFRM * const f)
 {
     bool threw = false;
 
+    REBVAL * const cell = cast(REBVAL*, &(f->cell)); // briefer, optimized out
+
   #if defined(DEBUG_COUNT_TICKS)
     REBTCK tick = f->tick = TG_Tick; // snapshot start tick
   #endif
 
     assert(DSP >= f->dsp_orig); // REDUCE accrues, APPLY adds refinements, >=
     assert(not IS_TRASH_DEBUG(f->out)); // all invisibles preserves output
-    assert(f->out != FRM_CELL(f)); // overwritten by temporary calculations
+    assert(f->out != cell); // overwritten by temporary calculations
     assert(f->flags.bits & DO_FLAG_DEFAULT_DEBUG); // must use DO_MASK_DEFAULT
 
     // Caching KIND_BYTE(f->value) in a local can make a slight performance
@@ -771,6 +830,24 @@ bool Eval_Core_Throws(REBFRM * const f)
 
       case REB_0_END:
         goto finished;
+
+//==//////////////////////////////////////////////////////////////////////==//
+//
+// [QUOTED!] (at 4 or more levels of escaping)
+//
+// This is the form of literal that's too escaped to just overlay in the cell
+// by using a higher kind byte.  See the `default:` case in this switch for
+// handling of the more compact forms, that are much more common.
+//
+// (Highly escaped literals should be rare, but for completeness you need to
+// be able to escape any value, including any escaped one...!)
+//
+//==//////////////////////////////////////////////////////////////////////==//
+
+      case REB_QUOTED: {
+        Derelativize(f->out, current, f->specifier);
+        Unquotify(f->out, 1); // take off one level of quoting
+        break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
@@ -1886,51 +1963,15 @@ bool Eval_Core_Throws(REBFRM * const f)
 // data stack (which provides GC protection).  Eval_Step_Mid_Frame_Throws()
 // has remarks on how this is done.
 //
+// Note that nulled cells are allowed: https://forum.rebol.info/t/895/4
+//
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_SET_WORD: {
-        if (IS_END(f->value)) // `do [a:]` is illegal
-            fail (Error_Need_Non_End_Core(current, f->specifier));
+        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, current))
+            goto return_thrown;
 
-        // While other values could wind up being a single element, SET-WORD!
-        // will always mean at least two, so `1 + x: whatever ...`  Thus it
-        // always disables the "no lookahead" property.
-        //
-        f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
-
-        // !!! We make a special exemption for '#[void] to allow assignment
-        // and set a value to void, because it makes it possible to represent
-        // a value that can be stored in an ANY-CONTEXT!.  Review implications
-        // on code that backwards quotes literal voids.  :-/
-        //
-        if (KIND_BYTE(f->value) == REB_VOID + REB_64) {
-            Init_Void(Sink_Var_May_Fail(current, f->specifier));
-            Init_Void(f->out);
-            Fetch_Next_In_Frame(nullptr, f); // advances f->value
-            goto post_switch;
-        }
-
-        REBFLGS flags =
-            (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-            | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
-            | (f->flags.bits & DO_FLAG_CONST);
-
-        Init_Void(f->out); // `1 x: comment "hi"` shouldn't set x to 1!
-
-        if (CURRENT_CHANGES_IF_FETCH_NEXT) { // must use new frame
-            DECLARE_SUBFRAME(child, f);
-            if (Eval_Step_In_Subframe_Throws(f->out, f, flags, child))
-                goto return_thrown;
-        }
-        else {
-            if (Eval_Step_Mid_Frame_Throws(f, flags)) // light reuse of `f`
-                goto return_thrown;
-        }
-
-        // Nulled cells are allowed: https://forum.rebol.info/t/895/4
-        //
-        if (IS_VOID(f->out))
-            fail (Error_Need_Non_Void_Core(current, f->specifier));
+      set_word_with_out:;
 
         Move_Value(Sink_Var_May_Fail(current, f->specifier), f->out);
         break; }
@@ -2010,7 +2051,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // that would show up as having the stale bit.
             //
             REBIXO indexor = Eval_Array_At_Core(
-                SET_END(FRM_CELL(f)),
+                SET_END(cell),
                 nullptr, // opt_first (null means nothing, not nulled cell)
                 array,
                 index,
@@ -2021,36 +2062,18 @@ bool Eval_Core_Throws(REBFRM * const f)
                     | (current->header.bits & DO_FLAG_CONST)
             );
             if (indexor == THROWN_FLAG) {
-                Move_Value(f->out, FRM_CELL(f));
+                Move_Value(f->out, cell);
                 goto return_thrown;
             }
-            if (IS_END(FRM_CELL(f))) {
+            if (IS_END(cell)) {
                 kind.byte = KIND_BYTE(f->value);
                 if (kind.byte == REB_0_END)
                     goto finished;
                 goto do_next; // quickly process next item, no infix test
             }
 
-            Move_Value(f->out, FRM_CELL(f)); // no VALUE_FLAG_UNEVALUATED
+            Move_Value(f->out, cell); // no VALUE_FLAG_UNEVALUATED
         }
-        break; }
-
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [QUOTED!] (at 4 or more levels of escaping)
-//
-// This is the form of literal that's too escaped to just overlay in the cell
-// by using a higher kind byte.  See the `default:` case in this switch for
-// handling of the more compact forms, that are much more common.
-//
-// (Highly escaped literals should be rare, but for completeness you need to
-// be able to escape any value, including any escaped one...!)
-//
-//==//////////////////////////////////////////////////////////////////////==//
-
-      case REB_QUOTED: {
-        Derelativize(f->out, current, f->specifier);
-        Unquotify(f->out, 1); // take off one level of quoting
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2145,50 +2168,26 @@ bool Eval_Core_Throws(REBFRM * const f)
 //     left
 //     == 20
 //
+// Note that nulled cells are allowed: https://forum.rebol.info/t/895/4
+
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_SET_PATH: {
-        if (IS_END(f->value)) // `do [a/b:]` is illegal
-            fail (Error_Need_Non_End_Core(current, f->specifier));
+        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, current))
+            goto return_thrown;
 
-        // As with SET-WORD!, a SET-PATH! always is at least two elements.
-        // Consider `1 + foo/bar: whatever ...`.  This overrides the no
-        // lookahead behavior flag right up front.
-        //
-        f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
-
-        REBFLGS flags =
-            (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-            | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
-            | (f->flags.bits & DO_FLAG_CONST);
-
-        Init_Void(f->out); // `1 o/x: comment "hi"` shouldn't set o/x to 1!
-
-        if (CURRENT_CHANGES_IF_FETCH_NEXT) { // must use new frame
-            DECLARE_SUBFRAME(child, f);
-            if (Eval_Step_In_Subframe_Throws(f->out, f, flags, child))
-                goto return_thrown;
-        }
-        else {
-            if (Eval_Step_Mid_Frame_Throws(f, flags)) // light reuse of `f`
-                goto return_thrown;
-        }
-
-        // Nulled cells are allowed: https://forum.rebol.info/t/895/4
-        //
-        if (IS_VOID(f->out))
-            fail (Error_Need_Non_Void_Core(current, f->specifier));
+      set_path_with_out:;
 
         if (Eval_Path_Throws_Core(
-            FRM_CELL(f), // output if thrown, used as scratch space otherwise
-            NULL, // not requesting symbol means refinements not allowed
+            cell, // output if thrown, used as scratch space otherwise
+            nullptr, // not requesting symbol means refinements not allowed
             VAL_ARRAY(current),
             VAL_INDEX(current),
             f->specifier,
             f->out,
             DO_MASK_DEFAULT // evaluating GROUP!s ok
         )){
-            Move_Value(f->out, FRM_CELL(f));
+            Move_Value(f->out, cell);
             goto return_thrown;
         }
 
@@ -2222,6 +2221,180 @@ bool Eval_Core_Throws(REBFRM * const f)
         /* assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED)); */
         CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
         break;
+
+//==//////////////////////////////////////////////////////////////////////==//
+//
+// [GET-GROUP!]
+//
+// Evaluates the group, and then executes GET-WORD!/GET-PATH!/GET-BLOCK!
+// operation on it, if it's a WORD! or a PATH! or BLOCK!.  If it's an arity-0
+// action, it is allowed to execute as a form of "functional getter".
+//
+//==//////////////////////////////////////////////////////////////////////==//
+
+      case REB_GET_GROUP: {
+        f->gotten = nullptr; // arbitrary code changes fetched variables
+
+        if (Do_At_Throws(
+            cell,
+            VAL_ARRAY(current),
+            VAL_INDEX(current),
+            f->specifier
+        )){
+            Move_Value(f->out, cell);
+            goto return_thrown;
+        }
+
+        if (ANY_WORD(cell))
+            kind.byte = mutable_KIND_BYTE(cell) = REB_GET_WORD;
+        else if (ANY_PATH(cell))
+            kind.byte = mutable_KIND_BYTE(cell) = REB_GET_PATH;
+        else if (ANY_BLOCK(cell))
+            kind.byte = mutable_KIND_BYTE(cell) = REB_GET_BLOCK;
+        else if (IS_ACTION(cell)) {
+            if (Eval_Value_Throws(f->out, cell)) // only arity-0 allowed
+                goto return_thrown;
+            goto post_switch;
+        }
+        else
+            fail (Error_Bad_Get_Group_Raw());
+
+        current = cell;
+        current_gotten = nullptr;
+
+        goto reevaluate; }
+
+//==//////////////////////////////////////////////////////////////////////==//
+//
+// [SET-GROUP!]
+//
+// Synonym for SET on the produced thing, unless it's an action...in which
+// case an arity-1 function is allowed to be called and passed the right.
+//
+//==//////////////////////////////////////////////////////////////////////==//
+
+      case REB_SET_GROUP: {
+        //
+        // Protocol for all the REB_SET_XXX is to evaluate the right before
+        // the left.  Same with SET_GROUP!.  (Consider in particular the case
+        // of PARSE, where it has to hold the SET-GROUP! in suspension while
+        // it looks on the right in order to decide if it will run it at all!)
+        //
+        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, current))
+            goto return_thrown;
+
+        f->gotten = nullptr; // arbitrary code changes fetched variables
+
+        if (Do_At_Throws(
+            cell,
+            VAL_ARRAY(current),
+            VAL_INDEX(current),
+            f->specifier
+        )){
+            Move_Value(f->out, cell);
+            goto return_thrown;
+        }
+
+        if (IS_ACTION(cell)) {
+            //
+            // Apply the function, and we can reuse this frame to do it.
+            //
+            // !!! But really it should not be allowed to take more than one
+            // argument.  Hence rather than go through reevaluate, channel
+            // it through a variant of the enfix machinery (the way that
+            // CHAIN does, which similarly reuses the frame but probably
+            // should also be restricted to a single value...though it's
+            // being experimented with letting it take more.)
+            //
+            Push_Action(f, VAL_ACTION(cell), VAL_BINDING(cell));
+            Begin_Action(f, nullptr); // no label
+
+            kind.byte = REB_ACTION;
+            assert(not (f->flags.bits & DO_FLAG_GET_NEXT_ARG_FROM_OUT));
+            f->flags.bits |= DO_FLAG_GET_NEXT_ARG_FROM_OUT;
+
+            goto process_action;
+        }
+
+        current = cell;
+
+        if (ANY_WORD(cell)) {
+            kind.byte = mutable_KIND_BYTE(cell) = REB_SET_WORD;
+            goto set_word_with_out;
+        }
+        else if (ANY_PATH(cell)) {
+            kind.byte = mutable_KIND_BYTE(cell) = REB_SET_PATH;
+            goto set_path_with_out;
+        }
+        else if (ANY_BLOCK(cell)) {
+            kind.byte = mutable_KIND_BYTE(cell) = REB_SET_BLOCK;
+            goto set_block_with_out;
+        }
+
+        fail (Error_Bad_Set_Group_Raw()); }
+
+//==//////////////////////////////////////////////////////////////////////==//
+//
+// [GET-BLOCK!]
+//
+// Synonym for REDUCE.
+//
+//==//////////////////////////////////////////////////////////////////////==//
+
+      case REB_GET_BLOCK:
+        f->gotten = nullptr; // arbitrary evaluation can move fetched pointers
+
+        if (Reduce_To_Stack_Throws(f->out, current, f->specifier))
+            goto return_thrown;
+
+        Init_Block(f->out, Pop_Stack_Values(f->dsp_orig));
+        break;
+
+//==//////////////////////////////////////////////////////////////////////==//
+//
+// [SET-BLOCK!]
+//
+// Synonym for SET on the produced thing.
+//
+//==//////////////////////////////////////////////////////////////////////==//
+
+      case REB_SET_BLOCK: {
+        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, current))
+            goto return_thrown;
+
+      set_block_with_out:;
+
+        if (IS_NULLED(f->out)) // `[x y]: null` is illegal
+            fail (Error_Need_Non_Null_Core(current, f->specifier));
+
+        const RELVAL *item = VAL_ARRAY_AT(current);
+
+        const RELVAL *v;
+        if (IS_BLOCK(f->out))
+            v = VAL_ARRAY_AT(f->out);
+        else
+            v = f->out;
+
+        for (
+            ;
+            NOT_END(item);
+            ++item, IS_END(v) or not IS_BLOCK(f->out) ? NOOP : (++v, NOOP)
+        ){
+            Set_Opt_Polymorphic_May_Fail(
+                item,
+                f->specifier,
+                IS_END(v) ? BLANK_VALUE : v, // R3-Alpha/Red blank after END
+                IS_BLOCK(f->out)
+                    ? VAL_SPECIFIER(f->out)
+                    : SPECIFIED,
+                false, // doesn't set enfixedly
+                false // doesn't use "hard" semantics on groups in paths
+            );
+        }
+
+        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
+
+        break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
 //

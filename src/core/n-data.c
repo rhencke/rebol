@@ -624,7 +624,12 @@ REBNATIVE(get)
 }
 
 
-inline static void Set_Opt_Polymorphic_May_Fail(
+//
+//  Set_Opt_Polymorphic_May_Fail: C
+//
+// Note this is used by both SET and the SET-BLOCK! data type in %c-eval.c
+//
+void Set_Opt_Polymorphic_May_Fail(
     const RELVAL *target_orig,
     REBSPC *target_specifier,
     const RELVAL *setval,

@@ -1238,6 +1238,16 @@ acquisition_loop:
             return;
 
         case LEX_SPECIAL_COLON:         /* :word :12 (time) */
+            if (cp[1] == '(') {
+                ss->token = TOKEN_GET_GROUP_BEGIN;
+                ss->end = cp + 2; // whole token should be `:(`
+                return;
+            }
+            if (cp[1] == '[') {
+                ss->token = TOKEN_GET_BLOCK_BEGIN;
+                ss->end = cp + 2; // whole token should be `:[`
+                return;
+            }
             if (IS_LEX_NUMBER(cp[1])) {
                 ss->token = TOKEN_TIME;
                 return;
@@ -1865,7 +1875,8 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
     REBCNT lit_depth = 0;
 
-  loop:
+  loop:;
+
     while (
         Drop_Mold_If_Pushed(mo),
         Locate_Token_May_Push_Mold(mo, ss),
@@ -1887,17 +1898,17 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             ss->line_head = ep;
             continue;
 
-        case TOKEN_BAR:
+          case TOKEN_BAR:
             Init_Bar(DS_PUSH());
             ++bp;
             break;
 
-        case TOKEN_BLANK:
+          case TOKEN_BLANK:
             Init_Blank(DS_PUSH());
             ++bp;
             break;
 
-        case TOKEN_GET:
+          case TOKEN_GET:
             if (ep[-1] == ':') {
                 if (len == 1 or ss->mode_char != '/')
                     fail (Error_Syntax(ss));
@@ -1907,8 +1918,8 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             bp++;
             goto token_set;
 
-        case TOKEN_SET:
-        token_set:
+          case TOKEN_SET:
+          token_set:
             len--;
             if (ss->mode_char == '/' and ss->token == TOKEN_SET) {
                 ss->token = TOKEN_WORD; // will be a PATH_SET
@@ -1916,30 +1927,31 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             }
             goto token_word;
 
-        case TOKEN_WORD: {
-        token_word:
+          case TOKEN_WORD:
+          token_word:
             if (len == 0) {
                 --bp;
                 fail (Error_Syntax(ss));
             }
 
-            REBSTR *spelling = Intern_UTF8_Managed(bp, len);
-            enum Reb_Kind kind = KIND_OF_WORD_FROM_TOKEN(ss->token);
+            Init_Any_Word(
+                DS_PUSH(),
+                KIND_OF_WORD_FROM_TOKEN(ss->token),
+                Intern_UTF8_Managed(bp, len)
+            );
+            break;
 
-            Init_Any_Word(DS_PUSH(), kind, spelling);
-            break; }
-
-        case TOKEN_REFINE: {
+          case TOKEN_REFINE: {
             REBSTR *spelling = Intern_UTF8_Managed(bp + 1, len - 1);
             Init_Refinement(DS_PUSH(), spelling);
             break; }
 
-        case TOKEN_ISSUE:
+          case TOKEN_ISSUE:
             if (ep != Scan_Issue(DS_PUSH(), bp + 1, len - 1))
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_APOSTROPHE: {
+          case TOKEN_APOSTROPHE: {
             if (lit_depth != 0) // e.g. `' '`, nothing seen since last one
                 Quotify(Init_Nulled(DS_PUSH()), lit_depth);
 
@@ -1953,22 +1965,46 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             lit_depth = 0;
             goto loop; } // wrap next value
 
-        case TOKEN_BLOCK_BEGIN:
-        case TOKEN_GROUP_BEGIN: {
-            REBARR *array = Scan_Child_Array(
-                ss, (ss->token == TOKEN_BLOCK_BEGIN) ? ']' : ')'
+          case TOKEN_GET_GROUP_BEGIN:
+          case TOKEN_GET_BLOCK_BEGIN:
+            if (ep[-1] == ':') {
+                if (len == 1 or ss->mode_char != '/')
+                    fail (Error_Syntax(ss));
+                --len;
+                --ss->end;
+            }
+            bp++;
+            goto token_array_begin;
+
+          case TOKEN_GROUP_BEGIN:
+          case TOKEN_BLOCK_BEGIN: {
+          token_array_begin:;
+
+            REBARR *a = Scan_Child_Array(
+                ss, (ss->token >= TOKEN_GET_BLOCK_BEGIN) ? ']' : ')'
             );
 
+            enum Reb_Kind kind = KIND_OF_ARRAY_FROM_TOKEN(ss->token);
+            if (
+                *ss->end == ':' // `...(foo):` or `...[bar]:`
+                and ss->mode_char != '/' // leave `:` so a SET-PATH! gets made
+            ){
+                if (
+                    ss->token == TOKEN_GET_BLOCK_BEGIN
+                    or ss->token == TOKEN_GET_GROUP_BEGIN
+                ){
+                    fail (Error_Syntax(ss)); // `:(foo):` or `:[bar]:`
+                }
+                Init_Any_Array(DS_PUSH(), SETIFY_ANY_PLAIN_KIND(kind), a);
+                ++ss->begin;
+                ++ss->end;
+            }
+            else
+                Init_Any_Array(DS_PUSH(), kind, a);
             ep = ss->end;
-
-            Init_Any_Array(
-                DS_PUSH(),
-                (ss->token == TOKEN_BLOCK_BEGIN) ? REB_BLOCK : REB_GROUP,
-                array
-            );
             break; }
 
-        case TOKEN_PATH:
+          case TOKEN_PATH:
             if (ss->mode_char != '/') {
                 //
                 // If not in the process of scanning a path, this is a 0
@@ -1978,7 +2014,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             }
             break;
 
-        case TOKEN_BLOCK_END: {
+          case TOKEN_BLOCK_END: {
             if (ss->mode_char == ']')
                 goto array_done;
 
@@ -1989,7 +2025,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             //
             fail (Error_Extra(ss, ']')); }
 
-        case TOKEN_GROUP_END: {
+          case TOKEN_GROUP_END: {
             if (ss->mode_char == ')')
                 goto array_done;
 
@@ -2000,7 +2036,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             //
             fail (Error_Extra(ss, ')')); }
 
-        case TOKEN_INTEGER:     // or start of DATE
+          case TOKEN_INTEGER:     // or start of DATE
             if (*ep != '/' or ss->mode_char == '/') {
                 if (ep != Scan_Integer(DS_PUSH(), bp, len))
                     fail (Error_Syntax(ss));
@@ -2021,8 +2057,8 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             }
             break;
 
-        case TOKEN_DECIMAL:
-        case TOKEN_PERCENT:
+          case TOKEN_DECIMAL:
+          case TOKEN_PERCENT:
             // Do not allow 1.2/abc:
             if (*ep == '/')
                 fail (Error_Syntax(ss));
@@ -2036,7 +2072,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             }
             break;
 
-        case TOKEN_MONEY:
+          case TOKEN_MONEY:
             // Do not allow $1/$2:
             if (*ep == '/') {
                 ++ep;
@@ -2047,7 +2083,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_TIME:
+          case TOKEN_TIME:
             if (
                 bp[len - 1] == ':'
                 and ss->mode_char == '/' // could be path/10: set
@@ -2061,7 +2097,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_DATE:
+          case TOKEN_DATE:
             while (*ep == '/' and ss->mode_char != '/') {  // Is it date/time?
                 ep++;
                 while (IS_LEX_NOT_DELIMIT(*ep)) ep++;
@@ -2076,7 +2112,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_CHAR:
+          case TOKEN_CHAR:
             DS_PUSH();
             RESET_VAL_HEADER(DS_TOP, REB_CHAR);
             bp += 2; // skip #", and subtract 1 from ep for "
@@ -2084,44 +2120,44 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_STRING: {
+          case TOKEN_STRING: {
             //
             // During scan above, string was stored in MOLD_BUF (UTF-8)
             //
             Init_Text(DS_PUSH(), Pop_Molded_String(mo));
             break; }
 
-        case TOKEN_BINARY:
+          case TOKEN_BINARY:
             if (ep != Scan_Binary(DS_PUSH(), bp, len))
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_PAIR:
+          case TOKEN_PAIR:
             if (ep != Scan_Pair(DS_PUSH(), bp, len))
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_TUPLE:
+          case TOKEN_TUPLE:
             if (ep != Scan_Tuple(DS_PUSH(), bp, len))
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_FILE:
+          case TOKEN_FILE:
             if (ep != Scan_File(DS_PUSH(), bp, len))
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_EMAIL:
+          case TOKEN_EMAIL:
             if (ep != Scan_Email(DS_PUSH(), bp, len))
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_URL:
+          case TOKEN_URL:
             if (ep != Scan_URL(DS_PUSH(), bp, len))
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_TAG:
+          case TOKEN_TAG:
             //
             // The Scan_Any routine (only used here for tag) doesn't
             // know where the tag ends, so it scans the len.
@@ -2130,7 +2166,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_CONSTRUCT: {
+          case TOKEN_CONSTRUCT: {
             REBARR *array = Scan_Full_Array(ss, ']');
 
             // !!! Should the scanner be doing binding at all, and if so why
@@ -2221,10 +2257,10 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             }
             break; } // case TOKEN_CONSTRUCT
 
-        case TOKEN_END:
+          case TOKEN_END:
             continue;
 
-        default:
+          default:
             panic ("Invalid TOKEN in Scanner.");
         }
 
@@ -2319,22 +2355,34 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
             DS_PUSH(); // now push a path to take the stolen token's place
 
-            if (IS_GET_WORD(ARR_HEAD(arr))) {
+            // Any trailing colons should have been left on, because the child
+            // scan noticed the mode_char was '/' and that we'd want it for
+            // a SET-PATH!.  But if there was a leading colon, it got absorbed
+            // into the first element of the array.  We need to account for
+            // this by mutating any first element that's a GET-XXX! into a
+            // plain XXX! and make this a GET-PATH!, and also check for
+            // conflicts if there's a colon at the end and making a SET-PATH!
+
+            RELVAL *head = ARR_HEAD(arr);
+            REBYTE kind_head = KIND_BYTE(head);
+
+            if (ANY_GET_KIND(kind_head)) {
                 if (ss->begin and *ss->end == ':')
-                    fail (Error_Syntax(ss));
+                    fail (Error_Syntax(ss)); // for instance `:a/b/c:`
+
                 RESET_VAL_HEADER(DS_TOP, REB_GET_PATH);
-                mutable_KIND_BYTE(ARR_HEAD(arr)) = REB_WORD;
+                mutable_KIND_BYTE(head) = UNGETIFY_ANY_GET_KIND(kind_head);
             }
-            else {
-                if (ss->begin and *ss->end == ':') {
-                    RESET_VAL_HEADER(DS_TOP, REB_SET_PATH);
-                    ss->begin = ++ss->end;
-                }
-                else
-                    RESET_VAL_HEADER(DS_TOP, REB_PATH);
+            else if (ss->begin and *ss->end == ':') {
+                RESET_VAL_HEADER(DS_TOP, REB_SET_PATH);
+                ss->begin = ++ss->end;
             }
+            else
+                RESET_VAL_HEADER(DS_TOP, REB_PATH);
+
             INIT_VAL_ARRAY(DS_TOP, arr);
             VAL_INDEX(DS_TOP) = 0;
+
             ss->token = TOKEN_PATH;
         }
 

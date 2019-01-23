@@ -456,14 +456,10 @@ REBNATIVE(wait)
     if (not IS_BLOCK(ARG(value)))
         val = ARG(value);
     else {
+        REBVAL *block = ARG(value);
         REBDSP dsp_orig = DSP;
-        if (Reduce_To_Stack_Throws(
-            D_OUT,
-            ARG(value),
-            REDUCE_MASK_NONE
-        )){
+        if (Reduce_To_Stack_Throws(D_OUT, block, VAL_SPECIFIER(block)))
             return R_THROWN;
-        }
 
         // !!! This takes the stack array and creates an unmanaged array from
         // it, which ends up being put into a value and becomes managed.  So

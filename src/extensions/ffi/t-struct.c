@@ -859,9 +859,9 @@ static void Parse_Field_Type_May_Fail(
             if (!IS_BLOCK(val))
                 fail (Error_Unexpected_Type(REB_BLOCK, VAL_TYPE(val)));
 
-            DECLARE_LOCAL (specified);
-            Derelativize(specified, val, VAL_SPECIFIER(spec));
-            MAKE_Struct(inner, REB_STRUCT, specified); // may fail()
+            DECLARE_LOCAL (specific);
+            Derelativize(specific, val, VAL_SPECIFIER(spec));
+            MAKE_Struct(inner, REB_STRUCT, specific); // may fail()
 
             Init_Integer(
                 FLD_AT(field, IDX_FIELD_WIDE),
@@ -1108,7 +1108,7 @@ REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     REBINT raw_size = -1;
     uintptr_t raw_addr = 0;
 
-    DECLARE_LOCAL (specified);
+    DECLARE_LOCAL (specific);
 
     RELVAL *item = VAL_ARRAY_AT(arg);
     if (NOT_END(item) && IS_BLOCK(item)) {
@@ -1118,8 +1118,8 @@ REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         //
         //     make struct! [[raw-size] ...]
         //
-        Derelativize(specified, item, VAL_SPECIFIER(arg));
-        parse_attr(specified, &raw_size, &raw_addr);
+        Derelativize(specific, item, VAL_SPECIFIER(arg));
+        parse_attr(specific, &raw_size, &raw_addr);
         ++item;
     }
 
@@ -1204,16 +1204,9 @@ REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
                fail (Error_Invalid(arg));
 
             if (IS_BLOCK(item)) {
-                Derelativize(specified, item, VAL_SPECIFIER(arg));
-
                 REBDSP dsp_reduce = DSP;
-                if (Reduce_To_Stack_Throws(
-                    out,
-                    specified,
-                    REDUCE_MASK_NONE
-                )){
+                if (Reduce_To_Stack_Throws(out, item, VAL_SPECIFIER(arg)))
                     fail (Error_No_Catch_For_Throw(init));
-                }
 
                 Init_Block(init, Pop_Stack_Values(dsp_reduce));
 

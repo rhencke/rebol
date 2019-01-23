@@ -1080,6 +1080,11 @@ inline static bool Eval_Value_Core_Throws(
     const RELVAL *value, // e.g. a BLOCK! here would just evaluate to itself!
     REBSPC *specifier
 ){
+    if (ANY_INERT(value)) {
+        Derelativize(out, value, specifier);
+        return false; // fast things that don't need frames (should inline)
+    }
+
     REBIXO indexor = Eval_Array_At_Core(
         SET_END(out), // start with END to detect no actual eval product
         value, // put the value as the opt_first element

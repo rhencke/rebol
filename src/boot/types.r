@@ -3,7 +3,7 @@ REBOL [
     Title: "Rebol datatypes and their related attributes"
     Rights: {
         Copyright 2012 REBOL Technologies
-        Copyright 2012-2018 Rebol Open Source Developers
+        Copyright 2012-2019 Rebol Open Source Developers
         REBOL is a trademark of REBOL Technologies
     }
     License: {
@@ -90,7 +90,7 @@ REBOL [
             ANY_SCALAR_KIND(KIND_BYTE(v))
 
         inline static bool ANY_SERIES_KIND(REBYTE k)
-           { return k >= REB_PATH and k <= REB_VECTOR; }
+           { return k >= REB_GET_PATH and k <= REB_VECTOR; }
 
         #define ANY_SERIES(v) \
             ANY_SERIES_KIND(KIND_BYTE(v))
@@ -108,22 +108,52 @@ REBOL [
             ANY_BINSTR_KIND(KIND_BYTE(v))
 
         inline static bool ANY_ARRAY_KIND(REBYTE k)
-            { return k >= REB_PATH and k <= REB_BLOCK; }
+            { return k >= REB_GET_PATH and k <= REB_BLOCK; }
 
         #define ANY_ARRAY(v) \
             ANY_ARRAY_KIND(KIND_BYTE(v))
 
+        /* !!! The ANY-WORD! classification is an odd one, because it's not
+         * just WORD!/GET-WORD!/SET-WORD! but includes ISSUE! and REFINEMENT!.
+         * Ren-C intends to sort this out by merging categories up so that
+         * WORD! is an ANY-STRING!, and then ANY-WORD! might make sense for
+         * the narrow sense of GET/SET variants.  The intention is also to
+         * get rid of REFINEMENT! and make it a form of path.
+         *
+         * In the meantime, PARSE at least wanted to know if something was a
+         * WORD!/GET-WORD!/SET-WORD! and had used a range-based test, so that
+         * is moved here as ANY_PLAIN_GET_SET_WORD_KIND() to track that.
+         */
+
         inline static bool ANY_WORD_KIND(REBYTE k)
-            { return k >= REB_WORD and k <= REB_ISSUE; }
+            { return k >= REB_GET_WORD and k <= REB_ISSUE; }
 
         #define ANY_WORD(v) \
             ANY_WORD_KIND(KIND_BYTE(v))
 
+        inline static bool ANY_PLAIN_GET_SET_WORD_KIND(REBYTE k)
+            { return k >= REB_GET_WORD and k <= REB_WORD; }
+
+        #define ANY_PLAIN_GET_SET_WORD(v) \
+            ANY_PLAIN_GET_SET_WORD_KIND(KIND_BYTE(v))
+
         inline static bool ANY_PATH_KIND(REBYTE k)
-            { return k >= REB_PATH and k <= REB_GET_PATH; }
+            { return k >= REB_GET_PATH and k <= REB_PATH; }
 
         #define ANY_PATH(v) \
             ANY_PATH_KIND(KIND_BYTE(v))
+
+        inline static bool ANY_BLOCK_KIND(REBYTE k)
+            { return k >= REB_GET_BLOCK and k <= REB_BLOCK; }
+
+        #define ANY_BLOCK(v) \
+            ANY_BLOCK_KIND(KIND_BYTE(v))
+
+        inline static bool ANY_GROUP_KIND(REBYTE k)
+            { return k >= REB_GET_GROUP and k <= REB_GROUP; }
+
+        #define ANY_GROUP(v) \
+            ANY_GROUP_KIND(KIND_BYTE(v))
 
         inline static bool ANY_CONTEXT_KIND(REBYTE k)
             { return k >= REB_OBJECT and k <= REB_PORT; }
@@ -156,6 +186,9 @@ REBOL [
         #define ANY_INERT(v) \
             ANY_INERT_KIND(KIND_BYTE(v))
 
+        #define ANY_EVALUATIVE(v) \
+            (not ANY_INERT_KIND(KIND_BYTE(v)))
+
         /* Doing a SET-WORD! or SET-PATH!, or a plain SET assignment, does
          * not generally tolerate either voids or nulls.  Review if some
          * optimization could be made to test both at once more quickly
@@ -176,7 +209,49 @@ REBOL [
 
         #define IS_NULLED_OR_BLANK(v) \
             IS_NULLED_OR_BLANK_KIND(KIND_BYTE(v))
+
+        /* Used by scanner; first phase of path scanning will produce a
+         * GET-WORD etc. and it has to convert that.  Note that grouping the
+         * blocks and paths and words together is more important than some
+         * property to identify all the GETs/SETs together.
+         */
+        inline static bool ANY_GET_KIND(REBYTE k) {
+            return k == REB_GET_WORD or k == REB_GET_PATH
+                or k == REB_GET_GROUP or k == REB_GET_BLOCK;
+        }
+
+        inline static bool ANY_SET_KIND(REBYTE k) {
+            return k == REB_SET_WORD or k == REB_SET_PATH
+                or k == REB_SET_GROUP or k == REB_SET_BLOCK;
+        }
+
+        inline static bool ANY_PLAIN_KIND(REBYTE k) {
+            return k == REB_WORD or k == REB_PATH
+                or k == REB_GROUP or k == REB_BLOCK;
+        }
+
+        inline static enum Reb_Kind UNGETIFY_ANY_GET_KIND(REBYTE k) {
+            assert(ANY_GET_KIND(k));
+            return cast(enum Reb_Kind, k + 2);
+        }
+
+        inline static enum Reb_Kind UNSETIFY_ANY_SET_KIND(REBYTE k) {
+            assert(ANY_SET_KIND(k));
+            return cast(enum Reb_Kind, k + 1);
+        }
+
+        inline static enum Reb_Kind SETIFY_ANY_PLAIN_KIND(REBYTE k) {
+            assert(ANY_PLAIN_KIND(k));
+            return cast(enum Reb_Kind, k - 1);
+        }
+
+        inline static enum Reb_Kind GETIFY_ANY_PLAIN_KIND(REBYTE k) {
+            assert(ANY_PLAIN_KIND(k));
+            return cast(enum Reb_Kind, k - 2);
+        }
+
     }
+
 ]
 
 
@@ -185,19 +260,35 @@ REBOL [
 
 ; Note: 0 is reserved for an array terminator (REB_0), and not a "type"
 
-action      "an invokable Rebol subroutine"  ;  https://forum.rebol.info/t/596
+; ============================================================================
+; BEGIN BINDABLE TYPES - SEE Is_Bindable() - Reb_Value.extra USED FOR BINDING
+; ============================================================================
+
+; ============================================================================
+; BEGIN EVALUATOR ACTIVE TYPES THAT ARE _BINDABLE_ - SEE ANY_EVALUATIVE()
+; ============================================================================
+
+; QUOTED! claims "bindable", but null binding if containing an unbindable type
+
+quoted     "container for arbitrary levels of quoting"
+            quoted       +       +       -      [quoted]
+
+; ACTION! is the "OneFunction" type in Ren-C https://forum.rebol.info/t/596
+
+action      "an invokable Rebol subroutine"
             action      +       +       +       []
 
-; ===========================================================================
-; ANY-WORD!, order matters, e.g. ANY_WORD() uses >= REB_WORD and <= REB_ISSUE
+; <ANY-WORD>
+;     order matters, e.g. ANY_WORD() uses >= REB_GET_WORD and <= REB_ISSUE
+;     + 2 will UNSETIFY_ANY_GET_KIND(), + 1 will UNSETIFY_ANY_SET_KIND()
 
-word        "word (symbol or variable)"
+get-word    "the value of a word (variable)"
             word        *       *       +       [word]
 
 set-word    "definition of a word's value"
             word        *       *       +       [word]
 
-get-word    "the value of a word (variable)"
+word        "word (symbol or variable)"
             word        *       *       +       [word]
 
 refinement  "variation of meaning or location"
@@ -206,34 +297,52 @@ refinement  "variation of meaning or location"
 issue       "identifying marker word"
             word        *       *       +       [word]
 
-; ===========================================================================
-; QUOTED! is "bindable", but nulls binding if it contains an unbindable type
+; </ANY-WORD>
 
-quoted     "quoted container"
-            quoted       +       +       -      [quoted]
-
-; ===========================================================================
-; ANY-ARRAY!, order matters (contiguous with ANY-SERIES below matters!)
-
-path        "refinements to functions, objects, files"
-            array       *       *       *       [series path array]
-
-set-path    "definition of a path's value"
-            array       *       *       *       [series path array]
+; <ANY-SERIES>
+;     <ANY-ARRAY>
+;         order matters, contiguous with ANY-SERIES! below matters
+;         + 2 will UNSETIFY_ANY_GET_KIND(), + 1 will UNSETIFY_ANY_SET_KIND()
 
 get-path    "the value of a path"
-            array       *       *       *       [series path array]
+            array       *       *       *       [path array series]
+
+set-path    "definition of a path's value"
+            array       *       *       *       [path array series]
+
+path        "refinements to functions, objects, files"
+            array       *       *       *       [path array series]
+
+get-group   "array that evaluates and runs GET on the resulting word/path"
+            array       *       *       *       [group array series]
+
+set-group   "array that evaluates and runs SET on the resulting word/path"
+            array       *       *       *       [group array series]
 
 group       "array that evaluates expressions as an isolated group"
-            array       *       *       *       [series array]
+            array       *       *       *       [group array series]
 
-; -- start of inert bindable types (that aren't refinement! and issue!) --
+get-block   "array of values that is reduced if evaluated"
+            array       *       *       *       [block array series]
+
+set-block   "array of values that will element-wise SET if evaluated"
+            array       *       *       *       [block array series]
+
+; ============================================================================
+; END EVALUATOR ACTIVE TYPES THAT ARE _BINDABLE_ - SEE ANY_INERT()
+; ============================================================================
+
+; Note: block! thus is the last array, force order for UNSETIFY_ANY_XXX_KIND()
 
 block       "array of values that blocks evaluation unless DO is used"
-            array       *       *       *       [series array]
+            array       *       *       *       [block array series]
 
-; ===========================================================================
-; ANY-SERIES!, order matters, and contiguous with ANY-ARRAY above matters
+;     </ANY-ARRAY>
+;
+;     (...we continue along in order with more ANY-SERIES! types...)
+;
+;     <ANY-STRING>
+;         order matters, and contiguous with ANY-ARRAY! above matters
 
 binary      "string series of bytes"
             string      *       *       +       [series]
@@ -253,9 +362,9 @@ url         "uniform resource locator or identifier"
 tag         "markup string (HTML or XML)"
             string      *       *       *       [series string]
 
-; ^-------------------- end of ANY-STRING! types ----------------------------^
-
-; v--------------- continue non-string ANY-SERIES! types --------------------v
+;     </ANY-STRING>
+;
+;     (...we continue along in order with more ANY-SERIES! types...)
 
 bitset      "set of bit flags"
             bitset      +       +       +       []
@@ -287,11 +396,11 @@ frame       "arguments and locals of a specific action invocation"
 port        "external series, an I/O channel"
             port        context +       context [context]
 
-; ^-------- Everything above is a "bindable" type, see Is_Bindable() --------^
+; ============================================================================
+; END BINDABLE TYPES - SEE Not_Bindable() - Reb_Value.extra USED FOR WHATEVER
+; ============================================================================
 
-; v------- Everything below is an "unbindable" type, see Is_Bindable() ------v
-
-; scalars
+; <ANY-SCALAR>
 
 logic       "boolean true or false"
             logic       -       +       +       []
@@ -322,6 +431,8 @@ time        "time of day or duration"
 
 date        "day, month, year, time of day, and timezone"
             date        +       +       +       []
+
+; </ANY_SCALAR>
 
 ; type system
 
@@ -354,7 +465,9 @@ library     "external library reference"
 blank       "placeholder unit type which also is conditionally false"
             unit        +       -       +       []
 
-; -- end of inert unbindable types --
+; ============================================================================
+; END EVALUATOR INERT TYPES THAT ARE _UNBINDABLE_ - SEE ANY_EVALUATIVE()
+; ============================================================================
 
 bar         "expression evaluation barrier"
             unit        -       -       +       []
