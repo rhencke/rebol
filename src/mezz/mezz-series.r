@@ -528,9 +528,14 @@ collect-with: func [
 ; is KEEP, and that the body needs to be deep copied and rebound (via FUNC)
 ; to a new variable to hold the keeping function.
 ;
-collect: specialize :collect-with [name: 'keep]
+collect: redescribe [
+    "Evaluate body, and return block of values collected via KEEP function."
+] specialize :collect-with [name: 'keep]
 
-collect-lines: adapt 'collect [ ;; https://forum.rebol.info/t/945/1
+collect-lines: redescribe [
+    {Evaluate body, and return block of values collected via KEEP function.
+    KEEPed blocks become spaced TEXT!.}
+] adapt 'collect [ ;; https://forum.rebol.info/t/945/1
     body: compose [
         keep: adapt specialize 'keep [
             line: true | only: false | part: false
@@ -539,23 +544,29 @@ collect-lines: adapt 'collect [ ;; https://forum.rebol.info/t/945/1
     ]
 ]
 
-collect-block: chain [ ;; Gives empty block instead of null if no keeps
+collect-block: redescribe [
+    {Evaluate body, and return block of values collected via KEEP function.
+    Returns empty block if nothing KEEPed.}
+] chain [ ;; Gives empty block instead of null if no keeps
     :collect
         |
     specialize 'else [branch: [copy []]]
 ]
 
-collect-text: chain [ ;; https://forum.rebol.info/t/945/2
-     adapt 'collect [
-         body: compose [
-             keep: adapt specialize 'keep [
-                 line: false | only: false | part: false
-             ][
-                 value: unspaced try :value
-             ]
-             ((as group! body))
-         ]
-     ]
+collect-text: redescribe [
+    {Evaluate body, and return block of values collected via KEEP function.
+    Returns all values as a single spaced TEXT!, individual KEEPed blocks get UNSPACED.}
+] chain [ ;; https://forum.rebol.info/t/945/2
+    adapt 'collect [
+        body: compose [
+            keep: adapt specialize 'keep [
+                line: false | only: false | part: false
+            ][
+                value: unspaced try :value
+            ]
+            ((as group! body))
+        ]
+    ]
         |
     :try
         |
