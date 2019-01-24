@@ -147,8 +147,12 @@ function: func [
                 append new-spec var
             )
             |
-            set other: [block! | text!] (
-                append/only new-spec other ;-- spec notes or data type blocks
+            set other: block! (
+                append/only new-spec other ;-- data type blocks
+            )
+            |
+            copy other some text! (
+                append/only new-spec spaced other ;-- spec notes
             )
         ]][[
             set var: set-word! ( ;-- locals legal anywhere
@@ -386,10 +390,10 @@ redescribe: function [
             types: meta/parameter-types: fields/parameter-types
         ]
     ]
-
     parse spec [
         opt [
-            set description: text! (
+            copy description any text! (
+                description: spaced description
                 either all [equal? description {} | not meta] [
                     ; No action needed (no meta to delete old description in)
                 ][
@@ -410,7 +414,8 @@ redescribe: function [
             ; But if {} is given as the notes, that's seen as a request
             ; to delete a note.
             ;
-            opt [[set note: text!] (
+            opt [[copy note some text!] (
+                note: spaced note
                 on-demand-meta
                 either equal? param (lit return:) [
                     meta/return-note: all [
