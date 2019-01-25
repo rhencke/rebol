@@ -36,7 +36,7 @@ dump: function [
     val-to-text: function [return: [text!] val [<opt> any-value!]] [
         case [
             not set? 'val ["\null\"]
-            object? :val [unspaced ["make object! [" (dump-obj val) "]"]]
+            object? :val [unspaced ["make object! [" (summarize-obj val) "]"]]
             default [mold/limit :val system/options/dump-size]
         ]
     ]
@@ -183,83 +183,66 @@ dumps: enfix function [
 ; so it uses that as a string pattern.  Review how to better factor that
 ; (as part of a general help review)
 ;
-dump-obj: function [
-    "Returns a block of information about an object or port."
-    return: [<opt> block!]
+summarize-obj: function [
+    {Returns a block of information about an object or port}
+
+    return: "Block of short lines (fitting in roughly 80 columns)"
+        [<opt> block!]
     obj [object! port!]
-    /match "Include only those that match a string or datatype" pat
+    /match "Include only fields that match a string or datatype"
+    pattern [text! datatype!]
 ][
-    clip-str: func [str] [
-        ; Keep string to one line.
-        trim/lines str
-        if (length of str) > 48 [str: append copy/part str 45 "..."]
-        str
-    ]
+    match_DUMP-OBJ: match
+    match: :lib/match
 
-    form-val: func [val [any-value!]] [
-        ; Form a limited string from the value provided.
-        if any-array? :val [return spaced ["length:" length of val]]
-        if image? :val [return spaced ["size:" val/size]]
-        if datatype? :val [return form val]
-        if action? :val [
-            return clip-str any [title-of :val | mold spec-of :val]
-        ]
-        if object? :val [val: words of val]
-        if typeset? :val [val: make block! val]
-        if port? :val [val: reduce [val/spec/title val/spec/ref]]
-        if gob? :val [return spaced ["offset:" val/offset "size:" val/size]]
-        clip-str mold :val
-    ]
-
-    form-pad: func [val size] [
-        ; Form a value with fixed size (space padding follows).
+    form-pad: func [
+        {Form a value with fixed size (space padding follows)}
+        val
+        size
+    ][
         val: form val
-        insert/dup tail of val #" " size - length of val
+        insert/dup (tail of val) space (size - length of val)
         val
     ]
 
-    ; Search for matching strings:
-    return collect [
-        wild: did all [set? 'pat | text? pat | find pat "*"]
+    wild: did find (try match text! :pattern) "*"
 
+    return collect-lines [
         for-each [word val] obj [
-            if not set? 'val [continue] ;-- !!! review
+            if not set? 'val [continue]  ; don't consider unset fields
 
             type: type of :val
 
-            str: if lib/match [object!] :type [
+            str: if match [object!] type [
                 spaced [word | words of :val]
             ] else [
                 form word
             ]
 
-            if any [
-                not match
-                all [
-                    set? 'val
-                    either text? :pat [
-                        either wild [
-                            tail? (find/any/match str pat else [pat])
-                        ][
-                            find str pat
-                        ]
-                    ][
-                        all [
-                            datatype? get :pat
-                            type = get :pat
-                        ]
-                    ]
+            switch type of :pattern [  ; filter out any non-matching items
+                null []
+
+                datatype! [
+                    if type != pattern [continue]
                 ]
-            ][
-                str: form-pad word 15
-                append str #" "
-                append str form-pad type 10 - ((length of str) - 15)
-                keep spaced [
-                    "  " str
-                    if type [form-val :val]
-                    newline
+
+                text! [
+                    if wild [
+                        fail "Wildcard DUMP-OBJ functionality not implemented"
+                    ]
+                    if not find str pattern [continue]
+                ]
+
+                fail 'pattern
+            ]
+
+            if desc: description-of :val [
+                if 48 < length of desc [
+                    desc: append copy/part desc 45 "..."
                 ]
             ]
+
+            keep ["  " (form-pad word 15) (form-pad type 10) :desc]
         ]
     ]
 ]

@@ -65,24 +65,29 @@ spec-of: function [
 ]
 
 
-title-of: function [
-    {Extracts a summary of a value's purpose from its "meta" information.}
+description-of: function [
+    {One-line summary of a value's purpose}
 
-    value [any-value!]
+    return: [<opt> text!]
+    v [any-value!]
 ][
-    opt switch type of :value [
+    opt switch type of :v [
+        any-array! [spaced ["array of length:" length of v]]
+        image! [spaced ["size:" v/size]]
+        datatype! [
+            spec: ensure object! spec of v  ; "type specs" need simplifying
+            copy spec/title
+        ]
         action! [
-            try all [
-                meta: try match object! meta-of :value
-                copy try match text! select meta 'description
+            try if fields: dig-action-meta-fields :v [
+                copy get 'fields/description
             ]
         ]
-
-        datatype! [
-            spec: spec-of value
-            assert [text? spec] ;-- !!! Consider simplifying "type specs"
-            spec/title
-        ]
+        gob! [spaced ["offset:" v/offset "size:" v/size]]
+        object! [mold words of v]
+        typeset! [mold make block! v]
+        port! [mold reduce [v/spec/title v/spec/ref]]
+        default [blank]
     ]
 ]
 
@@ -196,23 +201,30 @@ help: function [
     ]
 
     switch type of :topic [
-        issue! [ ;; HELP #TOPIC will browse r3n for the topic
+        issue! [
+            ; HELP #TOPIC will browse r3n for the topic
+
             say-browser
             browse join-all [https://r3n.github.io/topics/ as text! topic]
         ]
 
         text! [
-            types: dump-obj/match make-libuser :topic else [copy []]
-            sort types
-            if not empty? types [
-                print ["Found these related words:" newline types]
-                return
+            ; HELP "TEXT" wildcard searches things w/"TEXT" in their name
+
+            if types: summarize-obj/match make-libuser :topic [
+                print "Found these related words:"
+                for-each line sort types [
+                    print line
+                ]
+            ] else [
+                print ["No information on" topic]
             ]
-            print ["No information on" topic]
             return
         ]
 
         path! word! [
+            ; PATH! and WORD! fall through for help on what they look up to
+
             value: get topic else [
                 print ["No information on" topic "(has no value)"]
                 return
@@ -220,10 +232,15 @@ help: function [
             enfixed: enfixed? topic
         ]
     ] else [
+        ; !!! There may be interesting meanings to apply to things like
+        ; `HELP 2`, which could be distinct from `HELP (1 + 1)`, or the
+        ; same, and could be distinct from `HELP :(1)` or `HELP :[1]` etc.
+        ; For the moment, it just tells you the type.
+
         if free? :topic [
             print ["is a freed" mold type of :topic]
         ] else [
-            print [mold :topic "is" an mold type of :topic]
+            print [mold topic "is" an mold type of :topic]
         ]
         return
     ]
@@ -268,9 +285,11 @@ help: function [
     ]
 
     if datatype? :value [
-        types: try dump-obj/match make-libuser :topic
-        if not empty? types [
-            print ["Found these" (uppercase form topic) "words:" newline types]
+        if instances: summarize-obj/match make-libuser :value [
+            print ["Found these" (uppercase form topic) "words:"]
+            for-each line instances [
+                print line
+            ]
         ] else [
             print [topic {is a datatype}]
         ]
@@ -286,7 +305,10 @@ help: function [
                 keep "of value:"
                 if match [object! port!] value [
                     keep newline
-                    keep unspaced dump-obj value
+                    for-each line summarize-obj value [
+                        keep line
+                        keep newline
+                    ]
                 ] else [
                     keep mold value
                 ]
@@ -523,7 +545,7 @@ what: function [
             arg: either args [
                 mold parameters of :val
             ][
-                title-of :val else ["(undocumented)"]
+                description-of :val else ["(undocumented)"]
             ]
             append list reduce [word arg]
             size: max size length of to-text word
