@@ -107,10 +107,7 @@ REBCNT Modify_Array(
             else if (ilen == 0)
                 tail_newline = false;
             else
-                tail_newline = GET_VAL_FLAG(
-                    tail_cell,
-                    VALUE_FLAG_NEWLINE_BEFORE
-                );
+                tail_newline = GET_CELL_FLAG(tail_cell, NEWLINE_BEFORE);
         }
 
         // Are we modifying ourselves? If so, copy src_val block first:
@@ -174,10 +171,7 @@ REBCNT Modify_Array(
             );
 
             if (dup_index == 0 and index == 0 and head_newline) {
-                SET_VAL_FLAG(
-                    ARR_HEAD(dst_arr) + dst_idx,
-                    VALUE_FLAG_NEWLINE_BEFORE
-                );
+                SET_CELL_FLAG(ARR_HEAD(dst_arr) + dst_idx, NEWLINE_BEFORE);
 
                 // The array flag is not cleared until the loop actually
                 // makes a value that will carry on the bit.
@@ -187,10 +181,7 @@ REBCNT Modify_Array(
             }
 
             if (dup_index > 0 and index == 0 and tail_newline) {
-                SET_VAL_FLAG(
-                    ARR_HEAD(dst_arr) + dst_idx,
-                    VALUE_FLAG_NEWLINE_BEFORE
-                );
+                SET_CELL_FLAG(ARR_HEAD(dst_arr) + dst_idx, NEWLINE_BEFORE);
             }
         }
     }
@@ -202,7 +193,7 @@ REBCNT Modify_Array(
         if (dst_idx == ARR_LEN(dst_arr))
             SET_SER_FLAG(dst_arr, ARRAY_FLAG_TAIL_NEWLINE);
         else
-            SET_VAL_FLAG(ARR_AT(dst_arr, dst_idx), VALUE_FLAG_NEWLINE_BEFORE);
+            SET_CELL_FLAG(ARR_AT(dst_arr, dst_idx), NEWLINE_BEFORE);
     }
 
     if (flags & AM_LINE) {
@@ -212,7 +203,7 @@ REBCNT Modify_Array(
         // newline.  This allows `x: copy [] | append/line x [a b c]` to give
         // a more common result.  The head line can be removed easily.
         //
-        SET_VAL_FLAG(ARR_HEAD(dst_arr), VALUE_FLAG_NEWLINE_BEFORE);
+        SET_CELL_FLAG(ARR_HEAD(dst_arr), NEWLINE_BEFORE);
     }
 
     ASSERT_ARRAY(dst_arr);

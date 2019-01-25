@@ -121,7 +121,7 @@ static inline bool Start_New_Expression_Throws(REBFRM *f) {
 
     UPDATE_EXPRESSION_START(f); // !!! See FRM_INDEX() for caveats
 
-    f->out->header.bits |= OUT_MARKED_STALE;
+    SET_CELL_FLAG(f->out, OUT_MARKED_STALE);
 
     // Want to keep this flag between an operation and an ensuing enfix in
     // the same frame, so can't clear in Drop_Action(), e.g. due to:
@@ -155,11 +155,11 @@ static inline bool Start_New_Expression_Throws(REBFRM *f) {
 // Either we're NOT evaluating and there's NO special exemption, or we ARE
 // evaluating and there IS a special exemption on the value saying not to.
 //
-// (Note: DO_FLAG_EXPLICIT_EVALUATE is same bit as VALUE_FLAG_EVAL_FLIP)
+// (Note: DO_FLAG_EXPLICIT_EVALUATE is same bit as CELL_FLAG_EVAL_FLIP)
 //
 #define EVALUATING(v) \
     ((f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE) \
-        == ((v)->header.bits & VALUE_FLAG_EVAL_FLIP))
+        == ((v)->header.bits & CELL_FLAG_EVAL_FLIP))
 
 
 #ifdef DEBUG_COUNT_TICKS
@@ -237,7 +237,7 @@ inline static void Revoke_Refinement_Arg(REBFRM *f) {
         fail (Error_Bad_Refine_Revoke(f->param, f->arg));
 
     Init_Blank(f->refine); // can't re-enable...
-    SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+    SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
 
     f->refine = ARG_TO_REVOKED_REFINEMENT;
 }
@@ -262,12 +262,12 @@ inline static void Finalize_Arg(REBFRM *f) {
             return;
         }
 
-        SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+        SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
         return;
     }
 
   #if defined(DEBUG_STALE_ARGS) // see notes on flag definition
-    assert(NOT_VAL_FLAG(f->arg, ARG_MARKED_CHECKED));
+    assert(NOT_CELL_FLAG(f->arg, ARG_MARKED_CHECKED));
   #endif
 
     assert(
@@ -288,7 +288,7 @@ inline static void Finalize_Arg(REBFRM *f) {
             // BLANK! means refinement already revoked, null is okay
             // false means refinement was never in use, so also okay
             //
-            SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+            SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
             return;
         }
 
@@ -303,7 +303,7 @@ inline static void Finalize_Arg(REBFRM *f) {
         kind_byte == REB_BLANK
         and TYPE_CHECK(f->param, REB_TS_NOOP_IF_BLANK) // e.g. <blank> param
     ){
-        SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+        SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
         FRM_PHASE_OR_DUMMY(f) = PG_Dummy_Action;
         return;
     }
@@ -311,7 +311,7 @@ inline static void Finalize_Arg(REBFRM *f) {
     if (not Typecheck_Including_Quoteds(f->param, f->arg))
         fail (Error_Arg_Type(f, f->param, VAL_TYPE(f->arg)));
 
-    SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+    SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
 }
 
 
@@ -351,7 +351,7 @@ inline static void Finalize_Variadic_Arg_Core(REBFRM *f, bool enfix) {
     }
     else
         f->arg->payload.varargs.phase = FRM_PHASE(f);
-    SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+    SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
 }
 
 #define Finalize_Variadic_Arg(f) \
@@ -401,7 +401,7 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
             Init_Unreadable_Blank(f->out);
         else
             SET_END(f->out);
-        f->out->header.bits |= OUT_MARKED_STALE;
+        SET_CELL_FLAG(f->out, OUT_MARKED_STALE);
     }
   #endif
 }
@@ -599,13 +599,13 @@ bool Eval_Core_Throws(REBFRM * const f)
         if (f->flags.bits & DO_FLAG_PROCESS_ACTION) {
             f->flags.bits &= ~DO_FLAG_PROCESS_ACTION;
 
-            f->out->header.bits |= OUT_MARKED_STALE; // !!! necessary?
+            SET_CELL_FLAG(f->out, OUT_MARKED_STALE); // !!! necessary?
             goto process_action;
         }
 
         f->flags.bits &= ~DO_FLAG_REEVALUATE_CELL;
 
-        if (GET_VAL_FLAG(f->u.reval.value, VALUE_FLAG_ENFIXED)) {
+        if (GET_CELL_FLAG(f->u.reval.value, ENFIXED)) {
             f->value = VOID_VALUE; // !!! special signal to push_enfix_action
             f->gotten = f->u.reval.value;
             goto push_enfix_action;
@@ -682,7 +682,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     assert(not f->gotten); // Fetch_Next_In_Frame() cleared it
     f->gotten = Try_Get_Opt_Var(f->value, f->specifier);
-    if (not f->gotten or NOT_VAL_FLAG(f->gotten, VALUE_FLAG_ENFIXED))
+    if (not f->gotten or NOT_CELL_FLAG(f->gotten, ENFIXED))
         goto give_up_backward_quote_priority;
 
     // It's known to be an ACTION! since only actions can be enfix...
@@ -716,7 +716,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         if (
             not current_gotten
             or not IS_ACTION(current_gotten)
-            or GET_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED)
+            or GET_CELL_FLAG(current_gotten, ENFIXED)
         ){
             goto give_up_forward_quote_priority;
         }
@@ -761,7 +761,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         //
         // A literal ACTION! in a BLOCK! may also forward quote
         //
-        assert(NOT_VAL_FLAG(current, VALUE_FLAG_ENFIXED)); // not WORD!/PATH!
+        assert(NOT_CELL_FLAG(current, ENFIXED)); // not WORD!/PATH!
         if (GET_SER_FLAG(VAL_ACTION(current), PARAMLIST_FLAG_QUOTES_FIRST))
             goto give_up_backward_quote_priority;
     }
@@ -791,7 +791,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     //
     Derelativize(f->out, current, f->specifier); // lookback in f->out
   #if !defined(NDEBUG)
-    SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
+    SET_CELL_FLAG(f->out, UNEVALUATED);
   #endif
 
     f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
@@ -815,7 +815,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     if (not EVALUATING(current)) {
         Derelativize(f->out, current, f->specifier);
-        SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
+        SET_CELL_FLAG(f->out, UNEVALUATED);
 
         // Unlike the `inert` branch, when we are not evaluating we do not
         // inherit the `const` bits from the evaluation.  This is so that
@@ -863,7 +863,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_ACTION: {
-        assert(NOT_VAL_FLAG(current, VALUE_FLAG_ENFIXED)); // WORD!/PATH! only
+        assert(NOT_CELL_FLAG(current, ENFIXED)); // come from WORD!/PATH! only
 
         REBSTR *opt_label = nullptr; // not invoked through a word, "nameless"
 
@@ -989,7 +989,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 // (jumping to unspecialized_refinement will take care of it)
 
                 if (IS_NULLED(f->special)) {
-                    assert(NOT_VAL_FLAG(f->special, ARG_MARKED_CHECKED));
+                    assert(NOT_CELL_FLAG(f->special, ARG_MARKED_CHECKED));
                     goto unspecialized_refinement; // second most common
                 }
 
@@ -1006,7 +1006,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 // since at minimum it needs to accept any other refinement
                 // name to control it, but it could be considered.
                 //
-                if (NOT_VAL_FLAG(f->special, ARG_MARKED_CHECKED)) {
+                if (NOT_CELL_FLAG(f->special, ARG_MARKED_CHECKED)) {
                     if (IS_FALSEY(f->special)) // !!! error on void, needed?
                         goto unused_refinement;
 
@@ -1093,14 +1093,14 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                 f->refine = ARG_TO_UNUSED_REFINEMENT; // "don't consume"
                 Init_Blank(f->arg);
-                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+                SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
               used_refinement:;
 
                 assert(not IS_POINTER_TRASH_DEBUG(f->refine)); // must be set
                 Init_Refinement(f->arg, VAL_PARAM_SPELLING(f->param));
-                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+                SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
             }
 
@@ -1126,7 +1126,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     assert(IS_NULLED(f->special));
 
                 Init_Nulled(f->arg);
-                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+                SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
               case REB_P_RETURN:
@@ -1146,7 +1146,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                 Move_Value(f->arg, NAT_VALUE(return));
                 INIT_BINDING(f->arg, f->varlist);
-                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+                SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
               default:
@@ -1158,7 +1158,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             if (f->refine == SKIPPING_REFINEMENT_ARGS)
                 goto skip_this_arg_for_now;
 
-            if (GET_VAL_FLAG(f->special, ARG_MARKED_CHECKED)) {
+            if (GET_CELL_FLAG(f->special, ARG_MARKED_CHECKED)) {
 
     //=//// SPECIALIZED OR OTHERWISE TYPECHECKED ARG //////////////////////=//
 
@@ -1190,7 +1190,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     );
 
                     Move_Value(f->arg, f->special); // won't copy the bit
-                    SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+                    SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 }
                 goto continue_arg_loop;
             }
@@ -1220,7 +1220,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 // Overwrite if !(DO_FLAG_FULLY_SPECIALIZED) faster than check
                 //
                 Init_Nulled(f->arg);
-                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+                SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
             }
 
@@ -1229,7 +1229,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             if (f->flags.bits & DO_FLAG_GET_NEXT_ARG_FROM_OUT) {
                 f->flags.bits &= ~DO_FLAG_GET_NEXT_ARG_FROM_OUT;
 
-                if (f->out->header.bits & OUT_MARKED_STALE) {
+                if (GET_CELL_FLAG(f->out, OUT_MARKED_STALE)) {
                     //
                     // Something like `lib/help left-lit` is allowed to work,
                     // but if it were just `obj/int-value left-lit` then the
@@ -1301,8 +1301,8 @@ bool Eval_Core_Throws(REBFRM * const f)
                 else switch (pclass) {
                   case REB_P_NORMAL:
                     Move_Value(f->arg, f->out);
-                    if (GET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED))
-                        SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
+                    if (GET_CELL_FLAG(f->out, UNEVALUATED))
+                        SET_CELL_FLAG(f->arg, UNEVALUATED);
 
                     // When we see `1 + 2 * 3`, when we're at the 2, we don't
                     // want to let the * run yet.  So set a flag which says we
@@ -1332,13 +1332,13 @@ bool Eval_Core_Throws(REBFRM * const f)
                     // Only in debug builds, the before-switch lookahead sets
                     // this flag to help indicate that's where it came from.
                     //
-                    assert(GET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
+                    assert(GET_CELL_FLAG(f->out, UNEVALUATED));
                   #endif
 
                     // Is_Param_Skippable() accounted for in pre-lookback
 
                     Move_Value(f->arg, f->out);
-                    SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
+                    SET_CELL_FLAG(f->arg, UNEVALUATED);
                     Finalize_Arg(f);
                     break;
 
@@ -1348,7 +1348,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     // Only in debug builds, the before-switch lookahead sets
                     // this flag to help indicate that's where it came from.
                     //
-                    assert(GET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
+                    assert(GET_CELL_FLAG(f->out, UNEVALUATED));
                   #endif
 
                     if (IS_QUOTABLY_SOFT(f->out)) {
@@ -1366,7 +1366,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     }
                     else {
                         Move_Value(f->arg, f->out);
-                        SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
+                        SET_CELL_FLAG(f->arg, UNEVALUATED);
                     }
                     Finalize_Arg(f);
                     break;
@@ -1454,7 +1454,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     fail (Error_No_Arg(f, f->param));
 
                 Init_Endish_Nulled(f->arg);
-                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+                SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
             }
 
@@ -1480,19 +1480,17 @@ bool Eval_Core_Throws(REBFRM * const f)
 
               case REB_P_HARD_QUOTE:
                 if (not Is_Param_Skippable(f->param))
-                    Quote_Next_In_Frame(f->arg, f); // VALUE_FLAG_UNEVALUATED
+                    Quote_Next_In_Frame(f->arg, f); // CELL_FLAG_UNEVALUATED
                 else {
                     if (not Typecheck_Including_Quoteds(f->param, f->value)) {
                         assert(Is_Param_Endable(f->param));
                         Init_Endish_Nulled(f->arg); // not DO_FLAG_BARRIER_HIT
-                        SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+                        SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                         goto continue_arg_loop;
                     }
                     Quote_Next_In_Frame(f->arg, f);
-                    SET_VAL_FLAGS(
-                        f->arg,
-                        ARG_MARKED_CHECKED | VALUE_FLAG_UNEVALUATED
-                    );
+                    SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
+                    SET_CELL_FLAG(f->arg, UNEVALUATED);
                 }
 
                 // Have to account for enfix deferrals in cases like:
@@ -1501,7 +1499,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 //
                 Lookahead_To_Sync_Enfix_Defer_Flag(f);
 
-                if (GET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED))
+                if (GET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED))
                     goto continue_arg_loop;
 
                 break;
@@ -1518,7 +1516,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 }
 
                 if (not IS_QUOTABLY_SOFT(f->value)) {
-                    Quote_Next_In_Frame(f->arg, f); // VALUE_FLAG_UNEVALUATED
+                    Quote_Next_In_Frame(f->arg, f); // CELL_FLAG_UNEVALUATED
                 }
                 else {
                     if (Eval_Value_Core_Throws(
@@ -1571,7 +1569,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
           continue_arg_loop:;
 
-            assert(GET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED));
+            assert(GET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED));
             continue;
 
           skip_this_arg_for_now:;
@@ -1676,12 +1674,12 @@ bool Eval_Core_Throws(REBFRM * const f)
         r = (*PG_Dispatcher)(f); // default just calls FRM_PHASE(f)
 
         if (r == f->out) {
-            assert(not (f->out->header.bits & OUT_MARKED_STALE));
+            assert(NOT_CELL_FLAG(f->out, OUT_MARKED_STALE));
         }
         else if (not r) { // API and internal code can both return `nullptr`
             Init_Nulled(f->out);
         }
-        else if (GET_VAL_FLAG(r, NODE_FLAG_ROOT)) { // API, from Alloc_Value()
+        else if (GET_CELL_FLAG(r, ROOT)) { // API, from Alloc_Value()
             Handle_Api_Dispatcher_Result(f, r);
         }
         else switch (KIND_BYTE(r)) { // it's a "pseudotype" instruction
@@ -1782,7 +1780,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // run the f->phase again.  The dispatcher may have changed the
             // value of what f->phase is, for instance.
 
-            if (GET_VAL_FLAG(r, VALUE_FLAG_FALSEY)) // R_REDO_UNCHECKED
+            if (GET_CELL_FLAG(r, FALSEY)) // R_REDO_UNCHECKED
                 goto redo_unchecked;
 
           redo_checked:; // R_REDO_CHECKED
@@ -1808,13 +1806,11 @@ bool Eval_Core_Throws(REBFRM * const f)
 
             // !!! Ideally we would check that f->out hadn't changed, but
             // that would require saving the old value somewhere...
+            //
+            // !!! Why is this test a NOT?
 
-            if (
-                not (f->out->header.bits & OUT_MARKED_STALE)
-                or IS_END(f->value)
-            ){
+            if (NOT_CELL_FLAG(f->out, OUT_MARKED_STALE) or IS_END(f->value))
                 goto skip_output_check;
-            }
 
             // If an invisible is at the start of a frame and nothing is
             // after it, it has to retrigger until it finds something (or
@@ -1934,7 +1930,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             Begin_Action(f, VAL_WORD_SPELLING(current)); // use word as label
 
             assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
-            if (GET_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED))
+            if (GET_CELL_FLAG(current_gotten, ENFIXED))
                 f->flags.bits |=
                     (DO_FLAG_FULFILLING_ENFIX | DO_FLAG_GET_NEXT_ARG_FROM_OUT);
 
@@ -1947,7 +1943,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             fail (Error_Need_Non_Void_Core(current, f->specifier));
         }
 
-        Move_Value(f->out, current_gotten); // no copy VALUE_FLAG_UNEVALUATED
+        Move_Value(f->out, current_gotten); // no copy CELL_FLAG_UNEVALUATED
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2042,9 +2038,9 @@ bool Eval_Core_Throws(REBFRM * const f)
             );
             if (indexor == THROWN_FLAG)
                 goto return_thrown;
-            if (GET_VAL_FLAG(f->out, OUT_MARKED_STALE))
+            if (GET_CELL_FLAG(f->out, OUT_MARKED_STALE))
                 goto finished;
-            f->out->header.bits &= ~VALUE_FLAG_UNEVALUATED; // (1) "evaluates"
+            f->out->header.bits &= ~CELL_FLAG_UNEVALUATED; // (1) "evaluates"
         }
         else {
             // Not as lucky... we might have something like (1 + 2 elide "Hi")
@@ -2072,7 +2068,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 goto do_next; // quickly process next item, no infix test
             }
 
-            Move_Value(f->out, cell); // no VALUE_FLAG_UNEVALUATED
+            Move_Value(f->out, cell); // no CELL_FLAG_UNEVALUATED
         }
         break; }
 
@@ -2114,7 +2110,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         }
 
         if (IS_ACTION(f->out)) {
-            if (GET_VAL_FLAG(f->out, VALUE_FLAG_ENFIXED))
+            if (GET_CELL_FLAG(f->out, ENFIXED))
                 fail ("Use `->` to shove left enfix operands into PATH!s");
 
             // !!! While it is (or would be) possible to fetch an enfix or
@@ -2142,8 +2138,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         // !!! Usually not true but seems true for path evaluation in varargs,
         // e.g. while running `-- "a" "a"`.  Review.
         //
-        CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
-        /* assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED)); */
+        CLEAR_CELL_FLAG(f->out, UNEVALUATED);
+        /* assert(NOT_CELL_FLAG(f->out, CELL_FLAG_UNEVALUATED)); */
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2191,7 +2187,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             goto return_thrown;
         }
 
-        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
+        assert(NOT_CELL_FLAG(f->out, UNEVALUATED));
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2218,8 +2214,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         // !!! This didn't appear to be true for `-- "hi" "hi"`, processing
         // GET-PATH! of a variadic.  Review if it should be true.
         //
-        /* assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED)); */
-        CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
+        /* assert(NOT_CELL_FLAG(f->out, CELL_FLAG_UNEVALUATED)); */
+        CLEAR_CELL_FLAG(f->out, UNEVALUATED);
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2392,7 +2388,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             );
         }
 
-        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
+        assert(NOT_CELL_FLAG(f->out, UNEVALUATED));
 
         break; }
 
@@ -2457,7 +2453,7 @@ bool Eval_Core_Throws(REBFRM * const f)
       inert:; // SEE ALSO: Quote_Next_In_Frame()...similar behavior
 
         Derelativize(f->out, current, f->specifier);
-        SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED); // VALUE_FLAG_INERT ??
+        SET_CELL_FLAG(f->out, UNEVALUATED); // CELL_FLAG_INERT ??
 
         // `rebRun("append", "[]", "10");` should error, passing on the const
         // of the va_arg frame.  That is a case of a block with neutral bits
@@ -2529,7 +2525,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 //
 // NULLs are not an ANY-VALUE!.  Usually a DO shouldn't be able to see them.
 // An exception is in API calls, such as `rebRun("null?", some_null)`.  That
-// is legal due to VALUE_FLAG_EVAL_FLIP, which avoids "double evaluation",
+// is legal due to CELL_FLAG_EVAL_FLIP, which avoids "double evaluation",
 // and is used by the API when constructing runs of values from C va_args.
 //
 // Another way the evaluator can see NULL is EVAL, such as `eval first []`.
@@ -2664,7 +2660,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         // !!! a particularly egregious hack in EVAL-ENFIX lets us simulate
         // enfix for a function whose value is not enfix.  This means the
         // value in f->gotten isn't the fetched function, but the function
-        // plus a VALUE_FLAG_ENFIXED.  Account for this hack.
+        // plus a CELL_FLAG_ENFIXED.  Account for this hack.
         //
         assert(
             f->gotten == Try_Get_Opt_Var(f->value, f->specifier)
@@ -2682,8 +2678,8 @@ bool Eval_Core_Throws(REBFRM * const f)
     // unbound word).  It'll be an error, but that code path raises it for us.
 
     if (
-        not f->gotten // note that only ACTIONs have VALUE_FLAG_ENFIXED
-        or NOT_VAL_FLAG(VAL(f->gotten), VALUE_FLAG_ENFIXED)
+        not f->gotten // note that only ACTIONs have CELL_FLAG_ENFIXED
+        or NOT_CELL_FLAG(VAL(f->gotten), ENFIXED)
     ){
       lookback_quote_too_late:; // run as if starting new expression
 
@@ -2869,7 +2865,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     // The unevaluated flag is meaningless outside of arguments to functions.
 
     if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
-        f->out->header.bits &= ~VALUE_FLAG_UNEVALUATED; // may be an END cell
+        f->out->header.bits &= ~CELL_FLAG_UNEVALUATED; // may be an END cell
 
     // Most clients would prefer not to read the stale flag, and be burdened
     // with clearing it (can't be present on frame output).  Also, argument
@@ -2881,7 +2877,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         & (f->flags.bits & DO_FLAG_PRESERVE_STALE)
     ));
     if (not (f->flags.bits & DO_FLAG_PRESERVE_STALE))
-        f->out->header.bits &= ~OUT_MARKED_STALE;
+        f->out->header.bits &= ~CELL_FLAG_OUT_MARKED_STALE; // may be END
 
   #if !defined(NDEBUG)
     Eval_Core_Exit_Checks_Debug(f); // will get called unless a fail() longjmps

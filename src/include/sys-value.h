@@ -263,7 +263,7 @@
                 NODE_FLAG_NODE
                 | NODE_FLAG_CELL
                 | NODE_FLAG_FREE
-                | VALUE_FLAG_FALSEY // all the "bad" types are also falsey
+                | CELL_FLAG_FALSEY // all the "bad" types are also falsey
             )) == (NODE_FLAG_CELL | NODE_FLAG_NODE)
         ){
             return KIND_BYTE_UNCHECKED(v); // majority return here
@@ -419,7 +419,7 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 //
 // The header of a cell contains information about what kind of cell it is,
 // as well as some flags that are reserved for system purposes.  These are
-// the NODE_FLAG_XXX and VALUE_FLAG_XXX flags, that work on any cell.
+// the NODE_FLAG_XXX and CELL_FLAG_XXX flags, that work on any cell.
 //
 // (A previous concept where cells could use some of the header bits to carry
 // more data that wouldn't fit in the "extra" or "payload" is deprecated.
@@ -427,71 +427,17 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 // has to use an additional allocation and point to that.)
 //
 
-#define SET_VAL_FLAGS(v,f) \
-    (WRITABLE(v, __FILE__, __LINE__)->header.bits |= (f))
+#define SET_CELL_FLAG(v,f) \
+    (WRITABLE(v, __FILE__, __LINE__)->header.bits |= CELL_FLAG_##f)
 
-#define ANY_VAL_FLAGS(v,f) \
-    ((READABLE(v, __FILE__, __LINE__)->header.bits & (f)) != 0)
+#define GET_CELL_FLAG(v,f) \
+    ((READABLE(v, __FILE__, __LINE__)->header.bits & CELL_FLAG_##f) != 0)
 
-inline static bool ALL_VAL_FLAGS(REBCEL *v, uintptr_t f) // repeats parameter
-    { return (READABLE(v, __FILE__, __LINE__)->header.bits & f) == f; }
+#define CLEAR_CELL_FLAG(v,f) \
+    (WRITABLE(v, __FILE__, __LINE__)->header.bits &= ~CELL_FLAG_##f)
 
-#define CLEAR_VAL_FLAGS(v,f) \
-    (WRITABLE(v, __FILE__, __LINE__)->header.bits &= ~(f))
-
-#if defined(NDEBUG) || !defined(CPLUSPLUS_11)
-    //
-    // Debug builds don't inline functions; don't add another of layer of call
-    // for a compile-time check that the release build can take care of.
-    // 
-    #define SET_VAL_FLAG(v,f)       SET_VAL_FLAGS((v), (f))
-    #define GET_VAL_FLAG(v, f)      ANY_VAL_FLAGS((v), (f))
-    #define CLEAR_VAL_FLAG(v,f)     CLEAR_VAL_FLAGS((v), (f))
-#else
-    // Use compile-time check on variants for dealing with exactly one bit.
-    // While this may seem kind of overkill, it's actually good for forcing
-    // you to distinguish if you were trying to test that ANY of the bits
-    // were set, vs ALL of the bits set...an easy thing to get confused on.
-
-    template <uintptr_t f>
-    inline static void SET_VAL_FLAG_cplusplus(REBCEL *v) {
-        static_assert(
-            f and (f & (f - 1)) == 0, // only one bit is set
-            "use SET_VAL_FLAGS() to set multiple bits"
-        );
-        ASSERT_CELL_WRITABLE_EVIL_MACRO(v, __FILE__, __LINE__);
-        v->header.bits |= f;
-    }
-    #define SET_VAL_FLAG(v,f) \
-        SET_VAL_FLAG_cplusplus<f>(v)
-        
-    template <uintptr_t f>
-    inline static bool GET_VAL_FLAG_cplusplus(const REBCEL *v) {
-        static_assert(
-            f and (f & (f - 1)) == 0, // only one bit is set
-            "use ANY_VAL_FLAGS() or ALL_VAL_FLAGS() to test multiple bits"
-        );
-        ASSERT_CELL_READABLE_EVIL_MACRO(v, __FILE__, __LINE__);
-        return (v->header.bits & f);
-    }
-    #define GET_VAL_FLAG(v,f) \
-        GET_VAL_FLAG_cplusplus<f>(v)
-
-    template <uintptr_t f>
-    inline static void CLEAR_VAL_FLAG_cplusplus(REBCEL *v) {
-        static_assert(
-            f and (f & (f - 1)) == 0, // only one bit is set
-            "use CLEAR_VAL_FLAGS() to remove multiple bits"
-        );
-        ASSERT_CELL_WRITABLE_EVIL_MACRO(v, __FILE__, __LINE__);
-        v->header.bits &= ~f;
-    }
-    #define CLEAR_VAL_FLAG(v,f) \
-        CLEAR_VAL_FLAG_cplusplus<f>(v)
-#endif
-
-#define NOT_VAL_FLAG(v,f) \
-    (not GET_VAL_FLAG((v), (f)))
+#define NOT_CELL_FLAG(v,f) \
+    ((READABLE(v, __FILE__, __LINE__)->header.bits & CELL_FLAG_##f) == 0)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -636,7 +582,7 @@ inline static RELVAL *Prep_Stack_Cell_Core(
   #endif
   #ifdef DEBUG_TRASH_MEMORY
     c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_T_TRASH)
-        | VALUE_FLAG_FALSEY; // speeds up VAL_TYPE_Debug() check
+        | CELL_FLAG_FALSEY; // speeds up VAL_TYPE_Debug() check
   #else
     c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_0);
   #endif
@@ -679,7 +625,7 @@ inline static RELVAL *Prep_Stack_Cell_Core(
 
         v->header.bits &= CELL_MASK_PERSIST;
         v->header.bits |= FLAG_KIND_BYTE(REB_T_TRASH)
-            | VALUE_FLAG_FALSEY; // speeds up VAL_TYPE_Debug() check
+            | CELL_FLAG_FALSEY; // speeds up VAL_TYPE_Debug() check
 
         TRACK_CELL_IF_DEBUG(v, file, line);
         return v;
@@ -733,7 +679,7 @@ inline static RELVAL *Prep_Stack_Cell_Core(
         ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
         mutable_SECOND_BYTE(v->header) = REB_0_END; // release build behavior
-        v->header.bits |= VALUE_FLAG_FALSEY; // speeds VAL_TYPE_Debug() check
+        v->header.bits |= CELL_FLAG_FALSEY; // speeds VAL_TYPE_Debug() check
 
         TRACK_CELL_IF_DEBUG(v, file, line);
         return cast(REBVAL*, v);
@@ -904,7 +850,7 @@ inline static REBACT *VAL_RELATIVE(const RELVAL *v) {
     (VAL_TYPE(v) == REB_MAX_NULLED)
 
 #define Init_Nulled(out) \
-    RESET_CELL_EXTRA((out), REB_MAX_NULLED, VALUE_FLAG_FALSEY)
+    RESET_CELL_EXTRA((out), REB_MAX_NULLED, CELL_FLAG_FALSEY)
 
 // !!! A theory was that the "evaluated" flag would help a function that took
 // both <opt> and <end>, which are converted to nulls, distinguish what kind
@@ -913,10 +859,10 @@ inline static REBACT *VAL_RELATIVE(const RELVAL *v) {
 //
 #define Init_Endish_Nulled(out) \
     RESET_CELL_EXTRA((out), REB_MAX_NULLED, \
-        VALUE_FLAG_FALSEY | VALUE_FLAG_UNEVALUATED)
+        CELL_FLAG_FALSEY | CELL_FLAG_UNEVALUATED)
 
 inline static bool IS_ENDISH_NULLED(const RELVAL *v) {
-    return IS_NULLED(v) and GET_VAL_FLAG(v, VALUE_FLAG_UNEVALUATED);
+    return IS_NULLED(v) and GET_CELL_FLAG(v, UNEVALUATED);
 }
 
 // To help ensure full nulled cells don't leak to the API, the variadic
@@ -1038,13 +984,13 @@ inline static REBVAL *Voidify_If_Nulled_Or_Blank(REBVAL *cell) {
     c_cast(const REBVAL*, &PG_Blank_Value[0])
 
 #define Init_Blank(v) \
-    RESET_CELL_EXTRA((v), REB_BLANK, VALUE_FLAG_FALSEY)
+    RESET_CELL_EXTRA((v), REB_BLANK, CELL_FLAG_FALSEY)
 
 #ifdef DEBUG_UNREADABLE_BLANKS
     inline static REBVAL *Init_Unreadable_Blank_Debug(
         RELVAL *out, const char *file, int line
     ){
-        RESET_CELL_EXTRA_Debug(out, REB_BLANK, VALUE_FLAG_FALSEY, file, line);
+        RESET_CELL_EXTRA_Debug(out, REB_BLANK, CELL_FLAG_FALSEY, file, line);
         assert(out->extra.tick > 0);
         out->extra.tick = -out->extra.tick;
         return KNOWN(out);
@@ -1104,12 +1050,12 @@ inline static bool IS_TRUTHY(const RELVAL *v) {
     if (KIND_BYTE(v) >= REB_64) {
         //
         // QUOTED! at an escape level low enough to reuse cell.  So if that
-        // cell happens to be false/blank/nulled, VALUE_FLAG_FALSEY will
+        // cell happens to be false/blank/nulled, CELL_FLAG_FALSEY will
         // be set, but don't heed it! `if lit '_ [-- "this is truthy"]`
         //
         return true;
     }
-    if (GET_VAL_FLAG(v, VALUE_FLAG_FALSEY))
+    if (GET_CELL_FLAG(v, FALSEY))
         return false;
     if (IS_VOID(v))
         fail (Error_Void_Conditional_Raw());
@@ -1120,7 +1066,7 @@ inline static bool IS_TRUTHY(const RELVAL *v) {
     (not IS_TRUTHY(v))
 
 #define Init_Logic(out,b) \
-    RESET_CELL_EXTRA((out), REB_LOGIC, (b) ? 0 : VALUE_FLAG_FALSEY)
+    RESET_CELL_EXTRA((out), REB_LOGIC, (b) ? 0 : CELL_FLAG_FALSEY)
 
 #define Init_True(out) \
     Init_Logic((out), true)
@@ -1139,7 +1085,7 @@ inline static bool IS_CONDITIONAL_TRUE(const REBVAL *v) {
     if (IS_FALSEY(v))
         return false;
     if (KIND_BYTE(v) == REB_BLOCK)
-        if (GET_VAL_FLAG(v, VALUE_FLAG_UNEVALUATED))
+        if (GET_CELL_FLAG(v, UNEVALUATED))
             fail (Error_Block_Conditional_Raw(v));
     return true;
 }
@@ -1149,7 +1095,7 @@ inline static bool IS_CONDITIONAL_TRUE(const REBVAL *v) {
 
 inline static bool VAL_LOGIC(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_LOGIC);
-    return NOT_VAL_FLAG((v), VALUE_FLAG_FALSEY);
+    return NOT_CELL_FLAG(v, FALSEY);
 }
 
 
@@ -1706,7 +1652,7 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
 
 
 // When doing something like a COPY of an OBJECT!, the var cells have to be
-// handled specially, e.g. by preserving VALUE_FLAG_ENFIXED.
+// handled specially, e.g. by preserving CELL_FLAG_ENFIXED.
 //
 // !!! What about other non-copyable properties like CELL_FLAG_PROTECTED?
 //
@@ -1721,7 +1667,7 @@ inline static REBVAL *Move_Var(RELVAL *out, const REBVAL *v)
 
     Move_Value(out, v);
     out->header.bits |= (
-        v->header.bits & (VALUE_FLAG_ENFIXED | ARG_MARKED_CHECKED)
+        v->header.bits & (CELL_FLAG_ENFIXED | CELL_FLAG_ARG_MARKED_CHECKED)
     );
     return KNOWN(out);
 }
@@ -1761,14 +1707,14 @@ inline static void Blit_Cell(RELVAL *out, const RELVAL *v)
 // the value itself is const (so it inherits).
 //
 inline static REBVAL *Inherit_Const(REBVAL *out, const RELVAL *influencer) {
-    out->header.bits |= (influencer->header.bits & VALUE_FLAG_CONST);
+    out->header.bits |= (influencer->header.bits & CELL_FLAG_CONST);
     return out;
 }
 #define Trust_Const(value) \
     (value) // just a marking to say the const is accounted for already
 
 inline static REBVAL *Const(REBVAL *v) {
-    SET_VAL_FLAG(v, VALUE_FLAG_CONST);
+    SET_CELL_FLAG(v, CONST);
     return v;
 }
 

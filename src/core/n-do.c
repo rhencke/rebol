@@ -72,7 +72,7 @@ REBNATIVE(eval)
     REBFLGS flags = DO_MASK_DEFAULT | DO_FLAG_REEVALUATE_CELL;
     if (REF(only)) {
         flags |= DO_FLAG_EXPLICIT_EVALUATE;
-        ARG(value)->header.bits ^= VALUE_FLAG_EVAL_FLIP;
+        ARG(value)->header.bits ^= CELL_FLAG_EVAL_FLIP;
     }
 
     if (Eval_Step_In_Subframe_Throws(D_OUT, frame_, flags, child))
@@ -188,7 +188,7 @@ REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
     // Even if the function isn't enfix, say it is.  This permits things
     // like `5 + 5 -> subtract 7` to give 3.
     //
-    SET_VAL_FLAG(shovee, VALUE_FLAG_ENFIXED);
+    SET_CELL_FLAG(shovee, ENFIXED);
 
     // Trying to EVAL a SET-WORD! or SET-PATH! with no args would be an error.
     // So interpret it specially...GET the value and SET it back.  Note this
@@ -223,7 +223,7 @@ REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
     else {
         Move_Value(D_OUT, ARG(left));
       #if !defined(NDEBUG)
-        SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED); // enfix checks in debug
+        SET_CELL_FLAG(D_OUT, UNEVALUATED); // enfix checks in debug
       #endif
     }
 
@@ -326,7 +326,7 @@ REBNATIVE(eval_enfix)
     // not enfixed.  This lets us slip in a first argument to a function
     // *as if* it were enfixed, e.g. `series: my next`.
     //
-    SET_VAL_FLAG(temp, VALUE_FLAG_ENFIXED);
+    SET_CELL_FLAG(temp, ENFIXED);
     PUSH_GC_GUARD(temp);
     f->gotten = temp;
 
@@ -416,7 +416,7 @@ REBNATIVE(do)
 
     REBVAL *source = ARG(source); // may be only GC reference, don't lose it!
   #if !defined(NDEBUG)
-    SET_VAL_FLAG(ARG(source), CELL_FLAG_PROTECTED);
+    SET_CELL_FLAG(ARG(source), PROTECTED);
   #endif
 
     switch (VAL_TYPE(source)) {
@@ -424,7 +424,7 @@ REBNATIVE(do)
       case REB_GROUP: {
         if (Do_Any_Array_At_Throws(D_OUT, source))
             return R_THROWN;
-        assert(NOT_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED));
+        assert(NOT_CELL_FLAG(D_OUT, UNEVALUATED));
         return D_OUT; }
 
       case REB_VARARGS: {
@@ -542,7 +542,7 @@ REBNATIVE(do)
 
         DECLARE_END_FRAME (f);
         f->out = D_OUT;
-        bool mutability = GET_VAL_FLAG(source, VALUE_FLAG_EXPLICITLY_MUTABLE);
+        bool mutability = GET_CELL_FLAG(source, EXPLICITLY_MUTABLE);
         Push_Frame_At_End(
             f,
             (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
@@ -619,7 +619,7 @@ REBNATIVE(evaluate)
 
     REBVAL *source = ARG(source); // may be only GC reference, don't lose it!
   #if !defined(NDEBUG)
-    SET_VAL_FLAG(ARG(source), CELL_FLAG_PROTECTED);
+    SET_CELL_FLAG(ARG(source), PROTECTED);
   #endif
 
     switch (VAL_TYPE(source)) {
@@ -646,7 +646,7 @@ REBNATIVE(evaluate)
         if (indexor == END_FLAG or IS_END(temp))
             return nullptr; // no disruption of output result
 
-        assert(NOT_VAL_FLAG(temp, VALUE_FLAG_UNEVALUATED));
+        assert(NOT_CELL_FLAG(temp, UNEVALUATED));
 
         if (REF(set))
             Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), temp);

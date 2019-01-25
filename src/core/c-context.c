@@ -974,7 +974,7 @@ REBARR *Context_To_Array(REBCTX *context, REBINT mode)
                 );
 
                 if (mode & 2)
-                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
+                    SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
             }
             if (mode & 2) {
                 //
@@ -1226,10 +1226,8 @@ void Resolve_Context(
         REBINT m = Remove_Binder_Index_Else_0(&binder, VAL_KEY_CANON(key));
         if (m != 0) {
             // "the remove succeeded, so it's marked as set now" (old comment)
-            if (
-                NOT_VAL_FLAG(var, CELL_FLAG_PROTECTED)
-                and (all or IS_NULLED(var))
-            ){
+
+            if (NOT_CELL_FLAG(var, PROTECTED) and (all or IS_NULLED(var))) {
                 if (m < 0)
                     Init_Nulled(var); // no value in source context
                 else

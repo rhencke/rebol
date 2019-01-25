@@ -151,15 +151,15 @@ REBCTX *Make_Context_For_Action_Int_Partials(
 
         REBSTR *canon = VAL_PARAM_CANON(param);
 
-        assert(special != param or NOT_VAL_FLAG(arg, ARG_MARKED_CHECKED));
+        assert(special != param or NOT_CELL_FLAG(arg, ARG_MARKED_CHECKED));
 
     //=//// NON-REFINEMENT SLOT HANDLING //////////////////////////////////=//
 
         if (VAL_PARAM_CLASS(param) != REB_P_REFINEMENT) {
             if (Is_Param_Hidden(param)) {
-                assert(GET_VAL_FLAG(special, ARG_MARKED_CHECKED));
+                assert(GET_CELL_FLAG(special, ARG_MARKED_CHECKED));
                 Move_Value(arg, special); // !!! copy the flag?
-                SET_VAL_FLAG(arg, ARG_MARKED_CHECKED); // !!! not copied
+                SET_CELL_FLAG(arg, ARG_MARKED_CHECKED); // !!! not copied
                 goto continue_specialized; // Eval_Core_Throws() checks type
             }
             goto continue_unspecialized;
@@ -169,13 +169,13 @@ REBCTX *Make_Context_For_Action_Int_Partials(
 
         if (IS_BLANK(special)) { // specialized BLANK! => "disabled"
             Init_Blank(arg);
-            SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+            SET_CELL_FLAG(arg, ARG_MARKED_CHECKED);
             goto continue_specialized;
         }
 
         if (IS_REFINEMENT(special)) { // specialized REFINEMENT! => "in use"
             Init_Refinement(arg, VAL_PARAM_SPELLING(param));
-            SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+            SET_CELL_FLAG(arg, ARG_MARKED_CHECKED);
             goto continue_specialized;
         }
 
@@ -213,7 +213,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
                 );
 
                 Init_Integer(passed, DSP);
-                SET_VAL_FLAG(passed, ARG_MARKED_CHECKED); // passed, not arg
+                SET_CELL_FLAG(passed, ARG_MARKED_CHECKED); // passed, not arg
 
                 if (partial_index == index)
                     goto continue_specialized; // just filled in *this* slot
@@ -232,7 +232,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
                 if (VAL_WORD_INDEX(ordered) == index) { // prescient push
                     assert(canon == VAL_STORED_CANON(ordered));
                     Init_Integer(arg, dsp);
-                    SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+                    SET_CELL_FLAG(arg, ARG_MARKED_CHECKED);
                     goto continue_specialized;
                 }
             }
@@ -246,7 +246,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
             or IS_NULLED(special)
             or (
                 IS_VOID(special)
-                and GET_VAL_FLAG(special, ARG_MARKED_CHECKED)
+                and GET_CELL_FLAG(special, ARG_MARKED_CHECKED)
             )
         );
 
@@ -274,7 +274,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
                 // based on the outcome of that code has been calculated.
                 //
                 Init_Integer(arg, dsp);
-                SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+                SET_CELL_FLAG(arg, ARG_MARKED_CHECKED);
                 goto continue_specialized;
             }
         }
@@ -294,7 +294,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
       continue_specialized:;
 
         assert(not IS_NULLED(arg));
-        assert(GET_VAL_FLAG(arg, ARG_MARKED_CHECKED));
+        assert(GET_CELL_FLAG(arg, ARG_MARKED_CHECKED));
         continue;
     }
 
@@ -430,10 +430,10 @@ bool Specialize_Action_Throws(
             if (Is_Param_Unbindable(key))
                 continue; // !!! is this flag still relevant?
             if (Is_Param_Hidden(key)) {
-                assert(GET_VAL_FLAG(var, ARG_MARKED_CHECKED));
+                assert(GET_CELL_FLAG(var, ARG_MARKED_CHECKED));
                 continue;
             }
-            if (GET_VAL_FLAG(var, ARG_MARKED_CHECKED))
+            if (GET_CELL_FLAG(var, ARG_MARKED_CHECKED))
                 continue; // may be refinement from stack, now specialized out
             Remove_Binder_Index(&binder, VAL_KEY_CANON(key));
         }
@@ -480,7 +480,7 @@ bool Specialize_Action_Throws(
                 IS_NULLED(refine)
                 or (
                     IS_INTEGER(refine)
-                    and GET_VAL_FLAG(refine, ARG_MARKED_CHECKED)
+                    and GET_CELL_FLAG(refine, ARG_MARKED_CHECKED)
                 )
             ){
                 // /DUP is implicitly "evoked" to be true in the following
@@ -522,7 +522,7 @@ bool Specialize_Action_Throws(
             }
 
             assert(
-                NOT_VAL_FLAG(refine, ARG_MARKED_CHECKED)
+                NOT_CELL_FLAG(refine, ARG_MARKED_CHECKED)
                 or (
                     IS_REFINEMENT(refine)
                     and (
@@ -537,7 +537,7 @@ bool Specialize_Action_Throws(
             else
                 Init_Blank(arg);
 
-            SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+            SET_CELL_FLAG(arg, ARG_MARKED_CHECKED);
             goto specialized_arg_no_typecheck; }
 
         case REB_P_RETURN:
@@ -637,7 +637,7 @@ bool Specialize_Action_Throws(
 
     unspecialized_arg:;
 
-        assert(NOT_VAL_FLAG(arg, ARG_MARKED_CHECKED));
+        assert(NOT_CELL_FLAG(arg, ARG_MARKED_CHECKED));
         Move_Value(DS_PUSH(), param); // if evoked, will be DROP'd from paramlist
         continue;
 
@@ -654,7 +654,7 @@ bool Specialize_Action_Throws(
         if (not TYPE_CHECK(param, VAL_TYPE(arg)))
             fail (Error_Invalid(arg)); // !!! merge w/Error_Invalid_Arg()
 
-       SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+       SET_CELL_FLAG(arg, ARG_MARKED_CHECKED);
 
     specialized_arg_no_typecheck:;
 
@@ -725,7 +725,7 @@ bool Specialize_Action_Throws(
                 Init_Nulled(partial); // no more partials coming
             else {
                 Init_Void(partial); // still partials to go, signal pre-empt
-                SET_VAL_FLAG(partial, ARG_MARKED_CHECKED);
+                SET_CELL_FLAG(partial, ARG_MARKED_CHECKED);
             }
             goto continue_loop;
         }
@@ -739,7 +739,7 @@ bool Specialize_Action_Throws(
                             : -(partial->payload.partial.signed_index))
                 )
             );
-            SET_VAL_FLAG(partial, ARG_MARKED_CHECKED);
+            SET_CELL_FLAG(partial, ARG_MARKED_CHECKED);
             goto continue_loop;
         }
 
@@ -761,7 +761,7 @@ bool Specialize_Action_Throws(
                 exemplar,
                 evoked_index
             );
-            SET_VAL_FLAG(partial, ARG_MARKED_CHECKED);
+            SET_CELL_FLAG(partial, ARG_MARKED_CHECKED);
 
             evoked = nullptr;
             goto continue_loop;
@@ -783,7 +783,7 @@ bool Specialize_Action_Throws(
             exemplar,
             VAL_WORD_INDEX(ordered)
         );
-        SET_VAL_FLAG(partial, ARG_MARKED_CHECKED);
+        SET_CELL_FLAG(partial, ARG_MARKED_CHECKED);
 
         while (ordered != DS_TOP) {
             if (IS_BLANK(ordered + 1))
@@ -1488,7 +1488,7 @@ REBNATIVE(does)
 
     REBCTX *exemplar;
     if (
-        GET_VAL_FLAG(specializee, VALUE_FLAG_UNEVALUATED)
+        GET_CELL_FLAG(specializee, UNEVALUATED)
         and (IS_WORD(specializee) or IS_PATH(specializee))
     ){
         if (Make_Frame_From_Varargs_Throws(
@@ -1522,7 +1522,7 @@ REBNATIVE(does)
         );
         assert(GET_SER_FLAG(exemplar, NODE_FLAG_MANAGED));
         Move_Value(CTX_VAR(exemplar, 1), specializee);
-        SET_VAL_FLAG(CTX_VAR(exemplar, 1), ARG_MARKED_CHECKED); // checked
+        SET_CELL_FLAG(CTX_VAR(exemplar, 1), ARG_MARKED_CHECKED); // checked
         Move_Value(specializee, NAT_VALUE(do));
     }
 

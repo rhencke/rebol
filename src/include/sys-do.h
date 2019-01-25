@@ -68,7 +68,7 @@ inline static bool Do_Any_Array_At_Throws(
     // value carries along with it a disablement of inheriting constness...
     // even if the frame has it set.
     //
-    bool mutability = GET_VAL_FLAG(any_array, VALUE_FLAG_EXPLICITLY_MUTABLE);
+    bool mutability = GET_CELL_FLAG(any_array, EXPLICITLY_MUTABLE);
 
     return THROWN_FLAG == Eval_Array_At_Core(
         Init_Void(out),
@@ -124,7 +124,7 @@ inline static bool Apply_Only_Throws(
 
     DECLARE_LOCAL (applicand_eval);
     Move_Value(applicand_eval, applicand);
-    SET_VAL_FLAG(applicand_eval, VALUE_FLAG_EVAL_FLIP);
+    SET_CELL_FLAG(applicand_eval, EVAL_FLIP);
 
     REBIXO indexor = Eval_Va_Core(
         SET_END(out), // start at END to detect error if no eval product

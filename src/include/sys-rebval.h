@@ -70,6 +70,42 @@
 //
 
 
+// The GET_CELL_FLAG()/etc. macros splice together CELL_FLAG_ with the text
+// you pass in (token pasting).  Since it does this, alias NODE_FLAG_XXX to
+// CELL_FLAG_XXX so they can be used with those macros.
+//
+// * ARG_MARKED_CHECKED -- This uses the NODE_FLAG_MARKED bit on args in
+//   action frames, and in particular specialization uses it to denote which
+//   arguments in a frame are actually specialized.  This helps notice the
+//   difference during an APPLY of encoded partial refinement specialization
+//   encoding from just a user putting random values in a refinement slot.
+//
+// * OUT_MARKED_STALE -- This application of NODE_FLAG_MARKED helps show
+//   when an evaluation step didn't add any new output, but it does not
+//   overwrite the contents of the out cell.  This allows the evaluator to
+//   leave a value in the output slot even if there is trailing invisible
+//   evaluation to be done, such as in `[1 + 2 elide (print "Hi")]`, where
+//   something like ALL would want to hold onto the 3 without needing to
+//   cache it in some other location.  Stale out cells cannot be used as
+//   left side input for enfix.
+//
+// **IMPORTANT**: This means that a routine being passed an arbitrary value
+//   should not make assumptions about the marked bit.  It should only be
+//   used in circumstances where some understanding of being "in control"
+//   of the bit are in place--like processing an array a routine itself made.
+//
+
+#define CELL_FLAG_MANAGED NODE_FLAG_MANAGED
+#define CELL_FLAG_ROOT NODE_FLAG_ROOT
+#define CELL_FLAG_TRANSIENT NODE_FLAG_TRANSIENT
+#define CELL_FLAG_STACK NODE_FLAG_STACK
+
+#define CELL_FLAG_ARG_MARKED_CHECKED NODE_FLAG_MARKED
+#define CELL_FLAG_OUT_MARKED_STALE NODE_FLAG_MARKED
+#define CELL_FLAG_VAR_MARKED_REUSE NODE_FLAG_MARKED
+#define CELL_FLAG_MARKED_REMOVE NODE_FLAG_MARKED
+#define CELL_FLAG_BIND_MARKED_REUSE NODE_FLAG_MARKED
+
 
 // v-- BEGIN GENERAL CELL BITS HERE, third byte in the header
 
@@ -81,18 +117,17 @@
 // another location will not propagate the protectedness from the original
 // value to the copy.
 //
-// This is called a CELL_FLAG and not a VALUE_FLAG because any formatted cell
-// can be tested for it, even if it is "trash".  This means writing routines
-// that are putting data into a cell for the first time can check the bit.
-// (Series, having more than one kind of protection, put those bits in the
-// "info" so they can all be checked at once...otherwise there might be a
-// shared NODE_FLAG_PROTECTED in common.)
+// Note: Any formatted cell can be tested for this, even if it is "trash".
+// This means writing routines that are putting data into a cell for the first
+// time can check the bit.  (Series, having more than one kind of protection,
+// put those bits in the "info" so they can all be checked at once...otherwise
+// there might be a shared NODE_FLAG_PROTECTED in common.)
 //
 #define CELL_FLAG_PROTECTED \
     FLAG_LEFT_BIT(16)
 
 
-//=//// VALUE_FLAG_FALSEY /////////////////////////////////////////////////=//
+//=//// CELL_FLAG_FALSEY //////////////////////////////////////////////////=//
 //
 // This flag is used as a quick cache on NULL, BLANK! or LOGIC! false values.
 // These are the only three values that return true from the NOT native
@@ -106,11 +141,11 @@
 // payload... its data of being true or false is already covered by this
 // header bit.
 //
-#define VALUE_FLAG_FALSEY \
+#define CELL_FLAG_FALSEY \
     FLAG_LEFT_BIT(17)
 
 
-//=//// VALUE_FLAG_NEWLINE_BEFORE /////////////////////////////////////////=//
+//=//// CELL_FLAG_NEWLINE_BEFORE //////////////////////////////////////////=//
 //
 // When the array containing a value with this flag set is molding, that will
 // output a new line *before* molding the value.  This flag works in tandem
@@ -126,11 +161,11 @@
 // !!! Currently, ANY-PATH! rendering just ignores this bit.  Some way of
 // representing paths with newlines in them may be needed.
 //
-#define VALUE_FLAG_NEWLINE_BEFORE \
+#define CELL_FLAG_NEWLINE_BEFORE \
     FLAG_LEFT_BIT(18)
 
 
-//=//// VALUE_FLAG_UNEVALUATED ////////////////////////////////////////////=//
+//=//// CELL_FLAG_UNEVALUATED /////////////////////////////////////////////=//
 //
 // Some functions wish to be sensitive to whether or not their argument came
 // as a literal in source or as a product of an evaluation.  While all values
@@ -148,17 +183,17 @@
 // while still tolerating `item: [a b c] | if item [print "it's an item"]`. 
 // That has a lot of impact for the new user experience.
 //
-#define VALUE_FLAG_UNEVALUATED \
+#define CELL_FLAG_UNEVALUATED \
     FLAG_LEFT_BIT(19)
 
 
-//=//// VALUE_FLAG_ENFIXED ////////////////////////////////////////////////=//
+//=//// CELL_FLAG_ENFIXED /////////////////////////////////////////////////=//
 //
 // In Ren-C, there is only one kind of function (ACTION!).  But it's possible
 // to tag a function value cell in a context as being "enfixed", hence it
 // will acquire its first argument from the left.  See SET/ENFIX and ENFIX.
 //
-// The reasion it is a generic VALUE_FLAG_XXX and not an PARAMLIST_FLAG_XXX is
+// The reasion it is a generic CELL_FLAG_XXX and not an PARAMLIST_FLAG_XXX is
 // so that it can be dealt with without specifically knowing that the cell
 // involved is an action.  One benefit is that testing for an enfix action
 // can be done just by looking at this bit--since only actions have it set.
@@ -168,11 +203,11 @@
 // function.  To do that would require more nuance in Move_Value if it were
 // an PARAMLIST_FLAG_XXX, testing for action-ness vs. just masking it out.
 //
-#define VALUE_FLAG_ENFIXED \
+#define CELL_FLAG_ENFIXED \
     FLAG_LEFT_BIT(20)
 
 
-//=//// VALUE_FLAG_EVAL_FLIP //////////////////////////////////////////////=//
+//=//// CELL_FLAG_EVAL_FLIP ///////////////////////////////////////////////=//
 //
 // This is a bit which should not be present on cells in user-exposed arrays.
 //
@@ -181,25 +216,25 @@
 // value would signal a kind of quoting to suppress evaluation in ordinary
 // evaluation (without DO_FLAG_EXPLICIT_EVALUATE), hence it is a "flip" bit.
 //
-#define VALUE_FLAG_EVAL_FLIP \
+#define CELL_FLAG_EVAL_FLIP \
     FLAG_LEFT_BIT(21) // IMPORTANT: Same bit as DO_FLAG_EXPLICIT_EVALUATE
 
 
-//=//// VALUE_FLAG_CONST //////////////////////////////////////////////////=//
+//=//// CELL_FLAG_CONST ///////////////////////////////////////////////////=//
 //
 // A value that is CONST has read-only access to any series or data it points
 // to, regardless of whether that data is in a locked series or not.  It is
 // possible to get a mutable view on a const value by using MUTABLE, and a
 // const view on a mutable value with CONST.
 //
-#define VALUE_FLAG_CONST \
+#define CELL_FLAG_CONST \
     FLAG_LEFT_BIT(22) // NOTE: Must be SAME BIT as DO_FLAG_CONST
 
 
-//=//// VALUE_FLAG_EXPLICITLY_MUTABLE /////////////////////////////////////=//
+//=//// CELL_FLAG_EXPLICITLY_MUTABLE //////////////////////////////////////=//
 //
 // While it may seem that a mutable value would be merely one that did not
-// carry VALUE_FLAG_CONST, there's a need for a separate bit to indicate when
+// carry CELL_FLAG_CONST, there's a need for a separate bit to indicate when
 // MUTABLE has been specified explicitly.  That way, evaluative situations
 // like `do mutable compose [...]` or `make object! mutable load ...` can
 // realize that they should switch into a mode which doesn't enforce const
@@ -212,7 +247,7 @@
 // While CONST can be added by the system implicitly during an evaluation,
 // the MUTABLE flag should only be added by running MUTABLE.
 //
-#define VALUE_FLAG_EXPLICITLY_MUTABLE \
+#define CELL_FLAG_EXPLICITLY_MUTABLE \
     FLAG_LEFT_BIT(23)
 
 
@@ -290,7 +325,7 @@ inline static union Reb_Header Endlike_Header(uintptr_t bits) {
 
 #define CELL_MASK_COPY \
     ~(CELL_MASK_PERSIST | NODE_FLAG_MARKED | CELL_FLAG_PROTECTED \
-        | VALUE_FLAG_ENFIXED | VALUE_FLAG_UNEVALUATED | VALUE_FLAG_EVAL_FLIP)
+        | CELL_FLAG_ENFIXED | CELL_FLAG_UNEVALUATED | CELL_FLAG_EVAL_FLIP)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -518,7 +553,7 @@ struct Reb_Varargs_Payload {
     // for the lifetime of the FRAME! in extra->binding...but even less so,
     // because VARARGS! can (currently) be overwritten with another value in
     // the function frame at any point.  Despite this, we proxy the
-    // VALUE_FLAG_UNEVALUATED from the last TAKE to reflect its status.
+    // CELL_FLAG_UNEVALUATED from the last TAKE to reflect its status.
     //
     REBINT signed_param_index; // if negative, consider the arg enfixed
 

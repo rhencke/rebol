@@ -148,7 +148,7 @@ inline static void TERM_SERIES(REBSER *s) {
 
 
 //
-// REBVAL cells cannot be written to unless they carry VALUE_FLAG_CELL, and
+// REBVAL cells cannot be written to unless they carry CELL_FLAG_CELL, and
 // have been "formatted" to convey their lifetime (stack or array).  This
 // helps debugging, but is also important information needed by Move_Value()
 // for deciding if the lifetime of a target cell requires the "reification"

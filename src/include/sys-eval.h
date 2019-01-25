@@ -295,7 +295,7 @@ inline static void Set_Frame_Detected_Fetch(
     // supposed to be freeing it or releasing it, then it must be proxied
     // into a place where the data will be safe long enough for lookback.
 
-    if (NOT_VAL_FLAG(f->value, NODE_FLAG_ROOT)) {
+    if (NOT_CELL_FLAG(f->value, ROOT)) {
         if (opt_lookback)
             *opt_lookback = f->value; // non-API values must be stable/GC-safe
         goto detect;
@@ -326,8 +326,8 @@ inline static void Set_Frame_Detected_Fetch(
         // The FRM_CELL(f) is used as the GC-safe location proxied to.
         //
         Move_Value(FRM_CELL(f), KNOWN(f->value));
-        if (GET_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP))
-            SET_VAL_FLAG(FRM_CELL(f), VALUE_FLAG_EVAL_FLIP);
+        if (GET_CELL_FLAG(f->value, EVAL_FLIP))
+            SET_CELL_FLAG(FRM_CELL(f), EVAL_FLIP);
         *opt_lookback = FRM_CELL(f);
     }
 
@@ -604,7 +604,7 @@ inline static void Fetch_Next_In_Frame(
 
 inline static void Quote_Next_In_Frame(REBVAL *dest, REBFRM *f) {
     Derelativize(dest, f->value, f->specifier);
-    SET_VAL_FLAG(dest, VALUE_FLAG_UNEVALUATED);
+    SET_CELL_FLAG(dest, UNEVALUATED);
 
     // SEE ALSO: The `inert:` branch in %c-eval.c, which is similar.  We
     // want `append '(a b c) 'd` to be an error, which means the quoting
@@ -949,7 +949,7 @@ inline static void Reify_Va_To_Array_In_Frame(
         assert(f->feed->pending == END_NODE);
 
         do {
-            // Preserve VALUE_FLAG_EVAL_FLIP flag.  Note: may be a NULLED cell
+            // Preserve CELL_FLAG_EVAL_FLIP flag.  Note: may be a NULLED cell
             //
             Derelativize_Keep_Eval_Flip(DS_PUSH(), f->value, f->specifier);
             Fetch_Next_In_Frame(nullptr, f);
@@ -1062,7 +1062,7 @@ inline static REBIXO Eval_Va_Core(
 
     if (
         (flags & DO_FLAG_TO_END) // not just an EVALUATE, but a full DO
-        or (f->out->header.bits & OUT_MARKED_STALE) // just ELIDEs and COMMENTs
+        or GET_CELL_FLAG(f->out, OUT_MARKED_STALE) // just ELIDEs and COMMENTs
     ){
         assert(IS_END(f->value));
         return END_FLAG;
@@ -1122,7 +1122,7 @@ inline static void Handle_Api_Dispatcher_Result(REBFRM *f, const REBVAL* r) {
     assert(not Is_Evaluator_Throwing_Debug());
 
   #if !defined(NDEBUG)
-    if (NOT_VAL_FLAG(r, NODE_FLAG_ROOT)) {
+    if (NOT_CELL_FLAG(r, ROOT)) {
         printf("dispatcher returned non-API value not in D_OUT\n");
         printf("during ACTION!: %s\n", f->label_utf8);
         printf("`return D_OUT;` or use `RETURN (non_api_cell);`\n");
@@ -1134,6 +1134,6 @@ inline static void Handle_Api_Dispatcher_Result(REBFRM *f, const REBVAL* r) {
         assert(!"Dispatcher returned nulled cell, not C nullptr for API use");
 
     Move_Value(f->out, r);
-    if (NOT_VAL_FLAG(r, NODE_FLAG_MANAGED))
+    if (NOT_CELL_FLAG(r, MANAGED))
         rebRelease(r);
 }

@@ -51,7 +51,7 @@ bool Reduce_To_Stack_Throws(
     );
 
     while (NOT_END(f->value)) {
-        bool line = GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE);
+        bool line = GET_CELL_FLAG(f->value, NEWLINE_BEFORE);
 
         if (Eval_Step_Throws(SET_END(out), f)) {
             DS_DROP_TO(dsp_orig);
@@ -70,7 +70,7 @@ bool Reduce_To_Stack_Throws(
             Move_Value(DS_PUSH(), out);
 
         if (line)
-            SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
+            SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
     }
 
     Drop_Frame_Unbalanced(f); // Drop_Frame() asserts on accumulation
@@ -268,8 +268,8 @@ REB_R Compose_To_Stack_Core(
                     // value spliced in (it may have its own newline flag)
                     //
                     Derelativize(DS_PUSH(), push, VAL_SPECIFIER(out));
-                    if (GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE))
-                        SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
+                    if (GET_CELL_FLAG(f->value, NEWLINE_BEFORE))
+                        SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
 
                     while (++push, NOT_END(push))
                         Derelativize(DS_PUSH(), push, VAL_SPECIFIER(out));
@@ -283,8 +283,8 @@ REB_R Compose_To_Stack_Core(
                 // compose/only [([a b c]) unmerged] => [[a b c] unmerged]
 
                 Move_Value(DS_PUSH(), out); // Not legal to eval to stack direct!
-                if (GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE))
-                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
+                if (GET_CELL_FLAG(f->value, NEWLINE_BEFORE))
+                    SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
             }
 
           #ifdef DEBUG_UNREADABLE_BLANKS
@@ -336,8 +336,8 @@ REB_R Compose_To_Stack_Core(
 
             Quotify(DS_TOP, quotes); // put back backslashes
 
-            if (GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE))
-                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
+            if (GET_CELL_FLAG(f->value, NEWLINE_BEFORE))
+                SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
 
             changed = true;
         }

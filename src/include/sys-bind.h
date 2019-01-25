@@ -346,7 +346,7 @@ inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
     if (
         not binding // unbound
         or GET_SER_FLAG(binding, NODE_FLAG_MANAGED) // managed already
-        or GET_VAL_FLAG(out, NODE_FLAG_TRANSIENT) // can't pass up/down stack
+        or GET_CELL_FLAG(out, TRANSIENT) // can't pass up/down stack
     ){
         return;
     }
@@ -564,7 +564,7 @@ static inline REBVAL *Get_Mutable_Var_May_Fail(
     // The PROTECT command has a finer-grained granularity for marking
     // not just contexts, but individual fields as protected.
     //
-    if (GET_VAL_FLAG(var, CELL_FLAG_PROTECTED)) {
+    if (GET_CELL_FLAG(var, PROTECTED)) {
         DECLARE_LOCAL (unwritable);
         Init_Word(unwritable, VAL_WORD_SPELLING(any_word));
         fail (Error_Protected_Word_Raw(unwritable));
@@ -706,10 +706,10 @@ inline static REBVAL *Derelativize_Keep_Eval_Flip(
     const RELVAL *v,
     REBSPC *specifier
 ){
-    bool flip = GET_VAL_FLAG(v, VALUE_FLAG_EVAL_FLIP);
+    bool flip = GET_CELL_FLAG(v, EVAL_FLIP);
     Derelativize(out, v, specifier);
     if (flip)
-        SET_VAL_FLAG(out, VALUE_FLAG_EVAL_FLIP);
+        SET_CELL_FLAG(out, EVAL_FLIP);
     return KNOWN(out);
 }
 

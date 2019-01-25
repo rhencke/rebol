@@ -784,7 +784,7 @@ REB_R Skinner_Dispatcher(REBFRM *f)
     REBVAL *arg = FRM_ARGS_HEAD(f);
     for (; NOT_END(param); ++param, ++arg) {
         if (TYPE_CHECK(param, REB_TS_SKIN_EXPANDED))
-            CLEAR_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+            CLEAR_CELL_FLAG(arg, ARG_MARKED_CHECKED);
     }
 
     // If the return type has been expanded, then the only way we're going to

@@ -339,7 +339,7 @@ bool Redo_Action_Throws(REBFRM *f, REBACT *run)
     for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
         if (Is_Param_Hidden(f->param))
             continue; // !!! is this still relevant?
-        if (GET_VAL_FLAG(f->special, ARG_MARKED_CHECKED))
+        if (GET_CELL_FLAG(f->special, ARG_MARKED_CHECKED))
             continue; // a parameter that was "specialized out" of this phase
 
         Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
@@ -377,7 +377,7 @@ bool Redo_Action_Throws(REBFRM *f, REBACT *run)
     DECLARE_LOCAL (first);
     TERM_ARRAY_LEN(path_arr, path - ARR_HEAD(path_arr));
     Init_Path(first, path_arr);
-    SET_VAL_FLAG(first, VALUE_FLAG_EVAL_FLIP); // make the PATH! invoke action
+    SET_CELL_FLAG(first, EVAL_FLIP); // make the PATH! invoke action
 
     // Invoke DO with the special mode requesting non-evaluation on all
     // args, as they were evaluated the first time around.  This will also

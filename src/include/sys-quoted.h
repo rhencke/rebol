@@ -99,7 +99,7 @@ inline static RELVAL *Quotify_Core(
         cell->extra = v->extra;
         cell->payload = v->payload;
       #if !defined(NDEBUG)
-        SET_VAL_FLAG(cell, CELL_FLAG_PROTECTED); // maybe shared; can't change
+        SET_CELL_FLAG(cell, PROTECTED); // maybe shared; can't change
       #endif
  
         RESET_VAL_HEADER(v, REB_QUOTED);

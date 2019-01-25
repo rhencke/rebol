@@ -250,7 +250,7 @@ REBNATIVE(literal) // aliased in %base-defs.r as LIT
         fail ("LITERAL/SOFT not currently implemented, should clone EVAL");
 
     Move_Value(D_OUT, v);
-    SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);
+    SET_CELL_FLAG(D_OUT, UNEVALUATED);
     return D_OUT;
 }
 

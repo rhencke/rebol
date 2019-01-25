@@ -180,7 +180,7 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
         REBVAL *key = CTX_KEY(context, i);
         REBVAL *var = CTX_VAR(context, i);
 
-        if (GET_VAL_FLAG(var, CELL_FLAG_PROTECTED)) {
+        if (GET_CELL_FLAG(var, PROTECTED)) {
             error = Error_Protected_Key(key);
             goto collect_end;
         }
@@ -195,7 +195,7 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
             break; // fix bug#708
         }
         else {
-            assert(NOT_VAL_FLAG(&word[1], VALUE_FLAG_ENFIXED));
+            assert(NOT_CELL_FLAG(&word[1], ENFIXED));
             Derelativize(var, &word[1], VAL_SPECIFIER(arg));
         }
     }
@@ -413,7 +413,7 @@ REB_R PD_Context(
     if (opt_setval) {
         FAIL_IF_READ_ONLY_CONTEXT(pvs->out);
 
-        if (GET_VAL_FLAG(CTX_VAR(c, n), CELL_FLAG_PROTECTED))
+        if (GET_CELL_FLAG(CTX_VAR(c, n), PROTECTED))
             fail (Error_Protected_Word_Raw(picker));
     }
 
@@ -534,7 +534,7 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
     //
     REBVAL *src = CTX_VARS_HEAD(original);
     for (; NOT_END(src); ++src, ++dest) {
-        Move_Var(dest, src); // keep VALUE_FLAG_ENFIXED, ARG_MARKED_CHECKED
+        Move_Var(dest, src); // keep CELL_FLAG_ENFIXED, ARG_MARKED_CHECKED
 
         REBFLGS flags = 0; // !!! Review
         Clonify(dest, flags, types);

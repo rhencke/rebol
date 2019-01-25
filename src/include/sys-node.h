@@ -264,7 +264,7 @@ inline static enum Reb_Pointer_Detect Detect_Rebol_Pointer(const void *p) {
 }
 
 
-// Unlike with GET_VAL_FLAG() etc, there's not really anything to be checked
+// Unlike with GET_CELL_FLAG() etc, there's not really anything to be checked
 // on generic nodes (other than having NODE_FLAG_NODE?)  But these macros
 // help make the source a little more readable.
 
@@ -272,7 +272,7 @@ inline static enum Reb_Pointer_Detect Detect_Rebol_Pointer(const void *p) {
     ((n)->header.bits |= (f))
 
 #define SET_NOD_FLAG(n,f) \
-    SET_VAL_FLAGS((n), (f))
+    SET_CELL_FLAGS((n), (f))
 
 #define GET_NOD_FLAG(n, f) \
     (did ((n)->header.bits & (f)))

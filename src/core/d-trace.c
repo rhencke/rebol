@@ -279,7 +279,7 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
     // this frame's label will still be running, not running under a new name)
     //
     if (KIND_BYTE(r) == REB_R_REDO) {
-        const bool checked = NOT_VAL_FLAG(r, VALUE_FLAG_FALSEY);
+        const bool checked = NOT_CELL_FLAG(r, FALSEY);
         if (not checked)
             last_phase = false;
     }
@@ -300,7 +300,7 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
         else if (r == nullptr) {
             Debug_Fmt("; null\n");
         }
-        else if (GET_VAL_FLAG(r, NODE_FLAG_ROOT)) { // API, from Alloc_Value()
+        else if (GET_CELL_FLAG(r, ROOT)) { // API, from Alloc_Value()
             Handle_Api_Dispatcher_Result(f, r);
             r = f->out;
             goto process_out;

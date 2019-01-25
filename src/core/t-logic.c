@@ -229,7 +229,7 @@ REBNATIVE(and)
     REBVAL *right = ARG(right);
 
     if (IS_BLOCK(left) or IS_QUOTED(left))
-        if (GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
+        if (GET_CELL_FLAG(left, UNEVALUATED))
             fail ("left side of AND should not be literal block or quote");
 
     if (IS_FALSEY(left)) {
@@ -270,7 +270,7 @@ REBNATIVE(or)
     REBVAL *right = ARG(right);
 
     if (IS_BLOCK(left) or IS_QUOTED(left))
-        if (GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
+        if (GET_CELL_FLAG(left, UNEVALUATED))
             fail ("left side of OR should not be literal block or quote");
 
     if (IS_TRUTHY(left)) {
@@ -311,7 +311,7 @@ REBNATIVE(xor)
 
     REBVAL *left = ARG(left);
 
-    if (IS_BLOCK(left) and GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
+    if (IS_BLOCK(left) and GET_CELL_FLAG(left, UNEVALUATED))
         fail ("left hand side of XOR should not be literal block");
 
     if (Do_Any_Array_At_Throws(D_OUT, ARG(right))) // always evaluated

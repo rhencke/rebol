@@ -121,8 +121,8 @@ REBARR *Copy_Values_Len_Extra_Shallow_Core(
     for (; count < len; ++count, ++src, ++dest) {
         Derelativize(dest, src, specifier);
         if (flags & ARRAY_FLAG_NULLEDS_LEGAL) {
-            if (GET_VAL_FLAG(src, VALUE_FLAG_EVAL_FLIP))
-                SET_VAL_FLAG(dest, VALUE_FLAG_EVAL_FLIP);
+            if (GET_CELL_FLAG(src, EVAL_FLIP))
+                SET_CELL_FLAG(dest, EVAL_FLIP);
         }
     }
 
@@ -225,7 +225,7 @@ void Clonify(
         // We're not copying the value, so inherit the const bit from the
         // original value's point of view, if applicable.
         //
-        if (NOT_VAL_FLAG(v, VALUE_FLAG_EXPLICITLY_MUTABLE))
+        if (NOT_CELL_FLAG(v, EXPLICITLY_MUTABLE))
             v->header.bits |= (flags & ARRAY_FLAG_CONST_SHALLOW);
     }
 

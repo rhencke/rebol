@@ -210,9 +210,9 @@ REBNATIVE(new_line)
             continue;
 
         if (mark)
-            SET_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE);
+            SET_CELL_FLAG(item, NEWLINE_BEFORE);
         else
-            CLEAR_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE);
+            CLEAR_CELL_FLAG(item, NEWLINE_BEFORE);
 
         if (skip == 0)
             break;
@@ -274,10 +274,7 @@ REBNATIVE(new_line_q)
     }
 
     if (NOT_END(item))
-        return Init_Logic(
-            D_OUT,
-            GET_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE)
-        );
+        return Init_Logic(D_OUT, GET_CELL_FLAG(item, NEWLINE_BEFORE));
 
     return Init_Logic(
         D_OUT,

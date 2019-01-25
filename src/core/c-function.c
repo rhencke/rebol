@@ -1322,7 +1322,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
     // not with FUNCTION.
     //
     if (FS_TOP->flags.bits & DO_FLAG_CONST)
-        SET_VAL_FLAG(body, VALUE_FLAG_CONST); // Inherit_Const() needs REBVAL*
+        SET_CELL_FLAG(body, CONST); // Inherit_Const() needs REBVAL*
 
     return a;
 }
@@ -1462,7 +1462,7 @@ inline static bool Interpreted_Dispatch_Throws(REBVAL *out, REBFRM *f)
     // creation.  This enables things like calling a module based on Rebol2
     // expectations from modern Ren-C code.
     //
-    bool mutability = NOT_VAL_FLAG(body, VALUE_FLAG_CONST);
+    bool mutability = NOT_CELL_FLAG(body, CONST);
     return Do_At_Mutability_Throws(
         out, // Note that elider_Dispatcher() does not overwrite f->out
         VAL_ARRAY(body),
@@ -1638,7 +1638,7 @@ REB_R Adapter_Dispatcher(REBFRM *f)
     // spare cell but can't as Fetch_Next() uses it.
 
     DECLARE_LOCAL (dummy);
-    bool mutability = NOT_VAL_FLAG(prelude, VALUE_FLAG_CONST);
+    bool mutability = NOT_CELL_FLAG(prelude, CONST);
     if (Do_At_Mutability_Throws(
         dummy,
         VAL_ARRAY(prelude),

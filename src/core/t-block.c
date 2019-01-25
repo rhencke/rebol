@@ -142,7 +142,7 @@ REB_R MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             goto bad_make;
 
         // !!! Previously this code would clear line break options on path
-        // elements, using `CLEAR_VAL_FLAG(..., VALUE_FLAG_LINE)`.  But if
+        // elements, using `CLEAR_CELL_FLAG(..., CELL_FLAG_LINE)`.  But if
         // arrays are allowed to alias each others contents, the aliasing
         // via MAKE shouldn't modify the store.  Line marker filtering out of
         // paths should be part of the MOLDing logic -or- a path with embedded
@@ -1077,13 +1077,10 @@ REBTYPE(Array)
         if (back == ARR_LAST(arr)) // !!! review tail newline handling
             line_back = GET_SER_FLAG(arr, ARRAY_FLAG_TAIL_NEWLINE);
         else
-            line_back = GET_VAL_FLAG(back + 1, VALUE_FLAG_NEWLINE_BEFORE);
+            line_back = GET_CELL_FLAG(back + 1, NEWLINE_BEFORE);
 
         for (len /= 2; len > 0; --len, ++front, --back) {
-            bool line_front = GET_VAL_FLAG(
-                front + 1,
-                VALUE_FLAG_NEWLINE_BEFORE
-            );
+            bool line_front = GET_CELL_FLAG(front + 1, NEWLINE_BEFORE);
 
             RELVAL temp;
             temp.header = front->header;
@@ -1095,19 +1092,19 @@ REBTYPE(Array)
             //
             Blit_Cell(front, back);
             if (line_back)
-                SET_VAL_FLAG(front, VALUE_FLAG_NEWLINE_BEFORE);
+                SET_CELL_FLAG(front, NEWLINE_BEFORE);
             else
-                CLEAR_VAL_FLAG(front, VALUE_FLAG_NEWLINE_BEFORE);
+                CLEAR_CELL_FLAG(front, NEWLINE_BEFORE);
 
             // We're pushing the back pointer toward the front, so the flag
             // that was on the back will be the after for the next blit.
             //
-            line_back = GET_VAL_FLAG(back, VALUE_FLAG_NEWLINE_BEFORE);
+            line_back = GET_CELL_FLAG(back, NEWLINE_BEFORE);
             Blit_Cell(back, &temp);
             if (line_front)
-                SET_VAL_FLAG(back, VALUE_FLAG_NEWLINE_BEFORE);
+                SET_CELL_FLAG(back, NEWLINE_BEFORE);
             else
-                CLEAR_VAL_FLAG(back, VALUE_FLAG_NEWLINE_BEFORE);
+                CLEAR_CELL_FLAG(back, NEWLINE_BEFORE);
         }
         RETURN (array);
     }

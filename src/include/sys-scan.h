@@ -291,7 +291,7 @@ typedef struct rebol_scan_state {
 
     REBSTR *file;
 
-    // VALUE_FLAG_LINE appearing on a value means that there is a line break
+    // CELL_FLAG_LINE appearing on a value means that there is a line break
     // *before* that value.  Hence when a newline is seen, it means the *next*
     // value to be scanned will receive the flag.
     //

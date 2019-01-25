@@ -263,34 +263,10 @@ union Reb_Header {
 // Because "pairings" can wind up marking what looks like both a value cell
 // and a series, it's a bit dangerous to try exploiting this bit on a generic
 // REBVAL.  If one is *certain* that a value is not "paired" (e.g. it's in
-// a function arglist, or array slot), it may be used for other things, e.g.
-//
-// * ARG_MARKED_CHECKED -- This uses the NODE_FLAG_MARKED bit on args in
-//   action frames, and in particular specialization uses it to denote which
-//   arguments in a frame are actually specialized.  This helps notice the
-//   difference during an APPLY of encoded partial refinement specialization
-//   encoding from just a user putting random values in a refinement slot.
-//
-// * OUT_MARKED_STALE -- This application of NODE_FLAG_MARKED helps show
-//   when an evaluation step didn't add any new output, but it does not
-//   overwrite the contents of the out cell.  This allows the evaluator to
-//   leave a value in the output slot even if there is trailing invisible
-//   evaluation to be done, such as in `[1 + 2 elide (print "Hi")]`, where
-//   something like ALL would want to hold onto the 3 without needing to
-//   cache it in some other location.  Stale out cells cannot be used as
-//   left side input for enfix.
-//
-// **IMPORTANT**: This means that a routine being passed an arbitrary value
-//   should not make assumptions about the marked bit.  It should only be
-//   used in circumstances where some understanding of being "in control"
-//   of the bit are in place--like processing an array a routine itself made.
+// a function arglist, or array slot), it may be used for other things.
 //
 #define NODE_FLAG_MARKED \
     FLAG_LEFT_BIT(3)
-
-#define ARG_MARKED_CHECKED NODE_FLAG_MARKED
-#define OUT_MARKED_STALE NODE_FLAG_MARKED
-#define VAR_MARKED_REUSE NODE_FLAG_MARKED
 
 
 //=//// NODE_FLAG_TRANSIENT (fifth-leftmost bit) //////////////////////////=//

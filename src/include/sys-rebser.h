@@ -231,7 +231,7 @@
 //
 // Identifies arrays in which it is legal to have nulled elements.  This is
 // true for reified C va_list()s which treated slots as if they had already
-// abeen evaluated.  (See VALUE_FLAG_EVAL_FLIP).  When those va_lists need to
+// abeen evaluated.  (See CELL_FLAG_EVAL_FLIP).  When those va_lists need to
 // be put into arrays for the purposes of GC protection, they may contain
 // nulled cells.  (How to present this in the debugger will be a UI issue.)
 //
@@ -288,7 +288,7 @@
 
 //=//// ARRAY_FLAG_CONST_SHALLOW /////////////////////////////////////////=//
 //
-// When a COPY is made of an ANY-ARRAY! that has VALUE_FLAG_CONST, the new
+// When a COPY is made of an ANY-ARRAY! that has CELL_FLAG_CONST, the new
 // value shouldn't be const, as the goal of copying it is generally to modify.
 // However, if you don't copy it deeply, then mere copying should not be
 // giving write access to levels underneath it that would have been seen as
@@ -298,7 +298,7 @@
 //
 #define ARRAY_FLAG_CONST_SHALLOW \
     FLAG_LEFT_BIT(22)
-STATIC_ASSERT(ARRAY_FLAG_CONST_SHALLOW == VALUE_FLAG_CONST);
+STATIC_ASSERT(ARRAY_FLAG_CONST_SHALLOW == CELL_FLAG_CONST);
 
 
 // These flags are available for use by specific array subclasses (e.g. a

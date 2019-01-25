@@ -360,7 +360,7 @@ void Mold_Array_At(
 
     RELVAL *item = ARR_AT(a, index);
     while (NOT_END(item)) {
-        if (GET_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE)) {
+        if (GET_CELL_FLAG(item, NEWLINE_BEFORE)) {
            if (not indented and (sep[1] != '\0')) {
                 ++mo->indent;
                 indented = true;
@@ -377,7 +377,7 @@ void Mold_Array_At(
 
         if (sep[0] == '/')
             Append_Utf8_Codepoint(mo->series, '/'); // !!! ignores newline
-        else if (NOT_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE))
+        else if (NOT_CELL_FLAG(item, NEWLINE_BEFORE))
             Append_Utf8_Codepoint(mo->series, ' ');
     }
 

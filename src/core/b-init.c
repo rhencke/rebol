@@ -266,7 +266,7 @@ static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
         // a limited sense.)
         //
         assert(value == Datatype_From_Kind(cast(enum Reb_Kind, n)));
-        SET_VAL_FLAG(CTX_VAR(Lib_Context, n), CELL_FLAG_PROTECTED);
+        SET_CELL_FLAG(CTX_VAR(Lib_Context, n), PROTECTED);
 
         Append_Value(catalog, KNOWN(word));
     }
@@ -646,7 +646,7 @@ REBVAL *Make_Native(
     REBVAL *var = Append_Context(VAL_CONTEXT(module), name, 0);
     Init_Action_Unbound(var, act);
     if (enfix)
-        SET_VAL_FLAG(var, VALUE_FLAG_ENFIXED);
+        SET_CELL_FLAG(var, ENFIXED);
 
     return var;
 }
@@ -716,7 +716,7 @@ static REBARR *Startup_Natives(const REBVAL *boot_natives)
         //
         Prep_Non_Stack_Cell(&Natives[n]);
         Move_Value(&Natives[n], native); // Note: Loses enfixedness (!)
-        SET_VAL_FLAG(&Natives[n], CELL_FLAG_PROTECTED);
+        SET_CELL_FLAG(&Natives[n], PROTECTED);
 
         REBVAL *catalog_item = Move_Value(Alloc_Tail_Array(catalog), name);
         mutable_KIND_BYTE(catalog_item) = REB_WORD;
@@ -895,7 +895,7 @@ static void Init_Root_Vars(void)
     RESET_CELL_EXTRA(
         &PG_R_Redo_Unchecked[0],
         REB_R_REDO,
-        VALUE_FLAG_FALSEY // understood by Eval_Core_Throws() as "unchecked"
+        CELL_FLAG_FALSEY // understood by Eval_Core_Throws() as "unchecked"
     );
     TRASH_CELL_IF_DEBUG(&PG_R_Redo_Unchecked[1]);
 
@@ -904,7 +904,7 @@ static void Init_Root_Vars(void)
     RESET_CELL_EXTRA(
         &PG_R_Redo_Checked[0],
         REB_R_REDO,
-        0 // no VALUE_FLAG_FALSEY is taken by Eval_Core_Throws() as "checked"
+        0 // no CELL_FLAG_FALSEY is taken by Eval_Core_Throws() as "checked"
     );
     TRASH_CELL_IF_DEBUG(&PG_R_Redo_Checked[1]);
 

@@ -655,7 +655,7 @@ void Set_Opt_Polymorphic_May_Fail(
         REBVAL *var = Sink_Var_May_Fail(target, target_specifier);
         Derelativize(var, setval, setval_specifier);
         if (enfix)
-            SET_VAL_FLAG(var, VALUE_FLAG_ENFIXED);
+            SET_CELL_FLAG(var, ENFIXED);
     }
     else if (ANY_PATH_KIND(kind)) {
         DECLARE_LOCAL (specific);
@@ -938,16 +938,16 @@ REBNATIVE(enfixed_q)
     if (ANY_WORD(source)) {
         const REBVAL *var = Get_Opt_Var_May_Fail(source, SPECIFIED);
 
-        assert(NOT_VAL_FLAG(var, VALUE_FLAG_ENFIXED) or IS_ACTION(var));
-        return Init_Logic(D_OUT, GET_VAL_FLAG(var, VALUE_FLAG_ENFIXED));
+        assert(NOT_CELL_FLAG(var, ENFIXED) or IS_ACTION(var));
+        return Init_Logic(D_OUT, GET_CELL_FLAG(var, ENFIXED));
     }
     else {
         assert(ANY_PATH(source));
 
         DECLARE_LOCAL (temp);
         Get_Path_Core(temp, source, SPECIFIED);
-        assert(NOT_VAL_FLAG(temp, VALUE_FLAG_ENFIXED) or IS_ACTION(temp));
-        return Init_Logic(D_OUT, GET_VAL_FLAG(temp, VALUE_FLAG_ENFIXED));
+        assert(NOT_CELL_FLAG(temp, ENFIXED) or IS_ACTION(temp));
+        return Init_Logic(D_OUT, GET_CELL_FLAG(temp, ENFIXED));
     }
 }
 
@@ -975,7 +975,7 @@ REBNATIVE(semiquoted_q)
 
     const REBVAL *var = Get_Opt_Var_May_Fail(ARG(parameter), SPECIFIED);
 
-    return Init_Logic(D_OUT, GET_VAL_FLAG(var, VALUE_FLAG_UNEVALUATED));
+    return Init_Logic(D_OUT, GET_CELL_FLAG(var, UNEVALUATED));
 }
 
 
@@ -1005,7 +1005,7 @@ REBNATIVE(identity)
     Move_Value(D_OUT, ARG(value));
 
     if (REF(quote))
-        SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);
+        SET_CELL_FLAG(D_OUT, UNEVALUATED);
 
     return D_OUT;
 }

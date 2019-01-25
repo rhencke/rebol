@@ -101,7 +101,7 @@ inline static bool Vararg_Op_If_No_Advance_Handled(
         const REBVAL *child_gotten = Try_Get_Opt_Var(opt_look, specifier);
 
         if (child_gotten and VAL_TYPE(child_gotten) == REB_ACTION) {
-            if (GET_VAL_FLAG(child_gotten, VALUE_FLAG_ENFIXED)) {
+            if (GET_CELL_FLAG(child_gotten, ENFIXED)) {
                 if (
                     pclass == REB_P_NORMAL
                     or GET_SER_FLAG(
@@ -129,7 +129,7 @@ inline static bool Vararg_Op_If_No_Advance_Handled(
             fail (Error_Varargs_No_Look_Raw()); // hard quote only
 
         Derelativize(out, opt_look, specifier);
-        SET_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED);
+        SET_CELL_FLAG(out, UNEVALUATED);
 
         return true; // only a lookahead, no need to advance
     }
@@ -171,7 +171,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
     if (pclass == REB_P_DETECT)
         pclass = VAL_PARAM_CLASS(param);
 
-    REBVAL *arg; // for updating VALUE_FLAG_UNEVALUATED
+    REBVAL *arg; // for updating CELL_FLAG_UNEVALUATED
 
     REBFRM *opt_vararg_frame;
 
@@ -246,7 +246,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
 
         case REB_P_HARD_QUOTE:
             Derelativize(out, VAL_ARRAY_AT(shared), VAL_SPECIFIER(shared));
-            SET_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED);
+            SET_CELL_FLAG(out, UNEVALUATED);
             VAL_INDEX(shared) += 1;
             break;
 
@@ -260,7 +260,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
             }
             else { // not a soft-"exception" case, quote ordinarily
                 Derelativize(out, VAL_ARRAY_AT(shared), VAL_SPECIFIER(shared));
-                SET_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED);
+                SET_CELL_FLAG(out, UNEVALUATED);
             }
             VAL_INDEX(shared) += 1;
             break;
@@ -370,10 +370,10 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
     }
 
     if (arg) {
-        if (GET_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED))
-            SET_VAL_FLAG(arg, VALUE_FLAG_UNEVALUATED);
+        if (GET_CELL_FLAG(out, UNEVALUATED))
+            SET_CELL_FLAG(arg, UNEVALUATED);
         else
-            CLEAR_VAL_FLAG(arg, VALUE_FLAG_UNEVALUATED);
+            CLEAR_CELL_FLAG(arg, UNEVALUATED);
     }
 
     // Note: may be at end now, but reflect that at *next* call

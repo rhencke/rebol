@@ -581,7 +581,7 @@ REBVAL *Alloc_Pairing(void) {
 // paired value) REBVAL header.  API handle REBVALs are all managed.
 //
 void Manage_Pairing(REBVAL *paired) {
-    SET_VAL_FLAG(paired, NODE_FLAG_MANAGED);
+    SET_CELL_FLAG(paired, MANAGED);
 }
 
 
@@ -595,8 +595,8 @@ void Manage_Pairing(REBVAL *paired) {
 // their lifetime.
 //
 void Unmanage_Pairing(REBVAL *paired) {
-    assert(GET_VAL_FLAG(paired, NODE_FLAG_MANAGED));
-    CLEAR_VAL_FLAG(paired, NODE_FLAG_MANAGED);
+    assert(GET_CELL_FLAG(paired, MANAGED));
+    CLEAR_CELL_FLAG(paired, MANAGED);
 }
 
 
@@ -604,7 +604,7 @@ void Unmanage_Pairing(REBVAL *paired) {
 //  Free_Pairing: C
 //
 void Free_Pairing(REBVAL *paired) {
-    assert(NOT_VAL_FLAG(paired, NODE_FLAG_MANAGED));
+    assert(NOT_CELL_FLAG(paired, MANAGED));
     REBSER *s = cast(REBSER*, paired);
     Free_Node(SER_POOL, s);
 
@@ -1271,7 +1271,7 @@ void Assert_Pointer_Detection_Working(void)
     freed_cell->header.bits =
         NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
         | FLAG_KIND_BYTE(REB_T_TRASH)
-        | VALUE_FLAG_FALSEY; // speeds up VAL_TYPE_Debug() check
+        | CELL_FLAG_FALSEY; // speeds up VAL_TYPE_Debug() check
     assert(Detect_Rebol_Pointer(freed_cell) == DETECTED_AS_FREED_CELL);
   #endif
 

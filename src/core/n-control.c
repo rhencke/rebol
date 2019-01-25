@@ -521,7 +521,7 @@ REBNATIVE(match)
     switch (KIND_BYTE(test)) {
       case REB_WORD:
       case REB_PATH: {
-        if (NOT_VAL_FLAG(test, VALUE_FLAG_UNEVALUATED)) // soft quote eval'd
+        if (NOT_CELL_FLAG(test, UNEVALUATED)) // soft quote eval'd
             goto either_match; // allow `MATCH ('NULL?) ...`
 
         REBSTR *opt_label = NULL;
@@ -679,7 +679,7 @@ REBNATIVE(all)
 
         // consider case of `all [true elide print "hi"]`
         //
-        D_OUT->header.bits &= ~OUT_MARKED_STALE;
+        CLEAR_CELL_FLAG(D_OUT, OUT_MARKED_STALE);
     }
 
     Drop_Frame(f);
@@ -720,7 +720,7 @@ REBNATIVE(any)
 
         // consider case of `any [true elide print "hi"]`
         //
-        D_OUT->header.bits &= ~OUT_MARKED_STALE;
+        CLEAR_CELL_FLAG(D_OUT, OUT_MARKED_STALE);
     }
 
     Drop_Frame(f);
@@ -764,7 +764,7 @@ REBNATIVE(none)
 
         // consider case of `none [true elide print "hi"]`
         //
-        D_OUT->header.bits &= ~OUT_MARKED_STALE;
+        CLEAR_CELL_FLAG(D_OUT, OUT_MARKED_STALE);
     }
 
     Drop_Frame(f);
@@ -943,7 +943,7 @@ REBNATIVE(switch)
 
     REBVAL *value = ARG(value);
 
-    if (IS_BLOCK(value) and GET_VAL_FLAG(value, VALUE_FLAG_UNEVALUATED))
+    if (IS_BLOCK(value) and GET_CELL_FLAG(value, UNEVALUATED))
         fail (Error_Block_Switch_Raw(value)); // `switch [x] [...]` safeguard
 
     Init_Nulled(D_OUT); // used for "fallout"

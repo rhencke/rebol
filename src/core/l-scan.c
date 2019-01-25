@@ -877,7 +877,7 @@ static REBCNT Prescan_Token(SCAN_STATE *ss)
 // Newlines that should be internal to a non-ANY-ARRAY! type are included in
 // the scanned range between the `begin` and `end`.  But newlines that are
 // found outside of a string are returned as TOKEN_NEWLINE.  (These are used
-// to set the VALUE_FLAG_NEWLINE_BEFORE bits on the next value.)
+// to set the CELL_FLAG_NEWLINE_BEFORE bits on the next value.)
 //
 // Determining the end point of token types that need escaping requires
 // processing (for instance `{a^}b}` can't see the first close brace as ending
@@ -985,12 +985,12 @@ acquisition_loop:
             // the non-user-visible EVAL_FLIP bit, which is usually not copied
             // by Move_Value.
             //
-            if (GET_VAL_FLAG(splice, VALUE_FLAG_EVAL_FLIP))
-                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_EVAL_FLIP);
+            if (GET_CELL_FLAG(splice, EVAL_FLIP))
+                SET_CELL_FLAG(DS_TOP, EVAL_FLIP);
 
             if (ss->newline_pending) {
                 ss->newline_pending = false;
-                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
+                SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
             }
 
             if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
@@ -1013,12 +1013,12 @@ acquisition_loop:
             REBARR *instruction = cast(REBARR*, c_cast(void*, p));
             REBVAL *single = KNOWN(ARR_SINGLE(instruction));
 
-            if (GET_VAL_FLAG(single, VALUE_FLAG_EVAL_FLIP)) { // rebEval()
+            if (GET_CELL_FLAG(single, EVAL_FLIP)) { // rebEval()
                 if (not (ss->opts & SCAN_FLAG_NULLEDS_LEGAL))
                     fail ("can only use rebEval() at top level of run");
 
                 Move_Value(DS_PUSH(), single);
-                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_EVAL_FLIP);
+                SET_CELL_FLAG(DS_TOP, EVAL_FLIP);
             }
             else { // rebQ()
                 assert(VAL_NUM_QUOTES(single) > 0);
@@ -1027,7 +1027,7 @@ acquisition_loop:
 
             if (ss->newline_pending) {
                 ss->newline_pending = false;
-                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
+                SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
             }
 
             if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
@@ -2405,7 +2405,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
         // not legal in ordinary user arrays--just as voids aren't--only in
         // arrays which are internally held by the evaluator)
         //
-        SET_VAL_FLAG(DS_TOP, VALUE_FLAG_EVAL_FLIP);
+        SET_CELL_FLAG(DS_TOP, EVAL_FLIP);
 
         if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
             REBSER *locker = NULL;
@@ -2419,7 +2419,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
         //
         if (ss->newline_pending) {
             ss->newline_pending = false;
-            SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
+            SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
         }
 
         // Added for TRANSCODE/NEXT (LOAD/NEXT is deprecated, see #1703)

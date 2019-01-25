@@ -95,7 +95,7 @@ inline static REBVAL *Alloc_Value(void)
     // either an API handle or not.  The flag is not copied by Move_Value().
     //
     REBVAL *v = KNOWN(ARR_SINGLE(a));
-    v->header.bits |= NODE_FLAG_ROOT; // it's trash (can't use SET_VAL_FLAGS)
+    v->header.bits |= NODE_FLAG_ROOT; // it's trash (can't use SET_CELL_FLAGS)
 
     LINK(a).owner = NOD(Context_For_Frame_May_Manage(FS_TOP));
     return v;

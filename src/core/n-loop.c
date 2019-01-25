@@ -363,7 +363,7 @@ static REB_R Loop_Number_Common(
 // a flag to indicate a dereference is necessary.
 //
 REBVAL *Real_Var_From_Pseudo(REBVAL *pseudo_var) {
-    if (NOT_VAL_FLAG(pseudo_var, VAR_MARKED_REUSE))
+    if (NOT_CELL_FLAG(pseudo_var, VAR_MARKED_REUSE))
         return pseudo_var;
 
     // Note: these variables are fetched across running arbitrary user code.
@@ -1128,8 +1128,8 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         if (res->broke) { // cleanup markers, don't do removals
             RELVAL *temp = VAL_ARRAY_AT(res->data);
             for (; NOT_END(temp); ++temp) {
-                if (GET_VAL_FLAG(temp, NODE_FLAG_MARKED))
-                    CLEAR_VAL_FLAG(temp, NODE_FLAG_MARKED);
+                if (GET_CELL_FLAG(temp, MARKED_REMOVE))
+                    CLEAR_CELL_FLAG(temp, MARKED_REMOVE);
             }
             return 0;
         }
@@ -1142,7 +1142,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         // avoid blitting cells onto themselves by making the first thing we
         // do is to pass up all the unmarked (kept) cells.
         //
-        while (NOT_END(src) and not (src->header.bits & NODE_FLAG_MARKED)) {
+        while (NOT_END(src) and NOT_CELL_FLAG(src, MARKED_REMOVE)) {
             ++src;
             ++dest;
         }
@@ -1151,7 +1151,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         // on are going to be moving to somewhere besides the original spot
         //
         for (; NOT_END(dest); ++dest, ++src) {
-            while (NOT_END(src) and (src->header.bits & NODE_FLAG_MARKED)) {
+            while (NOT_END(src) and GET_CELL_FLAG(src, MARKED_REMOVE)) {
                 ++src;
                 --len;
                 ++count;
@@ -1310,8 +1310,10 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
 
             do {
                 assert(res->start <= len);
-                VAL_ARRAY_AT_HEAD(res->data, res->start)->header.bits
-                    |= NODE_FLAG_MARKED;
+                SET_CELL_FLAG(
+                    VAL_ARRAY_AT_HEAD(res->data, res->start),
+                    MARKED_REMOVE
+                );
                 ++res->start;
             } while (res->start != index);
         }

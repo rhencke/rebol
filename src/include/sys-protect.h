@@ -44,7 +44,7 @@ inline static void FAIL_IF_READ_ONLY_SERIES_CORE(
 ){
     REBSER *s = series->payload.any_series.series;
     FAIL_IF_READ_ONLY_SER(s);
-    if (GET_VAL_FLAG(series, VALUE_FLAG_CONST)) {
+    if (GET_CELL_FLAG(series, CONST)) {
         DECLARE_LOCAL (specific);
         Derelativize(specific, series, specifier);
         fail (Error_Const_Value_Raw(specific));

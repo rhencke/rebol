@@ -239,7 +239,7 @@ STATIC_ASSERT(DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 // is generated, or accessed as a modification of an immediate value.  This
 // complicates the interface to where the path dispatcher must be handed
 // the value to set and copy itself if necessary.  But CELL_MASK_COPIED does
-// not carry forward VALUE_FLAG_ENFIXED in the assignment.  This flag tells
+// not carry forward CELL_FLAG_ENFIXED in the assignment.  This flag tells
 // a frame used with SET-PATH! semantics to make its final assignment enfix.
 //
 #define DO_FLAG_SET_PATH_ENFIXED \
@@ -264,7 +264,7 @@ STATIC_ASSERT(DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 //
 #define DO_FLAG_EXPLICIT_EVALUATE \
     FLAG_LEFT_BIT(21)
-STATIC_ASSERT(DO_FLAG_EXPLICIT_EVALUATE == VALUE_FLAG_EVAL_FLIP);
+STATIC_ASSERT(DO_FLAG_EXPLICIT_EVALUATE == CELL_FLAG_EVAL_FLIP);
 
 #define DO_FLAG_PATH_HARD_QUOTE \
     DO_FLAG_EXPLICIT_EVALUATE
@@ -285,7 +285,7 @@ STATIC_ASSERT(DO_FLAG_EXPLICIT_EVALUATE == VALUE_FLAG_EVAL_FLIP);
 //
 #define DO_FLAG_CONST \
     FLAG_LEFT_BIT(22)
-STATIC_ASSERT(DO_FLAG_CONST == VALUE_FLAG_CONST);
+STATIC_ASSERT(DO_FLAG_CONST == CELL_FLAG_CONST);
 
 
 //=//// DO_FLAG_ERROR_ON_DEFERRED_ENFIX ///////////////////////////////////=//

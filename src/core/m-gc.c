@@ -265,7 +265,7 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
         // allowed to do this.
         //
       #if !defined(NDEBUG)
-        if (not ANY_VAL_FLAGS(v, CELL_FLAG_STACK | CELL_FLAG_TRANSIENT))
+        if (NOT_CELL_FLAG(v, STACK) and NOT_CELL_FLAG(v, TRANSIENT))
             panic (v);
       #endif
     }

@@ -261,7 +261,7 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
 
     assert(f->refine == ORDINARY_ARG);
     if (not (f->flags.bits & DO_FLAG_GET_NEXT_ARG_FROM_OUT)) {
-        if (not (f->out->header.bits & OUT_MARKED_STALE))
+        if (NOT_CELL_FLAG(f->out, OUT_MARKED_STALE))
             assert(GET_SER_FLAG(phase, PARAMLIST_FLAG_INVISIBLE));
     }
 }

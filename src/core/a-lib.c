@@ -617,13 +617,13 @@ const void *RL_rebEval(const REBVAL *v)
     RELVAL *single = ARR_SINGLE(instruction);
     Move_Value(single, v);
 
-    // !!! The presence of the VALUE_FLAG_EVAL_FLIP is a pretty good
+    // !!! The presence of the CELL_FLAG_EVAL_FLIP is a pretty good
     // indication that it's an eval instruction.  So it's not necessary to
     // fill in the ->link or ->misc fields.  But if there were more
     // instructions like this, there'd probably need to be a misc->opcode or
     // something to distinguish them.
     //
-    SET_VAL_FLAG(single, VALUE_FLAG_EVAL_FLIP);
+    SET_CELL_FLAG(single, EVAL_FLIP);
 
     return instruction;
 }
@@ -1495,7 +1495,7 @@ intptr_t RL_rebPromise(const void *p, va_list *vaptr)
     // the va_list into an array to be executed after a timeout.
     //
     // Currently such spooling is not done except with a frame, and there are
-    // a lot of details to get right.  For instance, VALUE_FLAG_EVAL_FLIP and
+    // a lot of details to get right.  For instance, CELL_FLAG_EVAL_FLIP and
     // all the rest of that.  Plus there may be some binding context
     // information coming from the callsite (?).  So here we do a reuse of
     // the code the GC uses to reify va_lists in frames, which we presume does

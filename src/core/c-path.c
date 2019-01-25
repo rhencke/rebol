@@ -152,7 +152,7 @@ bool Next_Path_Throws(REBPVS *pvs)
 
             if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED) {
                 assert(IS_ACTION(PVS_OPT_SETVAL(pvs)));
-                SET_VAL_FLAG(pvs->u.ref.cell, VALUE_FLAG_ENFIXED);
+                SET_CELL_FLAG(pvs->u.ref.cell, ENFIXED);
             }
             break; }
 
@@ -217,7 +217,7 @@ bool Next_Path_Throws(REBPVS *pvs)
         else if (r == R_UNHANDLED) {
             fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
         }
-        else if (GET_VAL_FLAG(r, NODE_FLAG_ROOT)) { // API, from Alloc_Value()
+        else if (GET_CELL_FLAG(r, ROOT)) { // API, from Alloc_Value()
             Handle_Api_Dispatcher_Result(pvs, r);
         }
         else switch (KIND_BYTE(r)) {
@@ -243,16 +243,16 @@ bool Next_Path_Throws(REBPVS *pvs)
             break;
 
           case REB_R_REFERENCE: {
-            bool was_const = GET_VAL_FLAG(pvs->out, VALUE_FLAG_CONST);
+            bool was_const = GET_CELL_FLAG(pvs->out, CONST);
             Derelativize(
                 pvs->out,
                 pvs->u.ref.cell,
                 pvs->u.ref.specifier
             );
             if (was_const) // can't Inherit_Const(), flag would be overwritten
-                SET_VAL_FLAG(pvs->out, VALUE_FLAG_CONST);
-            if (GET_VAL_FLAG(pvs->u.ref.cell, VALUE_FLAG_ENFIXED))
-                SET_VAL_FLAG(pvs->out, VALUE_FLAG_ENFIXED);
+                SET_CELL_FLAG(pvs->out, CONST);
+            if (GET_CELL_FLAG(pvs->u.ref.cell, ENFIXED))
+                SET_CELL_FLAG(pvs->out, ENFIXED);
 
             // Leave the pvs->u.ref as-is in case the next update turns out
             // to be R_IMMEDIATE, and it is needed.
@@ -381,8 +381,8 @@ bool Eval_Path_Throws_Core(
         Move_Value(pvs->out, KNOWN(pvs->u.ref.cell));
 
         if (IS_ACTION(pvs->out)) {
-            if (GET_VAL_FLAG(pvs->u.ref.cell, VALUE_FLAG_ENFIXED))
-                SET_VAL_FLAG(pvs->out, VALUE_FLAG_ENFIXED);
+            if (GET_CELL_FLAG(pvs->u.ref.cell, ENFIXED))
+                SET_CELL_FLAG(pvs->out, ENFIXED);
 
             pvs->opt_label = VAL_WORD_SPELLING(pvs->value);
         }
@@ -641,14 +641,14 @@ REBNATIVE(pick)
 
       case REB_R_REFERENCE: {
         assert(pvs->out == D_OUT);
-        bool was_const = GET_VAL_FLAG(D_OUT, VALUE_FLAG_CONST);
+        bool was_const = GET_CELL_FLAG(D_OUT, CONST);
         Derelativize(
             D_OUT,
             pvs->u.ref.cell,
             pvs->u.ref.specifier
         );
         if (was_const) // can't Inherit_Const(), flag would be overwritten
-            SET_VAL_FLAG(D_OUT, VALUE_FLAG_CONST);
+            SET_CELL_FLAG(D_OUT, CONST);
         return D_OUT; }
 
       case REB_R_REDO:

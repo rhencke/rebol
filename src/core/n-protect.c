@@ -48,8 +48,8 @@ REBNATIVE(const) {
     if (IS_NULLED(v))
         return nullptr;
 
-    CLEAR_VAL_FLAG(v, VALUE_FLAG_EXPLICITLY_MUTABLE);
-    SET_VAL_FLAG(v, VALUE_FLAG_CONST);
+    CLEAR_CELL_FLAG(v, EXPLICITLY_MUTABLE);
+    SET_CELL_FLAG(v, CONST);
 
     RETURN (v);
 }
@@ -71,7 +71,7 @@ REBNATIVE(const_q) {
     // besides just if the value is *const*, specifically?  Knowing the flag
     // is helpful for debugging at least.
 
-    return Init_Logic(D_OUT, GET_VAL_FLAG(ARG(value), VALUE_FLAG_CONST));
+    return Init_Logic(D_OUT, GET_CELL_FLAG(ARG(value), CONST));
 }
 
 
@@ -93,10 +93,10 @@ REBNATIVE(mutable)
     if (IS_NULLED(v))
         return nullptr; // make it easier to pass through values
 
-    CLEAR_VAL_FLAG(v, VALUE_FLAG_CONST); // don't trip const test for readonly
+    CLEAR_CELL_FLAG(v, CONST); // don't trip const test for readonly
     if (ANY_SERIES(v) or ANY_CONTEXT(v))
         FAIL_IF_READ_ONLY_SERIES(v);
-    SET_VAL_FLAG(v, VALUE_FLAG_EXPLICITLY_MUTABLE);
+    SET_CELL_FLAG(v, EXPLICITLY_MUTABLE);
 
     RETURN (v);
 }
@@ -118,7 +118,7 @@ REBNATIVE(mutable_q) {
     // besides just if the value is *const*, specifically?  Knowing the flag
     // is helpful for debugging at least.
 
-    return Init_Logic(D_OUT, NOT_VAL_FLAG(ARG(value), VALUE_FLAG_CONST));
+    return Init_Logic(D_OUT, NOT_CELL_FLAG(ARG(value), CONST));
 }
 
 
@@ -140,7 +140,7 @@ static void Protect_Key(REBCTX *context, REBCNT index, REBFLGS flags)
         if (flags & PROT_SET)
             var->header.bits |= CELL_FLAG_PROTECTED;
         else
-            var->header.bits &= ~CELL_FLAG_PROTECTED; // can't CLEAR_VAL_FLAG
+            var->header.bits &= ~CELL_FLAG_PROTECTED; // can't CLEAR_CELL_FLAG
     }
 
     if (flags & PROT_HIDE) {
