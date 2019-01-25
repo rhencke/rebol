@@ -175,7 +175,7 @@ console!: make object! [
 
     print-info:     func [s] [print [info space space space reduce s]]
     print-greeting: func []  [boot-print greeting]
-    print-gap:      func []  [print-newline]
+    print-gap:      func []  [print newline]
 
     ;; BEHAVIOR (can be overridden)
 
@@ -255,7 +255,7 @@ start-console: function [
     ; object can be updated %console-skin.reb if in system/options/resources
 
     loud-print "Starting console..."
-    loud-print ""
+    loud-print newline
     proto-skin: make console! []
     skin-error: _
 
@@ -559,7 +559,7 @@ ext-console-impl: function [
         if find directives #countdown-if-error [
             emit #console-if-halt
             emit [
-                print-newline
+                print newline
                 print "** Hit Ctrl-C to break into the console in 5 seconds"
 
                 repeat n 25 [
@@ -570,7 +570,7 @@ ext-console-impl: function [
                     ]
                     wait 0.25
                 ]
-                print-newline
+                print newline
             ]
             emit {Only gets here if user did not hit Ctrl-C}
             return <die>

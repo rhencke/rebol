@@ -289,22 +289,21 @@ to-lit-path: func [value [any-value!]] [
 
 
 print: func [
-    {Textually output value (evaluating elements if a block), adds newline}
+    {Textually output spaced line (evaluating elements if a block)}
 
     return: "NULL if blank input or effectively empty block, otherwise VOID!"
         [<opt> void!]
-    line "Line of text or block to run SPACED on, blank/empty prints nothing"
-        [<blank> text! block!]
+    line "Line of text or block, blank or [] has NO output, newline allowed"
+        [<blank> char! text! block!]
 ][
-    ; To print just a newline, use `print {}`.  If you use `print []`, that
-    ; means SPACED returns null...so TRY will make that a blank!, and
-    ; WRITE-STDOUT will do nothing and return null...hence no newline.
-    ;
-    (write-stdout try spaced line) then [write-stdout newline]
-]
+    if char? line [
+        if not equal? line newline [
+            fail "PRINT only allows CHAR! of newline (see WRITE-STDOUT)"
+        ]
+        return write-stdout line
+    ]
 
-print-newline: specialize 'write-stdout [ ;-- or use `print {}`
-    value: newline
+    (write-stdout try spaced line) then [write-stdout newline]
 ]
 
 

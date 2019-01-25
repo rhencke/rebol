@@ -206,6 +206,8 @@ help: function [
 
             say-browser
             browse join-all [https://r3n.github.io/topics/ as text! topic]
+            print newline
+            return
         ]
 
         text! [
@@ -399,7 +401,7 @@ help: function [
         {an ACTION!}
     ]
 
-    print-newline
+    print newline
 
     print "DESCRIPTION:"
     print unspaced [space4 fields/description or ["(undocumented)"]]
@@ -430,7 +432,7 @@ help: function [
         null
     ]
 
-    print-newline
+    print newline
     if any [fields/return-type fields/return-note] [
         print ["RETURNS:" if fields/return-type [mold fields/return-type]]
         if fields/return-note [
@@ -441,13 +443,13 @@ help: function [
     ]
 
     if not empty? args [
-        print-newline
+        print newline
         print "ARGUMENTS:"
         print-args args
     ]
 
     if not empty? refinements [
-        print-newline
+        print newline
         print "REFINEMENTS:"
         print-args/indent-words refinements
     ]
