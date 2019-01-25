@@ -90,7 +90,7 @@ Script: [
     no-arg:             [:arg1 {is missing its} :arg2 {argument}]
     expect-arg:         [:arg1 {does not allow} :arg2 {for its} :arg3 {argument}]
     arg-required:       [:arg1 {requires} :arg2 {argument to not be null}]
-    
+
     phase-bad-arg-type:
         [:arg1 {internal phase disallows} :arg2 {for its} :arg3 {argument}]
     phase-no-arg:

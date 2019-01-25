@@ -1040,7 +1040,7 @@ REBNATIVE(reskinned)
     // function will affect the original, and vice-versa.
     //
     MISC(paramlist).meta = ACT_META(original);
-    
+
     // If we only *narrowed* the type conventions, then we don't need to put
     // in a new dispatcher.  But if we *expanded* them, the type checking
     // done by the skinned version for ARG_MARKED_CHECKED may not be enough.
