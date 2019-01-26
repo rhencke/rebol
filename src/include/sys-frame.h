@@ -434,7 +434,7 @@ inline static void Enter_Native(REBFRM *f) {
 
 inline static void Begin_Action(REBFRM *f, REBSTR *opt_label)
 {
-    assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
+    assert(NOT_EVAL_FLAG(f, FULFILLING_ENFIX));
 
     assert(not f->original);
     f->original = FRM_PHASE(f);
@@ -448,7 +448,7 @@ inline static void Begin_Action(REBFRM *f, REBSTR *opt_label)
 
     f->refine = ORDINARY_ARG;
 
-    assert(not (f->flags.bits & DO_FLAG_REQUOTE_NULL));
+    assert(NOT_EVAL_FLAG(f, REQUOTE_NULL));
     f->requotes = 0;
 }
 
@@ -477,7 +477,7 @@ inline static void Push_Action(
     REBACT *act,
     REBNOD *binding
 ){
-    assert(not (f->flags.bits & DO_FLAG_FULFILL_ONLY));
+    assert(NOT_EVAL_FLAG(f, FULFILL_ONLY));
 
     f->param = ACT_PARAMS_HEAD(act); // Specializations hide some params...
     REBCNT num_args = ACT_NUM_PARAMS(act); // ...so see REB_TS_HIDDEN
@@ -575,7 +575,7 @@ inline static void Push_Action(
     //
     if (GET_SER_FLAG(act, PARAMLIST_FLAG_INVISIBLE)) {
         if (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD) {
-            assert(f->flags.bits & DO_FLAG_FULFILLING_ARG);
+            assert(GET_EVAL_FLAG(f, FULFILLING_ARG));
             SET_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD);
         }
     }
@@ -590,13 +590,13 @@ inline static void Drop_Action(REBFRM *f) {
         or GET_SER_FLAG(f->opt_label, SERIES_FLAG_UTF8_STRING)
     );
 
-    if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
+    if (NOT_EVAL_FLAG(f, FULFILLING_ARG))
         f->feed->flags.bits &= ~FEED_FLAG_BARRIER_HIT;
 
     f->flags.bits &= ~(
-        DO_FLAG_FULFILLING_ENFIX
-            | DO_FLAG_FULFILL_ONLY
-            | DO_FLAG_REQUOTE_NULL
+        EVAL_FLAG_FULFILLING_ENFIX
+            | EVAL_FLAG_FULFILL_ONLY
+            | EVAL_FLAG_REQUOTE_NULL
     );
 
     assert(

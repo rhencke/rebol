@@ -168,7 +168,7 @@ typedef enum Reb_Kind Reb_Param_Class;
     //
 
     // `REB_P_TIGHT` makes enfixed first arguments "lazy" and other
-    // arguments will use the DO_FLAG_NO_LOOKAHEAD.
+    // arguments will use the EVAL_FLAG_NO_LOOKAHEAD.
     //
     // R3-Alpha's notion of infix OP!s changed the way parameters were
     // gathered.  On the right hand side, the argument was evaluated in a

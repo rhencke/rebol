@@ -93,9 +93,9 @@ bool Next_Path_Throws(REBPVS *pvs)
     }
     else if (
         IS_GROUP(pvs->value) // object/(expr) case:
-        and not (pvs->flags.bits & DO_FLAG_PATH_HARD_QUOTE) // not precomposed
+        and NOT_EVAL_FLAG(pvs, PATH_HARD_QUOTE) // not precomposed
     ){
-        if (pvs->flags.bits & DO_FLAG_NO_PATH_GROUPS)
+        if (GET_EVAL_FLAG(pvs, NO_PATH_GROUPS))
             fail ("GROUP! in PATH! used with GET or SET (use REDUCE/EVAL)");
 
         REBSPC *derived = Derive_Specifier(pvs->specifier, pvs->value);
@@ -143,14 +143,14 @@ bool Next_Path_Throws(REBPVS *pvs)
             panic ("Path dispatch isn't allowed to throw, only GROUP!s");
 
           case REB_R_INVISIBLE: // dispatcher assigned target with opt_setval
-            if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED)
+            if (GET_EVAL_FLAG(pvs, SET_PATH_ENFIXED))
                 fail ("Path setting was not via an enfixable reference");
             break; // nothing left to do, have to take the dispatcher's word
 
           case REB_R_REFERENCE: { // dispatcher wants a set *if* at end of path
             Move_Value(pvs->u.ref.cell, PVS_OPT_SETVAL(pvs));
 
-            if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED) {
+            if (GET_EVAL_FLAG(pvs, SET_PATH_ENFIXED)) {
                 assert(IS_ACTION(PVS_OPT_SETVAL(pvs)));
                 SET_CELL_FLAG(pvs->u.ref.cell, ENFIXED);
             }
@@ -172,7 +172,7 @@ bool Next_Path_Throws(REBPVS *pvs)
             // would be the CTX_VAR() where month was found initially, and so
             // we write the updated bits from pvs->out there.
 
-            if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED)
+            if (GET_EVAL_FLAG(pvs, SET_PATH_ENFIXED))
                 fail ("Can't enfix a write into an immediate value");
 
             if (not pvs->u.ref.cell)
@@ -317,7 +317,7 @@ bool Eval_Path_Throws_Core(
     const REBVAL *opt_setval, // Note: may be the same as out!
     REBFLGS flags
 ){
-    if (flags & DO_FLAG_SET_PATH_ENFIXED)
+    if (flags & EVAL_FLAG_SET_PATH_ENFIXED)
         assert(opt_setval); // doesn't make any sense for GET-PATH! or PATH!
 
     // Treat a 0-length PATH! as if it gives back an ACTION! which does "what
@@ -389,11 +389,11 @@ bool Eval_Path_Throws_Core(
     }
     else if (
         IS_GROUP(pvs->value)
-        and not (pvs->flags.bits & DO_FLAG_PATH_HARD_QUOTE) // not precomposed
+        and NOT_EVAL_FLAG(pvs, PATH_HARD_QUOTE) // not precomposed
     ){
         pvs->u.ref.cell = nullptr; // nowhere to R_IMMEDIATE write back to
 
-        if (pvs->flags.bits & DO_FLAG_NO_PATH_GROUPS)
+        if (GET_EVAL_FLAG(pvs, NO_PATH_GROUPS))
             fail ("GROUP! in PATH! used with GET or SET (use REDUCE/EVAL)");
 
         REBSPC *derived = Derive_Specifier(pvs->specifier, pvs->value);
@@ -463,7 +463,7 @@ bool Eval_Path_Throws_Core(
 
         assert(IS_ACTION(pvs->out));
 
-        if (pvs->flags.bits & DO_FLAG_PUSH_PATH_REFINEMENTS) {
+        if (GET_EVAL_FLAG(pvs, PUSH_PATH_REFINEMENTS)) {
             //
             // The caller knows how to handle the refinements-pushed-to-stack
             // in-reverse-order protocol, and doesn't want to pay for making

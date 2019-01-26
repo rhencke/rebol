@@ -567,7 +567,7 @@ inline static void Get_Opt_Polymorphic_May_Fail(
             VAL_INDEX(source),
             Derive_Specifier(specifier, source),
             NULL, // not requesting value to set means it's a get
-            hard ? DO_FLAG_PATH_HARD_QUOTE : DO_FLAG_NO_PATH_GROUPS
+            hard ? EVAL_FLAG_PATH_HARD_QUOTE : EVAL_FLAG_NO_PATH_GROUPS
         )){
             panic (out); // shouldn't be possible... no executions!
         }
@@ -672,11 +672,11 @@ void Set_Opt_Polymorphic_May_Fail(
         //
         REBFLGS flags = 0;
         if (hard)
-            flags |= DO_FLAG_PATH_HARD_QUOTE;
+            flags |= EVAL_FLAG_PATH_HARD_QUOTE;
         else
-            flags |= DO_FLAG_NO_PATH_GROUPS;
+            flags |= EVAL_FLAG_NO_PATH_GROUPS;
         if (enfix)
-            flags |= DO_FLAG_SET_PATH_ENFIXED;
+            flags |= EVAL_FLAG_SET_PATH_ENFIXED;
 
         DECLARE_LOCAL (dummy);
         if (Eval_Path_Throws_Core(

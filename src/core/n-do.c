@@ -58,7 +58,7 @@ REBNATIVE(eval)
 {
     INCLUDE_PARAMS_OF_EVAL;
 
-    // EVAL only *acts* variadic, but uses DO_FLAG_REEVALUATE_CELL
+    // EVAL only *acts* variadic, but uses EVAL_FLAG_REEVALUATE_CELL
     //
     UNUSED(ARG(expressions));
 
@@ -69,9 +69,9 @@ REBNATIVE(eval)
     //
     child->u.reval.value = ARG(value);
 
-    REBFLGS flags = DO_MASK_DEFAULT | DO_FLAG_REEVALUATE_CELL;
+    REBFLGS flags = DO_MASK_DEFAULT | EVAL_FLAG_REEVALUATE_CELL;
     if (REF(only)) {
-        flags |= DO_FLAG_EXPLICIT_EVALUATE;
+        flags |= EVAL_FLAG_EXPLICIT_EVALUATE;
         ARG(value)->header.bits ^= CELL_FLAG_EVAL_FLIP;
     }
 
@@ -129,7 +129,7 @@ REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
     }
 
     // It's best for SHOVE to do type checking here, as opposed to setting
-    // some kind of DO_FLAG_SHOVING and passing that into the evaluator, then
+    // some kind of EVAL_FLAG_SHOVING and passing that into the evaluator, then
     // expecting it to notice if you shoved into an INTEGER! or something.
     //
     // !!! Pure invisibility should work; see SYNC-INVISIBLES for ideas,
@@ -167,10 +167,10 @@ REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
             VAL_ARRAY(f->value),
             VAL_INDEX(f->value),
             Derive_Specifier(f->specifier, f->value),
-            (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-                | DO_FLAG_TO_END
-                | (f->flags.bits & DO_FLAG_CONST)
-                | (f->value->header.bits & DO_FLAG_CONST)
+            (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+                | EVAL_FLAG_TO_END
+                | (f->flags.bits & EVAL_FLAG_CONST)
+                | (f->value->header.bits & EVAL_FLAG_CONST)
         );
         if (indexor == THROWN_FLAG)
             return R_THROWN;
@@ -229,8 +229,8 @@ REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
 
     DECLARE_SUBFRAME (child, frame_);
 
-    REBFLGS flags = DO_MASK_DEFAULT | DO_FLAG_REEVALUATE_CELL;
-    child->u.reval.value = shovee; // DO_FLAG_REEVALUATE_CELL retriggers this
+    REBFLGS flags = DO_MASK_DEFAULT | EVAL_FLAG_REEVALUATE_CELL;
+    child->u.reval.value = shovee; // EVAL_FLAG_REEVALUATE_CELL retriggers this
 
     if (Eval_Step_In_Subframe_Throws(D_OUT, frame_, flags, child)) {
         rebRelease(composed_set_path); // ok if nullptr
@@ -285,7 +285,7 @@ REBNATIVE(eval_enfix)
 // But generalizing this mechanic is...non-obvious.  It needs to be done, but
 // this hacks up the specific case of "enfix with left hand side and variadic
 // feed" by loading the given value into D_OUT and then re-entering the
-// evaluator via the DO_FLAG_POST_SWITCH mechanic (which was actuallly
+// evaluator via the EVAL_FLAG_POST_SWITCH mechanic (which was actuallly
 // designed for backtracking on enfix normal deferment.)
 {
     INCLUDE_PARAMS_OF_EVAL_ENFIX;
@@ -366,8 +366,8 @@ REBNATIVE(eval_enfix)
     assert(frame_ == FS_TOP);
 
     REBFLGS flags = DO_MASK_DEFAULT
-        | DO_FLAG_FULFILLING_ARG
-        | DO_FLAG_POST_SWITCH;
+        | EVAL_FLAG_FULFILLING_ARG
+        | EVAL_FLAG_POST_SWITCH;
 
     assert(not (FS_TOP->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
 
@@ -545,12 +545,12 @@ REBNATIVE(do)
         bool mutability = GET_CELL_FLAG(source, EXPLICITLY_MUTABLE);
         Push_Frame_At_End(
             f,
-            (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-                | DO_FLAG_FULLY_SPECIALIZED
-                | DO_FLAG_PROCESS_ACTION
+            (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+                | EVAL_FLAG_FULLY_SPECIALIZED
+                | EVAL_FLAG_PROCESS_ACTION
                 | (mutability ? 0 : (
-                    (FS_TOP->flags.bits & DO_FLAG_CONST)
-                    | (source->header.bits & DO_FLAG_CONST)
+                    (FS_TOP->flags.bits & EVAL_FLAG_CONST)
+                    | (source->header.bits & EVAL_FLAG_CONST)
                 ))
         );
 
@@ -954,7 +954,7 @@ REBNATIVE(apply)
         RETURN (temp);
     }
 
-    Push_Frame_At_End(f, DO_MASK_DEFAULT | DO_FLAG_PROCESS_ACTION);
+    Push_Frame_At_End(f, DO_MASK_DEFAULT | EVAL_FLAG_PROCESS_ACTION);
 
     if (not REF(opt)) {
         //
@@ -963,7 +963,7 @@ REBNATIVE(apply)
         // on the stack isn't needed.  Eval_Core_Throws() will just treat a
         // slot with an INTEGER! for a refinement as if it were "true".
         //
-        f->flags.bits |= DO_FLAG_FULLY_SPECIALIZED;
+        f->flags.bits |= EVAL_FLAG_FULLY_SPECIALIZED;
         DS_DROP_TO(lowest_ordered_dsp); // zero refinements on stack, now
     }
 

@@ -504,7 +504,7 @@ STATIC_ASSERT(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
 //
 // An "fully invisible" invisible function is one that has been enfixed.  It
 // manipulates frame state, with the expectation to return the evaluator back
-// to where it was when it is over.  But DO_FLAG_NO_LOOKAHEAD is erased in
+// to where it was when it is over.  But EVAL_FLAG_NO_LOOKAHEAD is erased in
 // the process of running the invisible, so it has to be put back somehow.
 // It stows the flag on the frame's varlist and when the R_INVISIBLE happens
 // at the end of the action it puts it back.

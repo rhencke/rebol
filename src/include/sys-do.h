@@ -48,9 +48,9 @@ inline static bool Do_At_Mutability_Throws(
         array,
         index,
         specifier,
-        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-            | DO_FLAG_TO_END
-            | (mutability ? 0 : (FS_TOP->flags.bits & DO_FLAG_CONST))
+        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+            | EVAL_FLAG_TO_END
+            | (mutability ? 0 : (FS_TOP->flags.bits & EVAL_FLAG_CONST))
     );
 }
 
@@ -76,11 +76,11 @@ inline static bool Do_Any_Array_At_Throws(
         VAL_ARRAY(any_array),
         VAL_INDEX(any_array),
         VAL_SPECIFIER(any_array),
-        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-            | DO_FLAG_TO_END
+        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+            | EVAL_FLAG_TO_END
             | (mutability ? 0 : (
-                (FS_TOP->flags.bits & DO_FLAG_CONST)
-                | (any_array->header.bits & DO_FLAG_CONST)
+                (FS_TOP->flags.bits & EVAL_FLAG_CONST)
+                | (any_array->header.bits & EVAL_FLAG_CONST)
             ))
             // ^-- Even if you are using a DO MUTABLE, in deeper levels
             // evaluating a const value flips the constification back on.
@@ -98,9 +98,9 @@ inline static bool Do_Va_Throws(
         opt_first,
         vaptr,
         DO_MASK_DEFAULT
-            | DO_FLAG_TO_END
-            | DO_FLAG_EXPLICIT_EVALUATE
-            | (FS_TOP->flags.bits & DO_FLAG_CONST)
+            | EVAL_FLAG_TO_END
+            | EVAL_FLAG_EXPLICIT_EVALUATE
+            | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
     );
 }
 
@@ -130,11 +130,11 @@ inline static bool Apply_Only_Throws(
         SET_END(out), // start at END to detect error if no eval product
         applicand_eval, // opt_first
         &va, // va_end() handled by Eval_Va_Core on success, fail, throw, etc.
-        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-            | DO_FLAG_EXPLICIT_EVALUATE
-            | (fully ? DO_FLAG_NO_RESIDUE : 0)
-            | (FS_TOP->flags.bits & DO_FLAG_CONST)
-            | (applicand->header.bits & DO_FLAG_CONST)
+        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+            | EVAL_FLAG_EXPLICIT_EVALUATE
+            | (fully ? EVAL_FLAG_NO_RESIDUE : 0)
+            | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
+            | (applicand->header.bits & EVAL_FLAG_CONST)
     );
 
     if (IS_END(out))

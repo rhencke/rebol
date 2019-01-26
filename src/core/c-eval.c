@@ -29,7 +29,7 @@
 // This file contains Eval_Core_Throws(), which is the central evaluator which
 // is behind DO.  It can execute single evaluation steps (e.g. EVALUATE/EVAL)
 // or it can run the array to the end of its content.  A flag controls that
-// behavior, and there are DO_FLAG_XXX for controlling other behaviors.
+// behavior, and there are EVAL_FLAG_XXX for controlling other behaviors.
 //
 // For comprehensive notes on the input parameters, output parameters, and
 // internal state variables...see %sys-rebfrm.h.
@@ -124,9 +124,9 @@ static inline bool Start_New_Expression_Throws(REBFRM *f) {
     //     o: make object! [f: does [1]]
     //     o/f left-lit ;--- want error mentioning -> here, need flag for that
     //
-    f->flags.bits &= ~DO_FLAG_DIDNT_LEFT_QUOTE_PATH;
+    CLEAR_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH);
 
-    if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
+    if (NOT_EVAL_FLAG(f, FULFILLING_ARG))
         assert(not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
 
     assert(not (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX));
@@ -149,10 +149,10 @@ static inline bool Start_New_Expression_Throws(REBFRM *f) {
 // Either we're NOT evaluating and there's NO special exemption, or we ARE
 // evaluating and there IS a special exemption on the value saying not to.
 //
-// (Note: DO_FLAG_EXPLICIT_EVALUATE is same bit as CELL_FLAG_EVAL_FLIP)
+// (Note: EVAL_FLAG_EXPLICIT_EVALUATE is same bit as CELL_FLAG_EVAL_FLIP)
 //
 #define EVALUATING(v) \
-    ((f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE) \
+    ((f->flags.bits & EVAL_FLAG_EXPLICIT_EVALUATE) \
         == ((v)->header.bits & CELL_FLAG_EVAL_FLIP))
 
 
@@ -298,7 +298,7 @@ inline static void Finalize_Arg(REBFRM *f) {
         and TYPE_CHECK(f->param, REB_TS_NOOP_IF_BLANK) // e.g. <blank> param
     ){
         SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
-        f->flags.bits |= DO_FLAG_FULFILL_ONLY;
+        SET_EVAL_FLAG(f, FULFILL_ONLY);
         return;
     }
 
@@ -307,7 +307,7 @@ inline static void Finalize_Arg(REBFRM *f) {
     // with <requote>).
     //
     if (TYPE_CHECK(f->param, REB_TS_DEQUOTE_REQUOTE) and IS_QUOTED(f->arg)) {
-        if (f->flags.bits & DO_FLAG_FULFILL_ONLY) {
+        if (GET_EVAL_FLAG(f, FULFILL_ONLY)) {
             //
             // We can only take the quote levels off now if the function is
             // going to be run now.  Because if we are filling a frame to
@@ -327,7 +327,7 @@ inline static void Finalize_Arg(REBFRM *f) {
         //
         f->requotes += VAL_NUM_QUOTES(f->arg);
         if (CELL_KIND(VAL_UNESCAPED(f->arg)) == REB_MAX_NULLED)
-            f->flags.bits |= DO_FLAG_REQUOTE_NULL;
+            SET_EVAL_FLAG(f, REQUOTE_NULL);
 
         Dequotify(f->arg);
     }
@@ -492,9 +492,9 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
 
     REBFLGS flags =
-        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-        | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
-        | (f->flags.bits & DO_FLAG_CONST);
+        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+        | (f->flags.bits & EVAL_FLAG_EXPLICIT_EVALUATE)
+        | (f->flags.bits & EVAL_FLAG_CONST);
 
     Init_Void(f->out); // `1 x: comment "hi"` shouldn't set x to 1!
 
@@ -570,7 +570,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     assert(DSP >= f->dsp_orig); // REDUCE accrues, APPLY adds refinements, >=
     assert(not IS_TRASH_DEBUG(f->out)); // all invisibles preserves output
     assert(f->out != cell); // overwritten by temporary calculations
-    assert(f->flags.bits & DO_FLAG_DEFAULT_DEBUG); // must use DO_MASK_DEFAULT
+    assert(GET_EVAL_FLAG(f, DEFAULT_DEBUG)); // must use DO_MASK_DEFAULT
 
     // Caching KIND_BYTE(f->value) in a local can make a slight performance
     // difference, though how much depends on what the optimizer figures out.
@@ -598,23 +598,23 @@ bool Eval_Core_Throws(REBFRM * const f)
     // and testing them together as a group seems the fastest option.
     //
     if (f->flags.bits & (
-        DO_FLAG_POST_SWITCH
-        | DO_FLAG_PROCESS_ACTION
-        | DO_FLAG_REEVALUATE_CELL
+        EVAL_FLAG_POST_SWITCH
+        | EVAL_FLAG_PROCESS_ACTION
+        | EVAL_FLAG_REEVALUATE_CELL
     )){
-        if (f->flags.bits & DO_FLAG_POST_SWITCH) {
-            f->flags.bits &= ~DO_FLAG_POST_SWITCH;
+        if (GET_EVAL_FLAG(f, POST_SWITCH)) {
+            CLEAR_EVAL_FLAG(f, POST_SWITCH); // !!! necessary?
             goto post_switch;
         }
 
-        if (f->flags.bits & DO_FLAG_PROCESS_ACTION) {
-            f->flags.bits &= ~DO_FLAG_PROCESS_ACTION;
+        if (GET_EVAL_FLAG(f, PROCESS_ACTION)) {
+            CLEAR_EVAL_FLAG(f, PROCESS_ACTION);
 
             SET_CELL_FLAG(f->out, OUT_MARKED_STALE); // !!! necessary?
             goto process_action;
         }
 
-        f->flags.bits &= ~DO_FLAG_REEVALUATE_CELL;
+        CLEAR_EVAL_FLAG(f, REEVALUATE_CELL);
 
         if (GET_CELL_FLAG(f->u.reval.value, ENFIXED)) {
             f->value = VOID_VALUE; // !!! special signal to push_enfix_action
@@ -763,7 +763,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // Make a note we did this, so that if the left quoting operator
             // ends up running we can give it a better error.
             //
-            f->flags.bits |= DO_FLAG_DIDNT_LEFT_QUOTE_PATH;
+            SET_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH);
             goto give_up_backward_quote_priority;
         }
     }
@@ -791,9 +791,9 @@ bool Eval_Core_Throws(REBFRM * const f)
     Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
     Begin_Action(f, VAL_WORD_SPELLING(f->value));
 
-    assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
-    f->flags.bits |=
-        (DO_FLAG_FULFILLING_ENFIX | DO_FLAG_GET_NEXT_ARG_FROM_OUT);
+    assert(NOT_EVAL_FLAG(f, FULFILLING_ENFIX));
+    SET_EVAL_FLAG(f, FULFILLING_ENFIX);
+    SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
 
     // Lookback args are fetched from f->out, then copied into an arg
     // slot.  Put the backwards quoted value into f->out, and in the
@@ -915,7 +915,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         TRASH_POINTER_IF_DEBUG(current); // shouldn't be used below
         TRASH_POINTER_IF_DEBUG(current_gotten);
 
-        f->flags.bits &= ~DO_FLAG_DOING_PICKUPS;
+        CLEAR_EVAL_FLAG(f, DOING_PICKUPS);
 
       process_args_for_pickup_or_to_end:;
 
@@ -934,12 +934,9 @@ bool Eval_Core_Throws(REBFRM * const f)
             // blindly formats them with NODE_FLAG_STACK to make the arg
             // initialization work, but it's in progress to do this more
             // subtly so that the frame can be left formatted as non-stack.
-            if (
-                not (f->flags.bits & DO_FLAG_DOING_PICKUPS)
-                and f->special != f->arg
-            ){
+            //
+            if (NOT_EVAL_FLAG(f, DOING_PICKUPS) and f->special != f->arg)
                 Prep_Stack_Cell(f->arg); // improve...
-            }
             else {
                 // If the incoming series came from a heap frame, just put
                 // a bit on it saying its a stack node for now--this will
@@ -956,7 +953,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     //=//// A /REFINEMENT ARG /////////////////////////////////////////////=//
 
             // Refinements are checked first for a reason.  This is to
-            // short-circuit based on DO_FLAG_DOING_PICKUPS before redoing
+            // short-circuit based on EVAL_FLAG_DOING_PICKUPS before redoing
             // fulfillments on arguments that have already been handled.
             //
             // Pickups are needed because the "visitation order" of the
@@ -979,7 +976,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // REFINEMENT! words (e.g. /B and /C above) on the data stack.
 
             if (pclass == REB_P_REFINEMENT) {
-                if (f->flags.bits & DO_FLAG_DOING_PICKUPS) {
+                if (GET_EVAL_FLAG(f, DOING_PICKUPS)) {
                     if (DSP != f->dsp_orig)
                         goto next_pickup;
 
@@ -1061,7 +1058,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                 assert(IS_INTEGER(f->special)); // DO FRAME! leaves these
 
-                assert(f->flags.bits & DO_FLAG_FULLY_SPECIALIZED);
+                assert(GET_EVAL_FLAG(f, FULLY_SPECIALIZED));
                 f->refine = f->arg; // remember so we can revoke!
                 goto used_refinement;
 
@@ -1192,7 +1189,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 if (
                     TYPE_CHECK(f->param, REB_TS_DEQUOTE_REQUOTE)
                     and IS_QUOTED(f->arg)
-                    and not (f->flags.bits & DO_FLAG_FULFILL_ONLY)
+                    and NOT_EVAL_FLAG(f, FULFILL_ONLY)
                 ){
                     f->requotes += VAL_NUM_QUOTES(f->arg);
                     Dequotify(f->arg);
@@ -1222,7 +1219,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             //
             if (
                 f->arg == f->special // !!! should this ever allow gathering?
-                /* f->flags.bits & DO_FLAG_FULLY_SPECIALIZED */
+                /* GET_EVAL_FLAG(f, FULLY_SPECIALIZED) */
             ){
                 if (Is_Param_Variadic(f->param))
                     Finalize_Variadic_Arg(f);
@@ -1238,7 +1235,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             //
             if (f->refine == ARG_TO_UNUSED_REFINEMENT) {
                 //
-                // Overwrite if !(DO_FLAG_FULLY_SPECIALIZED) faster than check
+                // Overwrite if !(EVAL_FLAG_FULLY_SPECIALIZED) faster than check
                 //
                 Init_Nulled(f->arg);
                 SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
@@ -1247,8 +1244,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     //=//// HANDLE IF NEXT ARG IS IN OUT SLOT (e.g. ENFIX, CHAIN) /////////=//
 
-            if (f->flags.bits & DO_FLAG_GET_NEXT_ARG_FROM_OUT) {
-                f->flags.bits &= ~DO_FLAG_GET_NEXT_ARG_FROM_OUT;
+            if (GET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT)) {
+                CLEAR_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
 
                 if (GET_CELL_FLAG(f->out, OUT_MARKED_STALE)) {
                     //
@@ -1259,7 +1256,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     // remembered what happened we can give an informative
                     // error message vs. a perplexing one.
                     //
-                    if (f->flags.bits & DO_FLAG_DIDNT_LEFT_QUOTE_PATH)
+                    if (GET_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH))
                         fail (Error_Literal_Left_Path_Raw());
 
                     // Seeing an END in the output slot could mean that there
@@ -1333,7 +1330,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     // This flag is only set for evaluative left enfix.  What
                     // it does is puts the enfix into a *single step defer*.
                     //
-                    if (f->flags.bits & DO_FLAG_FULFILLING_ENFIX) {
+                    if (GET_EVAL_FLAG(f, FULFILLING_ENFIX)) {
                         assert(
                             not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD)
                         );
@@ -1444,7 +1441,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             //      >> 1 + 2 * 3
             //      == 9
             //
-            if (not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX))
+            if (NOT_EVAL_FLAG(f, FULFILLING_ENFIX))
                 f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
 
             // Once a deferred flag is set, it must be cleared during the
@@ -1484,10 +1481,10 @@ bool Eval_Core_Throws(REBFRM * const f)
    //=//// REGULAR ARG-OR-REFINEMENT-ARG (consumes 1 EVALUATE's worth) ////=//
 
               case REB_P_NORMAL: {
-                REBFLGS flags = (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-                    | DO_FLAG_FULFILLING_ARG
-                    | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
-                    | (f->flags.bits & DO_FLAG_CONST);
+                REBFLGS flags = (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+                    | EVAL_FLAG_FULFILLING_ARG
+                    | (f->flags.bits & EVAL_FLAG_EXPLICIT_EVALUATE)
+                    | (f->flags.bits & EVAL_FLAG_CONST);
 
                 DECLARE_SUBFRAME (child, f); // capture DSP *now*
                 SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
@@ -1505,7 +1502,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 else {
                     if (not Typecheck_Including_Quoteds(f->param, f->value)) {
                         assert(Is_Param_Endable(f->param));
-                        Init_Endish_Nulled(f->arg); // not DO_FLAG_BARRIER_HIT
+                        Init_Endish_Nulled(f->arg); // not EVAL_FLAG_BARRIER_HIT
                         SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                         goto continue_arg_loop;
                     }
@@ -1583,7 +1580,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             assert(pclass != REB_P_LOCAL);
             assert(
                 not In_Typecheck_Mode(f) // already handled, unless...
-                or not (f->flags.bits & DO_FLAG_FULLY_SPECIALIZED) // ...this!
+                or NOT_EVAL_FLAG(f, FULLY_SPECIALIZED) // ...this!
             );
 
             Finalize_Arg(f);
@@ -1647,7 +1644,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             assert(VAL_PARAM_CLASS(f->param - 1) == REB_P_REFINEMENT);
 
             DS_DROP();
-            f->flags.bits |= DO_FLAG_DOING_PICKUPS;
+            SET_EVAL_FLAG(f, DOING_PICKUPS);
             goto process_args_for_pickup_or_to_end;
         }
 
@@ -1671,7 +1668,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             or IS_VALUE_IN_ARRAY_DEBUG(f->feed->array, f->value)
         );
 
-        if (f->flags.bits & DO_FLAG_FULFILL_ONLY) {
+        if (GET_EVAL_FLAG(f, FULFILL_ONLY)) {
             Init_Nulled(f->out);
             goto skip_output_check;
         }
@@ -1911,8 +1908,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             // happen, trying it out of curiosity for now.
             //
             Begin_Action(f, opt_label);
-            assert(not (f->flags.bits & DO_FLAG_GET_NEXT_ARG_FROM_OUT));
-            f->flags.bits |= DO_FLAG_GET_NEXT_ARG_FROM_OUT;
+            assert(NOT_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT));
+            SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
 
             goto process_action;
         }
@@ -1926,7 +1923,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             KIND_BYTE_UNCHECKED(f->out) != REB_0_END
             and (
                 KIND_BYTE_UNCHECKED(f->out) != REB_MAX_NULLED
-                or (f->flags.bits & DO_FLAG_REQUOTE_NULL)
+                or GET_EVAL_FLAG(f, REQUOTE_NULL)
             )
             and GET_SER_FLAG(f->original, PARAMLIST_FLAG_RETURN)
         ){
@@ -1972,11 +1969,11 @@ bool Eval_Core_Throws(REBFRM * const f)
             //
             Begin_Action(f, VAL_WORD_SPELLING(current)); // use word as label
 
-            assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
-            if (GET_CELL_FLAG(current_gotten, ENFIXED))
-                f->flags.bits |=
-                    (DO_FLAG_FULFILLING_ENFIX | DO_FLAG_GET_NEXT_ARG_FROM_OUT);
-
+            assert(NOT_EVAL_FLAG(f, FULFILLING_ENFIX));
+            if (GET_CELL_FLAG(current_gotten, ENFIXED)) {
+                SET_EVAL_FLAG(f, FULFILLING_ENFIX);
+                SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
+            }
             goto process_action;
         }
 
@@ -2074,10 +2071,10 @@ bool Eval_Core_Throws(REBFRM * const f)
                 array,
                 index,
                 derived,
-                (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-                    | DO_FLAG_TO_END
-                    | (f->flags.bits & DO_FLAG_CONST)
-                    | (current->header.bits & DO_FLAG_CONST)
+                (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+                    | EVAL_FLAG_TO_END
+                    | (f->flags.bits & EVAL_FLAG_CONST)
+                    | (current->header.bits & EVAL_FLAG_CONST)
             );
             if (indexor == THROWN_FLAG)
                 goto return_thrown;
@@ -2095,10 +2092,10 @@ bool Eval_Core_Throws(REBFRM * const f)
                 array,
                 index,
                 derived,
-                (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-                    | DO_FLAG_TO_END
-                    | (f->flags.bits & DO_FLAG_CONST)
-                    | (current->header.bits & DO_FLAG_CONST)
+                (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+                    | EVAL_FLAG_TO_END
+                    | (f->flags.bits & EVAL_FLAG_CONST)
+                    | (current->header.bits & EVAL_FLAG_CONST)
             );
             if (indexor == THROWN_FLAG) {
                 Move_Value(f->out, cell);
@@ -2141,7 +2138,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             VAL_INDEX(current),
             Derive_Specifier(f->specifier, current),
             nullptr, // `setval`: null means don't treat as SET-PATH!
-            DO_FLAG_PUSH_PATH_REFINEMENTS
+            EVAL_FLAG_PUSH_PATH_REFINEMENTS
         )){
             goto return_thrown;
         }
@@ -2349,8 +2346,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             Begin_Action(f, nullptr); // no label
 
             kind.byte = REB_ACTION;
-            assert(not (f->flags.bits & DO_FLAG_GET_NEXT_ARG_FROM_OUT));
-            f->flags.bits |= DO_FLAG_GET_NEXT_ARG_FROM_OUT;
+            assert(NOT_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT));
+            SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
 
             goto process_action;
         }
@@ -2508,7 +2505,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         // in API calls--is checked before the switch.  So it does not
         // run this line that only applies to "evaluated inert values".
         //
-        f->out->header.bits |= (f->flags.bits & DO_FLAG_CONST);
+        f->out->header.bits |= (f->flags.bits & EVAL_FLAG_CONST);
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2529,7 +2526,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         //
         f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
 
-        if (f->flags.bits & DO_FLAG_FULFILLING_ARG) {
+        if (GET_EVAL_FLAG(f, FULFILLING_ARG)) {
             //
             // May be fulfilling a variadic argument (or an argument to an
             // argument of a variadic, etc.)  Let this appear to give back
@@ -2658,10 +2655,10 @@ bool Eval_Core_Throws(REBFRM * const f)
             or not IS_BLANK(ARR_AT(VAL_ARRAY(f->value), 1))
             or not EVALUATING(f->value)
         ){
-            if (not (f->flags.bits & DO_FLAG_TO_END))
+            if (NOT_EVAL_FLAG(f, TO_END))
                 goto finished; // just 1 step of work, so stop evaluating
 
-            assert(not (f->flags.bits & DO_FLAG_FULFILLING_ARG)); // one only
+            assert(NOT_EVAL_FLAG(f, FULFILLING_ARG)); // one only
             goto do_next;
         }
 
@@ -2677,9 +2674,10 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         REBSTR *opt_label = nullptr;
         Begin_Action(f, opt_label);
-        assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
-        f->flags.bits |=
-            (DO_FLAG_FULFILLING_ENFIX | DO_FLAG_GET_NEXT_ARG_FROM_OUT);
+
+        assert(NOT_EVAL_FLAG(f, FULFILLING_ENFIX));
+        SET_EVAL_FLAG(f, FULFILLING_ENFIX);
+        SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
 
         Fetch_Next_In_Frame(nullptr, f); // advances f->value
         goto process_action;
@@ -2688,7 +2686,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     if (kind.byte != REB_WORD or not EVALUATING(f->value)) {
         Dampen_Lookahead(f);
 
-        if (not (f->flags.bits & DO_FLAG_TO_END))
+        if (NOT_EVAL_FLAG(f, TO_END))
             goto finished; // only want 1 EVALUATE of work, so stop evaluating
 
         goto do_next;
@@ -2716,8 +2714,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 //=//// NEW EXPRESSION IF UNBOUND, NON-FUNCTION, OR NON-ENFIX /////////////=//
 
     // These cases represent finding the start of a new expression, which
-    // continues the evaluator loop if DO_FLAG_TO_END, but will stop with
-    // `goto finished` if not (DO_FLAG_TO_END).
+    // continues the evaluator loop if EVAL_FLAG_TO_END, but will stop with
+    // `goto finished` if not (EVAL_FLAG_TO_END).
     //
     // Fall back on word-like "dispatch" even if f->gotten is null (unset or
     // unbound word).  It'll be an error, but that code path raises it for us.
@@ -2730,7 +2728,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         Dampen_Lookahead(f);
 
-        if (not (f->flags.bits & DO_FLAG_TO_END)) {
+        if (NOT_EVAL_FLAG(f, TO_END)) {
             //
             // Since it's a new expression, EVALUATE doesn't want to run it
             // even if invisible, as it's not completely invisible (enfixed)
@@ -2788,25 +2786,27 @@ bool Eval_Core_Throws(REBFRM * const f)
         // the left quoting function might be okay with seeing nothing on the
         // left.  Start a new expression and let it error if that's not ok.
         //
-        if (f->flags.bits & DO_FLAG_DIDNT_LEFT_QUOTE_PATH)
+        if (GET_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH))
             fail (Error_Literal_Left_Path_Raw());
 
         goto lookback_quote_too_late;
     }
 
-    if ((f->flags.bits & DO_FLAG_FULFILLING_ARG)
+    if (
+        GET_EVAL_FLAG(f, FULFILLING_ARG)
         and not ANY_SER_FLAGS(
-        VAL_ACTION(f->gotten),
-        PARAMLIST_FLAG_DEFERS_LOOKBACK // `1 + if false [2] else [3]` => 4
-            | PARAMLIST_FLAG_INVISIBLE // `1 + 2 + comment "foo" 3` => 6
-    )){
+            VAL_ACTION(f->gotten),
+            PARAMLIST_FLAG_DEFERS_LOOKBACK // `1 + if false [2] else [3]` => 4
+                | PARAMLIST_FLAG_INVISIBLE // `1 + 2 + comment "foo" 3` => 6
+        )
+    ){
         if (Dampen_Lookahead(f)) {
             assert(not (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX));
             f->feed->flags.bits |= FEED_FLAG_DEFERRING_ENFIX;
 
             // Don't do enfix lookahead if asked *not* to look.  See the
             // REB_P_TIGHT parameter convention for the use of this, as
-            // well as it being set if DO_FLAG_TO_END wants to clear out the
+            // well as it being set if EVAL_FLAG_TO_END wants to clear out the
             // invisibles at this frame level before returning.
 
             goto finished;
@@ -2824,10 +2824,10 @@ bool Eval_Core_Throws(REBFRM * const f)
     //
     if (
         GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_DEFERS_LOOKBACK)
-        and (f->flags.bits & DO_FLAG_FULFILLING_ARG)
+        and GET_EVAL_FLAG(f, FULFILLING_ARG)
         and not (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX)
     ){
-        if (f->prior->flags.bits & DO_FLAG_ERROR_ON_DEFERRED_ENFIX) {
+        if (GET_EVAL_FLAG(f->prior, ERROR_ON_DEFERRED_ENFIX)) {
             //
             // Operations that inline functions by proxy (such as MATCH and
             // ENSURE) cannot directly interoperate with THEN or ELSE...they
@@ -2858,7 +2858,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         f->feed->flags.bits |= FEED_FLAG_DEFERRING_ENFIX;
 
         // Leave the enfix operator pending in the frame, and it's up to the
-        // parent frame to decide whether to use DO_FLAG_POST_SWITCH to jump
+        // parent frame to decide whether to use EVAL_FLAG_POST_SWITCH to jump
         // back in and finish fulfilling this arg or not.  If it does resume
         // and we get to this check again, f->prior->deferred can't be null,
         // otherwise it would be an infinite loop.
@@ -2887,9 +2887,9 @@ bool Eval_Core_Throws(REBFRM * const f)
         f->value != VOID_VALUE ? VAL_WORD_SPELLING(f->value) : nullptr
     );
 
-    assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
-    f->flags.bits |=
-        (DO_FLAG_FULFILLING_ENFIX | DO_FLAG_GET_NEXT_ARG_FROM_OUT);
+    assert(NOT_EVAL_FLAG(f, FULFILLING_ENFIX));
+    SET_EVAL_FLAG(f, FULFILLING_ENFIX);
+    SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
 
     Fetch_Next_In_Frame(nullptr, f); // advances f->value
     goto process_action;
@@ -2909,20 +2909,20 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     // The unevaluated flag is meaningless outside of arguments to functions.
 
-    if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
+    if (NOT_EVAL_FLAG(f, FULFILLING_ARG))
         f->out->header.bits &= ~CELL_FLAG_UNEVALUATED; // may be an END cell
 
-    // Most clients would prefer not to read the stale flag, and be burdened
-    // with clearing it (can't be present on frame output).  Also, argument
-    // fulfillment can't read it (ARG_MARKED_CHECKED and OUT_MARKED_STALE are
-    // the same bit)...but it doesn't need to, since it always starts END.
-    //
-    assert(not (
-        (f->flags.bits & DO_FLAG_FULFILLING_ARG)
-        & (f->flags.bits & DO_FLAG_PRESERVE_STALE)
-    ));
-    if (not (f->flags.bits & DO_FLAG_PRESERVE_STALE))
+    if (NOT_EVAL_FLAG(f, PRESERVE_STALE))
         f->out->header.bits &= ~CELL_FLAG_OUT_MARKED_STALE; // may be END
+    else {
+        // Most clients would prefer not to read the stale flag, and be
+        // burdened with clearing it (can't be present on frame output).
+        // But argument fulfillment *can't* read it (ARG_MARKED_CHECKED and
+        // OUT_MARKED_STALE are the same bit)...but it doesn't need to,
+        // since it always starts END.
+        //
+        assert(NOT_EVAL_FLAG(f, FULFILLING_ARG));
+    }
 
   #if !defined(NDEBUG)
     Eval_Core_Exit_Checks_Debug(f); // will get called unless a fail() longjmps

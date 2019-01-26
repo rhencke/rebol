@@ -131,7 +131,7 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
     if (depth > 10)
         depth = 10; // don't indent so far it goes off the screen
 
-    // In order to trace single steps, we convert a DO_FLAG_TO_END request
+    // In order to trace single steps, we convert a EVAL_FLAG_TO_END request
     // into a sequence of EVALUATE operations, and loop them.
     //
     uintptr_t saved_flags = f->flags.bits;
@@ -143,9 +143,9 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
         )){
             // If a caller reuses a frame (as we are doing by single-stepping),
             // they are responsible for setting the flags each time.  This is
-            // verified in the debug build via DO_FLAG_FINAL_DEBUG.
+            // verified in the debug build via EVAL_FLAG_FINAL_DEBUG.
             //
-            f->flags.bits = saved_flags & (~DO_FLAG_TO_END);
+            f->flags.bits = saved_flags & (~EVAL_FLAG_TO_END);
 
             Debug_Space(cast(REBCNT, 4 * depth));
 
@@ -209,7 +209,7 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
 
         bool threw = Eval_Core_Throws(f);
 
-        if (not (saved_flags & DO_FLAG_TO_END)) {
+        if (not (saved_flags & EVAL_FLAG_TO_END)) {
             //
             // If we didn't morph the flag bits from wanting a full DO to
             // wanting only a EVALUATE, then the original intent was actually
@@ -224,13 +224,13 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
             // to END but we distorted it into stepwise.  We don't restore
             // the flags fully in a "spent frame" whether it was THROWN or
             // not (that's the caller's job).  But to be "invisible" we do
-            // put back the DO_FLAG_TO_END.
+            // put back the EVAL_FLAG_TO_END.
             //
-            f->flags.bits |= DO_FLAG_TO_END;
+            SET_EVAL_FLAG(f, TO_END);
             return threw;
         }
 
-        // keep looping (it was originally DO_FLAG_TO_END, which we are
+        // keep looping (it was originally EVAL_FLAG_TO_END, which we are
         // simulating step-by-step)
     }
 }

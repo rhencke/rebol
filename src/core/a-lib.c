@@ -1501,7 +1501,7 @@ intptr_t RL_rebPromise(const void *p, va_list *vaptr)
     // the code the GC uses to reify va_lists in frames, which we presume does
     // all the ps and qs.  It's messy, but refactor if it turns out to work.
 
-    const REBFLGS flags = DO_FLAG_TO_END | DO_FLAG_EXPLICIT_EVALUATE;
+    const REBFLGS flags = EVAL_FLAG_TO_END | EVAL_FLAG_EXPLICIT_EVALUATE;
 
     // !!! The following code is derived from Eval_Va_Core()
 
@@ -1593,8 +1593,8 @@ void RL_rebPromise_callback(intptr_t promise_id)
         0, // index
         SPECIFIED,
         DO_MASK_DEFAULT
-            | DO_FLAG_TO_END
-            | DO_FLAG_EXPLICIT_EVALUATE // was reified w/explicit
+            | EVAL_FLAG_TO_END
+            | EVAL_FLAG_EXPLICIT_EVALUATE // was reified w/explicit
     )){
         fail (Error_No_Catch_For_Throw(result)); // no need to release result
     }

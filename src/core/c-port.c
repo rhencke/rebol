@@ -305,7 +305,7 @@ void Sieve_Ports(REBARR *ports)
 //
 // R3-Alpha had a rather brittle implementation, that had no error checking
 // and repetition of logic in Eval_Core.  Ren-C more simply builds a PATH! of
-// the target function and refinements, passing args with DO_FLAG_EVAL_ONLY.
+// the target function and refinements, passing args with EVAL_FLAG_EVAL_ONLY.
 //
 // !!! This could be done more efficiently now by pushing the refinements to
 // the stack and using an APPLY-like technique.
@@ -394,10 +394,10 @@ bool Redo_Action_Throws(REBFRM *f, REBACT *run)
         code_arr,
         0, // index
         SPECIFIED, // reusing existing REBVAL arguments, no relative values
-        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-            | DO_FLAG_EXPLICIT_EVALUATE // DON'T double-evaluate arguments
-            | DO_FLAG_NO_RESIDUE // raise an error if all args not consume
-            | (f->flags.bits & DO_FLAG_CONST)
+        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+            | EVAL_FLAG_EXPLICIT_EVALUATE // DON'T double-evaluate arguments
+            | EVAL_FLAG_NO_RESIDUE // raise an error if all args not consume
+            | (f->flags.bits & EVAL_FLAG_CONST)
     );
 
     if (IS_END(f->out))

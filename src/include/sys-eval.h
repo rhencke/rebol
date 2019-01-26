@@ -225,7 +225,7 @@ inline static void Push_Frame_At_End(REBFRM *f, REBFLGS flags) {
 }
 
 inline static void UPDATE_EXPRESSION_START(REBFRM *f) {
-    f->expr_index = f->feed->index; // this is garbage if DO_FLAG_VA_LIST
+    f->expr_index = f->feed->index; // this is garbage if EVAL_FLAG_VA_LIST
 }
 
 inline static void Reuse_Varlist_If_Available(REBFRM *f) {
@@ -466,7 +466,7 @@ inline static void Set_Frame_Detected_Fetch(
         assert(
             not IS_RELATIVE(f->value) or (
                 IS_NULLED(f->value)
-                and (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
+                and GET_EVAL_FLAG(f, EXPLICIT_EVALUATE)
             )
         );
         break; }
@@ -610,7 +610,7 @@ inline static void Quote_Next_In_Frame(REBVAL *dest, REBFRM *f) {
     // want `append '(a b c) 'd` to be an error, which means the quoting
     // has to get the const flag if intended.
     //
-    dest->header.bits |= (f->flags.bits & DO_FLAG_CONST);
+    dest->header.bits |= (f->flags.bits & EVAL_FLAG_CONST);
 
     Fetch_Next_In_Frame(nullptr, f);
 }
@@ -703,7 +703,7 @@ inline static void Drop_Frame_Unbalanced(REBFRM *f) {
 
 inline static void Drop_Frame(REBFRM *f)
 {
-    if (f->flags.bits & DO_FLAG_TO_END)
+    if (GET_EVAL_FLAG(f, TO_END))
         assert(IS_END(f->value) or Is_Evaluator_Throwing_Debug());
 
     assert(DSP == f->dsp_orig); // Drop_Frame_Core() does not check
@@ -722,7 +722,7 @@ inline static bool Eval_Step_Throws(
 ){
     assert(IS_END(out));
 
-    assert(not (f->flags.bits & DO_FLAG_TO_END));
+    assert(NOT_EVAL_FLAG(f, TO_END));
     assert(not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
     assert(not (f->feed->flags.bits & FEED_FLAG_BARRIER_HIT));
 
@@ -745,7 +745,7 @@ inline static bool Eval_Step_Maybe_Stale_Throws(
 ){
     assert(NOT_END(out));
 
-    assert(not (f->flags.bits & DO_FLAG_TO_END));
+    assert(NOT_EVAL_FLAG(f, TO_END));
     assert(not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
     assert(not (f->feed->flags.bits & FEED_FLAG_BARRIER_HIT));
 
@@ -774,7 +774,7 @@ inline static bool Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
 
     bool threw = (*PG_Eval_Throws)(f); // should already be pushed
 
-    f->flags.bits = prior_flags; // e.g. restore DO_FLAG_TO_END    
+    f->flags.bits = prior_flags; // e.g. restore EVAL_FLAG_TO_END    
     return threw;
 }
 
@@ -842,8 +842,8 @@ inline static bool Eval_Step_In_Subframe_Throws(
         IS_END(child->value)
         or FRM_IS_VALIST(child)
         or old_index != child->feed->index
-        or (flags & DO_FLAG_REEVALUATE_CELL)
-        or (flags & DO_FLAG_POST_SWITCH)
+        or (flags & EVAL_FLAG_REEVALUATE_CELL)
+        or (flags & EVAL_FLAG_POST_SWITCH)
         or Is_Evaluator_Throwing_Debug()
     );
 
@@ -866,7 +866,7 @@ inline static REBIXO Eval_Array_At_Core(
     REBARR *array,
     REBCNT index,
     REBSPC *specifier, // must match array, but also opt_first if relative
-    REBFLGS flags // DO_FLAG_TO_END, DO_FLAG_EXPLICIT_EVALUATE, etc.
+    REBFLGS flags // EVAL_FLAG_TO_END, EVAL_FLAG_EXPLICIT_EVALUATE, etc.
 ){
     DECLARE_FRAME (f);
     f->flags = Endlike_Header(flags); // SET_FRAME_VALUE() *could* use
@@ -902,7 +902,7 @@ inline static REBIXO Eval_Array_At_Core(
         return THROWN_FLAG;
 
     assert(
-        not (flags & DO_FLAG_TO_END)
+        not (flags & EVAL_FLAG_TO_END)
         or f->feed->index == ARR_LEN(array) + 1
     );
     return f->feed->index;
@@ -1005,7 +1005,7 @@ inline static void Reify_Va_To_Array_In_Frame(
 // same as if the passed in values came from an array.  However, when values
 // originate from C they often have been effectively evaluated already, so
 // it's desired that WORD!s or PATH!s not execute as they typically would
-// in a block.  So this is often used with DO_FLAG_EXPLICIT_EVALUATE.
+// in a block.  So this is often used with EVAL_FLAG_EXPLICIT_EVALUATE.
 //
 // !!! C's va_lists are very dangerous, there is no type checking!  The
 // C++ build should be able to check this for the callers of this function
@@ -1061,14 +1061,14 @@ inline static REBIXO Eval_Va_Core(
         return THROWN_FLAG;
 
     if (
-        (flags & DO_FLAG_TO_END) // not just an EVALUATE, but a full DO
+        (flags & EVAL_FLAG_TO_END) // not just an EVALUATE, but a full DO
         or GET_CELL_FLAG(f->out, OUT_MARKED_STALE) // just ELIDEs and COMMENTs
     ){
         assert(IS_END(f->value));
         return END_FLAG;
     }
 
-    if ((flags & DO_FLAG_NO_RESIDUE) and NOT_END(f->value))
+    if ((flags & EVAL_FLAG_NO_RESIDUE) and NOT_END(f->value))
         fail (Error_Apply_Too_Many_Raw());
 
     return VA_LIST_FLAG; // frame may be at end, next call might just END_FLAG
@@ -1091,10 +1091,10 @@ inline static bool Eval_Value_Core_Throws(
         EMPTY_ARRAY,
         0, // start index (it's an empty array, there's no added processing)
         specifier,
-        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-            | DO_FLAG_TO_END
-            | (FS_TOP->flags.bits & DO_FLAG_CONST)
-            | (value->header.bits & DO_FLAG_CONST)
+        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+            | EVAL_FLAG_TO_END
+            | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
+            | (value->header.bits & EVAL_FLAG_CONST)
     );
 
     if (IS_END(out))

@@ -1262,13 +1262,13 @@ bool Make_Invocation_Frame_Throws(
     f->specifier = parent->specifier;
     TRASH_POINTER_IF_DEBUG(parent->gotten);
 
-    // Just do one step of the evaluator, so no DO_FLAG_TO_END.  Specifically,
+    // Just do one step of the evaluator, so no EVAL_FLAG_TO_END.  Specifically,
     // it is desired that any voids encountered be processed as if they are
     // not specialized...and gather at the callsite if necessary.
     //
     f->flags.bits = DO_MASK_DEFAULT
-        | DO_FLAG_PROCESS_ACTION
-        | DO_FLAG_ERROR_ON_DEFERRED_ENFIX;  // can't deal with ELSE/THEN/etc.
+        | EVAL_FLAG_PROCESS_ACTION
+        | EVAL_FLAG_ERROR_ON_DEFERRED_ENFIX;  // can't deal with ELSE/THEN/etc.
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
@@ -1283,14 +1283,14 @@ bool Make_Invocation_Frame_Throws(
     // gather the args.  Push_Action() checks that it's not set, so we don't
     // set it until after that.
     //
-    f->flags.bits |= DO_FLAG_FULFILL_ONLY;
+    SET_EVAL_FLAG(f, FULFILL_ONLY);
 
     assert(FRM_BINDING(f) == VAL_BINDING(action));  // no invoke to change it
 
     bool threw = (*PG_Eval_Throws)(f);
 
     // Drop_Action() clears out the phase and binding.  Put them back.
-    // !!! Should it check DO_FLAG_FULFILL_ONLY?
+    // !!! Should it check EVAL_FLAG_FULFILL_ONLY?
 
     FRM_PHASE(f) = VAL_ACTION(action);
     FRM_BINDING(f) = VAL_BINDING(action);

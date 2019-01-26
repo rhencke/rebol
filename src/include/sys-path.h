@@ -113,7 +113,7 @@ inline static void Get_Path_Core(
         VAL_INDEX(any_path),
         Derive_Specifier(specifier, any_path),
         NULL, // not requesting value to set means it's a get
-        DO_FLAG_NO_PATH_GROUPS
+        EVAL_FLAG_NO_PATH_GROUPS
     )){
         panic (out); // shouldn't be possible... no executions!
     }
@@ -153,9 +153,9 @@ inline static void Set_Path_Core(
     //
     DECLARE_LOCAL (out);
 
-    REBFLGS flags = DO_FLAG_NO_PATH_GROUPS;
+    REBFLGS flags = EVAL_FLAG_NO_PATH_GROUPS;
     if (enfix)
-        flags |= DO_FLAG_SET_PATH_ENFIXED;
+        flags |= EVAL_FLAG_SET_PATH_ENFIXED;
 
     if (Eval_Path_Throws_Core(
         out,

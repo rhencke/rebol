@@ -207,7 +207,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
 
         switch (pclass) {
         case REB_P_NORMAL: {
-            REBFLGS flags = DO_MASK_DEFAULT | DO_FLAG_FULFILLING_ARG;
+            REBFLGS flags = DO_MASK_DEFAULT | EVAL_FLAG_FULFILLING_ARG;
 
             DECLARE_FRAME (f_temp);
             Push_Frame_At(
@@ -311,7 +311,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
                 SET_END(out),
                 f,
                 DO_MASK_DEFAULT
-                    | DO_FLAG_FULFILLING_ARG,
+                    | EVAL_FLAG_FULFILLING_ARG,
                 child
             )){
                 return true;

@@ -177,9 +177,9 @@ REB_R Compose_To_Stack_Core(
         VAL_ARRAY(any_array),
         VAL_INDEX(any_array),
         specifier,
-        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-            | (FS_TOP->flags.bits & DO_FLAG_CONST)
-            | (any_array->header.bits & DO_FLAG_CONST)
+        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+            | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
+            | (any_array->header.bits & EVAL_FLAG_CONST)
     );
 
     for (; NOT_END(f->value); Fetch_Next_In_Frame(nullptr, f)) {
@@ -240,10 +240,10 @@ REB_R Compose_To_Stack_Core(
                 VAL_ARRAY(match),
                 index,
                 match_specifier,
-                (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-                    | DO_FLAG_TO_END
-                    | (f->flags.bits & DO_FLAG_CONST)
-                    | (match->header.bits & DO_FLAG_CONST)
+                (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+                    | EVAL_FLAG_TO_END
+                    | (f->flags.bits & EVAL_FLAG_CONST)
+                    | (match->header.bits & EVAL_FLAG_CONST)
             );
 
             if (indexor == THROWN_FLAG) {

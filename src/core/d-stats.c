@@ -134,11 +134,11 @@ REBNATIVE(stats)
 //
 bool Measured_Eval_Hook_Throws(REBFRM * const f)
 {
-    // In order to measure single steps, we convert a DO_FLAG_TO_END request
+    // In order to measure single steps, we convert a EVAL_FLAG_TO_END request
     // into a sequence of EVALUATE operations, and loop them.
     //
-    bool was_do_to_end = did (f->flags.bits & DO_FLAG_TO_END);
-    f->flags.bits &= ~DO_FLAG_TO_END;
+    bool was_do_to_end = GET_EVAL_FLAG(f, TO_END);
+    CLEAR_EVAL_FLAG(f, TO_END);
 
     bool threw;
     while (true) {
@@ -149,7 +149,7 @@ bool Measured_Eval_Hook_Throws(REBFRM * const f)
     }
 
     if (was_do_to_end)
-        f->flags.bits |= DO_FLAG_TO_END;
+        SET_EVAL_FLAG(f, TO_END);
 
     return threw;
 }

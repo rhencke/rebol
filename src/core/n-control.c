@@ -578,9 +578,9 @@ REBNATIVE(match)
         f->arg = f->rootvar + 1;
         f->special = f->arg;
 
-        f->flags.bits = (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-            | DO_FLAG_FULLY_SPECIALIZED
-            | DO_FLAG_PROCESS_ACTION;
+        f->flags.bits = (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+            | EVAL_FLAG_FULLY_SPECIALIZED
+            | EVAL_FLAG_PROCESS_ACTION;
 
         Begin_Action(f, opt_label);
 
@@ -1134,9 +1134,9 @@ REBNATIVE(default)
                         VAL_ARRAY(item),
                         VAL_INDEX(item),
                         derived,
-                        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-                            | DO_FLAG_TO_END
-                            | (frame_->flags.bits & DO_FLAG_CONST)
+                        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+                            | EVAL_FLAG_TO_END
+                            | (frame_->flags.bits & EVAL_FLAG_CONST)
                     );
                     if (indexor == THROWN_FLAG)
                         return R_THROWN;
@@ -1154,7 +1154,7 @@ REBNATIVE(default)
             VAL_INDEX(target),
             VAL_SPECIFIER(target),
             NULL, // not requesting value to set means it's a get
-            DO_FLAG_PATH_HARD_QUOTE // pre-COMPOSE'd, so GROUP!s are literal
+            EVAL_FLAG_PATH_HARD_QUOTE // pre-COMPOSE'd, so GROUP!s are literal
         )){
             panic (D_OUT); // shouldn't be possible... no executions!
         }
@@ -1178,7 +1178,7 @@ REBNATIVE(default)
             VAL_INDEX(target),
             VAL_SPECIFIER(target),
             D_OUT,
-            DO_FLAG_PATH_HARD_QUOTE // path precomposed, no double evaluating
+            EVAL_FLAG_PATH_HARD_QUOTE // path precomposed, no double evaluating
         )){
             panic (dummy); // shouldn't be possible, no executions!
         }

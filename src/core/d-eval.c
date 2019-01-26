@@ -256,7 +256,7 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
     }
 
     assert(f->refine == ORDINARY_ARG);
-    if (not (f->flags.bits & DO_FLAG_GET_NEXT_ARG_FROM_OUT)) {
+    if (NOT_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT)) {
         if (NOT_CELL_FLAG(f->out, OUT_MARKED_STALE))
             assert(GET_SER_FLAG(phase, PARAMLIST_FLAG_INVISIBLE));
     }
@@ -318,7 +318,7 @@ void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
         }
     }
 
-    if (f->flags.bits & DO_FLAG_TO_END)
+    if (GET_EVAL_FLAG(f, TO_END))
         assert(Is_Evaluator_Throwing_Debug() or IS_END(f->value));
 
     // We'd like `do [1 + comment "foo"]` to act identically to `do [1 +]`

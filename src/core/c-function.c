@@ -1321,7 +1321,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
     // means compatibility would be with the behavior of R3-Alpha CLOSURE,
     // not with FUNCTION.
     //
-    if (FS_TOP->flags.bits & DO_FLAG_CONST)
+    if (FS_TOP->flags.bits & EVAL_FLAG_CONST)
         SET_CELL_FLAG(body, CONST); // Inherit_Const() needs REBVAL*
 
     return a;
@@ -1799,7 +1799,7 @@ bool Get_If_Word_Or_Path_Throws(
             derived,
             NULL, // `setval`: null means don't treat as SET-PATH!
             DO_MASK_DEFAULT | (push_refinements
-                ? DO_FLAG_PUSH_PATH_REFINEMENTS // pushed in reverse order
+                ? EVAL_FLAG_PUSH_PATH_REFINEMENTS // pushed in reverse order
                 : 0)
         )){
             return true;

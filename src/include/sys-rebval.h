@@ -211,13 +211,13 @@
 //
 // This is a bit which should not be present on cells in user-exposed arrays.
 //
-// If a DO is happening with DO_FLAG_EXPLICIT_EVALUATE, only values which
+// If a DO is happening with EVAL_FLAG_EXPLICIT_EVALUATE, only values which
 // carry this bit will override it.  It may be the case that the flag on a
 // value would signal a kind of quoting to suppress evaluation in ordinary
-// evaluation (without DO_FLAG_EXPLICIT_EVALUATE), hence it is a "flip" bit.
+// evaluation (without EVAL_FLAG_EXPLICIT_EVALUATE), hence it is a "flip" bit.
 //
 #define CELL_FLAG_EVAL_FLIP \
-    FLAG_LEFT_BIT(21) // IMPORTANT: Same bit as DO_FLAG_EXPLICIT_EVALUATE
+    FLAG_LEFT_BIT(21) // IMPORTANT: Same bit as EVAL_FLAG_EXPLICIT_EVALUATE
 
 
 //=//// CELL_FLAG_CONST ///////////////////////////////////////////////////=//
@@ -228,7 +228,7 @@
 // const view on a mutable value with CONST.
 //
 #define CELL_FLAG_CONST \
-    FLAG_LEFT_BIT(22) // NOTE: Must be SAME BIT as DO_FLAG_CONST
+    FLAG_LEFT_BIT(22) // NOTE: Must be SAME BIT as EVAL_FLAG_CONST
 
 
 //=//// CELL_FLAG_EXPLICITLY_MUTABLE //////////////////////////////////////=//

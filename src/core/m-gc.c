@@ -1331,7 +1331,7 @@ static void Mark_Frame_Stack_Deep(void)
                 // If we're not doing "pickups" then the cell slots after
                 // this one have not been initialized, not even to trash.
                 //
-                if (not (f->flags.bits & DO_FLAG_DOING_PICKUPS))
+                if (NOT_EVAL_FLAG(f, DOING_PICKUPS))
                     break;
 
                 // But since we *are* doing pickups, we must have initialized
