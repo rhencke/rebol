@@ -205,7 +205,7 @@ inline static bool Try_Add_Binder_Index(
     REBINT index
 ){
     assert(index != 0);
-    assert(GET_SER_INFO(canon, STRING_INFO_CANON));
+    assert(GET_SERIES_INFO(canon, STRING_CANON));
     if (binder->high) {
         if (MISC(canon).bind_index.high != 0)
             return false;
@@ -239,7 +239,7 @@ inline static REBINT Get_Binder_Index_Else_0( // 0 if not present
     struct Reb_Binder *binder,
     REBSTR *canon
 ){
-    assert(GET_SER_INFO(canon, STRING_INFO_CANON));
+    assert(GET_SERIES_INFO(canon, STRING_CANON));
 
     if (binder->high)
         return MISC(canon).bind_index.high;
@@ -252,7 +252,7 @@ inline static REBINT Remove_Binder_Index_Else_0( // return old value if there
     struct Reb_Binder *binder,
     REBSTR *canon
 ){
-    assert(GET_SER_INFO(canon, STRING_INFO_CANON));
+    assert(GET_SERIES_INFO(canon, STRING_CANON));
 
     REBINT old_index;
     if (binder->high) {
@@ -517,7 +517,7 @@ static inline const REBVAL *Get_Opt_Var_May_Fail(
         fail (Error_Not_Bound_Raw(KNOWN(any_word)));
 
     REBCTX *c = Get_Var_Context(any_word, specifier);
-    if (GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE))
+    if (GET_SERIES_INFO(c, INACCESSIBLE))
         fail (Error_No_Relative_Core(any_word));
 
     return CTX_VAR(c, VAL_WORD_INDEX(any_word));
@@ -531,7 +531,7 @@ static inline const REBVAL *Try_Get_Opt_Var(
         return nullptr;
 
     REBCTX *c = Get_Var_Context(any_word, specifier);
-    if (GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE))
+    if (GET_SERIES_INFO(c, INACCESSIBLE))
         return nullptr;
 
     return CTX_VAR(c, VAL_WORD_INDEX(any_word));

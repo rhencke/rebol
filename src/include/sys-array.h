@@ -479,7 +479,7 @@ inline static REBARR *VAL_ARRAY(const REBCEL *v) {
         assert(ANY_ARRAY_KIND(CELL_KIND(v)));
 
     REBSER *s = v->payload.any_series.series;
-    if (s->info.bits & SERIES_INFO_INACCESSIBLE)
+    if (GET_SERIES_INFO(s, INACCESSIBLE))
         fail (Error_Series_Data_Freed_Raw());
     return ARR(s);
 }

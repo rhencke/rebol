@@ -295,7 +295,7 @@ inline static REBVAL *ACT_SPECIALTY_HEAD(REBACT *a) {
 inline static REBACT *VAL_ACTION(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_ACTION); // so it works on literals
     REBSER *s = SER(v->payload.action.paramlist);
-    if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
+    if (GET_SERIES_INFO(s, INACCESSIBLE))
         fail (Error_Series_Data_Freed_Raw());
     return ACT(s);
 }

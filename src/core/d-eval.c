@@ -149,7 +149,7 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
 
     if (f->varlist) {
         assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
-        assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
+        assert(NOT_SERIES_INFO(f->varlist, INACCESSIBLE));
     }
 
     //=//// ^-- ABOVE CHECKS *ALWAYS* APPLY ///////////////////////////////=//
@@ -210,10 +210,7 @@ void Eval_Core_Expression_Checks_Debug(REBFRM *f) {
     TRASH_POINTER_IF_DEBUG(f->special);
     TRASH_POINTER_IF_DEBUG(f->refine);
 
-    assert(
-        not f->varlist
-        or NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)
-    );
+    assert(not f->varlist or NOT_SERIES_INFO(f->varlist, INACCESSIBLE));
 
     // Mutate va_list sources into arrays at fairly random moments in the
     // debug build.  It should be able to handle it at any time.
@@ -270,7 +267,7 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
     assert(NOT_END(f->out));
     assert(not Is_Evaluator_Throwing_Debug());
 
-    if (GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)) // e.g. ENCLOSE
+    if (GET_SERIES_INFO(f->varlist, INACCESSIBLE)) // e.g. ENCLOSE
         return;
 
     REBACT *phase = FRM_PHASE(f);

@@ -817,7 +817,7 @@ static void Startup_End_Node(void)
 static void Startup_Empty_Array(void)
 {
     PG_Empty_Array = Make_Arr_Core(0, NODE_FLAG_MANAGED);
-    SET_SER_INFO(PG_Empty_Array, SERIES_INFO_FROZEN);
+    SET_SERIES_INFO(PG_Empty_Array, FROZEN);
 }
 
 

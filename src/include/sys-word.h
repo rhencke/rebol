@@ -70,7 +70,7 @@ inline static REBSTR *VAL_WORD_CANON(const REBCEL *v) {
 //
 inline static REBSTR *VAL_STORED_CANON(const REBCEL *v) {
     assert(ANY_WORD_KIND(CELL_KIND(v)));
-    assert(GET_SER_INFO(v->payload.any_word.spelling, STRING_INFO_CANON));
+    assert(GET_SERIES_INFO(v->payload.any_word.spelling, STRING_CANON));
     return v->payload.any_word.spelling;
 }
 

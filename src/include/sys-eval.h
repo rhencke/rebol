@@ -149,7 +149,7 @@ inline static void Push_Frame_Core(REBFRM *f)
             continue;
         if (Is_Action_Frame_Fulfilling(ftemp))
             continue;
-        if (GET_SER_INFO(ftemp->varlist, SERIES_INFO_INACCESSIBLE))
+        if (GET_SERIES_INFO(ftemp->varlist, INACCESSIBLE))
             continue; // Encloser_Dispatcher() reuses args from up stack
         assert(
             f->out < FRM_ARGS_HEAD(ftemp)
@@ -197,10 +197,10 @@ inline static void Push_Frame_Core(REBFRM *f)
         assert(not (f->feed->flags.bits & FEED_FLAG_TOOK_HOLD));
     }
     else {
-        if (GET_SER_INFO(f->feed->array, SERIES_INFO_HOLD))
+        if (GET_SERIES_INFO(f->feed->array, HOLD))
             NOOP; // already temp-locked
         else {
-            SET_SER_INFO(f->feed->array, SERIES_INFO_HOLD);
+            SET_SERIES_INFO(f->feed->array, HOLD);
             f->feed->flags.bits |= FEED_FLAG_TOOK_HOLD;
         }
     }
@@ -573,8 +573,8 @@ inline static void Fetch_Next_In_Frame(
         ++f->feed->index; // for consistency in index termination state
 
         if (f->feed->flags.bits & FEED_FLAG_TOOK_HOLD) {
-            assert(GET_SER_INFO(f->feed->array, SERIES_INFO_HOLD));
-            CLEAR_SER_INFO(f->feed->array, SERIES_INFO_HOLD);
+            assert(GET_SERIES_INFO(f->feed->array, HOLD));
+            CLEAR_SERIES_INFO(f->feed->array, HOLD);
 
             // !!! Future features may allow you to move on to another array.
             // If so, the "hold" bit would need to be reset like this.
@@ -658,8 +658,8 @@ inline static void Abort_Frame(REBFRM *f) {
             // The frame was either never variadic, or it was but got spooled
             // into an array by Reify_Va_To_Array_In_Frame()
             //
-            assert(GET_SER_INFO(f->feed->array, SERIES_INFO_HOLD));
-            CLEAR_SER_INFO(f->feed->array, SERIES_INFO_HOLD);
+            assert(GET_SERIES_INFO(f->feed->array, HOLD));
+            CLEAR_SERIES_INFO(f->feed->array, HOLD);
             f->feed->flags.bits &= ~FEED_FLAG_TOOK_HOLD; // !!! needed?
         }
     }
@@ -982,7 +982,7 @@ inline static void Reify_Va_To_Array_In_Frame(
     // might have a hold on it...not worth the complexity.) 
     //
     assert(not (f->feed->flags.bits & FEED_FLAG_TOOK_HOLD));
-    SET_SER_INFO(f->feed->array, SERIES_INFO_HOLD);
+    SET_SERIES_INFO(f->feed->array, HOLD);
     f->feed->flags.bits |= FEED_FLAG_TOOK_HOLD;
 
     if (truncated)

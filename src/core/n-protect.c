@@ -195,14 +195,14 @@ void Protect_Series(REBSER *s, REBCNT index, REBFLGS flags)
     if (flags & PROT_SET) {
         if (flags & PROT_FREEZE) {
             assert(flags & PROT_DEEP);
-            SET_SER_INFO(s, SERIES_INFO_FROZEN);
+            SET_SERIES_INFO(s, FROZEN);
         }
         else
-            SET_SER_INFO(s, SERIES_INFO_PROTECTED);
+            SET_SERIES_INFO(s, PROTECTED);
     }
     else {
         assert(not (flags & PROT_FREEZE));
-        CLEAR_SER_INFO(s, SERIES_INFO_PROTECTED);
+        CLEAR_SERIES_INFO(s, PROTECTED);
     }
 
     if (not IS_SER_ARRAY(s) or not (flags & PROT_DEEP))
@@ -229,14 +229,14 @@ void Protect_Context(REBCTX *c, REBFLGS flags)
     if (flags & PROT_SET) {
         if (flags & PROT_FREEZE) {
             assert(flags & PROT_DEEP);
-            SET_SER_INFO(c, SERIES_INFO_FROZEN);
+            SET_SERIES_INFO(c, FROZEN);
         }
         else
-            SET_SER_INFO(c, SERIES_INFO_PROTECTED);
+            SET_SERIES_INFO(c, PROTECTED);
     }
     else {
         assert(not (flags & PROT_FREEZE));
-        CLEAR_SER_INFO(CTX_VARLIST(c), SERIES_INFO_PROTECTED);
+        CLEAR_SERIES_INFO(CTX_VARLIST(c), PROTECTED);
     }
 
     if (not (flags & PROT_DEEP))
@@ -516,17 +516,17 @@ void Ensure_Value_Frozen(const RELVAL *v, REBSER *opt_locker) {
     if (ANY_ARRAY_OR_PATH_KIND(kind)) {
         Deep_Freeze_Array(VAL_ARRAY(cell));
         if (opt_locker)
-            SET_SER_INFO(VAL_ARRAY(cell), SERIES_INFO_AUTO_LOCKED);
+            SET_SERIES_INFO(VAL_ARRAY(cell), AUTO_LOCKED);
     }
     else if (ANY_CONTEXT_KIND(kind)) {
         Deep_Freeze_Context(VAL_CONTEXT(cell));
         if (opt_locker)
-            SET_SER_INFO(VAL_CONTEXT(cell), SERIES_INFO_AUTO_LOCKED);
+            SET_SERIES_INFO(VAL_CONTEXT(cell), AUTO_LOCKED);
     }
     else if (ANY_SERIES_KIND(kind)) {
         Freeze_Sequence(VAL_SERIES(cell));
         if (opt_locker)
-            SET_SER_INFO(VAL_SERIES(cell), SERIES_INFO_AUTO_LOCKED);
+            SET_SERIES_INFO(VAL_SERIES(cell), AUTO_LOCKED);
     } else
         fail (Error_Invalid_Type(kind)); // not yet implemented
 }

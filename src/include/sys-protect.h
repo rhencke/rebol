@@ -57,7 +57,7 @@ inline static void FAIL_IF_READ_ONLY_SERIES_CORE(
 
 
 inline static bool Is_Array_Deeply_Frozen(REBARR *a) {
-    return GET_SER_INFO(a, SERIES_INFO_FROZEN);
+    return GET_SERIES_INFO(a, FROZEN);
 
     // should be frozen all the way down (can only freeze arrays deeply)
 }

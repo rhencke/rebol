@@ -563,7 +563,7 @@ REBNATIVE(do)
         // references in other FRAME! value cells have all gone away.
         //
         assert(GET_SER_FLAG(c, NODE_FLAG_MANAGED));
-        assert(GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE));
+        assert(GET_SERIES_INFO(c, INACCESSIBLE));
 
         f->varlist = CTX_VARLIST(stolen);
         f->rootvar = CTX_ARCHETYPE(stolen);

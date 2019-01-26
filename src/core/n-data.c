@@ -1030,7 +1030,7 @@ REBNATIVE(free)
         fail ("FREE only implemented for ANY-SERIES! at the moment");
 
     REBSER *s = VAL_SERIES(v);
-    if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
+    if (GET_SERIES_INFO(s, INACCESSIBLE))
         fail ("Cannot FREE already freed series");
     FAIL_IF_READ_ONLY_SERIES(v);
 
@@ -1065,7 +1065,7 @@ REBNATIVE(free_q)
     else
         return Init_False(D_OUT);
 
-    return Init_Logic(D_OUT, GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE));
+    return Init_Logic(D_OUT, GET_SERIES_INFO(s, INACCESSIBLE));
 }
 
 
@@ -1156,7 +1156,7 @@ REBNATIVE(as)
                 STR_HEAD(spelling),
                 STR_SIZE(spelling)
             );
-            SET_SER_INFO(string, SERIES_INFO_FROZEN);
+            SET_SERIES_INFO(string, FROZEN);
             return Inherit_Const(
                 Quotify(Init_Any_Series(D_OUT, new_kind, string), quotes),
                 v
@@ -1172,7 +1172,7 @@ REBNATIVE(as)
                 VAL_LEN_AT(v)
             );
             if (Is_Value_Frozen(v))
-                SET_SER_INFO(string, SERIES_INFO_FROZEN);
+                SET_SERIES_INFO(string, FROZEN);
             else {
                 // !!! Catch any cases of people who were trying to alias the
                 // binary, make mutations via the string, and see those

@@ -69,7 +69,7 @@ inline static REBMAP *VAL_MAP(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_MAP);
 
     REBSER *s = v->payload.any_series.series;
-    if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
+    if (GET_SERIES_INFO(s, INACCESSIBLE))
         fail (Error_Series_Data_Freed_Raw());
 
     return MAP(s);

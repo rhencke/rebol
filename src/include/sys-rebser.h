@@ -518,7 +518,7 @@ STATIC_ASSERT(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
     FLAG_LEFT_BIT(26)
 
 
-//=//// STRING_INFO_CANON /////////////////////////////////////////////////=//
+//=//// SERIES_INFO_STRING_CANON //////////////////////////////////////////=//
 //
 // This is used to indicate when a SERIES_FLAG_UTF8_STRING series represents
 // the canon form of a word.  This doesn't mean anything special about the
@@ -529,11 +529,11 @@ STATIC_ASSERT(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
 // its canon form.  So it can use the REBSER.misc field for the purpose of
 // holding an index during binding.
 //
-#define STRING_INFO_CANON \
+#define SERIES_INFO_STRING_CANON \
     FLAG_LEFT_BIT(27)
 
 
-//=//// SERIES_INFO_SHARED_KEYLIST ////////////////////////////////////////=//
+//=//// SERIES_INFO_KEYLIST_SHARED ////////////////////////////////////////=//
 //
 // This is indicated on the keylist array of a context when that same array
 // is the keylist for another object.  If this flag is set, then modifying an
@@ -545,7 +545,7 @@ STATIC_ASSERT(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
 // the keylist.  That would make 100 copies of an arbitrary long keylist that
 // the GC would have to clean up.
 //
-#define SERIES_INFO_SHARED_KEYLIST \
+#define SERIES_INFO_KEYLIST_SHARED \
     FLAG_LEFT_BIT(28)
 
 
@@ -1125,33 +1125,18 @@ inline static bool ALL_SER_FLAGS(
 // Series INFO bits (distinct from header FLAGs)
 //
 
-#define SET_SER_INFO(s,f) \
-    cast(void, SER(s)->info.bits |= (f))
+#define SET_SERIES_INFO(s,name) \
+    (SER(s)->info.bits |= SERIES_INFO_##name)
 
-#define CLEAR_SER_INFO(s,f) \
-    cast(void, SER(s)->info.bits &= ~(f))
+#define GET_SERIES_INFO(s,name) \
+    ((SER(s)->info.bits & SERIES_INFO_##name) != 0)
 
-#define GET_SER_INFO(s,f) \
-    (did (SER(s)->info.bits & (f))) // !!! ensure it's just one flag?
+#define CLEAR_SERIES_INFO(s,name) \
+    (SER(s)->info.bits &= ~SERIES_INFO_##name)
 
-#define ANY_SER_INFOS(s,f) \
-    (did (SER(s)->info.bits & (f)))
+#define NOT_SERIES_INFO(s,name) \
+    ((SER(s)->info.bits & SERIES_INFO_##name) == 0)
 
-inline static bool ALL_SER_INFOS(
-    void *s, // to allow REBARR*, REBCTX*, REBACT*... SER(s) checks
-    REBFLGS f
-){
-    return (SER(s)->info.bits & f) == f; // repeats f, so not a macro
-}
-
-#define NOT_SER_INFO(s,f) \
-    (not (SER(s)->info.bits & (f)))
-
-#define SET_SER_INFOS(s,f) \
-    SET_SER_INFO((s), (f))
-
-#define CLEAR_SER_INFOS(s,f) \
-    CLEAR_SER_INFO((s), (f))
 
 
 #define IS_SER_ARRAY(s) \

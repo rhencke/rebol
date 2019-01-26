@@ -133,7 +133,7 @@ inline static void Free_Node(REBCNT pool_id, void *p)
   #ifdef DEBUG_MONITOR_SERIES
     if (
         pool_id == SER_POOL
-        and GET_SER_INFO(cast(REBSER*, p), SERIES_INFO_MONITOR_DEBUG)
+        and GET_SERIES_INFO(cast(REBSER*, p), MONITOR_DEBUG)
     ){
         printf("Freeing series %p on tick #%d\n", p, cast(int, TG_Tick));
         fflush(stdout);

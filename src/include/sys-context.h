@@ -98,7 +98,7 @@ inline static REBVAL *CTX_ARCHETYPE(REBCTX *c) {
     // If a context has its data freed, it must be converted into non-dynamic
     // form if it wasn't already (e.g. if it wasn't a FRAME!)
     //
-    assert(NOT_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE));
+    assert(NOT_SERIES_INFO(varlist, INACCESSIBLE));
     return cast(REBVAL*, varlist->content.dynamic.data);
 }
 
@@ -123,12 +123,12 @@ inline static REBARR *CTX_KEYLIST(REBCTX *c) {
 }
 
 static inline void INIT_CTX_KEYLIST_SHARED(REBCTX *c, REBARR *keylist) {
-    SET_SER_INFO(keylist, SERIES_INFO_SHARED_KEYLIST);
+    SET_SERIES_INFO(keylist, KEYLIST_SHARED);
     LINK(c).keysource = NOD(keylist);
 }
 
 static inline void INIT_CTX_KEYLIST_UNIQUE(REBCTX *c, REBARR *keylist) {
-    assert(NOT_SER_INFO(keylist, SERIES_INFO_SHARED_KEYLIST));
+    assert(NOT_SERIES_INFO(keylist, KEYLIST_SHARED));
     LINK(c).keysource = NOD(keylist);
 }
 
@@ -159,7 +159,7 @@ inline static REBFRM *CTX_FRAME_IF_ON_STACK(REBCTX *c) {
     if (not (keysource->header.bits & NODE_FLAG_CELL))
         return nullptr; // e.g. came from MAKE FRAME! or Encloser_Dispatcher
 
-    assert(NOT_SER_INFO(CTX_VARLIST(c), SERIES_INFO_INACCESSIBLE));
+    assert(NOT_SERIES_INFO(CTX_VARLIST(c), INACCESSIBLE));
     assert(IS_FRAME(CTX_ARCHETYPE(c)));
 
     REBFRM *f = FRM(keysource);
@@ -178,7 +178,7 @@ inline static REBFRM *CTX_FRAME_MAY_FAIL(REBCTX *c) {
     SER_AT(REBVAL, SER(CTX_VARLIST(c)), 1) // may fail() if inaccessible
 
 inline static REBVAL *CTX_KEY(REBCTX *c, REBCNT n) {
-    assert(NOT_SER_FLAG(c, SERIES_INFO_INACCESSIBLE));
+    assert(NOT_SERIES_INFO(c, INACCESSIBLE));
     assert(GET_SER_FLAG(c, ARRAY_FLAG_VARLIST));
     assert(n != 0 and n <= CTX_LEN(c));
     return cast(REBVAL*, cast(REBSER*, CTX_KEYLIST(c))->content.dynamic.data)
@@ -186,7 +186,7 @@ inline static REBVAL *CTX_KEY(REBCTX *c, REBCNT n) {
 }
 
 inline static REBVAL *CTX_VAR(REBCTX *c, REBCNT n) {
-    assert(NOT_SER_FLAG(c, SERIES_INFO_INACCESSIBLE));
+    assert(NOT_SERIES_INFO(c, INACCESSIBLE));
     assert(GET_SER_FLAG(c, ARRAY_FLAG_VARLIST));
     assert(n != 0 and n <= CTX_LEN(c));
     return cast(REBVAL*, cast(REBSER*, c)->content.dynamic.data) + n;
@@ -217,7 +217,7 @@ inline static REBSYM CTX_KEY_SYM(REBCTX *c, REBCNT n) {
 //
 
 inline static void FAIL_IF_INACCESSIBLE_CTX(REBCTX *c) {
-    if (GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE)) {
+    if (GET_SERIES_INFO(c, INACCESSIBLE)) {
         if (CTX_TYPE(c) == REB_FRAME)
             fail (Error_Do_Expired_Frame_Raw()); // !!! different error?
         fail (Error_Series_Data_Freed_Raw());
@@ -333,7 +333,7 @@ inline static void Deep_Freeze_Context(REBCTX *c) {
 }
 
 inline static bool Is_Context_Deeply_Frozen(REBCTX *c) {
-    return GET_SER_INFO(c, SERIES_INFO_FROZEN);
+    return GET_SERIES_INFO(c, FROZEN);
 }
 
 

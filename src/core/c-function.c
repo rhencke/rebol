@@ -1037,7 +1037,7 @@ REBCTX *Make_Expired_Frame_Ctx_Managed(REBACT *a)
     //
     REBARR *varlist = Alloc_Singular(SERIES_FLAG_STACK | NODE_FLAG_MANAGED);
     SET_SER_FLAGS(varlist, SERIES_MASK_CONTEXT);
-    SET_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE);
+    SET_SERIES_INFO(varlist, INACCESSIBLE);
     MISC(varlist).meta = nullptr;
 
     RELVAL *rootvar = RESET_CELL(ARR_SINGLE(varlist), REB_FRAME);
@@ -1697,7 +1697,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     LINK(c).keysource = NOD(VAL_ACTION(inner));
     CLEAR_SER_FLAG(c, SERIES_FLAG_STACK);
 
-    assert(GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)); // look dead
+    assert(GET_SERIES_INFO(f->varlist, INACCESSIBLE)); // look dead
 
     // f->varlist may or may not have wound up being managed.  It was not
     // allocated through the usual mechanisms, so if unmanaged it's not in

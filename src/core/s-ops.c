@@ -169,7 +169,7 @@ REBSER *Temp_UTF8_At_Managed(
     assert(BYTE_SIZE(s));
 
     MANAGE_SERIES(s);
-    SET_SER_INFO(s, SERIES_INFO_FROZEN);
+    SET_SERIES_INFO(s, FROZEN);
 
     *offset_out = 0;
     if (opt_size_out != NULL)

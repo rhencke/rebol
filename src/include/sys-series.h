@@ -126,7 +126,7 @@
     inline static void MONITOR_SERIES(void *p) {
         printf("Adding monitor to %p on tick #%d\n", p, cast(int, TG_Tick));
         fflush(stdout);
-        SET_SER_INFO(p, SERIES_INFO_MONITOR_DEBUG);
+        SET_SERIES_INFO(p, MONITOR_DEBUG);
     }
 #endif
 
@@ -169,7 +169,7 @@ inline static REBYTE *SER_DATA_RAW(REBSER *s) {
     // The VAL_CONTEXT(), VAL_SERIES(), VAL_ARRAY() extractors do the failing
     // upon extraction--that's meant to catch it before it gets this far.
     //
-    assert(not (s->info.bits & SERIES_INFO_INACCESSIBLE));
+    assert(NOT_SERIES_INFO(s, INACCESSIBLE));
 
     return LEN_BYTE_OR_255(s) == 255
         ? cast(REBYTE*, s->content.dynamic.data)
@@ -194,7 +194,7 @@ inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBCNT i) {
     // The VAL_CONTEXT(), VAL_SERIES(), VAL_ARRAY() extractors do the failing
     // upon extraction--that's meant to catch it before it gets this far.
     //
-    assert(not (s->info.bits & SERIES_INFO_INACCESSIBLE));
+    assert(NOT_SERIES_INFO(s, INACCESSIBLE));
   #endif
 
     return ((w) * (i)) + ( // v-- inlining of SER_DATA_RAW
@@ -364,24 +364,24 @@ inline static void ENSURE_SERIES_MANAGED(REBSER *s) {
 //
 
 static inline bool Is_Series_Black(REBSER *s) {
-    return GET_SER_INFO(s, SERIES_INFO_BLACK);
+    return GET_SERIES_INFO(s, BLACK);
 }
 
 static inline bool Is_Series_White(REBSER *s) {
-    return NOT_SER_INFO(s, SERIES_INFO_BLACK);
+    return NOT_SERIES_INFO(s, BLACK);
 }
 
 static inline void Flip_Series_To_Black(REBSER *s) {
-    assert(NOT_SER_INFO(s, SERIES_INFO_BLACK));
-    SET_SER_INFO(s, SERIES_INFO_BLACK);
+    assert(NOT_SERIES_INFO(s, BLACK));
+    SET_SERIES_INFO(s, BLACK);
 #if !defined(NDEBUG)
     ++TG_Num_Black_Series;
 #endif
 }
 
 static inline void Flip_Series_To_White(REBSER *s) {
-    assert(GET_SER_INFO(s, SERIES_INFO_BLACK));
-    CLEAR_SER_INFO(s, SERIES_INFO_BLACK);
+    assert(GET_SERIES_INFO(s, BLACK));
+    CLEAR_SERIES_INFO(s, BLACK);
 #if !defined(NDEBUG)
     --TG_Num_Black_Series;
 #endif
@@ -394,17 +394,17 @@ static inline void Flip_Series_To_White(REBSER *s) {
 
 inline static void Freeze_Sequence(REBSER *s) { // there is no unfreeze!
     assert(not IS_SER_ARRAY(s)); // use Deep_Freeze_Array
-    SET_SER_INFO(s, SERIES_INFO_FROZEN);
+    SET_SERIES_INFO(s, FROZEN);
 }
 
 inline static bool Is_Series_Frozen(REBSER *s) {
     assert(not IS_SER_ARRAY(s)); // use Is_Array_Deeply_Frozen
-    return GET_SER_INFO(s, SERIES_INFO_FROZEN);
+    return GET_SERIES_INFO(s, FROZEN);
 }
 
 inline static bool Is_Series_Read_Only(REBSER *s) { // may be temporary...
-    return ANY_SER_INFOS(
-        s, SERIES_INFO_FROZEN | SERIES_INFO_HOLD | SERIES_INFO_PROTECTED
+    return 0 != (s->info.bits &
+        (SERIES_INFO_FROZEN | SERIES_INFO_HOLD | SERIES_INFO_PROTECTED)
     );
 }
 
@@ -421,16 +421,16 @@ inline static void FAIL_IF_READ_ONLY_SER(REBSER *s) {
     if (not Is_Series_Read_Only(s))
         return;
 
-    if (GET_SER_INFO(s, SERIES_INFO_AUTO_LOCKED))
+    if (GET_SERIES_INFO(s, AUTO_LOCKED))
         fail (Error_Series_Auto_Locked_Raw());
 
-    if (GET_SER_INFO(s, SERIES_INFO_HOLD))
+    if (GET_SERIES_INFO(s, HOLD))
         fail (Error_Series_Held_Raw());
 
-    if (GET_SER_INFO(s, SERIES_INFO_FROZEN))
+    if (GET_SERIES_INFO(s, FROZEN))
         fail (Error_Series_Frozen_Raw());
 
-    assert(GET_SER_INFO(s, SERIES_INFO_PROTECTED));
+    assert(GET_SERIES_INFO(s, PROTECTED));
     fail (Error_Series_Protected_Raw());
 }
 
@@ -500,7 +500,7 @@ inline static REBSER *VAL_SERIES(const REBCEL *v) {
         or CELL_KIND(v) == REB_IMAGE
     ); // !!! Note: there was a problem here once, with a gcc 5.4 -O2 bug
     REBSER *s = v->payload.any_series.series;
-    if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
+    if (GET_SERIES_INFO(s, INACCESSIBLE))
         fail (Error_Series_Data_Freed_Raw());
     return s;
 }

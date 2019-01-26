@@ -129,7 +129,7 @@ bool Expand_Context_Keylist_Core(REBCTX *context, REBCNT delta)
     //
     assert(NOT_SER_FLAG(keylist, ARRAY_FLAG_PARAMLIST));
 
-    if (GET_SER_INFO(keylist, SERIES_INFO_SHARED_KEYLIST)) {
+    if (GET_SERIES_INFO(keylist, KEYLIST_SHARED)) {
         //
         // INIT_CTX_KEYLIST_SHARED was used to set the flag that indicates
         // this keylist is shared with one or more other contexts.  Can't
@@ -1286,7 +1286,7 @@ void Resolve_Context(
 //
 REBCNT Find_Canon_In_Context(REBCTX *context, REBSTR *canon, bool always)
 {
-    assert(GET_SER_INFO(canon, STRING_INFO_CANON));
+    assert(GET_SERIES_INFO(canon, STRING_CANON));
 
     REBVAL *key = CTX_KEYS_HEAD(context);
     REBCNT len = CTX_LEN(context);
@@ -1400,7 +1400,7 @@ void Assert_Context_Core(REBCTX *c)
     if (rootvar->payload.any_context.varlist != varlist)
         panic (rootvar);
 
-    if (GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE)) {
+    if (GET_SERIES_INFO(c, INACCESSIBLE)) {
         //
         // !!! For the moment, don't check inaccessible stack frames any
         // further.  This includes varless reified frames and those reified

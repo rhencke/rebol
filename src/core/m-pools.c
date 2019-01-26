@@ -1027,7 +1027,7 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
 //
 void Decay_Series(REBSER *s)
 {
-    assert(NOT_SER_INFO(s, SERIES_INFO_INACCESSIBLE));
+    assert(NOT_SERIES_INFO(s, INACCESSIBLE));
 
     if (GET_SER_FLAG(s, SERIES_FLAG_UTF8_STRING))
         GC_Kill_Interning(s); // needs special handling to adjust canons
@@ -1099,7 +1099,7 @@ void Decay_Series(REBSER *s)
         }
     }
 
-    SET_SER_INFO(s, SERIES_INFO_INACCESSIBLE);
+    SET_SERIES_INFO(s, INACCESSIBLE);
 }
 
 
@@ -1119,7 +1119,7 @@ void GC_Kill_Series(REBSER *s)
     }
   #endif
 
-    if (NOT_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
+    if (NOT_SERIES_INFO(s, INACCESSIBLE))
         Decay_Series(s);
 
   #if !defined(NDEBUG)

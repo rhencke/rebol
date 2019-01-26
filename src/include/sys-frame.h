@@ -428,7 +428,7 @@ inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
 // This way there is no test and only natives pay the cost of flag setting.
 //
 inline static void Enter_Native(REBFRM *f) {
-    SET_SER_INFO(f->varlist, SERIES_INFO_HOLD); // may or may not be managed
+    SET_SERIES_INFO(f->varlist, HOLD); // may or may not be managed
 }
 
 
@@ -563,7 +563,7 @@ inline static void Push_Action(
     f->special = ACT_SPECIALTY_HEAD(act);
 
     assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
-    assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
+    assert(NOT_SERIES_INFO(f->varlist, INACCESSIBLE));
 
     // There's a current state for the FEED_FLAG_NO_LOOKAHEAD which invisible
     // actions want to put back as it was when the invisible operation ends.
@@ -576,7 +576,7 @@ inline static void Push_Action(
     if (GET_SER_FLAG(act, PARAMLIST_FLAG_INVISIBLE)) {
         if (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD) {
             assert(GET_EVAL_FLAG(f, FULFILLING_ARG));
-            SET_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD);
+            SET_SERIES_INFO(f->varlist, TELEGRAPH_NO_LOOKAHEAD);
         }
     }
 }
@@ -600,11 +600,11 @@ inline static void Drop_Action(REBFRM *f) {
     );
 
     assert(
-        GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)
+        GET_SERIES_INFO(f->varlist, INACCESSIBLE)
         or LINK(f->varlist).keysource == NOD(f)
     );
 
-    if (GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)) {
+    if (GET_SERIES_INFO(f->varlist, INACCESSIBLE)) {
         //
         // If something like Encloser_Dispatcher() runs, it might steal the
         // variables from a context to give them to the user, leaving behind
@@ -653,11 +653,9 @@ inline static void Drop_Action(REBFRM *f) {
         // for a "telegraphed" no lookahead bit used by an invisible to be
         // left on, so clear it too.
         //
-        CLEAR_SER_INFOS(
-            f->varlist,
-            SERIES_INFO_HOLD
-                | SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD
-        );
+        CLEAR_SERIES_INFO(f->varlist, HOLD);
+        CLEAR_SERIES_INFO(f->varlist, TELEGRAPH_NO_LOOKAHEAD);
+
         assert(0 == (SER(f->varlist)->info.bits & ~( // <- note bitwise not
             SERIES_INFO_0_IS_TRUE // parallels NODE_FLAG_NODE
             | FLAG_WIDE_BYTE_OR_0(0) // don't mask out wide (0 for arrays))
@@ -667,7 +665,7 @@ inline static void Drop_Action(REBFRM *f) {
 
   #if !defined(NDEBUG)
     if (f->varlist) {
-        assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
+        assert(NOT_SERIES_INFO(f->varlist, INACCESSIBLE));
         assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
 
         REBVAL *rootvar = cast(REBVAL*, ARR_HEAD(f->varlist));

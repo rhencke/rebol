@@ -511,7 +511,7 @@ REBNATIVE(set_meta)
 //
 REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
 {
-    assert(NOT_SER_INFO(original, SERIES_INFO_INACCESSIBLE));
+    assert(NOT_SERIES_INFO(original, INACCESSIBLE));
 
     REBARR *varlist = Make_Arr_For_Copy(
         CTX_LEN(original) + 1,

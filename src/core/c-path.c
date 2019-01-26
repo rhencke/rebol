@@ -963,7 +963,7 @@ REB_R MAKE_Path(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 }
 
 
-static void Push_Path_Recurses(RELVAL *path, REBSPC *specifier) 
+static void Push_Path_Recurses(RELVAL *path, REBSPC *specifier)
 {
     RELVAL *item = VAL_ARRAY_AT(path);
     for (; NOT_END(item); ++item) {

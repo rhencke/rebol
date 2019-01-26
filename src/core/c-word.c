@@ -231,7 +231,7 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
             goto next_candidate_slot;
         }
 
-        assert(GET_SER_INFO(canon, STRING_INFO_CANON));
+        assert(GET_SERIES_INFO(canon, STRING_CANON));
 
         REBINT cmp;
         cmp = Compare_UTF8(cb_cast(STR_HEAD(canon)), utf8, size);
@@ -248,7 +248,7 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
         REBSTR *synonym;
         synonym = LINK(canon).synonym;
         while (synonym != canon) {
-            assert(NOT_SER_INFO(synonym, STRING_INFO_CANON));
+            assert(NOT_SERIES_INFO(synonym, STRING_CANON));
 
             cmp = Compare_UTF8(cb_cast(STR_HEAD(synonym)), utf8, size);
             if (cmp == 0)
@@ -299,7 +299,7 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
             ++PG_Num_Canon_Slots_In_Use;
         }
 
-        SET_SER_INFO(intern, STRING_INFO_CANON);
+        SET_SERIES_INFO(intern, STRING_CANON);
 
         LINK(intern).synonym = intern; // circularly linked list, empty state
 
@@ -367,7 +367,7 @@ void GC_Kill_Interning(REBSTR *intern)
         temp = LINK(temp).synonym;
     LINK(temp).synonym = synonym; // cut intern out of chain (or no-op)
 
-    if (NOT_SER_INFO(intern, STRING_INFO_CANON))
+    if (NOT_SERIES_INFO(intern, STRING_CANON))
         return; // for non-canon forms, removing from chain is all you need
 
     assert(MISC(intern).bind_index.high == 0); // shouldn't GC during binds?
@@ -401,7 +401,7 @@ void GC_Kill_Interning(REBSTR *intern)
         assert(hash == Hash_String(synonym));
     #endif
         canons_by_hash[slot] = synonym;
-        SET_SER_INFO(synonym, STRING_INFO_CANON);
+        SET_SERIES_INFO(synonym, STRING_CANON);
         MISC(synonym).bind_index.low = 0;
         MISC(synonym).bind_index.high = 0;
     }

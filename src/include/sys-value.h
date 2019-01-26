@@ -427,17 +427,17 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 // has to use an additional allocation and point to that.)
 //
 
-#define SET_CELL_FLAG(v,f) \
-    (WRITABLE(v, __FILE__, __LINE__)->header.bits |= CELL_FLAG_##f)
+#define SET_CELL_FLAG(v,name) \
+    (WRITABLE(v, __FILE__, __LINE__)->header.bits |= CELL_FLAG_##name)
 
-#define GET_CELL_FLAG(v,f) \
-    ((READABLE(v, __FILE__, __LINE__)->header.bits & CELL_FLAG_##f) != 0)
+#define GET_CELL_FLAG(v,name) \
+    ((READABLE(v, __FILE__, __LINE__)->header.bits & CELL_FLAG_##name) != 0)
 
-#define CLEAR_CELL_FLAG(v,f) \
-    (WRITABLE(v, __FILE__, __LINE__)->header.bits &= ~CELL_FLAG_##f)
+#define CLEAR_CELL_FLAG(v,name) \
+    (WRITABLE(v, __FILE__, __LINE__)->header.bits &= ~CELL_FLAG_##name)
 
-#define NOT_CELL_FLAG(v,f) \
-    ((READABLE(v, __FILE__, __LINE__)->header.bits & CELL_FLAG_##f) == 0)
+#define NOT_CELL_FLAG(v,name) \
+    ((READABLE(v, __FILE__, __LINE__)->header.bits & CELL_FLAG_##name) == 0)
 
 
 //=////////////////////////////////////////////////////////////////////////=//

@@ -1820,11 +1820,11 @@ bool Eval_Core_Throws(REBFRM * const f)
           case REB_R_INVISIBLE: {
             assert(GET_SER_FLAG(FRM_PHASE(f), PARAMLIST_FLAG_INVISIBLE));
 
-            if (NOT_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD))
+            if (NOT_SERIES_INFO(f->varlist, TELEGRAPH_NO_LOOKAHEAD))
                 f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
             else {
                 f->feed->flags.bits |= FEED_FLAG_NO_LOOKAHEAD;
-                CLEAR_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD);
+                CLEAR_SERIES_INFO(f->varlist, TELEGRAPH_NO_LOOKAHEAD);
             }
 
             // !!! Ideally we would check that f->out hadn't changed, but

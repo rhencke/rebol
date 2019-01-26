@@ -716,9 +716,9 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         else
             panic ("Illegal type passed to Loop_Each()");
 
-        took_hold = NOT_SER_INFO(les.data_ser, SERIES_INFO_HOLD);
+        took_hold = NOT_SERIES_INFO(les.data_ser, HOLD);
         if (took_hold)
-            SET_SER_INFO(les.data_ser, SERIES_INFO_HOLD);
+            SET_SERIES_INFO(les.data_ser, HOLD);
 
         les.data_len = SER_LEN(les.data_ser); // HOLD so length can't change
         if (les.data_idx >= les.data_len) {
@@ -738,7 +738,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
   cleanup:;
 
     if (took_hold) // release read-only lock
-        CLEAR_SER_INFO(les.data_ser, SERIES_INFO_HOLD);
+        CLEAR_SERIES_INFO(les.data_ser, HOLD);
 
     if (IS_DATATYPE(les.data))
         Free_Unmanaged_Array(ARR(les.data_ser)); // temp array of instances
@@ -1124,8 +1124,8 @@ struct Remove_Each_State {
 //
 static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
 {
-    assert(GET_SER_INFO(res->series, SERIES_INFO_HOLD));
-    CLEAR_SER_INFO(res->series, SERIES_INFO_HOLD);
+    assert(GET_SERIES_INFO(res->series, HOLD));
+    CLEAR_SERIES_INFO(res->series, HOLD);
 
     // If there was a BREAK, we return NULL to indicate that as part of
     // the loop protocol.  This prevents giving back a return value of
@@ -1255,7 +1255,7 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
     // This flag will be cleaned up by Finalize_Remove_Each(), which is run
     // even if there is a fail().
     //
-    SET_SER_INFO(res->series, SERIES_INFO_HOLD);
+    SET_SERIES_INFO(res->series, HOLD);
 
     REBCNT index = res->start; // declare here, avoid longjmp clobber warnings
 

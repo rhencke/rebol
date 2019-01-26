@@ -171,7 +171,7 @@ inline static const char *STR_HEAD(REBSTR *str) {
 
 inline static REBSTR *STR_CANON(REBSTR *str) {
     assert(SER_WIDE(str) == 1);
-    while (NOT_SER_INFO(str, STRING_INFO_CANON))
+    while (NOT_SERIES_INFO(str, STRING_CANON))
         str = LINK(str).synonym; // circularly linked list
     return str;
 }

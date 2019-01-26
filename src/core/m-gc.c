@@ -129,7 +129,7 @@ static inline void Mark_Rebser_Only(REBSER *s)
         printf("Link to non-MANAGED item reached by GC\n");
         panic (s);
     }
-    if (GET_SER_INFO((s), SERIES_INFO_INACCESSIBLE))
+    if (GET_SERIES_INFO((s), INACCESSIBLE))
         assert(not IS_SER_DYNAMIC(s));
   #endif
 
@@ -197,7 +197,7 @@ inline static void Queue_Mark_Array_Deep(REBARR *a) { // plain array
 inline static void Queue_Mark_Context_Deep(REBCTX *c) { // ARRAY_FLAG_VARLIST
     REBARR *varlist = CTX_VARLIST(c);
     assert(
-        GET_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE)
+        GET_SERIES_INFO(varlist, INACCESSIBLE)
         or SERIES_MASK_CONTEXT == (SER(varlist)->header.bits & (
             SERIES_MASK_CONTEXT // these should be set, not the others
                 | ARRAY_FLAG_PAIRLIST
@@ -385,7 +385,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         // time a canon word's "index" field is allowed to be nonzero.
         //
         assert(
-            NOT_SER_INFO(spelling, STRING_INFO_CANON)
+            NOT_SERIES_INFO(spelling, STRING_CANON)
             or (
                 MISC(spelling).bind_index.high == 0
                 and MISC(spelling).bind_index.low == 0
@@ -418,7 +418,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
       case REB_SET_PATH:
       case REB_GET_PATH: {
         REBARR *a = ARR(v->payload.any_series.series);
-        assert(NOT_SER_INFO(a, SERIES_INFO_INACCESSIBLE));
+        assert(NOT_SERIES_INFO(a, INACCESSIBLE));
         Queue_Mark_Binding_Deep(v);
 
         // With most arrays we may risk direct recursion, hence we have to
@@ -440,7 +440,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
             Queue_Mark_Value_Deep(item);
         }
         Mark_Rebser_Only(SER(a));
-      
+
       #if !defined(NDEBUG)
         in_mark = true;
       #endif
@@ -453,7 +453,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
       case REB_SET_BLOCK:
       case REB_BLOCK: {
         REBARR *a = ARR(v->payload.any_series.series);
-        if (GET_SER_INFO(a, SERIES_INFO_INACCESSIBLE)) {
+        if (GET_SERIES_INFO(a, INACCESSIBLE)) {
             //
             // !!! Review: preserving the identity of inaccessible array nodes
             // is likely uninteresting--the only reason the node wasn't freed
@@ -483,7 +483,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         assert(SER_WIDE(s) <= sizeof(REBUNI));
         assert(not v->extra.binding); // for future use
 
-        if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE)) {
+        if (GET_SERIES_INFO(s, INACCESSIBLE)) {
             //
             // !!! See notes above on REB_BLOCK/etc. RE: letting series die.
             //
@@ -612,7 +612,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         if (v->extra.binding != UNBOUND) {
             assert(CTX_TYPE(context) == REB_FRAME);
 
-            if (GET_SER_INFO(context, SERIES_INFO_INACCESSIBLE)) {
+            if (GET_SERIES_INFO(context, INACCESSIBLE)) {
                 //
                 // !!! It seems a bit wasteful to keep alive the binding of a
                 // stack frame you can no longer get values out of.  But
@@ -637,7 +637,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         else
             assert(VAL_TYPE(v) != REB_FRAME); // phase if-and-only-if frame
 
-        if (GET_SER_INFO(context, SERIES_INFO_INACCESSIBLE))
+        if (GET_SERIES_INFO(context, INACCESSIBLE))
             break;
 
       #if !defined(NDEBUG)
@@ -810,7 +810,7 @@ static void Propagate_All_GC_Marks(void)
 
             // Functions can't currently be freed by FREE...
             //
-            assert(NOT_SER_INFO(a, SERIES_INFO_INACCESSIBLE));
+            assert(NOT_SERIES_INFO(a, INACCESSIBLE));
 
             ++v; // function archetype completely marked by this process
         }
@@ -863,7 +863,7 @@ static void Propagate_All_GC_Marks(void)
             // Stack-based frames will be inaccessible if they are no longer
             // running, so there's no data to mark...
             //
-            if (GET_SER_INFO(a, SERIES_INFO_INACCESSIBLE))
+            if (GET_SERIES_INFO(a, INACCESSIBLE))
                 continue;
 
             ++v; // context archetype completely marked by this process
@@ -883,7 +883,7 @@ static void Propagate_All_GC_Marks(void)
 
             // !!! Currently MAP! doesn't work with FREE, but probably should.
             //
-            assert(NOT_SER_INFO(a, SERIES_INFO_INACCESSIBLE));
+            assert(NOT_SERIES_INFO(a, INACCESSIBLE));
 
             v = ARR_HEAD(a);
         }
@@ -894,7 +894,7 @@ static void Propagate_All_GC_Marks(void)
             // !!! It could be possible to GC all these to a common freed
             // array stub, though that wouldn't permit equality comparisons.
             //
-            if (GET_SER_INFO(a, SERIES_INFO_INACCESSIBLE))
+            if (GET_SERIES_INFO(a, INACCESSIBLE))
                 continue;
 
             v = ARR_HEAD(a);
@@ -1004,11 +1004,10 @@ static void Mark_Root_Series(void)
                     or LINK(s).owner->header.bits & NODE_FLAG_MANAGED
                 );
 
-                if (not (s->header.bits & NODE_FLAG_MANAGED))
+                if (not (s->header.bits & NODE_FLAG_MANAGED)) {
                     assert(not LINK(s).owner);
-                else if (
-                    SER(LINK(s).owner)->info.bits & SERIES_INFO_INACCESSIBLE
-                ){
+                }
+                else if (GET_SERIES_INFO(LINK(s).owner, INACCESSIBLE)) {
                     if (NOT_SER_FLAG(
                         LINK(s).owner,
                         VARLIST_FLAG_FRAME_FAILED
@@ -1290,7 +1289,7 @@ static void Mark_Frame_Stack_Deep(void)
             goto propagate_and_continue;
         }
 
-        if (f->varlist and GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)) {
+        if (f->varlist and GET_SERIES_INFO(f->varlist, INACCESSIBLE)) {
             //
             // This happens in Encloser_Dispatcher(), where it can capture a
             // varlist that may not be managed (e.g. if there were no ADAPTs
