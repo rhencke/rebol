@@ -148,7 +148,7 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
     assert(IS_POINTER_TRASH_DEBUG(f->opt_label));
 
     if (f->varlist) {
-        assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
+        assert(NOT_SERIES_FLAG(f->varlist, MANAGED));
         assert(NOT_SERIES_INFO(f->varlist, INACCESSIBLE));
     }
 
@@ -234,7 +234,7 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
 
     //=//// v-- BELOW CHECKS ONLY APPLY WHEN FRM_PHASE() is VALID ////////=//
 
-    assert(GET_SER_FLAG(phase, ARRAY_FLAG_PARAMLIST));
+    assert(GET_ARRAY_FLAG(ACT_PARAMLIST(phase), IS_PARAMLIST));
     if (f->param != ACT_PARAMS_HEAD(phase)) {
         //
         // !!! When you MAKE FRAME! 'APPEND/ONLY, it will create a frame
@@ -255,7 +255,7 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
     assert(f->refine == ORDINARY_ARG);
     if (NOT_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT)) {
         if (NOT_CELL_FLAG(f->out, OUT_MARKED_STALE))
-            assert(GET_SER_FLAG(phase, PARAMLIST_FLAG_INVISIBLE));
+            assert(GET_ACTION_FLAG(phase, IS_INVISIBLE));
     }
 }
 
@@ -277,13 +277,13 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
     // double checks any function marked with RETURN in the debug build,
     // so native return types are checked instead of just trusting the C.
     //
-    if (GET_SER_FLAG(phase, PARAMLIST_FLAG_RETURN)) {
+    if (GET_ACTION_FLAG(phase, HAS_RETURN)) {
         REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
         assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
         if (
             not Typecheck_Including_Quoteds(typeset, f->out)
             and not (
-                GET_SER_FLAG(phase, PARAMLIST_FLAG_INVISIBLE)
+                GET_ACTION_FLAG(phase, IS_INVISIBLE)
                 and IS_NULLED(f->out) // this happens with `do [return]`
             )
         ){

@@ -56,7 +56,7 @@ REBINT CT_Map(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 REBMAP *Make_Map(REBCNT capacity)
 {
-    REBARR *pairlist = Make_Arr_Core(capacity * 2, ARRAY_FLAG_PAIRLIST);
+    REBARR *pairlist = Make_Arr_Core(capacity * 2, ARRAY_FLAG_IS_PAIRLIST);
     LINK(pairlist).hashlist = Make_Hash_Sequence(capacity);
 
     return MAP(pairlist);
@@ -430,7 +430,7 @@ REB_R MAKE_Map(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
 inline static REBMAP *Copy_Map(REBMAP *map, REBU64 types) {
     REBARR *copy = Copy_Array_Shallow(MAP_PAIRLIST(map), SPECIFIED);
-    SET_SER_FLAG(copy, ARRAY_FLAG_PAIRLIST);
+    SET_ARRAY_FLAG(copy, IS_PAIRLIST);
 
     // So long as the copied pairlist is the same array size as the original,
     // a literal copy of the hashlist can still be used, as a start (needs

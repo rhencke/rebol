@@ -281,8 +281,6 @@ union Reb_Header {
 #define NODE_FLAG_TRANSIENT \
     FLAG_LEFT_BIT(4)
 
-#define CELL_FLAG_TRANSIENT NODE_FLAG_TRANSIENT
-
 
 //=//// NODE_FLAG_ROOT (sixth-leftmost bit) ///////////////////////////////=//
 //
@@ -304,12 +302,12 @@ union Reb_Header {
 // transient structure in the source cell, which would need to be converted
 // into something longer-lived if the destination cell will outlive it.
 //
-// Hence cells must be formatted to say whether they are CELL_FLAG_STACK or
+// Hence cells must be formatted to say whether they are CELL_FLAG_STACK_LIFETIME or
 // not, before any writing can be done to them.  If they are not then they
 // are presumed to be indefinite lifetime (e.g. cells resident inside of an
 // array managed by the garbage collector).
 //
-// But if a cell is marked with CELL_FLAG_STACK, that means it is expected
+// But if a cell is marked with CELL_FLAG_STACK_LIFETIME, that means it is expected
 // that scanning *backwards* in memory will find a specially marked REB_FRAME
 // cell, which will lead to the frame to whose lifetime the cell is bound.
 //
@@ -322,9 +320,6 @@ union Reb_Header {
 //
 #define NODE_FLAG_STACK \
     FLAG_LEFT_BIT(6)
-
-#define CELL_FLAG_STACK NODE_FLAG_STACK
-#define SERIES_FLAG_STACK NODE_FLAG_STACK
 
 
 //=//// NODE_FLAG_CELL (eighth-leftmost bit) //////////////////////////////=//

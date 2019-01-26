@@ -451,7 +451,7 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 // details in %sys-quoted.h for how this byte is used).
 //
 // The value is expected to already be "pre-formatted" with the NODE_FLAG_CELL
-// bit, so that is left as-is.  It is also expected that CELL_FLAG_STACK has
+// bit, so that is left as-is.  Also, CELL_FLAG_STACK_LIFETIME must have
 // been set if the value is stack-based (e.g. on the C stack or in a frame),
 // so that is left as-is also.  See CELL_MASK_PERSIST.
 //
@@ -567,7 +567,7 @@ inline static void Prep_Non_Stack_Cell_Core(
 #endif
 
 #define CELL_MASK_STACK \
-    (NODE_FLAG_NODE | NODE_FLAG_CELL | CELL_FLAG_STACK)
+    (NODE_FLAG_NODE | NODE_FLAG_CELL | CELL_FLAG_STACK_LIFETIME)
 
 inline static RELVAL *Prep_Stack_Cell_Core(
     RELVAL *c
@@ -773,7 +773,7 @@ inline static bool IS_RELATIVE(const REBCEL *v) {
     }
   #endif
 
-    return GET_SER_FLAG(v->extra.binding, ARRAY_FLAG_PARAMLIST);
+    return v->extra.binding->header.bits & ARRAY_FLAG_IS_PARAMLIST;
 }
 
 #if defined(__cplusplus) && __cplusplus >= 201103L
@@ -1575,8 +1575,8 @@ inline static void INIT_BINDING(RELVAL *v, void *p) {
 
     if (binding->header.bits & NODE_FLAG_MANAGED) {
         assert(
-            binding->header.bits & ARRAY_FLAG_VARLIST // specific
-            or binding->header.bits & ARRAY_FLAG_PARAMLIST // relative
+            binding->header.bits & ARRAY_FLAG_IS_PARAMLIST // relative
+            or binding->header.bits & ARRAY_FLAG_IS_VARLIST // specific
             or (
                 IS_VARARGS(v) and not IS_SER_DYNAMIC(binding)
             ) // varargs from MAKE VARARGS! [...], else is a varlist
@@ -1589,12 +1589,12 @@ inline static void INIT_BINDING(RELVAL *v, void *p) {
         assert(CTX(p));
         if (v->header.bits & NODE_FLAG_TRANSIENT) {
             // let anything go... for now.
-            // SERIES_FLAG_STACK might not be set yet due to construction
+            // SERIES_FLAG_STACK_LIFETIME might not be set yet due to construction
             // constraints, see Make_Context_For_Action_Int_Partials()
         }
         else {
-            assert(v->header.bits & CELL_FLAG_STACK);
-            assert(binding->header.bits & SERIES_FLAG_STACK);
+            assert(v->header.bits & CELL_FLAG_STACK_LIFETIME);
+            assert(binding->header.bits & SERIES_FLAG_STACK_LIFETIME);
         }
     }
   #endif
@@ -1627,7 +1627,7 @@ inline static void Move_Value_Header(RELVAL *out, const RELVAL *v)
 //
 // That advanced purpose has not yet been implemented, because it requires
 // being able to "sniff" a cell for its lifetime.  For now it only preserves
-// the CELL_FLAG_STACK bit, without actually doing anything with it.
+// the CELL_FLAG_STACK_LIFETIME bit, without actually doing anything with it.
 //
 // Interface designed to line up with Derelativize()
 //
@@ -1658,7 +1658,7 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
 //
 inline static REBVAL *Move_Var(RELVAL *out, const REBVAL *v)
 {
-    assert(not (out->header.bits & CELL_FLAG_STACK));
+    assert(not (out->header.bits & CELL_FLAG_STACK_LIFETIME));
 
     // This special kind of copy can only be done into another object's
     // variable slot. (Since the source may be a FRAME!, v *might* be stack
@@ -1722,7 +1722,7 @@ inline static REBVAL *Const(REBVAL *v) {
 //
 // Rather than allow a REBVAL to be declared plainly as a local variable in
 // a C function, this macro provides a generic "constructor-like" hook.
-// See CELL_FLAG_STACK for the experimental motivation.  However, even if
+// See CELL_FLAG_STACK_LIFETIME for the experimental motivation.  But even if
 // this were merely a synonym for a plain REBVAL declaration in the release
 // build, it provides a useful generic hook into the point of declaration
 // of a stack value.

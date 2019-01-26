@@ -184,7 +184,7 @@ REBNATIVE(return)
     if (not f_binding)
         fail (Error_Return_Archetype_Raw()); // must have binding to jump to
 
-    assert(f_binding->header.bits & ARRAY_FLAG_VARLIST);
+    assert(f_binding->header.bits & ARRAY_FLAG_IS_VARLIST);
     target_frame = CTX_FRAME_MAY_FAIL(CTX(f_binding));
 
     // !!! We only have a REBFRM via the binding.  We don't have distinct
@@ -215,10 +215,8 @@ REBNATIVE(return)
     assert(VAL_PARAM_CLASS(typeset) == REB_P_RETURN);
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
 
-    if (
-        GET_SER_FLAG(target_fun, PARAMLIST_FLAG_INVISIBLE)
-        and IS_ENDISH_NULLED(v)
-    ){
+    if (GET_ACTION_FLAG(target_fun, IS_INVISIBLE) and IS_ENDISH_NULLED(v)) {
+        //
         // The only legal way invisibles can use RETURN is with no argument.
     }
     else {
@@ -239,7 +237,7 @@ REBNATIVE(return)
             fail (Error_Bad_Return_Type(target_frame, VAL_TYPE(v)));
     }
 
-    assert(f_binding->header.bits & ARRAY_FLAG_VARLIST);
+    assert(f_binding->header.bits & ARRAY_FLAG_IS_VARLIST);
 
     Move_Value(D_OUT, NAT_VALUE(unwind)); // see also Make_Thrown_Unwind_Value
     INIT_BINDING_MAY_MANAGE(D_OUT, f_binding);
@@ -851,7 +849,7 @@ REBNATIVE(reskinned)
     // We make a copy of the ACTION's paramlist vs. trying to fiddle the
     // action in place.  One reason to do this is that there'd have to be code
     // written to account for the caching done by Make_Action() based on the
-    // parameters and their conventions (e.g. PARAMLIST_FLAG_QUOTES_FIRST),
+    // parameters and their conventions (e.g. PARAMLIST_QUOTES_FIRST),
     // and we don't want to try and update all that here and get it wrong.
     //
     // Another good reason is that if something messes up halfway through
@@ -1031,7 +1029,7 @@ REBNATIVE(reskinned)
     }
 
     RELVAL *rootparam = ARR_HEAD(paramlist);
-    CLEAR_SER_FLAGS(paramlist, PARAMLIST_MASK_CACHED);
+    SER(paramlist)->header.bits &= ~PARAMLIST_MASK_CACHED;
     rootparam->payload.action.paramlist = paramlist;
     INIT_BINDING(rootparam, UNBOUND);
 
@@ -1124,9 +1122,9 @@ REBNATIVE(tweak)
     }
 
     if (VAL_LOGIC(ARG(enable)))
-        SET_SER_FLAG(act, flag);
+        SER(act)->header.bits |= flag;
     else
-        CLEAR_SER_FLAG(act, flag);
+        SER(act)->header.bits &= ~flag;
 
     RETURN (ARG(action));
 }

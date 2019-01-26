@@ -618,10 +618,13 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // Must make the function "paramlist" even if "empty", for identity.
     //
     REBARR *paramlist = Make_Arr_Core(num_slots, SERIES_MASK_ACTION);
+
+    // Note: not a valid ACTION! paramlist yet, don't use SET_ACTION_FLAG()
+    //
     if (is_voider)
-        SET_SER_FLAG(paramlist, PARAMLIST_FLAG_VOIDER);
+        SER(paramlist)->header.bits |= PARAMLIST_FLAG_IS_VOIDER;
     if (has_return)
-        SET_SER_FLAG(paramlist, PARAMLIST_FLAG_RETURN);
+        SER(paramlist)->header.bits |= PARAMLIST_FLAG_HAS_RETURN;
 
     if (true) {
         REBVAL *canon = RESET_CELL_EXTRA(
@@ -935,8 +938,10 @@ REBACT *Make_Action(
     if (opt_underlying) {
         LINK(paramlist).underlying = opt_underlying;
 
-        if (GET_SER_FLAG(opt_underlying, PARAMLIST_FLAG_RETURN))
-            SET_SER_FLAG(paramlist, PARAMLIST_FLAG_RETURN);
+        // Note: paramlist still incomplete, don't use SET_ACTION_FLAG....
+        //
+        if (GET_ACTION_FLAG(opt_underlying, HAS_RETURN))
+            SER(paramlist)->header.bits |= PARAMLIST_FLAG_HAS_RETURN;
     }
     else {
         // To avoid NULL checking when a function is called and looking for
@@ -958,7 +963,7 @@ REBACT *Make_Action(
         // the exemplar (though some of these parameters may be hidden due to
         // specialization, see REB_TS_HIDDEN).
         //
-        assert(GET_SER_FLAG(opt_exemplar, NODE_FLAG_MANAGED));
+        assert(GET_SERIES_FLAG(opt_exemplar, MANAGED));
         assert(CTX_LEN(opt_exemplar) == ARR_LEN(paramlist) - 1);
 
         LINK(details).specialty = CTX_VARLIST(opt_exemplar);
@@ -970,11 +975,11 @@ REBACT *Make_Action(
     //
     assert(
         not MISC(paramlist).meta
-        or GET_SER_FLAG(MISC(paramlist).meta, ARRAY_FLAG_VARLIST)
+        or GET_ARRAY_FLAG(CTX_VARLIST(MISC(paramlist).meta), IS_VARLIST)
     );
 
-    assert(NOT_SER_FLAG(paramlist, ARRAY_FLAG_FILE_LINE));
-    assert(NOT_SER_FLAG(details, ARRAY_FLAG_FILE_LINE));
+    assert(NOT_ARRAY_FLAG(paramlist, HAS_FILE_LINE));
+    assert(NOT_ARRAY_FLAG(details, HAS_FILE_LINE));
 
     REBACT *act = ACT(paramlist); // now it's a legitimate REBACT
 
@@ -984,11 +989,11 @@ REBACT *Make_Action(
     // the work of doing that is factored into a routine (`PARAMETERS OF`
     // uses it as well).
 
-    if (GET_SER_FLAG(act, PARAMLIST_FLAG_RETURN)) {
+    if (GET_ACTION_FLAG(act, HAS_RETURN)) {
         REBVAL *param = ACT_PARAM(act, ACT_NUM_PARAMS(act));
         assert(VAL_PARAM_SYM(param) == SYM_RETURN);
         if (VAL_TYPESET_BITS(param) == 0) // e.g. `return []`, invisible
-            SET_SER_FLAG(act, PARAMLIST_FLAG_INVISIBLE);
+            SET_ACTION_FLAG(act, IS_INVISIBLE);
     }
 
     REBVAL *first_unspecialized = First_Unspecialized_Param(act);
@@ -999,7 +1004,7 @@ REBACT *Make_Action(
 
           case REB_P_HARD_QUOTE:
           case REB_P_SOFT_QUOTE:
-            SET_SER_FLAG(act, PARAMLIST_FLAG_QUOTES_FIRST);
+            SET_ACTION_FLAG(act, QUOTES_FIRST);
             break;
 
           default:
@@ -1007,7 +1012,7 @@ REBACT *Make_Action(
         }
 
         if (TYPE_CHECK(first_unspecialized, REB_TS_SKIPPABLE))
-            SET_SER_FLAG(act, PARAMLIST_FLAG_SKIPPABLE_FIRST);
+            SET_ACTION_FLAG(act, SKIPPABLE_FIRST);
     }
 
     return act;
@@ -1035,8 +1040,8 @@ REBCTX *Make_Expired_Frame_Ctx_Managed(REBACT *a)
     // don't pass it in to the allocation...it needs to be set, but will be
     // overridden by SERIES_INFO_INACCESSIBLE.
     //
-    REBARR *varlist = Alloc_Singular(SERIES_FLAG_STACK | NODE_FLAG_MANAGED);
-    SET_SER_FLAGS(varlist, SERIES_MASK_CONTEXT);
+    REBARR *varlist = Alloc_Singular(NODE_FLAG_STACK | NODE_FLAG_MANAGED);
+    SER(varlist)->header.bits |= SERIES_MASK_CONTEXT;
     SET_SERIES_INFO(varlist, INACCESSIBLE);
     MISC(varlist).meta = nullptr;
 
@@ -1097,7 +1102,7 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
 
         RELVAL *body = ARR_HEAD(details);
 
-        // The PARAMLIST_FLAG_RETURN tricks for definitional return make it
+        // The PARAMLIST_HAS_RETURN tricks for definitional return make it
         // seem like a generator authored more code in the action's body...but
         // the code isn't *actually* there and an optimized internal trick is
         // used.  Fake the code if needed.
@@ -1108,7 +1113,7 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
             example = Get_System(SYS_STANDARD, STD_PROC_BODY);
             real_body_index = 4;
         }
-        else if (GET_SER_FLAG(a, PARAMLIST_FLAG_RETURN)) {
+        else if (GET_ACTION_FLAG(a, HAS_RETURN)) {
             example = Get_System(SYS_STANDARD, STD_FUNC_BODY);
             real_body_index = 4;
         }
@@ -1233,18 +1238,18 @@ REBACT *Make_Interpreted_Action_May_Fail(
 
     // We look at the *actual* function flags; e.g. the person may have used
     // the FUNC generator (with MKF_RETURN) but then named a parameter RETURN
-    // which overrides it, so the value won't have PARAMLIST_FLAG_RETURN.
+    // which overrides it, so the value won't have PARAMLIST_HAS_RETURN.
 
     REBARR *copy;
     if (VAL_ARRAY_LEN_AT(code) == 0) { // optimize empty body case
 
-        if (GET_SER_FLAG(a, PARAMLIST_FLAG_INVISIBLE)) {
+        if (GET_ACTION_FLAG(a, IS_INVISIBLE)) {
             ACT_DISPATCHER(a) = &Commenter_Dispatcher;
         }
-        else if (GET_SER_FLAG(a, PARAMLIST_FLAG_VOIDER)) {
+        else if (GET_ACTION_FLAG(a, IS_VOIDER)) {
             ACT_DISPATCHER(a) = &Voider_Dispatcher;
         }
-        else if (GET_SER_FLAG(a, PARAMLIST_FLAG_RETURN)) {
+        else if (GET_ACTION_FLAG(a, HAS_RETURN)) {
             REBVAL *typeset = ACT_PARAM(a, ACT_NUM_PARAMS(a));
             assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
             if (not TYPE_CHECK(typeset, REB_MAX_NULLED)) // what do [] returns
@@ -1254,17 +1259,17 @@ REBACT *Make_Interpreted_Action_May_Fail(
             // Keep the Null_Dispatcher passed in above
         }
 
-        // Reusing EMPTY_ARRAY won't allow adding ARRAY_FLAG_FILE_LINE bits
+        // Reusing EMPTY_ARRAY won't allow adding ARRAY_HAS_FILE_LINE bits
         //
         copy = Make_Arr_Core(1, NODE_FLAG_MANAGED);
     }
     else { // body not empty, pick dispatcher based on output disposition
 
-        if (GET_SER_FLAG(a, PARAMLIST_FLAG_INVISIBLE))
+        if (GET_ACTION_FLAG(a, IS_INVISIBLE))
             ACT_DISPATCHER(a) = &Elider_Dispatcher; // no f->out mutation
-        else if (GET_SER_FLAG(a, PARAMLIST_FLAG_VOIDER))
+        else if (GET_ACTION_FLAG(a, IS_VOIDER))
             ACT_DISPATCHER(a) = &Voider_Dispatcher; // forces f->out void
-        else if (GET_SER_FLAG(a, PARAMLIST_FLAG_RETURN))
+        else if (GET_ACTION_FLAG(a, HAS_RETURN))
             ACT_DISPATCHER(a) = &Returner_Dispatcher; // type checks f->out
         else
             ACT_DISPATCHER(a) = &Unchecked_Dispatcher; // unchecked f->out
@@ -1283,15 +1288,15 @@ REBACT *Make_Interpreted_Action_May_Fail(
 
     // Favor the spec first, then the body, for file and line information.
     //
-    if (GET_SER_FLAG(VAL_ARRAY(spec), ARRAY_FLAG_FILE_LINE)) {
+    if (GET_ARRAY_FLAG(VAL_ARRAY(spec), HAS_FILE_LINE)) {
         LINK(copy).file = LINK(VAL_ARRAY(spec)).file;
         MISC(copy).line = MISC(VAL_ARRAY(spec)).line;
-        SET_SER_FLAG(copy, ARRAY_FLAG_FILE_LINE);
+        SET_ARRAY_FLAG(copy, HAS_FILE_LINE);
     }
-    else if (GET_SER_FLAG(VAL_ARRAY(code), ARRAY_FLAG_FILE_LINE)) {
+    else if (GET_ARRAY_FLAG(VAL_ARRAY(code), HAS_FILE_LINE)) {
         LINK(copy).file = LINK(VAL_ARRAY(code)).file;
         MISC(copy).line = MISC(VAL_ARRAY(code)).line;
-        SET_SER_FLAG(copy, ARRAY_FLAG_FILE_LINE);
+        SET_ARRAY_FLAG(copy, HAS_FILE_LINE);
     }
     else {
         // Ideally all source series should have a file and line numbering
@@ -1686,7 +1691,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     REBVAL *outer = KNOWN(ARR_AT(details, 1)); // takes 1 arg (a FRAME!)
     assert(IS_ACTION(outer));
 
-    assert(GET_SER_FLAG(f->varlist, SERIES_FLAG_STACK));
+    assert(GET_SERIES_FLAG(f->varlist, STACK_LIFETIME));
 
     // We want to call OUTER with a FRAME! value that will dispatch to INNER
     // when (and if) it runs DO on it.  That frame is the one built for this
@@ -1695,7 +1700,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     //
     REBCTX *c = Steal_Context_Vars(CTX(f->varlist), NOD(FRM_PHASE(f)));
     LINK(c).keysource = NOD(VAL_ACTION(inner));
-    CLEAR_SER_FLAG(c, SERIES_FLAG_STACK);
+    CLEAR_SERIES_FLAG(c, STACK_LIFETIME);
 
     assert(GET_SERIES_INFO(f->varlist, INACCESSIBLE)); // look dead
 
@@ -1703,7 +1708,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     // allocated through the usual mechanisms, so if unmanaged it's not in
     // the tracking list Init_Any_Context() expects.  Just fiddle the bit.
     //
-    SET_SER_FLAG(c, NODE_FLAG_MANAGED);
+    SET_SERIES_FLAG(c, MANAGED);
 
     // When the DO of the FRAME! executes, we don't want it to run the
     // encloser again (infinite loop).
@@ -1725,7 +1730,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     // Note that since varlists aren't added to the manual series list, the
     // bit must be tweaked vs. using ENSURE_ARRAY_MANAGED.
     //
-    SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED);
+    SET_SERIES_FLAG(f->varlist, MANAGED);
 
     const bool fully = true;
     if (Apply_Only_Throws(f->out, fully, outer, FRM_CELL(f), rebEND))

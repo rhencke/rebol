@@ -301,11 +301,11 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     TERM_ARRAY_LEN(varlist, num_slots);
     MISC(varlist).meta = NULL; // GC sees this, we must initialize
 
-    // !!! Can't currently pass SERIES_FLAG_STACK into Make_Arr_Core(),
+    // !!! Can't currently pass SERIES_FLAG_STACK_LIFETIME into Make_Arr_Core(),
     // because TERM_ARRAY_LEN won't let it set stack array lengths.
     //
-    if (prep & CELL_FLAG_STACK)
-        SET_SER_FLAG(varlist, SERIES_FLAG_STACK);
+    if (prep & CELL_FLAG_STACK_LIFETIME)
+        SET_SERIES_FLAG(varlist, STACK_LIFETIME);
 
     INIT_CTX_KEYLIST_SHARED(CTX(varlist), ACT_PARAMLIST(act));
     return CTX(varlist);
@@ -844,8 +844,8 @@ bool Specialize_Action_Throws(
     assert(CTX_KEYLIST(exemplar) == ACT_PARAMLIST(unspecialized));
 
     assert(
-        GET_SER_FLAG(paramlist, PARAMLIST_FLAG_INVISIBLE)
-        == GET_SER_FLAG(unspecialized, PARAMLIST_FLAG_INVISIBLE)
+        GET_ACTION_FLAG(specialized, IS_INVISIBLE)
+        == GET_ACTION_FLAG(unspecialized, IS_INVISIBLE)
     );
 
     // The "body" is the FRAME! value of the specialization.  It takes on the
@@ -1185,10 +1185,10 @@ REB_R Block_Dispatcher(REBFRM *f)
 
         // Preserve file and line information from the original, if present.
         //
-        if (GET_SER_FLAG(VAL_ARRAY(block), ARRAY_FLAG_FILE_LINE)) {
+        if (GET_ARRAY_FLAG(VAL_ARRAY(block), HAS_FILE_LINE)) {
             LINK(body_array).file = LINK(VAL_ARRAY(block)).file;
             MISC(body_array).line = MISC(VAL_ARRAY(block)).line;
-            SET_SER_FLAG(body_array, ARRAY_FLAG_FILE_LINE);
+            SET_ARRAY_FLAG(body_array, HAS_FILE_LINE);
         }
 
         // Need to do a raw initialization of this block RELVAL because it is
@@ -1300,7 +1300,7 @@ bool Make_Invocation_Frame_Throws(
     // can theoretically just be put back into the reuse list, or managed
     // and handed out for other purposes by the caller.
     //
-    assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
+    assert(NOT_SERIES_FLAG(f->varlist, MANAGED));
 
     parent->value = f->value;
     parent->gotten = f->gotten;
@@ -1413,7 +1413,7 @@ bool Make_Frame_From_Varargs_Throws(
 
     REBACT *act = VAL_ACTION(action);
 
-    assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)); // not invoked yet
+    assert(NOT_SERIES_FLAG(f->varlist, MANAGED)); // not invoked yet
     assert(FRM_BINDING(f) == VAL_BINDING(action));
 
     REBCTX *exemplar = Steal_Context_Vars(CTX(f->varlist), NOD(act));
@@ -1421,7 +1421,7 @@ bool Make_Frame_From_Varargs_Throws(
 
     LINK(exemplar).keysource = NOD(act);
 
-    SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED); // is inaccessible
+    SET_SERIES_FLAG(f->varlist, MANAGED); // is inaccessible
     f->varlist = nullptr; // just let it GC, for now
 
     // May not be at end or thrown, e.g. (x: does lit y x = 'y)
@@ -1433,7 +1433,7 @@ bool Make_Frame_From_Varargs_Throws(
     // managed, but Push_Action() does not use ordinary series creation to
     // make its nodes, so manual ones don't wind up in the tracking list.
     //
-    SET_SER_FLAG(exemplar, NODE_FLAG_MANAGED); // can't use Manage_Series
+    SET_SERIES_FLAG(exemplar, MANAGED); // can't use Manage_Series
 
     Init_Frame(out, exemplar);
     return false;
@@ -1533,7 +1533,7 @@ REBNATIVE(does)
             DSP, // lower dsp would be if we wanted to add refinements
             nullptr // don't set up a binder; just poke specializee in frame
         );
-        assert(GET_SER_FLAG(exemplar, NODE_FLAG_MANAGED));
+        assert(GET_SERIES_FLAG(exemplar, MANAGED));
         Move_Value(CTX_VAR(exemplar, 1), specializee);
         SET_CELL_FLAG(CTX_VAR(exemplar, 1), ARG_MARKED_CHECKED); // checked
         Move_Value(specializee, NAT_VALUE(do));

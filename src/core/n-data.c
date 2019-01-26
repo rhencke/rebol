@@ -216,7 +216,7 @@ REBNATIVE(bind)
             VAL_SPECIFIER(v),
             ARR_LEN(VAL_ARRAY(v)), // tail
             0, // extra
-            ARRAY_FLAG_FILE_LINE, // flags
+            ARRAY_FLAG_HAS_FILE_LINE, // flags
             TS_ARRAY // types to copy deeply
         );
         at = ARR_HEAD(copy);
@@ -438,9 +438,9 @@ bool Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
 
         assert(
             not out->payload.any_context.phase
-            or GET_SER_FLAG(
+            or GET_ARRAY_FLAG(
                 ACT_PARAMLIST(out->payload.any_context.phase),
-                ARRAY_FLAG_PARAMLIST
+                IS_PARAMLIST
             )
         );
     }

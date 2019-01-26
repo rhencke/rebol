@@ -83,7 +83,7 @@ inline static REBCTX *VAL_WORD_CONTEXT(const REBVAL *v) {
     assert(IS_WORD_BOUND(v));
     REBNOD *binding = VAL_BINDING(v);
     assert(
-        GET_SER_FLAG(binding, NODE_FLAG_MANAGED)
+        GET_SERIES_FLAG(binding, MANAGED)
         or IS_END(FRM(LINK(binding).keysource)->param) // not fulfilling
     );
     binding->header.bits |= NODE_FLAG_MANAGED; // !!! review managing needs
@@ -184,7 +184,7 @@ inline static REBSTR* Intern(const void *p)
 
     case DETECTED_AS_SERIES: {
         REBSER *s = m_cast(REBSER*, cast(const REBSER*, p));
-        assert(GET_SER_FLAG(s, SERIES_FLAG_UTF8_STRING));
+        assert(GET_SERIES_FLAG(s, IS_UTF8_STRING));
         return s; }
 
     case DETECTED_AS_CELL: {

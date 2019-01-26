@@ -276,7 +276,7 @@ REBARR *Copy_And_Bind_Relative_Deep_Managed(
         VAL_SPECIFIER(body),
         VAL_LEN_AT(body), // tail
         0, // extra
-        ARRAY_FLAG_FILE_LINE, // ask to preserve file and line info
+        ARRAY_FLAG_HAS_FILE_LINE, // ask to preserve file and line info
         (TS_SERIES | TS_PATH) & ~TS_NOT_COPIED // types to copy deeply
     );
 
@@ -347,7 +347,7 @@ void Rebind_Values_Deep(
                 // BIND to an object must be performed, or METHOD should be
                 // used to do it implicitly.
             }
-            else if (GET_SER_FLAG(binding, SERIES_FLAG_STACK)) {
+            else if (GET_SERIES_FLAG(binding, STACK_LIFETIME)) {
                 //
                 // Leave bindings to frame alone, e.g. RETURN's definitional
                 // reference...may be an unnecessary optimization as they
@@ -471,7 +471,7 @@ void Virtual_Bind_Deep_To_New_Context(
                 VAL_SPECIFIER(body_in_out),
                 ARR_LEN(VAL_ARRAY(body_in_out)), // tail
                 0, // extra
-                ARRAY_FLAG_FILE_LINE, // flags
+                ARRAY_FLAG_HAS_FILE_LINE, // flags
                 TS_ARRAY | TS_PATH // types to copy deeply
             )
         );
@@ -598,7 +598,7 @@ void Virtual_Bind_Deep_To_New_Context(
     //
     // https://github.com/rebol/rebol-issues/issues/2274
     //
-    SET_SER_FLAG(CTX_VARLIST(c), SERIES_FLAG_DONT_RELOCATE);
+    SET_SERIES_FLAG(CTX_VARLIST(c), DONT_RELOCATE);
 
     // !!! In virtual binding, there would not be a Bind_Values call below;
     // so it wouldn't necessarily be required to manage the augmented

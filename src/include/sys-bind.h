@@ -63,7 +63,7 @@
 
         REBCTX *c = CTX(p);
         assert(CTX_TYPE(c) == REB_FRAME);
-        assert(GET_SER_FLAG(c, SERIES_FLAG_STACK));
+        assert(GET_SERIES_FLAG(c, STACK_LIFETIME));
 
         // Note: May be managed or unamanged.
 
@@ -86,7 +86,7 @@
         //
         REBCTX *c = CTX(v->extra.binding);
         assert(CTX_TYPE(c) == REB_FRAME); // may be inaccessible
-        assert(GET_SER_FLAG(c, SERIES_FLAG_STACK));
+        assert(GET_SERIES_FLAG(c, STACK_LIFETIME));
         return cast(REBSPC*, c);
     }
 #endif
@@ -126,9 +126,9 @@ inline static bool Is_Overriding_Context(REBCTX *stored, REBCTX *override)
     // !!! Note that in virtual binding, something like a FOR-EACH would
     // wind up overriding words bound to FRAME!s, even though not "derived".
     //
-    if (stored_source->header.bits & ARRAY_FLAG_PARAMLIST)
+    if (stored_source->header.bits & ARRAY_FLAG_IS_PARAMLIST)
         return false;
-    if (temp->header.bits & ARRAY_FLAG_PARAMLIST)
+    if (temp->header.bits & ARRAY_FLAG_IS_PARAMLIST)
         return false;
 
     while (true) {
@@ -349,13 +349,13 @@ inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
 
     if (
         not binding // unbound
-        or GET_SER_FLAG(binding, NODE_FLAG_MANAGED) // managed already
+        or GET_SERIES_FLAG(binding, MANAGED) // managed already
         or GET_CELL_FLAG(out, TRANSIENT) // can't pass up/down stack
     ){
         return;
     }
 
-    assert(GET_SER_FLAG(binding, SERIES_FLAG_STACK));
+    assert(GET_SERIES_FLAG(binding, STACK_LIFETIME));
  
     REBFRM *f = FRM(LINK(binding).keysource);
     assert(IS_END(f->param)); // cannot manage frame varlist in mid fulfill!
@@ -368,7 +368,7 @@ inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
         //
         REBCNT bind_depth = 1; // !!! need to find v's binding stack level
         REBCNT out_depth;
-        if (not (out->header.bits & CELL_FLAG_STACK))
+        if (not (out->header.bits & CELL_FLAG_STACK_LIFETIME))
             out_depth = 0;
         else
             out_depth = 1; // !!! need to find out's stack level
@@ -437,7 +437,7 @@ inline static REBCTX *Get_Var_Context(
 
     REBCTX *c;
 
-    if (binding->header.bits & ARRAY_FLAG_VARLIST) {
+    if (binding->header.bits & ARRAY_FLAG_IS_VARLIST) {
 
         // SPECIFIC BINDING: The context the word is bound to is explicitly
         // contained in the `any_word` REBVAL payload.  Extract it, but check
@@ -473,7 +473,7 @@ inline static REBCTX *Get_Var_Context(
         }
     }
     else {
-        assert(binding->header.bits & ARRAY_FLAG_PARAMLIST);
+        assert(binding->header.bits & ARRAY_FLAG_IS_PARAMLIST);
 
         // RELATIVE BINDING: The word was made during a deep copy of the block
         // that was given as a function's body, and stored a reference to that
@@ -630,7 +630,7 @@ inline static REBVAL *Derelativize(
     if (not binding) {
         out->extra.binding = UNBOUND;
     }
-    else if (binding->header.bits & ARRAY_FLAG_PARAMLIST) {
+    else if (binding->header.bits & ARRAY_FLAG_IS_PARAMLIST) {
         //
         // The stored binding is relative to a function, and so the specifier
         // needs to be a frame to have a precise invocation to lookup in.
@@ -667,7 +667,9 @@ inline static REBVAL *Derelativize(
 
         INIT_BINDING_MAY_MANAGE(out, specifier);
     }
-    else if (specifier and (binding->header.bits & ARRAY_FLAG_VARLIST)) {
+    else if (
+        specifier and (binding->header.bits & ARRAY_FLAG_IS_VARLIST)
+    ){
         REBNOD *f_binding = SPC_BINDING(specifier); // can't fail(), see notes
 
         if (
@@ -683,7 +685,7 @@ inline static REBVAL *Derelativize(
     }
     else { // no potential override
         assert(
-            (binding->header.bits & ARRAY_FLAG_VARLIST)
+            (binding->header.bits & ARRAY_FLAG_IS_VARLIST)
             or IS_VARARGS(v) // BLOCK! style varargs use binding to hold array
         );
         INIT_BINDING_MAY_MANAGE(out, binding);

@@ -48,7 +48,7 @@
 //
 
 
-//=//// SINGULAR_FLAG_API_RELEASE /////////////////////////////////////////=//
+//=//// SERIES_FLAG_SINGULAR_API_RELEASE //////////////////////////////////=//
 //
 // The rebT() function can be used with an API handle to tell a variadic
 // function to release that handle after encountering it.
@@ -58,17 +58,17 @@
 // info bits, when most are not applicable to them.  This is a tradeoff, and
 // contention for bits may become an issue in the future.
 //
-#define SINGULAR_FLAG_API_RELEASE \
+#define SERIES_FLAG_SINGULAR_API_RELEASE \
     ARRAY_FLAG_23
 
 
-//=//// SINGULAR_FLAG_API_INSTRUCTION /////////////////////////////////////=//
+//=//// SERIES_FLAG_SINGULAR_API_INSTRUCTION //////////////////////////////=//
 //
 // Rather than have LINK() and MISC() fields used to distinguish an API
 // handle like an INTEGER! from something like a rebEval(), a flag helps
 // keep those free for different purposes.
 //
-#define SINGULAR_FLAG_API_INSTRUCTION \
+#define SERIES_FLAG_SINGULAR_API_INSTRUCTION \
     ARRAY_FLAG_24
 
 
@@ -124,8 +124,8 @@ inline static void Free_Value(REBVAL *v)
 inline static REBARR *Alloc_Instruction(void) {
     REBSER *s = Alloc_Series_Node(
         SERIES_FLAG_FIXED_SIZE // not tracked as stray manual, but unmanaged
-        | SINGULAR_FLAG_API_INSTRUCTION
-        | SINGULAR_FLAG_API_RELEASE
+        | SERIES_FLAG_SINGULAR_API_INSTRUCTION
+        | SERIES_FLAG_SINGULAR_API_RELEASE
     );
     s->info = Endlike_Header(
         FLAG_WIDE_BYTE_OR_0(0) // signals array, also implicit terminator

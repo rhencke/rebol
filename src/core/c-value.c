@@ -196,7 +196,7 @@ void* Probe_Core_Debug(
             Mold_Text_Series_At(mo, s, 0); // not necessarily TEXT!
         }
         else if (IS_SER_ARRAY(s)) {
-            if (GET_SER_FLAG(s, ARRAY_FLAG_VARLIST)) {
+            if (GET_ARRAY_FLAG(s, IS_VARLIST)) {
                 Probe_Print_Helper(p, "Context Varlist", file, line);
                 Probe_Molded_Value(CTX_ARCHETYPE(CTX(s)));
             }

@@ -265,7 +265,7 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
 
     case DETECTED_AS_SERIES: {
         REBSER *s = m_cast(REBSER*, cast(const REBSER*, p)); // don't mutate
-        if (NOT_SER_FLAG(s, ARRAY_FLAG_VARLIST))
+        if (not IS_SER_ARRAY(s) or NOT_ARRAY_FLAG(s, IS_VARLIST))
             panic (s);
         error = CTX(s);
         break; }
@@ -303,7 +303,7 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
             assert(f->varlist); // action must be running
             REBARR *stub = f->varlist; // will be stubbed, info bits reset
             Drop_Action(f);
-            SET_SER_FLAG(stub, VARLIST_FLAG_FRAME_FAILED); // API leaks o.k.
+            SET_SERIES_FLAG(stub, VARLIST_FRAME_FAILED); // API leaks o.k.
         }
 
         REBFRM *prior = f->prior;
@@ -438,7 +438,7 @@ void Set_Location_Of_Error(
     Init_Near_For_Frame(&vars->nearest, where);
 
     // Try to fill in the file and line information of the error from the
-    // stack, looking for arrays with ARRAY_FLAG_FILE_LINE.
+    // stack, looking for arrays with ARRAY_FLAG_HAS_FILE_LINE.
     //
     f = where;
     for (; f != FS_BOTTOM; f = f->prior) {
@@ -451,7 +451,7 @@ void Set_Location_Of_Error(
             //
             continue;
         }
-        if (NOT_SER_FLAG(f->feed->array, ARRAY_FLAG_FILE_LINE))
+        if (NOT_ARRAY_FLAG(f->feed->array, HAS_FILE_LINE))
             continue;
         break;
     }

@@ -282,7 +282,7 @@ REBTYPE(Action)
                 return nullptr;
 
             REBARR *a = VAL_ARRAY(ARR_HEAD(details));
-            if (NOT_SER_FLAG(a, ARRAY_FLAG_FILE_LINE))
+            if (NOT_ARRAY_FLAG(a, HAS_FILE_LINE))
                 return nullptr;
 
             if (property == SYM_FILE) {

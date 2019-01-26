@@ -187,9 +187,9 @@ REBNATIVE(new_line)
 
     if (IS_END(item)) { // no value at tail to mark; use bit in array
         if (mark)
-            SET_SER_FLAG(VAL_ARRAY(pos), ARRAY_FLAG_TAIL_NEWLINE);
+            SET_ARRAY_FLAG(VAL_ARRAY(pos), NEWLINE_AT_TAIL);
         else
-            CLEAR_SER_FLAG(VAL_ARRAY(pos), ARRAY_FLAG_TAIL_NEWLINE);
+            CLEAR_ARRAY_FLAG(VAL_ARRAY(pos), NEWLINE_AT_TAIL);
         RETURN (pos);
     }
 
@@ -276,10 +276,7 @@ REBNATIVE(new_line_q)
     if (NOT_END(item))
         return Init_Logic(D_OUT, GET_CELL_FLAG(item, NEWLINE_BEFORE));
 
-    return Init_Logic(
-        D_OUT,
-        GET_SER_FLAG(arr, ARRAY_FLAG_TAIL_NEWLINE)
-    );
+    return Init_Logic(D_OUT, GET_ARRAY_FLAG(arr, NEWLINE_AT_TAIL));
 }
 
 

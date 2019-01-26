@@ -35,24 +35,24 @@
 //
 
 
-//=//// PARAMLIST_FLAG_RETURN /////////////////////////////////////////////=//
+//=//// PARAMLIST_FLAG_HAS_RETURN /////////////////////////////////////////=//
 //
 // Has a definitional RETURN in the last paramlist slot.
 //
-#define PARAMLIST_FLAG_RETURN \
+#define PARAMLIST_FLAG_HAS_RETURN \
     ARRAY_FLAG_23
 
 
-//=//// PARAMLIST_FLAG_VOIDER /////////////////////////////////////////////=//
+//=//// PARAMLIST_FLAG_IS_VOIDER //////////////////////////////////////////=//
 //
 // Uses Voider_Dispatcher().  Right now there's not a good way to communicate
 // the findings of Make_Paramlist() back to the caller, so this flag is used.
 //
-#define PARAMLIST_FLAG_VOIDER \
+#define PARAMLIST_FLAG_IS_VOIDER \
     ARRAY_FLAG_24
 
 
-//=//// PARAMLIST_FLAG_INVISIBLE //////////////////////////////////////////=//
+//=//// PARAMLIST_FLAG_IS_INVISIBLE ///////////////////////////////////////=//
 //
 // This is a calculated property, which is cached by Make_Action().
 //
@@ -61,7 +61,7 @@
 // work...if COMMENT destroyed the 10 in the output cell it would be lost and
 // the addition could no longer work.
 //
-#define PARAMLIST_FLAG_INVISIBLE \
+#define PARAMLIST_FLAG_IS_INVISIBLE \
     ARRAY_FLAG_25
 
 
@@ -103,7 +103,7 @@
     ARRAY_FLAG_28
 
 
-//=//// PARAMLIST_FLAG_NATIVE /////////////////////////////////////////////=//
+//=//// PARAMLIST_FLAG_IS_NATIVE //////////////////////////////////////////=//
 //
 // Native functions are flagged that their dispatcher represents a native in
 // order to say that their ACT_DETAILS() follow the protocol that the [0]
@@ -112,7 +112,7 @@
 // rebRun() etc. should consider for binding, in addition to lib.  A BLANK!
 // in the 1 slot means no additional consideration...bind to lib only.
 //
-#define PARAMLIST_FLAG_NATIVE \
+#define PARAMLIST_FLAG_IS_NATIVE \
     ARRAY_FLAG_29
 
 
@@ -146,8 +146,23 @@
 // These are the flags which are scanned for and set during Make_Action
 //
 #define PARAMLIST_MASK_CACHED \
-    (PARAMLIST_FLAG_DEFERS_LOOKBACK | PARAMLIST_FLAG_INVISIBLE \
+    (PARAMLIST_FLAG_DEFERS_LOOKBACK | PARAMLIST_FLAG_IS_INVISIBLE \
         | PARAMLIST_FLAG_QUOTES_FIRST | PARAMLIST_FLAG_SKIPPABLE_FIRST)
+
+
+
+#define SET_ACTION_FLAG(s,name) \
+    (cast(REBSER*, ACT(s))->header.bits |= PARAMLIST_FLAG_##name)
+
+#define GET_ACTION_FLAG(s,name) \
+    ((cast(REBSER*, ACT(s))->header.bits & PARAMLIST_FLAG_##name) != 0)
+
+#define CLEAR_ACTION_FLAG(s,name) \
+    (cast(REBSER*, ACT(s))->header.bits &= ~PARAMLIST_FLAG_##name)
+
+#define NOT_ACTION_FLAG(s,name) \
+    ((cast(REBSER*, ACT(s))->header.bits & PARAMLIST_FLAG_##name) == 0)
+
 
 
 //=//// PSEUDOTYPES FOR RETURN VALUES /////////////////////////////////////=//
@@ -221,7 +236,7 @@
 
 
 inline static REBARR *ACT_PARAMLIST(REBACT *a) {
-    assert(GET_SER_FLAG(&a->paramlist, ARRAY_FLAG_PARAMLIST));
+    assert(GET_ARRAY_FLAG(&a->paramlist, IS_PARAMLIST));
     return &a->paramlist;
 }
 
@@ -235,7 +250,7 @@ inline static REBARR *ACT_PARAMLIST(REBACT *a) {
     ACT_ARCHETYPE(a)->payload.action.details
 
 // These are indices into the details array agreed upon by actions which have
-// the PARAMLIST_FLAG_NATIVE set.
+// the PARAMLIST_FLAG_IS_NATIVE set.
 //
 #define IDX_NATIVE_BODY 0 // text string source code of native (for SOURCE)
 #define IDX_NATIVE_CONTEXT 1 // libRebol binds strings here (and lib)
@@ -272,7 +287,7 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
 inline static REBCTX *ACT_EXEMPLAR(REBACT *a) {
     REBARR *details = ACT_ARCHETYPE(a)->payload.action.details;
     REBARR *specialty = LINK(details).specialty;
-    if (GET_SER_FLAG(specialty, ARRAY_FLAG_VARLIST))
+    if (GET_ARRAY_FLAG(specialty, IS_VARLIST))
         return CTX(specialty);
 
     return nullptr;

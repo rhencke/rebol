@@ -462,5 +462,5 @@ REBARR *Split_Lines(const REBVAL *str)
         SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
     }
 
-    return Pop_Stack_Values_Core(dsp_orig, ARRAY_FLAG_TAIL_NEWLINE);
+    return Pop_Stack_Values_Core(dsp_orig, ARRAY_FLAG_NEWLINE_AT_TAIL);
 }

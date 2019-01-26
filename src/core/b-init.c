@@ -373,7 +373,7 @@ REBNATIVE(generic)
         IDX_NATIVE_MAX // details array capacity
     );
 
-    SET_SER_FLAG(generic, PARAMLIST_FLAG_NATIVE);
+    SET_ACTION_FLAG(generic, IS_NATIVE);
 
     REBARR *details = ACT_DETAILS(generic);
     Init_Word(ARR_AT(details, IDX_NATIVE_BODY), VAL_WORD_CANON(ARG(verb)));
@@ -622,7 +622,7 @@ REBVAL *Make_Native(
         IDX_NATIVE_MAX // details array capacity
     );
 
-    SET_SER_FLAG(act, PARAMLIST_FLAG_NATIVE);
+    SET_ACTION_FLAG(act, IS_NATIVE);
 
     REBARR *details = ACT_DETAILS(act);
 
@@ -810,7 +810,7 @@ static void Startup_End_Node(void)
 //  Startup_Empty_Array: C
 //
 // Generic read-only empty array, which will be put into EMPTY_BLOCK when
-// Alloc_Value() is available.  Note it's too early for ARRAY_FLAG_FILE_LINE.
+// Alloc_Value() is available.  Note it's too early for ARRAY_HAS_FILE_LINE.
 //
 // Warning: GC must not run before Init_Root_Vars() puts it in an API node!
 //

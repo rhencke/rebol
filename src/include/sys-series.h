@@ -148,7 +148,7 @@ inline static REBCNT SER_LEN(REBSER *s) {
 }
 
 inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
-    assert(NOT_SER_FLAG(s, SERIES_FLAG_STACK));
+    assert(NOT_SERIES_FLAG(s, STACK_LIFETIME));
 
     if (LEN_BYTE_OR_255(s) == 255)
         s->content.dynamic.len = len;
@@ -314,25 +314,21 @@ inline static void TERM_SEQUENCE_LEN(REBSER *s, REBCNT len) {
 // reachable by the GC, it will raise an alert.)
 //
 
-inline static bool IS_SERIES_MANAGED(REBSER *s) {
-    return did (s->header.bits & NODE_FLAG_MANAGED);
-}
-
 #define MANAGE_SERIES(s) \
     Manage_Series(s)
 
-inline static void ENSURE_SERIES_MANAGED(REBSER *s) {
-    if (not IS_SERIES_MANAGED(s))
-        MANAGE_SERIES(s);
+inline static void ENSURE_SERIES_MANAGED(void *s) {
+    if (NOT_SERIES_FLAG(SER(s), MANAGED))
+        MANAGE_SERIES(SER(s));
 }
 
 #ifdef NDEBUG
     #define ASSERT_SERIES_MANAGED(s) \
         NOOP
 #else
-    inline static void ASSERT_SERIES_MANAGED(REBSER *s) {
-        if (not IS_SERIES_MANAGED(s))
-            panic (s);
+    inline static void ASSERT_SERIES_MANAGED(void *s) {
+        if (NOT_SERIES_FLAG(SER(s), MANAGED))
+            panic (SER(s));
     }
 #endif
 
@@ -507,7 +503,7 @@ inline static REBSER *VAL_SERIES(const REBCEL *v) {
 
 inline static void INIT_VAL_SERIES(RELVAL *v, REBSER *s) {
     assert(not IS_SER_ARRAY(s));
-    assert(IS_SERIES_MANAGED(s));
+    ASSERT_SERIES_MANAGED(s);
     v->payload.any_series.series = s;
 }
 
@@ -652,7 +648,7 @@ inline static bool Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
         assert(size >= length * wide);
 
         // We don't round to power of 2 for allocations in memory pools
-        CLEAR_SER_FLAG(s, SERIES_FLAG_POWER_OF_2);
+        CLEAR_SERIES_FLAG(s, POWER_OF_2);
     }
     else {
         // ...the allocation is too big for a pool.  But instead of just
@@ -661,7 +657,7 @@ inline static bool Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
         // boundaries (or choose a power of 2, if requested).
 
         size = length * wide;
-        if (GET_SER_FLAG(s, SERIES_FLAG_POWER_OF_2)) {
+        if (GET_SERIES_FLAG(s, POWER_OF_2)) {
             REBCNT len = 2048;
             while (len < size)
                 len *= 2;
@@ -671,7 +667,7 @@ inline static bool Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
             // divisibility by the item width.
             //
             if (size % wide == 0)
-                CLEAR_SER_FLAG(s, SERIES_FLAG_POWER_OF_2);
+                CLEAR_SERIES_FLAG(s, POWER_OF_2);
         }
 
         s->content.dynamic.data = ALLOC_N(char, size);
@@ -718,7 +714,7 @@ inline static REBSER *Make_Ser_Core(
     REBYTE wide,
     REBFLGS flags
 ){
-    assert(not (flags & ARRAY_FLAG_FILE_LINE));
+    assert(not (flags & ARRAY_FLAG_HAS_FILE_LINE));
 
     if (cast(REBU64, capacity) * wide > INT32_MAX)
         fail (Error_No_Memory(cast(REBU64, capacity) * wide));

@@ -256,7 +256,7 @@ REBACT *Make_JavaScript_Action_Common(
         &cleanup_js_native
     );
 
-    SET_SER_FLAG(action, PARAMLIST_FLAG_NATIVE);
+    SET_ACTION_FLAG(action, IS_NATIVE);
     return action;
 }
 

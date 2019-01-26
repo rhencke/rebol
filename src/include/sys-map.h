@@ -48,7 +48,7 @@ struct Reb_Map {
 };
 
 inline static REBARR *MAP_PAIRLIST(REBMAP *m) {
-    assert(GET_SER_FLAG(&(m)->pairlist, ARRAY_FLAG_PAIRLIST));
+    assert(GET_ARRAY_FLAG(&(m)->pairlist, IS_PAIRLIST));
     return (&(m)->pairlist);
 }
 
@@ -60,7 +60,7 @@ inline static REBARR *MAP_PAIRLIST(REBMAP *m) {
 
 inline static REBMAP *MAP(void *p) {
     REBARR *a = ARR(p);
-    assert(GET_SER_FLAG(a, ARRAY_FLAG_PAIRLIST));
+    assert(GET_ARRAY_FLAG(a, IS_PAIRLIST));
     return cast(REBMAP*, a);
 }
 

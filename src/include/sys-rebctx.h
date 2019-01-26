@@ -36,7 +36,8 @@
 // can't be SERIES_FLAG_FIXED_SIZE, because most varlists can expand.
 //
 #define SERIES_MASK_CONTEXT \
-    (NODE_FLAG_NODE | SERIES_FLAG_ALWAYS_DYNAMIC | ARRAY_FLAG_VARLIST)
+    (NODE_FLAG_NODE | SERIES_FLAG_ALWAYS_DYNAMIC \
+        | ARRAY_FLAG_IS_VARLIST)
 
 
 struct Reb_Context {
@@ -68,13 +69,13 @@ struct Reb_Context {
         if (base)
             assert(
                 (reinterpret_cast<REBNOD*>(p)->header.bits & (
-                    NODE_FLAG_NODE | ARRAY_FLAG_VARLIST
+                    NODE_FLAG_NODE | ARRAY_FLAG_IS_VARLIST
                         | NODE_FLAG_FREE
                         | NODE_FLAG_CELL
-                        | ARRAY_FLAG_PARAMLIST
-                        | ARRAY_FLAG_PAIRLIST
+                        | ARRAY_FLAG_IS_PARAMLIST
+                        | ARRAY_FLAG_IS_PAIRLIST
                 )) == (
-                    NODE_FLAG_NODE | ARRAY_FLAG_VARLIST
+                    NODE_FLAG_NODE | ARRAY_FLAG_IS_VARLIST
                 )
             );
 

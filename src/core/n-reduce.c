@@ -101,9 +101,9 @@ REBNATIVE(reduce)
         if (Reduce_To_Stack_Throws(D_OUT, v, VAL_SPECIFIER(v)))
             return R_THROWN;
 
-        REBFLGS pop_flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
-        if (GET_SER_FLAG(VAL_ARRAY(v), ARRAY_FLAG_TAIL_NEWLINE))
-            pop_flags |= ARRAY_FLAG_TAIL_NEWLINE;
+        REBFLGS pop_flags = NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE;
+        if (GET_ARRAY_FLAG(VAL_ARRAY(v), NEWLINE_AT_TAIL))
+            pop_flags |= ARRAY_FLAG_NEWLINE_AT_TAIL;
 
         return Init_Any_Array(
             D_OUT,
@@ -323,9 +323,9 @@ REB_R Compose_To_Stack_Core(
                 continue;
             }
 
-            REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
-            if (GET_SER_FLAG(VAL_ARRAY(cell), ARRAY_FLAG_TAIL_NEWLINE))
-                flags |= ARRAY_FLAG_TAIL_NEWLINE;
+            REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE;
+            if (GET_ARRAY_FLAG(VAL_ARRAY(cell), NEWLINE_AT_TAIL))
+                flags |= ARRAY_FLAG_NEWLINE_AT_TAIL;
 
             REBARR *popped = Pop_Stack_Values_Core(dsp_deep, flags);
             Init_Any_Array(
@@ -400,9 +400,9 @@ REBNATIVE(compose)
     // The stack values contain N NEWLINE_BEFORE flags, and we need N + 1
     // flags.  Borrow the one for the tail directly from the input REBARR.
     //
-    REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
-    if (GET_SER_FLAG(VAL_ARRAY(ARG(value)), ARRAY_FLAG_TAIL_NEWLINE))
-        flags |= ARRAY_FLAG_TAIL_NEWLINE;
+    REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE;
+    if (GET_ARRAY_FLAG(VAL_ARRAY(ARG(value)), NEWLINE_AT_TAIL))
+        flags |= ARRAY_FLAG_NEWLINE_AT_TAIL;
 
     return Init_Any_Array(
         D_OUT,

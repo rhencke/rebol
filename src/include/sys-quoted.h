@@ -76,7 +76,7 @@ inline static RELVAL *Quotify_Core(
         mutable_KIND_BYTE(v) = kind + (REB_64 * depth);
     }
     else {
-        // No point having ARRAY_FLAG_FILE_LINE when only deep levels of a
+        // No point having ARRAY_HAS_FILE_LINE when only deep levels of a
         // literal would have it--wastes time/storage to save it.
         //
         // !!! Efficiency trick here could point to VOID_VALUE, BLANK_VALUE,

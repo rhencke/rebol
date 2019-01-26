@@ -207,11 +207,7 @@ REB_R MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             // so no typeset or quoting settings available.  Can't produce
             // any voids, because the data source is a block.
             //
-            assert(
-                NOT_SER_FLAG(
-                    arg->extra.binding, ARRAY_FLAG_VARLIST
-                )
-            );
+            assert(NOT_ARRAY_FLAG(arg->extra.binding, IS_VARLIST));
         }
         else {
             REBCTX *context = CTX(arg->extra.binding);
@@ -987,7 +983,7 @@ REBTYPE(Array)
                 types |= VAL_TYPESET_BITS(ARG(kinds));
         }
 
-        REBFLGS flags = ARRAY_FLAG_FILE_LINE;
+        REBFLGS flags = ARRAY_FLAG_HAS_FILE_LINE;
 
         // We shouldn't be returning a const value from the copy, but if the
         // input value was const and we don't copy some types deeply, those
@@ -1053,7 +1049,7 @@ REBTYPE(Array)
 
         bool line_back;
         if (back == ARR_LAST(arr)) // !!! review tail newline handling
-            line_back = GET_SER_FLAG(arr, ARRAY_FLAG_TAIL_NEWLINE);
+            line_back = GET_ARRAY_FLAG(arr, NEWLINE_AT_TAIL);
         else
             line_back = GET_CELL_FLAG(back + 1, NEWLINE_BEFORE);
 
@@ -1177,7 +1173,11 @@ REBNATIVE(blockify)
     if (IS_BLOCK(v))
         RETURN (v);
 
-    REBARR *a = Make_Arr_Core(1, NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE);
+    REBARR *a = Make_Arr_Core(
+        1,
+        NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE
+    );
+
     if (IS_NULLED(v)) {
         // leave empty
     } else {
@@ -1206,7 +1206,11 @@ REBNATIVE(groupify)
     if (IS_GROUP(v))
         RETURN (v);
 
-    REBARR *a = Make_Arr_Core(1, NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE);
+    REBARR *a = Make_Arr_Core(
+        1,
+        NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE
+    );
+
     if (IS_NULLED(v)) {
         // leave empty
     } else {
@@ -1233,7 +1237,11 @@ REBNATIVE(enblock)
 
     REBVAL *v = ARG(value);
 
-    REBARR *a = Make_Arr_Core(1, NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE);
+    REBARR *a = Make_Arr_Core(
+        1,
+        NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE
+    );
+
     if (IS_NULLED(v)) {
         // leave empty
     } else {
@@ -1260,7 +1268,11 @@ REBNATIVE(engroup)
 
     REBVAL *v = ARG(value);
 
-    REBARR *a = Make_Arr_Core(1, NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE);
+    REBARR *a = Make_Arr_Core(
+        1,
+        NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE
+    );
+
     if (IS_NULLED(v)) {
         // leave empty
     } else {
@@ -1305,7 +1317,7 @@ void Assert_Array_Core(REBARR *a)
 
         for (; i < rest - 1; ++i, ++item) {
             const bool unwritable = not (item->header.bits & NODE_FLAG_CELL);
-            if (GET_SER_FLAG(a, SERIES_FLAG_FIXED_SIZE)) {
+            if (GET_SERIES_FLAG(a, FIXED_SIZE)) {
               #if !defined(NDEBUG)
                 if (not unwritable) {
                     printf("Writable cell found in fixed-size array rest\n");

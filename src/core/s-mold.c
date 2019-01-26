@@ -383,7 +383,7 @@ void Mold_Array_At(
         --mo->indent;
 
     if (sep[1] != '\0') {
-        if (GET_SER_FLAG(a, ARRAY_FLAG_TAIL_NEWLINE))
+        if (GET_ARRAY_FLAG(a, NEWLINE_AT_TAIL))
             New_Indented_Line(mo); // but not any indentation from *this* mold
         Append_Utf8_Codepoint(mo->series, sep[1]);
     }

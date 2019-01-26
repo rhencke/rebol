@@ -98,7 +98,7 @@
 #define CELL_FLAG_MANAGED NODE_FLAG_MANAGED
 #define CELL_FLAG_ROOT NODE_FLAG_ROOT
 #define CELL_FLAG_TRANSIENT NODE_FLAG_TRANSIENT
-#define CELL_FLAG_STACK NODE_FLAG_STACK
+#define CELL_FLAG_STACK_LIFETIME NODE_FLAG_STACK
 
 #define CELL_FLAG_ARG_MARKED_CHECKED NODE_FLAG_MARKED
 #define CELL_FLAG_OUT_MARKED_STALE NODE_FLAG_MARKED
@@ -150,7 +150,7 @@
 // When the array containing a value with this flag set is molding, that will
 // output a new line *before* molding the value.  This flag works in tandem
 // with a flag on the array itself which manages whether there should be a
-// newline output before the closing array delimiter: ARRAY_FLAG_TAIL_NEWLINE.
+// newline output before the closing array delimiter: ARRAY_FLAG_NEWLINE_AT_TAIL.
 //
 // The bit is set initially by what the scanner detects, and then left to the
 // user's control after that.
@@ -321,7 +321,7 @@ inline static union Reb_Header Endlike_Header(uintptr_t bits) {
 
 #define CELL_MASK_PERSIST \
     (NODE_FLAG_NODE | NODE_FLAG_CELL | NODE_FLAG_MANAGED | NODE_FLAG_ROOT \
-        | CELL_FLAG_TRANSIENT | CELL_FLAG_STACK)
+        | CELL_FLAG_TRANSIENT | CELL_FLAG_STACK_LIFETIME)
 
 #define CELL_MASK_COPY \
     ~(CELL_MASK_PERSIST | NODE_FLAG_MARKED | CELL_FLAG_PROTECTED \
@@ -677,8 +677,8 @@ union Reb_Value_Extra {
 
     // The binding will be either a REBACT (relative to a function) or a
     // REBCTX (specific to a context), or simply a plain REBARR such as
-    // EMPTY_ARRAY which indicates UNBOUND.  ARRAY_FLAG_VARLIST and
-    // ARRAY_FLAG_PARAMLIST can be used to tell which it is.
+    // EMPTY_ARRAY which indicates UNBOUND.  ARRAY_FLAG_IS_VARLIST and
+    // ARRAY_FLAG_IS_PARAMLIST can be used to tell which it is.
     //
     // ANY-WORD!: binding is the word's binding
     //

@@ -125,7 +125,7 @@ static inline void Mark_Rebser_Only(REBSER *s)
   #if !defined(NDEBUG)
     if (IS_FREE_NODE(s))
         panic (s);
-    if (NOT_SER_FLAG((s), NODE_FLAG_MANAGED)) {
+    if (NOT_SERIES_FLAG((s), MANAGED)) {
         printf("Link to non-MANAGED item reached by GC\n");
         panic (s);
     }
@@ -166,7 +166,7 @@ static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
         panic (a);
   #endif
 
-    if (GET_SER_FLAG(a, NODE_FLAG_MARKED))
+    if (GET_SERIES_FLAG(a, MARKED))
         return; // may not be finished marking yet, but has been queued
 
     Mark_Rebser_Only(cast(REBSER*, a));
@@ -184,51 +184,53 @@ static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
 }
 
 inline static void Queue_Mark_Array_Deep(REBARR *a) { // plain array
-    assert(NOT_SER_FLAG(a, ARRAY_FLAG_VARLIST));
-    assert(NOT_SER_FLAG(a, ARRAY_FLAG_PARAMLIST));
-    assert(NOT_SER_FLAG(a, ARRAY_FLAG_PAIRLIST));
+    assert(NOT_ARRAY_FLAG(a, IS_VARLIST));
+    assert(NOT_ARRAY_FLAG(a, IS_PARAMLIST));
+    assert(NOT_ARRAY_FLAG(a, IS_PAIRLIST));
 
-    if (GET_SER_FLAG(a, ARRAY_FLAG_FILE_LINE))
+    if (GET_ARRAY_FLAG(a, HAS_FILE_LINE))
         LINK(a).file->header.bits |= NODE_FLAG_MARKED;
 
     Queue_Mark_Array_Subclass_Deep(a);
 }
 
-inline static void Queue_Mark_Context_Deep(REBCTX *c) { // ARRAY_FLAG_VARLIST
+inline static void Queue_Mark_Context_Deep(REBCTX *c) { // ARRAY_FLAG_IS_VARLIST
     REBARR *varlist = CTX_VARLIST(c);
     assert(
         GET_SERIES_INFO(varlist, INACCESSIBLE)
         or SERIES_MASK_CONTEXT == (SER(varlist)->header.bits & (
             SERIES_MASK_CONTEXT // these should be set, not the others
-                | ARRAY_FLAG_PAIRLIST
-                | ARRAY_FLAG_PARAMLIST
-                | ARRAY_FLAG_FILE_LINE
+                | ARRAY_FLAG_IS_PAIRLIST
+                | ARRAY_FLAG_IS_PARAMLIST
+                | ARRAY_FLAG_HAS_FILE_LINE
         ))
     );
 
     Queue_Mark_Array_Subclass_Deep(varlist); // see Propagate_All_GC_Marks()
 }
 
-inline static void Queue_Mark_Action_Deep(REBACT *a) { // ARRAY_FLAG_PARAMLIST
+inline static void Queue_Mark_Action_Deep(REBACT *a) { // ARRAY_FLAG_IS_PARAMLIST
     REBARR *paramlist = ACT_PARAMLIST(a);
     assert(
         SERIES_MASK_ACTION == (SER(paramlist)->header.bits & (
             SERIES_MASK_ACTION // these should be set, not the others
-                | ARRAY_FLAG_PAIRLIST
-                | ARRAY_FLAG_VARLIST
-                | ARRAY_FLAG_FILE_LINE
+                | ARRAY_FLAG_IS_PAIRLIST
+                | ARRAY_FLAG_IS_VARLIST
+                | ARRAY_FLAG_HAS_FILE_LINE
         ))
     );
 
     Queue_Mark_Array_Subclass_Deep(paramlist); // see Propagate_All_GC_Marks()
 }
 
-inline static void Queue_Mark_Map_Deep(REBMAP *m) { // ARRAY_FLAG_PAIRLIST
+inline static void Queue_Mark_Map_Deep(REBMAP *m) { // ARRAY_FLAG_IS_PAIRLIST
     REBARR *pairlist = MAP_PAIRLIST(m);
     assert(
-        ARRAY_FLAG_PAIRLIST == (SER(pairlist)->header.bits & (
-            ARRAY_FLAG_VARLIST | ARRAY_FLAG_PAIRLIST | ARRAY_FLAG_PARAMLIST
-            | ARRAY_FLAG_FILE_LINE
+        ARRAY_FLAG_IS_PAIRLIST == (SER(pairlist)->header.bits & (
+            ARRAY_FLAG_IS_PAIRLIST
+                | ARRAY_FLAG_IS_VARLIST
+                | ARRAY_FLAG_IS_PARAMLIST
+                | ARRAY_FLAG_HAS_FILE_LINE
         ))
     );
 
@@ -241,11 +243,11 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
         return;
 
   #if !defined(NDEBUG)
-    if (binding->header.bits & ARRAY_FLAG_PARAMLIST) {
+    if (binding->header.bits & ARRAY_FLAG_IS_PARAMLIST) {
         //
         // It's an action, any reasonable added check?
     }
-    else if (binding->header.bits & ARRAY_FLAG_VARLIST) {
+    else if (binding->header.bits & ARRAY_FLAG_IS_VARLIST) {
         //
         // It's a context, any reasonable added check?
     }
@@ -265,7 +267,7 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
         // allowed to do this.
         //
       #if !defined(NDEBUG)
-        if (NOT_CELL_FLAG(v, STACK) and NOT_CELL_FLAG(v, TRANSIENT))
+        if (NOT_CELL_FLAG(v, STACK_LIFETIME) and NOT_CELL_FLAG(v, TRANSIENT))
             panic (v);
       #endif
     }
@@ -277,8 +279,10 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
 inline static void Queue_Mark_Singular_Array(REBARR *a) {
     assert(
         0 == (SER(a)->header.bits & (
-            ARRAY_FLAG_VARLIST | ARRAY_FLAG_PAIRLIST | ARRAY_FLAG_PARAMLIST
-            | ARRAY_FLAG_FILE_LINE
+            0   | ARRAY_FLAG_IS_VARLIST
+                | ARRAY_FLAG_IS_PAIRLIST
+                | ARRAY_FLAG_IS_PARAMLIST
+                | ARRAY_FLAG_HAS_FILE_LINE
         ))
     );
 
@@ -783,7 +787,7 @@ static void Propagate_All_GC_Marks(void)
 
         RELVAL *v;
 
-        if (GET_SER_FLAG(a, ARRAY_FLAG_PARAMLIST)) {
+        if (GET_ARRAY_FLAG(a, IS_PARAMLIST)) {
             v = ARR_HEAD(a); // archetype
             assert(IS_ACTION(v));
             assert(not v->extra.binding); // archetypes have no binding
@@ -799,7 +803,7 @@ static void Propagate_All_GC_Marks(void)
             Queue_Mark_Action_Deep(underlying);
 
             REBARR *specialty = LINK(details).specialty;
-            if (GET_SER_FLAG(specialty, ARRAY_FLAG_VARLIST))
+            if (GET_ARRAY_FLAG(specialty, IS_VARLIST))
                 Queue_Mark_Context_Deep(CTX(specialty));
             else
                 assert(specialty == a);
@@ -814,7 +818,7 @@ static void Propagate_All_GC_Marks(void)
 
             ++v; // function archetype completely marked by this process
         }
-        else if (GET_SER_FLAG(a, ARRAY_FLAG_VARLIST)) {
+        else if (GET_ARRAY_FLAG(a, IS_VARLIST)) {
             v = CTX_ARCHETYPE(CTX(a)); // works if SERIES_INFO_INACCESSIBLE
 
             // Currently only FRAME! uses binding
@@ -841,13 +845,13 @@ static void Propagate_All_GC_Marks(void)
             else {
                 REBARR *keylist = ARR(keysource);
                 if (IS_FRAME(v)) {
-                    assert(GET_SER_FLAG(keylist, ARRAY_FLAG_PARAMLIST));
+                    assert(GET_ARRAY_FLAG(keylist, IS_PARAMLIST));
 
                     // Frames use paramlists as their "keylist", there is no
                     // place to put an ancestor link.
                 }
                 else {
-                    assert(NOT_SER_FLAG(keylist, ARRAY_FLAG_PARAMLIST));
+                    assert(NOT_ARRAY_FLAG(keylist, IS_PARAMLIST));
                     ASSERT_UNREADABLE_IF_DEBUG(ARR_HEAD(keylist));
 
                     REBARR *ancestor = LINK(keylist).ancestor;
@@ -868,7 +872,7 @@ static void Propagate_All_GC_Marks(void)
 
             ++v; // context archetype completely marked by this process
         }
-        else if (GET_SER_FLAG(a, ARRAY_FLAG_PAIRLIST)) {
+        else if (GET_ARRAY_FLAG(a, IS_PAIRLIST)) {
             //
             // There was once a "small map" optimization that wouldn't
             // produce a hashlist for small maps and just did linear search.
@@ -911,8 +915,8 @@ static void Propagate_All_GC_Marks(void)
             //
             if (
                 KIND_BYTE_UNCHECKED(v) == REB_MAX_NULLED
-                and NOT_SER_FLAG(a, ARRAY_FLAG_VARLIST)
-                and NOT_SER_FLAG(a, ARRAY_FLAG_NULLEDS_LEGAL)
+                and NOT_ARRAY_FLAG(a, IS_VARLIST)
+                and NOT_ARRAY_FLAG(a, NULLEDS_LEGAL)
             ){
                 panic(a);
             }
@@ -1008,10 +1012,8 @@ static void Mark_Root_Series(void)
                     assert(not LINK(s).owner);
                 }
                 else if (GET_SERIES_INFO(LINK(s).owner, INACCESSIBLE)) {
-                    if (NOT_SER_FLAG(
-                        LINK(s).owner,
-                        VARLIST_FLAG_FRAME_FAILED
-                    )){
+                    if (NOT_SERIES_FLAG(LINK(s).owner, VARLIST_FRAME_FAILED)) {
+                        //
                         // Long term, it is likely that implicit managed-ness
                         // will allow users to leak API handles.  It will
                         // always be more efficient to not do that, so having
@@ -1061,17 +1063,16 @@ static void Mark_Root_Series(void)
                 // complex...they must be managed before evaluations happen.
                 // Manage and use PUSH_GC_GUARD and DROP_GC_GUARD on them.
                 //
-                assert(not ANY_SER_FLAGS(
-                    s,
-                    ARRAY_FLAG_VARLIST
-                        | ARRAY_FLAG_PARAMLIST
-                        | ARRAY_FLAG_PAIRLIST
-                ));
+                assert(
+                    NOT_ARRAY_FLAG(s, IS_VARLIST)
+                    and NOT_ARRAY_FLAG(s, IS_PARAMLIST)
+                    and NOT_ARRAY_FLAG(s, IS_PAIRLIST)
+                );
 
                 // Note: Arrays which are using their LINK() or MISC() for
                 // other purposes than file and line will not be marked here!
                 //
-                if (GET_SER_FLAG(s, ARRAY_FLAG_FILE_LINE))
+                if (GET_ARRAY_FLAG(s, HAS_FILE_LINE))
                     LINK(s).file->header.bits |= NODE_FLAG_MARKED;
 
                 RELVAL *item = ARR_HEAD(cast(REBARR*, s));
@@ -1159,7 +1160,7 @@ static void Mark_Natives(void)
 //  Mark_Guarded_Nodes: C
 //
 // Mark series and values that have been temporarily protected from garbage
-// collection with PUSH_GC_GUARD.  Subclasses e.g. ARRAY_FLAG_CONTEXT will
+// collection with PUSH_GC_GUARD.  Subclasses e.g. ARRAY_IS_CONTEXT will
 // have their LINK() and MISC() fields guarded appropriately for the class.
 //
 static void Mark_Guarded_Nodes(void)
@@ -1278,7 +1279,7 @@ static void Mark_Frame_Stack_Deep(void)
         if (f->special)
             Queue_Mark_Opt_End_Cell_Deep(f->special);
 
-        if (f->varlist and GET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)) {
+        if (f->varlist and GET_SERIES_FLAG(f->varlist, MANAGED)) {
             //
             // If the context is all set up with valid values and managed,
             // then it can just be marked normally...no need to do custom
@@ -1318,7 +1319,7 @@ static void Mark_Frame_Stack_Deep(void)
             // At time of writing, all frame storage is in stack cells...not
             // varlists.
             //
-            assert(arg->header.bits & CELL_FLAG_STACK);
+            assert(arg->header.bits & CELL_FLAG_STACK_LIFETIME);
 
             if (param == f->param) {
                 //
@@ -1507,7 +1508,7 @@ REBCNT Fill_Sweeplist(REBSER *sweeplist)
         for (n = Mem_Pools[SER_POOL].units; n > 0; --n, ++s) {
             switch (FIRST_BYTE(s->header) >> 4) {
             case 9: // 0x8 + 0x1
-                assert(IS_SERIES_MANAGED(s));
+                ASSERT_SERIES_MANAGED(s);
                 if (s->header.bits & NODE_FLAG_MARKED)
                     s->header.bits &= ~NODE_FLAG_MARKED;
                 else {
@@ -1524,7 +1525,7 @@ REBCNT Fill_Sweeplist(REBSER *sweeplist)
                 //
                 // !!! It is a REBNOD, but *not* a "series".
                 //
-                assert(IS_SERIES_MANAGED(s));
+                ASSERT_SERIES_MANAGED(s);
                 if (s->header.bits & NODE_FLAG_MARKED)
                     s->header.bits &= ~NODE_FLAG_MARKED;
                 else {
@@ -1802,8 +1803,8 @@ REBARR *Snapshot_All_Actions(void)
                 // would call an "ordinary managed REBSER".  (For the meanings
                 // of other bits, see Sweep_Series.)
                 //
-                assert(IS_SERIES_MANAGED(s));
-                if (GET_SER_FLAG(s, ARRAY_FLAG_PARAMLIST)) {
+                ASSERT_SERIES_MANAGED(s);
+                if (GET_ARRAY_FLAG(s, IS_PARAMLIST)) {
                     REBVAL *v = KNOWN(ARR_HEAD(ARR(s)));
                     assert(IS_ACTION(v));
                     Move_Value(DS_PUSH(), v);

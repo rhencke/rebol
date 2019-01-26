@@ -44,7 +44,7 @@ struct Reb_Action {
 //
 #define SERIES_MASK_ACTION \
     (NODE_FLAG_NODE | SERIES_FLAG_ALWAYS_DYNAMIC | SERIES_FLAG_FIXED_SIZE \
-        | ARRAY_FLAG_PARAMLIST)
+        | ARRAY_FLAG_IS_PARAMLIST)
 
 
 #if !defined(DEBUG_CHECK_CASTS) || !defined(CPLUSPLUS_11)
@@ -56,7 +56,7 @@ struct Reb_Action {
 
     template <class T>
     inline REBACT *ACT(T *p) {
-        constexpr bool derived = std::is_same<REBACT, void>::value;
+        constexpr bool derived = std::is_same<T, REBACT>::value;
 
         constexpr bool base = std::is_same<T, void>::value
             or std::is_same<T, REBNOD>::value
@@ -74,8 +74,8 @@ struct Reb_Action {
                     SERIES_MASK_ACTION
                         | NODE_FLAG_FREE
                         | NODE_FLAG_CELL
-                        | ARRAY_FLAG_VARLIST
-                        | ARRAY_FLAG_PAIRLIST
+                        | ARRAY_FLAG_IS_VARLIST
+                        | ARRAY_FLAG_IS_PAIRLIST
                 ))
             );
 

@@ -384,13 +384,13 @@ inline static void Finalize_Variadic_Arg_Core(REBFRM *f, bool enfix) {
 
 inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
     REBACT *phase = FRM_PHASE(f);
-    if (GET_SER_FLAG(phase, PARAMLIST_FLAG_INVISIBLE)) {
-        if (NOT_SER_FLAG(f->original, PARAMLIST_FLAG_INVISIBLE))
+    if (GET_ACTION_FLAG(phase, IS_INVISIBLE)) {
+        if (NOT_ACTION_FLAG(f->original, IS_INVISIBLE))
             fail ("All invisible action phases must be invisible");
         return;
     }
 
-    if (GET_SER_FLAG(f->original, PARAMLIST_FLAG_INVISIBLE))
+    if (GET_ACTION_FLAG(f->original, IS_INVISIBLE))
         return;
 
   #ifdef DEBUG_UNREADABLE_BLANKS
@@ -407,7 +407,7 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
     // !!! Should natives be able to count on f->out being END?  This was
     // at one time the case, but this code was in one instance.
     //
-    if (NOT_SER_FLAG(FRM_PHASE(f), PARAMLIST_FLAG_INVISIBLE)) {
+    if (NOT_ACTION_FLAG(FRM_PHASE(f), IS_INVISIBLE)) {
         if (SPORADICALLY(2))
             Init_Unreadable_Blank(f->out);
         else
@@ -444,7 +444,7 @@ void Lookahead_To_Sync_Enfix_Defer_Flag(REBFRM *f) {
     if (not f->gotten or not IS_ACTION(f->gotten))
         return;
 
-    if (GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_DEFERS_LOOKBACK))
+    if (GET_ACTION_FLAG(VAL_ACTION(f->gotten), DEFERS_LOOKBACK))
         SET_FEED_FLAG(f->feed, DEFERRING_ENFIX);
 }
 
@@ -698,7 +698,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     // It's known to be an ACTION! since only actions can be enfix...
     //
-    if (NOT_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_QUOTES_FIRST))
+    if (NOT_ACTION_FLAG(VAL_ACTION(f->gotten), QUOTES_FIRST))
         goto give_up_backward_quote_priority;
 
     // It's a backward quoter!  But...before allowing it to try, first give an
@@ -733,10 +733,10 @@ bool Eval_Core_Throws(REBFRM * const f)
         }
 
         REBACT *current_act = VAL_ACTION(current_gotten);
-        if (NOT_SER_FLAG(current_act, PARAMLIST_FLAG_QUOTES_FIRST))
+        if (NOT_ACTION_FLAG(current_act, QUOTES_FIRST))
             goto give_up_forward_quote_priority;
 
-        if (GET_SER_FLAG(current_act, PARAMLIST_FLAG_SKIPPABLE_FIRST)) {
+        if (GET_ACTION_FLAG(current_act, SKIPPABLE_FIRST)) {
             REBVAL *first = First_Unspecialized_Param(current_act);
             if (not TYPE_CHECK(first, VAL_TYPE(f->value)))
                 goto give_up_forward_quote_priority;
@@ -756,10 +756,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         // exemption granted to `->` to do so.  This means you can do things
         // like `help/doc default`.
         //
-        if (NOT_SER_FLAG(
-            VAL_ACTION(f->gotten),
-            PARAMLIST_FLAG_LEFT_QUOTE_OVERRIDES
-        )){
+        if (NOT_ACTION_FLAG(VAL_ACTION(f->gotten), LEFT_QUOTE_OVERRIDES)) {
+            //
             // Make a note we did this, so that if the left quoting operator
             // ends up running we can give it a better error.
             //
@@ -773,7 +771,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         // A literal ACTION! in a BLOCK! may also forward quote
         //
         assert(NOT_CELL_FLAG(current, ENFIXED)); // not WORD!/PATH!
-        if (GET_SER_FLAG(VAL_ACTION(current), PARAMLIST_FLAG_QUOTES_FIRST))
+        if (GET_ACTION_FLAG(VAL_ACTION(current), QUOTES_FIRST))
             goto give_up_backward_quote_priority;
     }
 
@@ -782,7 +780,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     // Okay, right quoting left wins out!  But if its parameter is <skip>able,
     // let it voluntarily opt out of it the type doesn't match its interests.
 
-    if (GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_SKIPPABLE_FIRST)) {
+    if (GET_ACTION_FLAG(VAL_ACTION(f->gotten), SKIPPABLE_FIRST)) {
         REBVAL *first = First_Unspecialized_Param(VAL_ACTION(f->gotten));
         if (not TYPE_CHECK(first, VAL_TYPE(current)))
             goto give_up_backward_quote_priority;
@@ -944,11 +942,11 @@ bool Eval_Core_Throws(REBFRM * const f)
                 // which avoids reification on stack nodes of lower stack
                 // levels--so it's not going to cause problems -yet-
                 //
-                f->arg->header.bits |= CELL_FLAG_STACK; // unreadable blank ok
+                f->arg->header.bits |= CELL_FLAG_STACK_LIFETIME; // unreadable blank ok
             }
 
             assert(f->arg->header.bits & NODE_FLAG_CELL);
-            assert(f->arg->header.bits & CELL_FLAG_STACK);
+            assert(f->arg->header.bits & CELL_FLAG_STACK_LIFETIME);
 
     //=//// A /REFINEMENT ARG /////////////////////////////////////////////=//
 
@@ -1332,12 +1330,8 @@ bool Eval_Core_Throws(REBFRM * const f)
                     //
                     if (GET_EVAL_FLAG(f, FULFILLING_ENFIX)) {
                         assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
-                        if (NOT_SER_FLAG(
-                            FRM_PHASE(f),
-                            PARAMLIST_FLAG_DEFERS_LOOKBACK
-                        )){
+                        if (NOT_ACTION_FLAG(FRM_PHASE(f), DEFERS_LOOKBACK))
                             SET_FEED_FLAG(f->feed, NO_LOOKAHEAD);
-                        }
                     }
                     Finalize_Arg(f);
                     break;
@@ -1681,7 +1675,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         // need to take a "hold" on the cell to prevent a rebFree() while the
         // evaluation was in progress.
         //
-        /*assert(f->out->header.bits & (CELL_FLAG_STACK | NODE_FLAG_ROOT)); */
+        /*assert(f->out->header.bits & (CELL_FLAG_STACK_LIFETIME | NODE_FLAG_ROOT)); */
 
         f->gotten = nullptr; // arbitrary code changes fetched variables
 
@@ -1813,7 +1807,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             goto process_action;
 
           case REB_R_INVISIBLE: {
-            assert(GET_SER_FLAG(FRM_PHASE(f), PARAMLIST_FLAG_INVISIBLE));
+            assert(GET_ACTION_FLAG(FRM_PHASE(f), IS_INVISIBLE));
 
             if (NOT_SERIES_INFO(f->varlist, TELEGRAPH_NO_LOOKAHEAD))
                 CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
@@ -1920,7 +1914,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 KIND_BYTE_UNCHECKED(f->out) != REB_MAX_NULLED
                 or GET_EVAL_FLAG(f, REQUOTE_NULL)
             )
-            and GET_SER_FLAG(f->original, PARAMLIST_FLAG_RETURN)
+            and GET_ACTION_FLAG(f->original, HAS_RETURN)
         ){
             REBVAL *return_param = ACT_PARAM(
                 f->original,
@@ -1960,7 +1954,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // Note: The usual dispatch of enfix functions is not via a
             // REB_WORD in this switch, it's by some code at the end of
             // the switch.  So you only see enfix in cases like `(+ 1 2)`,
-            // or after PARAMLIST_FLAG_INVISIBLE e.g. `10 comment "hi" + 20`.
+            // or after PARAMLIST_IS_INVISIBLE e.g. `10 comment "hi" + 20`.
             //
             Begin_Action(f, VAL_WORD_SPELLING(current)); // use word as label
 
@@ -2154,7 +2148,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // honors WORD!.  PATH! support is expected for the future, but
             // requires overhaul of the R3-Alpha path implementation.
             //
-            if (GET_SER_FLAG(VAL_ACTION(f->out), PARAMLIST_FLAG_INVISIBLE))
+            if (GET_ACTION_FLAG(VAL_ACTION(f->out), IS_INVISIBLE))
                 fail ("Use `->` with invisibles fetched from PATH!");
 
             Push_Action(f, VAL_ACTION(f->out), VAL_BINDING(f->out));
@@ -2611,7 +2605,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     // waits for `1 + 2` to finish.  This is because the right hand argument
     // of math operations tend to be declared #tight.
     //
-    // Slightly more nuanced is why PARAMLIST_FLAG_INVISIBLE functions have to
+    // Slightly more nuanced is why PARAMLIST_IS_INVISIBLE functions have to
     // be considered in the lookahead also.  Consider this case:
     //
     //    evaluate/set [1 + 2 * comment ["hi"] 3 4 / 5] 'val
@@ -2734,7 +2728,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         if (
             f->gotten
             and IS_ACTION(VAL(f->gotten))
-            and GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_INVISIBLE)
+            and GET_ACTION_FLAG(VAL_ACTION(f->gotten), IS_INVISIBLE)
         ){
             // Even if not EVALUATE, we do not want START_NEW_EXPRESSION on
             // "invisible" functions.  e.g. `do [1 + 2 comment "hi"]` should
@@ -2769,7 +2763,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //=//// IT'S A WORD ENFIXEDLY TIED TO A FUNCTION (MAY BE "INVISIBLE") /////=//
 
-    if (GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_QUOTES_FIRST)) {
+    if (GET_ACTION_FLAG(VAL_ACTION(f->gotten), QUOTES_FIRST)) {
         //
         // Left-quoting by enfix needs to be done in the lookahead before an
         // evaluation, not this one that's after.  This happens in cases like:
@@ -2789,10 +2783,11 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     if (
         GET_EVAL_FLAG(f, FULFILLING_ARG)
-        and not ANY_SER_FLAGS(
-            VAL_ACTION(f->gotten),
-            PARAMLIST_FLAG_DEFERS_LOOKBACK // `1 + if false [2] else [3]` => 4
-                | PARAMLIST_FLAG_INVISIBLE // `1 + 2 + comment "foo" 3` => 6
+        and not (
+            GET_ACTION_FLAG(VAL_ACTION(f->gotten), DEFERS_LOOKBACK)
+                                       // ^-- `1 + if false [2] else [3]` => 4
+            or GET_ACTION_FLAG(VAL_ACTION(f->gotten), IS_INVISIBLE)
+                                       // ^-- `1 + 2 + comment "foo" 3` => 6
         )
     ){
         if (Dampen_Lookahead(f)) {
@@ -2818,7 +2813,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     // to know not to do the deferral more than once.
     //
     if (
-        GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_DEFERS_LOOKBACK)
+        GET_ACTION_FLAG(VAL_ACTION(f->gotten), DEFERS_LOOKBACK)
         and GET_EVAL_FLAG(f, FULFILLING_ARG)
         and NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX)
     ){

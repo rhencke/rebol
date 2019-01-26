@@ -120,7 +120,7 @@ inline static void Push_Frame_Core(REBFRM *f)
     if (
         did (containing = Try_Find_Containing_Node_Debug(f->out))
         and not (containing->header.bits & NODE_FLAG_CELL)
-        and NOT_SER_FLAG(containing, SERIES_FLAG_DONT_RELOCATE)
+        and NOT_SERIES_FLAG(containing, DONT_RELOCATE)
     ){
         printf("Request for ->out location in movable series memory\n");
         panic (containing);
@@ -303,7 +303,7 @@ inline static void Set_Frame_Detected_Fetch(
 
     REBARR *a; // ^--goto
     a = Singular_From_Cell(f->value);
-    if (NOT_SER_FLAG(a, SINGULAR_FLAG_API_RELEASE)) {
+    if (NOT_SERIES_FLAG(a, SINGULAR_API_RELEASE)) {
         if (opt_lookback)
             *opt_lookback = f->value; // keep-alive API value or instruction
         goto detect;
@@ -331,7 +331,7 @@ inline static void Set_Frame_Detected_Fetch(
         *opt_lookback = FRM_CELL(f);
     }
 
-    if (GET_SER_FLAG(a, SINGULAR_FLAG_API_INSTRUCTION))
+    if (GET_SERIES_FLAG(a, SINGULAR_API_INSTRUCTION))
         Free_Instruction(Singular_From_Cell(f->value));
     else
         rebRelease(cast(const REBVAL*, f->value));
@@ -434,7 +434,7 @@ inline static void Set_Frame_Detected_Fetch(
         f->feed->flags.bits = FEED_MASK_DEFAULT;
         f->feed->index = 1;
 
-        assert(GET_SER_FLAG(f->feed->array, ARRAY_FLAG_NULLEDS_LEGAL));
+        assert(GET_ARRAY_FLAG(f->feed->array, NULLEDS_LEGAL));
         break; }
 
       case DETECTED_AS_SERIES: { // "instructions" like rebEval(), rebQ()
@@ -444,8 +444,8 @@ inline static void Set_Frame_Detected_Fetch(
         // entry to this routine (optionally copying out its contents into
         // the frame's cell for stable lookback--if necessary).
         //
-        assert(GET_SER_FLAG(instruction, SINGULAR_FLAG_API_INSTRUCTION));
-        assert(NOT_SER_FLAG(instruction, NODE_FLAG_MANAGED));
+        assert(GET_SERIES_FLAG(instruction, SINGULAR_API_INSTRUCTION));
+        assert(NOT_SERIES_FLAG(instruction, MANAGED));
         f->value = ARR_SINGLE(instruction);
         break; }
 
@@ -617,7 +617,7 @@ inline static void Quote_Next_In_Frame(REBVAL *dest, REBFRM *f) {
 
 
 inline static void Abort_Frame(REBFRM *f) {
-    if (f->varlist and NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED))
+    if (f->varlist and NOT_SERIES_FLAG(f->varlist, MANAGED))
         GC_Kill_Series(SER(f->varlist)); // not alloc'd with manuals tracking
     TRASH_POINTER_IF_DEBUG(f->varlist);
 
@@ -677,7 +677,7 @@ inline static void Drop_Frame_Core(REBFRM *f) {
   #endif
 
     if (f->varlist) {
-        assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
+        assert(NOT_SERIES_FLAG(f->varlist, MANAGED));
         LINK(f->varlist).reuse = TG_Reuse;
         TG_Reuse = f->varlist;
     }
@@ -974,7 +974,7 @@ inline static void Reify_Va_To_Array_In_Frame(
     // special array...may contain voids and eval flip is kept
     f->feed->array = Pop_Stack_Values_Keep_Eval_Flip(dsp_orig);
     MANAGE_ARRAY(f->feed->array); // held alive while frame running
-    SET_SER_FLAG(f->feed->array, ARRAY_FLAG_NULLEDS_LEGAL);
+    SET_ARRAY_FLAG(f->feed->array, NULLEDS_LEGAL);
 
     // The array just popped into existence, and it's tied to a running
     // frame...so safe to say we're holding it.  (This would be more complex

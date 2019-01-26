@@ -162,7 +162,7 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
             PROBE(s);
         #endif
 
-        if (GET_SER_FLAG(s, ARRAY_FLAG_VARLIST)) {
+        if (GET_ARRAY_FLAG(s, IS_VARLIST)) {
             printf("Series VARLIST detected.\n");
             REBCTX *context = CTX(s);
             if (CTX_TYPE(context) == REB_ERROR) {

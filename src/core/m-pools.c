@@ -302,7 +302,7 @@ void Startup_Pools(REBINT scale)
     // managed, then sneak the flag off.
     //
     GC_Manuals = Make_Ser_Core(15, sizeof(REBSER *), NODE_FLAG_MANAGED);
-    CLEAR_SER_FLAG(GC_Manuals, NODE_FLAG_MANAGED);
+    CLEAR_SERIES_FLAG(GC_Manuals, MANAGED);
 
     Prior_Expand = ALLOC_N(REBSER*, MAX_EXPAND_LIST);
     CLEAR(Prior_Expand, sizeof(REBSER*) * MAX_EXPAND_LIST);
@@ -331,7 +331,7 @@ void Shutdown_Pools(void)
             if (IS_FREE_NODE(series))
                 continue;
 
-            assert(NOT_SER_FLAG(series, NODE_FLAG_MANAGED));
+            assert(NOT_SERIES_FLAG(series, MANAGED));
             printf("At least one leaked series at shutdown...\n");
             panic (series);
         }
@@ -795,7 +795,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
 
 //=//// INSUFFICIENT CAPACITY, NEW ALLOCATION REQUIRED ////////////////////=//
 
-    if (GET_SER_FLAG(s, SERIES_FLAG_FIXED_SIZE))
+    if (GET_SERIES_FLAG(s, FIXED_SIZE))
         fail (Error_Locked_Series_Raw());
 
   #ifndef NDEBUG
@@ -856,7 +856,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
     // expanding if a fixed size allocation was sufficient.
 
     mutable_LEN_BYTE_OR_255(s) = 255; // series alloc caller sets
-    SET_SER_FLAG(s, SERIES_FLAG_POWER_OF_2);
+    SET_SERIES_FLAG(s, POWER_OF_2);
     if (not Did_Series_Data_Alloc(s, len_old + delta + x))
         fail (Error_No_Memory((len_old + delta + x) * wide));
 
@@ -896,7 +896,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
     PG_Reb_Stats->Series_Expanded++;
   #endif
 
-    assert(NOT_SER_FLAG(s, NODE_FLAG_MARKED));
+    assert(NOT_SERIES_FLAG(s, MARKED));
 }
 
 
@@ -957,7 +957,7 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
         assert(wide == wide_old); // can't change width if preserving
   #endif
 
-    assert(NOT_SER_FLAG(s, SERIES_FLAG_FIXED_SIZE));
+    assert(NOT_SERIES_FLAG(s, FIXED_SIZE));
 
     bool was_dynamic = IS_SER_DYNAMIC(s);
 
@@ -1029,7 +1029,7 @@ void Decay_Series(REBSER *s)
 {
     assert(NOT_SERIES_INFO(s, INACCESSIBLE));
 
-    if (GET_SER_FLAG(s, SERIES_FLAG_UTF8_STRING))
+    if (GET_SERIES_FLAG(s, IS_UTF8_STRING))
         GC_Kill_Interning(s); // needs special handling to adjust canons
 
     // Remove series from expansion list, if found:
@@ -1050,8 +1050,13 @@ void Decay_Series(REBSER *s)
         // Preserving ACTION!'s archetype is speculative--to point out the
         // possibility exists for the other array with a "canon" [0]
         //
-        if (ANY_SER_FLAGS(s, ARRAY_FLAG_VARLIST | ARRAY_FLAG_PARAMLIST))
-            memcpy(&s->content.fixed, ARR_HEAD(ARR(s)), sizeof(REBVAL));
+        if (IS_SER_ARRAY(s))
+            if (
+                GET_ARRAY_FLAG(s, IS_VARLIST)
+                or GET_ARRAY_FLAG(s, IS_PARAMLIST)
+            ){
+                memcpy(&s->content.fixed, ARR_HEAD(ARR(s)), sizeof(REBVAL));
+            }
 
         Free_Unbiased_Series_Data(unbiased, total);
 
@@ -1194,7 +1199,7 @@ void Free_Unmanaged_Series(REBSER *s)
         panic (s); // erroring here helps not conflate with tracking problems
     }
 
-    if (IS_SERIES_MANAGED(s)) {
+    if (GET_SERIES_FLAG(s, MANAGED)) {
         printf("Trying to Free_Unmanaged_Series() on a GC-managed series\n");
         panic (s);
     }
@@ -1225,7 +1230,7 @@ void Free_Unmanaged_Series(REBSER *s)
 void Manage_Series(REBSER *s)
 {
   #if !defined(NDEBUG)
-    if (IS_SERIES_MANAGED(s)) {
+    if (GET_SERIES_FLAG(s, MANAGED)) {
         printf("Attempt to manage already managed series\n");
         panic (s);
     }
@@ -1317,7 +1322,7 @@ REBCNT Check_Memory_Debug(void)
             if (IS_FREE_NODE(s))
                 continue;
 
-            if (GET_SER_FLAG(s, NODE_FLAG_CELL))
+            if (s->header.bits & NODE_FLAG_CELL)
                 continue; // a pairing
 
             if (not IS_SER_DYNAMIC(s))
@@ -1427,7 +1432,7 @@ void Dump_Series_In_Pool(REBCNT pool_id)
             if (IS_FREE_NODE(s))
                 continue;
 
-            if (GET_SER_FLAG(s, NODE_FLAG_CELL))
+            if (s->header.bits & NODE_FLAG_CELL)
                 continue; // pairing
 
             if (
@@ -1539,7 +1544,7 @@ REBU64 Inspect_Series(bool show)
 
             ++tot;
 
-            if (GET_SER_FLAG(s, NODE_FLAG_CELL))
+            if (s->header.bits & NODE_FLAG_CELL)
                 continue;
 
             tot_size += SER_TOTAL_IF_DYNAMIC(s); // else 0

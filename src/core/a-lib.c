@@ -278,13 +278,13 @@ REBVAL *RL_rebRepossess(void *ptr, size_t size)
     UNPOISON_MEMORY(ps, sizeof(REBSER*)); // need to underrun to fetch `s`
 
     REBSER *s = *ps;
-    assert(not IS_SERIES_MANAGED(s));
+    assert(NOT_SERIES_FLAG(s, MANAGED));
 
     if (size > BIN_LEN(s) - ALIGN_SIZE)
         fail ("Attempt to rebRepossess() more than rebMalloc() capacity");
 
-    assert(GET_SER_FLAG(s, SERIES_FLAG_DONT_RELOCATE));
-    CLEAR_SER_FLAG(s, SERIES_FLAG_DONT_RELOCATE);
+    assert(GET_SERIES_FLAG(s, DONT_RELOCATE));
+    CLEAR_SERIES_FLAG(s, DONT_RELOCATE);
 
     if (IS_SER_DYNAMIC(s)) {
         //
@@ -662,10 +662,10 @@ const void *RL_rebR(REBVAL *v)
         fail ("Cannot apply rebR() to non-API value");
 
     REBARR *a = Singular_From_Cell(v);
-    if (GET_SER_FLAG(a, SINGULAR_FLAG_API_RELEASE))
+    if (GET_SERIES_FLAG(a, SINGULAR_API_RELEASE))
         fail ("Cannot apply rebR() more than once to the same API value");
 
-    SET_SER_FLAG(a, SINGULAR_FLAG_API_RELEASE);
+    SET_SERIES_FLAG(a, SINGULAR_API_RELEASE);
     return v; // returned as const void* to discourage use outside variadics
 }
 
@@ -859,7 +859,7 @@ REBVAL *RL_rebRescue(
         assert(f->varlist); // action must be running
         REBARR *stub = f->varlist; // will be stubbed, with info bits reset
         Drop_Action(f);
-        SET_SER_FLAG(stub, VARLIST_FLAG_FRAME_FAILED); // signal API leaks ok
+        SET_SERIES_FLAG(stub, VARLIST_FRAME_FAILED); // signal API leaks ok
         Abort_Frame(f);
         return Init_Error(Alloc_Value(), error_ctx);
     }
@@ -1386,12 +1386,12 @@ REBVAL *RL_rebManage(REBVAL *v)
     assert(Is_Api_Value(v));
 
     REBARR *a = Singular_From_Cell(v);
-    assert(GET_SER_FLAG(a, NODE_FLAG_ROOT));
+    assert(GET_SERIES_FLAG(a, ROOT));
 
-    if (IS_ARRAY_MANAGED(a))
+    if (GET_SERIES_FLAG(a, MANAGED))
         fail ("Attempt to rebManage() a handle that's already managed.");
 
-    SET_SER_FLAG(a, NODE_FLAG_MANAGED);
+    SET_SERIES_FLAG(a, MANAGED);
     assert(not LINK(a).owner);
     LINK(a).owner = NOD(Context_For_Frame_May_Manage(FS_TOP));
 
@@ -1414,9 +1414,9 @@ void RL_rebUnmanage(void *p)
     assert(Is_Api_Value(v));
 
     REBARR *a = Singular_From_Cell(v);
-    assert(GET_SER_FLAG(a, NODE_FLAG_ROOT));
+    assert(GET_SERIES_FLAG(a, ROOT));
 
-    if (not IS_ARRAY_MANAGED(a))
+    if (NOT_SERIES_FLAG(a, MANAGED))
         fail ("Attempt to rebUnmanage() a handle with indefinite lifetime.");
 
     // It's not safe to convert the average series that might be referred to
@@ -1425,8 +1425,8 @@ void RL_rebUnmanage(void *p)
     // pointers to its cell being held by client C code only.  It's at their
     // own risk to do this, and not use those pointers after a free.
     //
-    CLEAR_SER_FLAG(a, NODE_FLAG_MANAGED);
-    assert(GET_SER_FLAG(LINK(a).owner, ARRAY_FLAG_VARLIST));
+    CLEAR_SERIES_FLAG(a, MANAGED);
+    assert(GET_ARRAY_FLAG(LINK(a).owner, IS_VARLIST));
     LINK(a).owner = UNBOUND;
 }
 
@@ -1537,8 +1537,8 @@ intptr_t RL_rebPromise(const void *p, va_list *vaptr)
     // The array is managed, but let's unmanage it so it doesn't get GC'd and
     // use it as the ID of the table entry for the promise.
     //
-    assert(GET_SER_FLAG(f->feed->array, NODE_FLAG_MANAGED));
-    CLEAR_SER_FLAG(f->feed->array, NODE_FLAG_MANAGED);
+    assert(GET_SERIES_FLAG(f->feed->array, MANAGED));
+    CLEAR_SERIES_FLAG(f->feed->array, MANAGED);
 
     EM_ASM_({
         setTimeout(function() { // evaluate the code w/no other code on GUI
@@ -1582,8 +1582,8 @@ void RL_rebPromise_callback(intptr_t promise_id)
     // !!! We probably can't unmanage and free it after because it (may?) be
     // legal for references to that array to make it out to the debugger?
     //
-    assert(NOT_SER_FLAG(arr, NODE_FLAG_MANAGED));
-    SET_SER_FLAG(arr, NODE_FLAG_MANAGED);
+    assert(NOT_SERIES_FLAG(arr, MANAGED));
+    SET_SERIES_FLAG(arr, MANAGED);
 
     REBVAL *result = Alloc_Value();
     if (THROWN_FLAG == Eval_Array_At_Core(

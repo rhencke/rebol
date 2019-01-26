@@ -52,7 +52,7 @@ inline static bool Is_Block_Style_Varargs(
 ){
     assert(CELL_KIND(vararg) == REB_VARARGS);
 
-    if (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST) {
+    if (vararg->extra.binding->header.bits & ARRAY_FLAG_IS_VARLIST) {
         *shared_out = nullptr; // avoid compiler warning in -Og build
         return false; // it's an ordinary vararg, representing a FRAME!
     }
@@ -78,7 +78,9 @@ inline static bool Is_Frame_Style_Varargs_Maybe_Null(
 ){
     assert(CELL_KIND(vararg) == REB_VARARGS);
 
-    if (not (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)) {
+    if (not (
+        vararg->extra.binding->header.bits & ARRAY_FLAG_IS_VARLIST
+    )){
         *f_out = nullptr; // avoid compiler warning in -Og build
         return false; // it's a block varargs, made via MAKE VARARGS!
     }
@@ -143,7 +145,9 @@ inline static const REBVAL *Param_For_Varargs_Maybe_Null(const REBCEL *v) {
     // A vararg created from a block AND never passed as an argument so no
     // typeset or quoting settings available.  Treat as "normal" parameter.
     //
-    assert(not (v->extra.binding->header.bits & ARRAY_FLAG_VARLIST));
+    assert(not (
+        v->extra.binding->header.bits & ARRAY_FLAG_IS_VARLIST
+    ));
     return nullptr;
 }
 

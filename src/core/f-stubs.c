@@ -353,7 +353,9 @@ void Set_Tuple(REBVAL *value, REBYTE *bytes, REBCNT len)
 // !!! Overlaps with ASSERT_CONTEXT, review folding them together.
 //
 void Extra_Init_Any_Context_Checks_Debug(enum Reb_Kind kind, REBCTX *c) {
-    assert(ALL_SER_FLAGS(c, SERIES_MASK_CONTEXT));
+    assert(
+        (SER(c)->header.bits & SERIES_MASK_CONTEXT) == SERIES_MASK_CONTEXT
+    );
 
     REBVAL *archetype = CTX_ARCHETYPE(c);
     assert(VAL_CONTEXT(archetype) == c);
@@ -366,7 +368,7 @@ void Extra_Init_Any_Context_Checks_Debug(enum Reb_Kind kind, REBCTX *c) {
 
     REBARR *varlist = CTX_VARLIST(c);
     REBARR *keylist = CTX_KEYLIST(c);
-    assert(NOT_SER_FLAG(keylist, ARRAY_FLAG_FILE_LINE));
+    assert(NOT_ARRAY_FLAG(keylist, HAS_FILE_LINE));
 
     assert(
         not MISC(varlist).meta
@@ -401,13 +403,13 @@ void Extra_Init_Any_Context_Checks_Debug(enum Reb_Kind kind, REBCTX *c) {
 // !!! Overlaps with ASSERT_ACTION, review folding them together.
 //
 void Extra_Init_Action_Checks_Debug(REBACT *a) {
-    assert(ALL_SER_FLAGS(a, SERIES_MASK_ACTION));
+    assert((SER(a)->header.bits & SERIES_MASK_ACTION) == SERIES_MASK_ACTION);
 
     REBVAL *archetype = ACT_ARCHETYPE(a);
     assert(VAL_ACTION(archetype) == a);
 
     REBARR *paramlist = ACT_PARAMLIST(a);
-    assert(NOT_SER_FLAG(paramlist, ARRAY_FLAG_FILE_LINE));
+    assert(NOT_ARRAY_FLAG(paramlist, HAS_FILE_LINE));
 
     // !!! Currently only a context can serve as the "meta" information,
     // though the interface may expand.

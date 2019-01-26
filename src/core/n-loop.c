@@ -705,7 +705,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
             switch (VAL_TYPE_KIND(les.data)) {
               case REB_ACTION:
                 les.data_ser = SER(Snapshot_All_Actions());
-                assert(NOT_SER_FLAG(les.data_ser, NODE_FLAG_MANAGED));
+                assert(NOT_SERIES_FLAG(les.data_ser, MANAGED));
                 les.data_idx = 0;
                 break;
 

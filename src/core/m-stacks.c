@@ -225,7 +225,7 @@ REBCTX *Get_Context_From_Stack(void)
     // know for a fact it's a user function and not a native on the stack.)
     //
   #if !defined(NDEBUG)
-    if (NOT_SER_FLAG(phase, PARAMLIST_FLAG_NATIVE)) {
+    if (NOT_ACTION_FLAG(phase, IS_NATIVE)) {
         printf("!!! WARNING: calling API code from unsafe location\n");
         printf("(only do this in special debugging scenarios...)\n");
         return Lib_Context;
@@ -293,7 +293,7 @@ REBVAL *Expand_Data_Stack_May_Fail(REBCNT amount)
     REBCNT n;
     for (n = len_old; n < len_new; ++n) {
         Init_Unreadable_Blank(cell);
-        cell->header.bits |= (CELL_FLAG_STACK | CELL_FLAG_TRANSIENT);
+        cell->header.bits |= (CELL_FLAG_STACK_LIFETIME | CELL_FLAG_TRANSIENT);
         ++cell;
     }
 

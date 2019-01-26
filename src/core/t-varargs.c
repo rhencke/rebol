@@ -103,11 +103,8 @@ inline static bool Vararg_Op_If_No_Advance_Handled(
         if (child_gotten and VAL_TYPE(child_gotten) == REB_ACTION) {
             if (GET_CELL_FLAG(child_gotten, ENFIXED)) {
                 if (
-                    pclass == REB_P_NORMAL
-                    or GET_SER_FLAG(
-                        VAL_ACTION(child_gotten),
-                        PARAMLIST_FLAG_DEFERS_LOOKBACK
-                    )
+                    pclass == REB_P_NORMAL or
+                    GET_ACTION_FLAG(VAL_ACTION(child_gotten), DEFERS_LOOKBACK)
                 ){
                     Init_For_Vararg_End(out, op);
                     return true;

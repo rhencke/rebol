@@ -1000,7 +1000,7 @@ acquisition_loop:
 
             if (Is_Api_Value(splice)) { // moved to DS_TOP, can release *now*
                 REBARR *a = Singular_From_Cell(splice);
-                if (GET_SER_FLAG(a, SINGULAR_FLAG_API_RELEASE))
+                if (GET_SERIES_FLAG(a, SINGULAR_API_RELEASE))
                     rebRelease(m_cast(REBVAL*, splice)); // !!! m_cast
             }
 
@@ -2328,7 +2328,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             ){
                 arr = Make_Arr_Core(
                     2,
-                    NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE
+                    NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE
                 );
                 Append_Value(arr, DS_TOP);
                 DS_DROP();
@@ -2438,7 +2438,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
     if (lit_depth != 0)
         Quotify(Init_Nulled(DS_PUSH()), lit_depth);
 
-    // Note: ss->newline_pending may be true; used for ARRAY_FLAG_TAIL_NEWLINE
+    // Note: ss->newline_pending may be true; used for ARRAY_NEWLINE_AT_TAIL
 
     return NULL; // used with rebRescue(), so protocol requires a return
 }
@@ -2479,7 +2479,7 @@ void Scan_To_Stack_Relaxed(SCAN_STATE *ss) {
         memcpy(BIN_HEAD(bin), ss_before.begin, limit);
         TERM_BIN_LEN(bin, limit);
 
-        SET_SER_FLAG(bin, SERIES_FLAG_DONT_RELOCATE); // BIN_HEAD() is cached
+        SET_SERIES_FLAG(bin, DONT_RELOCATE); // BIN_HEAD() is cached
         ss_before.begin = BIN_HEAD(bin);
         TRASH_POINTER_IF_DEBUG(ss_before.end);
 
@@ -2541,14 +2541,14 @@ static REBARR *Scan_Child_Array(SCAN_STATE *ss, REBYTE mode_char)
     REBARR *a = Pop_Stack_Values_Core(
         dsp_orig,
         NODE_FLAG_MANAGED
-            | (child.newline_pending ? ARRAY_FLAG_TAIL_NEWLINE : 0)
+            | (child.newline_pending ? ARRAY_FLAG_NEWLINE_AT_TAIL : 0)
     );
 
     // Tag array with line where the beginning bracket/group/etc. was found
     //
     MISC(a).line = ss->line;
     LINK(a).file = ss->file;
-    SET_SER_FLAG(a, ARRAY_FLAG_FILE_LINE);
+    SET_ARRAY_FLAG(a, HAS_FILE_LINE);
 
     // The only variables that should actually be written back into the
     // parent ss are those reflecting an update in the "feed" of data.
@@ -2636,12 +2636,12 @@ REBARR *Scan_Va_Managed(
     REBARR *a = Pop_Stack_Values_Core(
         dsp_orig,
         ARRAY_FLAG_NULLEDS_LEGAL | NODE_FLAG_MANAGED
-            | (ss.newline_pending ? ARRAY_FLAG_TAIL_NEWLINE : 0)
+            | (ss.newline_pending ? ARRAY_FLAG_NEWLINE_AT_TAIL : 0)
     );
 
     MISC(a).line = ss.line;
     LINK(a).file = ss.file;
-    SET_SER_FLAG(a, ARRAY_FLAG_FILE_LINE);
+    SET_ARRAY_FLAG(a, HAS_FILE_LINE);
 
     // !!! While in practice every system has va_end() as a no-op, it's not
     // necessarily true from a standards point of view:
@@ -2676,12 +2676,12 @@ REBARR *Scan_UTF8_Managed(REBSTR *filename, const REBYTE *utf8, REBCNT size)
     REBARR *a = Pop_Stack_Values_Core(
         dsp_orig,
         NODE_FLAG_MANAGED
-            | (ss.newline_pending ? ARRAY_FLAG_TAIL_NEWLINE : 0)
+            | (ss.newline_pending ? ARRAY_FLAG_NEWLINE_AT_TAIL : 0)
     );
 
     MISC(a).line = ss.line;
     LINK(a).file = ss.file;
-    SET_SER_FLAG(a, ARRAY_FLAG_FILE_LINE);
+    SET_ARRAY_FLAG(a, HAS_FILE_LINE);
 
     return a;
 }
@@ -2822,11 +2822,11 @@ REBNATIVE(transcode)
     REBARR *a = Pop_Stack_Values_Core(
         dsp_orig,
         NODE_FLAG_MANAGED
-            | (ss.newline_pending ? ARRAY_FLAG_TAIL_NEWLINE : 0)
+            | (ss.newline_pending ? ARRAY_FLAG_NEWLINE_AT_TAIL : 0)
     );
     MISC(a).line = ss.line;
     LINK(a).file = ss.file;
-    SET_SER_FLAG(a, ARRAY_FLAG_FILE_LINE);
+    SET_ARRAY_FLAG(a, HAS_FILE_LINE);
 
     return Init_Block(D_OUT, a);
 }

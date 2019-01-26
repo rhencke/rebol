@@ -72,6 +72,16 @@
 //
 
 
+// While series are nodes, the token-pasting based GET_SERIES_FLAG() macros
+// and their ilk look for flags of the form SERIES_FLAG_##name.  So alias the
+// node flags as series flags.
+
+#define SERIES_FLAG_STACK_LIFETIME NODE_FLAG_STACK
+#define SERIES_FLAG_MANAGED NODE_FLAG_MANAGED
+#define SERIES_FLAG_ROOT NODE_FLAG_ROOT
+#define SERIES_FLAG_MARKED NODE_FLAG_MARKED
+
+
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // SERIES <<HEADER>> FLAGS
@@ -125,7 +135,7 @@
 #define SERIES_FLAG_DONT_RELOCATE SERIES_FLAG_FIXED_SIZE
 
 
-//=//// SERIES_FLAG_UTF8_STRING ///////////////////////////////////////////=//
+//=//// SERIES_FLAG_IS_UTF8_STRING ////////////////////////////////////////=//
 //
 // Indicates the series holds a UTF-8 encoded string.
 //
@@ -138,7 +148,7 @@
 //
 // http://utf8everywhere.org/
 //
-#define SERIES_FLAG_UTF8_STRING \
+#define SERIES_FLAG_IS_UTF8_STRING \
     FLAG_LEFT_BIT(10)
 
 
@@ -207,12 +217,12 @@
 // Because there are a lot of different array flags that one might want to
 // check, they are broken into a separate section.  However, note that if you
 // do not know a series is an array you can't check just for this...e.g.
-// an arbitrary REBSER tested for ARRAY_FLAG_VARLIST might alias with a
+// an arbitrary REBSER tested for ARRAY_FLAG_IS_VARLIST might alias with a
 // UTF-8 symbol string whose symbol number uses that bit (!).
 //
 
 
-//=//// ARRAY_FLAG_FILE_LINE //////////////////////////////////////////////=//
+//=//// ARRAY_FLAG_HAS_FILE_LINE //////////////////////////////////////////=//
 //
 // The Reb_Series node has two pointers in it, ->link and ->misc, which are
 // used for a variety of purposes (pointing to the keylist for an object,
@@ -223,7 +233,7 @@
 // Only arrays preserve file and line info, as UTF-8 strings need to use the
 // ->misc and ->link fields for caching purposes in strings.
 //
-#define ARRAY_FLAG_FILE_LINE \
+#define ARRAY_FLAG_HAS_FILE_LINE \
     FLAG_LEFT_BIT(16)
 
 
@@ -238,23 +248,23 @@
 // be put into arrays for the purposes of GC protection, they may contain
 // nulled cells.  (How to present this in the debugger will be a UI issue.)
 //
-// Note: ARRAY_FLAG_VARLIST also implies legality of nulleds, which in that
-// case are used to represent unset variables.
+// Note: ARRAY_FLAG_IS_VARLIST also implies legality of nulleds, which
+// in that case are used to represent unset variables.
 //
 #define ARRAY_FLAG_NULLEDS_LEGAL \
     FLAG_LEFT_BIT(17)
 
 
-//=//// ARRAY_FLAG_PARAMLIST //////////////////////////////////////////////=//
+//=//// ARRAY_FLAG_IS_PARAMLIST ///////////////////////////////////////////=//
 //
-// ARRAY_FLAG_PARAMLIST indicates the array is the parameter list of a
-// ACTION! (the first element will be a canon value of the function)
+// ARRAY_FLAG_IS_PARAMLIST indicates the array is the parameter list
+// of a ACTION! (the first element will be a canon value of the function)
 //
-#define ARRAY_FLAG_PARAMLIST \
+#define ARRAY_FLAG_IS_PARAMLIST \
     FLAG_LEFT_BIT(18)
 
 
-//=//// ARRAY_FLAG_VARLIST ////////////////////////////////////////////////=//
+//=//// ARRAY_FLAG_IS_VARLIST /////////////////////////////////////////////=//
 //
 // This indicates this series represents the "varlist" of a context (which is
 // interchangeable with the identity of the varlist itself).  A second series
@@ -263,20 +273,20 @@
 //
 // See notes on REBCTX for further details about what a context is.
 //
-#define ARRAY_FLAG_VARLIST \
+#define ARRAY_FLAG_IS_VARLIST \
     FLAG_LEFT_BIT(19)
 
 
-//=//// ARRAY_FLAG_PAIRLIST ///////////////////////////////////////////////=//
+//=//// ARRAY_FLAG_IS_PAIRLIST ////////////////////////////////////////////=//
 //
 // Indicates that this series represents the "pairlist" of a map, so the
 // series also has a hashlist linked to in the series node.
 //
-#define ARRAY_FLAG_PAIRLIST \
+#define ARRAY_FLAG_IS_PAIRLIST \
     FLAG_LEFT_BIT(20)
 
 
-//=//// ARRAY_FLAG_TAIL_NEWLINE ///////////////////////////////////////////=//
+//=//// ARRAY_FLAG_NEWLINE_AT_TAIL ////////////////////////////////////////=//
 //
 // The mechanics of how Rebol tracks newlines is that there is only one bit
 // per value to track the property.  Yet since newlines are conceptually
@@ -285,11 +295,11 @@
 // Ren-C carries a bit for indicating when there's a newline intended at the
 // tail of an array.
 //
-#define ARRAY_FLAG_TAIL_NEWLINE \
+#define ARRAY_FLAG_NEWLINE_AT_TAIL \
     FLAG_LEFT_BIT(21)
 
 
-//=//// ARRAY_FLAG_CONST_SHALLOW /////////////////////////////////////////=//
+//=//// ARRAY_FLAG_CONST_SHALLOW //////////////////////////////////////////=//
 //
 // When a COPY is made of an ANY-ARRAY! that has CELL_FLAG_CONST, the new
 // value shouldn't be const, as the goal of copying it is generally to modify.
@@ -473,7 +483,7 @@ STATIC_ASSERT(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
 // map keys.  This approach was chosen after realizing that a lot of times,
 // users don't care if something they use as a key gets locked.  So instead
 // of erroring by telling them they can't use an unlocked series as a map key,
-// this locks it but changes the SERIES_FLAG_FILE_LINE to implicate the
+// this locks it but changes the SERIES_FLAG_HAS_FILE_LINE to implicate the
 // point where the locking occurs.
 //
 // !!! The file-line feature is pending.
@@ -770,7 +780,7 @@ union Reb_Series_Link {
     uintptr_t stamp;
 
     // REBACT uses this.  It can hold either the varlist of a frame containing
-    // specialized values (e.g. an "exemplar"), with ARRAY_FLAG_VARLIST set.
+    // specialized values (e.g. an "exemplar"), with ARRAY_FLAG_IS_VARLIST set.
     // Or just hold the paramlist.  This speeds up Push_Action() because
     // if this were `REBCTX *exemplar;` then it would have to test it for null
     // explicitly to default f->special to f->param.
@@ -1092,33 +1102,17 @@ struct Reb_Array {
 // Series header FLAGs (distinct from INFO bits)
 //
 
-#define SET_SER_FLAG(s,f) \
-    cast(void, SER(s)->header.bits |= (f))
+#define SET_SERIES_FLAG(s,name) \
+    (SER(s)->header.bits |= SERIES_FLAG_##name)
 
-#define CLEAR_SER_FLAG(s,f) \
-    cast(void, SER(s)->header.bits &= ~(f))
+#define GET_SERIES_FLAG(s,name) \
+    ((SER(s)->header.bits & SERIES_FLAG_##name) != 0)
 
-#define GET_SER_FLAG(s,f) \
-    (did (SER(s)->header.bits & (f))) // !!! ensure it's just one flag?
+#define CLEAR_SERIES_FLAG(s,name) \
+    (SER(s)->header.bits &= ~SERIES_FLAG_##name)
 
-#define ANY_SER_FLAGS(s,f) \
-    (did (SER(s)->header.bits & (f)))
-
-inline static bool ALL_SER_FLAGS(
-    void *s, // to allow REBARR*, REBCTX*, REBACT*... SER(s) checks
-    REBFLGS f
-){
-    return (SER(s)->header.bits & f) == f; // repeats f, so not a macro
-}
-
-#define NOT_SER_FLAG(s,f) \
-    (not (SER(s)->header.bits & (f)))
-
-#define SET_SER_FLAGS(s,f) \
-    SET_SER_FLAG((s), (f))
-
-#define CLEAR_SER_FLAGS(s,f) \
-    CLEAR_SER_FLAG((s), (f))
+#define NOT_SERIES_FLAG(s,name) \
+    ((SER(s)->header.bits & SERIES_FLAG_##name) == 0)
 
 
 //
@@ -1137,6 +1131,19 @@ inline static bool ALL_SER_FLAGS(
 #define NOT_SERIES_INFO(s,name) \
     ((SER(s)->info.bits & SERIES_INFO_##name) == 0)
 
+
+
+#define SET_SERIES_FLAG(s,name) \
+    (SER(s)->header.bits |= SERIES_FLAG_##name)
+
+#define GET_SERIES_FLAG(s,name) \
+    ((SER(s)->header.bits & SERIES_FLAG_##name) != 0)
+
+#define CLEAR_SERIES_FLAG(s,name) \
+    (SER(s)->header.bits &= ~SERIES_FLAG_##name)
+
+#define NOT_SERIES_FLAG(s,name) \
+    ((SER(s)->header.bits & SERIES_FLAG_##name) == 0)
 
 
 #define IS_SER_ARRAY(s) \

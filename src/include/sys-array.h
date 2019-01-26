@@ -52,6 +52,22 @@
 //
 
 
+// These token-pasting based macros allow the callsites to be shorter, since
+// they don't have to say ARRAY and FLAG twice.
+
+#define SET_ARRAY_FLAG(s,name) \
+    (cast(REBSER*, ARR(s))->header.bits |= ARRAY_FLAG_##name)
+
+#define GET_ARRAY_FLAG(s,name) \
+    ((cast(REBSER*, ARR(s))->header.bits & ARRAY_FLAG_##name) != 0)
+
+#define CLEAR_ARRAY_FLAG(s,name) \
+    (cast(REBSER*, ARR(s))->header.bits &= ~ARRAY_FLAG_##name)
+
+#define NOT_ARRAY_FLAG(s,name) \
+    ((cast(REBSER*, ARR(s))->header.bits & ARRAY_FLAG_##name) == 0)
+
+
 // HEAD, TAIL, and LAST refer to specific value pointers in the array.  An
 // empty array should have an END marker in its head slot, and since it has
 // no last value then ARR_LAST should not be called (this is checked in
@@ -134,12 +150,6 @@ inline static void TERM_SERIES(REBSER *s) {
 }
 
 
-// Setting and getting array flags is common enough to want a macro for it
-// vs. having to extract the ARR_SERIES to do it each time.
-//
-#define IS_ARRAY_MANAGED(a) \
-    IS_SERIES_MANAGED(SER(a))
-
 #define MANAGE_ARRAY(a) \
     MANAGE_SERIES(SER(a))
 
@@ -170,7 +180,7 @@ inline static void Prep_Array(
 
     RELVAL *prep = ARR_HEAD(a);
 
-    if (NOT_SER_FLAG(a, SERIES_FLAG_FIXED_SIZE)) {
+    if (NOT_SERIES_FLAG(a, FIXED_SIZE)) {
         //
         // Expandable arrays prep all cells, including in the not-yet-used
         // capacity.  Otherwise you'd waste time prepping cells on every
@@ -277,16 +287,16 @@ inline static REBARR *Make_Arr_Core(REBCNT capacity, REBFLGS flags) {
     // Arrays created at runtime default to inheriting the file and line
     // number from the array executing in the current frame.
     //
-    if (flags & ARRAY_FLAG_FILE_LINE) { // most callsites const fold this
+    if (flags & ARRAY_FLAG_HAS_FILE_LINE) { // most callsites const fold
         if (
             FS_TOP->feed->array and
-            GET_SER_FLAG(FS_TOP->feed->array, ARRAY_FLAG_FILE_LINE)
+            GET_ARRAY_FLAG(FS_TOP->feed->array, HAS_FILE_LINE)
         ){
             LINK(s).file = LINK(FS_TOP->feed->array).file;
             MISC(s).line = MISC(FS_TOP->feed->array).line;
         }
         else
-            CLEAR_SER_FLAG(s, ARRAY_FLAG_FILE_LINE);
+            CLEAR_ARRAY_FLAG(s, HAS_FILE_LINE);
     }
 
   #if !defined(NDEBUG)
@@ -298,7 +308,7 @@ inline static REBARR *Make_Arr_Core(REBCNT capacity, REBFLGS flags) {
 }
 
 #define Make_Arr(capacity) \
-    Make_Arr_Core((capacity), ARRAY_FLAG_FILE_LINE)
+    Make_Arr_Core((capacity), ARRAY_FLAG_HAS_FILE_LINE)
 
 // !!! Currently, many bits of code that make copies don't specify if they are
 // copying an array to turn it into a paramlist or varlist, or to use as the
@@ -312,24 +322,24 @@ inline static REBARR *Make_Arr_For_Copy(
     REBFLGS flags,
     REBARR *original
 ){
-    if (original and GET_SER_FLAG(original, ARRAY_FLAG_TAIL_NEWLINE)) {
+    if (original and GET_ARRAY_FLAG(original, NEWLINE_AT_TAIL)) {
         //
         // All of the newline bits for cells get copied, so it only makes
         // sense that the bit for newline on the tail would be copied too.
         //
-        flags |= ARRAY_FLAG_TAIL_NEWLINE;
+        flags |= ARRAY_FLAG_NEWLINE_AT_TAIL;
     }
 
     if (
-        (flags & ARRAY_FLAG_FILE_LINE)
-        and (original and GET_SER_FLAG(original, ARRAY_FLAG_FILE_LINE))
+        (flags & ARRAY_FLAG_HAS_FILE_LINE)
+        and (original and GET_ARRAY_FLAG(original, HAS_FILE_LINE))
     ){
-        flags &= ~ARRAY_FLAG_FILE_LINE;
+        flags &= ~ARRAY_FLAG_HAS_FILE_LINE;
 
         REBARR *a = Make_Arr_Core(capacity, flags);
         LINK(a).file = LINK(original).file;
         MISC(a).line = MISC(original).line;
-        SET_SER_FLAG(a, ARRAY_FLAG_FILE_LINE);
+        SET_ARRAY_FLAG(a, HAS_FILE_LINE);
         return a;
     }
 
@@ -343,7 +353,7 @@ inline static REBARR *Make_Arr_For_Copy(
 // Note ARR_SINGLE() must be overwritten by the caller...it contains an END
 // marker but the array length is 1, so that will assert if you don't.
 //
-// For `flags`, be sure to consider if you need SERIES_FLAG_FILE_LINE.
+// For `flags`, be sure to consider if you need ARRAY_FLAG_HAS_FILE_LINE.
 //
 inline static REBARR *Alloc_Singular(REBFLGS flags) {
     assert(not (flags & SERIES_FLAG_ALWAYS_DYNAMIC));
@@ -421,7 +431,7 @@ inline static REBARR* Copy_Array_At_Extra_Deep_Flags_Managed(
         specifier,
         ARR_LEN(original), // tail
         extra, // extra
-        flags, // note no ARRAY_FLAG_FILE_LINE by default
+        flags, // note no ARRAY_HAS_FILE_LINE by default
         TS_SERIES & ~TS_NOT_COPIED // types
     );
 }
@@ -455,7 +465,7 @@ inline static REBARR* Copy_Array_At_Extra_Deep_Flags_Managed(
 
 inline static void INIT_VAL_ARRAY(RELVAL *v, REBARR *a) {
     INIT_BINDING(v, UNBOUND);
-    assert(IS_ARRAY_MANAGED(a));
+    assert(GET_SERIES_FLAG(a, MANAGED));
     v->payload.any_series.series = SER(a);
 }
 

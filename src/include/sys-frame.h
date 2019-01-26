@@ -168,40 +168,23 @@ inline static REBCNT FRM_EXPR_INDEX(REBFRM *f) {
         : f->expr_index - 1;
 }
 
-inline static REBSTR* FRM_FILE(REBFRM *f) {
-    //
-    // !!! the rebRun function could be a variadic macro in C99 or higher, as
-    // `rebRunFileLine(__FILE__, __LINE__, ...`.  This could let the file and
-    // line information make it into the frame, and be used when loading new
-    // source material -or- if no source material were loaded, it could just
-    // be kept as a UTF-8 string inside the frame without needing interning
-    // as a series.  But for now, just signal that it came from C code.
-    //
-    if (not f->feed->array)
+inline static REBSTR* FRM_FILE(REBFRM *f) { // https://trello.com/c/K3vntyPx
+    if (not f->feed->array or NOT_ARRAY_FLAG(f->feed->array, HAS_FILE_LINE))
         return nullptr;
-
-    if (NOT_SER_FLAG(f->feed->array, ARRAY_FLAG_FILE_LINE))
-        return nullptr;
-
     return LINK(f->feed->array).file;
 }
 
 inline static const char* FRM_FILE_UTF8(REBFRM *f) {
     //
-    // !!! Note: This is used too early in boot at the moment to use
-    // Canon(__ANONYMOUS__).
+    // !!! Note: Too early in boot at the moment to use Canon(__ANONYMOUS__).
     //
     REBSTR *str = FRM_FILE(f);
     return str ? STR_HEAD(str) : "(anonymous)"; 
 }
 
 inline static int FRM_LINE(REBFRM *f) {
-    if (not f->feed->array)
+    if (not f->feed->array or NOT_ARRAY_FLAG(f->feed->array, HAS_FILE_LINE))
         return 0;
-
-    if (NOT_SER_FLAG(f->feed->array, ARRAY_FLAG_FILE_LINE))
-        return 0;
-
     return MISC(SER(f->feed->array)).line;
 }
 
@@ -440,7 +423,7 @@ inline static void Begin_Action(REBFRM *f, REBSTR *opt_label)
     f->original = FRM_PHASE(f);
 
     assert(IS_POINTER_TRASH_DEBUG(f->opt_label)); // only valid w/REB_ACTION
-    assert(not opt_label or GET_SER_FLAG(opt_label, SERIES_FLAG_UTF8_STRING));
+    assert(not opt_label or GET_SERIES_FLAG(opt_label, IS_UTF8_STRING));
     f->opt_label = opt_label;
   #if defined(DEBUG_FRAME_LABELS) // helpful for looking in the debugger
     f->label_utf8 = cast(const char*, Frame_Label_Or_Anonymous_UTF8(f));
@@ -489,7 +472,7 @@ inline static void Push_Action(
     if (not f->varlist) { // usually means first action call in the REBFRM
         s = Alloc_Series_Node(
             SERIES_MASK_CONTEXT
-                | SERIES_FLAG_STACK
+                | SERIES_FLAG_STACK_LIFETIME
                 | SERIES_FLAG_FIXED_SIZE // FRAME!s don't expand ATM
         );
         s->info = Endlike_Header(
@@ -562,7 +545,7 @@ inline static void Push_Action(
     //
     f->special = ACT_SPECIALTY_HEAD(act);
 
-    assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
+    assert(NOT_SERIES_FLAG(f->varlist, MANAGED));
     assert(NOT_SERIES_INFO(f->varlist, INACCESSIBLE));
 
     // There's a current state for the FEED_FLAG_NO_LOOKAHEAD which invisible
@@ -573,7 +556,7 @@ inline static void Push_Action(
     //
     // !!! Should this go in Begin_Action?
     //
-    if (GET_SER_FLAG(act, PARAMLIST_FLAG_INVISIBLE)) {
+    if (GET_ACTION_FLAG(act, IS_INVISIBLE)) {
         if (GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)) {
             assert(GET_EVAL_FLAG(f, FULFILLING_ARG));
             SET_SERIES_INFO(f->varlist, TELEGRAPH_NO_LOOKAHEAD);
@@ -583,11 +566,11 @@ inline static void Push_Action(
 
 
 inline static void Drop_Action(REBFRM *f) {
-    assert(NOT_SER_FLAG(f->varlist, VARLIST_FLAG_FRAME_FAILED));
+    assert(NOT_SERIES_FLAG(f->varlist, VARLIST_FRAME_FAILED));
 
     assert(
         not f->opt_label
-        or GET_SER_FLAG(f->opt_label, SERIES_FLAG_UTF8_STRING)
+        or GET_SERIES_FLAG(f->opt_label, IS_UTF8_STRING)
     );
 
     if (NOT_EVAL_FLAG(f, FULFILLING_ARG))
@@ -610,7 +593,7 @@ inline static void Drop_Action(REBFRM *f) {
         // therefore useless.  It served a purpose by being non-null during
         // the call, however, up to this moment.
         //
-        if (GET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED))
+        if (GET_SERIES_FLAG(f->varlist, MANAGED))
             f->varlist = nullptr; // references exist, let a new one alloc
         else {
             // This node could be reused vs. calling Make_Node() on the next
@@ -620,7 +603,7 @@ inline static void Drop_Action(REBFRM *f) {
             f->varlist = nullptr;
         }
     }
-    else if (GET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)) {
+    else if (GET_SERIES_FLAG(f->varlist, MANAGED)) {
         //
         // The varlist wound up getting referenced in a cell that will outlive
         // this Drop_Action().  The pointer needed to stay working up until
@@ -639,7 +622,7 @@ inline static void Drop_Action(REBFRM *f) {
                 NOD(f->original) // degrade keysource from f
             )
         );
-        assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
+        assert(NOT_SERIES_FLAG(f->varlist, MANAGED));
         LINK(f->varlist).keysource = NOD(f);
     }
     else {
@@ -664,7 +647,7 @@ inline static void Drop_Action(REBFRM *f) {
   #if !defined(NDEBUG)
     if (f->varlist) {
         assert(NOT_SERIES_INFO(f->varlist, INACCESSIBLE));
-        assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
+        assert(NOT_SERIES_FLAG(f->varlist, MANAGED));
 
         REBVAL *rootvar = cast(REBVAL*, ARR_HEAD(f->varlist));
         assert(IS_FRAME(rootvar));
@@ -689,7 +672,7 @@ inline static void Drop_Action(REBFRM *f) {
 inline static REBCTX *Context_For_Frame_May_Manage(REBFRM *f)
 {
     assert(not Is_Action_Frame_Fulfilling(f));
-    SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED);
+    SET_SERIES_FLAG(f->varlist, MANAGED);
     return CTX(f->varlist);
 }
 

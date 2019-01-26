@@ -278,7 +278,7 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
     REBSTR *intern = Make_Ser_Core(
         size + 1,
         sizeof(REBYTE),
-        SERIES_FLAG_UTF8_STRING | SERIES_FLAG_FIXED_SIZE
+        SERIES_FLAG_IS_UTF8_STRING | SERIES_FLAG_FIXED_SIZE
     );
 
     // The incoming string isn't always null terminated, e.g. if you are
@@ -630,9 +630,9 @@ void INIT_WORD_INDEX_Extra_Checks_Debug(RELVAL *v, REBCNT i)
     assert(IS_WORD_BOUND(v));
     REBNOD *binding = VAL_BINDING(v);
     REBARR *keysource;
-    if (NOT_SER_FLAG(binding, NODE_FLAG_MANAGED))
+    if (NOT_SERIES_FLAG(binding, MANAGED))
         keysource = ACT_PARAMLIST(FRM_PHASE(FRM(LINK(binding).keysource)));
-    else if (GET_SER_FLAG(binding, ARRAY_FLAG_PARAMLIST))
+    else if (GET_ARRAY_FLAG(binding, IS_PARAMLIST))
         keysource = ACT_PARAMLIST(ACT(binding));
     else
         keysource = CTX_KEYLIST(CTX(binding));

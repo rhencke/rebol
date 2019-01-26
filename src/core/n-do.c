@@ -206,7 +206,7 @@ REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
     //
     TRASH_CELL_IF_DEBUG(D_OUT);
 
-    if (NOT_SER_FLAG(VAL_ACTION(shovee), PARAMLIST_FLAG_QUOTES_FIRST)) {
+    if (NOT_ACTION_FLAG(VAL_ACTION(shovee), QUOTES_FIRST)) {
         if (IS_SET_WORD(left)) {
             Move_Value(D_OUT, Get_Opt_Var_May_Fail(left, SPECIFIED));
         }
@@ -237,7 +237,7 @@ REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
         return R_THROWN;
     }
 
-    if (NOT_SER_FLAG(VAL_ACTION(shovee), PARAMLIST_FLAG_QUOTES_FIRST)) {
+    if (NOT_ACTION_FLAG(VAL_ACTION(shovee), QUOTES_FIRST)) {
         if (IS_SET_WORD(left)) {
             Move_Value(Sink_Var_May_Fail(left, SPECIFIED), D_OUT);
         }
@@ -562,7 +562,7 @@ REBNATIVE(do)
         // Its data stolen, the context's node should now be GC'd when
         // references in other FRAME! value cells have all gone away.
         //
-        assert(GET_SER_FLAG(c, NODE_FLAG_MANAGED));
+        assert(GET_SERIES_FLAG(c, MANAGED));
         assert(GET_SERIES_INFO(c, INACCESSIBLE));
 
         f->varlist = CTX_VARLIST(stolen);
@@ -817,8 +817,10 @@ REBNATIVE(redo)
     // Phase needs to always be initialized in FRAME! values.
     //
     assert(
-        SER(ACT_PARAMLIST(restartee->payload.any_context.phase))->header.bits
-        & ARRAY_FLAG_PARAMLIST
+        GET_ARRAY_FLAG(
+            ACT_PARAMLIST(restartee->payload.any_context.phase),
+            IS_PARAMLIST
+        )
     );
 
     // We need to cooperatively throw a restart instruction up to the level
@@ -968,7 +970,7 @@ REBNATIVE(apply)
     }
 
     f->varlist = CTX_VARLIST(stolen);
-    SET_SER_FLAG(f->varlist, SERIES_FLAG_STACK);
+    SET_SERIES_FLAG(f->varlist, STACK_LIFETIME);
     f->rootvar = CTX_ARCHETYPE(stolen);
     f->arg = f->rootvar + 1;
     // f->param assigned above

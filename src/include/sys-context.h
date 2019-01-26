@@ -59,7 +59,7 @@
 // entire REBVAL if it is needed.
 //
 
-//=//// VARLIST_FLAG_FRAME_FAILED /////////////////////////////////////////=//
+//=//// SERIES_FLAG_VARLIST_FRAME_FAILED //////////////////////////////////=//
 //
 // In the specific case of a frame being freed due to a failure, this mark
 // is put on the context node.  What this allows is for the system to account
@@ -72,7 +72,7 @@
 // of valgrind/address-sanitizer way of looking at a codebase vs. just taking
 // for granted that it will GC things.
 //
-#define VARLIST_FLAG_FRAME_FAILED \
+#define SERIES_FLAG_VARLIST_FRAME_FAILED \
     ARRAY_FLAG_23
 
 
@@ -179,7 +179,7 @@ inline static REBFRM *CTX_FRAME_MAY_FAIL(REBCTX *c) {
 
 inline static REBVAL *CTX_KEY(REBCTX *c, REBCNT n) {
     assert(NOT_SERIES_INFO(c, INACCESSIBLE));
-    assert(GET_SER_FLAG(c, ARRAY_FLAG_VARLIST));
+    assert(GET_ARRAY_FLAG(CTX_VARLIST(c), IS_VARLIST));
     assert(n != 0 and n <= CTX_LEN(c));
     return cast(REBVAL*, cast(REBSER*, CTX_KEYLIST(c))->content.dynamic.data)
         + n;
@@ -187,7 +187,7 @@ inline static REBVAL *CTX_KEY(REBCTX *c, REBCNT n) {
 
 inline static REBVAL *CTX_VAR(REBCTX *c, REBCNT n) {
     assert(NOT_SERIES_INFO(c, INACCESSIBLE));
-    assert(GET_SER_FLAG(c, ARRAY_FLAG_VARLIST));
+    assert(GET_ARRAY_FLAG(CTX_VARLIST(c), IS_VARLIST));
     assert(n != 0 and n <= CTX_LEN(c));
     return cast(REBVAL*, cast(REBSER*, c)->content.dynamic.data) + n;
 }
@@ -277,8 +277,8 @@ static inline REBVAL *Init_Any_Context(
     Extra_Init_Any_Context_Checks_Debug(kind, c);
   #endif
     UNUSED(kind);
-    assert(IS_ARRAY_MANAGED(CTX_VARLIST(c)));
-    assert(IS_ARRAY_MANAGED(CTX_KEYLIST(c)));
+    ASSERT_SERIES_MANAGED(CTX_VARLIST(c));
+    ASSERT_SERIES_MANAGED(CTX_KEYLIST(c));
     return Move_Value(out, CTX_ARCHETYPE(c));
 }
 
@@ -418,7 +418,7 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     //
     REBSER *copy = Alloc_Series_Node(
         SERIES_MASK_CONTEXT
-            | SERIES_FLAG_STACK
+            | SERIES_FLAG_STACK_LIFETIME
             | SERIES_FLAG_FIXED_SIZE
     );
     copy->info = Endlike_Header(
