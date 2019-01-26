@@ -574,7 +574,7 @@ inline static void Push_Action(
     // !!! Should this go in Begin_Action?
     //
     if (GET_SER_FLAG(act, PARAMLIST_FLAG_INVISIBLE)) {
-        if (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD) {
+        if (GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)) {
             assert(GET_EVAL_FLAG(f, FULFILLING_ARG));
             SET_SERIES_INFO(f->varlist, TELEGRAPH_NO_LOOKAHEAD);
         }
@@ -591,13 +591,11 @@ inline static void Drop_Action(REBFRM *f) {
     );
 
     if (NOT_EVAL_FLAG(f, FULFILLING_ARG))
-        f->feed->flags.bits &= ~FEED_FLAG_BARRIER_HIT;
+        CLEAR_FEED_FLAG(f->feed, BARRIER_HIT);
 
-    f->flags.bits &= ~(
-        EVAL_FLAG_FULFILLING_ENFIX
-            | EVAL_FLAG_FULFILL_ONLY
-            | EVAL_FLAG_REQUOTE_NULL
-    );
+    CLEAR_EVAL_FLAG(f, FULFILLING_ENFIX);
+    CLEAR_EVAL_FLAG(f, FULFILL_ONLY);
+    CLEAR_EVAL_FLAG(f, REQUOTE_NULL);
 
     assert(
         GET_SERIES_INFO(f->varlist, INACCESSIBLE)

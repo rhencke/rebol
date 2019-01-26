@@ -369,14 +369,14 @@ REBNATIVE(eval_enfix)
         | EVAL_FLAG_FULFILLING_ARG
         | EVAL_FLAG_POST_SWITCH;
 
-    assert(not (FS_TOP->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
+    assert(NOT_FEED_FLAG(FS_TOP->feed, NO_LOOKAHEAD));
 
     if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child)) {
         DROP_GC_GUARD(temp);
         return R_THROWN;
     }
 
-    assert(not (FS_TOP->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
+    assert(NOT_FEED_FLAG(FS_TOP->feed, NO_LOOKAHEAD));
 
     DROP_GC_GUARD(temp);
     return D_OUT;

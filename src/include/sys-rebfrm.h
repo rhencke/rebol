@@ -433,16 +433,16 @@ STATIC_ASSERT(31 < 32); // otherwise EVAL_FLAG_XXX too high
 
 
 #define SET_EVAL_FLAG(f,name) \
-    (f->flags.bits |= EVAL_FLAG_##name)
+    (FRM(f)->flags.bits |= EVAL_FLAG_##name)
 
 #define GET_EVAL_FLAG(f,name) \
-    ((f->flags.bits & EVAL_FLAG_##name) != 0)
+    ((FRM(f)->flags.bits & EVAL_FLAG_##name) != 0)
 
 #define CLEAR_EVAL_FLAG(f,name) \
-    (f->flags.bits &= ~EVAL_FLAG_##name)
+    (FRM(f)->flags.bits &= ~EVAL_FLAG_##name)
 
 #define NOT_EVAL_FLAG(f,name) \
-    ((f->flags.bits & EVAL_FLAG_##name) == 0)
+    ((FRM(f)->flags.bits & EVAL_FLAG_##name) == 0)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -567,6 +567,26 @@ struct Reb_Frame_Feed {
 //
 #define FEED_FLAG_BARRIER_HIT \
     FLAG_LEFT_BIT(3)
+
+
+#if !defined __cplusplus
+    #define FEED(f) f
+#else
+    #define FEED(f) static_cast<struct Reb_Frame_Feed*>(f)
+#endif
+
+#define SET_FEED_FLAG(f,name) \
+    (FEED(f)->flags.bits |= FEED_FLAG_##name)
+
+#define GET_FEED_FLAG(f,name) \
+    ((FEED(f)->flags.bits & FEED_FLAG_##name) != 0)
+
+#define CLEAR_FEED_FLAG(f,name) \
+    (FEED(f)->flags.bits &= ~FEED_FLAG_##name)
+
+#define NOT_FEED_FLAG(f,name) \
+    ((FEED(f)->flags.bits & FEED_FLAG_##name) == 0)
+
 
 
 // NOTE: The ordering of the fields in `Reb_Frame` are specifically done so
@@ -1011,9 +1031,10 @@ typedef bool (*REBEVL)(REBFRM * const);
     template <class T>
     inline REBFRM *FRM(T *p) {
         constexpr bool base = std::is_same<T, void>::value
-            or std::is_same<T, REBNOD>::value;
+            or std::is_same<T, REBNOD>::value
+            or std::is_same<T, REBFRM>::value;
 
-        static_assert(base, "FRM() works on void/REBNOD");
+        static_assert(base, "FRM() works on void/REBNOD/REBFRM");
 
         if (base)
             assert(

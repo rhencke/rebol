@@ -194,14 +194,14 @@ inline static void Push_Frame_Core(REBFRM *f)
         // which is created will have a hold put on it to be released when
         // the frame is finished.
         //
-        assert(not (f->feed->flags.bits & FEED_FLAG_TOOK_HOLD));
+        assert(NOT_FEED_FLAG(f->feed, TOOK_HOLD));
     }
     else {
         if (GET_SERIES_INFO(f->feed->array, HOLD))
             NOOP; // already temp-locked
         else {
             SET_SERIES_INFO(f->feed->array, HOLD);
-            f->feed->flags.bits |= FEED_FLAG_TOOK_HOLD;
+            SET_FEED_FLAG(f->feed, TOOK_HOLD);
         }
     }
 
@@ -572,14 +572,14 @@ inline static void Fetch_Next_In_Frame(
 
         ++f->feed->index; // for consistency in index termination state
 
-        if (f->feed->flags.bits & FEED_FLAG_TOOK_HOLD) {
+        if (GET_FEED_FLAG(f->feed, TOOK_HOLD)) {
             assert(GET_SERIES_INFO(f->feed->array, HOLD));
             CLEAR_SERIES_INFO(f->feed->array, HOLD);
 
             // !!! Future features may allow you to move on to another array.
             // If so, the "hold" bit would need to be reset like this.
             //
-            f->feed->flags.bits &= ~FEED_FLAG_TOOK_HOLD;
+            CLEAR_FEED_FLAG(f->feed, TOOK_HOLD);
         }
     }
     else {
@@ -628,7 +628,7 @@ inline static void Abort_Frame(REBFRM *f) {
         goto pop;
 
     if (FRM_IS_VALIST(f)) {
-        assert(not (f->feed->flags.bits & FEED_FLAG_TOOK_HOLD));
+        assert(NOT_FEED_FLAG(f->feed, TOOK_HOLD));
 
         // Aborting valist frames is done by just feeding all the values
         // through until the end.  This is assumed to do any work, such
@@ -653,14 +653,14 @@ inline static void Abort_Frame(REBFRM *f) {
             Fetch_Next_In_Frame(nullptr, f);
     }
     else {
-        if (f->feed->flags.bits & FEED_FLAG_TOOK_HOLD) {
+        if (GET_FEED_FLAG(f->feed, TOOK_HOLD)) {
             //
             // The frame was either never variadic, or it was but got spooled
             // into an array by Reify_Va_To_Array_In_Frame()
             //
             assert(GET_SERIES_INFO(f->feed->array, HOLD));
             CLEAR_SERIES_INFO(f->feed->array, HOLD);
-            f->feed->flags.bits &= ~FEED_FLAG_TOOK_HOLD; // !!! needed?
+            CLEAR_FEED_FLAG(f->feed, TOOK_HOLD); // !!! needed?
         }
     }
 
@@ -723,8 +723,8 @@ inline static bool Eval_Step_Throws(
     assert(IS_END(out));
 
     assert(NOT_EVAL_FLAG(f, TO_END));
-    assert(not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
-    assert(not (f->feed->flags.bits & FEED_FLAG_BARRIER_HIT));
+    assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
+    assert(NOT_FEED_FLAG(f->feed, BARRIER_HIT));
 
     f->out = out;
     f->dsp_orig = DSP;
@@ -746,8 +746,8 @@ inline static bool Eval_Step_Maybe_Stale_Throws(
     assert(NOT_END(out));
 
     assert(NOT_EVAL_FLAG(f, TO_END));
-    assert(not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
-    assert(not (f->feed->flags.bits & FEED_FLAG_BARRIER_HIT));
+    assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
+    assert(NOT_FEED_FLAG(f->feed, BARRIER_HIT));
 
     f->out = out;
     f->dsp_orig = DSP;
@@ -803,7 +803,7 @@ inline static bool Eval_Step_In_Subframe_Throws(
     REBFLGS flags,
     REBFRM *child // passed w/dsp_orig preload, refinements can be on stack
 ){
-    assert(not (higher->feed->flags.bits & FEED_FLAG_BARRIER_HIT));
+    assert(NOT_FEED_FLAG(higher->feed, BARRIER_HIT));
 
     child->out = out;
 
@@ -981,9 +981,9 @@ inline static void Reify_Va_To_Array_In_Frame(
     // if we reused the empty array if dsp_orig == DSP, since someone else
     // might have a hold on it...not worth the complexity.) 
     //
-    assert(not (f->feed->flags.bits & FEED_FLAG_TOOK_HOLD));
+    assert(NOT_FEED_FLAG(f->feed, TOOK_HOLD));
     SET_SERIES_INFO(f->feed->array, HOLD);
-    f->feed->flags.bits |= FEED_FLAG_TOOK_HOLD;
+    SET_FEED_FLAG(f->feed, TOOK_HOLD);
 
     if (truncated)
         SET_FRAME_VALUE(f, ARR_AT(f->feed->array, 1)); // skip `--optimized--`

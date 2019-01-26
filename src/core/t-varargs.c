@@ -228,7 +228,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
 
             if (
                 IS_END(f_temp->value)
-                or (f_temp->feed->flags.bits & FEED_FLAG_BARRIER_HIT)
+                or GET_FEED_FLAG(f_temp->feed, BARRIER_HIT)
             ){
                 SET_END(shared);
             }
@@ -291,7 +291,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
         if (Vararg_Op_If_No_Advance_Handled(
             out,
             op,
-            (f->feed->flags.bits & FEED_FLAG_BARRIER_HIT)
+            GET_FEED_FLAG(f->feed, BARRIER_HIT)
                 ? END_NODE
                 : f->value, // might be END
             f->specifier,
@@ -657,12 +657,10 @@ void MF_Varargs(REB_MOLD *mo, const REBCEL *v, bool form) {
             Append_Unencoded(mo->series, "[...]"); // can't look ahead
     }
     else if (Is_Frame_Style_Varargs_Maybe_Null(&f, v)) {
-        if (f == NULL)
+        if (f == NULL) {
             Append_Unencoded(mo->series, "!!!");
-        else if (
-            IS_END(f->value)
-            or (f->feed->flags.bits & FEED_FLAG_BARRIER_HIT)
-        ){
+        }
+        else if (IS_END(f->value) or GET_FEED_FLAG(f->feed, BARRIER_HIT)) {
             Append_Unencoded(mo->series, "[]");
         }
         else if (pclass == REB_P_HARD_QUOTE) {

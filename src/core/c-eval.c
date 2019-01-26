@@ -127,9 +127,9 @@ static inline bool Start_New_Expression_Throws(REBFRM *f) {
     CLEAR_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH);
 
     if (NOT_EVAL_FLAG(f, FULFILLING_ARG))
-        assert(not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
+        assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
 
-    assert(not (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX));
+    assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
 
     return false;
 }
@@ -431,10 +431,10 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 // consistent with the pattern people expect.
 //
 void Lookahead_To_Sync_Enfix_Defer_Flag(REBFRM *f) {
-    assert(not (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX));
+    assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
     assert(not f->gotten);
 
-    f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
+    CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
     if (not IS_WORD(f->value))
         return;
@@ -445,13 +445,13 @@ void Lookahead_To_Sync_Enfix_Defer_Flag(REBFRM *f) {
         return;
 
     if (GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_DEFERS_LOOKBACK))
-        f->feed->flags.bits |= FEED_FLAG_DEFERRING_ENFIX;
+        SET_FEED_FLAG(f->feed, DEFERRING_ENFIX);
 }
 
 
 inline static bool Dampen_Lookahead(REBFRM *f) {
-    if (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD) {
-        f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
+    if (GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)) {
+        CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
         return true;
     }
     return false;
@@ -489,7 +489,7 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     // an arity-1 function.  `1 + x: whatever ...`.  This overrides the no
     // lookahead behavior flag right up front.
     //
-    f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
+    CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
     REBFLGS flags =
         (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
@@ -805,7 +805,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     SET_CELL_FLAG(f->out, UNEVALUATED);
   #endif
 
-    f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
+    CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
     Fetch_Next_In_Frame(nullptr, f); // skip the WORD! that invoked the action
     goto process_action;
 
@@ -902,7 +902,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
       process_action:; // Note: Also jumped to by the redo_checked code
 
-        assert(not (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX));
+        assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
 
       #if !defined(NDEBUG)
         assert(f->original); // set by Begin_Action()
@@ -1331,14 +1331,12 @@ bool Eval_Core_Throws(REBFRM * const f)
                     // it does is puts the enfix into a *single step defer*.
                     //
                     if (GET_EVAL_FLAG(f, FULFILLING_ENFIX)) {
-                        assert(
-                            not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD)
-                        );
+                        assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
                         if (NOT_SER_FLAG(
                             FRM_PHASE(f),
                             PARAMLIST_FLAG_DEFERS_LOOKBACK
                         )){
-                            f->feed->flags.bits |= FEED_FLAG_NO_LOOKAHEAD;
+                            SET_FEED_FLAG(f->feed, NO_LOOKAHEAD);
                         }
                     }
                     Finalize_Arg(f);
@@ -1442,7 +1440,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             //      == 9
             //
             if (NOT_EVAL_FLAG(f, FULFILLING_ENFIX))
-                f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
+                CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
             // Once a deferred flag is set, it must be cleared during the
             // evaluation of the argument it was set for... OR the function
@@ -1459,15 +1457,12 @@ bool Eval_Core_Throws(REBFRM * const f)
             //     1 arity-3-op 2 + 3 <ambiguous>
             //     1 arity-3-op (2 + 3) <unambiguous>
             //
-            if (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX)
+            if (GET_FEED_FLAG(f->feed, DEFERRING_ENFIX))
                 fail (Error_Ambiguous_Infix_Raw());
 
     //=//// ERROR ON END MARKER, BAR! IF APPLICABLE ///////////////////////=//
 
-            if (
-                IS_END(f->value)
-                or (f->feed->flags.bits & FEED_FLAG_BARRIER_HIT)
-            ){
+            if (IS_END(f->value) or GET_FEED_FLAG(f->feed, BARRIER_HIT)) {
                 if (not Is_Param_Endable(f->param))
                     fail (Error_No_Arg(f, f->param));
 
@@ -1526,7 +1521,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
               case REB_P_SOFT_QUOTE:
                 if (IS_BAR(f->value)) { // BAR! stops a soft quote
-                    f->feed->flags.bits |= FEED_FLAG_BARRIER_HIT;
+                    SET_FEED_FLAG(f->feed, BARRIER_HIT);
                     Fetch_Next_In_Frame(nullptr, f);
                     SET_END(f->arg);
                     Finalize_Arg(f);
@@ -1567,7 +1562,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             //     1 + 2 * 3
             //           ^-- this deferred its chance, so 1 + 2 will complete
             //
-            assert(not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
+            assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
 
     //=//// TYPE CHECKING FOR (MOST) ARGS AT END OF ARG LOOP //////////////=//
 
@@ -1821,9 +1816,9 @@ bool Eval_Core_Throws(REBFRM * const f)
             assert(GET_SER_FLAG(FRM_PHASE(f), PARAMLIST_FLAG_INVISIBLE));
 
             if (NOT_SERIES_INFO(f->varlist, TELEGRAPH_NO_LOOKAHEAD))
-                f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
+                CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
             else {
-                f->feed->flags.bits |= FEED_FLAG_NO_LOOKAHEAD;
+                SET_FEED_FLAG(f->feed, NO_LOOKAHEAD);
                 CLEAR_SERIES_INFO(f->varlist, TELEGRAPH_NO_LOOKAHEAD);
             }
 
@@ -2524,7 +2519,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         // be any lookaheads", so we don't want to leave the flag stale on
         // the frame waiting for a value take that will never come.
         //
-        f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
+        CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
         if (GET_EVAL_FLAG(f, FULFILLING_ARG)) {
             //
@@ -2533,7 +2528,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // an END...though if the frame is not at an END then it has
             // more potential evaluation after the current action invocation.
             //
-            f->feed->flags.bits |= FEED_FLAG_BARRIER_HIT;
+            SET_FEED_FLAG(f->feed, BARRIER_HIT);
             goto finished;
         }
 
@@ -2643,7 +2638,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     kind.byte = KIND_BYTE(f->value);
 
     if (kind.byte == REB_0_END) {
-        f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
+        CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
         goto finished; // hitting end is common, avoid do_next's switch()
     }
 
@@ -2801,8 +2796,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         )
     ){
         if (Dampen_Lookahead(f)) {
-            assert(not (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX));
-            f->feed->flags.bits |= FEED_FLAG_DEFERRING_ENFIX;
+            assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
+            SET_FEED_FLAG(f->feed, DEFERRING_ENFIX);
 
             // Don't do enfix lookahead if asked *not* to look.  See the
             // REB_P_TIGHT parameter convention for the use of this, as
@@ -2825,7 +2820,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     if (
         GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_DEFERS_LOOKBACK)
         and GET_EVAL_FLAG(f, FULFILLING_ARG)
-        and not (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX)
+        and NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX)
     ){
         if (GET_EVAL_FLAG(f->prior, ERROR_ON_DEFERRED_ENFIX)) {
             //
@@ -2847,7 +2842,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             //
             // We want to treat this like a barrier.
             //
-            f->feed->flags.bits |= FEED_FLAG_BARRIER_HIT;
+            SET_FEED_FLAG(f->feed, BARRIER_HIT);
             goto finished;
         }
 
@@ -2855,7 +2850,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         //
         assert(f->out == f->prior->arg);
 
-        f->feed->flags.bits |= FEED_FLAG_DEFERRING_ENFIX;
+        SET_FEED_FLAG(f->feed, DEFERRING_ENFIX);
 
         // Leave the enfix operator pending in the frame, and it's up to the
         // parent frame to decide whether to use EVAL_FLAG_POST_SWITCH to jump
@@ -2866,8 +2861,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         goto finished;
     }
 
-    f->feed->flags.bits &= ~FEED_FLAG_DEFERRING_ENFIX;
-    f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
+    CLEAR_FEED_FLAG(f->feed, DEFERRING_ENFIX);
+    CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
     // An evaluative lookback argument we don't want to defer, e.g. a normal
     // argument or a deferable one which is not being requested in the context
