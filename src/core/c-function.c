@@ -1383,6 +1383,20 @@ REB_R Generic_Dispatcher(REBFRM *f)
 
 
 //
+//  Dummy_Dispatcher: C
+//
+// Used for frame levels that want a varlist solely for the purposes of tying
+// API handle lifetimes to.  These levels should be ignored by stack walks
+// that the user sees, and this associated dispatcher should never run.
+//
+REB_R Dummy_Dispatcher(REBFRM *f)
+{
+    UNUSED(f);
+    panic ("Dummy_Dispatcher() ran, but it never should get called");
+}
+
+
+//
 //  Null_Dispatcher: C
 //
 // If you write `func [...] []` it uses this dispatcher instead of running
@@ -1392,7 +1406,7 @@ REB_R Generic_Dispatcher(REBFRM *f)
 //
 REB_R Null_Dispatcher(REBFRM *f)
 {
-    REBARR *details = ACT_DETAILS(FRM_PHASE_OR_DUMMY(f));
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     assert(VAL_LEN_AT(ARR_HEAD(details)) == 0);
     UNUSED(details);
 

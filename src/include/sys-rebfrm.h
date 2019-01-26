@@ -315,9 +315,18 @@ STATIC_ASSERT(DO_FLAG_CONST == CELL_FLAG_CONST);
     FLAG_LEFT_BIT(23)
 
 
-//=//// DO_FLAG_UNUSED_24 /////////////////////////////////////////////////=//
+//=//// DO_FLAG_REQUOTE_NULL //////////////////////////////////////////////=//
 //
-#define DO_FLAG_UNUSED_24 \
+// Most routines that try to pass through the quoted level of their input
+// can't process a dequoted null (e.g. don't have <opt> input).  Hence if
+// a quoted input comes in like '''FOO, but the routine decides to return
+// null as a signal, it wants to give back plain null and not ''' as a
+// triple-quoted null.
+//
+// But we use the heuristic that if a routine intentionally takes nulls, then
+// a quoted null on input signals requoting a null on output.
+//
+#define DO_FLAG_REQUOTE_NULL \
     FLAG_LEFT_BIT(24)
 
 
@@ -388,9 +397,18 @@ STATIC_ASSERT(DO_FLAG_CONST == CELL_FLAG_CONST);
     FLAG_LEFT_BIT(29)
 
 
-//=//// DO_FLAG_UNUSED_30 /////////////////////////////////////////////////=//
+//=//// DO_FLAG_FULFILL_ONLY //////////////////////////////////////////////=//
 //
-#define DO_FLAG_UNUSED_30 \
+// In some scenarios, the desire is to fill up the frame but not actually run
+// an action.  At one point this was done with a special "dummy" action to
+// dodge having to check the flag on every dispatch.  But in the scheme of
+// things, checking the flag is negligible...and it's better to do it with
+// a flag so that one does not lose the paramlist information one was working
+// with (overwriting with a dummy action on FRM_PHASE() led to an inconsistent
+// case that had to be accounted for, since the dummy's arguments did not
+// line up with the frame being filled).
+//
+#define DO_FLAG_FULFILL_ONLY \
     FLAG_LEFT_BIT(30)
 
 
@@ -779,6 +797,8 @@ struct Reb_Frame {
     // foo/(1 + 2) it would be 3.
     //
     REBVAL *refine;
+
+    REBCNT requotes; // negative means null result should be requoted
 
   union {
     //

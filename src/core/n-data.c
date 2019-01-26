@@ -117,9 +117,10 @@ REBNATIVE(as_pair)
 //
 //  "Binds words or words in arrays to the specified context."
 //
-//      value [action! any-array! any-word! quoted!]
+//      return: [<requote> action! any-array! any-path! any-word!]
+//      value [<dequote> action! any-array! any-path! any-word!]
 //          "Value whose binding is to be set (modified) (returned)"
-//      target [any-word! 'word! any-context!]
+//      target [any-word! any-context!]
 //          "The target context or a word whose binding should be the target"
 //      /copy
 //          "Bind and return a deep copy of a block, don't modify original"
@@ -136,7 +137,6 @@ REBNATIVE(bind)
     INCLUDE_PARAMS_OF_BIND;
 
     REBVAL *v = ARG(value);
-    REBCNT num_quotes = Dequotify(v); // if QUOTED!, transform to be unquoted
 
     REBVAL *target = ARG(target);
     if (IS_QUOTED(target)) {
@@ -182,13 +182,13 @@ REBNATIVE(bind)
         // Bind a single word
 
         if (Try_Bind_Word(context, v))
-            RETURN (Quotify(v, num_quotes));
+            RETURN (v);
 
         // not in context, bind/new means add it if it's not.
         //
         if (REF(new) or (IS_SET_WORD(v) and REF(set))) {
             Append_Context(context, v, NULL);
-            RETURN (Quotify(v, num_quotes));
+            RETURN (v);
         }
 
         fail (Error_Not_In_Context_Raw(v));
@@ -202,7 +202,7 @@ REBNATIVE(bind)
     if (IS_ACTION(v)) {
         Move_Value(D_OUT, v);
         INIT_BINDING(D_OUT, context);
-        return Quotify(D_OUT, num_quotes);
+        return D_OUT;
     }
 
     if (not ANY_ARRAY(v))
@@ -235,7 +235,7 @@ REBNATIVE(bind)
         flags
     );
 
-    return Quotify(D_OUT, num_quotes);
+    return D_OUT;
 }
 
 
@@ -244,9 +244,9 @@ REBNATIVE(bind)
 //
 //  "Returns the word or block bound into the given context."
 //
-//      return: [<opt> any-word! 'word! block! group!]
+//      return: [<opt> <requote> any-word! block! group!]
 //      context [any-context! block!]
-//      word [any-word! 'word! block! group!] "(modified if series)"
+//      word [<dequote> any-word! block! group!] "(modified if series)"
 //  ]
 //
 REBNATIVE(in)

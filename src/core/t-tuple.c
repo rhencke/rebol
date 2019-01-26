@@ -455,8 +455,7 @@ REBTYPE(Tuple)
     }
 
     switch (sym) {
-
-    case SYM_REFLECT: {
+      case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
 
         UNUSED(ARG(value));
@@ -473,7 +472,10 @@ REBTYPE(Tuple)
 
         break; }
 
-    case SYM_REVERSE: {
+      case SYM_COPY:
+        RETURN (value);
+
+      case SYM_REVERSE: {
         INCLUDE_PARAMS_OF_REVERSE;
 
         UNUSED(PAR(series));
@@ -513,7 +515,7 @@ REBTYPE(Tuple)
         RETURN (value);
 */
 
-    default:
+      default:
         break;
     }
 

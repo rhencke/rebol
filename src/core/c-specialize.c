@@ -651,7 +651,14 @@ bool Specialize_Action_Throws(
         if (Is_Param_Variadic(param))
             fail ("Cannot currently SPECIALIZE variadic arguments.");
 
-        if (not TYPE_CHECK(param, VAL_TYPE(arg)))
+        if (TYPE_CHECK(param, REB_TS_DEQUOTE_REQUOTE) and IS_QUOTED(arg)) {
+            //
+            // Have to leave the quotes on, but still want to type check.
+
+            if (not TYPE_CHECK(param, CELL_KIND(VAL_UNESCAPED(arg))))
+                fail (Error_Invalid(arg)); // !!! merge w/Error_Invalid_Arg()
+        }
+        else if (not TYPE_CHECK(param, VAL_TYPE(arg)))
             fail (Error_Invalid(arg)); // !!! merge w/Error_Invalid_Arg()
 
        SET_CELL_FLAG(arg, ARG_MARKED_CHECKED);
@@ -1261,7 +1268,7 @@ bool Make_Invocation_Frame_Throws(
     //
     f->flags.bits = DO_MASK_DEFAULT
         | DO_FLAG_PROCESS_ACTION
-        | DO_FLAG_ERROR_ON_DEFERRED_ENFIX; // can't deal with ELSE/THEN/etc.
+        | DO_FLAG_ERROR_ON_DEFERRED_ENFIX;  // can't deal with ELSE/THEN/etc.
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
@@ -1272,15 +1279,21 @@ bool Make_Invocation_Frame_Throws(
     Push_Action(f, VAL_ACTION(action), VAL_BINDING(action));
     Begin_Action(f, opt_label);
 
-    // !!! A hack here is needed to slip in a lie to make the dispatcher not
-    // run the action, but rather to throw back to us.
+    // Use this special mode where we ask the dispatcher not to run, just to
+    // gather the args.  Push_Action() checks that it's not set, so we don't
+    // set it until after that.
     //
-    assert(FRM_BINDING(f) == VAL_BINDING(action));
-    assert(FRM_PHASE(f) == VAL_ACTION(action));
-    FRM_PHASE_OR_DUMMY(f) = PG_Dummy_Action;
+    f->flags.bits |= DO_FLAG_FULFILL_ONLY;
+
+    assert(FRM_BINDING(f) == VAL_BINDING(action));  // no invoke to change it
+
     bool threw = (*PG_Eval_Throws)(f);
-    FRM_PHASE_OR_DUMMY(f) = VAL_ACTION(action);
-    FRM_BINDING(f) = VAL_BINDING(action); // can change during invoke
+
+    // Drop_Action() clears out the phase and binding.  Put them back.
+    // !!! Should it check DO_FLAG_FULFILL_ONLY?
+
+    FRM_PHASE(f) = VAL_ACTION(action);
+    FRM_BINDING(f) = VAL_BINDING(action);
 
     // The function did not actually execute, so no SPC(f) was never handed
     // out...the varlist should never have gotten managed.  So this context

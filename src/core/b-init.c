@@ -472,6 +472,8 @@ static void Init_Action_Spec_Tags(void)
     Root_Blank_Tag = Make_Locked_Tag("blank");
     Root_Local_Tag = Make_Locked_Tag("local");
     Root_Skip_Tag = Make_Locked_Tag("skip");
+    Root_Dequote_Tag = Make_Locked_Tag("dequote");
+    Root_Requote_Tag = Make_Locked_Tag("requote");
 }
 
 static void Shutdown_Action_Spec_Tags(void)
@@ -484,6 +486,8 @@ static void Shutdown_Action_Spec_Tags(void)
     rebRelease(Root_Blank_Tag);
     rebRelease(Root_Local_Tag);
     rebRelease(Root_Skip_Tag);
+    rebRelease(Root_Dequote_Tag);
+    rebRelease(Root_Requote_Tag);
 }
 
 

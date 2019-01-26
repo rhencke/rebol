@@ -181,6 +181,12 @@ bool Add_Typeset_Bits_Core(
                 TYPE_SET(typeset, REB_TS_SKIPPABLE);
                 TYPE_SET(typeset, REB_TS_ENDABLE); // skip => null
             }
+            else if (0 == Compare_String_Vals(item, Root_Dequote_Tag, true)) {
+                TYPE_SET(typeset, REB_TS_DEQUOTE_REQUOTE);
+            }
+            else if (0 == Compare_String_Vals(item, Root_Requote_Tag, true)) {
+                TYPE_SET(typeset, REB_TS_DEQUOTE_REQUOTE);
+            }
         }
         else if (IS_DATATYPE(item)) {
             if (num_quotes == 0)
@@ -332,8 +338,7 @@ REBTYPE(Typeset)
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     switch (VAL_WORD_SYM(verb)) {
-
-    case SYM_FIND:
+      case SYM_FIND:
         if (not IS_DATATYPE(arg))
             fail (Error_Invalid(arg));
 
@@ -342,9 +347,9 @@ REBTYPE(Typeset)
 
         return nullptr;
 
-    case SYM_INTERSECT:
-    case SYM_UNION:
-    case SYM_DIFFERENCE:
+      case SYM_INTERSECT:
+      case SYM_UNION:
+      case SYM_DIFFERENCE:
         if (IS_DATATYPE(arg)) {
             VAL_TYPESET_BITS(arg) = FLAGIT_KIND(VAL_TYPE(arg));
         }
@@ -361,11 +366,14 @@ REBTYPE(Typeset)
         }
         RETURN (val);
 
-    case SYM_COMPLEMENT:
+      case SYM_COMPLEMENT:
         VAL_TYPESET_BITS(val) = ~VAL_TYPESET_BITS(val);
         RETURN (val);
 
-    default:
+      case SYM_COPY:
+        RETURN (val);
+
+      default:
         break;
     }
 

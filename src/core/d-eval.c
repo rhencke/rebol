@@ -233,11 +233,7 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
     assert(IS_FRAME(f->rootvar));
     assert(f->arg == f->rootvar + 1);
 
-    // See FRM_PHASE() for why it's not allowed when dummy is the dispatcher
-    //
     REBACT *phase = f->rootvar->payload.any_context.phase;
-    if (phase == PG_Dummy_Action)
-        return;
 
     //=//// v-- BELOW CHECKS ONLY APPLY WHEN FRM_PHASE() is VALID ////////=//
 
@@ -277,13 +273,7 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
     if (GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)) // e.g. ENCLOSE
         return;
 
-    // See FRM_PHASE() for why it's not allowed when DEFER-0 is the dispatcher
-    //
-    REBACT *phase = FRM_PHASE_OR_DUMMY(f);
-    if (phase == PG_Dummy_Action)
-        return;
-
-    //=//// v-- BELOW CHECKS ONLY APPLY WHEN FRM_PHASE() is VALID ////////=//
+    REBACT *phase = FRM_PHASE(f);
 
     // Usermode functions check the return type via Returner_Dispatcher(),
     // with everything else assumed to return the correct type.  But this

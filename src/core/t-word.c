@@ -264,11 +264,11 @@ REB_R PD_Word(
 //
 REBTYPE(Word)
 {
-    REBVAL *val = D_ARG(1);
-    assert(ANY_WORD(val));
+    REBVAL *v = D_ARG(1);
+    assert(ANY_WORD(v));
 
     switch (VAL_WORD_SYM(verb)) {
-    case SYM_REFLECT: {
+      case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
 
         UNUSED(ARG(value));
@@ -277,7 +277,7 @@ REBTYPE(Word)
 
         switch (property) {
         case SYM_LENGTH: {
-            REBSTR *spelling = VAL_WORD_SPELLING(val);
+            REBSTR *spelling = VAL_WORD_SPELLING(v);
             const REBYTE *bp = cb_cast(STR_HEAD(spelling));
             REBSIZ size = STR_SIZE(spelling);
             REBCNT len = 0;
@@ -293,20 +293,22 @@ REBTYPE(Word)
             }
             return Init_Integer(D_OUT, len); }
 
-        case SYM_BINDING: {
-            if (Did_Get_Binding_Of(D_OUT, val))
+          case SYM_BINDING: {
+            if (Did_Get_Binding_Of(D_OUT, v))
                 return D_OUT;
             return nullptr; }
 
-        default:
+          default:
             break;
         }
-
         break; }
 
-    default:
+      case SYM_COPY:
+        RETURN (v);
+
+      default:
         break;
     }
 
-    fail (Error_Illegal_Action(VAL_TYPE(val), verb));
+    fail (Error_Illegal_Action(VAL_TYPE(v), verb));
 }

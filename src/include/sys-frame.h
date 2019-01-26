@@ -225,30 +225,8 @@ inline static int FRM_LINE(REBFRM *f) {
 #define FRM_PRIOR(f) \
     ((f)->prior + 0) // prevent assignment via this macro
 
-#define FRM_PHASE_OR_DUMMY(f) \
+#define FRM_PHASE(f) \
     f->rootvar->payload.any_context.phase
-
-#if defined(NDEBUG) or !defined(__cplusplus)
-    #define FRM_PHASE(f) \
-        FRM_PHASE_OR_DUMMY(f)
-#else
-    // The C++ debug build adds a check that a frame is not uing a tricky
-    // noop dispatcher, when access to the phase is gotten with FRM_PHASE().
-    // This trick lets the sunk cost of calling a dispatcher be used instead
-    // of a separate flag checked on every evaluator cycle.  This is so that
-    // routines like `MAYBE PARSE "AAA" [SOME "A"]` can build the parse frame
-    // without actually *running* PARSE yet...return from Eval_Core_Throws(),
-    // extract the first argument, and then call back into Eval_Core_Throws()
-    // to actually run the PARSE.
-    //
-    // Any manipulations aware of this hack need to access the field directly.
-    //
-    inline static REBACT* &FRM_PHASE(REBFRM *f) {
-        REBACT* &phase = FRM_PHASE_OR_DUMMY(f);
-        assert(phase != PG_Dummy_Action);
-        return phase;
-    }
-#endif
 
 #define FRM_BINDING(f) \
     f->rootvar->extra.binding
@@ -459,7 +437,7 @@ inline static void Begin_Action(REBFRM *f, REBSTR *opt_label)
     assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
 
     assert(not f->original);
-    f->original = FRM_PHASE_OR_DUMMY(f);
+    f->original = FRM_PHASE(f);
 
     assert(IS_POINTER_TRASH_DEBUG(f->opt_label)); // only valid w/REB_ACTION
     assert(not opt_label or GET_SER_FLAG(opt_label, SERIES_FLAG_UTF8_STRING));
@@ -469,6 +447,9 @@ inline static void Begin_Action(REBFRM *f, REBSTR *opt_label)
   #endif
 
     f->refine = ORDINARY_ARG;
+
+    assert(not (f->flags.bits & DO_FLAG_REQUOTE_NULL));
+    f->requotes = 0;
 }
 
 
@@ -496,6 +477,8 @@ inline static void Push_Action(
     REBACT *act,
     REBNOD *binding
 ){
+    assert(not (f->flags.bits & DO_FLAG_FULFILL_ONLY));
+
     f->param = ACT_PARAMS_HEAD(act); // Specializations hide some params...
     REBCNT num_args = ACT_NUM_PARAMS(act); // ...so see REB_TS_HIDDEN
 
@@ -588,6 +571,8 @@ inline static void Push_Action(
     // Cache it on the varlist and put it back when an R_INVISIBLE result
     // comes back.
     //
+    // !!! Should this go in Begin_Action?
+    //
     if (GET_SER_FLAG(act, PARAMLIST_FLAG_INVISIBLE)) {
         if (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD) {
             assert(f->flags.bits & DO_FLAG_FULFILLING_ARG);
@@ -608,7 +593,11 @@ inline static void Drop_Action(REBFRM *f) {
     if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
         f->feed->flags.bits &= ~FEED_FLAG_BARRIER_HIT;
 
-    f->flags.bits &= ~DO_FLAG_FULFILLING_ENFIX;
+    f->flags.bits &= ~(
+        DO_FLAG_FULFILLING_ENFIX
+            | DO_FLAG_FULFILL_ONLY
+            | DO_FLAG_REQUOTE_NULL
+    );
 
     assert(
         GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)

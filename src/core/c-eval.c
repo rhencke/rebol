@@ -97,13 +97,7 @@
 // might be used to patch the machine code and avoid cost when not hooked.
 //
 REB_R Dispatcher_Core(REBFRM * const f) {
-    //
-    // Callers can "lie" to make the dispatch a no-op by substituting the
-    // "Dummy" native in the frame, even though it doesn't match the args,
-    // in order to build the frame of a function without running it.  This
-    // is one of the few places tolerant of the lie...hence _OR_DUMMY()
-    //
-    return ACT_DISPATCHER(FRM_PHASE_OR_DUMMY(f))(f);
+    return ACT_DISPATCHER(FRM_PHASE(f))(f);
 }
 
 
@@ -304,8 +298,38 @@ inline static void Finalize_Arg(REBFRM *f) {
         and TYPE_CHECK(f->param, REB_TS_NOOP_IF_BLANK) // e.g. <blank> param
     ){
         SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
-        FRM_PHASE_OR_DUMMY(f) = PG_Dummy_Action;
+        f->flags.bits |= DO_FLAG_FULFILL_ONLY;
         return;
+    }
+
+    // If the <dequote> tag was used on an argument, we want to remove the
+    // quotes (and queue them to be added back in if the return was marked
+    // with <requote>).
+    //
+    if (TYPE_CHECK(f->param, REB_TS_DEQUOTE_REQUOTE) and IS_QUOTED(f->arg)) {
+        if (f->flags.bits & DO_FLAG_FULFILL_ONLY) {
+            //
+            // We can only take the quote levels off now if the function is
+            // going to be run now.  Because if we are filling a frame to
+            // reuse later, it would forget the f->dequotes count.
+            //
+            if (not TYPE_CHECK(f->param, CELL_KIND(VAL_UNESCAPED(f->arg))))
+                fail (Error_Arg_Type(f, f->param, VAL_TYPE(f->arg)));
+
+            SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
+            return;
+        }
+
+        // Some routines want to requote but also want to be able to
+        // return a null without turning it into a single apostrophe.
+        // Use the heuristic that if the argument wasn't legally null,
+        // then a returned null should duck the requote.
+        //
+        f->requotes += VAL_NUM_QUOTES(f->arg);
+        if (CELL_KIND(VAL_UNESCAPED(f->arg)) == REB_MAX_NULLED)
+            f->flags.bits |= DO_FLAG_REQUOTE_NULL;
+
+        Dequotify(f->arg);
     }
 
     if (not Typecheck_Including_Quoteds(f->param, f->arg))
@@ -338,19 +362,7 @@ inline static void Finalize_Variadic_Arg_Core(REBFRM *f, bool enfix) {
             ? -(f->arg - FRM_ARGS_HEAD(f) + 1)
             : f->arg - FRM_ARGS_HEAD(f) + 1;
 
-    if (FRM_PHASE_OR_DUMMY(f) == PG_Dummy_Action) {
-        //
-        // If the function is not going to be run immediately, it might be
-        // getting deferred just for capturing arguments before running (e.g.
-        // with `match :even? x`) or it could be a means of generating a
-        // specialization to be used many times (`does dump var`).  The
-        // former case might have variadics work, the latter can't.  Let
-        // frame expiration or not be the judge later.
-        //
-        f->arg->payload.varargs.phase = f->original;
-    }
-    else
-        f->arg->payload.varargs.phase = FRM_PHASE(f);
+    f->arg->payload.varargs.phase = FRM_PHASE(f);
     SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
 }
 
@@ -371,13 +383,12 @@ inline static void Finalize_Variadic_Arg_Core(REBFRM *f, bool enfix) {
 
 
 inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
-    REBACT *phase = FRM_PHASE_OR_DUMMY(f);
-    if (phase != PG_Dummy_Action)
-        if (GET_SER_FLAG(phase, PARAMLIST_FLAG_INVISIBLE)) {
-            if (NOT_SER_FLAG(f->original, PARAMLIST_FLAG_INVISIBLE))
-                fail ("All invisible action phases must be invisible");
-            return;
-        }
+    REBACT *phase = FRM_PHASE(f);
+    if (GET_SER_FLAG(phase, PARAMLIST_FLAG_INVISIBLE)) {
+        if (NOT_SER_FLAG(f->original, PARAMLIST_FLAG_INVISIBLE))
+            fail ("All invisible action phases must be invisible");
+        return;
+    }
 
     if (GET_SER_FLAG(f->original, PARAMLIST_FLAG_INVISIBLE))
         return;
@@ -396,7 +407,7 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
     // !!! Should natives be able to count on f->out being END?  This was
     // at one time the case, but this code was in one instance.
     //
-    if (NOT_SER_FLAG(FRM_PHASE_OR_DUMMY(f), PARAMLIST_FLAG_INVISIBLE)) {
+    if (NOT_SER_FLAG(FRM_PHASE(f), PARAMLIST_FLAG_INVISIBLE)) {
         if (SPORADICALLY(2))
             Init_Unreadable_Blank(f->out);
         else
@@ -1162,21 +1173,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     //=//// SPECIALIZED OR OTHERWISE TYPECHECKED ARG //////////////////////=//
 
-                // The flag's whole purpose is that it's not set if the type
-                // is invalid (excluding the narrow purpose of slipping types
-                // used for partial specialization into refinement slots).
-                // But this isn't a refinement slot.  Double check it's true.
-                //
-                // Note SPECIALIZE checks types at specialization time, to
-                // save us the time of doing it on each call.  Also note that
-                // NULL is not technically in the valid argument types for
-                // refinement arguments, but is legal in fulfilled frames.
-                //
-                assert(
-                    (f->refine != ORDINARY_ARG and IS_NULLED(f->special))
-                    or Typecheck_Including_Quoteds(f->param, f->special)
-                );
-
                 if (f->arg != f->special) {
                     //
                     // Specializing with VARARGS! is generally not a good
@@ -1192,6 +1188,31 @@ bool Eval_Core_Throws(REBFRM * const f)
                     Move_Value(f->arg, f->special); // won't copy the bit
                     SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 }
+
+                if (
+                    TYPE_CHECK(f->param, REB_TS_DEQUOTE_REQUOTE)
+                    and IS_QUOTED(f->arg)
+                    and not (f->flags.bits & DO_FLAG_FULFILL_ONLY)
+                ){
+                    f->requotes += VAL_NUM_QUOTES(f->arg);
+                    Dequotify(f->arg);
+                }
+
+                // The flag's whole purpose is that it's not set if the type
+                // is invalid (excluding the narrow purpose of slipping types
+                // used for partial specialization into refinement slots).
+                // But this isn't a refinement slot.  Double check it's true.
+                //
+                // Note SPECIALIZE checks types at specialization time, to
+                // save us the time of doing it on each call.  Also note that
+                // NULL is not technically in the valid argument types for
+                // refinement arguments, but is legal in fulfilled frames.
+                //
+                assert(
+                    (f->refine != ORDINARY_ARG and IS_NULLED(f->arg))
+                    or Typecheck_Including_Quoteds(f->param, f->arg)
+                );
+
                 goto continue_arg_loop;
             }
 
@@ -1650,6 +1671,11 @@ bool Eval_Core_Throws(REBFRM * const f)
             or IS_VALUE_IN_ARRAY_DEBUG(f->feed->array, f->value)
         );
 
+        if (f->flags.bits & DO_FLAG_FULFILL_ONLY) {
+            Init_Nulled(f->out);
+            goto skip_output_check;
+        }
+
         Expire_Out_Cell_Unless_Invisible(f);
 
         // While you can't evaluate into an array cell (because it may move)
@@ -1863,13 +1889,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         // mechanism based on some information from any action's signature.
         //
         while (DSP != f->dsp_orig) {
-            if (IS_INTEGER(DS_TOP)) {
-                if (not IS_NULLED(f->out))
-                    Quotify(f->out, VAL_INT32(DS_TOP));
-                DS_DROP();
-                continue;
-            }
-
+            //
             // We want to keep the label that the function was invoked with,
             // because the other phases in the chain are implementation
             // details...and if there's an error, it should still show the
@@ -1895,6 +1915,29 @@ bool Eval_Core_Throws(REBFRM * const f)
             f->flags.bits |= DO_FLAG_GET_NEXT_ARG_FROM_OUT;
 
             goto process_action;
+        }
+
+        // We assume that null return results don't count for the requoting,
+        // unless the dequoting was explicitly of a quoted null parameter.
+        // Just a heuristic--if it doesn't work for someone, they'll have to
+        // take QUOTED! themselves and do whatever specific logic they need.
+        //
+        if (
+            KIND_BYTE_UNCHECKED(f->out) != REB_0_END
+            and (
+                KIND_BYTE_UNCHECKED(f->out) != REB_MAX_NULLED
+                or (f->flags.bits & DO_FLAG_REQUOTE_NULL)
+            )
+            and GET_SER_FLAG(f->original, PARAMLIST_FLAG_RETURN)
+        ){
+            REBVAL *return_param = ACT_PARAM(
+                f->original,
+                ACT_NUM_PARAMS(f->original)
+            );
+            assert(VAL_PARAM_SYM(return_param) == SYM_RETURN);
+
+            if (TYPE_CHECK(return_param, REB_TS_DEQUOTE_REQUOTE))
+                Quotify(f->out, f->requotes);
         }
 
         Drop_Action(f);

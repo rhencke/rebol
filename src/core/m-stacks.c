@@ -119,17 +119,11 @@ void Startup_Frame_Stack(void)
 
     PG_Dummy_Action = Make_Action(
         paramlist,
-        &Null_Dispatcher,
+        &Dummy_Dispatcher,
         nullptr, // no underlying action (use paramlist)
         nullptr, // no specialization exemplar (or inherited exemplar)
-        1 // details array capacity
+        1 // details array capacity (unused, but 0 is not legal)
     );
-
-    // !!! Null_Dispatcher() currently requires a body for things like fake
-    // source.  The user shouldn't get PG_Dummy_Action in their hands to ask
-    // for SOURCE of, but still, the Null_Dispatcher() has asserts.
-    //
-    Init_Block(ARR_HEAD(ACT_DETAILS(PG_Dummy_Action)), EMPTY_ARRAY);
 
     Reuse_Varlist_If_Available(f); // needed to attach API handles to
     Push_Action(f, PG_Dummy_Action, UNBOUND);
@@ -203,7 +197,7 @@ REBCTX *Get_Context_From_Stack(void)
         if (not Is_Action_Frame(f))
             continue;
 
-        phase = FRM_PHASE_OR_DUMMY(f);
+        phase = FRM_PHASE(f);
         if (phase == PG_Dummy_Action) {
             //
             // Some frames are set up just to catch failures, but aren't

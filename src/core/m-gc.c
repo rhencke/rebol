@@ -1277,12 +1277,9 @@ static void Mark_Frame_Stack_Deep(void)
         // cells for pending refinement arguments.
         //
         REBACT *phase; // goto would cross initialization
-        phase = FRM_PHASE_OR_DUMMY(f);
+        phase = FRM_PHASE(f);
         REBVAL *param;
-        if (phase == PG_Dummy_Action)
-            param = ACT_PARAMS_HEAD(f->original); // no phases will run
-        else
-            param = ACT_PARAMS_HEAD(phase);
+        param = ACT_PARAMS_HEAD(phase);
 
         REBVAL *arg;
         for (arg = FRM_ARGS_HEAD(f); NOT_END(param); ++param, ++arg) {

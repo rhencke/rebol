@@ -140,85 +140,10 @@ REB_R PD_Quoted(
 //
 REBTYPE(Quoted)
 {
-    REBVAL *quoted = D_ARG(1);
+    UNUSED(verb);
+    UNUSED(frame_);
 
-    enum Reb_Kind kind = CELL_KIND(VAL_UNESCAPED(quoted));
-    REBVAL *param = ACT_PARAM(FRM_PHASE(frame_), 1);
-    if (not TYPE_CHECK(param, kind))
-        fail (Error_Arg_Type(frame_, param, kind));
-
-    REBCNT depth = VAL_QUOTED_DEPTH(quoted);
-
-    switch (VAL_WORD_SYM(verb)) {
-      case SYM_REFLECT: {
-        INCLUDE_PARAMS_OF_REFLECT;
-        UNUSED(ARG(value)); // covered by val above
-
-        REBSYM prop = VAL_WORD_SYM(ARG(property));
-        UNUSED(prop);
-        goto unescaped; }
-
-    case SYM_ADD:
-    case SYM_SUBTRACT:
-    case SYM_MULTIPLY:
-    case SYM_DIVIDE:
-        //
-        // Cool to escape math operators, e.g. \\\10 + 20 => \\\30
-        //
-        goto escaped;
-
-    case SYM_FIND:
-    case SYM_COPY:
-    case SYM_SKIP:
-    case SYM_AT:
-        //
-        // Series navigation preserving the level of escaping makes sense
-        //
-        goto escaped;
-
-    case SYM_APPEND:
-    case SYM_CHANGE:
-    case SYM_INSERT:
-        //
-        // Series modification also makes sense.
-        //
-        goto escaped;
-
-    default:
-        goto unescaped;
-    }
-
-  unescaped:;
-    depth = 0;
-
-  escaped:;
-
-    // Keep the frame, but adjust the pivoting cell to be unescaped.  So
-    // either get the contained cell if it's a "real REB_QUOTED", or tweak
-    // the type bits back into normal range if a tricky in-cell literal.
-    //
-    Dequotify(D_ARG(1));
-
-    REB_R r = Generic_Dispatcher(frame_); // type was checked above
-
-    // It's difficult to interpret an arbitrary REB_R result value for the
-    // evaluator (process API values, special requests like REB_R_REDO, etc.)
-    //
-    // So instead, return the result as normal...but push an integer on the
-    // stack that gets processed after the function call is complete.  This
-    // fits in with what the Chainer_Dispatcher() does with ACTION!s.  The
-    // same code in %c-eval.c that handles that will properly re-literalize
-    // the output if needed (as long as it's not a null)
-    //
-    // !!! Note: A more optimized method might push the REB_QUOTED that we
-    // got in, and then check to see if it could reuse the singular series
-    // if it had one...though it remains to be seen how much people are using
-    // super-deep escaping, and series won't be usually necessary.
-    //
-    if (depth != 0)
-        Init_Integer(DS_PUSH(), depth);
-
-    return r;
+    fail ("QUOTED! only supported in generics via <dequote> / <requote>");
 }
 
 

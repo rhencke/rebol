@@ -181,8 +181,8 @@ REB_R TO_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //      return: "VALUE converted to TYPE, null if type or value are blank"
 //          [<opt> any-value!]
-//      type [<blank> datatype!]
-//      value [<blank> any-value!]
+//      'type [<blank> quoted! word! path! datatype!]
+//      value [<blank> <dequote> any-value!]
 //  ]
 //
 REBNATIVE(to)
@@ -190,7 +190,32 @@ REBNATIVE(to)
     INCLUDE_PARAMS_OF_TO;
 
     REBVAL *v = ARG(value);
-    enum Reb_Kind new_kind = VAL_TYPE_KIND(ARG(type));
+    REBVAL *type = ARG(type);
+
+    REBCNT new_quotes = VAL_NUM_QUOTES(type);
+    Dequotify(type);
+
+    REBSTR *opt_name;
+    if (Get_If_Word_Or_Path_Throws(
+        D_OUT,
+        &opt_name,
+        type,
+        SPECIFIED,
+        true // push refinements, we'll just drop on error as we don't run
+    )){
+        return R_THROWN;
+    }
+    new_quotes += VAL_NUM_QUOTES(D_OUT);
+    Dequotify(D_OUT);
+
+    if (not IS_DATATYPE(D_OUT))
+        fail (Error_Invalid(type));
+
+    enum Reb_Kind new_kind = VAL_TYPE_KIND(D_OUT);
+    enum Reb_Kind old_kind = VAL_TYPE(v);
+
+    if (new_kind == old_kind)
+        return rebRun("copy", v, rebEND);
 
     TO_HOOK hook = To_Hooks[new_kind];
 
@@ -203,7 +228,7 @@ REBNATIVE(to)
         assert(!"TO conversion did not return intended type");
         fail (Error_Invalid_Type(VAL_TYPE(r)));
     }
-    return r; // must be either D_OUT or an API handle
+    return Quotify(r, new_quotes); // must be either D_OUT or an API handle
 }
 
 
