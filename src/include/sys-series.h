@@ -607,10 +607,14 @@ inline static REBCNT FIND_POOL(size_t size) {
         return SYSTEM_POOL;
   #endif
 
-    if (size > 4 * MEM_BIG_SIZE)
-        return SYSTEM_POOL;
+    // Using a simple > or < check here triggers Spectre Mitigation warnings
+    // in MSVC, while the division does not.  :-/  Hopefully the compiler is
+    // smart enough to figure out how to do this efficiently in any case.
 
-    return PG_Pool_Map[size]; // ((4 * MEM_BIG_SIZE) + 1) entries
+    if (size / (4 * MEM_BIG_SIZE + 1) == 0)
+        return PG_Pool_Map[size]; // ((4 * MEM_BIG_SIZE) + 1) entries
+
+    return SYSTEM_POOL;
 }
 
 

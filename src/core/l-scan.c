@@ -516,7 +516,7 @@ const REBYTE *Scan_Item_Push_Mold(
 
     Push_Mold(mo);
 
-    while (bp < ep and *bp != opt_term) {
+    while (bp != ep and *bp != opt_term) {
         REBUNI c = *bp;
 
         if (c == '\0')

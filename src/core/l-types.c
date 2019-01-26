@@ -847,7 +847,7 @@ const REBYTE *Scan_Date(
         if (size < 3)
             return_NULL;
 
-        for (num = 0; num < 12; num++) {
+        for (num = 0; num != 12; ++num) {
             if (!Compare_Bytes(cb_cast(Month_Names[num]), cp, size, true))
                 break;
         }

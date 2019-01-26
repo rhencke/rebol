@@ -377,7 +377,7 @@ const REBVAL *Find_Error_For_Sym(enum Reb_Symbol id_sym)
         REBCTX *category = VAL_CONTEXT(CTX_VAR(categories, ncat));
 
         REBCNT n = SELFISH(1);
-        for (; n <= CTX_LEN(category); ++n) {
+        for (; n != CTX_LEN(category) + 1; ++n) {
             if (SAME_STR(CTX_KEY_SPELLING(category, n), id_canon)) {
                 REBVAL *message = CTX_VAR(category, n);
                 assert(IS_BLOCK(message) or IS_TEXT(message));

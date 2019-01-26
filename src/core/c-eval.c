@@ -423,7 +423,7 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 // noticing when to defer enfix:
 //
 //     foo: func [...] [
-//          return quote 1 then ["this needs to be returned"]
+//          return lit 1 then ["this needs to be returned"]
 //     ]
 //
 // If the first time the THEN was seen was not after the 1, but when the
@@ -1423,7 +1423,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             //
             // We don't get here to clear the flag, so it's `(1 + two) * 3`
             //
-            // But if it's an eenfixEnfix arg gathering could still be like:
+            // But if it's enfix, arg gathering could still be like:
             //
             //      1 + <we-are-here> * 3
             //
@@ -1502,7 +1502,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                 // Have to account for enfix deferrals in cases like:
                 //
-                //     return quote 1 then (x => [x + 1])
+                //     return lit 1 then (x => [x + 1])
                 //
                 Lookahead_To_Sync_Enfix_Defer_Flag(f);
 

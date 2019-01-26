@@ -652,7 +652,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
         REBVAL *src = DS_AT(dsp_orig + 1) + 3;
 
-        for (; src <= DS_TOP; src += 3) {
+        // Weird due to Spectre/MSVC: https://stackoverflow.com/q/50399940
+        //
+        for (; src != DS_TOP + 1; src += 3) {
             if (not Try_Add_Binder_Index(&binder, VAL_PARAM_CANON(src), 1020))
                 duplicate = VAL_PARAM_SPELLING(src);
 
@@ -684,7 +686,10 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // Must remove binder indexes for all words, even if about to fail
         //
         src = DS_AT(dsp_orig + 1) + 3;
-        for (; src <= DS_TOP; src += 3, ++dest) {
+
+        // Weird due to Spectre/MSVC: https://stackoverflow.com/q/50399940
+        //
+        for (; src != DS_TOP + 1; src += 3, ++dest) {
             if (
                 Remove_Binder_Index_Else_0(&binder, VAL_PARAM_CANON(src))
                 == 0

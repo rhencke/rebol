@@ -375,8 +375,8 @@ static const REBVAL *Unloaded_Dispatcher(REBFRM *f)
 REBNATIVE(unload_extension)
 {
     UNUSED(frame_);
-    UNUSED(Unloaded_Dispatcher);
-    UNUSED(cleanup_module_handler);
+    UNUSED(&Unloaded_Dispatcher);
+    UNUSED(&cleanup_module_handler);
 
     fail ("Unloading extensions is currently not supported");
 
