@@ -863,12 +863,14 @@ REBNATIVE(deline)
     REBCHR(const *) src = dest;
 
     REBCNT n;
-    for (n = 0; n < len_at; ++n) {
+    for (n = 0; n < len_at;) {
         REBUNI c;
         src = NEXT_CHR(&c, src);
+        ++n;
         if (c == CR) {
             dest = WRITE_CHR(dest, LF);
             src = NEXT_CHR(&c, src);
+            ++n; // will see NUL terminator before loop check, so is safe
             if (c == LF) {
                 --len_head; // don't write carraige return, note loss of char
                 continue;
