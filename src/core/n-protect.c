@@ -80,8 +80,9 @@ REBNATIVE(const_q) {
 //
 //  {Return value whose access allows mutation to its argument (if unlocked)}
 //
-//      return: [<opt> any-value!]
-//      value "Argument to change access to (errors if locked)"
+//      return: "Same as input -- no errors are given if locked or immediate"
+//          [<opt> any-value!]
+//      value "Argument to change access to (if such access can be granted)"
 //          [<opt> any-value!] ;-- INTEGER!, etc. someday
 //  ]
 //
@@ -94,8 +95,13 @@ REBNATIVE(mutable)
     if (IS_NULLED(v))
         return nullptr; // make it easier to pass through values
 
-    CLEAR_CELL_FLAG(v, CONST); // don't trip const test for readonly
-    FAIL_IF_READ_ONLY_VALUE(v);
+    // !!! The reason no error is given here is to make it easier to write
+    // generic code which grants mutable access on things you might want
+    // such access on, but passes through things like INTEGER!/etc.  If it
+    // errored here, that would make the calling code more complex.  Better
+    // to just error when they realize the thing is locked.
+
+    CLEAR_CELL_FLAG(v, CONST);
     SET_CELL_FLAG(v, EXPLICITLY_MUTABLE);
 
     RETURN (v);

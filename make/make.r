@@ -1089,7 +1089,7 @@ libr3-core: make rebmake/object-library-class [
     definitions: join ["REB_API"] app-config/definitions
 
     ; might be modified by the generator, thus copying
-    includes: append-of app-config/includes %prep/core
+    includes: join app-config/includes %prep/core
 
     ; might be modified by the generator, thus copying
     cflags: copy app-config/cflags
@@ -1105,7 +1105,7 @@ libr3-core: make rebmake/object-library-class [
 ]
 
 os-file-block: get bind
-    (to word! append-of "os-" system-config/os-base)
+    (to word! join "os-" system-config/os-base)
     file-base
 
 remove-each plus os-file-block [plus = '+] ;remove the '+ sign, we don't care here
@@ -1115,7 +1115,7 @@ libr3-os: make libr3-core [
     name: 'libr3-os
 
     definitions: join ["REB_CORE"] app-config/definitions
-    includes: append-of app-config/includes %prep/os ; generator may modify
+    includes: join app-config/includes %prep/os ; generator may modify
     cflags: copy app-config/cflags ; generator may modify
 
     depends: map-each s append copy file-base/os os-file-block [
@@ -1465,8 +1465,11 @@ prep: make rebmake/entry-class [
                 output: %prep/include/sys-core.i
                 source: src-dir/include/sys-core.h
                 definitions: join app-config/definitions [ {DEBUG_STDIO_OK} ]
-                includes: append-of app-config/includes reduce [tcc-dir tcc-dir/include]
-                cflags: append-of append-of [ {-dD} {-nostdlib} ] opt cfg-ffi/cflags opt cfg-tcc/cpp-flags
+                includes: join app-config/includes [tcc-dir tcc-dir/include]
+                cflags: compose [
+                    {-dD} {-nostdlib}
+                    (opt cfg-ffi/cflags) (opt cfg-tcc/cpp-flags)
+                ]
             ]
             keep sys-core-i/command/E
             keep [{$(REBOL)} tools-dir/make-embedded-header.r]
@@ -1625,7 +1628,7 @@ for-each ext dynamic-extensions [
             ]
         ]
 
-        ldflags: append-of either empty? ext-ldflags [[]][ext-ldflags] [<gnu:-Wl,--as-needed>]
+        ldflags: compose [(ext-ldflags) <gnu:-Wl,--as-needed>]
     ]
 
     add-project-flags/I/D/c/O/g ext-proj

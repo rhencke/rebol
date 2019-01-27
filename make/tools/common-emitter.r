@@ -105,6 +105,8 @@ cscape: function [
 
             code: load/all expr
             if with [
+                if lit-word? context [context: to word! context]
+
                 context: compose [(context)]  ; convert to block
                 for-each item context [
                     bind code item
