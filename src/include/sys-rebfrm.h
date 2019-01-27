@@ -375,9 +375,9 @@ STATIC_ASSERT(EVAL_FLAG_CONST == CELL_FLAG_CONST);
     FLAG_LEFT_BIT(27)
 
 
-//=//// EVAL_FLAG_GET_NEXT_ARG_FROM_OUT ///////////////////////////////////=//
+//=//// EVAL_FLAG_NEXT_ARG_FROM_OUT ///////////////////////////////////=//
 //
-#define EVAL_FLAG_GET_NEXT_ARG_FROM_OUT \
+#define EVAL_FLAG_NEXT_ARG_FROM_OUT \
     FLAG_LEFT_BIT(28)
 
 
@@ -600,39 +600,38 @@ struct Reb_Frame_Feed {
 //
 struct Reb_Frame {
     //
-    // `cell`
+    // Sometimes the frame can be advanced without keeping track of the
+    // last cell.  And sometimes the last cell lives in an array that is
+    // being held onto and read only, so its pointer is guaranteed to still
+    // be valid after a fetch.  But there are cases where values are being
+    // read from transient sources that disappear as they go...if that is
+    // the case, and lookback is needed, it is written into this cell.
     //
+    RELVAL lookback;
+
     // The frame's cell is used for different purposes.  PARSE uses it as a
     // scratch storage space.  Path evaluation uses it as where the calculated
     // "picker" goes (so if `foo/(1 + 2)`, the 3 would be stored there to be
     // used to pick the next value in the chain).
     //
-    // Eval_Core_Throws() uses it to implement the SHOVE() operation, which
-    // needs a calculated ACTION! value (including binding) to have a stable
-    // location which f->gotten can point to during arbitrary left-hand-side
-    // evaluations.
+    // !!! Add notes here explaining how Fetch_Next_In_Frame uses the cell
+    // during C va_list() processing, and how that makes it tricky to be able
+    // to make use of the cell space in the evaluator.
     //
     RELVAL cell;
 
-    // `flags`
-    //
     // These are EVAL_FLAG_XXX or'd together--see their documentation above.
-    // A Reb_Header is used so that it can implicitly terminate `shove`,
-    // which isn't necessarily that useful...but putting it after `cell`
-    // would throw off the alignment for shove.
+    // A Reb_Header is used so that it can implicitly terminate `cell`, if
+    // that comes in useful (e.g. there's an apparent END after cell)
     //
     union Reb_Header flags; // See Endlike_Header()
 
-    // `prior`
-    //
     // The prior call frame.  This never needs to be checked against nullptr,
     // because the bottom of the stack is FS_BOTTOM which is allocated at
     // startup and never used to run code.
     //
     struct Reb_Frame *prior;
 
-    // `dsp_orig`
-    //
     // The data stack pointer captured on entry to the evaluation.  It is used
     // by debug checks to make sure the data stack stays balanced after each
     // sub-operation.  It's also used to measure how many refinements have
@@ -640,8 +639,6 @@ struct Reb_Frame {
     //
     uintptr_t dsp_orig; // type is REBDSP, but enforce alignment here
 
-    // `out`
-    //
     // This is where to write the result of the evaluation.  It should not be
     // in "movable" memory, hence not in a series data array.  Often it is
     // used as an intermediate free location to do calculations en route to
@@ -649,8 +646,6 @@ struct Reb_Frame {
     //
     REBVAL *out;
 
-    // `feed.array`, `feed.vaptr`, etc.
-    //
     // This is the source from which new values will be fetched.  In addition
     // to working with an array, it is also possible to feed the evaluator
     // arbitrary REBVAL*s through a variable argument list on the C stack.
@@ -663,8 +658,6 @@ struct Reb_Frame {
     //
     struct Reb_Frame_Feed *feed;
 
-    // `specifier`
-    //
     // This is used for relatively bound words to be looked up to become
     // specific.  Typically the specifier is extracted from the payload of the
     // ANY-ARRAY! value that provided the source.array for the call to DO.
@@ -673,8 +666,6 @@ struct Reb_Frame {
     //
     REBSPC *specifier;
 
-    // `value`
-    //
     // This is the "prefetched" value being processed.  Entry points to the
     // evaluator must load a first value pointer into it...which for any
     // successive evaluations will be updated via Fetch_Next_In_Frame()--which
@@ -696,15 +687,11 @@ struct Reb_Frame {
     //
     const RELVAL *value;
 
-    // `expr_index`
-    //
     // The error reporting machinery doesn't want where `index` is right now,
     // but where it was at the beginning of a single EVALUATE step.
     //
     uintptr_t expr_index;
 
-    // `gotten`
-    //
     // There is a lookahead step to see if the next item in an array is a
     // WORD!.  If so it is checked to see if that word is a "lookback word"
     // (e.g. one that refers to an ACTION! value set with SET/ENFIX).
@@ -719,8 +706,6 @@ struct Reb_Frame {
     //
     const REBVAL *gotten;
 
-    // `original`
-    //
     // If a function call is currently in effect, FRM_PHASE() is how you get
     // at the current function being run.  This is the action that started
     // the process.
@@ -733,8 +718,6 @@ struct Reb_Frame {
     //
     REBACT *original;
 
-    // `opt_label`
-    //
     // Functions don't have "names", though they can be assigned to words.
     // However, not all function invocations are through words or paths, so
     // the label may not be known.  It is NULL to indicate anonymity.
@@ -744,8 +727,6 @@ struct Reb_Frame {
     //
     REBSTR *opt_label;
 
-    // `varlist`
-    //
     // The varlist is where arguments for the frame are kept.  Though it is
     // ultimately usable as an ordinary CTX_VARLIST() for a FRAME! value, it
     // is different because it is built progressively, with random bits in
@@ -760,8 +741,6 @@ struct Reb_Frame {
     REBARR *varlist;
     REBVAL *rootvar; // cache of CTX_ARCHETYPE(varlist) if varlist is not null
 
-    // `param`
-    //
     // We use the convention that "param" refers to the TYPESET! (plus symbol)
     // from the spec of the function--a.k.a. the "formal argument".  This
     // pointer is moved in step with `arg` during argument fulfillment.
@@ -775,9 +754,7 @@ struct Reb_Frame {
     //
     const RELVAL *param;
 
-    // `arg`
-    //
-    // "arg" is the "actual argument"...which holds the pointer to the
+    // `arg is the "actual argument"...which holds the pointer to the
     // REBVAL slot in the `arglist` for that corresponding `param`.  These
     // are moved in sync.  This movement can be done for typechecking or
     // fulfillment, see In_Typecheck_Mode()
@@ -789,13 +766,14 @@ struct Reb_Frame {
     //
     REBVAL *arg;
 
-    // `special`
+    // `special` may be the same as `param` (if fulfilling an unspecialized
+    // function) or it may be the same as `arg` (if doing a typecheck pass).
+    // Otherwise it points into values of a specialization or APPLY, where
+    // non-null values are being written vs. acquiring callsite parameters.
     //
-    // The specialized argument parallels arg if non-NULL, and contains the
-    // value to substitute in the case of a specialized call.  It is NULL
-    // if no specialization in effect, else it parallels arg (so it may be
-    // incremented on a common code path) if arguments are just being checked
-    // vs. fulfilled.
+    // It is assumed that special, param, and arg may all be incremented
+    // together at the same time...reducing conditionality (this is why it
+    // is `param` and not nullptr when processing unspecialized).
     //
     // However, in PATH! frames, `special` is non-NULL if this is a SET-PATH!,
     // and it is the value to ultimately set the path to.  The set should only
@@ -809,12 +787,11 @@ struct Reb_Frame {
     //
     const REBVAL *special;
 
-    // `refine`
-    //
-    // During parameter fulfillment, this might point to the `arg` slot
-    // of a refinement which is having its arguments processed.  Or it may
-    // point to another *read-only* value whose content signals information
-    // about how arguments should be handled.
+    // `refine` has many potential states during parameter fulfillment, that
+    // explain what the state of refinement processing is.  One state is that
+    // it might point to the `arg` slot of a refinement to be processed.  Or
+    // it may point to another *read-only* value whose content signals
+    // information about how arguments should be handled.
     //
     // See comments at the points of definition for:
     //
@@ -850,8 +827,6 @@ struct Reb_Frame {
 
    #if defined(DEBUG_COUNT_TICKS)
     //
-    // `tick` [DEBUG]
-    //
     // The expression evaluation "tick" where the Reb_Frame is starting its
     // processing.  This is helpful for setting breakpoints on certain ticks
     // in reproducible situations.
@@ -861,8 +836,6 @@ struct Reb_Frame {
 
   #if defined(DEBUG_FRAME_LABELS)
     //
-    // `label` [DEBUG]
-    //
     // Knowing the label symbol is not as handy as knowing the actual string
     // of the function this call represents (if any).  It is in UTF8 format,
     // and cast to `char*` to help debuggers that have trouble with REBYTE.
@@ -871,8 +844,6 @@ struct Reb_Frame {
   #endif
 
   #if !defined(NDEBUG)
-    //
-    // `file` [DEBUG]
     //
     // An emerging feature in the system is the ability to connect user-seen
     // series to a file and line number associated with their creation,
@@ -885,8 +856,6 @@ struct Reb_Frame {
   #endif
 
   #if defined(DEBUG_BALANCE_STATE)
-    //
-    // `state` [DEBUG]
     //
     // Debug reuses PUSH_TRAP's snapshotting to check for leaks at each stack
     // level.  It can also be made to use a more aggresive leak check at every
@@ -932,6 +901,8 @@ struct Reb_Frame {
     REBFRM name##struct; \
     name##struct.feed = (feed_ptr); \
     REBFRM * const name = &name##struct; \
+    Prep_Stack_Cell(&name->lookback); \
+    Init_Unreadable_Blank(&name->lookback); \
     Prep_Stack_Cell(&name->cell); \
     Init_Unreadable_Blank(&name->cell); \
     name->dsp_orig = DSP;

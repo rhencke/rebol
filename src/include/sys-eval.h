@@ -315,7 +315,7 @@ inline static void Set_Frame_Detected_Fetch(
         // free it.  It has to be kept alive -and- kept safe from GC.  e.g.
         //
         //     REBVAL *word = rebRun("make word! {hello}");
-        //     rebRun(rebR(word), "-> (recycle :quote)");
+        //     rebRun(rebR(word), "<- (recycle :quote)");
         //
         // The `current` cell the evaluator is looking at is the WORD!, then
         // f->value receives the "shove" `<-`.  The shove runs the code in
@@ -323,12 +323,11 @@ inline static void Set_Frame_Detected_Fetch(
         // the Free_Value() done by rebR(), so it's a candidate for recycle,
         // which would mean shoving a bad `current` as the arg to `:quote`
         //
-        // The FRM_CELL(f) is used as the GC-safe location proxied to.
+        // The f->lookback cell is used as the GC-safe location proxied to.
         //
-        Move_Value(FRM_CELL(f), KNOWN(f->value));
+        *opt_lookback = Move_Value(&f->lookback, KNOWN(f->value));
         if (GET_CELL_FLAG(f->value, EVAL_FLIP))
-            SET_CELL_FLAG(FRM_CELL(f), EVAL_FLIP);
-        *opt_lookback = FRM_CELL(f);
+            SET_CELL_FLAG(&f->lookback, EVAL_FLIP);
     }
 
     if (GET_SERIES_FLAG(a, SINGULAR_API_INSTRUCTION))

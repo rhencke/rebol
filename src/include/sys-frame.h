@@ -248,6 +248,7 @@ inline static int FRM_LINE(REBFRM *f) {
 #define D_OUT       FRM_OUT(frame_)         // GC-safe slot for output value
 #define D_ARGC      FRM_NUM_ARGS(frame_)    // count of args+refinements/args
 #define D_ARG(n)    FRM_ARG(frame_, (n))    // pass 1 for first arg
+#define D_CELL      FRM_CELL(frame_)        // scratch GC-safe cell
 
 #define RETURN(v) \
     return Move_Value(D_OUT, (v));

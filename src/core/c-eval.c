@@ -381,7 +381,7 @@ inline static void Finalize_Variadic_Arg_Core(REBFRM *f, bool enfix) {
         (f->fake_lookback != nullptr)
 #else
     #define CURRENT_CHANGES_IF_FETCH_NEXT \
-        (current == FRM_CELL(f))
+        (current == &f->lookback)
 #endif
 
 
@@ -744,21 +744,18 @@ bool Eval_Core_Throws(REBFRM * const f)
         // what was current into f->out so it can be consumed as the first
         // parameter of whatever that was.
 
-        DECLARE_LOCAL (swap); // current *might* be cell (or might not)
-        Move_Value(swap, f->out);
+        Move_Value(&f->lookback, f->out);
         Derelativize(f->out, current, f->specifier);
-        Move_Value(cell, swap);
       #if !defined(NDEBUG)
         SET_CELL_FLAG(f->out, UNEVALUATED);
       #endif
 
-        SET_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH);
-        SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
-
-        // leave f->value at the END
-
-        current = cell;
+        // leave f->value at END
+        current = &f->lookback;
         current_gotten = nullptr;
+
+        SET_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH); // for better error message
+        SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT); // literal right op is arg
 
         goto give_up_backward_quote_priority; // run PATH!/WORD! normal
     }
@@ -769,7 +766,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     Begin_Action(f, VAL_WORD_SPELLING(current));
 
     SET_EVAL_FLAG(f, RUNNING_ENFIX);
-    SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
+    SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
 
     CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
     goto process_action;
@@ -1207,8 +1204,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     //=//// HANDLE IF NEXT ARG IS IN OUT SLOT (e.g. ENFIX, CHAIN) /////////=//
 
-            if (GET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT)) {
-                CLEAR_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
+            if (GET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT)) {
+                CLEAR_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
 
                 if (GET_CELL_FLAG(f->out, OUT_MARKED_STALE)) {
                     //
@@ -1847,8 +1844,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             // happen, trying it out of curiosity for now.
             //
             Begin_Action(f, opt_label);
-            assert(NOT_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT));
-            SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
+            assert(NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT));
+            SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
 
             goto process_action;
         }
@@ -1921,7 +1918,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
             if (GET_CELL_FLAG(current_gotten, ENFIXED)) {
                 SET_EVAL_FLAG(f, RUNNING_ENFIX); // Push_Action() disallows
-                SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
+                SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
             }
             goto process_action;
         }
@@ -2079,9 +2076,11 @@ bool Eval_Core_Throws(REBFRM * const f)
         if (VAL_LEN_AT(current) == 0)
             fail ("Empty path must have left argument for 'split' behavior");
 
+        REBVAL *where = GET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT) ? cell : f->out;
+
         REBSTR *opt_label;
         if (Eval_Path_Throws_Core(
-            f->out,
+            where,
             &opt_label, // requesting says we run functions (not GET-PATH!)
             VAL_ARRAY(current),
             VAL_INDEX(current),
@@ -2089,16 +2088,18 @@ bool Eval_Core_Throws(REBFRM * const f)
             nullptr, // `setval`: null means don't treat as SET-PATH!
             EVAL_FLAG_PUSH_PATH_REFINEMENTS
         )){
+            if (where != f->out)
+                Move_Value(f->out, where);
             goto return_thrown;
         }
 
-        if (IS_NULLED_OR_VOID(f->out)) { // need `:x/y` if `y` is unset
-            if (IS_NULLED(f->out))
+        if (IS_NULLED_OR_VOID(where)) { // need `:x/y` if `y` is unset
+            if (IS_NULLED(where))
                 fail (Error_No_Value_Core(current, f->specifier));
             fail (Error_Need_Non_Void_Core(current, f->specifier));
         }
 
-        if (IS_ACTION(f->out)) {
+        if (IS_ACTION(where)) {
             //
             // PATH! dispatch is costly and can error in more ways than WORD!:
             //
@@ -2107,26 +2108,32 @@ bool Eval_Core_Throws(REBFRM * const f)
             //
             // Plus with GROUP!s in a path, their evaluations can't be undone.
             //
-            if (GET_CELL_FLAG(f->out, ENFIXED))
+            if (GET_CELL_FLAG(where, ENFIXED))
                 fail ("Use `<-` to shove left enfix operands into PATH!s");
 
             // !!! Review if invisibles can be supported without ->
             //
-            if (GET_ACTION_FLAG(VAL_ACTION(f->out), IS_INVISIBLE))
+            if (GET_ACTION_FLAG(VAL_ACTION(where), IS_INVISIBLE))
                 fail ("Use `<-` with invisibles fetched from PATH!");
 
-            Push_Action(f, VAL_ACTION(f->out), VAL_BINDING(f->out));
+            Push_Action(f, VAL_ACTION(where), VAL_BINDING(where));
             Begin_Action(f, opt_label);
 
-            Expire_Out_Cell_Unless_Invisible(f);
+            if (where == f->out)
+                Expire_Out_Cell_Unless_Invisible(f);
+
             goto process_action;
         }
 
-        // !!! Usually not true but seems true for path evaluation in varargs,
-        // e.g. while running `-- "a" "a"`.  Review.
-        //
-        CLEAR_CELL_FLAG(f->out, UNEVALUATED);
-        /* assert(NOT_CELL_FLAG(f->out, CELL_FLAG_UNEVALUATED)); */
+        if (where != f->out)
+            Move_Value(f->out, where);
+        else {
+            // !!! Usually not true but seems true for path evaluation in
+            // varargs, e.g. while running `-- "a" "a"`.  Review.
+            //
+            CLEAR_CELL_FLAG(f->out, UNEVALUATED);
+            /* assert(NOT_CELL_FLAG(f->out, CELL_FLAG_UNEVALUATED)); */
+        }
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2174,7 +2181,11 @@ bool Eval_Core_Throws(REBFRM * const f)
             goto return_thrown;
         }
 
-        assert(NOT_CELL_FLAG(f->out, UNEVALUATED));
+        // !!! May have passed something into Eval_Path_Throws_Core() with
+        // the unevaluated flag, so it could tell `x/y: 2` from `x/y: 1 + 1`.
+        // But now that the SET-PATH! ran, consider the result "evaluated".
+        //
+        CLEAR_CELL_FLAG(f->out, UNEVALUATED);
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2293,8 +2304,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             Begin_Action(f, nullptr); // no label
 
             kind.byte = REB_ACTION;
-            assert(NOT_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT));
-            SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
+            assert(NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT));
+            SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
 
             goto process_action;
         }
@@ -2589,7 +2600,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         Begin_Action(f, opt_label);
 
         SET_EVAL_FLAG(f, RUNNING_ENFIX);
-        SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
+        SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
 
         Fetch_Next_In_Frame(nullptr, f); // advances f->value
         goto process_action;
@@ -2807,7 +2818,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     );
 
     SET_EVAL_FLAG(f, RUNNING_ENFIX);
-    SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
+    SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
 
     Fetch_Next_In_Frame(nullptr, f); // advances f->value
     goto process_action;

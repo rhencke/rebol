@@ -97,8 +97,10 @@ void Startup_Frame_Stack(void)
     TRASH_POINTER_IF_DEBUG(TG_Frame_Source_End.pending);
 
     REBFRM *f = ALLOC(REBFRM); // needs dynamic allocation
-    Prep_Stack_Cell(FRM_CELL(f));
-    Init_Unreadable_Blank(FRM_CELL(f));
+    Prep_Stack_Cell(&f->lookback);
+    Init_Unreadable_Blank(&f->lookback);
+    Prep_Stack_Cell(&f->cell);
+    Init_Unreadable_Blank(&f->cell);
 
     f->out = m_cast(REBVAL*, END_NODE); // should not be written
     f->feed = &TG_Frame_Source_End;

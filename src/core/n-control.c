@@ -789,45 +789,39 @@ REBNATIVE(case)
 {
     INCLUDE_PARAMS_OF_CASE;
 
-    REBVAL *block = ARG(cases);
-
     DECLARE_FRAME (f);
-    Push_Frame(f, block); // array GC safe now, can re-use `block` cell
+    Push_Frame(f, ARG(cases));
+
+    REBVAL *safe = ARG(cases); // frame has array now, can re-use GC-safe cell 
 
     Init_Nulled(D_OUT); // default return result
-
-    DECLARE_LOCAL (cell); // unsafe to use ARG() slots as frame's f->out
-    SET_END(cell);
-    PUSH_GC_GUARD(cell);
 
     while (NOT_END(f->value)) {
 
         // Perform 1 EVALUATE's worth of evaluation on a "condition" to test
         // Will consume any pending "invisibles" (COMMENT, ELIDE, DUMP...)
 
-        if (Eval_Step_Throws(SET_END(cell), f)) {
-            DROP_GC_GUARD(cell);
-            Move_Value(D_OUT, cell);
+        if (Eval_Step_Throws(SET_END(D_CELL), f)) {
+            Move_Value(D_OUT, D_CELL);
             Abort_Frame(f);
             return R_THROWN;
         }
 
-        if (IS_END(cell)) {
+        if (IS_END(D_CELL)) {
             assert(IS_END(f->value));
             break;
         }
 
-        // The last condition will "fall out" if there is no branch/choice:
+        // The last condition will "fall out" if there is no branch:
         //
         //     case [1 > 2 [...] 3 > 4 [...] 10 + 20] = 30
         //
         if (IS_END(f->value)) {
-            DROP_GC_GUARD(cell);
             Drop_Frame(f);
-            return Move_Value(D_OUT, cell);
+            return Move_Value(D_OUT, D_CELL);
         }
 
-        if (IS_CONDITIONAL_FALSE(cell)) { // not a matching condition
+        if (IS_CONDITIONAL_FALSE(D_CELL)) { // not a matching condition
             //
             // Maintain symmetry with IF's typechecking of non-taken branches:
             //
@@ -840,7 +834,7 @@ REBNATIVE(case)
                 or IS_QUOTED(f->value)
                 or IS_GROUP(f->value) // don't evaluate this case...
             )){
-                fail (Error_Invalid_Core(cell, f->specifier));
+                fail (Error_Invalid_Core(D_CELL, f->specifier));
             }
 
             Fetch_Next_In_Frame(nullptr, f); // skip next, whatever it is
@@ -859,7 +853,6 @@ REBNATIVE(case)
                 f->specifier
             )){
                 Abort_Frame(f);
-                DROP_GC_GUARD(cell);
                 return R_THROWN;
             }
         }
@@ -872,18 +865,16 @@ REBNATIVE(case)
             Unquotify(D_OUT, 1);
         }
         else if (IS_BLOCK(D_OUT)) {
-            Move_Value(block, D_OUT); // can't evaluate into ARG(block)
-            if (Do_Any_Array_At_Throws(D_OUT, block)) {
+            Move_Value(safe, D_OUT); // can't evaluate into ARG(cases)
+            if (Do_Any_Array_At_Throws(D_OUT, safe)) {
                 Abort_Frame(f);
-                DROP_GC_GUARD(cell);
                 return R_THROWN;
             }
         }
         else if (IS_ACTION(D_OUT)) {
-            Move_Value(block, D_OUT); // can't evaluate into ARG(block)
-            if (Do_Branch_With_Throws(D_OUT, block, cell)) {
+            Move_Value(safe, D_OUT); // can't evaluate into ARG(cases)
+            if (Do_Branch_With_Throws(D_OUT, safe, D_CELL)) {
                 Abort_Frame(f);
-                DROP_GC_GUARD(cell);
                 return R_THROWN;
             }
         } else
@@ -892,13 +883,11 @@ REBNATIVE(case)
         Voidify_If_Nulled(D_OUT); // null is reserved for no branch taken
 
         if (not REF(all)) {
-            DROP_GC_GUARD(cell);
             Abort_Frame(f);
             return D_OUT;
         }
     }
 
-    DROP_GC_GUARD(cell);
     Drop_Frame(f);
     return D_OUT;
 }

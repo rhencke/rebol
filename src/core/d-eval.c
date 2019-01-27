@@ -253,7 +253,7 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
     }
 
     assert(f->refine == ORDINARY_ARG);
-    if (NOT_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT)) {
+    if (NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT)) {
         if (NOT_CELL_FLAG(f->out, OUT_MARKED_STALE))
             assert(GET_ACTION_FLAG(phase, IS_INVISIBLE));
     }

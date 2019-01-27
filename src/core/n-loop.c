@@ -1661,34 +1661,24 @@ REBNATIVE(while)
 {
     INCLUDE_PARAMS_OF_WHILE;
 
-    DECLARE_LOCAL (cell); // unsafe to use ARG() slots as frame output cells
-    SET_END(cell);
-    PUSH_GC_GUARD(cell);
-
     Init_Blank(D_OUT); // result if body never runs
 
     do {
-        if (Do_Branch_Throws(cell, ARG(condition))) {
-            Move_Value(D_OUT, cell);
-            DROP_GC_GUARD(cell);
+        if (Do_Branch_Throws(D_CELL, ARG(condition))) {
+            Move_Value(D_OUT, D_CELL);
             return R_THROWN; // don't see BREAK/CONTINUE in the *condition*
         }
 
-        if (IS_FALSEY(cell)) { // will error if void (neither true nor false)
-            DROP_GC_GUARD(cell);
+        if (IS_FALSEY(D_CELL)) // will error if void (neither true nor false)
             return D_OUT; // condition was false, so return last body result
-        }
 
-        if (Do_Branch_With_Throws(D_OUT, ARG(body), cell)) {
+        if (Do_Branch_With_Throws(D_OUT, ARG(body), D_CELL)) {
             bool broke;
-            if (not Catching_Break_Or_Continue(D_OUT, &broke)) {
-                DROP_GC_GUARD(cell);
+            if (not Catching_Break_Or_Continue(D_OUT, &broke))
                 return R_THROWN;
-            }
-            if (broke) {
-                DROP_GC_GUARD(cell);
+
+            if (broke)
                 return Init_Nulled(D_OUT);
-            }
         }
 
         Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->never ran

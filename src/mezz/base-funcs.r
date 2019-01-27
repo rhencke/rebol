@@ -686,7 +686,7 @@ right-bar: func [
         {Any number of expression.}
     <local> right
 ][
-    do <- evaluate/set expressions 'right else [return]
+    do evaluate/set expressions 'right else [return]
     :right
 ]
 

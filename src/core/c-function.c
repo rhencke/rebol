@@ -1559,13 +1559,9 @@ REB_R Returner_Dispatcher(REBFRM *f)
 //
 REB_R Elider_Dispatcher(REBFRM *f)
 {
-    // !!! It would be nice to use the frame's spare "cell" for the thrownaway
-    // result, but Fetch_Next code expects to use the cell.
-    //
-    DECLARE_LOCAL (dummy);
-    SET_END(dummy);
+    REBVAL * const discarded = FRM_CELL(f); // cell available during dispatch
 
-    if (Interpreted_Dispatch_Throws(dummy, f)) {
+    if (Interpreted_Dispatch_Throws(discarded, f)) {
         //
         // !!! In the implementation of invisibles, it seems reasonable to
         // want to be able to RETURN to its own frame.  But in that case, we
@@ -1574,21 +1570,21 @@ REB_R Elider_Dispatcher(REBFRM *f)
         // the work of catching here.  (Note this does not handle REDO too,
         // and the hypothetical better idea should do so.)
         //
-        const REBVAL *label = VAL_THROWN_LABEL(dummy);
+        const REBVAL *label = VAL_THROWN_LABEL(discarded);
         if (IS_ACTION(label)) {
             if (
                 VAL_ACTION(label) == NAT_ACTION(unwind)
                 and VAL_BINDING(label) == NOD(f->varlist)
             ){
-                CATCH_THROWN(dummy, dummy);
-                if (IS_NULLED(dummy)) // !!! catch process loses "endish" flag
+                CATCH_THROWN(discarded, discarded);
+                if (IS_NULLED(discarded)) // !!! catch loses "endish" flag
                     return R_INVISIBLE;
 
                 fail ("Only 0-arity RETURN should be used in invisibles.");
             }
         }
 
-        Move_Value(f->out, dummy);
+        Move_Value(f->out, discarded);
         return R_THROWN;
     }
 
@@ -1656,21 +1652,18 @@ REB_R Adapter_Dispatcher(REBFRM *f)
     // The first thing to do is run the prelude code, which may throw.  If it
     // does throw--including a RETURN--that means the adapted function will
     // not be run.
-    //
-    // We can't do the prelude into f->out in the case that this is an
-    // adaptation of an invisible (e.g. DUMP).  Would be nice to use the frame
-    // spare cell but can't as Fetch_Next() uses it.
 
-    DECLARE_LOCAL (dummy);
+    REBVAL * const discarded = FRM_CELL(f);
+
     bool mutability = NOT_CELL_FLAG(prelude, CONST);
     if (Do_At_Mutability_Throws(
-        dummy,
+        discarded,
         VAL_ARRAY(prelude),
         VAL_INDEX(prelude),
         SPC(f->varlist),
         mutability
     )){
-        Move_Value(f->out, dummy);
+        Move_Value(f->out, discarded);
         return R_THROWN;
     }
 
