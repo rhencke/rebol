@@ -73,7 +73,6 @@ probe: func [
 ; known what would be best for them.  They aren't parameter conventions, they
 ; apply to the whole action.
 ;
-tweak :shove #shove on
 tweak :else #defer on
 tweak :then #defer on
 tweak :also #defer on

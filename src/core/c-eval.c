@@ -688,7 +688,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     // called "current" holds the current head of the expression that the
     // main switch would process.
 
-    if (KIND_BYTE(f->value) != REB_WORD) // END would be REB_0
+    if (KIND_BYTE(f->value) != REB_WORD) // right's kind - END would be REB_0
         goto give_up_backward_quote_priority;
 
     if (not EVALUATING(f->value))
@@ -699,101 +699,19 @@ bool Eval_Core_Throws(REBFRM * const f)
     if (not f->gotten or NOT_CELL_FLAG(f->gotten, ENFIXED))
         goto give_up_backward_quote_priority;
 
-    // It's known to be an ACTION! since only actions can be enfix...
-    //
-    if (NOT_ACTION_FLAG(VAL_ACTION(f->gotten), QUOTES_FIRST))
+    if (NOT_ACTION_FLAG(VAL_ACTION(f->gotten), QUOTES_FIRST)) // enfix=>action
         goto give_up_backward_quote_priority;
 
-    // It's a backward quoter!  But...before allowing it to try, first give an
-    // operation on the left which quotes to the right priority.  So:
+    // Let the <skip> flag allow the right hand side to gracefully decline
+    // interest in the left hand side due to type.  This is how DEFAULT works,
+    // such that `case [condition [...] default [...]` does not interfere
+    // with the BLOCK! on the left, but `x: default [...]` gets the SET-WORD!
     //
-    //     foo: lit => [print lit]
-    //
-    // Would be interpreted as:
-    //
-    //     foo: (lit =>) [print lit]
-    //
-    // This is a good argument for not making enfixed operations that
-    // hard-quote things that can dispatch functions.  A soft-quote would give
-    // more flexibility to override the left hand side's precedence:
-    //
-    //     foo: ('lit) => [print lit]
-
-    if (kind.byte == REB_WORD and EVALUATING(current)) {
-        if (not current_gotten)
-            current_gotten = Try_Get_Opt_Var(current, f->specifier);
-        else
-            assert(
-                current_gotten == Try_Get_Opt_Var(current, f->specifier)
-            );
-
-        if (
-            not current_gotten
-            or not IS_ACTION(current_gotten)
-            or GET_CELL_FLAG(current_gotten, ENFIXED)
-        ){
-            goto give_up_forward_quote_priority;
-        }
-
-        REBACT *current_act = VAL_ACTION(current_gotten);
-        if (NOT_ACTION_FLAG(current_act, QUOTES_FIRST))
-            goto give_up_forward_quote_priority;
-
-        if (GET_ACTION_FLAG(current_act, SKIPPABLE_FIRST)) {
-            REBVAL *first = First_Unspecialized_Param(current_act);
-            if (not TYPE_CHECK(first, VAL_TYPE(f->value)))
-                goto give_up_forward_quote_priority;
-        }
-
-        goto give_up_backward_quote_priority;
-    }
-
-    if (kind.byte == REB_PATH and EVALUATING(current)) {
-        //
-        // A path may look up to a function that quotes its first argument or
-        // not.  We can't know without evaluating it, and if we do and it
-        // turns out to not quote we've wasted work (or if it had GROUP!s and
-        // side effects, done work that cannot be undone).
-        //
-        // Hence it is not allowed to left quote a path unless you use the
-        // exemption granted to `->` to do so.  This means you can do things
-        // like `help/doc default`.
-        //
-        if (NOT_ACTION_FLAG(VAL_ACTION(f->gotten), STEALS_LEFT)) {
-            //
-            // Make a note we did this, so that if the left quoting operator
-            // ends up running we can give it a better error.
-            //
-            SET_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH);
-            goto give_up_backward_quote_priority;
-        }
-    }
-
-    if (kind.byte == REB_ACTION and EVALUATING(current)) {
-        //
-        // A literal ACTION! in a BLOCK! may also forward quote
-        //
-        assert(NOT_CELL_FLAG(current, ENFIXED)); // not WORD!/PATH!
-        if (GET_ACTION_FLAG(VAL_ACTION(current), QUOTES_FIRST))
-            goto give_up_backward_quote_priority;
-    }
-
-  give_up_forward_quote_priority:
-
-    // Okay, right quoting left wins out!  But if its parameter is <skip>able,
-    // let it voluntarily opt out of it the type doesn't match its interests.
-
     if (GET_ACTION_FLAG(VAL_ACTION(f->gotten), SKIPPABLE_FIRST)) {
         REBVAL *first = First_Unspecialized_Param(VAL_ACTION(f->gotten));
-        if (not TYPE_CHECK(first, VAL_TYPE(current)))
+        if (not TYPE_CHECK(first, kind.byte)) // left's kind
             goto give_up_backward_quote_priority;
     }
-
-    Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
-    Begin_Action(f, VAL_WORD_SPELLING(f->value));
-
-    SET_EVAL_FLAG(f, RUNNING_ENFIX);
-    SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
 
     // Lookback args are fetched from f->out, then copied into an arg
     // slot.  Put the backwards quoted value into f->out, and in the
@@ -805,8 +723,55 @@ bool Eval_Core_Throws(REBFRM * const f)
     SET_CELL_FLAG(f->out, UNEVALUATED);
   #endif
 
+    // We skip over the word that invoked the action (e.g. <-, OF, =>).
+    // current will then hold a pointer to that word (possibly now
+    // resident in the frame cell).  (f->out holds what was the left)
+    //
+    current_gotten = f->gotten;
+    Fetch_Next_In_Frame(&current, f);
+
+    if (
+        IS_END(f->value)
+        and (kind.byte == REB_WORD or kind.byte == REB_PATH) // left kind
+    ){
+        // We make a special exemption for left-stealing arguments, when
+        // they have nothing to their right.  They lose their priority
+        // and we run the left hand side with them as a priority instead.
+        // This lets us do e.g. `(lit =>)` or `help of`
+        //
+        // Swap it around so that what we had put in the f->out goes back
+        // to being in the frame cell and can be used as current.  Then put
+        // what was current into f->out so it can be consumed as the first
+        // parameter of whatever that was.
+
+        DECLARE_LOCAL (swap); // current *might* be cell (or might not)
+        Move_Value(swap, f->out);
+        Derelativize(f->out, current, f->specifier);
+        Move_Value(cell, swap);
+      #if !defined(NDEBUG)
+        SET_CELL_FLAG(f->out, UNEVALUATED);
+      #endif
+
+        SET_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH);
+        SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
+
+        // leave f->value at the END
+
+        current = cell;
+        current_gotten = nullptr;
+
+        goto give_up_backward_quote_priority; // run PATH!/WORD! normal
+    }
+
+    // Wasn't the at-end exception, so run normal enfix with right winning.
+
+    Push_Action(f, VAL_ACTION(current_gotten), VAL_BINDING(current_gotten));
+    Begin_Action(f, VAL_WORD_SPELLING(current));
+
+    SET_EVAL_FLAG(f, RUNNING_ENFIX);
+    SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
+
     CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
-    Fetch_Next_In_Frame(nullptr, f); // skip the WORD! that invoked the action
     goto process_action;
 
   give_up_backward_quote_priority:;
@@ -2143,12 +2108,12 @@ bool Eval_Core_Throws(REBFRM * const f)
             // Plus with GROUP!s in a path, their evaluations can't be undone.
             //
             if (GET_CELL_FLAG(f->out, ENFIXED))
-                fail ("Use `->` to shove left enfix operands into PATH!s");
+                fail ("Use `<-` to shove left enfix operands into PATH!s");
 
             // !!! Review if invisibles can be supported without ->
             //
             if (GET_ACTION_FLAG(VAL_ACTION(f->out), IS_INVISIBLE))
-                fail ("Use `->` with invisibles fetched from PATH!");
+                fail ("Use `<-` with invisibles fetched from PATH!");
 
             Push_Action(f, VAL_ACTION(f->out), VAL_BINDING(f->out));
             Begin_Action(f, opt_label);

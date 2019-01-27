@@ -319,9 +319,8 @@ check-response: function [port] [
         info/headers: headers: construct/only http-response-headers d1
         info/name: to file! any [spec/path %/]
         if headers/content-length [
-            info/size:
-                <- headers/content-length:
-                <- to-integer/unsigned headers/content-length
+            info/size: (headers/content-length:
+                    to-integer/unsigned headers/content-length)
         ]
         if headers/last-modified [
             info/date: try attempt [idate-to-date headers/last-modified]
@@ -438,8 +437,8 @@ check-response: function [port] [
                 ] then [
                     res: do-redirect port headers/location headers
                 ] else [
-                    state/error: make-http-error/inf
-                        <- "Redirect requires manual intervention" info
+                    (state/error: make-http-error/inf
+                        "Redirect requires manual intervention" info)
                     res: awake make event! [type: 'error port: port]
                 ]
             ]
@@ -476,8 +475,8 @@ check-response: function [port] [
             res: awake make event! [type: 'error port: port]
         ]
         'proxy-auth [
-            state/error: make-http-error
-                <- "Authentication and proxies not supported yet"
+            state/error: (make-http-error
+                "Authentication and proxies not supported yet")
             res: awake make event! [type: 'error port: port]
         ]
         'no-content [

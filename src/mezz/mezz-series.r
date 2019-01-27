@@ -657,7 +657,7 @@ split: function [
     if tag? dlm [dlm: form dlm] ;-- reserve other strings for future meanings
 
     result: collect-block [
-        parse series <- if integer? dlm [
+        parse series if integer? dlm [
             size: dlm ;-- alias for readability in integer case
             if size < 1 [fail "Bad SPLIT size given:" size]
 

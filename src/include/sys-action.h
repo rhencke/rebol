@@ -128,20 +128,9 @@
     ARRAY_FLAG_30
 
 
-//=//// PARAMLIST_FLAG_STEALS_LEFT ////////////////////////////////////////=//
+//=//// PARAMLIST_FLAG_UNUSED_31 //////////////////////////////////////////=//
 //
-// This is used by the SHOVE (->) operation, to allow it to quote PATH! on
-// the left...which is generally prohibited.  The reason it is generally not
-// allowed is because figuring out if a path looks up to an action that might
-// want to right quote and override a left quote is computationally expensive
-// and also might have side effects if it contains GROUP!.
-//
-// The downside of anything using this flag is that it will have trouble with
-// accidentally overriding things that meant to right quote, e.g.
-//
-//      lib/help/doc ->
-//
-#define PARAMLIST_FLAG_STEALS_LEFT \
+#define PARAMLIST_FLAG_UNUSED_31 \
     ARRAY_FLAG_31
 
 

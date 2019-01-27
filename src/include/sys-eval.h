@@ -318,7 +318,7 @@ inline static void Set_Frame_Detected_Fetch(
         //     rebRun(rebR(word), "-> (recycle :quote)");
         //
         // The `current` cell the evaluator is looking at is the WORD!, then
-        // f->value receives the "shove" `->`.  The shove runs the code in
+        // f->value receives the "shove" `<-`.  The shove runs the code in
         // the GROUP!.  But there are no other references to `hello` after
         // the Free_Value() done by rebR(), so it's a candidate for recycle,
         // which would mean shoving a bad `current` as the arg to `:quote`

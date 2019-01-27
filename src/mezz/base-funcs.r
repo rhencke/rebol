@@ -34,10 +34,10 @@ so: enfix func [
     {Postfix assertion which won't keep running if left expression is false}
 
     return: <void>
-    condition "Condition to test (voids are treated as false)"
-        [<opt> any-value!]
+    condition "Condition to test, must resolve to a LOGIC! (use DID, NOT)"
+        [logic!]
 ][
-    if not opt condition [
+    if not condition [
         fail 'condition ["Postfix 'SO assertion' failed"]
     ]
 ]
@@ -491,11 +491,6 @@ default*: enfix redescribe [
 ](
     specialize 'default [only: true]
 )
-
-
-; Though this name is questionable, it's nice to be easier to call
-;
-semiquote: specialize 'identity [quote: true]
 
 
 skip*: redescribe [

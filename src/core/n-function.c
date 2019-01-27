@@ -1087,7 +1087,7 @@ REBNATIVE(reskinned)
 //          [action!]
 //      action "(modified) Action to modify property of"
 //          [action!]
-//      property "Currently either #shove or #defer"
+//      property "Currently must be [#defer #postpone]"
 //          [issue!]
 //      enable [logic!]
 //  ]
@@ -1105,12 +1105,6 @@ REBNATIVE(tweak)
     REBFLGS flag;
 
     switch (VAL_WORD_SYM(ARG(property))) {
-      case SYM_SHOVE: { // Override the "no left quoting of PATH!s" rule
-        if (pclass != REB_P_SOFT_QUOTE and pclass != REB_P_HARD_QUOTE)
-            fail ("TWEAK #shove only actions with quoted 1st params");
-        flag = PARAMLIST_FLAG_STEALS_LEFT;
-        break; }
-
       case SYM_DEFER: // Special enfix behavior used by THEN, ELSE, ALSO...
         if (pclass != REB_P_NORMAL)
             fail ("TWEAK #defer only actions with evaluative 1st params");
@@ -1124,7 +1118,7 @@ REBNATIVE(tweak)
         break;
 
       default:
-        fail ("TWEAK currently only supports #shove and #defer");
+        fail ("TWEAK currently only supports [#defer #postpone]");
     }
 
     if (VAL_LOGIC(ARG(enable)))

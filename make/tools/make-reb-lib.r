@@ -151,9 +151,7 @@ process src-dir/f-extension.c ; !!! is there a reason to process this file?
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 extern-prototypes: map-each-api [
-    cscape/with
-        <- {EMSCRIPTEN_KEEPALIVE RL_API $<Proto>}
-        <- api
+    cscape/with {EMSCRIPTEN_KEEPALIVE RL_API $<Proto>} api
 ]
 
 lib-struct-fields: map-each-api [
@@ -164,9 +162,7 @@ lib-struct-fields: map-each-api [
             spaced [type var]
         ]
     ]
-    cscape/with
-        <- {$<Returns> (*$<Name>)($<Cfunc-Params>)}
-        <- api
+    cscape/with {$<Returns> (*$<Name>)($<Cfunc-Params>)} api
 ]
 
 struct-call-inlines: make block! length of api-objects
@@ -245,20 +241,15 @@ c89-macros: map-each-api [
             spaced [type var]
         ]
     ]
-    cscape/with
-        <- {#define $<Name> $<Name>_inline}
-        <- api
+    cscape/with {#define $<Name> $<Name>_inline} api
 ]
 
 c99-or-c++11-macros: map-each-api [
     if find paramlist 'vaptr [
         cscape/with
-            <- {#define $<Name>(...) $<Name>_inline(__VA_ARGS__, rebEND)}
-            <- api
+            {#define $<Name>(...) $<Name>_inline(__VA_ARGS__, rebEND)} api
     ] else [
-        cscape/with
-            <- {#define $<Name> $<Name>_inline}
-            <- api
+        cscape/with {#define $<Name> $<Name>_inline} api
     ]
 ]
 

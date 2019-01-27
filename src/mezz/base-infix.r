@@ -137,8 +137,22 @@ my: enfix func [
 ; The identity is used to shake up enfix ordering.
 ;
 set/enfix (r3-alpha-lit "=>") :lambda
-set (r3-alpha-lit "<-") :identity ;-- not enfix, just affects enfix
-set/enfix (r3-alpha-lit "->") :shove
+
+; <- is the SHOVE operator.  It grabs whatever is on the left and uses it as
+; the first argument to whatever operation is on its right hand side.  It
+; adopts the parameter convention of the right.  If the right's first argument
+; is evaluative and the left is a SET-WORD! or SET-PATH!, it will grab the
+; value of that and then run the assignment after the function is done.
+;
+set/enfix (r3-alpha-lit "<-") reskinned [#change :left] :shove
+
+; -> is the POSTPONE operator.  It runs the left fully, before passing on the
+; result.  It is not legal to run a postponing operator in an argument
+; gathering position, it can only be at full stops between expressions.
+; It is idiomatically legal to say e.g. `x: if condition [... ->]` to indicate
+; that the evaluated product is "going out" and being assigned somewhere.
+;
+set/enfix (r3-alpha-lit "->") tweak copy :shove #postpone on
 
 
 ; These constructs used to be enfix to complete their left hand side.  Yet

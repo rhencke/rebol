@@ -133,22 +133,22 @@
 [
     (
         left-normal: enfix right-normal:
-            <- func [return: [<opt> word!] x [word!]] [:x]
+            func [return: [<opt> word!] x [word!]] [:x]
         left-normal*: enfix right-normal*:
-            <- func [return: [<opt> word!] x [word! <end>]] [:x]
+            func [return: [<opt> word!] x [word! <end>]] [:x]
 
         left-defer: enfix tweak (copy :left-normal) #defer on
         left-defer*: enfix tweak (copy :left-normal*) #defer on
 
         left-soft: enfix right-soft:
-            <- func [return: [<opt> word!] 'x [word!]] [:x]
+            func [return: [<opt> word!] 'x [word!]] [:x]
         left-soft*: enfix right-soft*:
-            <- func [return: [<opt> word!] 'x [word! <end>]] [:x]
+            func [return: [<opt> word!] 'x [word! <end>]] [:x]
 
         left-hard: enfix right-hard:
-            <- func [return: [<opt> word!] :x [word!]] [:x]
+            func [return: [<opt> word!] :x [word!]] [:x]
         left-hard*: enfix right-hard*:
-            <- func [return: [<opt> word!] :x [word! <end>]] [:x]
+            func [return: [<opt> word!] :x [word! <end>]] [:x]
 
         true
     )
@@ -187,19 +187,19 @@
 [
     (
         left-normal: enfix right-normal:
-            <- func [return: [<opt> word!] x [word! <...>]] [take x]
+            func [return: [<opt> word!] x [word! <...>]] [take x]
         left-normal*: enfix right-normal*:
-            <- func [return: [<opt> word!] x [word! <...> <end>]] [take* x]
+            func [return: [<opt> word!] x [word! <...> <end>]] [take* x]
 
         left-soft: enfix right-soft:
-            <- func [return: [<opt> word!] 'x [word! <...>]] [take x]
+            func [return: [<opt> word!] 'x [word! <...>]] [take x]
         left-soft*: enfix right-soft*:
-            <- func [return: [<opt> word!] 'x [word! <...> <end>]] [take* x]
+            func [return: [<opt> word!] 'x [word! <...> <end>]] [take* x]
 
         left-hard: enfix right-hard:
-            <- func [return: [<opt> word!] :x [word! <...>]] [take x]
+            func [return: [<opt> word!] :x [word! <...>]] [take x]
         left-hard*: enfix right-hard*:
-            <- func [return: [<opt> word!] :x [word! <...> <end>]] [take* x]
+            func [return: [<opt> word!] :x [word! <...> <end>]] [take* x]
 
         true
     )

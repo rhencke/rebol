@@ -227,12 +227,12 @@ rebsource: context [
                         ; ... ? (not a native)
                         ;
                         any [
-                            proto-parser/proto.id =
-                                <- (form to word! proto-parser/data/1)
-                            proto-parser/proto.id =
-                                <- unspaced [
+                            (proto-parser/proto.id =
+                                form to word! proto-parser/data/1)
+                            (proto-parser/proto.id
+                                unspaced [
                                     "RL_" to word! proto-parser/data/1
-                                ]
+                                ])
                         ] else [
                             line: try text-line-of proto-parser/parse.position
                             emit <id-mismatch> [

@@ -104,7 +104,7 @@ help: function [
     "Prints information about words and values (if no args, general help)."
 
     return: <void>
-    :topic [<end> any-value!]
+    'topic [<end> any-value!]
         "WORD! whose value to explain, or other HELP target (try HELP HELP)"
     /doc
         "Open web browser to related documentation."
@@ -167,19 +167,6 @@ help: function [
                 usage - program cmd line options
         }
         return
-    ]
-
-    ; HELP quotes, but someone might want to use an expression, e.g.
-    ; `help (...)`.  However, enfix functions which hard quote the left would
-    ; win over a soft-quoting non-enfix function that quotes to the right.
-    ; (It is generally discouraged to make hard-quoting left enfix functions,
-    ; but they exist...e.g. DEFAULT.)  To make sure HELP DEFAULT works, HELP
-    ; must hard quote and simulate its own soft quote semantics.
-    ;
-    if match [group! get-word! get-path!] :topic [
-        topic: eval topic else [
-            fail "HELP requested on NULL" ;-- should this PRINT vs. FAIL?
-        ]
     ]
 
     ; !!! R3-Alpha permitted "multiple inheritance" in objects, in the sense

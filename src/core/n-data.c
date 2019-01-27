@@ -965,32 +965,17 @@ REBNATIVE(semiquoted_q)
 //
 //  identity: native [
 //
-//  {Function for returning the same value that it got in (identity function)}
+//  {Returns input value (https://en.wikipedia.org/wiki/Identity_function)}
 //
 //      return: [<opt> any-value!]
 //      value [<end> <opt> any-value!]
-//      /quote
-//          {Make it seem that the return result was quoted}
 //  ]
 //
-REBNATIVE(identity)
-//
-// https://en.wikipedia.org/wiki/Identity_function
-// https://stackoverflow.com/q/3136338
-//
-// !!! Quoting version is currently specialized as SEMIQUOTE, for convenience.
-//
-// This is assigned to <- for convenience, but cannot be used under that name
-// in bootstrap with R3-Alpha.
+REBNATIVE(identity) // sample uses: https://stackoverflow.com/q/3136338
 {
     INCLUDE_PARAMS_OF_IDENTITY;
 
-    Move_Value(D_OUT, ARG(value));
-
-    if (REF(quote))
-        SET_CELL_FLAG(D_OUT, UNEVALUATED);
-
-    return D_OUT;
+    RETURN (ARG(value));
 }
 
 

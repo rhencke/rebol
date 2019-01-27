@@ -83,19 +83,19 @@ REBNATIVE(eval)
 
 
 //
-//  shove: enfix native [
+//  shove: native [
 //
-//  {Shove a left hand parameter into an ACTION!, effectively making it enfix}
+//  {Shove a parameter into an ACTION! as its first argument}
 //
 //      return: [<opt> any-value!]
 //          "REVIEW: How might this handle shoving enfix invisibles?"
-//      :left [<end> <opt> any-value!]
+//      left [<end> <opt> any-value!]
 //          "Requests parameter convention based on enfixee's first argument"
 //      :right [<...> <end> any-value!]
 //          "(uses magic -- SHOVE can't be written easily in usermode yet)"
 //  ]
 //
-REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
+REBNATIVE(shove)
 //
 // PATH!s do not do infix lookup in Rebol, and there are good reasons for this
 // in terms of both performance and semantics.  However, it is sometimes
@@ -105,7 +105,7 @@ REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
 // The SHOVE operation is used to push values from the left to act as the
 // first argument of an operation, e.g.:
 //
-//      >> 10 -> lib/(print "Hi!" first [multiply]) 20
+//      >> 10 <- lib/(print "Hi!" first [multiply]) 20
 //      Hi!
 //      200
 //
@@ -122,11 +122,20 @@ REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
         or f_right != f
     ){
         fail (
-            "SHOVE (->) is written using evaluator magic, and cannot apply"
+            "SHOVE (<-) is written using evaluator magic, and cannot apply"
             " to any variadic feed besides the one for the current frame."
             " Doing SHOVE in usermode would be cool, but it's not there yet."
         );
     }
+
+    // The postpone case is happy to say that `(1 + 2 ->)` is just 3, and that
+    // is in fact idiomatic to mean "I produce a result that gets used".  But
+    // the PARAMLIST_FLAG_STEALS_LEFT implies that nothing on the right does
+    // not let it out-prioritize WORD! or PATH!.  This makes `help <-` work.
+    // See %c-eval.c for the handling, which means we won't see END here.
+    //
+    if (IS_END(f->value))
+        RETURN (ARG(left))
 
     // It's best for SHOVE to do type checking here, as opposed to setting
     // some kind of EVAL_FLAG_SHOVING and passing that into the evaluator, then
@@ -135,7 +144,7 @@ REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
     // !!! Pure invisibility should work; see SYNC-INVISIBLES for ideas,
     // something like this should be in the tests and be able to work:
     //
-    //    >> 10 -> comment "ignore me" lib/+ 20
+    //    >> 10 <- comment "ignore me" lib/+ 20
     //    == 30
     //
     // !!! To get the feature working as a first cut, this doesn't try get too
@@ -206,7 +215,11 @@ REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
     //
     TRASH_CELL_IF_DEBUG(D_OUT);
 
-    if (NOT_ACTION_FLAG(VAL_ACTION(shovee), QUOTES_FIRST)) {
+    Reb_Param_Class pclass = VAL_PARAM_CLASS(PAR(left));
+    if (
+        NOT_ACTION_FLAG(VAL_ACTION(shovee), QUOTES_FIRST)
+        and ((pclass == REB_P_HARD_QUOTE) or (pclass == REB_P_SOFT_QUOTE))
+    ){
         if (IS_SET_WORD(left)) {
             Move_Value(D_OUT, Get_Opt_Var_May_Fail(left, SPECIFIED));
         }
@@ -223,7 +236,8 @@ REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
     else {
         Move_Value(D_OUT, ARG(left));
       #if !defined(NDEBUG)
-        SET_CELL_FLAG(D_OUT, UNEVALUATED); // enfix checks in debug
+        if (pclass == REB_P_HARD_QUOTE or pclass == REB_P_SOFT_QUOTE)
+            SET_CELL_FLAG(D_OUT, UNEVALUATED); // enfix checks in debug
       #endif
     }
 

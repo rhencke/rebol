@@ -37,7 +37,7 @@
     ]
 
     d: func [i] [
-        return <- if i < 15 [30] else [4]
+        return (if i < 15 [30] else [4])
     ]
 
     did all [
