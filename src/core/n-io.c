@@ -571,7 +571,7 @@ REBNATIVE(wake_up)
         DECLARE_LOCAL (verb);
         Init_Word(verb, Canon(SYM_ON_WAKE_UP));
         const REBVAL *r = Do_Port_Action(frame_, ARG(port), verb);
-        assert(IS_BAR(r));
+        assert(IS_VOID(r));
         UNUSED(r);
     }
 

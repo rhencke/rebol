@@ -417,7 +417,8 @@ inline static void Enter_Native(REBFRM *f) {
 
 inline static void Begin_Action(REBFRM *f, REBSTR *opt_label)
 {
-    assert(NOT_EVAL_FLAG(f, FULFILLING_ENFIX));
+    assert(NOT_EVAL_FLAG(f, RUNNING_ENFIX));
+    assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
 
     assert(not f->original);
     f->original = FRM_PHASE(f);
@@ -461,6 +462,7 @@ inline static void Push_Action(
     REBNOD *binding
 ){
     assert(NOT_EVAL_FLAG(f, FULFILL_ONLY));
+    assert(NOT_EVAL_FLAG(f, RUNNING_ENFIX));
 
     f->param = ACT_PARAMS_HEAD(act); // Specializations hide some params...
     REBCNT num_args = ACT_NUM_PARAMS(act); // ...so see REB_TS_HIDDEN
@@ -559,6 +561,7 @@ inline static void Push_Action(
     if (GET_ACTION_FLAG(act, IS_INVISIBLE)) {
         if (GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)) {
             assert(GET_EVAL_FLAG(f, FULFILLING_ARG));
+            CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
             SET_SERIES_INFO(f->varlist, TELEGRAPH_NO_LOOKAHEAD);
         }
     }
@@ -576,7 +579,7 @@ inline static void Drop_Action(REBFRM *f) {
     if (NOT_EVAL_FLAG(f, FULFILLING_ARG))
         CLEAR_FEED_FLAG(f->feed, BARRIER_HIT);
 
-    CLEAR_EVAL_FLAG(f, FULFILLING_ENFIX);
+    CLEAR_EVAL_FLAG(f, RUNNING_ENFIX);
     CLEAR_EVAL_FLAG(f, FULFILL_ONLY);
     CLEAR_EVAL_FLAG(f, REQUOTE_NULL);
 

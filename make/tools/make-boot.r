@@ -135,7 +135,7 @@ boot-words: copy []
 add-sym: function [
     {Add SYM_XXX to enumeration}
     return: [<opt> integer!]
-    word [word!]
+    word  ; bootstrap issue with older Ren-C, | is a BAR! (no type exists)
     /exists "return ID of existing SYM_XXX constant if already exists"
     <with> sym-n
 ][
@@ -144,7 +144,9 @@ add-sym: function [
         fail ["Duplicate word specified" word]
     ]
 
-    append syms cscape/with {/* $<Word> */ SYM_${WORD} = $<sym-n>} [sym-n word]
+    append syms cscape/with {/* $<Word> */ SYM_${FORM WORD} = $<sym-n>} [
+        sym-n word
+    ]
     sym-n: sym-n + 1
 
     append boot-words word
@@ -543,7 +545,9 @@ e-version/write-emitted
 
 wordlist: load %words.r
 replace wordlist '*port-modes* load %modes.r
-for-each word wordlist [add-sym word]
+for-each word wordlist [
+    add-sym word  ; Note, may actually be a BAR! w/older boot
+]
 
 
 ;-- Add SYM_XXX constants for generics (e.g. SYM_APPEND, etc.)

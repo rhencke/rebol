@@ -849,7 +849,7 @@ REBTYPE(Context)
             return nullptr;
 
         if (VAL_WORD_SYM(verb) == SYM_FIND)
-            return Init_Bar(D_OUT); // TRUE would obscure non-LOGIC! result
+            return Init_True(D_OUT); // !!! obscures non-LOGIC! result?
 
         RETURN (CTX_VAR(c, n)); }
 

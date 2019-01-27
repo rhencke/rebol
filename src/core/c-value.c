@@ -60,7 +60,6 @@ ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
       case REB_MAX_NULLED:
       case REB_BLANK:
       case REB_LOGIC:
-      case REB_BAR:
       #if defined(DEBUG_TRACK_CELLS)
         printf("REBVAL init ");
 

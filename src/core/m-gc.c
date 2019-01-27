@@ -708,7 +708,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         break; }
 
       case REB_BLANK:
-      case REB_BAR:
       case REB_VOID:
         break;
 

@@ -61,29 +61,6 @@ inline static bool Vararg_Op_If_No_Advance_Handled(
         return true;
     }
 
-    if (IS_BAR(opt_look)) {
-        //
-        // Only hard quotes are allowed to see BAR! (and if they do, they
-        // are *encouraged* to test the evaluated bit and error on literals,
-        // unless they have a *really* good reason to do otherwise)
-        //
-        if (pclass == REB_P_HARD_QUOTE) {
-            if (op == VARARG_OP_TAIL_Q) {
-                Init_False(out);
-                return true;
-            }
-            if (op == VARARG_OP_FIRST) {
-                Init_Bar(out);
-                return true;
-            }
-            assert(op == VARARG_OP_TAKE);
-            return false; // advance frame/array to consume BAR!
-        }
-
-        Init_For_Vararg_End(out, op); // simulate exhaustion on non hard quote
-        return true;
-    }
-
     if (pclass == REB_P_NORMAL and IS_WORD(opt_look)) {
         //
         // When a variadic argument is being TAKE-n, deferred left hand side
@@ -531,17 +508,12 @@ REBTYPE(Varargs)
 
         REBDSP dsp_orig = DSP;
 
-        REBINT limit;
-        if (IS_INTEGER(ARG(limit))) {
-            limit = VAL_INT32(ARG(limit));
-            if (limit < 0)
-                limit = 0;
-        }
-        else if (IS_BAR(ARG(limit))) {
-            limit = 0; // not used, but avoid maybe uninitalized warning
-        }
-        else
+        if (not IS_INTEGER(ARG(limit)))
             fail (Error_Invalid(ARG(limit)));
+
+        REBINT limit = VAL_INT32(ARG(limit));
+        if (limit < 0)
+            limit = 0;
 
         while (limit-- > 0) {
             if (Do_Vararg_Op_Maybe_End_Throws(
@@ -648,8 +620,6 @@ void MF_Varargs(REB_MOLD *mo, const REBCEL *v, bool form) {
             Append_Unencoded(mo->series, "[]");
         else if (pclass == REB_P_HARD_QUOTE)
             Mold_Value(mo, shared); // full feed can be shown if hard quoted
-        else if (IS_BAR(VAL_ARRAY_AT(shared)))
-            Append_Unencoded(mo->series, "[]"); // simulate end appearance
         else
             Append_Unencoded(mo->series, "[...]"); // can't look ahead
     }
@@ -665,8 +635,6 @@ void MF_Varargs(REB_MOLD *mo, const REBCEL *v, bool form) {
             Mold_Value(mo, f->value); // one value can be shown if hard quoted
             Append_Unencoded(mo->series, " ...]");
         }
-        else if (IS_BAR(f->value))
-            Append_Unencoded(mo->series, "[]");
         else
             Append_Unencoded(mo->series, "[...]");
     }

@@ -464,7 +464,6 @@ bool Is_Value_Frozen(const RELVAL *v) {
     enum Reb_Kind kind = CELL_KIND(cell);
     if (
         kind == REB_BLANK
-        or kind == REB_BAR
         or ANY_SCALAR_KIND(kind)
         or ANY_WORD_KIND(kind)
         or kind == REB_ACTION // paramlist is identity, hash

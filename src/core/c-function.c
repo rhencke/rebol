@@ -622,7 +622,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // Note: not a valid ACTION! paramlist yet, don't use SET_ACTION_FLAG()
     //
     if (is_voider)
-        SER(paramlist)->header.bits |= PARAMLIST_FLAG_IS_VOIDER;
+        SER(paramlist)->info.bits |= ARRAY_INFO_MISC_VOIDER;  // !!! see note
     if (has_return)
         SER(paramlist)->header.bits |= PARAMLIST_FLAG_HAS_RETURN;
 
@@ -1251,8 +1251,8 @@ REBACT *Make_Interpreted_Action_May_Fail(
         if (GET_ACTION_FLAG(a, IS_INVISIBLE)) {
             ACT_DISPATCHER(a) = &Commenter_Dispatcher;
         }
-        else if (GET_ACTION_FLAG(a, IS_VOIDER)) {
-            ACT_DISPATCHER(a) = &Voider_Dispatcher;
+        else if (SER(a)->info.bits & ARRAY_INFO_MISC_VOIDER) {
+            ACT_DISPATCHER(a) = &Voider_Dispatcher;  // !!! ^-- see info note
         }
         else if (GET_ACTION_FLAG(a, HAS_RETURN)) {
             REBVAL *typeset = ACT_PARAM(a, ACT_NUM_PARAMS(a));
@@ -1272,7 +1272,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
 
         if (GET_ACTION_FLAG(a, IS_INVISIBLE))
             ACT_DISPATCHER(a) = &Elider_Dispatcher; // no f->out mutation
-        else if (GET_ACTION_FLAG(a, IS_VOIDER))
+        else if (SER(a)->info.bits & ARRAY_INFO_MISC_VOIDER) // !!! see note
             ACT_DISPATCHER(a) = &Voider_Dispatcher; // forces f->out void
         else if (GET_ACTION_FLAG(a, HAS_RETURN))
             ACT_DISPATCHER(a) = &Returner_Dispatcher; // type checks f->out

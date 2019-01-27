@@ -392,29 +392,28 @@ REBNATIVE(generic)
 
 
 //
-//  Add_Lib_Keys_R3Alpha_Cant_Make: C
+//  Add_Lib_Keys_Bootstrap_R3_Cant_Make: C
 //
 // In order for the bootstrap to assign values to library words, they have to
 // exist in the bootstrap context.  The way they get into the context is by
 // a scan for top-level SET-WORD!s in the %sys-xxx.r and %mezz-xxx.r files.
 //
-// However, R3-Alpha doesn't allow set-words like /: and <=:  The words can
-// be gotten with `pick [/] 1` or similar, but they cannot be SET because
-// there's nothing in the context to bind them to...since no SET-WORD! was
-// picked up in the scan.
+// However, not all Rebols agree.  For instance, R3-Alpha didn't allow
+// set-words like /: and <=:  Older Ren-C treated | as a BAR! datatype, and
+// nto as a WORD!.  The words can be gotten with `pick [/] 1` or similar, but
+// they cannot be SET because there's nothing in the context to bind them to,
+// since no SET-WORD! was picked up in the scan.
 //
 // As a workaround, this just adds the words to the context manually.  Then,
 // however the words are created, it will be possible to bind them and set
-// them to things.
+// them to things.  What needs to be put in the list depends on how old an
+// executable can be used for bootstrap.
 //
-// !!! Even as Ren-C becomes more permissive in letting SET-WORDs for these
-// items be created, they should not be seen by %make-boot.r so long as the
-// code expects to be bootstrapped with R3-Alpha.  This is because as part
-// of the bootstrap, the code is loaded/processed and molded out as one
-// giant file.  Ren-C being able to read `=>:` would not be able to help
-// retroactively make old R3-Alphas read it too.
+// !!! It would likely be better if the bootstrap executable weren't LOAD-ing
+// and MOLD-ing out source in the first place, but doing whatever work it
+// needed to do with PARSE on the strings directly.  That would avoid this.
 //
-static void Add_Lib_Keys_R3Alpha_Cant_Make(void)
+static void Add_Lib_Keys_Bootstrap_R3_Cant_Make(void)
 {
     const char *names[] = {
         "<",
@@ -434,6 +433,7 @@ static void Add_Lib_Keys_R3Alpha_Cant_Make(void)
         "|>", // Evaluate to next single expression, but do ones afterward
         "<|", // Evaluate to previous expression, but do rest (like ALSO)
 
+        "|", // Was a BAR! datatype, now returned to WORD!-space
         NULL
     };
 
@@ -858,11 +858,6 @@ static void Init_Root_Vars(void)
     Prep_Non_Stack_Cell(&PG_Blank_Value[1]);
     Init_Blank(&PG_Blank_Value[0]);
     TRASH_CELL_IF_DEBUG(&PG_Blank_Value[1]);
-
-    Prep_Non_Stack_Cell(&PG_Bar_Value[0]);
-    Prep_Non_Stack_Cell(&PG_Bar_Value[1]);
-    Init_Bar(&PG_Bar_Value[0]);
-    TRASH_CELL_IF_DEBUG(&PG_Bar_Value[1]);
 
     Prep_Non_Stack_Cell(&PG_False_Value[0]);
     Prep_Non_Stack_Cell(&PG_False_Value[1]);
@@ -1462,7 +1457,7 @@ void Startup_Core(void)
     Startup_Typesets();
 
     Startup_True_And_False();
-    Add_Lib_Keys_R3Alpha_Cant_Make();
+    Add_Lib_Keys_Bootstrap_R3_Cant_Make();
 
 //==//////////////////////////////////////////////////////////////////////==//
 //

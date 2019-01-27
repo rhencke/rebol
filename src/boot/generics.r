@@ -226,8 +226,8 @@ at: generic [
 
 find: generic [
     {Searches for the position where a matching value is found}
-    return: {position found, else blank (void if series is itself blank)}
-        [<opt> <requote> any-series! bar!]
+    return: {position found, else null - logic true if non-positional find}
+        [<opt> <requote> any-series! logic!]
     series [
         <blank> <dequote> any-series! any-context! map! gob! bitset! typeset!
     ]
@@ -297,7 +297,7 @@ take*: generic [
     return: [<opt> any-value!]
     series [any-series! port! gob! varargs!] {At position (modified)}
     /part {Specifies a length or end position}
-    limit [any-number! any-series! pair! bar!]
+    limit [any-number! any-series! pair!]
     /deep {Also copies series values within the block}
     /last {Take it from the tail end}
 ]

@@ -82,7 +82,7 @@ static REB_R Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         break; }
 
     case SYM_ON_WAKE_UP:
-        return Init_Bar(D_OUT);
+        return Init_Void(D_OUT);
 
     // Normal block actions done on events:
     case SYM_POKE:

@@ -42,7 +42,7 @@ so: enfix func [
     ]
 ]
 
-tweak :so #defer on
+tweak :so #postpone on
 
 
 maybe: enfix func [

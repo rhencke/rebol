@@ -1386,15 +1386,6 @@ acquisition_loop:
             goto scanword;
 
         case LEX_SPECIAL_BAR:
-            //
-            // `|` standalone should become a BAR!, so if followed by a
-            // delimiter or space.  However `|a|` and `a|b` are left as
-            // legal words (at least for the time being).
-            //
-            if (IS_LEX_DELIMIT(cp[1]) or IS_LEX_ANY_SPACE(cp[1])) {
-                ss->token = TOKEN_BAR;
-                return;
-            }
             if (
                 cp[1] == '>'
                 and (IS_LEX_DELIMIT(cp[2]) or IS_LEX_ANY_SPACE(cp[2]))
@@ -1898,12 +1889,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             ss->line_head = ep;
             continue;
 
-          case TOKEN_BAR:
-            Init_Bar(DS_PUSH());
-            ++bp;
-            break;
-
-          case TOKEN_BLANK:
+        case TOKEN_BLANK:
             Init_Blank(DS_PUSH());
             ++bp;
             break;

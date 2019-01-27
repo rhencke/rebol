@@ -926,30 +926,6 @@ inline static REBVAL *Voidify_If_Nulled_Or_Blank(REBVAL *cell) {
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-//  BAR! and LIT-BAR!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// The "expression barrier" is denoted by a lone vertical bar `|`.  It
-// has the special property that literals used directly will be rejected
-// as a source for argument fulfillment.  BAR! that comes from evaluations
-// can be passed as a parameter, however:
-//
-//     append [a b c] | [d e f] print "Hello"   ;-- will cause an error
-//     append [a b c] [d e f] | print "Hello"   ;-- is legal
-//     append [a b c] first [|]                 ;-- is legal
-//     append [a b c] '|                        ;-- is legal
-//
-
-#define BAR_VALUE \
-    c_cast(const REBVAL*, &PG_Bar_Value[0])
-
-#define Init_Bar(out) \
-    RESET_CELL((out), REB_BAR);
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
 //  BLANK!
 //
 //=////////////////////////////////////////////////////////////////////////=//

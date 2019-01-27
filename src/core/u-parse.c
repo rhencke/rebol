@@ -111,6 +111,9 @@
 #define FETCH_NEXT_RULE(f) \
     Fetch_Next_In_Frame(nullptr, (f))
 
+inline static bool IS_BAR(const RELVAL *v)
+    { return IS_WORD(v) and VAL_WORD_SYM(v) == SYM_BAR; }
+
 #define FETCH_TO_BAR_OR_END(f) \
     while (NOT_END(f->value) and not IS_BAR(P_RULE)) \
         { FETCH_NEXT_RULE(f); }
@@ -1721,10 +1724,10 @@ REBNATIVE(subparse)
 
         assert(not IS_NULLED(rule));
 
-        switch (VAL_TYPE(rule)) {
-          case REB_BAR:
+        if (IS_BAR(rule))
             fail ("BAR! must be source level (else PARSE can't skip it)");
 
+        switch (VAL_TYPE(rule)) {
           case REB_GROUP:
             goto process_group; // GROUP! can make WORD! that fetches GROUP!
 

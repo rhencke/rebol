@@ -197,7 +197,6 @@ uint32_t Hash_Value(const RELVAL *v)
       case REB_MAX_NULLED:
         panic (nullptr); // nulls can't be values or keys in MAP!s
 
-      case REB_BAR:
       case REB_BLANK:
         hash = 0;
         break;

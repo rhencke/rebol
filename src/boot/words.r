@@ -184,6 +184,7 @@ reject
 while
 limit
 ??
+|
 accept
 break
 ; ^--prep words above
@@ -208,6 +209,7 @@ end  ; must be last (SYM_END referred to by GET_VAR() in %u-parse.c)
 ;
 defer
 shove
+postpone
 
 ; Event:
 type

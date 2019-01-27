@@ -733,8 +733,8 @@ REBNATIVE(any)
 //
 //  {Short circuiting version of NOR, using a block of expressions as input}
 //
-//      return: "BAR! if all expressions are falsey, null if any are truthy"
-//          [<opt> bar!]
+//      return: "true if all expressions are falsey, null if any are truthy"
+//          [<opt> logic!]
 //      block "Block of expressions."
 //          [block!]
 //  ]
@@ -768,7 +768,7 @@ REBNATIVE(none)
     }
 
     Drop_Frame(f);
-    return Init_Bar(D_OUT); // truthy, but doesn't suggest LOGIC! on failure
+    return Init_True(D_OUT); // !!! suggests LOGIC! on failure, bad?
 }
 
 

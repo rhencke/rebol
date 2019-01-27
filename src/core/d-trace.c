@@ -189,7 +189,6 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
                     || ANY_SCALAR(var)
                     || IS_DATE(var)
                     || IS_TIME(var)
-                    || IS_BAR(var)
                     || IS_BLANK(var)
                 ){
                     // These are things that are printed, abbreviated to 50

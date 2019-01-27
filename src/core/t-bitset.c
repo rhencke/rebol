@@ -639,7 +639,7 @@ REBTYPE(Bitset)
 
         if (not Check_Bits(VAL_SERIES(value), arg, REF(case)))
             return nullptr;
-        return Init_Bar(D_OUT);
+        return Init_True(D_OUT);
     }
 
     case SYM_COMPLEMENT:

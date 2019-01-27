@@ -487,9 +487,6 @@ blank       "placeholder unit type which also is conditionally false"
 ; END EVALUATOR INERT TYPES THAT ARE _UNBINDABLE_ - SEE ANY_EVALUATIVE()
 ; ============================================================================
 
-bar         "expression evaluation barrier"
-            unit        -       -       +       []
-
 void        "signal returned by actions that have no result"
             unit        -       -       +       []
 

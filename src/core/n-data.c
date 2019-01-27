@@ -539,16 +539,7 @@ inline static void Get_Opt_Polymorphic_May_Fail(
     const REBCEL *source = VAL_UNESCAPED(source_orig);
     enum Reb_Kind kind = CELL_KIND(source);
 
-    if (kind == REB_BAR) {
-        //
-        // `a: 10 | b: 20 | get [a | b]` will give back `[10 | 20]`.
-        // While seemingly not a very useful feature standalone, this
-        // compatibility with SET could come in useful so that blocks
-        // don't have to be rearranged to filter out BAR!s.
-        //
-        Init_Bar(out);
-    }
-    else if (kind == REB_BLANK) {
+    if (kind == REB_BLANK) {
         Init_Nulled(out); // may be turned to blank after loop, or error
     }
     else if (ANY_WORD_KIND(kind)) {
@@ -643,15 +634,7 @@ void Set_Opt_Polymorphic_May_Fail(
     const REBCEL *target = VAL_UNESCAPED(target_orig);
     enum Reb_Kind kind = CELL_KIND(target);
 
-    if (kind == REB_BAR) {
-        //
-        // Just skip it, e.g. `set [a | b] [1 2 3]` sets a to 1, and b
-        // to 3, but drops the 2.  This functionality was achieved
-        // initially with blanks, but with setting in particular there
-        // are cases of `in obj 'word` which give back blank if the word
-        // is not there, so it leads to too many silent errors.
-    }
-    else if (ANY_WORD_KIND(kind)) {
+    if (ANY_WORD_KIND(kind)) {
         REBVAL *var = Sink_Var_May_Fail(target, target_specifier);
         Derelativize(var, setval, setval_specifier);
         if (enfix)

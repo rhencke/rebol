@@ -48,18 +48,17 @@ enum Reb_Token {
     TOKEN_GET, // should equal REB_GET_WORD
     TOKEN_SET, // should equal REB_SET_WORD
     TOKEN_WORD, // should equal REB_WORD
-    TOKEN_BAR,
     TOKEN_LOGIC, // !!! Currently not used LOGIC!, uses #[true] and #[false]
     TOKEN_INTEGER,
     TOKEN_DECIMAL,
     TOKEN_PERCENT,
+    TOKEN_MONEY,
     TOKEN_GET_GROUP_BEGIN, // should equal REB_GET_GROUP
     TOKEN_GROUP_END,
     TOKEN_GROUP_BEGIN, // should equal REB_GROUP
     TOKEN_GET_BLOCK_BEGIN, // should equal REB_GET_BLOCK
     TOKEN_BLOCK_END,
     TOKEN_BLOCK_BEGIN, // should equal REB_BLOCK
-    TOKEN_MONEY,
     TOKEN_TIME,
     TOKEN_DATE,
     TOKEN_CHAR,

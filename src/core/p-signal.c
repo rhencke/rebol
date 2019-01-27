@@ -252,7 +252,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                 update(signal, len, arg);
             }
         }
-        return Init_Bar(D_OUT); }
+        return Init_Void(D_OUT); }
 
     case SYM_READ: {
         // This device is opened on the READ:

@@ -184,7 +184,7 @@ STATIC_ASSERT(EVAL_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 // flags, and may or may not be worth it for the feature.
 
 
-//=//// EVAL_FLAG_FULFILLING_ENFIX ////////////////////////////////////////=//
+//=//// EVAL_FLAG_RUNNING_ENFIX ////////////////////////////////////////=//
 //
 // Due to the unusual influences of partial refinement specialization, a frame
 // may wind up with its enfix parameter as being something like the last cell
@@ -192,7 +192,7 @@ STATIC_ASSERT(EVAL_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 // as normal.  There's no good place to hold the memory that one is doing an
 // enfix fulfillment besides a bit on the frame itself.
 //
-#define EVAL_FLAG_FULFILLING_ENFIX \
+#define EVAL_FLAG_RUNNING_ENFIX \
     FLAG_LEFT_BIT(16)
 
 

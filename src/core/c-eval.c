@@ -246,7 +246,10 @@ inline static void Finalize_Arg(REBFRM *f) {
 
     REBYTE kind_byte = KIND_BYTE(f->arg);
 
-    if (kind_byte == REB_0_END) { // `1 + comment "foo"` => `1 +`, arg is END
+    if (kind_byte == REB_0_END) {
+        //
+        // Note: `1 + comment "foo"` => `1 +`, arg is END
+        //
         if (not Is_Param_Endable(f->param))
             fail (Error_No_Arg(f, f->param));
 
@@ -756,7 +759,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         // exemption granted to `->` to do so.  This means you can do things
         // like `help/doc default`.
         //
-        if (NOT_ACTION_FLAG(VAL_ACTION(f->gotten), LEFT_QUOTE_OVERRIDES)) {
+        if (NOT_ACTION_FLAG(VAL_ACTION(f->gotten), STEALS_LEFT)) {
             //
             // Make a note we did this, so that if the left quoting operator
             // ends up running we can give it a better error.
@@ -789,8 +792,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
     Begin_Action(f, VAL_WORD_SPELLING(f->value));
 
-    assert(NOT_EVAL_FLAG(f, FULFILLING_ENFIX));
-    SET_EVAL_FLAG(f, FULFILLING_ENFIX);
+    SET_EVAL_FLAG(f, RUNNING_ENFIX);
     SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
 
     // Lookback args are fetched from f->out, then copied into an arg
@@ -899,8 +901,6 @@ bool Eval_Core_Throws(REBFRM * const f)
         // not all parameters will consume arguments for all calls.
 
       process_action:; // Note: Also jumped to by the redo_checked code
-
-        assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
 
       #if !defined(NDEBUG)
         assert(f->original); // set by Begin_Action()
@@ -1328,7 +1328,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     // This flag is only set for evaluative left enfix.  What
                     // it does is puts the enfix into a *single step defer*.
                     //
-                    if (GET_EVAL_FLAG(f, FULFILLING_ENFIX)) {
+                    if (GET_EVAL_FLAG(f, RUNNING_ENFIX)) {
                         assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
                         if (NOT_ACTION_FLAG(FRM_PHASE(f), DEFERS_LOOKBACK))
                             SET_FEED_FLAG(f->feed, NO_LOOKAHEAD);
@@ -1366,13 +1366,6 @@ bool Eval_Core_Throws(REBFRM * const f)
                             Move_Value(f->out, f->arg);
                             goto abort_action;
                         }
-                    }
-                    else if (IS_BAR(f->out)) {
-                        //
-                        // Hard quotes take BAR!s but they should look like an
-                        // <end> to a soft quote.
-                        //
-                        SET_END(f->arg);
                     }
                     else {
                         Move_Value(f->arg, f->out);
@@ -1433,7 +1426,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             //      >> 1 + 2 * 3
             //      == 9
             //
-            if (NOT_EVAL_FLAG(f, FULFILLING_ENFIX))
+            if (NOT_EVAL_FLAG(f, RUNNING_ENFIX))
                 CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
             // Once a deferred flag is set, it must be cleared during the
@@ -1514,14 +1507,6 @@ bool Eval_Core_Throws(REBFRM * const f)
     //=//// SOFT QUOTED ARG-OR-REFINEMENT-ARG  ////////////////////////////=//
 
               case REB_P_SOFT_QUOTE:
-                if (IS_BAR(f->value)) { // BAR! stops a soft quote
-                    SET_FEED_FLAG(f->feed, BARRIER_HIT);
-                    Fetch_Next_In_Frame(nullptr, f);
-                    SET_END(f->arg);
-                    Finalize_Arg(f);
-                    goto continue_arg_loop;
-                }
-
                 if (not IS_QUOTABLY_SOFT(f->value)) {
                     Quote_Next_In_Frame(f->arg, f); // CELL_FLAG_UNEVALUATED
                 }
@@ -1945,22 +1930,32 @@ bool Eval_Core_Throws(REBFRM * const f)
             current_gotten = Get_Opt_Var_May_Fail(current, f->specifier);
 
         if (IS_ACTION(current_gotten)) { // before IS_NULLED() is common case
-            Push_Action(
-                f,
-                VAL_ACTION(current_gotten),
-                VAL_BINDING(current_gotten)
-            );
+            REBACT *act = VAL_ACTION(current_gotten);
 
             // Note: The usual dispatch of enfix functions is not via a
             // REB_WORD in this switch, it's by some code at the end of
             // the switch.  So you only see enfix in cases like `(+ 1 2)`,
             // or after PARAMLIST_IS_INVISIBLE e.g. `10 comment "hi" + 20`.
             //
+            if (GET_CELL_FLAG(current_gotten, ENFIXED)) {
+                if (
+                    GET_ACTION_FLAG(act, POSTPONES_ENTIRELY)
+                    or GET_ACTION_FLAG(act, DEFERS_LOOKBACK)
+                ){
+                    if (GET_EVAL_FLAG(f, FULFILLING_ARG)) {
+                        CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
+                        SET_FEED_FLAG(f->feed, DEFERRING_ENFIX);
+                        SET_END(f->out);
+                        goto finished;
+                    }
+                }
+            }
+
+            Push_Action(f, act, VAL_BINDING(current_gotten));
             Begin_Action(f, VAL_WORD_SPELLING(current)); // use word as label
 
-            assert(NOT_EVAL_FLAG(f, FULFILLING_ENFIX));
             if (GET_CELL_FLAG(current_gotten, ENFIXED)) {
-                SET_EVAL_FLAG(f, FULFILLING_ENFIX);
+                SET_EVAL_FLAG(f, RUNNING_ENFIX); // Push_Action() disallows
                 SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
             }
             goto process_action;
@@ -2139,27 +2134,25 @@ bool Eval_Core_Throws(REBFRM * const f)
         }
 
         if (IS_ACTION(f->out)) {
+            //
+            // PATH! dispatch is costly and can error in more ways than WORD!:
+            //
+            //     e: trap [do make block! ":a"] e/id = 'not-bound
+            //                                   ^-- not ready @ lookahead
+            //
+            // Plus with GROUP!s in a path, their evaluations can't be undone.
+            //
             if (GET_CELL_FLAG(f->out, ENFIXED))
                 fail ("Use `->` to shove left enfix operands into PATH!s");
 
-            // !!! While it is (or would be) possible to fetch an enfix or
-            // invisible function from a PATH!, at this point it would be too
-            // late in the current scheme...since the lookahead step only
-            // honors WORD!.  PATH! support is expected for the future, but
-            // requires overhaul of the R3-Alpha path implementation.
+            // !!! Review if invisibles can be supported without ->
             //
             if (GET_ACTION_FLAG(VAL_ACTION(f->out), IS_INVISIBLE))
                 fail ("Use `->` with invisibles fetched from PATH!");
 
             Push_Action(f, VAL_ACTION(f->out), VAL_BINDING(f->out));
-
-            // !!! Paths are currently never enfixed.  It's a problem which is
-            // difficult to do efficiently, as well as introduces questions of
-            // running GROUP! in paths twice--once for lookahead, and then
-            // possibly once again if the lookahead reported non-enfix.  It's
-            // something that really should be made to work *when it can*.
-            //
             Begin_Action(f, opt_label);
+
             Expire_Out_Cell_Unless_Invisible(f);
             goto process_action;
         }
@@ -2499,40 +2492,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
-// [BAR!]
-//
-// Expression barriers prevent non-hard-quoted operations from picking up
-// parameters, e.g. `do [1 | + 2]` is an error.  But they don't erase values,
-// so `do [1 + 2 |]` is 3.  In that sense, they are like "invisible" actions.
-//
-//==//////////////////////////////////////////////////////////////////////==//
-
-      case REB_BAR:
-        //
-        // Though it's only one item, it satisfies the rule of "not going to
-        // be any lookaheads", so we don't want to leave the flag stale on
-        // the frame waiting for a value take that will never come.
-        //
-        CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
-
-        if (GET_EVAL_FLAG(f, FULFILLING_ARG)) {
-            //
-            // May be fulfilling a variadic argument (or an argument to an
-            // argument of a variadic, etc.)  Let this appear to give back
-            // an END...though if the frame is not at an END then it has
-            // more potential evaluation after the current action invocation.
-            //
-            SET_FEED_FLAG(f->feed, BARRIER_HIT);
-            goto finished;
-        }
-
-        kind.byte = KIND_BYTE(f->value);
-        if (kind.byte == REB_0_END)
-            goto finished;
-        goto do_next; // quickly process next item, no infix test needed
-
-//==//////////////////////////////////////////////////////////////////////==//
-//
 // [VOID!]
 //
 // "A void! is a means of giving a hot potato back that is a warning about
@@ -2664,8 +2623,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         REBSTR *opt_label = nullptr;
         Begin_Action(f, opt_label);
 
-        assert(NOT_EVAL_FLAG(f, FULFILLING_ENFIX));
-        SET_EVAL_FLAG(f, FULFILLING_ENFIX);
+        SET_EVAL_FLAG(f, RUNNING_ENFIX);
         SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
 
         Fetch_Next_In_Frame(nullptr, f); // advances f->value
@@ -2813,9 +2771,14 @@ bool Eval_Core_Throws(REBFRM * const f)
     // to know not to do the deferral more than once.
     //
     if (
-        GET_ACTION_FLAG(VAL_ACTION(f->gotten), DEFERS_LOOKBACK)
-        and GET_EVAL_FLAG(f, FULFILLING_ARG)
-        and NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX)
+        GET_EVAL_FLAG(f, FULFILLING_ARG)
+        and (
+            GET_ACTION_FLAG(VAL_ACTION(f->gotten), POSTPONES_ENTIRELY)
+            or (
+                GET_ACTION_FLAG(VAL_ACTION(f->gotten), DEFERS_LOOKBACK)
+                and NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX)
+            )
+        )
     ){
         if (GET_EVAL_FLAG(f->prior, ERROR_ON_DEFERRED_ENFIX)) {
             //
@@ -2827,6 +2790,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             //
             fail (Error_Ambiguous_Infix_Raw());
         }
+
+        CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
         if (not Is_Action_Frame_Fulfilling(f->prior)) {
             //
@@ -2841,11 +2806,10 @@ bool Eval_Core_Throws(REBFRM * const f)
             goto finished;
         }
 
-        // Must be true if fulfilling an argument that is *not* a deferral
-        //
-        assert(f->out == f->prior->arg);
-
         SET_FEED_FLAG(f->feed, DEFERRING_ENFIX);
+
+        if (GET_ACTION_FLAG(VAL_ACTION(f->gotten), POSTPONES_ENTIRELY))
+            SET_CELL_FLAG(f->out, OUT_MARKED_STALE);
 
         // Leave the enfix operator pending in the frame, and it's up to the
         // parent frame to decide whether to use EVAL_FLAG_POST_SWITCH to jump
@@ -2877,8 +2841,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         f->value != VOID_VALUE ? VAL_WORD_SPELLING(f->value) : nullptr
     );
 
-    assert(NOT_EVAL_FLAG(f, FULFILLING_ENFIX));
-    SET_EVAL_FLAG(f, FULFILLING_ENFIX);
+    SET_EVAL_FLAG(f, RUNNING_ENFIX);
     SET_EVAL_FLAG(f, GET_NEXT_ARG_FROM_OUT);
 
     Fetch_Next_In_Frame(nullptr, f); // advances f->value

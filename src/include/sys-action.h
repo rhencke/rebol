@@ -43,12 +43,14 @@
     ARRAY_FLAG_23
 
 
-//=//// PARAMLIST_FLAG_IS_VOIDER //////////////////////////////////////////=//
+//=//// PARAMLIST_FLAG_POSTPONES_ENTIRELY /////////////////////////////////=//
 //
-// Uses Voider_Dispatcher().  Right now there's not a good way to communicate
-// the findings of Make_Paramlist() back to the caller, so this flag is used.
+// A postponing operator causes everything on its left to run before it will.
+// Like a deferring operator, it is only allowed to appear after the last
+// parameter of an expression except it closes out *all* the parameters on
+// the stack vs. just one.
 //
-#define PARAMLIST_FLAG_IS_VOIDER \
+#define PARAMLIST_FLAG_POSTPONES_ENTIRELY \
     ARRAY_FLAG_24
 
 
@@ -67,7 +69,7 @@
 
 //=//// PARAMLIST_FLAG_DEFERS_LOOKBACK ////////////////////////////////////=//
 //
-// This is a calculated property, which is cached by Make_Action().
+// Special action property set with TWEAK.  Used by THEN, ELSE, and ALSO.
 //
 // Tells you whether a function defers its first real argument when used as a
 // lookback.  Because lookback dispatches cannot use refinements, the answer
@@ -126,7 +128,7 @@
     ARRAY_FLAG_30
 
 
-//=//// PARAMLIST_FLAG_LEFT_QUOTE_OVERRIDES ///////////////////////////////=//
+//=//// PARAMLIST_FLAG_STEALS_LEFT ////////////////////////////////////////=//
 //
 // This is used by the SHOVE (->) operation, to allow it to quote PATH! on
 // the left...which is generally prohibited.  The reason it is generally not
@@ -139,14 +141,14 @@
 //
 //      lib/help/doc ->
 //
-#define PARAMLIST_FLAG_LEFT_QUOTE_OVERRIDES \
+#define PARAMLIST_FLAG_STEALS_LEFT \
     ARRAY_FLAG_31
 
 
 // These are the flags which are scanned for and set during Make_Action
 //
 #define PARAMLIST_MASK_CACHED \
-    (PARAMLIST_FLAG_DEFERS_LOOKBACK | PARAMLIST_FLAG_IS_INVISIBLE \
+    (PARAMLIST_FLAG_IS_INVISIBLE \
         | PARAMLIST_FLAG_QUOTES_FIRST | PARAMLIST_FLAG_SKIPPABLE_FIRST)
 
 

@@ -28,6 +28,27 @@ c-break-debug: :c-debug-break ;-- easy to mix up
 
 lit: :literal ;-- because it's shorter
 
+set/enfix lit enfix: func [
+    "Convenience helper for making enfix functions, e.g `+: enfix :add`"
+
+    return: <void> "`x: y: enfix :z` wouldn't enfix x, so returns void"
+    :target [set-word! set-path!]
+    action [action!]
+][
+    set/enfix target :action
+]
+
+|: enfix func [
+    "Expression barrier - invisible so it vanishes, but blocks evaluation"
+    return: []
+    discarded [<opt> <end> any-value!]
+][
+    ;-- Note: actually *faster* than a native, due to Commenter_Dispatcher()
+]
+
+tweak :| #postpone on
+
+
 ??: ;; shorthand form to use in debug sessions, not intended to be committed
 probe: func [
     {Debug print a molded value and returns that same value.}
@@ -189,11 +210,11 @@ empty?: func [
 eval func [
     {Make fast type testing functions (variadic to quote "top-level" words)}
     return: <void>
-    'set-word... [set-word! <...>]
+    'set-word... [set-word! tag! <...>]
     <local>
         set-word type-name tester meta
 ][
-    while [set-word: take* set-word...] [
+    while [not equal? <end> set-word: take* set-word...] [
         type-name: copy as text! set-word
         change back tail of type-name "!" ;-- change ? at tail to !
         tester: typechecker (get bind (as word! type-name) set-word)
@@ -207,7 +228,6 @@ eval func [
 ]
     void?:
     blank?:
-    bar?:
     logic?:
     integer?:
     decimal?:
@@ -267,7 +287,7 @@ eval func [
     any-series?:
     any-scalar?:
     any-array?:
-|
+    <end>
 
 
 ;; Note: `LIT-WORD!: UNEVAL WORD!` and `LIT-PATH!: UNEVAL PATH!` is actually

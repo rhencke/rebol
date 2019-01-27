@@ -343,7 +343,7 @@ REBTYPE(Typeset)
             fail (Error_Invalid(arg));
 
         if (TYPE_CHECK(val, VAL_TYPE_KIND(arg)))
-            return Init_Bar(D_OUT);
+            return Init_True(D_OUT);
 
         return nullptr;
 

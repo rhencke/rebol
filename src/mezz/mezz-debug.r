@@ -24,7 +24,7 @@ verify: function [
             ;
             ; including BAR!s in the failure report looks messy, skip them
             ;
-            while [bar? first conditions] [conditions: my next]
+            while ['| = first conditions] [conditions: my next]
 
             fail 'conditions [
                 "Assertion condition returned"

@@ -1107,14 +1107,20 @@ REBNATIVE(tweak)
     switch (VAL_WORD_SYM(ARG(property))) {
       case SYM_SHOVE: { // Override the "no left quoting of PATH!s" rule
         if (pclass != REB_P_SOFT_QUOTE and pclass != REB_P_HARD_QUOTE)
-            fail ("TWEAK #shove only for actions with quoted 1st params");
-        flag = PARAMLIST_FLAG_LEFT_QUOTE_OVERRIDES;
+            fail ("TWEAK #shove only actions with quoted 1st params");
+        flag = PARAMLIST_FLAG_STEALS_LEFT;
         break; }
 
       case SYM_DEFER: // Special enfix behavior used by THEN, ELSE, ALSO...
         if (pclass != REB_P_NORMAL)
-            fail ("TWEAK #defer only for actions with evaluative 1st params");
+            fail ("TWEAK #defer only actions with evaluative 1st params");
         flag = PARAMLIST_FLAG_DEFERS_LOOKBACK;
+        break;
+
+      case SYM_POSTPONE: // Wait as long as it can to run w/o changing order
+        if (pclass != REB_P_NORMAL)
+            fail ("TWEAK #postpone only actions with evaluative 1st params");
+        flag = PARAMLIST_FLAG_POSTPONES_ENTIRELY;
         break;
 
       default:

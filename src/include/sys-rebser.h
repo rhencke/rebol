@@ -360,14 +360,20 @@ STATIC_ASSERT(SERIES_INFO_0_IS_TRUE == NODE_FLAG_NODE);
 STATIC_ASSERT(SERIES_INFO_1_IS_FALSE == NODE_FLAG_FREE);
 
 
-//=//// SERIES_INFO_UNUSED_2 //////////////////////////////////////////////=//
+//=//// SERIES_INFO_MISC_BIT //////////////////////////////////////////////=//
 //
-// reclaimed.
+// !!! Due to ARRAY_FLAG_XXX being in short supply, a series info bit is used
+// to pass back that Make_Paramlist() noticed a function was in need of a
+// voider dispatcher.  Unlike other properties that are meaningful to cache,
+// this is used once and thrown away.  There's other ways it could be passed
+// back, this is just an easy way for now--review.
 //
 // Note: Same bit position as NODE_FLAG_MANAGED in flags, if that is relevant.
 //
-#define SERIES_INFO_UNUSED_2 \
+#define SERIES_INFO_MISC_BIT \
     FLAG_LEFT_BIT(2)
+
+#define ARRAY_INFO_MISC_VOIDER SERIES_INFO_MISC_BIT
 
 
 //=//// SERIES_INFO_BLACK /////////////////////////////////////////////////=//

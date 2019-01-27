@@ -133,22 +133,22 @@
 [
     (
         left-normal: enfix right-normal:
-            <- func [return: [<opt> bar!] x [bar!]] [:x]
+            <- func [return: [<opt> word!] x [word!]] [:x]
         left-normal*: enfix right-normal*:
-            <- func [return: [<opt> bar!] x [bar! <end>]] [:x]
+            <- func [return: [<opt> word!] x [word! <end>]] [:x]
 
         left-defer: enfix tweak (copy :left-normal) #defer on
         left-defer*: enfix tweak (copy :left-normal*) #defer on
 
         left-soft: enfix right-soft:
-            <- func [return: [<opt> bar!] 'x [bar!]] [:x]
+            <- func [return: [<opt> word!] 'x [word!]] [:x]
         left-soft*: enfix right-soft*:
-            <- func [return: [<opt> bar!] 'x [bar! <end>]] [:x]
+            <- func [return: [<opt> word!] 'x [word! <end>]] [:x]
 
         left-hard: enfix right-hard:
-            <- func [return: [<opt> bar!] :x [bar!]] [:x]
+            <- func [return: [<opt> word!] :x [word!]] [:x]
         left-hard*: enfix right-hard*:
-            <- func [return: [<opt> bar!] :x [bar! <end>]] [:x]
+            <- func [return: [<opt> word!] :x [word! <end>]] [:x]
 
         true
     )
@@ -165,12 +165,12 @@
     (null? do [| left-defer*])
     (null? do [left-defer*])
 
-    ('no-arg = (trap [right-soft |])/id)
-    (null? do [right-soft* |])
+    ('| = do [right-soft |])
+    ('| = do [right-soft* |])
     (null? do [right-soft*])
 
-    ('no-arg = (trap [| left-soft])/id)
-    (null? do [| left-soft*])
+    ('| = do [| left-soft])
+    ('| = do [| left-soft*])
     (null? do [left-soft*])
 
     ('| = do [right-hard |])
@@ -187,19 +187,19 @@
 [
     (
         left-normal: enfix right-normal:
-            <- func [return: [<opt> bar!] x [bar! <...>]] [take x]
+            <- func [return: [<opt> word!] x [word! <...>]] [take x]
         left-normal*: enfix right-normal*:
-            <- func [return: [<opt> bar!] x [bar! <...> <end>]] [take* x]
+            <- func [return: [<opt> word!] x [word! <...> <end>]] [take* x]
 
         left-soft: enfix right-soft:
-            <- func [return: [<opt> bar!] 'x [bar! <...>]] [take x]
+            <- func [return: [<opt> word!] 'x [word! <...>]] [take x]
         left-soft*: enfix right-soft*:
-            <- func [return: [<opt> bar!] 'x [bar! <...> <end>]] [take* x]
+            <- func [return: [<opt> word!] 'x [word! <...> <end>]] [take* x]
 
         left-hard: enfix right-hard:
-            <- func [return: [<opt> bar!] :x [bar! <...>]] [take x]
+            <- func [return: [<opt> word!] :x [word! <...>]] [take x]
         left-hard*: enfix right-hard*:
-            <- func [return: [<opt> bar!] :x [bar! <...> <end>]] [take* x]
+            <- func [return: [<opt> word!] :x [word! <...> <end>]] [take* x]
 
         true
     )
@@ -216,12 +216,12 @@
     (null? do [| left-defer*])
     (null? do [left-defer*])
 
-    (error? trap [right-soft |])
-    (null? do [right-soft* |])
+    ('| = do [right-soft |])
+    ('| = do [right-soft* |])
     (null? do [right-soft*])
 
-    (error? trap [| left-soft])
-    (null? do [| left-soft*])
+    ('| = do [| left-soft])
+    ('| = do [| left-soft*])
     (null? do [left-soft*])
 
     ('| = do [right-hard |])
