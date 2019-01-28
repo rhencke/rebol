@@ -312,23 +312,11 @@ struct devreq_file;
 // safer than bit field union tricks.
 //
 typedef struct reb_ymdz {
-#ifdef ENDIAN_LITTLE
-    int zone:7; // +/-15:00 res: 0:15
-    unsigned day:5;
-    unsigned month:4;
-    unsigned year:16;
-#else
     unsigned year:16;
     unsigned month:4;
     unsigned day:5;
     int zone:7; // +/-15:00 res: 0:15
-#endif
 } REBYMD;
-
-typedef union reb_date {
-    REBYMD date;
-    REBCNT bits; // !!! alias used for hashing date, is this standards-legal? 
-} REBDAT;
 
 typedef struct rebol_time_fields {
     REBCNT h;

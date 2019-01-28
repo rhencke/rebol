@@ -254,8 +254,18 @@ uint32_t Hash_Value(const RELVAL *v)
       case REB_TIME:
       case REB_DATE:
         hash = cast(REBCNT, VAL_NANO(cell) ^ (VAL_NANO(cell) / SEC_SEC));
-        if (kind == REB_DATE)
-            hash ^= VAL_DATE(cell).bits;
+        if (kind == REB_DATE) {
+            //
+            // !!! This hash used to be done with an illegal-in-C union alias
+            // of bit fields.  This shift is done to account for the number
+            // of bits in each field, giving a compatible effect.
+            //
+            REBYMD d = VAL_DATE(cell);
+            hash ^= (
+                ((((((d.year << 16) + d.month) << 4) + d.day) << 5)
+                    + d.zone) << 7
+            );
+        }
         break;
 
       case REB_BINARY:

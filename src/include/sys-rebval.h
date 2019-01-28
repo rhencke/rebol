@@ -600,7 +600,7 @@ union Reb_Value_Extra {
     // with the "Extra" pointer-sized item here.
 
     REBSTR *key_spelling; // if typeset is key of object or function parameter
-    REBDAT date; // time's payload holds the nanoseconds, this is the date
+    REBYMD ymdz; // time's payload holds the nanoseconds, this is the date
     REBCNT struct_offset; // offset for struct in the possibly shared series
 
     // !!! Biasing Ren-C to helping solve its technical problems led the

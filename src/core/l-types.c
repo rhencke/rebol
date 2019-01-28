@@ -999,7 +999,7 @@ end_date:
     VAL_YEAR(out)  = year;
     VAL_MONTH(out) = month;
     VAL_DAY(out) = day;
-    out->extra.date.date.zone = tz; // may be NO_DATE_ZONE
+    VAL_DATE(out).zone = tz; // may be NO_DATE_ZONE
 
     Adjust_Date_Zone(out, true); // no effect if NO_DATE_ZONE
 

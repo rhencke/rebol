@@ -39,24 +39,35 @@
 //
 REBINT CT_Date(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
+    REBYMD dat_a = VAL_DATE(a);
+    REBYMD dat_b = VAL_DATE(b);
+
     if (mode == 1) {
         if (Does_Date_Have_Zone(a)) {
             if (not Does_Date_Have_Zone(b))
                 return 0; // can't be equal
 
-            if (VAL_DATE(a).bits != VAL_DATE(b).bits)
+            if (
+                dat_a.year != dat_b.year
+                or dat_a.month != dat_b.month
+                or dat_a.day != dat_b.year
+                or dat_a.zone != dat_b.zone
+            ){
                 return 0; // both have zones, all bits must be equal
+            }
         }
         else {
             if (Does_Date_Have_Zone(b))
                 return 0; // a doesn't have, b does, can't be equal
 
-            REBDAT dat_a = a->extra.date;
-            REBDAT dat_b = b->extra.date;
-            dat_a.date.zone = 0;
-            dat_b.date.zone = 0;
-            if (dat_a.bits != dat_b.bits)
+            if (
+                dat_a.year != dat_b.year
+                or dat_a.month != dat_b.month
+                or dat_a.day != dat_b.day
+                // old code here ignored .zone
+            ){
                 return 0; // canonized to 0 zone not equal
+            }
         }
 
         if (Does_Date_Have_Time(a)) {
@@ -176,17 +187,17 @@ static REBCNT Month_Length(REBCNT month, REBCNT year)
 // Given a year, month and day, return the number of days since the
 // beginning of that year.
 //
-REBCNT Julian_Date(REBDAT date)
+REBCNT Julian_Date(REBYMD date)
 {
     REBCNT days;
     REBCNT i;
 
     days = 0;
 
-    for (i = 0; i < cast(REBCNT, date.date.month - 1); i++)
-        days += Month_Length(i, date.date.year);
+    for (i = 0; i < cast(REBCNT, date.month - 1); i++)
+        days += Month_Length(i, date.year);
 
-    return date.date.day + days;
+    return date.day + days;
 }
 
 
@@ -195,42 +206,45 @@ REBCNT Julian_Date(REBDAT date)
 //
 // Calculate the difference in days between two dates.
 //
-REBINT Diff_Date(REBDAT d1, REBDAT d2)
+REBINT Diff_Date(REBYMD d1, REBYMD d2)
 {
     // !!! Time zones (and times) throw a wrench into this calculation.
     // This just keeps R3-Alpha behavior going as flaky as it was,
-    // forcing zero into the time zone bits...to avoid using uninitialized
-    // time zone bits.
-    //
-    d1.date.zone = 0;
-    d2.date.zone = 0;
+    // and doesn't heed the time zones.
 
-    if (d1.bits == d2.bits)
-        return 0;
+    REBINT sign = 1;
 
-    REBINT sign;
-    if (d1.bits < d2.bits) {
-        REBDAT tmp = d1;
+    if (d1.year < d2.year)
+        sign = -1;
+    else if (d1.year == d2.year) {
+        if (d1.month < d2.month)
+            sign = -1;
+        else if (d1.month == d2.month) {
+            if (d1.day < d2.day)
+                sign = -1;
+            else if (d1.day == d2.day)
+                return 0;
+        }
+    }
+
+    if (sign == -1) {
+        REBYMD tmp = d1;
         d1 = d2;
         d2 = tmp;
-        sign = -1;
     }
-    else
-        sign = 1;
 
     // if not same year, calculate days to end of month, year and
     // days in between years plus days in end year
     //
-    if (d1.date.year > d2.date.year) {
-        REBCNT days
-            = Month_Length(d2.date.month-1, d2.date.year) - d2.date.day;
+    if (d1.year > d2.year) {
+        REBCNT days = Month_Length(d2.month-1, d2.year) - d2.day;
 
         REBCNT m;
-        for (m = d2.date.month; m < 12; m++)
-            days += Month_Length(m, d2.date.year);
+        for (m = d2.month; m < 12; m++)
+            days += Month_Length(m, d2.year);
 
         REBCNT y;
-        for (y = d2.date.year + 1; y < d1.date.year; y++) {
+        for (y = d2.year + 1; y < d1.year; y++) {
             days += (((y % 4) == 0) &&  // divisible by four is a leap year
                 (((y % 100) != 0) ||    // except when divisible by 100
                 ((y % 400) == 0)))  // but not when divisible by 400
@@ -248,12 +262,12 @@ REBINT Diff_Date(REBDAT d1, REBDAT d2)
 //
 // Return the day of the week for a specific date.
 //
-REBCNT Week_Day(REBDAT date)
+REBCNT Week_Day(REBYMD date)
 {
-    REBDAT year1;
+    REBYMD year1;
     CLEARS(&year1);
-    year1.date.day = 1;
-    year1.date.month = 1;
+    year1.day = 1;
+    year1.month = 1;
 
     return ((Diff_Date(date, year1) + 5) % 7) + 1;
 }
@@ -289,15 +303,13 @@ void Normalize_Time(REBI64 *sp, REBCNT *dp)
 // Given a year, month and day, normalize and combine to give a new
 // date value.
 //
-static REBDAT Normalize_Date(REBINT day, REBINT month, REBINT year, REBINT tz)
+static REBYMD Normalize_Date(REBINT day, REBINT month, REBINT year, REBINT tz)
 {
-    REBINT d;
-    REBDAT dr;
-
     // First we normalize the month to get the right year
-    if (month<0) {
-        year-=(-month+11)/12;
-        month=11-((-month+11)%12);
+
+    if (month < 0) {
+        year -= (-month + 11) / 12;
+        month= 11 - ((-month + 11) % 12);
     }
     if (month >= 12) {
         year += month / 12;
@@ -305,7 +317,9 @@ static REBDAT Normalize_Date(REBINT day, REBINT month, REBINT year, REBINT tz)
     }
 
     // Now adjust the days by stepping through each month
-    while (day >= (d = (REBINT)Month_Length(month, year))) {
+
+    REBINT d;
+    while (day >= (d = cast(REBINT, Month_Length(month, year)))) {
         day -= d;
         if (++month >= 12) {
             month = 0;
@@ -319,17 +333,17 @@ static REBDAT Normalize_Date(REBINT day, REBINT month, REBINT year, REBINT tz)
         }
         else
             month--;
-        day += (REBINT)Month_Length(month, year);
+        day += cast(REBINT, Month_Length(month, year));
     }
 
     if (year < 0 || year > MAX_YEAR)
         fail (Error_Type_Limit_Raw(Datatype_From_Kind(REB_DATE)));
 
-    dr.date.year = year;
-    dr.date.month = month+1;
-    dr.date.day = day+1;
-    dr.date.zone = tz;
-
+    REBYMD dr;
+    dr.year = year;
+    dr.month = month + 1;
+    dr.day = day + 1;
+    dr.zone = tz;
     return dr;
 }
 
@@ -346,7 +360,7 @@ void Adjust_Date_Zone(RELVAL *d, bool to_utc)
         return;
 
     if (not Does_Date_Have_Time(d)) {
-        d->extra.date.date.zone = NO_DATE_ZONE; // !!! Is this necessary?
+        VAL_DATE(d).zone = NO_DATE_ZONE; // !!! Is this necessary?
         return;
     }
 
@@ -636,7 +650,7 @@ void Pick_Or_Poke_Date(
             Adjust_Date_Zone(opt_out, to_utc); // !!! necessary?
 
             opt_out->payload.time.nanoseconds = NO_DATE_TIME;
-            opt_out->extra.date.date.zone = NO_DATE_ZONE;
+            VAL_DATE(opt_out).zone = NO_DATE_ZONE;
             break; }
 
         case SYM_WEEKDAY:
@@ -650,7 +664,7 @@ void Pick_Or_Poke_Date(
 
         case SYM_UTC: {
             Move_Value(opt_out, v);
-            INIT_VAL_ZONE(opt_out, 0);
+            VAL_DATE(opt_out).zone = 0;
             const bool to_utc = true;
             Adjust_Date_Zone(opt_out, to_utc);
             break; }
@@ -729,7 +743,7 @@ void Pick_Or_Poke_Date(
         case SYM_TIME:
             if (IS_NULLED(opt_poke)) { // clear out the time component
                 v->payload.time.nanoseconds = NO_DATE_TIME;
-                v->extra.date.date.zone = NO_DATE_ZONE;
+                VAL_DATE(v).zone = NO_DATE_ZONE;
                 return;
             }
 
@@ -745,7 +759,7 @@ void Pick_Or_Poke_Date(
 
         case SYM_ZONE:
             if (IS_NULLED(opt_poke)) { // clear out the zone component
-                v->extra.date.date.zone = NO_DATE_ZONE;
+                VAL_DATE(v).zone = NO_DATE_ZONE;
                 return;
             }
 
@@ -878,7 +892,7 @@ REBTYPE(Date)
 
     RESET_CELL(D_OUT, REB_DATE); // so we can set flags on it
 
-    REBDAT date = VAL_DATE(val);
+    REBYMD date = VAL_DATE(val);
     REBCNT day = VAL_DAY(val) - 1;
     REBCNT month = VAL_MONTH(val) - 1;
     REBCNT year = VAL_YEAR(val);
@@ -1063,7 +1077,7 @@ REBNATIVE(make_date_ymdsnz)
     VAL_MONTH(D_OUT) = VAL_INT32(ARG(month));
     VAL_DAY(D_OUT) = VAL_INT32(ARG(day));
 
-    INIT_VAL_ZONE(D_OUT, VAL_INT32(ARG(zone)) / ZONE_MINS);
+    VAL_DATE(D_OUT).zone = VAL_INT32(ARG(zone)) / ZONE_MINS;
 
     D_OUT->payload.time.nanoseconds
         = SECS_TO_NANO(VAL_INT64(ARG(seconds))) + VAL_INT64(ARG(nano));

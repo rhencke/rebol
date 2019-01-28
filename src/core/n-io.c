@@ -346,7 +346,7 @@ REBNATIVE(now)
         //
         // Clear out the time zone flag
         //
-        D_OUT->extra.date.date.zone = NO_DATE_ZONE;
+        VAL_DATE(D_OUT).zone = NO_DATE_ZONE;
     }
     else {
         if (
@@ -367,7 +367,7 @@ REBNATIVE(now)
 
     if (REF(date)) {
         D_OUT->payload.time.nanoseconds = NO_DATE_TIME;
-        D_OUT->extra.date.date.zone = NO_DATE_ZONE;
+        VAL_DATE(D_OUT).zone = NO_DATE_ZONE;
     }
     else if (REF(time)) {
         RESET_VAL_HEADER(D_OUT, REB_TIME);

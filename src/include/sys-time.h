@@ -49,7 +49,7 @@ inline static bool Does_Date_Have_Time(const REBCEL *v)
 inline static bool Does_Date_Have_Zone(const REBCEL *v)
 {
     assert(CELL_KIND(v) == REB_DATE);
-    return v->extra.date.date.zone != NO_DATE_ZONE; // 7-bit field
+    return v->extra.ymdz.zone != NO_DATE_ZONE; // 7-bit field
 }
 
 
@@ -124,29 +124,29 @@ inline static REBVAL *Init_Time_Nanoseconds(RELVAL *v, REBI64 nanoseconds) {
 //=////////////////////////////////////////////////////////////////////////=//
 
 #define VAL_DATE(v) \
-    ((v)->extra.date)
+    ((v)->extra.ymdz)
 
 #define MAX_YEAR 0x3fff
 
 #define VAL_YEAR(v) \
-    ((v)->extra.date.date.year)
+    ((v)->extra.ymdz.year)
 
 #define VAL_MONTH(v) \
-    ((v)->extra.date.date.month)
+    ((v)->extra.ymdz.month)
 
 #define VAL_DAY(v) \
-    ((v)->extra.date.date.day)
+    ((v)->extra.ymdz.day)
 
 
 inline static int VAL_ZONE(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_DATE and Does_Date_Have_Zone(v));
-    return v->extra.date.date.zone;
+    return v->extra.ymdz.zone;
 }
 
 inline static void INIT_VAL_ZONE(RELVAL *v, int zone) {
     assert(IS_DATE(v));
     assert(zone != NO_DATE_ZONE);
-    v->extra.date.date.zone = zone;
+    v->extra.ymdz.zone = zone;
 }
 
 #define ZONE_MINS 15
