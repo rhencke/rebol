@@ -30,6 +30,11 @@
 // of the escaping cannot fit in a value cell, so a "singular" array is used
 // (a compact form with only a series tracking node, sizeof(REBVAL)*2)
 //
+// The depth is the number of apostrophes, e.g. ''''X is a depth of 4.  It is
+// stored in the cell payload and not the MISC() or LINK() of the singular,
+// so that when you add or remove quote levels to the same value a new series
+// isn't required...the cell just has a different count.
+//
 // HOWEVER... there is an efficiency trick, which uses the KIND_BYTE() div 4
 // as the "lit level" of a value.  Then the byte mod 4 becomes the actual
 // type.  So only an actual REB_QUOTED at "apparent lit-level 0" has its own
@@ -42,6 +47,7 @@
 // as they do not need to worry about the aliasing and can just test the byte
 // against the unquoted REB_WORD value they are interested in.
 //
+
 
 inline static REBCNT VAL_QUOTED_DEPTH(const RELVAL *v) {
     if (KIND_BYTE(v) >= REB_64) // shallow enough to use type byte trick...

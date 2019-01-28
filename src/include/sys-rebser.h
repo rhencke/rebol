@@ -35,6 +35,21 @@
 // dynamically growing structure.  It is also used for fixed size structures
 // which would like to participate in garbage collection.
 //
+// A REBSER is a contiguous-memory structure with an optimization of behaving
+// like a kind of "double-ended queue".  It is able to reserve capacity at
+// both the tail and the head, and when data is taken from the head it will
+// retain that capacity...reusing it on later insertions at the head.
+//
+// The space at the head is called the "bias", and to save on pointer math
+// per-access, the stored data pointer is actually adjusted to include the
+// bias.  This biasing is backed out upon insertions at the head, and also
+// must be subtracted completely to free the pointer using the address
+// originally given by the allocator.
+//
+// The element size in a REBSER is known as the "width".  It is designed
+// to support widths of elements up to 255 bytes.  (See note on SER_FREED
+// about accomodating 256-byte elements.)
+//
 // The REBSER is fixed-size, and is allocated as a "node" from a memory pool.
 // That pool quickly grants and releases memory ranges that are sizeof(REBSER)
 // without needing to use malloc() and free() for each individual allocation.
@@ -49,6 +64,12 @@
 // by the GC to reclaim or optimize space.)  Hence pointers into data in a
 // managed series *must not be held onto across evaluations*, without
 // special protection or accomodation.
+//
+// REBSERs may be either manually memory managed or delegated to the garbage
+// collector.  Free_Unmanaged_Series() may only be called on manual series.
+// See MANAGE_SERIES()/PUSH_GC_GUARD() for remarks on how to work safely
+// with pointers to garbage-collected series, to avoid having them be GC'd
+// out from under the code while working with them.
 //
 //=//// NOTES /////////////////////////////////////////////////////////////=//
 //

@@ -29,27 +29,11 @@
 // In Rebol terminology, a "context" is an abstraction which gives two
 // parallel arrays, whose indices line up in a correspondence:
 //
-// * "keylist" - an array that contains TYPESET! values, but which have a
+// * "keylist" - an array that contains IS_PARAM() cells, but which have a
 //   symbol ID encoded as an extra piece of information for that key.
 //
 // * "varlist" - an array of equal length to the keylist, which holds an
 //   arbitrary REBVAL in each position that corresponds to its key.
-//
-// Contexts coordinate with words, which can have their VAL_WORD_CONTEXT()
-// set to a context's series pointer.  Then they cache the index of that
-// word's symbol in the context's keylist, for a fast lookup to get to the
-// corresponding var.  The key is a typeset which has several flags
-// controlling behaviors like whether the var is protected or hidden.
-//
-// !!! This "caching" mechanism is not actually "just a cache".  Once bound
-// the index is treated as permanent.  This is why objects are "append only"
-// because disruption of the index numbers would break the extant words
-// with index numbers to that position.  Ren-C might wind up undoing this by
-// paying for the check of the symbol number at the time of lookup, and if
-// it does not match consider it a cache miss and re-lookup...adjusting the
-// index inside of the word.  For efficiency, some objects could be marked
-// as not having this property, but it may be just as efficient to check
-// the symbol match as that bit.
 //
 // Frame key/var indices start at one, and they leave two REBVAL slots open
 // in the 0 spot for other uses.  With an ANY-CONTEXT!, the use for the
@@ -58,6 +42,39 @@
 // than the REBVAL struct which is 4x larger, yet still reconstitute the
 // entire REBVAL if it is needed.
 //
+// (The "ROOTKEY" of the keylist is currently only used a context is a FRAME!.
+// It is using a paramlist as the keylist, so the [0] is the archetype action
+// value of that paramlist).
+//
+// The `keylist` is held in the varlist's LINK().keysource field, and it may
+// be shared with an arbitrary number of other contexts.  Changing the keylist
+// involves making a copy if it is shared.
+//
+// Contexts coordinate with words, which can have their VAL_WORD_CONTEXT()
+// set to a context's series pointer.  Then they cache the index of that
+// word's symbol in the context's keylist, for a fast lookup to get to the
+// corresponding var.  The key is a typeset which has several flags
+// controlling behaviors like whether the var is protected or hidden.
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// NOTES:
+//
+// * Once a word is bound to a context the index is treated as permanent.
+//   This is why objects are "append only"...because disruption of the index
+//   numbers would break the extant words with index numbers to that position.
+//
+// * !!! Ren-C might wind up undoing this by paying for the check of the
+//   symbol number at the time of lookup, and if it does not match consider it
+//   a cache miss and re-lookup...adjusting the index inside of the word.
+//   For efficiency, some objects could be marked as not having this property,
+//   but it may be just as efficient to check the symbol match as that bit.
+//
+// * REB_MODULE depends on a property stored in the "meta" Reb_Series.link
+//   field of the keylist, which is another object's-worth of data *about*
+//   the module's contents (e.g. the processed header)
+//
+
 
 //=//// SERIES_FLAG_VARLIST_FRAME_FAILED //////////////////////////////////=//
 //

@@ -29,44 +29,29 @@
 // Note: the word "Series" is overloaded in Rebol to refer to two related but
 // distinct concepts:
 //
-// * The internal system datatype, also known as a REBSER.  It's a low-level
-//   implementation of something similar to a vector or an array in other
-//   languages.  It is an abstraction which represents a contiguous region
-//   of memory containing equally-sized elements.
+// 1. The internal system datatype, also known as a REBSER.  It's a low-level
+//    implementation of something similar to a vector or an array in other
+//    languages.  It is an abstraction which represents a contiguous region
+//    of memory containing equally-sized elements.
 //
-// * The user-level value type ANY-SERIES!.  This might be more accurately
-//   called ITERATOR!, because it includes both a pointer to a REBSER of
-//   data and an index offset into that data.  Attempts to reconcile all
-//   the naming issues from historical Rebol have not yielded a satisfying
-//   alternative, so the ambiguity has stuck.
+//   (For the struct definition of REBSER, see %sys-rebser.h)
 //
-// This file regards the first meaning of the word "series" and covers the
-// low-level implementation details of a REBSER and its subclasses.  For info
-// about the higher-level ANY-SERIES! value type and its embedded index,
-// see %sys-value.h in the definition of `struct Reb_Any_Series`.
+// 2. The user-level value type ANY-SERIES!.  This might be more accurately
+//    called ITERATOR!, because it includes both a pointer to a REBSER of
+//    data and an index offset into that data.  Attempts to reconcile all
+//    the naming issues from historical Rebol have not yielded a satisfying
+//    alternative, so the ambiguity has stuck.
+//
+// An ANY-SERIES! value contains an `index` as the 0-based position into the
+// series represented by this ANY-VALUE! (so if it is 0 then that means a
+// Rebol index of 1).
+//
+// It is possible that the index could be to a point beyond the range of the
+// series.  This is intrinsic, because the REBSER can be modified through
+// other values and not update the others referring to it.  Hence VAL_INDEX()
+// must be checked, or the routine called with it must.
 //
 //=////////////////////////////////////////////////////////////////////////=//
-//
-// A REBSER is a contiguous-memory structure with an optimization of behaving
-// like a kind of "double-ended queue".  It is able to reserve capacity at
-// both the tail and the head, and when data is taken from the head it will
-// retain that capacity...reusing it on later insertions at the head.
-//
-// The space at the head is called the "bias", and to save on pointer math
-// per-access, the stored data pointer is actually adjusted to include the
-// bias.  This biasing is backed out upon insertions at the head, and also
-// must be subtracted completely to free the pointer using the address
-// originally given by the allocator.
-//
-// The element size in a REBSER is known as the "width".  It is designed
-// to support widths of elements up to 255 bytes.  (See note on SER_FREED
-// about accomodating 256-byte elements.)
-//
-// REBSERs may be either manually memory managed or delegated to the garbage
-// collector.  Free_Unmanaged_Series() may only be called on manual series.
-// See MANAGE_SERIES()/PUSH_GC_GUARD() for remarks on how to work safely
-// with pointers to garbage-collected series, to avoid having them be GC'd
-// out from under the code while working with them.
 //
 // Series subclasses REBARR, REBCTX, REBACT, REBMAP are defined which are
 // type-incompatible with REBSER for safety.  (In C++ they would be derived
@@ -76,8 +61,6 @@
 //
 // Notes:
 //
-// * For the struct definition of REBSER, see %sys-rebser.h
-//
 // * It is desirable to have series subclasses be different types, even though
 //   there are some common routines for processing them.  e.g. not every
 //   function that would take a REBSER* would actually be handled in the same
@@ -86,7 +69,10 @@
 //   be accessing the array--in a C++ build this would mean it would have some
 //   kind of protected inheritance scheme.
 //
-
+// * !!! It doesn't seem like index-out-of-range checks on the cells are being
+//   done in a systemic way.  VAL_LEN_AT() bounds the length at the index
+//   position by the physical length, but VAL_ARRAY_AT() doesn't check.
+//
 
 //
 // For debugging purposes, it's nice to be able to crash on some kind of guard

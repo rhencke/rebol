@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2018 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -27,11 +27,49 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Using a technique strongly parallel to contexts, an action is identified
-// by a series which is also its paramlist, in which the 0th element is an
-// archetypal value of that ACTION!.  Unlike contexts, an action does not
-// have values of its own...only parameter definitions (or "params").  The
-// arguments ("args") come from finding an action's instantiation on the
-// stack, and can be viewed as a context using a FRAME!.
+// by an array which acts as its "paramlist".  The 0th element of that array
+// is an archetypal value of the ACTION!.  That is followed by 1..NUM_PARAMS
+// cells that have REB_XXX types higher than REB_MAX (e.g. "pseudotypes").
+// These PARAM cells are not intended to be leaked to the user...they
+// indicate the parameter type (normal, quoted, local).  The parameter cell's
+// payload holds a typeset, and the extra holds the symbol.
+//
+// Each ACTION! instance cell (including the one that can be found in the [0]
+// slot of the parameter list) has also a "details" field.  This is another
+// array that holds the instance data used by the C native "dispatcher"
+// function, which lives in MISC(details).dispatcher).  The details are how
+// the same dispatcher can have different effects:
+//
+// What the details array holds varies by dispatcher:
+//
+//     USER FUNCTIONS: 1-element array w/a BLOCK!, the body of the function
+//     GENERICS: 1-element array w/WORD! "verb" (OPEN, APPEND, etc)
+//     SPECIALIZATIONS: 1-element array containing an exemplar FRAME! value
+//     ROUTINES/CALLBACKS: stylized array (REBRIN*)
+//     TYPECHECKERS: the TYPESET! to check against
+//
+// Since plain natives only need the C function, the body is optionally used
+// to store a block of Rebol code that is equivalent to the native, for
+// illustrative purposes.  (a "fake" answer for SOURCE)
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// NOTES:
+//
+// * Unlike contexts, an ACTION! does not have values of its own, only
+//   parameter definitions (or "params").  The arguments ("args") come from an
+//   action's instantiation on the stack, viewed as a context using a FRAME!.
+//
+// * Paramlists may contain hidden fields, if they are specializations...
+//   because they have to have the right number of slots to line up with the
+//   frame of the underlying function.
+//
+// * The `misc.meta` field of the paramlist holds a meta object (if any) that
+//   describes the function.  This is read by help.
+//
+// * By storing the C function dispatcher pointer in the `details` array node
+//   instead of in the value cell itself, it also means the dispatcher can be
+//   HIJACKed--or otherwise hooked to affect all instances of a function.
 //
 
 

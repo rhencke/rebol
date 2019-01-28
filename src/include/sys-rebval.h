@@ -390,149 +390,38 @@ typedef struct Reb_Tuple_Payload {
 } REBTUP;
 
 
-struct Reb_Quoted_Payload {
-    //
-    // It's necessary to create some storage outside the value--at least for
-    // some levels of depth--because the cell itself can't be big enough to
-    // hold any other cell (by definition!).  Cell pointer cached for speed.
-    //
+struct Reb_Quoted_Payload // see %sys-quoted.h (only used if quote level > 3)
+{
     RELVAL *cell; // lives in singular array, find with Singular_From_Cell()
-
-    // The depth is the number of apostrophes, e.g. ''''X is a depth of 4.
-    // It is stored in the cell payload and not the MISC() or LINK() of the
-    // singular, so that when you add or remove quote levels to the same value
-    // a new series isn't required...the cell just has a different count.
-    //
-    REBCNT depth;
+    REBCNT depth; // kept in payload so allocation shares across quote levels
 };
 
-
-struct Reb_Series_Payload {
-    REBSER *series; // vector of equal-sized items, see %sys-series.h
-
-    // `index` is the 0-based position into the series represented by this
-    // ANY-VALUE! (so if it is 0 then that means a Rebol index of 1).
-    //
-    // It is possible that the index could be to a point beyond the range of
-    // the series.  This is intrinsic, because the series can be modified
-    // through other values and not update the others referring to it.  Hence
-    // VAL_INDEX() must be checked, or the routine called with it must.
-    //
-    // !!! Review that it doesn't seem like these checks are being done
-    // in a systemic way.  VAL_LEN_AT() bounds the length at the index
-    // position by the physical length, but VAL_ARRAY_AT() doesn't check.
-    //
-    REBCNT index;
+struct Reb_Series_Payload // see %sys-series.h, %sys-array.h, %sys-string.h...
+{
+    REBSER *series; // vector (or double-ended queue) of equal-sized items
+    REBCNT index; // 0-based position (if it is 0, that means Rebol index 1)
 };
 
 struct Reb_Typeset_Payload {
     REBU64 bits; // One bit for each DATATYPE! (use with FLAGIT_KIND)
 };
 
-
-struct Reb_Word_Payload {
-    //
-    // This is the word's non-canonized spelling.  It is a UTF-8 string.
-    //
-    REBSTR *spelling;
-
-    // Index of word in context (if word is bound, e.g. `binding` is not null)
-    //
-    // !!! Intended logic is that if the index is positive, then the word
-    // is looked for in the context's pooled memory data pointer.  If the
-    // index is negative or 0, then it's assumed to be a stack variable,
-    // and looked up in the call's `stackvars` data.
-    //
-    // But now there are no examples of contexts which have both pooled
-    // and stack memory, and the general issue of mapping the numbers has
-    // not been solved.  However, both pointers are available to a context
-    // so it's awaiting some solution for a reasonably-performing way to
-    // do the mapping from [1 2 3 4 5 6] to [-3 -2 -1 0 1 2] (or whatever)
-    //
-    REBINT index;
+struct Reb_Word_Payload // see %sys-word.h
+{
+    REBSTR *spelling; // word's non-canonized spelling, UTF-8 string series
+    REBINT index; // index of word in context (if binding is not null)
 };
 
-
-struct Reb_Action_Payload {
-    //
-    // `paramlist` is a Rebol Array whose 1..NUM_PARAMS values are all
-    // TYPESET! values, with an embedded symbol (a.k.a. a "param") as well
-    // as other bits, including the parameter class (PARAM_CLASS).  This
-    // is the list that is processed to produce WORDS-OF, and which is
-    // consulted during invocation to fulfill the arguments
-    //
-    // In addition, its [0]th element contains an ACTION! value which is
-    // self-referentially the function itself.  This means that the paramlist
-    // can be passed around as a single pointer from which a whole REBVAL
-    // for the function can be found (although this value is archetypal, and
-    // loses the `binding` property--which must be preserved other ways)
-    //
-    // Paramlists may contain hidden fields, if they are specializations...
-    // because they have to have the right number of slots to line up with
-    // the frame of the underlying function.
-    //
-    // The `misc.meta` field of the paramlist holds a meta object (if any)
-    // that describes the function.  This is read by help.
-    //
-    REBARR *paramlist;
-
-    // `details` holds the instance data used by the dispatcher (which lives
-    // in MISC(details).dispatcher) to run this particular action.  What the
-    // details array holds varies:
-    //
-    // USER FUNCTIONS: 1-element array w/a BLOCK!, the body of the function
-    // ACTIONS: 1-element array w/WORD! verb of the action (OPEN, APPEND, etc)
-    // SPECIALIZATIONS: 1-element array containing a FRAME! value
-    // ROUTINES/CALLBACKS: stylized array (REBRIN*)
-    //
-    // Since plain natives only need the C function, the body is optionally
-    // used to store a block of Rebol code that is equivalent to the native,
-    // for illustrative purposes.  (a "fake" answer for SOURCE)
-    //
-    // By storing the function dispatcher in the `details` array node instead
-    // of in the value cell itself, it also means the dispatcher can be
-    // HIJACKed--or otherwise hooked to affect all instances of a function.
-    //
-    REBARR *details;
+struct Reb_Action_Payload // see %sys-action.h
+{
+    REBARR *paramlist; // see MISC.meta, LINK.underlying in %sys-rebser.h
+    REBARR *details; // see MISC.dispatcher, LINK.specialty in %sys-rebser.h
 };
 
-struct Reb_Context_Payload {
-    //
-    // `varlist` is a Rebol Array that from 1..NUM_VARS contains REBVALs
-    // representing the stored values in the context.
-    //
-    // As with the `paramlist` of an ACTION!, the varlist uses the [0]th
-    // element specially.  It stores a copy of the ANY-CONTEXT! value that
-    // refers to itself.
-    //
-    // The `keylist` is held in the varlist's Reb_Series.link field, and it
-    // may be shared with an arbitrary number of other contexts.  Changing
-    // the keylist involves making a copy if it is shared.
-    //
-    // REB_MODULE depends on a property stored in the "meta" Reb_Series.link
-    // field of the keylist, which is another object's-worth of data *about*
-    // the module's contents (e.g. the processed header)
-    //
-    REBARR *varlist;
-
-    // A single FRAME! can go through multiple phases of evaluation, some of
-    // which should expose more fields than others.  For instance, when you
-    // specialize a function that has 10 parameters so it has only 8, then
-    // the specialization frame should not expose the 2 that have been
-    // removed.  It's as if the WORDS-OF the spec is shorter than the actual
-    // length which is used.
-    //
-    // Hence, each independent value that holds a frame must remember the
-    // function whose "view" it represents.  This field is only applicable
-    // to frames, and so it could be used for something else on other types
-    //
-    // Note that the binding on a FRAME! can't be used for this purpose,
-    // because it's already used to hold the binding of the function it
-    // represents.  e.g. if you have a definitional return value with a
-    // binding, and try to MAKE FRAME! on it, the paramlist alone is not
-    // enough to remember which specific frame that function should exit.
-    //
-    REBACT *phase;
+struct Reb_Context_Payload // see %sys-context.h
+{
+    REBARR *varlist; // see MISC.meta, LINK.keysource in %sys-rebser.h
+    REBACT *phase; // only used by FRAME! contexts
 };
 
 
