@@ -98,7 +98,7 @@ static ffi_abi Abi_From_Word(const REBVAL *word) {
         break;
     }
 
-    fail (Error_Invalid(word));
+    fail (word);
 }
 
 
@@ -184,7 +184,7 @@ REBNATIVE(make_routine)
     //
     REBLIB *lib = VAL_LIBRARY(ARG(lib));
     if (lib == NULL)
-        fail (Error_Invalid(ARG(lib)));
+        fail (PAR(lib));
 
     // OS_FIND_FUNCTION takes a char* on both Windows and Posix.
     //

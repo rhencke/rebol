@@ -117,7 +117,7 @@ REB_R MAKE_Bitset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     // path used 0x0FFFFFFF.  Assume A_MAKE was more likely right.
     //
     if (len < 0 || len > 0x0FFFFFFF)
-        fail (Error_Invalid(arg));
+        fail (arg);
 
     REBSER *ser = Make_Bitset(len);
     Init_Bitset(out, ser);
@@ -352,7 +352,7 @@ bool Set_Bits(REBSER *bset, const REBVAL *val, bool set)
                     } while (c++ < n); // post-increment: test before overflow
                 }
                 else
-                    fail (Error_Invalid_Core(item, VAL_SPECIFIER(val)));
+                    fail (Error_Bad_Value_Core(item, VAL_SPECIFIER(val)));
             }
             else
                 Set_Bit(bset, c, set);
@@ -377,7 +377,7 @@ bool Set_Bits(REBSER *bset, const REBVAL *val, bool set)
                         Set_Bit(bset, c, set);
                 }
                 else
-                    fail (Error_Invalid_Core(item, VAL_SPECIFIER(val)));
+                    fail (Error_Bad_Value_Core(item, VAL_SPECIFIER(val)));
             }
             else
                 Set_Bit(bset, n, set);
@@ -477,7 +477,7 @@ bool Check_Bits(REBSER *bset, const REBVAL *val, bool uncased)
                             return true;
                 }
                 else
-                    fail (Error_Invalid_Core(item, VAL_SPECIFIER(val)));
+                    fail (Error_Bad_Value_Core(item, VAL_SPECIFIER(val)));
             }
             else
                 if (Check_Bit(bset, c, uncased))
@@ -500,7 +500,7 @@ bool Check_Bits(REBSER *bset, const REBVAL *val, bool uncased)
                             return true;
                 }
                 else
-                    fail (Error_Invalid_Core(item, VAL_SPECIFIER(val)));
+                    fail (Error_Bad_Value_Core(item, VAL_SPECIFIER(val)));
             }
             else
                 if (Check_Bit(bset, n, uncased))
@@ -663,7 +663,7 @@ REBTYPE(Bitset)
             diff = true;
 
         if (not Set_Bits(VAL_SERIES(value), arg, diff))
-            fail (Error_Invalid(arg));
+            fail (arg);
         goto return_bitset; }
 
     case SYM_REMOVE: {

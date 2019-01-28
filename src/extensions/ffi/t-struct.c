@@ -364,10 +364,10 @@ static bool assign_scalar_core(
             fail (Error_Invalid_Type(VAL_TYPE(val)));
 
         if (FLD_WIDE(field) != VAL_STRUCT_SIZE(val))
-            fail (Error_Invalid(val));
+            fail (val);
 
         if (!same_fields(FLD_FIELDLIST(field), VAL_STRUCT_FIELDLIST(val)))
-            fail (Error_Invalid(val));
+            fail (val);
 
         memcpy(data, VAL_STRUCT_DATA_AT(val), FLD_WIDE(field));
 
@@ -560,13 +560,13 @@ static void parse_attr (REBVAL *blk, REBINT *raw_size, uintptr_t *raw_addr)
 
     while (NOT_END(attr)) {
         if (!IS_SET_WORD(attr))
-            fail (Error_Invalid(attr));
+            fail (attr);
 
         switch (VAL_WORD_SYM(attr)) {
         case SYM_RAW_SIZE:
             ++ attr;
             if (IS_END(attr) || !IS_INTEGER(attr))
-                fail (Error_Invalid(attr));
+                fail (attr);
             if (*raw_size > 0)
                 fail ("FFI: duplicate raw size");
             *raw_size = VAL_INT64(attr);
@@ -577,7 +577,7 @@ static void parse_attr (REBVAL *blk, REBINT *raw_size, uintptr_t *raw_addr)
         case SYM_RAW_MEMORY:
             ++ attr;
             if (IS_END(attr) || !IS_INTEGER(attr))
-                fail (Error_Invalid(attr));
+                fail (attr);
             if (*raw_addr != 0)
                 fail ("FFI: duplicate raw memory");
             *raw_addr = cast(REBU64, VAL_INT64(attr));
@@ -592,17 +592,17 @@ static void parse_attr (REBVAL *blk, REBINT *raw_size, uintptr_t *raw_addr)
                 fail ("FFI: raw memory is exclusive with extern");
 
             if (IS_END(attr) || !IS_BLOCK(attr) || VAL_LEN_AT(attr) != 2)
-                fail (Error_Invalid(attr));
+                fail (attr);
 
             REBVAL *lib = KNOWN(VAL_ARRAY_AT_HEAD(attr, 0));
             if (!IS_LIBRARY(lib))
-                fail (Error_Invalid(attr));
+                fail (attr);
             if (IS_LIB_CLOSED(VAL_LIBRARY(lib)))
                 fail (Error_Bad_Library_Raw());
 
             REBVAL *sym = KNOWN(VAL_ARRAY_AT_HEAD(attr, 1));
             if (!ANY_BINSTR(sym))
-                fail (Error_Invalid(sym));
+                fail (sym);
 
             CFUNC *addr = OS_FIND_FUNCTION(
                 VAL_LIBRARY_FD(lib),
@@ -619,14 +619,14 @@ static void parse_attr (REBVAL *blk, REBINT *raw_size, uintptr_t *raw_addr)
         case SYM_ALIGNMENT:
             ++ attr;
             if (!IS_INTEGER(attr))
-                fail (Error_Invalid(attr));
+                fail (attr);
 
             alignment = VAL_INT64(attr);
             break;
         */
 
         default:
-            fail (Error_Invalid(attr));
+            fail (attr);
         }
 
         ++ attr;
@@ -994,7 +994,7 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
         else {
             word = spec_item;
             if (!IS_SET_WORD(word))
-                fail (Error_Invalid(word));
+                fail (word);
         }
 
         REBVAL *fld_val = spec_item + 1;
@@ -1015,7 +1015,7 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
                     REBCNT dimension = FLD_DIMENSION(field);
 
                     if (VAL_LEN_AT(fld_val) != dimension)
-                        fail (Error_Invalid(fld_val));
+                        fail (fld_val);
 
                     REBCNT n = 0;
                     for (n = 0; n < dimension; ++n) {
@@ -1025,7 +1025,7 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
                             n,
                             KNOWN(VAL_ARRAY_AT_HEAD(fld_val, n))
                         )){
-                            fail (Error_Invalid(fld_val));
+                            fail (fld_val);
                         }
                     }
                 }
@@ -1042,11 +1042,11 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
                     );
                 }
                 else
-                    fail (Error_Invalid(fld_val));
+                    fail (fld_val);
             }
             else {
                 if (!assign_scalar(VAL_STRUCT(ret), field, 0, fld_val))
-                    fail (Error_Invalid(fld_val));
+                    fail (fld_val);
             }
             goto next_spec_pair;
         }
@@ -1076,7 +1076,7 @@ REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     UNUSED(kind);
 
     if (not IS_BLOCK(arg))
-        fail (Error_Invalid(arg));
+        fail (arg);
 
     REBINT max_fields = 16;
 
@@ -1160,7 +1160,7 @@ REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             expect_init = true;
             if (raw_addr) {
                 // initialization is not allowed for raw memory struct
-                fail (Error_Invalid_Core(item, VAL_SPECIFIER(arg)));
+                fail (Error_Bad_Value_Core(item, VAL_SPECIFIER(arg)));
             }
         }
         else if (IS_WORD(item))
@@ -1172,7 +1172,7 @@ REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
         ++item;
         if (IS_END(item) || !IS_BLOCK(item))
-            fail (Error_Invalid_Core(item, VAL_SPECIFIER(arg)));
+            fail (Error_Bad_Value_Core(item, VAL_SPECIFIER(arg)));
 
         Derelativize(spec, item, VAL_SPECIFIER(arg));
 
@@ -1201,7 +1201,7 @@ REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
         if (expect_init) {
             if (IS_END(item))
-               fail (Error_Invalid(arg));
+               fail (arg);
 
             if (IS_BLOCK(item)) {
                 REBDSP dsp_reduce = DSP;
@@ -1254,7 +1254,7 @@ REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
                     REBCNT n = 0;
 
                     if (VAL_LEN_AT(init) != FLD_DIMENSION(field))
-                        fail (Error_Invalid(init));
+                        fail (init);
 
                     // assign
                     for (n = 0; n < FLD_DIMENSION(field); n ++) {
@@ -1553,7 +1553,7 @@ REBTYPE(Struct)
             fail (Error_Unexpected_Type(REB_BINARY, VAL_TYPE(arg)));
 
         if (VAL_LEN_AT(arg) != VAL_STRUCT_DATA_LEN(val))
-            fail (Error_Invalid(arg));
+            fail (arg); // !!! better to fail on PAR(value)?
 
         memcpy(
             VAL_STRUCT_DATA_HEAD(val),

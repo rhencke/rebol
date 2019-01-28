@@ -426,7 +426,7 @@ REBSER *Join_Binary(const REBVAL *blk, REBINT limit)
             break; }
 
         default:
-            fail (Error_Invalid_Core(val, VAL_SPECIFIER(blk)));
+            fail (Error_Bad_Value_Core(val, VAL_SPECIFIER(blk)));
         }
 
         tail = SER_LEN(series);

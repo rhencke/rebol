@@ -2363,7 +2363,7 @@ REBNATIVE(parse)
     INCLUDE_PARAMS_OF_PARSE;
 
     if (not ANY_SERIES_OR_PATH_KIND(CELL_KIND(VAL_UNESCAPED(ARG(input)))))
-        fail (Error_Invalid(ARG(input)));
+        fail (PAR(input));
 
     REBVAL *rules = ARG(rules);
 

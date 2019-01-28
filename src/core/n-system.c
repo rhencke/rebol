@@ -222,7 +222,7 @@ REBNATIVE(limit_usage)
             PG_Mem_Limit = Int64(ARG(limit));
     }
     else
-        fail (Error_Invalid(ARG(field)));
+        fail (PAR(field));
 
     return nullptr;
 }
@@ -442,7 +442,10 @@ REBNATIVE(c_debug_break)
 REBNATIVE(test)
 {
     INCLUDE_PARAMS_OF_TEST;
-    UNUSED(ARG(value));
+
+    fail (PAR(value));
+
+   /* UNUSED(ARG(value));
 
     rebElide(
         "print", rebI(10), // won't leak, rebI() releases during variadic walk
@@ -450,5 +453,5 @@ REBNATIVE(test)
         rebEND
     );
 
-    return nullptr;
+    return nullptr;*/
 }

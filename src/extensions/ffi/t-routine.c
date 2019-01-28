@@ -80,7 +80,7 @@ static void Schema_From_Block_May_Fail(
 
     assert(IS_BLOCK(blk));
     if (VAL_LEN_AT(blk) == 0)
-        fail (Error_Invalid(blk));
+        fail (blk);
 
     RELVAL *item = VAL_ARRAY_AT(blk);
 
@@ -93,7 +93,7 @@ static void Schema_From_Block_May_Fail(
 
         ++item;
         if (IS_END(item) || !IS_BLOCK(item))
-            fail (Error_Invalid(blk));
+            fail (blk);
 
         // Use the block spec to build a temporary structure through the same
         // machinery that implements `make struct! [...]`
@@ -138,14 +138,14 @@ static void Schema_From_Block_May_Fail(
     }
 
     if (VAL_LEN_AT(blk) != 1)
-        fail (Error_Invalid(blk));
+        fail (blk);
 
     // !!! It was presumed the only parameter convention that made sense was
     // a normal args, but quoted ones could work too.  In particular, anything
     // passed to the C as a REBVAL*.  Not a huge priority.
     //
     if (not IS_WORD(item))
-        fail (Error_Invalid(blk));
+        fail (blk);
 
     Init_Word(schema_out, VAL_WORD_SPELLING(item));
 
@@ -495,7 +495,7 @@ static uintptr_t arg_to_ffi(
         //
         assert(false);
     default:
-        fail (Error_Invalid(arg));
+        fail (arg);
     }
 
     return offset;
@@ -1111,12 +1111,12 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
                 break;}
 
             default:
-                fail (Error_Invalid(KNOWN(item)));
+                fail (KNOWN(item));
             }
             break;
 
         default:
-            fail (Error_Invalid(KNOWN(item)));
+            fail (KNOWN(item));
         }
     }
 

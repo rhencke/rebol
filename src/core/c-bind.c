@@ -420,7 +420,7 @@ void Virtual_Bind_Deep_To_New_Context(
 
     REBCNT num_vars = IS_BLOCK(spec) ? VAL_LEN_AT(spec) : 1;
     if (num_vars == 0)
-        fail (Error_Invalid(spec));
+        fail (spec);
 
     const RELVAL *item;
     REBSPC *specifier;
@@ -440,7 +440,7 @@ void Virtual_Bind_Deep_To_New_Context(
                 // (keylist) would be incomplete and tripped on by the GC if
                 // we didn't do some kind of workaround.
                 //
-                fail (Error_Invalid_Core(item, specifier));
+                fail (Error_Bad_Value_Core(item, specifier));
             }
         }
 

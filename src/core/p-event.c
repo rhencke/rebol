@@ -174,12 +174,12 @@ static REB_R Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
     // Normal block actions done on events:
     case SYM_POKE:
         if (!IS_EVENT(D_ARG(3)))
-            fail (Error_Invalid(D_ARG(3)));
+            fail (D_ARG(3));
         goto act_blk;
     case SYM_INSERT:
     case SYM_APPEND:
         if (!IS_EVENT(arg))
-            fail (Error_Invalid(arg));
+            fail (arg);
         // falls through
     case SYM_PICK: {
     act_blk:;

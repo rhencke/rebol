@@ -87,14 +87,14 @@ static REB_R Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
     // Normal block actions done on events:
     case SYM_POKE:
         if (not IS_EVENT(D_ARG(3)))
-            fail (Error_Invalid(D_ARG(3)));
+            fail (D_ARG(3));
         goto act_blk;
     case SYM_INSERT:
     case SYM_APPEND:
     //case SYM_PATH:      // not allowed: port/foo is port object field access
     //case SYM_PATH_SET:  // not allowed: above
         if (not IS_EVENT(arg))
-            fail (Error_Invalid(arg));
+            fail (arg);
     case SYM_PICK: {
     act_blk:
         DECLARE_LOCAL (save_port);

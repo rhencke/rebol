@@ -500,7 +500,7 @@ REB_R TO_Map(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         return Init_Map(out, Copy_Map(VAL_MAP(arg), types));
     }
 
-    fail (Error_Invalid(arg));
+    fail (arg);
 }
 
 
@@ -748,7 +748,6 @@ REBTYPE(Map)
         FAIL_IF_READ_ONLY_SER(SER(MAP_PAIRLIST(map)));
 
         UNUSED(PAR(series));
-        UNUSED(PAR(value)); // handled as arg
 
         if (REF(only))
             fail (Error_Bad_Refines_Raw());
@@ -760,7 +759,7 @@ REBTYPE(Map)
         }
 
         if (not IS_BLOCK(arg))
-            fail (Error_Invalid(arg));
+            fail (PAR(value));
 
         REBCNT len = Part_Len_May_Modify_Index(arg, ARG(limit));
         UNUSED(REF(part)); // detected by if limit is nulled

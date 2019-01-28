@@ -658,7 +658,7 @@ REBARR *Collect_Unique_Words_Managed(
         RELVAL *check = VAL_ARRAY_AT(ignore);
         for (; NOT_END(check); ++check) {
             if (not ANY_WORD_KIND(CELL_KIND(VAL_UNESCAPED(check))))
-                fail (Error_Invalid_Core(check, VAL_SPECIFIER(ignore)));
+                fail (Error_Bad_Value_Core(check, VAL_SPECIFIER(ignore)));
         }
     }
 

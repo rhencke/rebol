@@ -555,7 +555,7 @@ REBTYPE(Integer)
                 return D_OUT;
             }
             if (IS_TIME(val2))
-                fail (Error_Invalid(val2));
+                fail (val2);
             arg = VAL_INT64(val2);
         }
         else

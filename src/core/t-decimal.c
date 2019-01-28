@@ -185,7 +185,7 @@ REB_R MAKE_Decimal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
     case REB_BINARY:
         if (VAL_LEN_AT(arg) < 8)
-            fail (Error_Invalid(arg));
+            fail (arg);
 
         Init_Decimal_Bits(out, VAL_BIN_AT(arg)); // makes REB_DECIMAL
         RESET_VAL_HEADER(out, kind); // override type if REB_PERCENT
@@ -200,7 +200,7 @@ REB_R MAKE_Decimal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
             else if (IS_DECIMAL(item) || IS_PERCENT(item))
                 d = VAL_DECIMAL(item);
             else
-                fail (Error_Invalid_Core(item, VAL_SPECIFIER(arg)));
+                fail (Error_Bad_Value_Core(item, VAL_SPECIFIER(arg)));
 
             ++item;
 
@@ -210,7 +210,7 @@ REB_R MAKE_Decimal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
             else if (IS_DECIMAL(item) || IS_PERCENT(item))
                 exp = VAL_DECIMAL(item);
             else
-                fail (Error_Invalid_Core(item, VAL_SPECIFIER(arg)));
+                fail (Error_Bad_Value_Core(item, VAL_SPECIFIER(arg)));
 
             while (exp >= 1) {
                 //
@@ -506,7 +506,7 @@ REBTYPE(Decimal)
                 ));
 
             if (IS_TIME(arg))
-                fail (Error_Invalid(arg));
+                fail (arg);
 
             d1 = Round_Dec(d1, flags, Dec64(arg));
             if (IS_INTEGER(arg))

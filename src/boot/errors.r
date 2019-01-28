@@ -87,9 +87,6 @@ Script: [
     no-relative:        [:arg1 {word is bound relative to context not on stack}]
     not-in-context:     [:arg1 {is not in the specified context}]
 
-    no-arg:             [:arg1 {is missing its} :arg2 {argument}]
-    expect-arg:         [:arg1 {does not allow} :arg2 {for its} :arg3 {argument}]
-    arg-required:       [:arg1 {requires} :arg2 {argument to not be null}]
 
     phase-bad-arg-type:
         [:arg1 {internal phase disallows} :arg2 {for its} :arg3 {argument}]
@@ -126,7 +123,17 @@ Script: [
 
     limited-fail-input: {FAIL requires complex expressions to be in a GROUP!}
 
-    invalid-arg:        [{invalid argument:} :arg1]
+    ; BAD-VALUE is the laziest error with an argument.  BAD-ARGUMENT now
+    ; tells you what the parameter of the argument was for.
+
+    unknown-error:      {Unknown error (failure on null, no additional info)}
+    bad-value:          [{Failure on bad value (no additional info):} :arg1]
+
+    invalid-arg:        [:arg1 {has an invalid} :arg2 {argument:} :arg3]
+    no-arg:             [:arg1 {is missing its} :arg2 {argument}]
+    expect-arg:         [:arg1 {does not allow} :arg2 {for its} :arg3 {argument}]
+    arg-required:       [:arg1 {requires} :arg2 {argument to not be null}]
+
     invalid-type:       [:arg1 {type is not allowed here}]
     invalid-op:         [{invalid operator:} :arg1]
     no-op-arg:          [:arg1 {operator is missing an argument}]

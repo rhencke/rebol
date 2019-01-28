@@ -197,7 +197,7 @@ REBNATIVE(uneval) // !!! This will be renamed QUOTE in the future
 
     REBINT depth = REF(depth) ? VAL_INT32(ARG(count)) : 1;
     if (depth < 0)
-        fail (Error_Invalid(ARG(count)));
+        fail (PAR(count));
 
     return Quotify(Move_Value(D_OUT, ARG(optional)), depth);
 }
@@ -220,9 +220,9 @@ REBNATIVE(unquote)
 
     REBINT depth = REF(depth) ? VAL_INT32(ARG(count)) : 1;
     if (depth < 0)
-        fail (Error_Invalid(ARG(count)));
+        fail (PAR(count));
     if (cast(REBCNT, depth) > VAL_NUM_QUOTES(ARG(optional)))
-        fail (Error_Invalid(ARG(count)));
+        fail (PAR(count));
 
     return Unquotify(Move_Value(D_OUT, ARG(optional)), depth);
 }

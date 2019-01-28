@@ -336,7 +336,7 @@ REBNATIVE(chain)
     REBVAL *check = first;
     while (NOT_END(check)) {
         if (not IS_ACTION(check))
-            fail (Error_Invalid(check));
+            fail (check);
         ++check;
     }
 
@@ -411,7 +411,7 @@ REBNATIVE(adapt)
     }
 
     if (not IS_ACTION(D_OUT))
-        fail (Error_Invalid(adaptee));
+        fail (PAR(adaptee));
     Move_Value(adaptee, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
 
     // The paramlist needs to be unique to designate this function, but
@@ -505,7 +505,7 @@ REBNATIVE(enclose)
     }
 
     if (not IS_ACTION(D_OUT))
-        fail (Error_Invalid(inner));
+        fail (PAR(inner));
     Move_Value(inner, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
 
     REBVAL *outer = ARG(outer);
@@ -521,7 +521,7 @@ REBNATIVE(enclose)
     }
 
     if (not IS_ACTION(D_OUT))
-        fail (Error_Invalid(outer));
+        fail (PAR(outer));
     Move_Value(outer, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
 
     // The paramlist needs to be unique to designate this function, but
@@ -904,7 +904,7 @@ REBNATIVE(reskinned)
             pclass = REB_P_SOFT_QUOTE;
         }
         else
-            fail (Error_Invalid_Core(item, VAL_SPECIFIER(ARG(skin))));
+            fail (Error_Bad_Value_Core(item, VAL_SPECIFIER(ARG(skin))));
 
         REBSTR *canon = VAL_WORD_CANON(VAL_UNESCAPED(item));
 
@@ -918,7 +918,7 @@ REBNATIVE(reskinned)
                 if (wrapped_around) {
                     DECLARE_LOCAL (word);
                     Init_Word(word, canon);
-                    fail (Error_Invalid(word));
+                    fail (word);
                 }
 
                 param = ARR_AT(paramlist, 1);

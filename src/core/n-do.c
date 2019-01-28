@@ -894,7 +894,7 @@ REBNATIVE(apply)
     }
 
     if (not IS_ACTION(D_OUT))
-        fail (Error_Invalid(applicand));
+        fail (PAR(applicand));
     Move_Value(applicand, D_OUT);
 
     // Make a FRAME! for the ACTION!, weaving in the ordered refinements

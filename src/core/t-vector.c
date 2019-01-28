@@ -139,7 +139,7 @@ static void Set_Vector_At_Core(
         else if (IS_DECIMAL(v))
             d = VAL_DECIMAL(v);
         else
-            fail (Error_Invalid_Core(v, specifier));
+            fail (Error_Bad_Value_Core(v, specifier));
 
         switch (bits) {
           case 32:
@@ -159,7 +159,7 @@ static void Set_Vector_At_Core(
         else if (IS_DECIMAL(v))
             i = cast(int32_t, VAL_DECIMAL(v));
         else
-            fail (Error_Invalid_Core(v, specifier));
+            fail (Error_Bad_Value_Core(v, specifier));
 
         if (sign) {
             switch (bits) {
@@ -278,7 +278,7 @@ REBARR *Vector_To_Array(const REBVAL *vect)
     REBSER *ser = VAL_SERIES(vect);
     REBCNT len = VAL_LEN_AT(vect);
     if (len <= 0)
-        fail (Error_Invalid(vect));
+        fail (vect);
 
     REBARR *arr = Make_Arr(len);
     RELVAL *dest = ARR_HEAD(arr);
@@ -571,7 +571,7 @@ void Pick_Vector(REBVAL *out, const REBVAL *value, const REBVAL *picker) {
     if (IS_INTEGER(picker) or IS_DECIMAL(picker)) // #2312
         n = Int32(picker);
     else
-        fail (Error_Invalid(picker));
+        fail (picker);
 
     if (n == 0) {
         Init_Nulled(out);
@@ -607,7 +607,7 @@ void Poke_Vector_Fail_If_Read_Only(
     if (IS_INTEGER(picker) or IS_DECIMAL(picker)) // #2312
         n = Int32(picker);
     else
-        fail (Error_Invalid(picker));
+        fail (picker);
 
     if (n == 0)
         fail (Error_Out_Of_Range(picker)); // Rebol2/Red convention

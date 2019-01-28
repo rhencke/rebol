@@ -656,10 +656,10 @@ bool Specialize_Action_Throws(
             // Have to leave the quotes on, but still want to type check.
 
             if (not TYPE_CHECK(param, CELL_KIND(VAL_UNESCAPED(arg))))
-                fail (Error_Invalid(arg)); // !!! merge w/Error_Invalid_Arg()
+                fail (arg); // !!! merge w/Error_Invalid_Arg()
         }
         else if (not TYPE_CHECK(param, VAL_TYPE(arg)))
-            fail (Error_Invalid(arg)); // !!! merge w/Error_Invalid_Arg()
+            fail (arg); // !!! merge w/Error_Invalid_Arg()
 
        SET_CELL_FLAG(arg, ARG_MARKED_CHECKED);
 
@@ -925,7 +925,7 @@ REBNATIVE(specialize)
     // used, e.g. `specialize 'lib/append [...]`.
 
     if (not IS_ACTION(D_OUT))
-        fail (Error_Invalid(specializee));
+        fail (PAR(specializee));
     Move_Value(specializee, D_OUT); // Frees up D_OUT, GC guards action
 
     if (Specialize_Action_Throws(
@@ -1383,7 +1383,7 @@ bool Make_Frame_From_Varargs_Throws(
     UNUSED(opt_label); // not used here
 
     if (not IS_ACTION(out))
-        fail (Error_Invalid(specializee));
+        fail (specializee);
 
     DECLARE_LOCAL (action);
     Move_Value(action, out);

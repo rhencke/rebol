@@ -415,7 +415,7 @@ REBNATIVE(unload_extension)
     // Note: The mechanical act of unloading a DLL involved these calls.
     /*
         if (not IS_LIBRARY(lib))
-            fail (Error_Invalid(ARG(ext)));
+            fail (PAR(ext));
 
         if (IS_LIB_CLOSED(VAL_LIBRARY(lib)))
             fail (Error_Bad_Library_Raw());

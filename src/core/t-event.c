@@ -93,7 +93,7 @@ static bool Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val)
                 return true;
             }
         }
-        fail (Error_Invalid(val)); }
+        fail (val); }
 
     case SYM_PORT:
         if (IS_PORT(val)) {
@@ -190,7 +190,7 @@ static bool Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val)
                 break;
 
             default:
-                fail (Error_Invalid_Core(item, VAL_SPECIFIER(val)));
+                fail (Error_Bad_Value_Core(item, VAL_SPECIFIER(val)));
             }
         }
         break; }
@@ -216,7 +216,7 @@ void Set_Event_Vars(REBVAL *evt, RELVAL *blk, REBSPC *specifier)
         ++blk;
 
         if (not IS_SET_WORD(var))
-            fail (Error_Invalid(var));
+            fail (var);
 
         if (IS_END(blk))
             Init_Blank(val);
@@ -389,7 +389,7 @@ REB_R TO_Event(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     UNUSED(kind);
 
     UNUSED(out);
-    fail (Error_Invalid(arg));
+    fail (arg);
 }
 
 

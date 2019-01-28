@@ -1586,7 +1586,7 @@ REBNATIVE(call)
               #endif
             }
             else
-                fail (Error_Invalid_Core(param, VAL_SPECIFIER(block)));
+                fail (Error_Bad_Value_Core(param, VAL_SPECIFIER(block)));
         }
         argv[argc] = NULL;
     }
@@ -1607,7 +1607,7 @@ REBNATIVE(call)
         argv[1] = NULL;
     }
     else
-        fail (Error_Invalid(ARG(command)));
+        fail (PAR(command));
 
     REBU64 pid;
     int exit_code;
@@ -2295,7 +2295,7 @@ REBNATIVE(set_uid)
 
     switch (errno) {
       case EINVAL:
-        fail (Error_Invalid(ARG(uid)));
+        fail (PAR(uid));
 
       case EPERM:
         Fail_Permission_Denied();
@@ -2327,7 +2327,7 @@ REBNATIVE(set_euid)
 
     switch (errno) {
       case EINVAL:
-        fail (Error_Invalid(ARG(euid)));
+        fail (PAR(euid));
 
       case EPERM:
         Fail_Permission_Denied();
@@ -2359,7 +2359,7 @@ REBNATIVE(set_gid)
 
     switch (errno) {
       case EINVAL:
-        fail (Error_Invalid(ARG(gid)));
+        fail (PAR(gid));
 
       case EPERM:
         Fail_Permission_Denied();
@@ -2391,7 +2391,7 @@ REBNATIVE(set_egid)
 
     switch (errno) {
       case EINVAL:
-        fail (Error_Invalid(ARG(egid)));
+        fail (PAR(egid));
 
       case EPERM:
         Fail_Permission_Denied();

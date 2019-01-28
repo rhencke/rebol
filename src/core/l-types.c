@@ -209,7 +209,7 @@ REBNATIVE(to)
     Dequotify(D_OUT);
 
     if (not IS_DATATYPE(D_OUT))
-        fail (Error_Invalid(type));
+        fail (PAR(type));
 
     enum Reb_Kind new_kind = VAL_TYPE_KIND(D_OUT);
     enum Reb_Kind old_kind = VAL_TYPE(v);
@@ -306,6 +306,8 @@ REB_R Reflect_Core(REBFRM *frame_)
     //
     if (kind == REB_MAX_NULLED) // including escaped nulls, `\\\\`
         fail ("NULL isn't valid for REFLECT, except for TYPE OF ()");
+    if (kind == REB_BLANK)
+        return nullptr; // only TYPE OF works on blank, otherwise it's null
 
     GENERIC_HOOK hook = Generic_Hooks[kind];
     DECLARE_LOCAL (verb);

@@ -121,7 +121,7 @@ REB_R Retrigger_Append_As_Write(REBFRM *frame_) {
         or IS_TEXT(ARG(value))
         or IS_BLOCK(ARG(value)))
     ){
-        fail (Error_Invalid(ARG(value)));
+        fail (PAR(value));
     }
 
     if (REF(part)) {

@@ -176,7 +176,7 @@ REBNATIVE(checksum)
     if (REF(method)) {
         sym = VAL_WORD_SYM(ARG(word));
         if (sym == SYM_0) // not in %words.r, no SYM_XXX constant
-            fail (Error_Invalid(ARG(word)));
+            fail (PAR(word));
     }
     else
         sym = SYM_SHA1;
@@ -278,7 +278,7 @@ REBNATIVE(checksum)
             return Init_Binary(D_OUT, digest);
         }
 
-        fail (Error_Invalid(ARG(word)));
+        fail (PAR(word));
     }
     else if (REF(tcp)) {
         REBINT ipc = Compute_IPC(data, len);
@@ -346,7 +346,7 @@ REBNATIVE(deflate)
             break;
 
         default:
-            fail (Error_Invalid(ARG(format)));
+            fail (PAR(format));
         }
     }
 
@@ -391,7 +391,7 @@ REBNATIVE(inflate)
     if (REF(max)) {
         max = Int32s(ARG(bound), 1);
         if (max < 0)
-            fail (Error_Invalid(ARG(bound)));
+            fail (PAR(bound));
     }
     else
         max = -1;
@@ -413,7 +413,7 @@ REBNATIVE(inflate)
             break;
 
         default:
-            fail (Error_Invalid(ARG(format)));
+            fail (PAR(format));
         }
     }
 
@@ -523,7 +523,7 @@ REBNATIVE(enbase)
         break;
 
     default:
-        fail (Error_Invalid(ARG(base_value)));
+        fail (PAR(base_value));
     }
 
     // !!! Enbasing code is common with how a BINARY! molds out.  That needed
@@ -1184,7 +1184,7 @@ REBNATIVE(to_hex)
     if (REF(size)) {
         len = cast(REBINT, VAL_INT64(ARG(len)));
         if (len < 0)
-            fail (Error_Invalid(ARG(len)));
+            fail (PAR(len));
     }
     else
         len = -1;
@@ -1211,10 +1211,10 @@ REBNATIVE(to_hex)
         *buf = 0;
     }
     else
-        fail (Error_Invalid(arg));
+        fail (PAR(value));
 
     if (NULL == Scan_Issue(D_OUT, &buffer[0], len))
-        fail (Error_Invalid(arg));
+        fail (PAR(value));
 
     return D_OUT;
 }

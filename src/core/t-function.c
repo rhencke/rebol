@@ -119,7 +119,7 @@ REB_R TO_Action(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
     UNUSED(out);
 
-    fail (Error_Invalid(arg));
+    fail (arg);
 }
 
 

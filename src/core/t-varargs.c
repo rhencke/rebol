@@ -338,7 +338,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
         // vararg.  Revisit the question of how to give better errors.
         //
         if (opt_vararg_frame == NULL)
-            fail (Error_Invalid(out));
+            fail (out);
 
         fail (Error_Arg_Type(opt_vararg_frame, param, VAL_TYPE(out)));
     }
@@ -406,7 +406,7 @@ REB_R TO_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
     UNUSED(out);
 
-    fail (Error_Invalid(arg));
+    fail (arg);
 }
 
 
@@ -423,7 +423,7 @@ REB_R PD_Varargs(
     UNUSED(opt_setval);
 
     if (not IS_INTEGER(picker))
-        fail (Error_Invalid(picker));
+        fail (picker);
 
     if (VAL_INT32(picker) != 1)
         fail (Error_Varargs_No_Look_Raw());
@@ -509,7 +509,7 @@ REBTYPE(Varargs)
         REBDSP dsp_orig = DSP;
 
         if (not IS_INTEGER(ARG(limit)))
-            fail (Error_Invalid(ARG(limit)));
+            fail (PAR(limit));
 
         REBINT limit = VAL_INT32(ARG(limit));
         if (limit < 0)

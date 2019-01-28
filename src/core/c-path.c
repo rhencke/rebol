@@ -47,7 +47,7 @@ REB_R PD_Fail(
     UNUSED(picker);
     UNUSED(opt_setval);
 
-    fail (Error_Invalid(pvs->out));
+    fail (pvs->out);
 }
 
 
@@ -729,7 +729,7 @@ REBNATIVE(poke)
 
     default:
         assert(false); // shouldn't happen, complain in the debug build
-        fail (Error_Invalid(PVS_PICKER(pvs))); // raise error in release build
+        fail (PVS_PICKER(pvs)); // raise error in release build
     }
 
     RETURN (ARG(value)); // return the value we got in

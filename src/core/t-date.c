@@ -550,7 +550,7 @@ static REBINT Int_From_Date_Arg(const REBVAL *opt_poke) {
     if (IS_BLANK(opt_poke))
         return 0;
 
-    fail (Error_Invalid(opt_poke));
+    fail (opt_poke);
 }
 
 
@@ -582,11 +582,11 @@ void Pick_Or_Poke_Date(
         case 11: sym = SYM_MINUTE; break;
         case 12: sym = SYM_SECOND; break;
         default:
-            fail (Error_Invalid(picker));
+            fail (picker);
         }
     }
     else
-        fail (Error_Invalid(picker));
+        fail (picker);
 
     if (opt_poke == NULL) {
         assert(opt_out != NULL);
@@ -740,7 +740,7 @@ void Pick_Or_Poke_Date(
             else if (IS_DECIMAL(opt_poke))
                 secs = DEC_TO_SECS(VAL_DECIMAL(opt_poke));
             else
-                fail (Error_Invalid(opt_poke));
+                fail (opt_poke);
             break;
 
         case SYM_ZONE:
@@ -765,11 +765,11 @@ void Pick_Or_Poke_Date(
         case SYM_JULIAN:
         case SYM_WEEKDAY:
         case SYM_UTC:
-            fail (Error_Invalid(picker));
+            fail (picker);
 
         case SYM_DATE:
             if (!IS_DATE(opt_poke))
-                fail (Error_Invalid(opt_poke));
+                fail (opt_poke);
             VAL_DATE(v) = VAL_DATE(opt_poke);
 
             assert(Does_Date_Have_Zone(opt_poke) == Does_Date_Have_Zone(v));
@@ -815,7 +815,7 @@ void Pick_Or_Poke_Date(
             break; }
 
         default:
-            fail (Error_Invalid(picker));
+            fail (picker);
         }
 
         // !!! We've gone through and updated the date or time, but we could

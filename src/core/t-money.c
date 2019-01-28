@@ -133,7 +133,7 @@ void MF_Money(REB_MOLD *mo, const REBCEL *v, bool form)
 void Bin_To_Money_May_Fail(REBVAL *result, const REBVAL *val)
 {
     if (not IS_BINARY(val))
-        fail (Error_Invalid(val));
+        fail (val);
 
     REBCNT len = VAL_LEN_AT(val);
     if (len > 12)
@@ -246,7 +246,7 @@ REBTYPE(Money)
             else if (IS_MONEY(scale))
                 Move_Value(temp, scale);
             else
-                fail (Error_Invalid(scale));
+                fail (PAR(scale));
         }
         else
             Init_Money(temp, int_to_deci(0));

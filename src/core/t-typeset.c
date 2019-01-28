@@ -223,7 +223,7 @@ bool Add_Typeset_Bits_Core(
                 fail ("WORD!/PATH! quote typechecking only, use QUOTED!");
         }
         else
-            fail (Error_Invalid_Core(item, specifier));
+            fail (Error_Bad_Value_Core(item, specifier));
     }
 
     return true;
@@ -340,7 +340,7 @@ REBTYPE(Typeset)
     switch (VAL_WORD_SYM(verb)) {
       case SYM_FIND:
         if (not IS_DATATYPE(arg))
-            fail (Error_Invalid(arg));
+            fail (arg);
 
         if (TYPE_CHECK(val, VAL_TYPE_KIND(arg)))
             return Init_True(D_OUT);
@@ -354,7 +354,7 @@ REBTYPE(Typeset)
             VAL_TYPESET_BITS(arg) = FLAGIT_KIND(VAL_TYPE(arg));
         }
         else if (not IS_TYPESET(arg))
-            fail (Error_Invalid(arg));
+            fail (arg);
 
         if (VAL_WORD_SYM(verb) == SYM_UNION)
             VAL_TYPESET_BITS(val) |= VAL_TYPESET_BITS(arg);

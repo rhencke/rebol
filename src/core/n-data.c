@@ -206,7 +206,7 @@ REBNATIVE(bind)
     }
 
     if (not ANY_ARRAY_OR_PATH(v))
-        fail (Error_Invalid(v)); // QUOTED! could have been any type
+        fail (PAR(value)); // QUOTED! could have been any type
 
     RELVAL *at;
     if (REF(copy)) {
@@ -297,7 +297,7 @@ REBNATIVE(in)
             return nullptr;
         }
 
-        fail (Error_Invalid(word));
+        fail (word);
     }
 
     REBCTX *context = VAL_CONTEXT(val);
@@ -564,7 +564,7 @@ inline static void Get_Opt_Polymorphic_May_Fail(
         }
     }
     else
-        fail (Error_Invalid_Core(source_orig, specifier));
+        fail (Error_Bad_Value_Core(source_orig, specifier));
 }
 
 
@@ -575,7 +575,7 @@ inline static void Get_Opt_Polymorphic_May_Fail(
 //
 //      return: [<opt> any-value!]
 //      source "Word or path to get, or block of words or paths"
-//          [<blank> any-word! any-path! block! quoted!]
+//          [<blank> <dequote> any-word! any-path! block!]
 //      /try "Return blank for variables that are unset" ;-- Is this good?
 //      /hard "Do not evaluate GROUP!s in PATH! (assume pre-COMPOSE'd)"
 //  ]
@@ -677,7 +677,7 @@ void Set_Opt_Polymorphic_May_Fail(
         DROP_GC_GUARD(specific);
     }
     else
-        fail (Error_Invalid_Core(target_orig, target_specifier));
+        fail (Error_Bad_Value_Core(target_orig, target_specifier));
 }
 
 
@@ -894,7 +894,7 @@ REBNATIVE(unset)
     RELVAL *word;
     for (word = VAL_ARRAY_AT(target); NOT_END(word); ++word) {
         if (!ANY_WORD(word))
-            fail (Error_Invalid_Core(word, VAL_SPECIFIER(target)));
+            fail (Error_Bad_Value_Core(word, VAL_SPECIFIER(target)));
 
         REBVAL *var = Sink_Var_May_Fail(word, VAL_SPECIFIER(target));
         Init_Nulled(var);
@@ -1054,13 +1054,13 @@ REBNATIVE(as)
     REBVAL *v = ARG(value);
     Dequotify(v); // number of incoming quotes not relevant
     if (not ANY_SERIES(v) and not ANY_WORD(v) and not ANY_PATH(v))
-        fail (Error_Invalid(v));
+        fail (PAR(value));
 
     REBVAL *t = ARG(type);
     REBCNT quotes = VAL_NUM_QUOTES(t); // number of quotes on type *do* matter
     Dequotify(t);
     if (not IS_DATATYPE(t))
-        fail (Error_Invalid(t));
+        fail (PAR(type));
 
     enum Reb_Kind new_kind = VAL_TYPE_KIND(t);
     if (new_kind == VAL_TYPE(v))
@@ -1304,7 +1304,8 @@ inline static bool Is_Set(const REBVAL *location)
 //
 //  "Whether a bound word or path is set (!!! shouldn't eval GROUP!s)"
 //
-//      location [any-word! any-path!]
+//      return: [logic!]
+//      location [<dequote> any-word! any-path!]
 //  ][
 //      value? get location
 //  ]
@@ -1322,7 +1323,8 @@ REBNATIVE(set_q)
 //
 //  "Whether a bound word or path is unset (!!! shouldn't eval GROUP!s)"
 //
-//      location [any-word! any-path!]
+//      return: [logic!]
+//      location [<dequote> any-word! any-path!]
 //  ][
 //      null? get location
 //  ]

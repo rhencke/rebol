@@ -498,7 +498,7 @@ REBNATIVE(wait)
             break;
 
         default:
-            fail (Error_Invalid_Core(val, SPECIFIED));
+            fail (Error_Bad_Value_Core(val, SPECIFIED));
         }
     }
 
@@ -713,7 +713,7 @@ REBNATIVE(what_dir)
         // Lousy error, but ATM the user can directly edit system/options.
         // They shouldn't be able to (or if they can, it should be validated)
         //
-        fail (Error_Invalid(current_path));
+        fail (current_path);
     }
 
     // Note the expectation is that WHAT-DIR will return a value that can be
@@ -759,7 +759,7 @@ REBNATIVE(change_dir)
         bool success = OS_SET_CURRENT_DIR(arg);
 
         if (not success)
-            fail (Error_Invalid(arg));
+            fail (PAR(path));
     }
 
     Move_Value(current_path, arg);

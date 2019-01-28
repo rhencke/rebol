@@ -971,19 +971,44 @@ fail: function [
     ; option would be something like:
     ;
     ;     fail/with [{The key} :key-name {is invalid}] [key-name: key]
+
+    ; !!! PATH! doesn't do BINDING OF, and in the general case it couldn't
+    ; tell you where it resolved to without evaluating, just do WORD! for now.
     ;
+    frame: try match frame! binding of try match word! :blame
+
     error: switch type of :reason [
         error! [reason]
         text! [make error! reason]
-        block! [make error! spaced reason else ["(no message)"]]
-
-        null [
-            make error! if :blame [spaced [
-                unquote blame "is invalid:"
-                    (mold/limit try get :blame 1000) else ["\null\"]
-            ]] else [
-                "(no message)"
-            ]
+        block! [
+            make error! (spaced reason else [
+                Type: 'Script
+                id: 'unknown-error
+            ])
+        ]
+    ] else [
+        not set? 'reason so make error! compose [
+            Type: 'Script
+            (case [
+                frame and [set? blame] [[
+                    id: 'invalid-arg
+                    arg1: label of frame
+                    arg2: blame
+                    arg3: get blame
+                ]]
+                frame and [unset? blame] [[
+                    id: 'no-arg
+                    arg1: label of frame
+                    arg2: blame
+                ]]
+                :blame and [set? blame] [[
+                    id: 'bad-value
+                    arg1: get blame
+                ]]
+                default [[
+                    id: 'unknown-error
+                ]]
+            ])
         ]
     ]
 
@@ -992,13 +1017,7 @@ fail: function [
         ; If no specific location specified, and error doesn't already have a
         ; location, make it appear to originate from the frame calling FAIL.
         ;
-        location: default [
-            if (match 'word! :blame) and [frame? binding of blame] [
-                unquote blame
-            ] else [
-                binding of 'reason
-            ]
-        ]
+        location: default [frame or [binding of 'reason]]
 
         ; !!! Does SET-LOCATION-OF-ERROR need to be a native?
         ;

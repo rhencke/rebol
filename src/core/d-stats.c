@@ -283,7 +283,7 @@ REB_R Measured_Dispatcher_Hook(REBFRM * const f)
                 // to signal something went wrong, parameterized with the
                 // invalid value...as long as it isn't already an error.
                 //
-                Init_Error(stats, Error_Invalid_Arg_Raw(stats));
+                Init_Error(stats, Error_Bad_Value(stats));
             }
         }
 

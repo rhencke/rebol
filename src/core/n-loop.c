@@ -288,7 +288,7 @@ static REB_R Loop_Number_Common(
     else if (IS_DECIMAL(start) or IS_PERCENT(start))
         s = VAL_DECIMAL(start);
     else
-        fail (Error_Invalid(start));
+        fail (start);
 
     REBDEC e;
     if (IS_INTEGER(end))
@@ -296,7 +296,7 @@ static REB_R Loop_Number_Common(
     else if (IS_DECIMAL(end) or IS_PERCENT(end))
         e = VAL_DECIMAL(end);
     else
-        fail (Error_Invalid(end));
+        fail (end);
 
     REBDEC b;
     if (IS_INTEGER(bump))
@@ -304,7 +304,7 @@ static REB_R Loop_Number_Common(
     else if (IS_DECIMAL(bump) or IS_PERCENT(bump))
         b = VAL_DECIMAL(bump);
     else
-        fail (Error_Invalid(bump));
+        fail (bump);
 
     // As in Loop_Integer_Common(), the state is actually in a cell; so each
     // loop iteration it must be checked to ensure it's still a decimal...
@@ -959,9 +959,9 @@ REBNATIVE(for_skip)
         var = Real_Var_From_Pseudo(pseudo_var);
 
         if (IS_NULLED(var))
-            fail (Error_No_Value(ARG(word)));
+            fail (PAR(word));
         if (not ANY_SERIES(var))
-            fail (Error_Invalid(var));
+            fail (var);
 
         VAL_INDEX(var) += skip;
     }
@@ -1388,7 +1388,7 @@ REBNATIVE(remove_each)
     if (not (
         ANY_ARRAY(res.data) or ANY_STRING(res.data) or IS_BINARY(res.data)
     )){
-        fail (Error_Invalid(res.data));
+        fail (res.data);
     }
 
     // Check the series for whether it is read only, in which case we should

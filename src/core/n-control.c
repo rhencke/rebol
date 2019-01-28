@@ -540,7 +540,7 @@ REBNATIVE(match)
 
         if (not IS_ACTION(test)) {
             if (ANY_WORD(test) or ANY_PATH(test))
-                fail (Error_Invalid(test)); // disallow `X: 'Y | MATCH X ...`
+                fail (PAR(test)); // disallow `X: 'Y | MATCH X ...`
             goto either_match; // will typecheck the result
         }
 
@@ -834,7 +834,7 @@ REBNATIVE(case)
                 or IS_QUOTED(f->value)
                 or IS_GROUP(f->value) // don't evaluate this case...
             )){
-                fail (Error_Invalid_Core(D_CELL, f->specifier));
+                fail (Error_Bad_Value_Core(D_CELL, f->specifier));
             }
 
             Fetch_Next_In_Frame(nullptr, f); // skip next, whatever it is
@@ -878,7 +878,7 @@ REBNATIVE(case)
                 return R_THROWN;
             }
         } else
-            fail (Error_Invalid_Core(D_OUT, f->specifier));
+            fail (Error_Bad_Value_Core(D_OUT, f->specifier));
 
         Voidify_If_Nulled(D_OUT); // null is reserved for no branch taken
 
@@ -1242,7 +1242,7 @@ REBNATIVE(catch)
                 // !!! Should we test a typeset for illegal name types?
                 //
                 if (IS_BLOCK(candidate))
-                    fail (Error_Invalid(ARG(names)));
+                    fail (PAR(names));
 
                 Derelativize(temp1, candidate, VAL_SPECIFIER(ARG(names)));
                 Move_Value(temp2, label);

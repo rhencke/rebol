@@ -477,7 +477,7 @@ REB_R TO_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         ser = MAKE_TO_String_Common(arg);
 
     if (ser == NULL)
-        fail (Error_Invalid(arg));
+        fail (arg);
 
     return Init_Any_Series(out, kind, ser);
 }
@@ -562,7 +562,7 @@ static void Sort_String(
     if (not IS_NULLED(skipv)) {
         skip = Get_Num_From_Arg(skipv);
         if (skip <= 0 || len % skip != 0 || skip > len)
-            fail (Error_Invalid(skipv));
+            fail (skipv);
     }
 
     // Use fast quicksort library function:
@@ -738,7 +738,7 @@ REB_R PD_String(
     else if (ANY_BINSTR(opt_setval)) {
         REBCNT i = VAL_INDEX(opt_setval);
         if (i >= VAL_LEN_HEAD(opt_setval))
-            fail (Error_Invalid(opt_setval));
+            fail (opt_setval);
 
         c = GET_ANY_CHAR(VAL_SERIES(opt_setval), i);
     }
@@ -1452,7 +1452,7 @@ REBTYPE(String)
     case SYM_UNION:
     case SYM_DIFFERENCE: {
         if (not IS_BINARY(arg))
-            fail (Error_Invalid(arg));
+            fail (arg);
 
         if (VAL_INDEX(v) > VAL_LEN_HEAD(v))
             VAL_INDEX(v) = VAL_LEN_HEAD(v);
@@ -1467,7 +1467,7 @@ REBTYPE(String)
 
     case SYM_COMPLEMENT: {
         if (not IS_BINARY(v))
-            fail (Error_Invalid(v));
+            fail (v);
 
         return Init_Any_Series(D_OUT, VAL_TYPE(v), Complement_Binary(v)); }
 
@@ -1496,7 +1496,7 @@ REBTYPE(String)
     case SYM_SUBTRACT:
     case SYM_ADD: {
         if (not IS_BINARY(v))
-            fail (Error_Invalid(v));
+            fail (v);
 
         FAIL_IF_READ_ONLY_SERIES(v);
 
@@ -1504,9 +1504,9 @@ REBTYPE(String)
         if (IS_INTEGER(arg))
             amount = VAL_INT32(arg);
         else if (IS_BINARY(arg))
-            fail (Error_Invalid(arg)); // should work
+            fail (arg); // should work
         else
-            fail (Error_Invalid(arg)); // what about other types?
+            fail (arg); // what about other types?
 
         if (VAL_WORD_SYM(verb) == SYM_SUBTRACT)
             amount = -amount;

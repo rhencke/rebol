@@ -215,20 +215,22 @@ void Trapped_Helper(struct Reb_State *s)
 // CONTINUE, RETURN, LEAVE, HALT...)
 //
 // The function will auto-detect if the pointer it is given is an ERROR!'s
-// REBCTX* or a UTF-8 string.  If it's a string, an error will be created from
-// it automatically.
+// REBCTX* or a UTF-8 char *.  If it's UTF-8, an error will be created from
+// it automatically (but with no ID...the string becomes the "ID")
 //
-// !!! Previously, detecting a value would use that value as the ubiquitous
-// (but vague) "Invalid Arg" error.  However, since this is called by fail(),
-// that is misleading as rebFail() takes ERROR! values, STRING!s, or BLOCK!s
-// so those cases were changed to `fail (Invalid_Arg(v))` instead.
+// If the pointer is to a function parameter (e.g. what you get for PAR(name)
+// inside a native), then it will figure out what parameter that function is
+// for, find the most recent call on the stack, and report both the parameter
+// name and value as being implicated as a problem).
+//
+// Passing an arbitrary REBVAL* will give a generic "Invalid Arg" error.
 //
 // Note: Over the long term, one does not want to hard-code error strings in
 // the executable.  That makes them more difficult to hook with translations,
 // or to identify systemically with some kind of "error code".  However,
 // it's a realistic quick-and-dirty way of delivering a more meaningful
 // error than just using a RE_MISC error code, and can be found just as easily
-// to clean up later.
+// to clean up later with a textual search for `fail ("`
 //
 ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
 {
@@ -258,19 +260,41 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
     }
   #endif
 
-    switch (Detect_Rebol_Pointer(p)) {
-    case DETECTED_AS_UTF8: {
+    if (p == nullptr) {
+        error = Error_Unknown_Error_Raw();
+    }
+    else switch (Detect_Rebol_Pointer(p)) {
+      case DETECTED_AS_UTF8: {
         error = Error_User(cast(const char*, p));
         break; }
 
-    case DETECTED_AS_SERIES: {
+      case DETECTED_AS_SERIES: {
         REBSER *s = m_cast(REBSER*, cast(const REBSER*, p)); // don't mutate
         if (not IS_SER_ARRAY(s) or NOT_ARRAY_FLAG(s, IS_VARLIST))
             panic (s);
         error = CTX(s);
         break; }
 
-    default:
+      case DETECTED_AS_CELL: {
+        REBVAL *v = m_cast(REBVAL*, cast(const REBVAL*, p)); // don't mutate
+        if (IS_PARAM(v)) {
+            REBVAL *v_seek = v;
+            while (not IS_ACTION(v_seek))
+                --v_seek;
+            REBFRM *f_seek = FS_TOP;
+            REBACT *act = VAL_ACTION(v_seek);
+            while (f_seek->original != act) {
+                --f_seek;
+                if (f_seek == FS_BOTTOM)
+                    panic ("fail (PAR(name)); issued for param not on stack");
+            }
+            error = Error_Invalid_Arg(f_seek, v);
+        }
+        else
+            error = Error_Bad_Value(v);
+        break; }
+
+      default:
         panic (p); // suppress compiler error from non-smart compilers
     }
 
@@ -556,7 +580,7 @@ REB_R MAKE_Error(
         Init_Text(&vars->message, Copy_Sequence_At_Position(arg));
     }
     else
-        fail (Error_Invalid(arg));
+        fail (arg);
 
     // Validate the error contents, and reconcile message template and ID
     // information with any data in the object.  Do this for the IS_STRING
@@ -1054,21 +1078,54 @@ REBCTX *Error_Not_Varargs(
 // incompatibility with rebFail(), where the non-exposure of raw context
 // pointers meant passing REBVAL* was literally failing on an error value.
 //
-REBCTX *Error_Invalid(const REBVAL *value)
+REBCTX *Error_Invalid_Arg(REBFRM *f, const RELVAL *param)
 {
-    return Error_Invalid_Arg_Raw(value);
+    assert(IS_PARAM(param));
+
+    RELVAL *rootparam = ARR_HEAD(ACT_PARAMLIST(FRM_PHASE(f)));
+    assert(IS_ACTION(rootparam));
+    assert(param > rootparam);
+    assert(param <= rootparam + 1 + FRM_NUM_ARGS(f));
+
+    DECLARE_LOCAL (label);
+    if (not f->opt_label)
+        Init_Blank(label);
+    else
+        Init_Word(label, f->opt_label);
+
+    DECLARE_LOCAL (param_name);
+    Init_Word(param_name, VAL_PARAM_SPELLING(param));
+
+    REBVAL *arg = FRM_ARG(f, param - rootparam);
+    if (IS_NULLED(arg))
+        return Error_Arg_Required_Raw(label, param_name);
+
+    return Error_Invalid_Arg_Raw(label, param_name, arg);
 }
 
 
 //
-//  Error_Invalid_Core: C
+//  Error_Bad_Value_Core: C
 //
-REBCTX *Error_Invalid_Core(const RELVAL *value, REBSPC *specifier)
+// Will turn into an unknown error if a nulled cell is passed in.
+//
+REBCTX *Error_Bad_Value_Core(const RELVAL *value, REBSPC *specifier)
 {
+    if (IS_NULLED(value))
+        fail (Error_Unknown_Error_Raw());
+
     DECLARE_LOCAL (specific);
     Derelativize(specific, value, specifier);
 
-    return Error_Invalid_Arg_Raw(specific);
+    return Error_Bad_Value_Raw(specific);
+}
+
+//
+//  Error_Bad_Value_Core: C
+//
+REBCTX *Error_Bad_Value(const REBVAL *value)
+{
+    return Error_Bad_Value_Core(value, SPECIFIED);
 }
 
 

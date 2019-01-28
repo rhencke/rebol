@@ -108,7 +108,7 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
     }
 
     if (not IS_BLOCK(arg))
-        fail (Error_Invalid(arg));
+        fail (arg);
 
     // Process word/value argument block:
 
@@ -138,7 +138,7 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
     RELVAL *word;
     for (word = item; NOT_END(word); word += 2) {
         if (!IS_WORD(word) && !IS_SET_WORD(word)) {
-            error = Error_Invalid_Core(word, VAL_SPECIFIER(arg));
+            error = Error_Bad_Value_Core(word, VAL_SPECIFIER(arg));
             goto collect_end;
         }
 

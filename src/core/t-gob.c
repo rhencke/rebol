@@ -206,7 +206,7 @@ static void Insert_Gobs(
             }
         }
         else
-            fail (Error_Invalid_Core(val, SPECIFIED));
+            fail (Error_Bad_Value_Core(val, SPECIFIED));
     }
     arg = sarg;
 
@@ -860,7 +860,7 @@ REB_R TO_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
     UNUSED(out);
 
-    fail (Error_Invalid(arg));
+    fail (arg);
 }
 
 
@@ -1018,7 +1018,7 @@ REBTYPE(Gob)
     /*
     case SYM_PICK:
         if (!(ANY_NUMBER(arg) || IS_BLANK(arg)))
-            fail (Error_Invalid(arg));
+            fail (arg);
 
         if (!GOB_PANE(gob))
             return nullptr;
