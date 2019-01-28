@@ -84,8 +84,8 @@ console!: make object! [
     prompt: {>>}
     result: {==}
     warning: {!!}
-    error: {**} ;-- not used yet
-    info: to-text #{e29398} ;-- info "(i)" symbol
+    error: {**}  ; errors FORM themselves, so this is not used yet
+    info: {(i)}  ; was `to-text #{e29398}` for "(i)" symbol, caused problems
     greeting: _
 
     print-prompt: func [return: <void>] [
@@ -167,13 +167,18 @@ console!: make object! [
     ]
 
     print-warning:  func [s] [print [warning reduce s]]
-    print-error:    func [e [error!]] [print [e]]
+    print-error:    func [e [error!]] [
+        if :e/file = 'tmp-boot.r [
+            e/file: e/line: _  ; errors in console showed this, junk
+        ]
+        print [e]
+    ]
 
     print-halted: func [] [
         print "[interrupted by Ctrl-C or HALT instruction]"
     ]
 
-    print-info:     func [s] [print [info space space space reduce s]]
+    print-info:     func [s] [print [info reduce s]]
     print-greeting: func []  [boot-print greeting]
     print-gap:      func []  [print newline]
 
@@ -298,7 +303,7 @@ start-console: function [
     ;
     proto-skin/print-error: adapt :proto-skin/print-error [
         if not system/state/last-error [
-            system/console/print-info "Note: use WHY for error information"
+            system/console/print-info "Info: use WHY for error information"
         ]
 
         system/state/last-error: e
