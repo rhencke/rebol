@@ -78,21 +78,21 @@
 ]
 
 
-; -> is the "SHOVE" operation.  It lets any ACTION!...including one dispatched
+; <- is the "STEAL" operation.  It lets any ACTION!...including one dispatched
 ; from PATH!, receive its first argument from the left.  It uses the parameter
 ; conventions of that argument.
 
 ; NORMAL parameter
 ;
-(7 = (1 + 2 -> multiply 3))
-(7 = (add 1 2 -> multiply 3))
-(7 = (add 1 2 -> (:multiply) 3))
+(9 = (1 + 2 <- multiply 3))
+(7 = (add 1 2 <- multiply 3))
+(7 = (add 1 2 <- (:multiply) 3))
 
 ; :HARD-QUOTE parameter
 (
     x: _
-    x: -> default [10 + 20]
-    x: -> default [1000000]
+    x: <- default [10 + 20]
+    x: <- default [1000000]
     x = 30
 )
 
@@ -106,12 +106,12 @@
 
     (error? trap [1 obj/magic 2])
 
-    (3 = (1 -> obj/magic 2))
-    (-1 = (1 -> obj/magic/minus 2))
+    (3 = (1 <- obj/magic 2))
+    (-1 = (1 <- obj/magic/minus 2))
 ]
 
 
-; PATH! cannot be directly quoted left, must use ->
+; PATH! cannot be directly quoted left, must use <-
 
 [
     (
@@ -121,10 +121,10 @@
     )
 
     ((trap [o/i left-lit])/id = 'literal-left-path)
-    (o/i -> left-lit = 'o/i)
+    (o/i <- left-lit = 'o/i)
 
     ((trap [o/f left-lit])/id = 'literal-left-path)
-    (o/f -> left-lit = 'o/f)
+    (o/f <- left-lit = 'o/f)
 ]
 
 ; Rather than error when SET-WORD! or SET-PATH! are used as the left hand
@@ -134,11 +134,53 @@
 
 (
     x: 10
-    x: -> + 20
+    x: <- + 20
     x = 30
 )(
     o: make object! [x: 10]
     count: 0
-    o/(count: count + 1 'x): -> + 20
+    o/(count: count + 1 'x): <- + 20
     (o/x = 30) and (count = 1) ;-- shouldn't double-evaluate path group
+)
+
+
+; Right enfix always wins over left, unless the right is at array end
+
+((lit <-) = first [<-])
+((lit <- lit) = 'lit)
+('x = (x <- lit))
+(1 = (1 <- lit))
+
+(1 = (1 -> lit))
+('x = (x -> lit))
+
+; "Precedence" manipulation via <- and ->
+
+(9 = (1 + 2 <- multiply 3))
+(9 = (1 + 2 -> multiply 3))
+(9 = (1 + 2 -> lib/* 3))
+(9 = (1 + 2 <- lib/* 3))
+
+(7 = (add 1 2 * 3))
+(7 = (add 1 2 <- lib/* 3))
+(7 = (add 1 2 -> lib/* 3))
+
+((trap [10 <- lib/= 5 + 5])/id = 'expect-arg)
+(10 -> lib/= 5 + 5)
+
+((trap [add 1 + 2 -> multiply 3])/id = 'no-arg)
+(
+    x: add 1 + 2 3 + 4 -> multiply 5
+    x = 38
+)
+(-38 = (negate x: add 1 + 2 3 + 4 -> multiply 5))
+(
+    (trap [divide negate x: add 1 + 2 3 + 4 -> multiply 5])/id = 'no-arg
+)
+(-1 = (divide negate x: add 1 + 2 3 + 4  2 -> multiply 5))
+
+
+(
+    (x: add 1 add 2 3 |> lib/* 4)
+    x = 24
 )

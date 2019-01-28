@@ -169,16 +169,16 @@
     ('| = do [right-soft* |])
     (null? do [right-soft*])
 
-    ('| = do [| left-soft])
-    ('| = do [| left-soft*])
+    (<bug> 'left-soft = do [| left-soft])
+    (<bug> 'left-soft* = do [| left-soft*])
     (null? do [left-soft*])
 
     ('| = do [right-hard |])
     ('| = do [right-hard* |])
     (null? do [right-hard*])
 
-    ('| = do [| left-hard])
-    ('| = do [| left-hard*])
+    (<bug> 'left-hard = do [| left-hard])
+    (<bug> 'left-hard* = do [| left-hard*])
     (null? do [left-hard*])
 ]
 
@@ -220,16 +220,16 @@
     ('| = do [right-soft* |])
     (null? do [right-soft*])
 
-    ('| = do [| left-soft])
-    ('| = do [| left-soft*])
+    (<bug> 'left-soft = do [| left-soft])
+    (<bug> 'left-soft* = do [| left-soft*])
     (null? do [left-soft*])
 
     ('| = do [right-hard |])
     ('| = do [right-hard* |])
     (null? do [right-hard*])
 
-    ('| = do [| left-hard])
-    ('| = do [| left-hard*])
+    ('left-hard = do [| left-hard])
+    ('left-hard* = do [| left-hard*])
     (null? do [left-hard*])
 ]
 

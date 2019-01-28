@@ -344,8 +344,9 @@ REBNATIVE(reflect)
 //  {Infix form of REFLECT which quotes its left (X OF Y => REFLECT Y 'X)}
 //
 //      return: [<opt> any-value!]
-//      'property [word!]
-//      value "Accepts NULL so TYPE OF () can be returned as NULL"
+//      :property "Hard quoted so that `integer! = type of 1` works`"
+//          [word! group!]
+//      value "Accepts null so TYPE OF NULL can be returned as null"
 //          [<opt> any-value!]
 //  ]
 //
@@ -357,16 +358,23 @@ REBNATIVE(of)
 {
     INCLUDE_PARAMS_OF_OF;
 
+    REBVAL *prop = ARG(property);
+
+    if (IS_GROUP(prop)) {
+        if (Eval_Value_Throws(D_CELL, prop))
+            return R_THROWN;
+    }
+    else
+        Move_Value(D_CELL, prop);
+
     // !!! Ugly hack to make OF frame-compatible with REFLECT.  If there was
     // a separate dispatcher for REFLECT it could be called with proper
     // parameterization, but as things are it expects the arguments to
     // fit the type action dispatcher rule... dispatch item in first arg,
     // property in the second.
     //
-    DECLARE_LOCAL (temp);
-    Move_Value(temp, ARG(property));
     Move_Value(ARG(property), ARG(value));
-    Move_Value(ARG(value), temp);
+    Move_Value(ARG(value), D_CELL);
 
     return Reflect_Core(frame_);
 }

@@ -36,7 +36,11 @@ so: enfix func [
     return: <void>
     condition "Condition to test, must resolve to a LOGIC! (use DID, NOT)"
         [logic!]
+    :look [<opt> <end> any-value! <...>]
 ][
+    if block? first look [
+        fail "Don't use literal block as SO right hand side, use ([...])"
+    ]
     if not condition [
         fail 'condition ["Postfix 'SO assertion' failed"]
     ]
@@ -666,28 +670,14 @@ lambda: function [
 ]
 
 
-invisible-eval-all: func [
-    {Evaluate any number of expressions, but completely elide the results.}
+eval-all: func [
+    {Evaluate any number of expressions and discard them}
 
     return: []
-        {Returns nothing, not even void ("invisible function", like COMMENT)}
     expressions [<opt> any-value! <...>]
         {Any number of expressions on the right.}
 ][
     do expressions
-]
-
-right-bar: func [
-    {Evaluates to first expression on right, discarding ensuing expressions.}
-
-    return: [<opt> any-value!]
-        {Evaluative result of first of the following expressions.}
-    expressions [<opt> any-value! <...>]
-        {Any number of expression.}
-    <local> right
-][
-    do evaluate/set expressions 'right else [return]
-    :right
 ]
 
 

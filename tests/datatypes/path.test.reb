@@ -138,9 +138,10 @@
     1 = b/b
 )]
 
-; Paths are immutable
+; Paths are immutable, but shouldn't raise an error just on MUTABLE
+; (would be too annoying for generic code that mutates some things)
 (
-    did trap [mutable 'a/a]
+    'a/a = mutable 'a/a
 )
 
 [#71 (

@@ -1028,6 +1028,10 @@ REBNATIVE(reskinned)
         fail ("Type-expanding RESKIN only works on ADAPT/ENCLOSE actions");
     }
 
+    if (not need_skin_phase) // inherit the native flag if no phase change
+        SER(paramlist)->header.bits
+            |= SER(original)->header.bits & PARAMLIST_FLAG_IS_NATIVE;
+
     RELVAL *rootparam = ARR_HEAD(paramlist);
     SER(paramlist)->header.bits &= ~PARAMLIST_MASK_CACHED;
     rootparam->payload.action.paramlist = paramlist;
@@ -1112,7 +1116,7 @@ REBNATIVE(tweak)
         break;
 
       case SYM_POSTPONE: // Wait as long as it can to run w/o changing order
-        if (pclass != REB_P_NORMAL)
+        if (pclass != REB_P_NORMAL and pclass != REB_P_SOFT_QUOTE)
             fail ("TWEAK #postpone only actions with evaluative 1st params");
         flag = PARAMLIST_FLAG_POSTPONES_ENTIRELY;
         break;

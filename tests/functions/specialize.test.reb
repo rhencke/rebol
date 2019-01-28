@@ -150,12 +150,13 @@
     ]
     foob: enfix :foo/b
     did all [
-        [_ <null> /b word] = (word foob)
-        [_ <null> _ <null>] = (<not a word> foob)
-        [/a 20 /b word] = (word -> foob/a 20)
+        [_ <null> /b word] = (word foob |)
+        [_ <null> _ <null>] = (<not a word> foob |)
+        [/a 20 /b word] = (word <- foob/a 20)
         comment [
-            {Currently SHOVE and <skip> don't work together}
-            [/a 20 _ <null>] = (<not a word> -> foob/a 20)
+            {Currently SHOVE and <skip> don't work together, maybe shouldn't}
+            https://github.com/metaeducation/ren-c/issues/909
+            [/a 20 _ <null>] = (<not a word> <- foob/a 20)
         ]
     ]
 )

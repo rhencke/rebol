@@ -792,7 +792,7 @@ REBNATIVE(case)
     DECLARE_FRAME (f);
     Push_Frame(f, ARG(cases));
 
-    REBVAL *safe = ARG(cases); // frame has array now, can re-use GC-safe cell 
+    REBVAL *safe = ARG(cases); // frame has array now, can re-use GC-safe cell
 
     Init_Nulled(D_OUT); // default return result
 

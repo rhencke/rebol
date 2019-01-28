@@ -144,15 +144,17 @@ set/enfix (r3-alpha-lit "=>") :lambda
 ; is evaluative and the left is a SET-WORD! or SET-PATH!, it will grab the
 ; value of that and then run the assignment after the function is done.
 ;
-set/enfix (r3-alpha-lit "<-") reskinned [#change :left] :shove
-
-; -> is the POSTPONE operator.  It runs the left fully, before passing on the
-; result.  It is not legal to run a postponing operator in an argument
-; gathering position, it can only be at full stops between expressions.
-; It is idiomatically legal to say e.g. `x: if condition [... ->]` to indicate
-; that the evaluated product is "going out" and being assigned somewhere.
+; While both <- and -> are enfix operations, the -> variation does not follow
+; the rules of enfix completion:
 ;
-set/enfix (r3-alpha-lit "->") tweak copy :shove #postpone on
+;     >> 10 <- lib/= 5 + 5
+;     ** Script Error: + does not allow logic! for its value1 argument
+;
+;     >> 10 -> lib/= 5 + 5
+;     == #[true]
+;
+set/enfix (r3-alpha-lit "<-") :shove/enfix
+set/enfix (r3-alpha-lit "->") :shove
 
 
 ; These constructs used to be enfix to complete their left hand side.  Yet
@@ -160,6 +162,6 @@ set/enfix (r3-alpha-lit "->") tweak copy :shove #postpone on
 ; to allow longer runs of evaluation.  "Invisible functions" (those which
 ; `return: []`) permit a more flexible version of the mechanic.
 
-set (r3-alpha-lit "<|") :invisible-eval-all
-set (r3-alpha-lit "|>") :right-bar
+set (r3-alpha-lit "<|") tweak copy :eval-all #postpone on
+set/enfix (r3-alpha-lit "|>") tweak copy :shove #postpone on
 ||: :once-bar

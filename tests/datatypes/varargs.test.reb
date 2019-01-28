@@ -74,32 +74,38 @@
 ][
     (
         soft: enfix function ['v [any-value! <...>]] [
-            stuff: copy []
-            while [not tail? v] [
-                append/only stuff take v
+            collect-block [
+                while [not tail? v] [
+                    keep/only take v
+                ]
             ]
-            return stuff
         ]
         true
     )
 
     ([] = do [soft])
-    ([a] = do [a soft])
+    (
+        a: null
+        (trap [a soft])/id = 'no-value
+    )
     ([7] = do [(1 + 2) (3 + 4) soft])
 ][
     (
         hard: enfix function [:v [any-value! <...>]] [
-            stuff: copy []
-            while [not tail? v] [
-                append/only stuff take v
+            collect-block [
+                while [not tail? v] [
+                    keep/only take v
+                ]
             ]
-            return stuff
         ]
         true
     )
 
     ([] = do [hard])
-    ([a] = do [a hard])
+    (
+        a: null
+        (trap [a hard])/id = 'no-value
+    )
     ([(3 + 4)] = do [(1 + 2) (3 + 4) hard])
 ]
 
@@ -119,11 +125,10 @@
 )
 (
     unset 'value
-    unset 'x
 
-    70 = (value: 1 + 2 |> 30 + 40 x: value () () ())
+    33 = (value: 1 + 2 |> add 30)
 
-    did all [value = 3 | x = 3]
+    did all [value = 33]
 )
 
 (
@@ -131,12 +136,9 @@
     is-barrier? (<| 10)
 )
 (
-    void? (10 |>)
+    10 = (10 |>)
 )
 
-(
-    2 = (1 |> 2 | 3 + 4 | 5 + 6)
-)
 (
     1 = (1 <| 2 | 3 + 4 | 5 + 6)
 )

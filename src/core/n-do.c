@@ -89,10 +89,11 @@ REBNATIVE(eval)
 //
 //      return: [<opt> any-value!]
 //          "REVIEW: How might this handle shoving enfix invisibles?"
-//      left [<end> <opt> any-value!]
+//      'left [<end> <opt> any-value!]
 //          "Requests parameter convention based on enfixee's first argument"
 //      :right [<...> <end> any-value!]
 //          "(uses magic -- SHOVE can't be written easily in usermode yet)"
+//      /enfix "Follow completion rules for enfix, e.g. `1 + 2 <- * 3` is 9"
 //  ]
 //
 REBNATIVE(shove)
@@ -115,27 +116,14 @@ REBNATIVE(shove)
 {
     INCLUDE_PARAMS_OF_SHOVE;
 
-    REBFRM *f = frame_;
-    REBFRM *f_right;
-    if (
-        not Is_Frame_Style_Varargs_May_Fail(&f_right, ARG(right))
-        or f_right != f
-    ){
-        fail (
-            "SHOVE (<-) is written using evaluator magic, and cannot apply"
-            " to any variadic feed besides the one for the current frame."
-            " Doing SHOVE in usermode would be cool, but it's not there yet."
-        );
-    }
+    REBFRM *f;
+    if (not Is_Frame_Style_Varargs_May_Fail(&f, ARG(right)))
+        fail ("SHOVE (<-) not implemented for MAKE VARARGS! [...] yet");
 
-    // The postpone case is happy to say that `(1 + 2 ->)` is just 3, and that
-    // is in fact idiomatic to mean "I produce a result that gets used".  But
-    // the PARAMLIST_FLAG_STEALS_LEFT implies that nothing on the right does
-    // not let it out-prioritize WORD! or PATH!.  This makes `help <-` work.
-    // See %c-eval.c for the handling, which means we won't see END here.
-    //
-    if (IS_END(f->value))
-        RETURN (ARG(left))
+    REBVAL *left = ARG(left);
+
+    if (IS_END(f->value)) // ...shouldn't happen for WORD!/PATH! unless APPLY
+        RETURN (ARG(left)) // ...because evaluator wants `help <-` to work
 
     // It's best for SHOVE to do type checking here, as opposed to setting
     // some kind of EVAL_FLAG_SHOVING and passing that into the evaluator, then
@@ -197,14 +185,16 @@ REBNATIVE(shove)
     // Even if the function isn't enfix, say it is.  This permits things
     // like `5 + 5 -> subtract 7` to give 3.
     //
-    SET_CELL_FLAG(shovee, ENFIXED);
+    if (REF(enfix))
+        SET_CELL_FLAG(shovee, ENFIXED); // for `add 1 2 -> 3` to be 7
+    else
+        Fetch_Next_In_Frame(nullptr, f); // for `10 -> = 5 + 5` to be true
 
     // Trying to EVAL a SET-WORD! or SET-PATH! with no args would be an error.
     // So interpret it specially...GET the value and SET it back.  Note this
     // is tricky stuff to do when a SET-PATH! has groups in it to avoid a
     // double evaluation--the API is used here for simplicity.
     //
-    REBVAL *left = ARG(left);
     REBVAL *composed_set_path = nullptr;
 
     // Since we're simulating enfix dispatch, we need to move the first arg
@@ -213,12 +203,11 @@ REBNATIVE(shove)
     // We quoted the argument on the left, but the ACTION! we are feeding
     // into may want it evaluative.  (Enfix handling itself does soft quoting)
     //
-    TRASH_CELL_IF_DEBUG(D_OUT);
+    TRASH_CELL_IF_DEBUG(D_OUT); // make sure we reassign it
 
-    Reb_Param_Class pclass = VAL_PARAM_CLASS(PAR(left));
     if (
         NOT_ACTION_FLAG(VAL_ACTION(shovee), QUOTES_FIRST)
-        and ((pclass == REB_P_HARD_QUOTE) or (pclass == REB_P_SOFT_QUOTE))
+        and GET_CELL_FLAG(left, UNEVALUATED)
     ){
         if (IS_SET_WORD(left)) {
             Move_Value(D_OUT, Get_Opt_Var_May_Fail(left, SPECIFIED));
@@ -230,28 +219,31 @@ REBNATIVE(shove)
             Move_Value(D_OUT, temp);
             rebRelease(temp);
         }
-        else if (Eval_Value_Throws(D_OUT, ARG(left)))
+        else if (Eval_Value_Throws(D_OUT, left))
             return R_THROWN;
     }
     else {
-        Move_Value(D_OUT, ARG(left));
-      #if !defined(NDEBUG)
-        if (pclass == REB_P_HARD_QUOTE or pclass == REB_P_SOFT_QUOTE)
-            SET_CELL_FLAG(D_OUT, UNEVALUATED); // enfix checks in debug
-      #endif
+        Move_Value(D_OUT, left);
+        if (GET_CELL_FLAG(left, UNEVALUATED))
+            SET_CELL_FLAG(D_OUT, UNEVALUATED);
     }
 
     DECLARE_SUBFRAME (child, frame_);
 
-    REBFLGS flags = DO_MASK_DEFAULT | EVAL_FLAG_REEVALUATE_CELL;
+    REBFLGS flags = DO_MASK_DEFAULT
+        | EVAL_FLAG_NEXT_ARG_FROM_OUT
+        | EVAL_FLAG_REEVALUATE_CELL;
     child->u.reval.value = shovee; // EVAL_FLAG_REEVALUATE_CELL retriggers this
 
-    if (Eval_Step_In_Subframe_Throws(D_OUT, frame_, flags, child)) {
+    if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child)) {
         rebRelease(composed_set_path); // ok if nullptr
         return R_THROWN;
     }
 
-    if (NOT_ACTION_FLAG(VAL_ACTION(shovee), QUOTES_FIRST)) {
+    if (
+        NOT_ACTION_FLAG(VAL_ACTION(shovee), QUOTES_FIRST)
+        and GET_CELL_FLAG(left, UNEVALUATED)
+    ){
         if (IS_SET_WORD(left)) {
             Move_Value(Sink_Var_May_Fail(left, SPECIFIED), D_OUT);
         }

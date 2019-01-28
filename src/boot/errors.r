@@ -118,6 +118,7 @@ Script: [
     evaluate-null:      {null cannot be evaluated (see UNEVAL)}
 
     enfix-path-group:   [:arg1 {GROUP! can't be in a lookback quoted PATH!}]
+    evaluative-quote:   {Can't quote non-literal from an evaluative source}
 
     break-not-continue: {Use BREAK/WITH when body is the breaking condition}
 

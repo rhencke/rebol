@@ -115,7 +115,8 @@ static inline bool Start_New_Expression_Throws(REBFRM *f) {
 
     UPDATE_EXPRESSION_START(f); // !!! See FRM_INDEX() for caveats
 
-    SET_CELL_FLAG(f->out, OUT_MARKED_STALE);
+    if (NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT))
+        SET_CELL_FLAG(f->out, OUT_MARKED_STALE);
 
     // Want to keep this flag between an operation and an ensuing enfix in
     // the same frame, so can't clear in Drop_Action(), e.g. due to:
@@ -497,7 +498,8 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     REBFLGS flags =
         (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
         | (f->flags.bits & EVAL_FLAG_EXPLICIT_EVALUATE)
-        | (f->flags.bits & EVAL_FLAG_CONST);
+        | (f->flags.bits & EVAL_FLAG_CONST)
+        | (f->flags.bits & EVAL_FLAG_FULFILLING_ARG); // if f was, we are
 
     Init_Void(f->out); // `1 x: comment "hi"` shouldn't set x to 1!
 
@@ -702,9 +704,27 @@ bool Eval_Core_Throws(REBFRM * const f)
     if (NOT_ACTION_FLAG(VAL_ACTION(f->gotten), QUOTES_FIRST)) // enfix=>action
         goto give_up_backward_quote_priority;
 
+    // If the action soft quotes its left, that means it's aware that its
+    // "quoted" argument may be evaluated sometimes.  If there's evaluative
+    // material on the left, treat it like it's in a group.
+    //
+    if (
+        GET_ACTION_FLAG(VAL_ACTION(f->gotten), POSTPONES_ENTIRELY)
+        or (
+            GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)
+            and (kind.byte != REB_SET_WORD and kind.byte != REB_SET_PATH)
+        )
+    ){
+        // !!! cache this test?
+        //
+        REBVAL *first = First_Unspecialized_Param(VAL_ACTION(f->gotten));
+        if (VAL_PARAM_CLASS(first) == REB_P_SOFT_QUOTE)
+            goto give_up_backward_quote_priority; // yield as an exemption
+    }
+
     // Let the <skip> flag allow the right hand side to gracefully decline
     // interest in the left hand side due to type.  This is how DEFAULT works,
-    // such that `case [condition [...] default [...]` does not interfere
+    // such that `case [condition [...] default [...]]` does not interfere
     // with the BLOCK! on the left, but `x: default [...]` gets the SET-WORD!
     //
     if (GET_ACTION_FLAG(VAL_ACTION(f->gotten), SKIPPABLE_FIRST)) {
@@ -714,14 +734,10 @@ bool Eval_Core_Throws(REBFRM * const f)
     }
 
     // Lookback args are fetched from f->out, then copied into an arg
-    // slot.  Put the backwards quoted value into f->out, and in the
-    // debug build annotate it with the unevaluated flag, to indicate
-    // the lookback value was quoted, for some double-check tests.
+    // slot.  Put the backwards quoted value into f->out.
     //
-    Derelativize(f->out, current, f->specifier); // lookback in f->out
-  #if !defined(NDEBUG)
-    SET_CELL_FLAG(f->out, UNEVALUATED);
-  #endif
+    Derelativize(f->out, current, f->specifier); // for NEXT_ARG_FROM_OUT
+    SET_CELL_FLAG(f->out, UNEVALUATED); // so lookback knows it was quoted
 
     // We skip over the word that invoked the action (e.g. <-, OF, =>).
     // current will then hold a pointer to that word (possibly now
@@ -740,15 +756,13 @@ bool Eval_Core_Throws(REBFRM * const f)
         // This lets us do e.g. `(lit =>)` or `help of`
         //
         // Swap it around so that what we had put in the f->out goes back
-        // to being in the frame cell and can be used as current.  Then put
+        // to being in the lookback cell and can be used as current.  Then put
         // what was current into f->out so it can be consumed as the first
         // parameter of whatever that was.
 
         Move_Value(&f->lookback, f->out);
         Derelativize(f->out, current, f->specifier);
-      #if !defined(NDEBUG)
         SET_CELL_FLAG(f->out, UNEVALUATED);
-      #endif
 
         // leave f->value at END
         current = &f->lookback;
@@ -842,7 +856,13 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         Push_Action(f, VAL_ACTION(current), VAL_BINDING(current));
         Begin_Action(f, opt_label);
-        Expire_Out_Cell_Unless_Invisible(f);
+
+        // We'd like `10 -> = 5 + 5` to work, and to do so it reevaluates in
+        // a new frame, but has to run the `=` as "getting its next arg from
+        // the output slot, but not being run in an enfix mode".
+        //
+        if (NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT))
+            Expire_Out_Cell_Unless_Invisible(f);
 
         goto process_action; }
 
@@ -1299,13 +1319,16 @@ bool Eval_Core_Throws(REBFRM * const f)
                     break;
 
                   case REB_P_HARD_QUOTE:
-                  #if !defined(NDEBUG)
-                    //
-                    // Only in debug builds, the before-switch lookahead sets
-                    // this flag to help indicate that's where it came from.
-                    //
-                    assert(GET_CELL_FLAG(f->out, UNEVALUATED));
-                  #endif
+                    if (not GET_CELL_FLAG(f->out, UNEVALUATED)) {
+                        //
+                        // This can happen e.g. with `x: 10 | x -> lit`.  We
+                        // raise an error in this case, while still allowing
+                        // `10 -> lit` to work, so people don't have to go
+                        // out of their way rethinking operators if it could
+                        // just work out for inert types.
+                        //
+                        fail (Error_Evaluative_Quote_Raw());
+                    }
 
                     // Is_Param_Skippable() accounted for in pre-lookback
 
@@ -1315,13 +1338,12 @@ bool Eval_Core_Throws(REBFRM * const f)
                     break;
 
                   case REB_P_SOFT_QUOTE:
-                  #if !defined(NDEBUG)
                     //
-                    // Only in debug builds, the before-switch lookahead sets
-                    // this flag to help indicate that's where it came from.
-                    //
-                    assert(GET_CELL_FLAG(f->out, UNEVALUATED));
-                  #endif
+                    // Note: This permits f->out to not carry the UNEVALUATED
+                    // flag--enfixed operations which have evaluations on
+                    // their left are treated as if they were in a GROUP!.
+                    // This is important to `1 + 2 <- lib/* 3` being 9, while
+                    // also allowing `1 + x: <- lib/default [...]` to work.
 
                     if (IS_QUOTABLY_SOFT(f->out)) {
                         if (Eval_Value_Throws(f->arg, f->out)) {
@@ -1594,7 +1616,14 @@ bool Eval_Core_Throws(REBFRM * const f)
     //
     //==////////////////////////////////////////////////////////////////==//
 
+        if (GET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT)) {
+            if (GET_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH))
+                fail (Error_Literal_Left_Path_Raw());
+        }
+
       redo_unchecked:;
+
+        assert(NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT));
 
         assert(IS_END(f->param));
         // refine can be anything.
@@ -2558,6 +2587,20 @@ bool Eval_Core_Throws(REBFRM * const f)
 
   post_switch:;
 
+    // If something was run with the expectation it should take the next arg
+    // from the output cell, and an evaluation cycle ran that wasn't an
+    // ACTION! (or that was an arity-0 action), that's not what was meant.
+    // But it can happen, e.g. `x: 10 | x <-`, where <- doesn't get an
+    // opportunity to quote left because it has no argument...and instead
+    // retriggers and lets x run.
+
+    if (GET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT)) {
+        if (GET_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH))
+            fail (Error_Literal_Left_Path_Raw());
+
+        assert(!"Unexpected lack of use of NEXT_ARG_FROM_OUT");
+    }
+
 //=//// IF NOT A WORD!, IT DEFINITELY STARTS A NEW EXPRESSION /////////////=//
 
     // For long-pondered technical reasons, only WORD! is able to dispatch
@@ -2709,10 +2752,19 @@ bool Eval_Core_Throws(REBFRM * const f)
         // the left quoting function might be okay with seeing nothing on the
         // left.  Start a new expression and let it error if that's not ok.
         //
+        assert(NOT_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH));
         if (GET_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH))
             fail (Error_Literal_Left_Path_Raw());
 
-        goto lookback_quote_too_late;
+        REBVAL *first = First_Unspecialized_Param(VAL_ACTION(f->gotten));
+        if (VAL_PARAM_CLASS(first) == REB_P_SOFT_QUOTE) {
+            if (GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)) {
+                CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
+                goto finished;
+            }
+        }
+        else
+            goto lookback_quote_too_late;
     }
 
     if (
