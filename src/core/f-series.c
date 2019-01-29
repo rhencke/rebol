@@ -29,7 +29,8 @@
 //
 
 #include "sys-core.h"
-#include "sys-deci-funcs.h"
+
+#include "sys-money.h"
 
 #define THE_SIGN(v) ((v < 0) ? -1 : (v > 0) ? 1 : 0)
 

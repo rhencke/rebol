@@ -201,25 +201,25 @@ REB_R MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         // If there's any chance that the argument could produce nulls, we
         // can't guarantee an array can be made out of it.
         //
-        if (not arg->payload.varargs.phase) {
+        if (not PAYLOAD(Varargs, arg).phase) {
             //
             // A vararg created from a block AND never passed as an argument
             // so no typeset or quoting settings available.  Can't produce
             // any voids, because the data source is a block.
             //
-            assert(NOT_ARRAY_FLAG(arg->extra.binding, IS_VARLIST));
+            assert(NOT_ARRAY_FLAG(EXTRA(Binding, arg).node, IS_VARLIST));
         }
         else {
-            REBCTX *context = CTX(arg->extra.binding);
+            REBCTX *context = CTX(EXTRA(Binding, arg).node);
             REBFRM *param_frame = CTX_FRAME_MAY_FAIL(context);
 
             REBVAL *param = KNOWN(
                 ARR_HEAD(ACT_PARAMLIST(FRM_PHASE(param_frame)))
             );
-            if (arg->payload.varargs.signed_param_index < 0)
-                param += -(arg->payload.varargs.signed_param_index);
+            if (PAYLOAD(Varargs, arg).signed_param_index < 0)
+                param += -(PAYLOAD(Varargs, arg).signed_param_index);
             else
-                param += arg->payload.varargs.signed_param_index;
+                param += PAYLOAD(Varargs, arg).signed_param_index;
 
             if (TYPE_CHECK(param, REB_MAX_NULLED))
                 fail (Error_Null_Vararg_Array_Raw());

@@ -76,7 +76,9 @@ ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
                 printf("@ tick #%d", cast(unsigned int, v->extra.tick));
             #endif
 
-            printf("@ %s:%d\n", v->payload.track.file, v->payload.track.line);
+            printf(
+                "@ %s:%d\n", PAYLOAD(Track, v).file, PAYLOAD(Track, v).line
+            );
         #endif
       #else
         printf("No track info (see DEBUG_TRACK_CELLS/DEBUG_COUNT_TICKS)\n");

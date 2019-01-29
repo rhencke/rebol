@@ -136,7 +136,7 @@ inline static REBARR *CTX_KEYLIST(REBCTX *c) {
     //
     REBVAL *archetype = CTX_ARCHETYPE(c);
     assert(KIND_BYTE(archetype) == REB_FRAME);
-    return ACT_PARAMLIST(archetype->payload.any_context.phase);
+    return ACT_PARAMLIST(PAYLOAD(Context, archetype).phase);
 }
 
 static inline void INIT_CTX_KEYLIST_SHARED(REBCTX *c, REBARR *keylist) {
@@ -210,7 +210,7 @@ inline static REBVAL *CTX_VAR(REBCTX *c, REBCNT n) {
 }
 
 inline static REBSTR *CTX_KEY_SPELLING(REBCTX *c, REBCNT n) {
-    return CTX_KEY(c, n)->extra.key_spelling;
+    return EXTRA(Key, CTX_KEY(c, n)).spelling;
 }
 
 inline static REBSTR *CTX_KEY_CANON(REBCTX *c, REBCNT n) {
@@ -243,14 +243,14 @@ inline static void FAIL_IF_INACCESSIBLE_CTX(REBCTX *c) {
 
 inline static REBCTX *VAL_CONTEXT(const REBCEL *v) {
     assert(ANY_CONTEXT_KIND(CELL_KIND(v)));
-    assert(not v->payload.any_context.phase or CELL_KIND(v) == REB_FRAME);
-    REBCTX *c = CTX(v->payload.any_context.varlist);
+    assert(not PAYLOAD(Context, v).phase or CELL_KIND(v) == REB_FRAME);
+    REBCTX *c = CTX(PAYLOAD(Context, v).varlist);
     FAIL_IF_INACCESSIBLE_CTX(c);
     return c;
 }
 
 inline static void INIT_VAL_CONTEXT(REBVAL *v, REBCTX *c) {
-    v->payload.any_context.varlist = CTX_VARLIST(c);
+    PAYLOAD(Context, v).varlist = CTX_VARLIST(c);
 }
 
 // Convenience macros to speak in terms of object values instead of the context
@@ -466,11 +466,11 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     single->header.bits =
         NODE_FLAG_NODE | NODE_FLAG_CELL | FLAG_KIND_BYTE(REB_FRAME);
     INIT_BINDING(single, VAL_BINDING(rootvar));
-    single->payload.any_context.varlist = ARR(stub);
-    TRASH_POINTER_IF_DEBUG(single->payload.any_context.phase);
-    /* single->payload.any_context.phase = f->original; */ // !!! needed?
+    PAYLOAD(Context, single).varlist = ARR(stub);
+    TRASH_POINTER_IF_DEBUG(PAYLOAD(Context, single).phase);
+    /* PAYLOAD(Context, single).phase = f->original; */ // !!! needed?
 
-    rootvar->payload.any_context.varlist = ARR(copy);
+    PAYLOAD(Context, rootvar).varlist = ARR(copy);
 
     // Disassociate the stub from the frame, by degrading the link field
     // to a keylist.  !!! Review why this was needed, vs just nullptr

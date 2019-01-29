@@ -31,7 +31,8 @@
 //
 
 #include "sys-core.h"
-#include "sys-deci-funcs.h"
+
+#include "sys-money.h"
 
 #include <math.h>
 #include <float.h>

@@ -51,7 +51,6 @@
 //      make typeset! [<hide> <quote> <protect> text! integer!]
 //
 
-
 #define IS_KIND_SYM(s) \
     ((s) < cast(REBSYM, REB_MAX))
 
@@ -64,7 +63,7 @@ inline static enum Reb_Kind KIND_FROM_SYM(REBSYM s) {
     cast(REBSYM, cast(enum Reb_Kind, (k)))
 
 #define VAL_TYPE_SYM(v) \
-    SYM_FROM_KIND((v)->payload.datatype.kind)
+    SYM_FROM_KIND(PAYLOAD(Datatype, (v)).kind)
 
 inline static REBSTR *Get_Type_Name(const RELVAL *value)
     { return Canon(SYM_FROM_KIND(VAL_TYPE(value))); }
@@ -75,7 +74,8 @@ inline static REBSTR *Get_Type_Name(const RELVAL *value)
 //
 // Operations when typeset is done with a bitset (currently all typesets)
 
-#define VAL_TYPESET_BITS(v) ((v)->payload.typeset.bits)
+#define VAL_TYPESET_BITS(v) \
+    PAYLOAD(Typeset, (v)).bits
 
 #define TYPE_CHECK(v,n) \
     (did (VAL_TYPESET_BITS(v) & FLAGIT_KIND(n)))
@@ -302,7 +302,7 @@ inline static Reb_Param_Class VAL_PARAM_CLASS(const RELVAL *v) {
 
 inline static REBSTR *VAL_KEY_SPELLING(const REBCEL *v) {
     assert(IS_PARAM_KIND(CELL_KIND(v)));
-    return v->extra.key_spelling;
+    return EXTRA(Key, v).spelling;
 }
 
 inline static REBSTR *VAL_KEY_CANON(const REBCEL *v) {
@@ -334,7 +334,7 @@ inline static REBVAL *Init_Param(
     REBU64 bits
 ){
     RESET_CELL(out, pclass);
-    out->extra.key_spelling = spelling;
+    EXTRA(Key, out).spelling = spelling;
     VAL_TYPESET_BITS(out) = bits;
     assert(IS_PARAM(out));
     return cast(REBVAL*, out);

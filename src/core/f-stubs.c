@@ -29,7 +29,9 @@
 //
 
 #include "sys-core.h"
-#include "sys-deci-funcs.h"
+
+#include "sys-money.h"
+#include "sys-tuple.h"
 
 
 //
@@ -308,7 +310,7 @@ REBVAL *Init_Any_Series_At_Core(
     }
 
     RESET_CELL(out, type);
-    out->payload.any_series.series = s;
+    PAYLOAD(Series, out).rebser = s;
     VAL_INDEX(out) = index;
     INIT_BINDING(out, binding);
 
@@ -328,20 +330,6 @@ REBVAL *Init_Any_Series_At_Core(
   #endif
 
     return KNOWN(out);
-}
-
-
-//
-//  Set_Tuple: C
-//
-void Set_Tuple(REBVAL *value, REBYTE *bytes, REBCNT len)
-{
-    REBYTE *bp;
-
-    RESET_CELL(value, REB_TUPLE);
-    VAL_TUPLE_LEN(value) = (REBYTE)len;
-    for (bp = VAL_TUPLE(value); len > 0; len--)
-        *bp++ = *bytes++;
 }
 
 
@@ -381,13 +369,13 @@ void Extra_Init_Any_Context_Checks_Debug(enum Reb_Kind kind, REBCTX *c) {
     //
     if (CTX_TYPE(c) == REB_FRAME) {
         assert(IS_ACTION(CTX_ROOTKEY(c)));
-        assert(archetype->payload.any_context.phase);
+        assert(PAYLOAD(Context, archetype).phase);
     }
     else {
       #ifdef DEBUG_UNREADABLE_BLANKS
         assert(IS_UNREADABLE_DEBUG(CTX_ROOTKEY(c)));
       #endif
-        assert(not archetype->payload.any_context.phase);
+        assert(not PAYLOAD(Context, archetype).phase);
     }
 
     // Keylists are uniformly managed, or certain routines would return

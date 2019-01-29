@@ -31,6 +31,8 @@
 
 #include "sys-core.h"
 
+#include "sys-tuple.h"
+
 
 //
 //  Snap_State_Core: C

@@ -29,7 +29,9 @@
 //
 
 #include "sys-core.h"
-#include "sys-deci-funcs.h"
+
+#include "sys-money.h"
+#include "sys-tuple.h"
 
 #include "sys-zlib.h"
 
@@ -1196,11 +1198,11 @@ REBNATIVE(to_hex)
         Form_Hex_Pad(buf, VAL_INT64(arg), len);
     }
     else if (IS_TUPLE(arg)) {
-        REBINT n;
+        REBCNT n;
         if (
             len < 0
-            || len > 2 * cast(REBINT, MAX_TUPLE)
-            || len > 2 * VAL_TUPLE_LEN(arg)
+            || cast(REBCNT, len) > 2 * MAX_TUPLE
+            || cast(REBCNT, len) > 2 * VAL_TUPLE_LEN(arg)
         ){
             len = 2 * VAL_TUPLE_LEN(arg);
         }

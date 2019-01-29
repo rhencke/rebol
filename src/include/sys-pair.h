@@ -43,15 +43,14 @@ inline static REBVAL *PAIRING_KEY(REBVAL *paired) {
 }
 
 
-
 #define VAL_PAIR(v) \
-    ((v)->payload.pair)
+    (PAYLOAD(Pair, (v)).pairing)
 
 #define VAL_PAIR_X(v) \
-    VAL_DECIMAL(PAIRING_KEY((v)->payload.pair))
+    VAL_DECIMAL(PAIRING_KEY(VAL_PAIR(v)))
 
 #define VAL_PAIR_Y(v) \
-    VAL_DECIMAL((v)->payload.pair)
+    VAL_DECIMAL(VAL_PAIR(v))
 
 #define VAL_PAIR_X_INT(v) \
     ROUND_TO_INT(VAL_PAIR_X(v))
@@ -61,10 +60,11 @@ inline static REBVAL *PAIRING_KEY(REBVAL *paired) {
 
 inline static REBVAL *Init_Pair(RELVAL *out, float x, float y) {
     RESET_CELL(out, REB_PAIR);
-    out->payload.pair = Alloc_Pairing();
-    Init_Decimal(PAIRING_KEY(out->payload.pair), x);
-    Init_Decimal(out->payload.pair, y);
-    Manage_Pairing(out->payload.pair);
+    REBVAL *pairing  = Alloc_Pairing();
+    Init_Decimal(PAIRING_KEY(pairing), x);
+    Init_Decimal(pairing, y);
+    Manage_Pairing(pairing);
+    PAYLOAD(Pair, out).pairing = pairing;
     return KNOWN(out);
 }
 

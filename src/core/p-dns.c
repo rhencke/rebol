@@ -31,6 +31,8 @@
 #include "sys-core.h"
 #include "reb-net.h"
 
+#include "sys-tuple.h"
+
 
 //
 //  DNS_Actor: C
@@ -130,10 +132,8 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         assert(sock->flags & RRF_DONE); // R3-Alpha async DNS removed
 
-        if (DEVREQ_NET(sock)->host_info == NULL) {
-            Init_Blank(D_OUT); // HOST_NOT_FOUND or NO_ADDRESS blank vs. error
-            return D_OUT; // READ action currently required to use D_OUT
-        }
+        if (DEVREQ_NET(sock)->host_info == NULL) // HOST_NOT_FOUND, NO_ADDRESS
+            return Init_Blank(D_OUT);
 
         if (sock->modes & RST_REVERSE) {
             Init_Text(
@@ -141,9 +141,9 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                 Copy_Bytes(sock->common.data, LEN_BYTES(sock->common.data))
             );
         }
-        else {
-            Set_Tuple(D_OUT, cast(REBYTE*, &DEVREQ_NET(sock)->remote_ip), 4);
-        }
+        else
+            Init_Tuple(D_OUT, cast(REBYTE*, &DEVREQ_NET(sock)->remote_ip), 4);
+ 
 
         OS_DO_DEVICE_SYNC(sock, RDC_CLOSE);
         return D_OUT; }

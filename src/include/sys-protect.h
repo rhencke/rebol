@@ -42,7 +42,7 @@ inline static void FAIL_IF_READ_ONLY_SERIES_CORE(
     RELVAL *series,
     REBSPC *specifier
 ){
-    REBSER *s = series->payload.any_series.series;
+    REBSER *s = PAYLOAD(Series, series).rebser;
     FAIL_IF_READ_ONLY_SER(s);
     if (GET_CELL_FLAG(series, CONST)) {
         DECLARE_LOCAL (specific);
@@ -88,7 +88,7 @@ inline static void FAIL_IF_READ_ONLY_ARRAY_CORE(
 
 inline static void FAIL_IF_READ_ONLY_CONTEXT(RELVAL *context) {
     assert(ANY_CONTEXT(context));
-    REBARR *varlist = context->payload.any_context.varlist;
+    REBARR *varlist = PAYLOAD(Context, context).varlist;
     FAIL_IF_READ_ONLY_SER(SER(varlist));
 
     // !!! CONST is a work in progress, experimental, but would need handling

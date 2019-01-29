@@ -45,7 +45,10 @@
 // of the object to carry capacity for additional fixed bits in the array
 // used for the varlist, without needing another allocation.
 //
-
+// GOB PAYLOAD:
+//
+//     REBGOB *gob;
+//     REBCNT index;
 
 enum GOB_FLAGS {
     //
@@ -233,3 +236,58 @@ typedef struct gob_window {             // Maps gob to window
 #define IS_GOB_TEXT(g)   (GOB_CONTENT(g) && GOB_TYPE(g) == GOBT_TEXT)
 
 extern REBGOB *Gob_Root; // Top level GOB (the screen)
+
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
+//  GOB! Graphic Object
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// !!! The GOB! is a datatype specific to R3-View.  Its data is a small
+// fixed-size object.  It is linked together by series containing more
+// GOBs and values, and participates in the garbage collection process.
+//
+// The monolithic structure of Rebol had made it desirable to take advantage
+// of the memory pooling to quickly allocate, free, and garbage collect
+// these.  With GOB! being moved to an extension, it is not likely that it
+// would hook the memory pools directly.
+//
+
+#if defined(NDEBUG) || !defined(CPLUSPLUS_11)
+    #define VAL_GOB(v) \
+        cast(REBGOB*, PAYLOAD(Custom, (v)).first.p)
+
+    #define mutable_VAL_GOB(v) \
+        (*cast(REBGOB**, &PAYLOAD(Custom, (v)).first.p))
+
+    #define VAL_GOB_INDEX(v) \
+        PAYLOAD(Custom, v).second.u
+#else
+    inline static REBGOB* VAL_GOB(const REBCEL *v) {
+        assert(CELL_KIND(v) == REB_GOB);
+        return cast(REBGOB*, PAYLOAD(Custom, v).first.p);
+    }
+
+    inline static REBGOB* &mutable_VAL_GOB(REBCEL *v) {
+        assert(CELL_KIND(v) == REB_GOB);
+        return *cast(REBGOB**, &PAYLOAD(Custom, v).first.p);
+    }
+
+    inline static uintptr_t const &VAL_GOB_INDEX(const REBCEL *v) {
+        assert(CELL_KIND(v) == REB_GOB);
+        return PAYLOAD(Custom, v).second.u;
+    }
+
+    inline static uintptr_t &VAL_GOB_INDEX(REBCEL *v) {
+        assert(CELL_KIND(v) == REB_GOB);
+        return PAYLOAD(Custom, v).second.u;
+    }
+#endif
+
+inline static REBVAL *Init_Gob(RELVAL *out, REBGOB *g) {
+    RESET_CELL(out, REB_GOB);
+    mutable_VAL_GOB(out) = g;
+    VAL_GOB_INDEX(out) = 0;
+    return KNOWN(out);
+}

@@ -94,6 +94,7 @@
 #include "reb-evtypes.h"
 static void Queue_Mark_Event_Deep(const RELVAL *value);
 
+#include "reb-gob.h"
 #define IS_GOB_MARK(g) \
     (did ((g)->header.bits & NODE_FLAG_MARKED))
 #define MARK_GOB(g) \
@@ -330,14 +331,14 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
     if (KIND_BYTE_UNCHECKED(v) != REB_QUOTED)
         kind = CELL_KIND_UNCHECKED(cast(const REBCEL*, v)); // mod 64 of byte
     else {
-        assert(v->payload.quoted.depth > 3);
+        assert(PAYLOAD(Quoted, v).depth > 3);
 
-        RELVAL *cell = v->payload.quoted.cell;
+        RELVAL *cell = PAYLOAD(Quoted, v).cell;
       #if !defined(NDEBUG)
         if (Is_Bindable(cell))
-            assert(v->extra.binding == cell->extra.binding);
+            assert(EXTRA(Binding, v).node == EXTRA(Binding, cell).node);
         else
-            assert(not v->extra.binding);
+            assert(EXTRA(Binding, v).node == nullptr);
       #endif
 
         Mark_Rebser_Only(SER(Singular_From_Cell(cell)));
@@ -377,7 +378,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
       case REB_GET_WORD:
       case REB_REFINEMENT:
       case REB_ISSUE: {
-        REBSTR *spelling = v->payload.any_word.spelling;
+        REBSTR *spelling = PAYLOAD(Word, v).spelling;
 
         // A word marks the specific spelling it uses, but not the canon
         // value.  That's because if the canon value gets GC'd, then
@@ -400,13 +401,13 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
 
     #if !defined(NDEBUG)
         if (IS_WORD_BOUND(v)) {
-            assert(v->payload.any_word.index != 0);
+            assert(PAYLOAD(Word, v).index != 0);
         }
         else {
             // The word is unbound...make sure index is 0 in debug build.
             // (it can be left uninitialized in release builds, for now)
             //
-            assert(v->payload.any_word.index == 0);
+            assert(PAYLOAD(Word, v).index == 0);
         }
     #endif
         break; }
@@ -421,7 +422,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
       case REB_PATH:
       case REB_SET_PATH:
       case REB_GET_PATH: {
-        REBARR *a = ARR(v->payload.any_series.series);
+        REBARR *a = ARR(PAYLOAD(Series, v).rebser);
         assert(NOT_SERIES_INFO(a, INACCESSIBLE));
         Queue_Mark_Binding_Deep(v);
 
@@ -456,7 +457,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
       case REB_GET_BLOCK:
       case REB_SET_BLOCK:
       case REB_BLOCK: {
-        REBARR *a = ARR(v->payload.any_series.series);
+        REBARR *a = ARR(PAYLOAD(Series, v).rebser);
         if (GET_SERIES_INFO(a, INACCESSIBLE)) {
             //
             // !!! Review: preserving the identity of inaccessible array nodes
@@ -482,10 +483,10 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
       case REB_URL:
       case REB_TAG:
       case REB_BITSET: {
-        REBSER *s = v->payload.any_series.series;
+        REBSER *s = PAYLOAD(Series, v).rebser;
 
         assert(SER_WIDE(s) <= sizeof(REBUNI));
-        assert(not v->extra.binding); // for future use
+        assert(not EXTRA(Binding, v).node); // for future use
 
         if (GET_SERIES_INFO(s, INACCESSIBLE)) {
             //
@@ -498,8 +499,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         break; }
 
       case REB_HANDLE: { // See %sys-handle.h
-        REBARR *singular = v->extra.singular;
-        if (singular == NULL) {
+        REBARR *a = EXTRA(Handle, v).singular;
+        if (not a) {
             //
             // This HANDLE! was created with Init_Handle_Simple.  There is
             // no GC interaction.
@@ -510,13 +511,13 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
             // data for the handle lives in that shared location.  There is
             // nothing the GC needs to see inside a handle.
             //
-            SER(singular)->header.bits |= NODE_FLAG_MARKED;
+            SER(a)->header.bits |= NODE_FLAG_MARKED;
 
-        #if !defined(NDEBUG)
-            assert(ARR_LEN(singular) == 1);
-            RELVAL *single = ARR_SINGLE(singular);
+          #if !defined(NDEBUG)
+            assert(ARR_LEN(a) == 1);
+            RELVAL *single = ARR_SINGLE(a);
             assert(IS_HANDLE(single));
-            assert(single->extra.singular == v->extra.singular);
+            assert(EXTRA(Handle, single).singular == a);
             if (v != single) {
                 //
                 // In order to make it clearer that individual handles do not
@@ -526,14 +527,14 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
                 //
                 if (Is_Handle_Cfunc(v))
                     assert(
-                        IS_CFUNC_TRASH_DEBUG(v->payload.handle.data.cfunc)
+                        IS_CFUNC_TRASH_DEBUG(PAYLOAD(Handle,v).data.cfunc)
                     );
                 else
                     assert(
-                        IS_POINTER_TRASH_DEBUG(v->payload.handle.data.pointer)
+                        IS_POINTER_TRASH_DEBUG(PAYLOAD(Handle,v).data.pointer)
                     );
             }
-        #endif
+          #endif
         }
         break; }
 
@@ -562,7 +563,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         // if unmarked...so it can stealthily participate in the marking
         // process, as long as the bit is cleared at the end.
         //
-        REBSER *pairing = cast(REBSER*, v->payload.pair);
+        REBSER *pairing = cast(REBSER*, PAYLOAD(Pair, v).pairing);
         pairing->header.bits |= NODE_FLAG_MARKED; // read via REBSER
         break; }
 
@@ -586,8 +587,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         break;
 
       case REB_VARARGS: {
-        if (v->payload.varargs.phase) // null if came from MAKE VARARGS!
-            Queue_Mark_Action_Deep(v->payload.varargs.phase);
+        if (PAYLOAD(Varargs, v).phase) // null if came from MAKE VARARGS!
+            Queue_Mark_Action_Deep(PAYLOAD(Varargs, v).phase);
 
         Queue_Mark_Binding_Deep(v);
         break; }
@@ -597,7 +598,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
       case REB_MODULE:
       case REB_ERROR:
       case REB_PORT: { // Note: VAL_CONTEXT() fails on SER_INFO_INACCESSIBLE
-        REBCTX *context = CTX(v->payload.any_context.varlist);
+        REBCTX *context = CTX(PAYLOAD(Context, v).varlist);
         Queue_Mark_Context_Deep(context);
 
         // Currently the "binding" in a context is only used by FRAME! to
@@ -613,7 +614,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         Queue_Mark_Binding_Deep(v);
 
       #if !defined(NDEBUG)
-        if (v->extra.binding != UNBOUND) {
+        if (EXTRA(Binding, v).node != UNBOUND) {
             assert(CTX_TYPE(context) == REB_FRAME);
 
             if (GET_SERIES_INFO(context, INACCESSIBLE)) {
@@ -633,7 +634,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         }
       #endif
 
-        REBACT *phase = v->payload.any_context.phase;
+        REBACT *phase = PAYLOAD(Context, v).phase;
         if (phase) {
             assert(VAL_TYPE(v) == REB_FRAME); // may be heap-based frame
             Queue_Mark_Action_Deep(phase);
@@ -679,7 +680,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         // contains the REBVAL of the struct itself.  (Because it is
         // "singular" it is only a REBSER node--no data allocation.)
         //
-        REBSTU *stu = v->payload.structure.stu;
+        REBSTU *stu = cast(REBARR*, PAYLOAD(Custom, v).first.p);
         Queue_Mark_Array_Deep(stu);
 
         // The schema is the hierarchical description of the struct.
@@ -694,10 +695,11 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         //
         // Note this may be a singular array handle, or it could be a BINARY!
         //
-        if (IS_SER_ARRAY(v->payload.structure.data))
-            Queue_Mark_Singular_Array(ARR(v->payload.structure.data));
+        REBSER *data = cast(REBSER*, PAYLOAD(Custom, v).second.p);
+        if (IS_SER_ARRAY(data))
+            Queue_Mark_Singular_Array(ARR(data));
         else
-            Mark_Rebser_Only(v->payload.structure.data);
+            Mark_Rebser_Only(data);
         break; }
 
       case REB_LIBRARY: {
@@ -719,10 +721,11 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
       case REB_P_SOFT_QUOTE:
       case REB_P_REFINEMENT:
       case REB_P_LOCAL:
-      case REB_P_RETURN:
-        assert(SER_WIDE(v->extra.key_spelling) == 1); // UTF-8 REBSTR
-        Mark_Rebser_Only(v->extra.key_spelling);
-        break;
+      case REB_P_RETURN: {
+        REBSTR *s = EXTRA(Key, v).spelling;
+        assert(SER_WIDE(s) == 1); // UTF-8 REBSTR
+        Mark_Rebser_Only(s);
+        break; }
 
       default:
         panic (v);
@@ -789,13 +792,13 @@ static void Propagate_All_GC_Marks(void)
         if (GET_ARRAY_FLAG(a, IS_PARAMLIST)) {
             v = ARR_HEAD(a); // archetype
             assert(IS_ACTION(v));
-            assert(not v->extra.binding); // archetypes have no binding
+            assert(not EXTRA(Binding, v).node); // archetypes have no binding
 
             // These queueings cannot be done in Queue_Mark_Function_Deep
             // because of the potential for overflowing the C stack with calls
             // to Queue_Mark_Function_Deep.
 
-            REBARR *details = v->payload.action.details;
+            REBARR *details = PAYLOAD(Action, v).details;
             Queue_Mark_Array_Deep(details);
 
             REBACT *underlying = LINK(a).underlying;
@@ -823,7 +826,7 @@ static void Propagate_All_GC_Marks(void)
             // Currently only FRAME! uses binding
             //
             assert(ANY_CONTEXT(v));
-            assert(not v->extra.binding or VAL_TYPE(v) == REB_FRAME);
+            assert(not EXTRA(Binding, v).node or VAL_TYPE(v) == REB_FRAME);
 
             // These queueings cannot be done in Queue_Mark_Context_Deep
             // because of the potential for overflowing the C stack with calls
@@ -1959,6 +1962,7 @@ static REBCNT Sweep_Gobs(void)
     return count;
 }
 
+#include "reb-event.h" // !!! Events should not hook the GC :-/
 
 //
 //  Queue_Mark_Event_Deep: C

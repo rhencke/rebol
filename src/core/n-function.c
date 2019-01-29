@@ -267,7 +267,7 @@ REBNATIVE(typechecker)
     );
 
     REBVAL *archetype = RESET_CELL(Alloc_Tail_Array(paramlist), REB_ACTION);
-    archetype->payload.action.paramlist = paramlist;
+    PAYLOAD(Action, archetype).paramlist = paramlist;
     INIT_BINDING(archetype, UNBOUND);
 
     Init_Param(
@@ -348,7 +348,7 @@ REBNATIVE(chain)
         SPECIFIED,
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED // flags not auto-copied
     );
-    ARR_HEAD(paramlist)->payload.action.paramlist = paramlist;
+    PAYLOAD(Action, ARR_HEAD(paramlist)).paramlist = paramlist;
 
     // Initialize the "meta" information, which is used by HELP.  Because it
     // has a link to the "chainees", it is not necessary to copy parameter
@@ -423,7 +423,7 @@ REBNATIVE(adapt)
         SPECIFIED,
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED
     );
-    ARR_HEAD(paramlist)->payload.action.paramlist = paramlist;
+    PAYLOAD(Action, ARR_HEAD(paramlist)).paramlist = paramlist;
 
     // See %sysobj.r for `adapted-meta:` object template
 
@@ -534,7 +534,7 @@ REBNATIVE(enclose)
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED
     );
     REBVAL *rootparam = KNOWN(ARR_HEAD(paramlist));
-    rootparam->payload.action.paramlist = paramlist;
+    PAYLOAD(Action, rootparam).paramlist = paramlist;
 
     // See %sysobj.r for `enclosed-meta:` object template
 
@@ -966,7 +966,7 @@ REBNATIVE(reskinned)
 
         switch (sym) {
           case SYM_0: // completely override type bits
-            param->payload.typeset.bits = 0;
+            PAYLOAD(Typeset, param).bits = 0;
             Add_Typeset_Bits_Core(param, VAL_ARRAY_AT(item), specifier);
             TYPE_SET(param, REB_TS_SKIN_EXPANDED);
             need_skin_phase = true; // !!! Worth it to check for expansion?
@@ -983,7 +983,7 @@ REBNATIVE(reskinned)
             Init_Typeset(temp, 0);
             Add_Typeset_Bits_Core(temp, VAL_ARRAY_AT(item), specifier);
 
-            param->payload.typeset.bits &= ~temp->payload.typeset.bits;
+            PAYLOAD(Typeset, param).bits &= ~PAYLOAD(Typeset, temp).bits;
 
             // ENCLOSE doesn't type check the return result by default.  So
             // if you constrain the return types, there will have to be a
@@ -1034,7 +1034,7 @@ REBNATIVE(reskinned)
 
     RELVAL *rootparam = ARR_HEAD(paramlist);
     SER(paramlist)->header.bits &= ~PARAMLIST_MASK_CACHED;
-    rootparam->payload.action.paramlist = paramlist;
+    PAYLOAD(Action, rootparam).paramlist = paramlist;
     INIT_BINDING(rootparam, UNBOUND);
 
     // !!! This does not make a unique copy of the meta information context.
@@ -1192,7 +1192,7 @@ REBNATIVE(n_shot)
     );
 
     REBVAL *archetype = RESET_CELL(Alloc_Tail_Array(paramlist), REB_ACTION);
-    archetype->payload.action.paramlist = paramlist;
+    PAYLOAD(Action, archetype).paramlist = paramlist;
     INIT_BINDING(archetype, UNBOUND);
 
     // !!! Should anything DO would accept be legal, as DOES would run?

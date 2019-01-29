@@ -74,6 +74,7 @@
 //   position by the physical length, but VAL_ARRAY_AT() doesn't check.
 //
 
+
 //
 // For debugging purposes, it's nice to be able to crash on some kind of guard
 // for tracking the call stack at the point of allocation if we find some
@@ -481,7 +482,7 @@ inline static REBSER *VAL_SERIES(const REBCEL *v) {
         or CELL_KIND(v) == REB_MAP
         or CELL_KIND(v) == REB_IMAGE
     ); // !!! Note: there was a problem here once, with a gcc 5.4 -O2 bug
-    REBSER *s = v->payload.any_series.series;
+    REBSER *s = PAYLOAD(Series, v).rebser;
     if (GET_SERIES_INFO(s, INACCESSIBLE))
         fail (Error_Series_Data_Freed_Raw());
     return s;
@@ -490,26 +491,26 @@ inline static REBSER *VAL_SERIES(const REBCEL *v) {
 inline static void INIT_VAL_SERIES(RELVAL *v, REBSER *s) {
     assert(not IS_SER_ARRAY(s));
     ASSERT_SERIES_MANAGED(s);
-    v->payload.any_series.series = s;
+    PAYLOAD(Series, v).rebser = s;
 }
 
 #if defined(NDEBUG) || !defined(CPLUSPLUS_11)
     #define VAL_INDEX(v) \
-        ((v)->payload.any_series.index)
+        PAYLOAD(Series, (v)).index
 #else
     // allows an assert, but also lvalue: `VAL_INDEX(v) = xxx`
     //
     inline static REBCNT & VAL_INDEX(REBCEL *v) { // C++ reference type
         assert(ANY_SERIES_KIND(CELL_KIND(v)) or ANY_PATH_KIND(CELL_KIND(v)));
-        return v->payload.any_series.index;
+        return PAYLOAD(Series, v).index;
     }
     inline static REBCNT VAL_INDEX(const REBCEL *v) {
         if (ANY_PATH_KIND(CELL_KIND(v))) {
-            assert(v->payload.any_series.index == 0);
+            assert(PAYLOAD(Series, v).index == 0);
             return 0;
         }
         assert(ANY_SERIES_KIND(CELL_KIND(v)));
-        return v->payload.any_series.index;
+        return PAYLOAD(Series, v).index;
     }
 #endif
 

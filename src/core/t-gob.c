@@ -30,6 +30,10 @@
 
 #include "sys-core.h"
 
+#include "sys-tuple.h"
+#include "reb-gob.h"
+#include "reb-event.h"
+
 const struct {
     REBSYM sym;
     REBFLGS flags;
@@ -731,7 +735,7 @@ REBNATIVE(map_event)
     if (gob != NULL && (VAL_EVENT_FLAGS(val) & EVF_HAS_XY)) {
         xy.x = (REBD32)VAL_EVENT_X(val);
         xy.y = (REBD32)VAL_EVENT_Y(val);
-        VAL_EVENT_SER(val) = cast(REBSER*, Map_Gob_Inner(gob, &xy));
+        mutable_VAL_EVENT_SER(val) = cast(REBSER*, Map_Gob_Inner(gob, &xy));
         SET_EVENT_XY(val, ROUND_TO_INT(xy.x), ROUND_TO_INT(xy.y));
     }
 
@@ -780,7 +784,7 @@ REBNATIVE(map_gob_offset)
     else {
         REBXYF xy;
         xy.x = VAL_PAIR_X(ARG(xy));
-        xy.x = VAL_DECIMAL(ARG(xy)->payload.pair + 1);
+        xy.x = VAL_DECIMAL(PAYLOAD(Pair, ARG(xy)).pairing + 1);
         xy.y = VAL_PAIR_Y(ARG(xy));
         gob = Map_Gob_Inner(gob, &xy);
         xo = xy.x;
@@ -928,7 +932,7 @@ REB_R PD_Gob(
 
         gob = *GOB_AT(gob, index);
         RESET_CELL(pvs->out, REB_GOB);
-        VAL_GOB(pvs->out) = gob;
+        mutable_VAL_GOB(pvs->out) = gob;
         VAL_GOB_INDEX(pvs->out) = 0;
         return pvs->out;
     }
@@ -1144,7 +1148,7 @@ REBTYPE(Gob)
 
         if (!REF(part)) { // just one value
             RESET_CELL(D_OUT, REB_GOB);
-            VAL_GOB(D_OUT) = *GOB_AT(gob, index);
+            mutable_VAL_GOB(D_OUT) = *GOB_AT(gob, index);
             VAL_GOB_INDEX(D_OUT) = 0;
             Remove_Gobs(gob, index, 1);
             return D_OUT;
@@ -1187,7 +1191,7 @@ REBTYPE(Gob)
 
 set_index:
     RESET_CELL(D_OUT, REB_GOB);
-    VAL_GOB(D_OUT) = gob;
+    mutable_VAL_GOB(D_OUT) = gob;
     VAL_GOB_INDEX(D_OUT) = index;
     return D_OUT;
 }

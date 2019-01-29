@@ -29,9 +29,10 @@
 //
 
 #include "sys-core.h"
-#include "sys-deci-funcs.h"
+
 #include "sys-int-funcs.h"
 
+#include "sys-money.h"
 
 //
 //  CT_Integer: C

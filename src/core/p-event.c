@@ -57,6 +57,8 @@
 
 #include "sys-core.h"
 
+#include "reb-event.h"
+
 REBREQ *req;        //!!! move this global
 
 #define EVENTS_LIMIT 0xFFFF //64k

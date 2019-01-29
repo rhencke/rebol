@@ -77,7 +77,7 @@ REB_R MAKE_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         //
         // !!! This only reset the type, not header bits...as it used to be
         // that header bits related to the binding state.  That's no longer
-        // true since REBVAL->extra.binding conveys the entire bind state.
+        // true since EXTRA(Binding, ...) conveys the entire bind state.
         // Rethink what it means to preserve the bits vs. not.
         //
         Move_Value(out, arg);

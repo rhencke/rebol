@@ -300,7 +300,7 @@ struct devreq_file;
 //=//// REBVAL PAYLOAD CONTENTS ///////////////////////////////////////////=//
 //
 // Some internal APIs pass around the extraction of value payloads, like take
-// a REBDAT* or REBGOB*, when they could probably just as well pass around a
+// a REBYMD* or REBGOB*, when they could probably just as well pass around a
 // REBVAL*.  The usages are few and far enough between.  But for the moment
 // just define things here.
 //
@@ -328,3 +328,10 @@ typedef struct rebol_time_fields {
 #include "sys-deci.h"
 
 typedef struct rebol_gob REBGOB;
+
+
+// To help document places in the core that are complicit in the "extension
+// hack", alias arrays being used for the FFI to another name.
+//
+typedef REBARR REBSTU;
+typedef REBARR REBFLD;

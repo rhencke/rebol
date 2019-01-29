@@ -458,7 +458,7 @@ void Poke_Time_Immediate(
         fail (picker);
     }
 
-    value->payload.time.nanoseconds = Join_Time(&tf, false);
+    PAYLOAD(Time, value).nanoseconds = Join_Time(&tf, false);
 }
 
 

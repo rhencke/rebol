@@ -61,7 +61,7 @@ REB_R MAKE_Library(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
     REBARR *singular = Alloc_Singular(NODE_FLAG_MANAGED);
     RESET_CELL(ARR_SINGLE(singular), REB_LIBRARY);
-    ARR_SINGLE(singular)->payload.library.singular = singular;
+    PAYLOAD(Library, ARR_SINGLE(singular)).singular = singular;
 
     LINK(singular).fd = fd;
     MISC(singular).meta = NULL; // build from spec, e.g. arg?

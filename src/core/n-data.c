@@ -427,7 +427,7 @@ bool Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
         REBCTX *c = VAL_CONTEXT(out);
         REBFRM *f = CTX_FRAME_IF_ON_STACK(c);
         if (f) {
-            out->payload.any_context.phase = FRM_PHASE(f);
+            PAYLOAD(Context, out).phase = FRM_PHASE(f);
             INIT_BINDING(out, FRM_BINDING(f));
         }
         else {
@@ -437,9 +437,9 @@ bool Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
         }
 
         assert(
-            not out->payload.any_context.phase
+            not PAYLOAD(Context, out).phase
             or GET_ARRAY_FLAG(
-                ACT_PARAMLIST(out->payload.any_context.phase),
+                ACT_PARAMLIST(PAYLOAD(Context, out).phase),
                 IS_PARAMLIST
             )
         );
@@ -1025,11 +1025,11 @@ REBNATIVE(free_q)
 
     REBSER *s;
     if (ANY_CONTEXT(v))
-        s = SER(v->payload.any_context.varlist); // VAL_CONTEXT fails if freed
+        s = SER(PAYLOAD(Context, v).varlist); // VAL_CONTEXT fails if freed
     else if (IS_HANDLE(v))
-        s = SER(v->extra.singular);
+        s = SER(EXTRA(Handle, v).singular);
     else if (ANY_SERIES(v))
-        s = v->payload.any_series.series; // VAL_SERIES fails if freed
+        s = PAYLOAD(Series, v).rebser; // VAL_SERIES fails if freed
     else
         return Init_False(D_OUT);
 

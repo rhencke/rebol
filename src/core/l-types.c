@@ -29,9 +29,10 @@
 //
 
 #include "sys-core.h"
-#include "sys-deci-funcs.h"
 #include "sys-dec-to-char.h"
 #include <errno.h>
+
+#include "sys-tuple.h"
 
 
 //
@@ -743,35 +744,6 @@ const REBYTE *Scan_Integer(
 
 
 //
-//  Scan_Money: C
-//
-// Scan and convert money.  Return zero if error.
-//
-const REBYTE *Scan_Money(
-    RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
-    const REBYTE *cp,
-    REBCNT len
-) {
-    TRASH_CELL_IF_DEBUG(out);
-
-    const REBYTE *end;
-
-    if (*cp == '$') {
-        ++cp;
-        --len;
-    }
-    if (len == 0)
-        return_NULL;
-
-    Init_Money(out, string_to_deci(cp, &end));
-    if (end != cp + len)
-        return_NULL;
-
-    return end;
-}
-
-
-//
 //  Scan_Date: C
 //
 // Scan and convert a date. Also can include a time and zone.
@@ -809,7 +781,7 @@ const REBYTE *Scan_Date(
     REBINT month;
     REBINT year;
     REBINT tz = NO_DATE_ZONE;
-    out->payload.time.nanoseconds = NO_DATE_TIME; // may be overwritten
+    PAYLOAD(Time, out).nanoseconds = NO_DATE_TIME; // may be overwritten
 
     REBCNT size = cast(REBCNT, ep - cp);
     if (size >= 4) {
@@ -933,7 +905,7 @@ const REBYTE *Scan_Date(
         if (cp >= end)
             goto end_date;
 
-        cp = Scan_Time(out, cp, 0); // writes out->payload.time.nanoseconds
+        cp = Scan_Time(out, cp, 0); // writes PAYLOAD(Time, out).nanoseconds
         if (
             cp == NULL
             or not IS_TIME(out)
@@ -942,7 +914,7 @@ const REBYTE *Scan_Date(
         ){
             return_NULL;
         }
-        assert(out->payload.time.nanoseconds != NO_DATE_TIME);
+        assert(PAYLOAD(Time, out).nanoseconds != NO_DATE_TIME);
     }
 
     // past this point, header is set, so `goto end_date` is legal.
@@ -1155,28 +1127,32 @@ const REBYTE *Scan_Pair(
     if (*ep != 'x' && *ep != 'X')
         return_NULL;
 
-    RESET_CELL(out, REB_PAIR);
-    out->payload.pair = Alloc_Pairing();
-    RESET_CELL(out->payload.pair, REB_DECIMAL);
-    RESET_CELL(PAIRING_KEY(out->payload.pair), REB_DECIMAL);
+    REBVAL *pairing = Alloc_Pairing();
 
-    VAL_PAIR_X(out) = cast(float, atof(cast(char*, &buf[0]))); //n;
+    RESET_CELL(PAIRING_KEY(pairing), REB_DECIMAL);
+    VAL_DECIMAL(PAIRING_KEY(pairing)) // X is in the key
+        = cast(float, atof(cast(char*, &buf[0]))); //n;
+
     ep++;
 
     const REBYTE *xp = Scan_Dec_Buf(&buf[0], ep, MAX_NUM_LEN);
     if (!xp) {
-        Free_Pairing(out->payload.pair);
+        Free_Pairing(pairing);
         return_NULL;
     }
 
-    VAL_PAIR_Y(out) = cast(float, atof(cast(char*, &buf[0]))); //n;
+    RESET_CELL(pairing, REB_DECIMAL); // Y is in the non-key pairing cell
+    VAL_DECIMAL(pairing) = cast(float, atof(cast(char*, &buf[0]))); //n;
 
     if (len > cast(REBCNT, xp - cp)) {
-        Free_Pairing(out->payload.pair);
+        Free_Pairing(pairing);
         return_NULL;
     }
 
-    Manage_Pairing(out->payload.pair);
+    Manage_Pairing(pairing);
+
+    RESET_CELL(out, REB_PAIR);
+    PAYLOAD(Pair, out).pairing = pairing;
     return xp;
 }
 
@@ -1210,12 +1186,9 @@ const REBYTE *Scan_Tuple(
     if (size < 3)
         size = 3;
 
-    RESET_CELL(out, REB_TUPLE);
-    VAL_TUPLE_LEN(out) = cast(REBYTE, size);
+    Init_Tuple(out, nullptr, 0);
 
     REBYTE *tp = VAL_TUPLE(out);
-    memset(tp, 0, sizeof(REBTUP) - 2);
-
     for (ep = cp; len > cast(REBCNT, ep - cp); ++ep) {
         ep = Grab_Int(ep, &n);
         if (n < 0 || n > 255)
@@ -1228,6 +1201,8 @@ const REBYTE *Scan_Tuple(
 
     if (len > cast(REBCNT, ep - cp))
         return_NULL;
+
+    VAL_TUPLE_LEN(out) = cast(REBYTE, size);
 
     return ep;
 }

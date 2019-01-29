@@ -26,7 +26,68 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
+// The same payload is used for TIME! and DATE!.  The extra bits needed by
+// DATE! (as REBYMD) fit into 32 bits, so can live in the ->extra field,
+// which is the size of a platform pointer.
 //
+
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
+//  DATE!
+//
+//=////////////////////////////////////////////////////////////////////////=//
+
+#if !defined(__cplusplus)
+    #define VAL_DATE(v) \
+        EXTRA(Date, (v)).ymdz
+#else
+    // C++ has reference types--use them and add extra assert it's a date
+
+    inline static REBYMD& VAL_DATE(REBCEL *v) {
+        assert(CELL_KIND(v) == REB_DATE);
+        return EXTRA(Date, v).ymdz; // mutable reference
+    }
+
+    inline static const REBYMD& VAL_DATE(const REBCEL *v) {
+        assert(CELL_KIND(v) == REB_DATE);
+        return EXTRA(Date, v).ymdz; // const reference
+    }
+#endif
+
+#define MAX_YEAR 0x3fff
+
+#define VAL_YEAR(v) \
+    VAL_DATE(v).year
+
+#define VAL_MONTH(v) \
+    VAL_DATE(v).month
+
+#define VAL_DAY(v) \
+    VAL_DATE(v).day
+
+#define ZONE_MINS 15
+
+#define ZONE_SECS \
+    (ZONE_MINS * 60)
+
+#define MAX_ZONE \
+    (15 * (60 / ZONE_MINS))
+
+// There is a difference between a time zone of 0 (explicitly GMT) and
+// choosing to be an agnostic local time.  This bad value means no time zone.
+//
+#define NO_DATE_ZONE -64
+
+inline static bool Does_Date_Have_Zone(const REBCEL *v)
+{
+    return VAL_DATE(v).zone != NO_DATE_ZONE; // 7-bit field
+}
+
+inline static int VAL_ZONE(const REBCEL *v) {
+    assert(Does_Date_Have_Zone(v));
+    return VAL_DATE(v).zone;
+}
 
 
 // All dates have REBYMD information in their ->extra field, but not all
@@ -38,18 +99,7 @@
 inline static bool Does_Date_Have_Time(const REBCEL *v)
 {
     assert(CELL_KIND(v) == REB_DATE);
-    return v->payload.time.nanoseconds != NO_DATE_TIME;
-}
-
-// There is a difference between a time zone of 0 (explicitly GMT) and
-// choosing to be an agnostic local time.  This bad value means no time zone.
-//
-#define NO_DATE_ZONE -64
-
-inline static bool Does_Date_Have_Zone(const REBCEL *v)
-{
-    assert(CELL_KIND(v) == REB_DATE);
-    return v->extra.ymdz.zone != NO_DATE_ZONE; // 7-bit field
+    return PAYLOAD(Time, v).nanoseconds != NO_DATE_TIME;
 }
 
 
@@ -61,7 +111,7 @@ inline static bool Does_Date_Have_Zone(const REBCEL *v)
 
 inline static REBI64 VAL_NANO(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_TIME or Does_Date_Have_Time(v));
-    return v->payload.time.nanoseconds;
+    return PAYLOAD(Time, v).nanoseconds;
 }
 
 #define SECS_TO_NANO(seconds) \
@@ -112,47 +162,6 @@ inline static REBI64 VAL_NANO(const REBCEL *v) {
 
 inline static REBVAL *Init_Time_Nanoseconds(RELVAL *v, REBI64 nanoseconds) {
     RESET_CELL(v, REB_TIME);
-    v->payload.time.nanoseconds = nanoseconds;
+    PAYLOAD(Time, v).nanoseconds = nanoseconds;
     return cast(REBVAL*, v);
 }
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  DATE!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-
-#define VAL_DATE(v) \
-    ((v)->extra.ymdz)
-
-#define MAX_YEAR 0x3fff
-
-#define VAL_YEAR(v) \
-    ((v)->extra.ymdz.year)
-
-#define VAL_MONTH(v) \
-    ((v)->extra.ymdz.month)
-
-#define VAL_DAY(v) \
-    ((v)->extra.ymdz.day)
-
-
-inline static int VAL_ZONE(const REBCEL *v) {
-    assert(CELL_KIND(v) == REB_DATE and Does_Date_Have_Zone(v));
-    return v->extra.ymdz.zone;
-}
-
-inline static void INIT_VAL_ZONE(RELVAL *v, int zone) {
-    assert(IS_DATE(v));
-    assert(zone != NO_DATE_ZONE);
-    v->extra.ymdz.zone = zone;
-}
-
-#define ZONE_MINS 15
-
-#define ZONE_SECS \
-    (ZONE_MINS * 60)
-
-#define MAX_ZONE \
-    (15 * (60 / ZONE_MINS))

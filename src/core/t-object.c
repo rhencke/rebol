@@ -525,7 +525,7 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
     // copied rootvar to the one just created.
     //
     Move_Value(dest, CTX_ARCHETYPE(original));
-    dest->payload.any_context.varlist = varlist;
+    PAYLOAD(Context, dest).varlist = varlist;
 
     ++dest;
 
@@ -750,8 +750,8 @@ REBTYPE(Context)
             //
             return Init_Action_Maybe_Bound(
                 D_OUT,
-                value->payload.any_context.phase, // archetypal, so no binding
-                value->extra.binding // e.g. where to return for a RETURN
+                PAYLOAD(Context, value).phase, // archetypal, so no binding
+                EXTRA(Binding, value).node // e.g. where RETURN returns to
             );
         }
 
@@ -860,6 +860,15 @@ REBTYPE(Context)
     fail (Error_Illegal_Action(VAL_TYPE(value), verb));
 }
 
+// !!! A likely misguided attempt to unify MAKE syntax with construction
+// syntax, and disallow MAKE to take its first argument as a class to make
+// a derivation from, produced an attempt to put that in a separate native
+// (e.g. CONSTRUCT).  This native doesn't have the dispatch advantage of
+// the MAKE_HOOK, and construction syntax and MAKE are no longer heading to
+// be parallel.  This will likely be reverted, allowing this inclusion of
+// GOB dispatch to be deleted.
+//
+#include "reb-gob.h"
 
 //
 //  construct: native [

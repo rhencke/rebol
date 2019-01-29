@@ -31,7 +31,8 @@
 #include "sys-core.h"
 #include <math.h>
 #include <float.h>
-#include "sys-deci-funcs.h"
+
+#include "sys-money.h"
 
 #define COEF 0.0625 // Coefficient used for float comparision
 #define EQ_RANGE 4

@@ -30,6 +30,11 @@
 // code, which can be executed through extensions.  The type is also used to
 // load and execute non-Rebol-aware C code by the FFI extension.
 //
+// File descriptor in singular->link.fd
+// Meta information in singular->misc.meta
+//
+
+typedef REBARR REBLIB;
 
 inline static void *LIB_FD(REBLIB *l) {
     return LINK(l).fd; // file descriptor
@@ -41,12 +46,12 @@ inline static bool IS_LIB_CLOSED(REBLIB *l) {
 
 inline static REBCTX *VAL_LIBRARY_META(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_LIBRARY);
-    return MISC(v->payload.library.singular).meta;
+    return MISC(PAYLOAD(Library, v).singular).meta;
 }
 
 inline static REBLIB *VAL_LIBRARY(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_LIBRARY);
-    return v->payload.library.singular;
+    return PAYLOAD(Library, v).singular;
 }
 
 inline static void *VAL_LIBRARY_FD(const REBCEL *v) {

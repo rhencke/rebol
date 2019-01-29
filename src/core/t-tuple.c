@@ -30,6 +30,7 @@
 
 #include "sys-core.h"
 
+#include "sys-tuple.h"
 
 //
 //  CT_Tuple: C
@@ -161,16 +162,17 @@ REB_R TO_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REBINT Cmp_Tuple(const REBCEL *t1, const REBCEL *t2)
 {
-    REBCNT  len;
-    const REBYTE *vp1, *vp2;
-    REBINT  n;
+    REBCNT len = MAX(VAL_TUPLE_LEN(t1), VAL_TUPLE_LEN(t2));
+    assert(len < MAX_TUPLE);
 
-    len = MAX(VAL_TUPLE_LEN(t1), VAL_TUPLE_LEN(t2));
-    vp1 = VAL_TUPLE(t1);
-    vp2 = VAL_TUPLE(t2);
+    const REBYTE *vp1 = VAL_TUPLE(t1);
+    const REBYTE *vp2 = VAL_TUPLE(t2);
 
-    for (;len > 0; len--, vp1++,vp2++) {
-        n = (REBINT)(*vp1 - *vp2);
+    // Note: unused bytes in tuples are 0, so that 1.0.0 can = 1.0.0.0
+
+    REBINT n;
+    for (; len > 0; len--, ++vp1, ++vp2) {
+        n = cast(REBINT, *vp1) - *vp2;
         if (n != 0)
             return n;
     }
@@ -320,7 +322,6 @@ REBTYPE(Tuple)
     REBVAL *value = D_ARG(1);
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
     const REBYTE *ap;
-    REBCNT len;
     REBCNT alen;
     REBINT  a;
     REBDEC  dec;
@@ -328,7 +329,7 @@ REBTYPE(Tuple)
     assert(IS_TUPLE(value));
 
     REBYTE *vp = VAL_TUPLE(value);
-    len = VAL_TUPLE_LEN(value);
+    REBCNT len = VAL_TUPLE_LEN(value);
 
     REBSYM sym = VAL_WORD_SYM(verb);
 

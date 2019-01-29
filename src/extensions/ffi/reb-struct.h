@@ -237,6 +237,32 @@ inline static ffi_type* SCHEMA_FFTYPE(const RELVAL *schema) {
 // list of fields) along with a blob of binary data described by that schema.
 //
 
+// The general FFI direction is to move it so that it is "baked in" less,
+// and represents an instance of a generalized extension mechanism (like GOB!
+// should be).  On that path, a struct's internals are simplified to being
+// just an array:
+//
+// [0] is a specification array which contains all the information about
+// the structure's layout, regardless of what offset it would find itself at
+// inside of a data blob.  This includes the total size, and arrays of
+// field definitions...essentially, the validated spec.  It also contains
+// a HANDLE! which contains the FFI-type.
+//
+// [1] is the content BINARY!.  The VAL_INDEX of the binary indicates the
+// offset within the struct.  See notes in ADDR-OF from the FFI about how
+// the potential for memory instability of content pointers may not be a
+// match for the needs of an FFI interface.
+//
+struct Reb_Structure_Payload {
+    REBARR *stu; // [0] is canon self value, ->misc.schema is schema
+    REBSER *data; // binary data series (may be shared with other structs)
+};
+
+struct Reb_Structure_Extra {
+    REBCNT struct_offset; // offset for struct in the possibly shared series
+};
+
+
 inline static REBVAL *STU_VALUE(REBSTU *stu) {
     assert(ARR_LEN(stu) == 1);
     return KNOWN(ARR_HEAD(stu));
@@ -260,14 +286,26 @@ inline static REBCNT STU_SIZE(REBSTU *stu) {
 }
 
 inline static REBCNT STU_OFFSET(REBSTU *stu) {
-    return STU_VALUE(stu)->extra.struct_offset;
+    return VAL_STRUCT_OFFSET(STU_VALUE(stu));
 }
 
 #define STU_FFTYPE(stu) \
     FLD_FFTYPE(STU_SCHEMA(stu))
 
 #define VAL_STRUCT(v) \
-    ((v)->payload.structure.stu)
+    cast(REBSTU*, PAYLOAD(Custom, (v)).first.p)
+
+#define mutable_VAL_STRUCT(v) \
+    *cast(REBSTU**, &PAYLOAD(Custom, (v)).first.p)
+
+#define VAL_STRUCT_DATA(v) \
+    cast(REBSER*, &PAYLOAD(Custom, (v)).second.p)
+
+#define mutable_VAL_STRUCT_DATA(v) \
+    *cast(REBSER**, &PAYLOAD(Custom, (v)).second.p)
+
+#define VAL_STRUCT_OFFSET(v) \
+    EXTRA(Custom, (v)).u
 
 #define VAL_STRUCT_SCHEMA(v) \
     STU_SCHEMA(VAL_STRUCT(v))
@@ -276,7 +314,7 @@ inline static REBCNT STU_OFFSET(REBSTU *stu) {
     STU_SIZE(VAL_STRUCT(v))
 
 inline static REBYTE *VAL_STRUCT_DATA_HEAD(const RELVAL *v) {
-    REBSER *data = v->payload.structure.data;
+    REBSER *data = VAL_STRUCT_DATA(v);
     if (not IS_SER_ARRAY(data))
         return BIN_HEAD(data);
 
@@ -289,15 +327,12 @@ inline static REBYTE *STU_DATA_HEAD(REBSTU *stu) {
     return VAL_STRUCT_DATA_HEAD(STU_VALUE(stu));
 }
 
-#define VAL_STRUCT_OFFSET(v) \
-    ((v)->extra.struct_offset)
-
 inline static REBYTE *VAL_STRUCT_DATA_AT(const RELVAL *v) {
     return VAL_STRUCT_DATA_HEAD(v) + VAL_STRUCT_OFFSET(v);
 }
 
 inline static REBCNT VAL_STRUCT_DATA_LEN(const RELVAL *v) {
-    REBSER *data = v->payload.structure.data;
+    REBSER *data = VAL_STRUCT_DATA(v);
     if (not IS_SER_ARRAY(data))
         return BIN_LEN(data);
 
@@ -311,7 +346,7 @@ inline static REBCNT STU_DATA_LEN(REBSTU *stu) {
 }
 
 inline static bool VAL_STRUCT_INACCESSIBLE(const RELVAL *v) {
-    REBSER *data = v->payload.structure.data;
+    REBSER *data = cast(REBSER*, PAYLOAD(Custom, v).second.p);
     if (not IS_SER_ARRAY(data))
         return false; // it's not "external", so never inaccessible
 

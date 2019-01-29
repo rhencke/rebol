@@ -41,6 +41,8 @@
 #endif
 #include "sys-core.h"
 
+#include "sys-tuple.h"
+
 #include "reb-net.h"
 #include "reb-evtypes.h"
 

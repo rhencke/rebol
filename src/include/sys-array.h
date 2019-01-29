@@ -466,7 +466,7 @@ inline static REBARR* Copy_Array_At_Extra_Deep_Flags_Managed(
 inline static void INIT_VAL_ARRAY(RELVAL *v, REBARR *a) {
     INIT_BINDING(v, UNBOUND);
     assert(GET_SERIES_FLAG(a, MANAGED));
-    v->payload.any_series.series = SER(a);
+    PAYLOAD(Series, v).rebser = SER(a);
 }
 
 // These array operations take the index position into account.  The use
@@ -484,11 +484,11 @@ inline static void INIT_VAL_ARRAY(RELVAL *v, REBARR *a) {
 //
 inline static REBARR *VAL_ARRAY(const REBCEL *v) {
     if (ANY_PATH_KIND(CELL_KIND(v)))
-        assert(v->payload.any_series.index == 0);
+        assert(PAYLOAD(Series, v).index == 0);
     else
         assert(ANY_ARRAY_KIND(CELL_KIND(v)));
 
-    REBSER *s = v->payload.any_series.series;
+    REBSER *s = PAYLOAD(Series, v).rebser;
     if (GET_SERIES_INFO(s, INACCESSIBLE))
         fail (Error_Series_Data_Freed_Raw());
     return ARR(s);

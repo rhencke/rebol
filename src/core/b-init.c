@@ -132,8 +132,6 @@ static void Assert_Basics(void)
     #else
         assert(sizeof(REBSER) == sizeof(REBVAL) * 2);
     #endif
-
-    assert(sizeof(REBEVT) == sizeof(REBVAL));
   #endif
 
     // The REBSER is designed to place the `info` bits exactly after a REBVAL

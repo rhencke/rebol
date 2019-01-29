@@ -52,11 +52,7 @@
 //
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  DEBUG PROBE <== **THIS IS VERY USEFUL**
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// DEBUG PROBE <== **THIS IS VERY USEFUL** //////////////////////////=//
 //
 // The PROBE macro can be used in debug builds to mold a REBVAL much like the
 // Rebol `probe` operation.  But it's actually polymorphic, and if you have
@@ -93,76 +89,9 @@
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  TRACKING PAYLOAD <== **THIS IS VERY USEFUL**
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// In the debug build, "Trash" cells (NODE_FLAG_FREE) can use their payload to
-// store where and when they were initialized.  This also applies to some
-// datatypes like BLANK!, BAR!, LOGIC!, or VOID!--since they only use their
-// header bits, they can also use the payload for this in the debug build.
-//
-// (Note: The release build does not canonize unused bits of payloads, so
-// they are left as random data in that case.)
-//
-// View this information in the debugging watchlist under the `track` union
-// member of a value's payload.  It is also reported by panic().
-//
-
-#if defined(DEBUG_TRACK_CELLS)
-    #if defined(DEBUG_COUNT_TICKS) && defined(DEBUG_TRACK_EXTEND_CELLS)
-        #define TOUCH_CELL(c) \
-            ((c)->touch = TG_Tick)
-    #endif
-
-    inline static void Set_Track_Payload_Extra_Debug(
-        RELVAL *c,
-        const char *file,
-        int line
-    ){
-      #ifdef DEBUG_TRACK_EXTEND_CELLS // cell is made bigger to hold it
-        c->track.file = file;
-        c->track.line = line;
-
-        #ifdef DEBUG_COUNT_TICKS
-            c->extra.tick = c->tick = TG_Tick;
-            c->touch = 0;
-        #else
-            c->extra.tick = 1; // unreadable blank needs for debug payload
-        #endif
-      #else // in space that is overwritten for cells that fill in payloads 
-        c->payload.track.file = file;
-        c->payload.track.line = line;
-          
-        #ifdef DEBUG_COUNT_TICKS
-            c->extra.tick = TG_Tick;
-        #else
-            c->extra.tick = 1; // unreadable blank needs for debug payload
-        #endif
-      #endif
-    }
-
-    #define TRACK_CELL_IF_DEBUG(c,file,line) \
-        Set_Track_Payload_Extra_Debug((c), (file), (line))
-
-#elif !defined(NDEBUG)
-
-    #define TRACK_CELL_IF_DEBUG(c,file,line) \
-        ((c)->extra.tick = 1) // unreadable blank needs for debug payload
-
-#else
-
-    #define TRACK_CELL_IF_DEBUG(c,file,line) \
-        NOOP
-
-#endif
-
-
 //=//// CELL WRITABILITY //////////////////////////////////////////////////=//
 //
-// Asserting writiablity helps avoid very bad catastrophies that might ensue
+// Asserting writablity helps avoid very bad catastrophies that might ensue
 // if "implicit end markers" could be overwritten.  These are the ENDs that
 // are actually other bitflags doing double duty inside a data structure, and
 // there is no REBVAL storage backing the position.
@@ -440,11 +369,7 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
     ((READABLE(v, __FILE__, __LINE__)->header.bits & CELL_FLAG_##name) == 0)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  CELL HEADERS AND PREPARATION
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// CELL HEADERS AND PREPARATION //////////////////////////////////////=//
 //
 // RESET_VAL_HEADER clears out the header of *most* bits, setting it to a
 // new type.  The type takes up the full second byte of the header (see
@@ -599,11 +524,7 @@ inline static RELVAL *Prep_Stack_Cell_Core(
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  TRASH CELLS
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// TRASH CELLS ///////////////////////////////////////////////////////=//
 //
 // Trash is a cell (marked by NODE_FLAG_CELL) with NODE_FLAG_FREE set.  To
 // prevent it from being inspected while it's in an invalid state, VAL_TYPE
@@ -645,11 +566,7 @@ inline static RELVAL *Prep_Stack_Cell_Core(
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  END marker (not a value type, only writes `struct Reb_Value_Flags`)
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// END MARKER ////////////////////////////////////////////////////////=//
 //
 // Historically Rebol arrays were always one value longer than their maximum
 // content, and this final slot was used for a REBVAL type called END!.
@@ -744,6 +661,7 @@ inline static RELVAL *Prep_Stack_Cell_Core(
 // are at lower values than the unbindable types.
 //
 
+
 // An ANY-WORD! is relative if it refers to a local or argument of a function,
 // and has its bits resident in the deep copy of that function's body.
 //
@@ -751,7 +669,7 @@ inline static RELVAL *Prep_Stack_Cell_Core(
 // the same function if it contains any instances of such relative words.
 //
 inline static bool IS_RELATIVE(const REBCEL *v) {
-    if (Not_Bindable(v) or not v->extra.binding)
+    if (Not_Bindable(v) or not EXTRA(Binding, v).node)
         return false; // INTEGER! and other types are inherently "specific"
 
   #if !defined(NDEBUG)
@@ -766,14 +684,17 @@ inline static bool IS_RELATIVE(const REBCEL *v) {
     // Review if this category of trick can be checked for more cleanly.
     if (
         KIND_BYTE_UNCHECKED(v) == REB_ACTION
-        and Natives[N_skinner_return_helper_ID].payload.action.paramlist
-            == v->payload.action.paramlist
+        and PAYLOAD(Action, &Natives[N_skinner_return_helper_ID]).paramlist
+            == PAYLOAD(Action, v).paramlist
     ){
         return false;
     }
   #endif
 
-    return v->extra.binding->header.bits & ARRAY_FLAG_IS_PARAMLIST;
+    if (EXTRA(Binding, v).node->header.bits & ARRAY_FLAG_IS_PARAMLIST)
+        return true;
+
+    return false;
 }
 
 #if defined(__cplusplus) && __cplusplus >= 201103L
@@ -791,7 +712,7 @@ inline static bool IS_RELATIVE(const REBCEL *v) {
 
 inline static REBACT *VAL_RELATIVE(const RELVAL *v) {
     assert(IS_RELATIVE(v));
-    return ACT(v->extra.binding);
+    return ACT(EXTRA(Binding, v).node);
 }
 
 
@@ -817,678 +738,6 @@ inline static REBACT *VAL_RELATIVE(const RELVAL *v) {
     }
 #endif
 
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  NULLED CELLS (*internal* form of Rebol NULL)
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Rebol's null is a transient evaluation product.  It is used as a signal for
-// "soft failure", e.g. `find [a b] 'c` is null, hence they are conditionally
-// false.  But null isn't an "ANY-VALUE!", and can't be stored in BLOCK!s that
-// are seen by the user--nor can it be assigned to variables.
-//
-// The libRebol API takes advantage of this by actually using C's concept of
-// a null pointer to directly represent the optional state.  By promising this
-// is the case, clients of the API can write `if (value)` or `if (!value)`
-// and be sure that there's not some nonzero address of a "null-valued cell".
-// So there is no `isRebolNull()` API.
-//
-// But that's the API.  Internal to Rebol, cells are the currency used, and
-// if they are to represent an "optional" value, there must be a special
-// bit pattern used to mark them as not containing any value at all.  These
-// are called "nulled cells" and marked by means of their VAL_TYPE(), but they
-// use REB_MAX--because that is one past the range of valid REB_XXX values
-// in the enumeration created for the actual types.
-//
-
-#define NULLED_CELL \
-    c_cast(const REBVAL*, &PG_Nulled_Cell[0])
-
-#define IS_NULLED(v) \
-    (VAL_TYPE(v) == REB_MAX_NULLED)
-
-#define Init_Nulled(out) \
-    RESET_CELL_EXTRA((out), REB_MAX_NULLED, CELL_FLAG_FALSEY)
-
-// !!! A theory was that the "evaluated" flag would help a function that took
-// both <opt> and <end>, which are converted to nulls, distinguish what kind
-// of null it is.  This may or may not be a good idea, but unevaluating it
-// here just to make a note of the concept, and tag it via the callsites.
-//
-#define Init_Endish_Nulled(out) \
-    RESET_CELL_EXTRA((out), REB_MAX_NULLED, \
-        CELL_FLAG_FALSEY | CELL_FLAG_UNEVALUATED)
-
-inline static bool IS_ENDISH_NULLED(const RELVAL *v) {
-    return IS_NULLED(v) and GET_CELL_FLAG(v, UNEVALUATED);
-}
-
-// To help ensure full nulled cells don't leak to the API, the variadic
-// interface only accepts nullptr.  Any internal code with a REBVAL* that may
-// be a "nulled cell" must translate any such cells to nullptr.
-//
-inline static const REBVAL *NULLIFY_NULLED(const REBVAL *cell)
-  { return VAL_TYPE(cell) == REB_MAX_NULLED ? nullptr : cell; }
-
-inline static const REBVAL *REIFY_NULL(const REBVAL *cell)
-  { return cell == nullptr ? NULLED_CELL : cell; }
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  VOID!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Void! results are the default for `do []`, and unlike NULL a void! *is*
-// a value...however a somewhat unfriendly one.  While NULLs are falsey, void!
-// is *neither* truthy nor falsey.  Though a void! can be put in an array (a
-// NULL can't) if the evaluator tries to run a void! cell in an array, it will
-// trigger an error.
-//
-// Void! also comes into play in what is known as "voidification" of NULLs.
-// Loops wish to reserve NULL as the return result if there is a BREAK, and
-// conditionals like IF and SWITCH want to reserve NULL to mean there was no
-// branch taken.  So when branches or loop bodies produce null, they need
-// to be converted to some ANY-VALUE!.
-//
-// The console doesn't print anything for void! evaluation results by default,
-// so that routines like HELP won't have additional output than what they
-// print out.
-//
-
-#define VOID_VALUE \
-    c_cast(const REBVAL*, &PG_Void_Value[0])
-
-#define Init_Void(out) \
-    RESET_CELL((out), REB_VOID)
-
-inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
-    if (IS_NULLED(cell))
-        Init_Void(cell);
-    return cell;
-}
-
-// Many loop constructs use BLANK! as a unique signal that the loop body
-// never ran, e.g. `for-each x [] [<unreturned>]` or `loop 0 [<unreturned>]`.
-// It's more valuable to have that signal be unique and have it be falsey
-// than it is to be able to return BLANK! from a loop, so blanks are voidified
-// alongside NULL (reserved for BREAKing)
-//
-inline static REBVAL *Voidify_If_Nulled_Or_Blank(REBVAL *cell) {
-    if (IS_NULLED_OR_BLANK(cell))
-        Init_Void(cell);
-    return cell;
-}
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  BLANK!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Blank! values are a kind of "reified" null/void!, and you can convert
-// between them using TRY and OPT:
-//
-//     >> try ()
-//     == _
-//
-//     >> opt _
-//     ;-- no result
-//
-// Like null, they are considered to be false--like the LOGIC! #[false] value.
-// Only these three things are conditionally false in Rebol, and testing for
-// conditional truth and falsehood is frequent.  Hence in addition to its
-// type, BLANK! also carries a header bit that can be checked for conditional
-// falsehood, to save on needing to separately test the type.
-//
-// In the debug build, it is possible to make an "unreadable" blank!.  This
-// will behave neutrally as far as the garbage collector is concerned, so
-// it can be used as a placeholder for a value that will be filled in at
-// some later time--spanning an evaluation.  But if the special IS_UNREADABLE
-// checks are not used, it will not respond to IS_BLANK() and will also
-// refuse VAL_TYPE() checks.  This is useful anytime a placeholder is needed
-// in a slot temporarily where the code knows it's supposed to come back and
-// fill in the correct thing later...where the asserts serve as a reminder
-// if that fill in never happens.
-//
-
-#define BLANK_VALUE \
-    c_cast(const REBVAL*, &PG_Blank_Value[0])
-
-#define Init_Blank(v) \
-    RESET_CELL_EXTRA((v), REB_BLANK, CELL_FLAG_FALSEY)
-
-#ifdef DEBUG_UNREADABLE_BLANKS
-    inline static REBVAL *Init_Unreadable_Blank_Debug(
-        RELVAL *out, const char *file, int line
-    ){
-        RESET_CELL_EXTRA_Debug(out, REB_BLANK, CELL_FLAG_FALSEY, file, line);
-        assert(out->extra.tick > 0);
-        out->extra.tick = -out->extra.tick;
-        return KNOWN(out);
-    }
-
-    #define Init_Unreadable_Blank(out) \
-        Init_Unreadable_Blank_Debug((out), __FILE__, __LINE__)
-
-    #define IS_BLANK_RAW(v) \
-        (KIND_BYTE_UNCHECKED(v) == REB_BLANK)
-
-    inline static bool IS_UNREADABLE_DEBUG(const RELVAL *v) {
-        if (KIND_BYTE_UNCHECKED(v) != REB_BLANK)
-            return false;
-        return v->extra.tick < 0;
-    }
-
-    #define ASSERT_UNREADABLE_IF_DEBUG(v) \
-        assert(IS_UNREADABLE_DEBUG(v))
-
-    #define ASSERT_READABLE_IF_DEBUG(v) \
-        assert(not IS_UNREADABLE_DEBUG(v))
-#else
-    #define Init_Unreadable_Blank(v) \
-        Init_Blank(v)
-
-    #define IS_BLANK_RAW(v) \
-        IS_BLANK(v)
-
-    #define ASSERT_UNREADABLE_IF_DEBUG(v) \
-        assert(IS_BLANK(v)) // would have to be a blank even if not unreadable
-
-    #define ASSERT_READABLE_IF_DEBUG(v) \
-        NOOP
-#endif
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  LOGIC!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// A logic can be either true or false.  For purposes of optimization, logical
-// falsehood is indicated by one of the value option bits in the header--as
-// opposed to in the value payload.  This means it can be tested quickly, and
-// that a single check can test for BLANK!, logic false, or nulled.
-//
-
-#define FALSE_VALUE \
-    c_cast(const REBVAL*, &PG_False_Value[0])
-
-#define TRUE_VALUE \
-    c_cast(const REBVAL*, &PG_True_Value[0])
-
-inline static bool IS_TRUTHY(const RELVAL *v) {
-    if (KIND_BYTE(v) >= REB_64) {
-        //
-        // QUOTED! at an escape level low enough to reuse cell.  So if that
-        // cell happens to be false/blank/nulled, CELL_FLAG_FALSEY will
-        // be set, but don't heed it! `if lit '_ [-- "this is truthy"]`
-        //
-        return true;
-    }
-    if (GET_CELL_FLAG(v, FALSEY))
-        return false;
-    if (IS_VOID(v))
-        fail (Error_Void_Conditional_Raw());
-    return true;
-}
-
-#define IS_FALSEY(v) \
-    (not IS_TRUTHY(v))
-
-#define Init_Logic(out,b) \
-    RESET_CELL_EXTRA((out), REB_LOGIC, (b) ? 0 : CELL_FLAG_FALSEY)
-
-#define Init_True(out) \
-    Init_Logic((out), true)
-
-#define Init_False(out) \
-    Init_Logic((out), false)
-
-
-// Although a BLOCK! value is true, some constructs are safer by not allowing
-// literal blocks.  e.g. `if [x] [print "this is not safe"]`.  The evaluated
-// bit can let these instances be distinguished.  Note that making *all*
-// evaluations safe would be limiting, e.g. `foo: any [false-thing []]`...
-// So ANY and ALL use IS_TRUTHY() directly
-//
-inline static bool IS_CONDITIONAL_TRUE(const REBVAL *v) {
-    if (IS_FALSEY(v))
-        return false;
-    if (KIND_BYTE(v) == REB_BLOCK)
-        if (GET_CELL_FLAG(v, UNEVALUATED))
-            fail (Error_Block_Conditional_Raw(v));
-    return true;
-}
-
-#define IS_CONDITIONAL_FALSE(v) \
-    (not IS_CONDITIONAL_TRUE(v))
-
-inline static bool VAL_LOGIC(const REBCEL *v) {
-    assert(CELL_KIND(v) == REB_LOGIC);
-    return NOT_CELL_FLAG(v, FALSEY);
-}
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  DATATYPE!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Note: R3-Alpha's notion of a datatype has not been revisited very much in
-// Ren-C.  The unimplemented UTYPE! user-defined type concept was removed
-// for simplification, pending a broader review of what was needed.
-//
-// %words.r is arranged so symbols for types are at the start of the enum.
-// Note REB_0 is not a type, which lines up with SYM_0 used for symbol IDs as
-// "no symbol".  Also, NULL is not a value type, and is at REB_MAX past the
-// end of the list.
-//
-// !!! Consider renaming (or adding a synonym) to just TYPE!
-//
-
-#define VAL_TYPE_KIND(v) \
-    ((v)->payload.datatype.kind)
-
-#define VAL_TYPE_SPEC(v) \
-    ((v)->payload.datatype.spec)
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  CHAR!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-
-#define MAX_CHAR 0xffff
-
-#define VAL_CHAR(v) \
-    ((v)->payload.character)
-
-inline static REBVAL *Init_Char(RELVAL *out, REBUNI uni) {
-    RESET_CELL(out, REB_CHAR);
-    VAL_CHAR(out) = uni;
-    return cast(REBVAL*, out);
-}
-
-#define SPACE_VALUE \
-    Root_Space_Char
-
-#define NEWLINE_VALUE \
-    Root_Newline_Char
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  INTEGER!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Integers in Rebol were standardized to use a compiler-provided 64-bit
-// value.  This was formally added to the spec in C99, but many compilers
-// supported it before that.
-//
-// !!! 64-bit extensions were added by the "rebolsource" fork, with much of
-// the code still written to operate on 32-bit values.  Since the standard
-// unit of indexing and block length counts remains 32-bit in that 64-bit
-// build at the moment, many lingering references were left that operated
-// on 32-bit values.  To make this clearer, the macros have been renamed
-// to indicate which kind of integer they retrieve.  However, there should
-// be a general review for reasoning, and error handling + overflow logic
-// for these cases.
-//
-
-#if defined(NDEBUG) || !defined(CPLUSPLUS_11) 
-    #define VAL_INT64(v) \
-        ((v)->payload.integer)
-#else
-    // allows an assert, but also lvalue: `VAL_INT64(v) = xxx`
-    //
-    inline static REBI64 & VAL_INT64(REBCEL *v) { // C++ reference type
-        assert(CELL_KIND(v) == REB_INTEGER);
-        return v->payload.integer;
-    }
-    inline static REBI64 VAL_INT64(const REBCEL *v) {
-        assert(CELL_KIND(v) == REB_INTEGER);
-        return v->payload.integer;
-    }
-#endif
-
-inline static REBVAL *Init_Integer(RELVAL *out, REBI64 i64) {
-    RESET_CELL(out, REB_INTEGER);
-    out->payload.integer = i64;
-    return cast(REBVAL*, out);
-}
-
-inline static int32_t VAL_INT32(const REBCEL *v) {
-    if (VAL_INT64(v) > INT32_MAX or VAL_INT64(v) < INT32_MIN)
-        fail (Error_Out_Of_Range(KNOWN(v)));
-    return cast(int32_t, VAL_INT64(v));
-}
-
-inline static uint32_t VAL_UINT32(const REBCEL *v) {
-    if (VAL_INT64(v) < 0 or VAL_INT64(v) > UINT32_MAX)
-        fail (Error_Out_Of_Range(KNOWN(v)));
-    return cast(uint32_t, VAL_INT64(v));
-}
-
-inline static REBYTE VAL_UINT8(const REBCEL *v) {
-    if (VAL_INT64(v) > 255 or VAL_INT64(v) < 0)
-        fail (Error_Out_Of_Range(KNOWN(v)));
-    return cast(REBYTE, VAL_INT32(v));
-}
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  DECIMAL! and PERCENT!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Implementation-wise, the decimal type is a `double`-precision floating
-// point number in C (typically 64-bit).  The percent type uses the same
-// payload, and is currently extracted with VAL_DECIMAL() as well.
-//
-// !!! Calling a floating point type "decimal" appears based on Rebol's
-// original desire to use familiar words and avoid jargon.  It has however
-// drawn criticism from those who don't think it correctly conveys floating
-// point behavior, expecting something else.  Red has renamed the type
-// FLOAT! which may be a good idea.
-//
-
-#if defined(NDEBUG) || !defined(CPLUSPLUS_11)
-    #define VAL_DECIMAL(v) \
-        ((v)->payload.decimal)
-#else
-    // allows an assert, but also lvalue: `VAL_DECIMAL(v) = xxx`
-    //
-    inline static REBDEC & VAL_DECIMAL(REBCEL *v) { // C++ reference type
-        assert(CELL_KIND(v) == REB_DECIMAL or CELL_KIND(v) == REB_PERCENT);
-        return v->payload.decimal;
-    }
-    inline static REBDEC VAL_DECIMAL(const REBCEL *v) {
-        assert(CELL_KIND(v) == REB_DECIMAL or CELL_KIND(v) == REB_PERCENT);
-        return v->payload.decimal;
-    }
-#endif
-
-inline static REBVAL *Init_Decimal(RELVAL *out, REBDEC d) {
-    RESET_CELL(out, REB_DECIMAL);
-    out->payload.decimal = d;
-    return cast(REBVAL*, out);
-}
-
-inline static REBVAL *Init_Percent(RELVAL *out, REBDEC d) {
-    RESET_CELL(out, REB_PERCENT);
-    out->payload.decimal = d;
-    return cast(REBVAL*, out);
-}
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  MONEY!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// R3-Alpha's MONEY! type is "unitless" currency, such that $10/$10 = $1
-// (and not 1).  This is because the feature in Rebol2 of being able to
-// store the ISO 4217 code (~15 bits) was not included:
-//
-// https://en.wikipedia.org/wiki/ISO_4217
-//
-// According to @Ladislav:
-//
-// "The money datatype is neither a bignum, nor a fixpoint arithmetic.
-//  It actually is unnormalized decimal floating point."
-//
-// !!! The naming of "deci" used by MONEY! as "decimal" is a confusing overlap
-// with DECIMAL!, although that name may be changing also.
-//
-// !!! It would be better if there were no "deci" structure independent of
-// a REBVAL itself, so long as it is designed to fit in a REBVAL anyway.
-//
-
-inline static deci VAL_MONEY_AMOUNT(const REBCEL *v) {
-    deci amount;
-    amount.m0 = v->extra.m0;
-    amount.m1 = v->payload.money.m1;
-    amount.m2 = v->payload.money.m2;
-    amount.s = v->payload.money.s;
-    amount.e = v->payload.money.e;
-    return amount;
-}
-
-inline static REBVAL *Init_Money(RELVAL *out, deci amount) {
-    RESET_CELL(out, REB_MONEY);
-    out->extra.m0 = amount.m0;
-    out->payload.money.m1 = amount.m1;
-    out->payload.money.m2 = amount.m2;
-    out->payload.money.s = amount.s;
-    out->payload.money.e = amount.e;
-    return cast(REBVAL*, out);
-}
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  TUPLE!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// TUPLE! is a Rebol2/R3-Alpha concept to fit up to 7 byte-sized integers
-// directly into a value payload without needing to make a series allocation.
-// At source level they would be numbers separated by dots, like `1.2.3.4.5`.
-// This was mainly applied for IP addresses and RGB/RGBA constants, and
-// considered to be a "lightweight"...it would allow PICK and POKE like a
-// series, but did not behave like one due to not having a position.
-//
-// !!! Ren-C challenges the value of the TUPLE! type as defined.  Color
-// literals are often hexadecimal (where BINARY! would do) and IPv6 addresses
-// have a different notation.  It may be that `.` could be used for a more
-// generalized partner to PATH!, where `a.b.1` would be like a/b/1
-//
-
-#define MAX_TUPLE \
-    ((sizeof(uint32_t) * 2) - 1) // for same properties on 64-bit and 32-bit
-
-#if !defined(CPLUSPLUS_11)
-    #define VAL_TUPLE(v) \
-        ((v)->payload.tuple.tuple + 1)
-
-    #define VAL_TUPLE_DATA(v) \
-        ((v)->payload.tuple.tuple)
-
-    #define VAL_TUPLE_LEN(v) \
-        ((v)->payload.tuple.tuple[0])
-#else
-    // C++ build can give const-correctness so you don't change read-only data
-
-    inline static const REBYTE *VAL_TUPLE(const REBCEL *v) {
-        assert(CELL_KIND(v) == REB_TUPLE);
-        return v->payload.tuple.tuple + 1;
-    }
-
-    inline static REBYTE *VAL_TUPLE(REBCEL *v) {
-        assert(CELL_KIND(v) == REB_TUPLE);
-        return v->payload.tuple.tuple + 1;
-    }
-
-    inline static const REBYTE *VAL_TUPLE_DATA(const REBCEL *v) {
-        assert(CELL_KIND(v) == REB_TUPLE);
-        return v->payload.tuple.tuple;
-    }
-
-    inline static REBYTE *VAL_TUPLE_DATA(REBCEL *v) {
-        assert(CELL_KIND(v) == REB_TUPLE);
-        return v->payload.tuple.tuple;
-    }
-
-    inline static REBYTE VAL_TUPLE_LEN(const REBCEL *v) {
-        assert(CELL_KIND(v) == REB_TUPLE);
-        return v->payload.tuple.tuple[0];
-    }
-
-    inline static REBYTE &VAL_TUPLE_LEN(REBCEL *v) {
-        assert(CELL_KIND(v) == REB_TUPLE);
-        return v->payload.tuple.tuple[0];
-    }
-#endif
-
-
-inline static REBVAL *Init_Tuple(RELVAL *out, const REBYTE *data) {
-    RESET_CELL(out, REB_TUPLE);
-    memcpy(VAL_TUPLE_DATA(out), data, sizeof(out->payload.tuple.tuple));
-    return cast(REBVAL*, out);
-}
-
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  EVENT!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Rebol's events are used for the GUI and for network and I/O.  They are
-// essentially just a union of some structures which are packed so they can
-// fit into a REBVAL's payload size.
-//
-// The available event models are:
-//
-// * EVM_PORT
-// * EVM_OBJECT
-// * EVM_DEVICE
-// * EVM_CALLBACK
-// * EVM_GUI
-//
-
-#define VAL_EVENT_TYPE(v) \
-    ((v)->payload.event.type)
-
-#define VAL_EVENT_FLAGS(v) \
-    ((v)->payload.event.flags)
-
-#define VAL_EVENT_WIN(v) \
-    ((v)->payload.event.win)
-
-#define VAL_EVENT_MODEL(v) \
-    ((v)->payload.event.model)
-
-#define VAL_EVENT_DATA(v) \
-    ((v)->payload.event.data)
-
-#define VAL_EVENT_TIME(v) \
-    ((v)->payload.event.time)
-
-#define VAL_EVENT_REQ(v) \
-    ((v)->extra.eventee.req)
-
-#define VAL_EVENT_SER(v) \
-    ((v)->extra.eventee.ser)
-
-#define IS_EVENT_MODEL(v,f) \
-    (VAL_EVENT_MODEL(v) == (f))
-
-inline static void SET_EVENT_INFO(
-    RELVAL *val,
-    uint8_t type,
-    uint8_t flags,
-    uint8_t win
-){
-    VAL_EVENT_TYPE(val) = type;
-    VAL_EVENT_FLAGS(val) = flags;
-    VAL_EVENT_WIN(val) = win;
-}
-
-// Position event data
-
-#define VAL_EVENT_X(v) \
-    cast(REBINT, cast(short, VAL_EVENT_DATA(v) & 0xffff))
-
-#define VAL_EVENT_Y(v) \
-    cast(REBINT, cast(short, (VAL_EVENT_DATA(v) >> 16) & 0xffff))
-
-#define VAL_EVENT_XY(v) \
-    (VAL_EVENT_DATA(v))
-
-inline static void SET_EVENT_XY(RELVAL *v, REBINT x, REBINT y) {
-    //
-    // !!! "conversion to u32 from REBINT may change the sign of the result"
-    // Hence cast.  Not clear what the intent is.
-    //
-    VAL_EVENT_DATA(v) = cast(uint32_t, ((y << 16) | (x & 0xffff)));
-}
-
-// Key event data
-
-#define VAL_EVENT_KEY(v) \
-    (VAL_EVENT_DATA(v) & 0xffff)
-
-#define VAL_EVENT_KCODE(v) \
-    ((VAL_EVENT_DATA(v) >> 16) & 0xffff)
-
-inline static void SET_EVENT_KEY(RELVAL *v, REBCNT k, REBCNT c) {
-    VAL_EVENT_DATA(v) = ((c << 16) + k);
-}
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  GOB! Graphic Object
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// !!! The GOB! is a datatype specific to R3-View.  Its data is a small
-// fixed-size object.  It is linked together by series containing more
-// GOBs and values, and participates in the garbage collection process.
-//
-// The monolithic structure of Rebol had made it desirable to take advantage
-// of the memory pooling to quickly allocate, free, and garbage collect
-// these.  With GOB! being moved to an extension, it is not likely that it
-// would hook the memory pools directly.
-//
-
-#if defined(NDEBUG) || !defined(CPLUSPLUS_11)
-    #define VAL_GOB(v) \
-        (v)->payload.gob.gob
-
-    #define VAL_GOB_INDEX(v) \
-        (v)->payload.gob.index
-#else
-    inline static REBGOB* const &VAL_GOB(const REBCEL *v) {
-        assert(CELL_KIND(v) == REB_GOB);
-        return v->payload.gob.gob;
-    }
-
-    inline static REBCNT const &VAL_GOB_INDEX(const REBCEL *v) {
-        assert(CELL_KIND(v) == REB_GOB);
-        return v->payload.gob.index;
-    }
-
-    inline static REBGOB* &VAL_GOB(REBCEL *v) {
-        assert(CELL_KIND(v) == REB_GOB);
-        return v->payload.gob.gob;
-    }
-
-    inline static REBCNT &VAL_GOB_INDEX(REBCEL *v) {
-        assert(CELL_KIND(v) == REB_GOB);
-        return v->payload.gob.index;
-    }
-#endif
-
-inline static REBVAL *Init_Gob(RELVAL *out, REBGOB *g) {
-    RESET_CELL(out, REB_GOB);
-    VAL_GOB(out) = g;
-    VAL_GOB_INDEX(out) = 0;
-    return KNOWN(out);
-}
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -1534,14 +783,14 @@ inline static REBVAL *Init_Gob(RELVAL *out, REBGOB *g) {
 
 inline static REBNOD *VAL_BINDING(const REBCEL *v) {
     assert(Is_Bindable(v));
-    return v->extra.binding;
+    return EXTRA(Binding, v).node;
 }
 
 inline static void INIT_BINDING(RELVAL *v, void *p) {
     assert(Is_Bindable(v)); // works on partially formed values
 
     REBNOD *binding = cast(REBNOD*, p);
-    v->extra.binding = binding;
+    EXTRA(Binding, v).node = binding;
 
   #if !defined(NDEBUG)
     if (not binding)
@@ -1621,7 +870,7 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
     if (Not_Bindable(v))
         out->extra = v->extra; // extra isn't a binding (INTEGER! MONEY!...)
     else
-        INIT_BINDING_MAY_MANAGE(out, v->extra.binding);
+        INIT_BINDING_MAY_MANAGE(out, EXTRA(Binding, v).node);
 
     return KNOWN(out);
 }

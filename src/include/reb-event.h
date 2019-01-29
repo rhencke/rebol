@@ -39,40 +39,21 @@
 // to split its payload up.  Now to get a complete event structure through
 // the API, a full alias to a REBVAL is given.
 //
+// EVENT PAYLOAD CONTAINS 2 POINTER-SIZED THINGS
+//
+//     "eventee": REBREQ* (for device events) or REBSER* (port or object)
+//     "data": 32-bit quantity "an x/y position or keycode (raw/decoded)"
+//
+// EVENT EXTRA CONTAINS 4 BYTES
+//
+//     uint8_t type;   // event id (mouse-move, mouse-button, etc)
+//     uint8_t flags;  // special flags
+//     uint8_t win;    // window id
+//     uint8_t model;  // port, object, gui, callback
 
-#pragma pack(4)
-struct Reb_Event_Payload {
-    uint8_t type;   // event id (mouse-move, mouse-button, etc)
-    uint8_t flags;  // special flags
-    uint8_t win;    // window id
-    uint8_t model;  // port, object, gui, callback
-    uint32_t data;  // an x/y position or keycode (raw/decoded)
-};
 
-union Reb_Eventee {
-    REBREQ *req; // request (for device events)
-#ifdef REB_DEF
-    REBSER *ser; // port or object
-#else
-    void *ser;
-#endif
-};
+#define REBEVT REBVAL
 
-typedef struct {
-    void *header;
-    union Reb_Eventee eventee;
-    uint8_t type;
-    uint8_t flags;
-    uint8_t win;
-    uint8_t model;
-    uint32_t data;
-  #if defined(__LP64__) || defined(__LLP64__)
-    void *padding;
-  #endif
-} REBEVT; // mirrors REBVAL holding a Reb_Event payload, should be compatible
-
-// Note: the "eventee" series and the "request" live in the REBVAL
-#pragma pack()
 
 // Special event flags:
 //
@@ -100,3 +81,95 @@ enum {
     EVM_CALLBACK,   // Callback event uses system/ports/callback port
     EVM_MAX
 };
+
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
+//  EVENT!
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// Rebol's events are used for the GUI and for network and I/O.  They are
+// essentially just a union of some structures which are packed so they can
+// fit into a REBVAL's payload size.
+//
+// The available event models are:
+//
+// * EVM_PORT
+// * EVM_OBJECT
+// * EVM_DEVICE
+// * EVM_CALLBACK
+// * EVM_GUI
+//
+
+#define VAL_EVENT_TYPE(v) \
+    EXTRA(Bytes, (v)).common[0]
+
+#define VAL_EVENT_FLAGS(v) \
+    EXTRA(Bytes, (v)).common[1]
+
+#define VAL_EVENT_WIN(v) \
+    EXTRA(Bytes, (v)).common[2]
+
+#define VAL_EVENT_MODEL(v) \
+    EXTRA(Bytes, (v)).common[3]
+
+#define VAL_EVENT_REQ(v) \
+    cast(REBREQ*, PAYLOAD(Custom, (v)).first.p)
+
+#define VAL_EVENT_SER(v) \
+    cast(REBSER*, PAYLOAD(Custom, (v)).first.p)
+
+#define mutable_VAL_EVENT_REQ(v) \
+    *cast(REBREQ**, &PAYLOAD(Custom, (v)).first.p)
+
+#define mutable_VAL_EVENT_SER(v) \
+    *cast(REBSER**, &PAYLOAD(Custom, (v)).first.p)
+
+#define VAL_EVENT_DATA(v) \
+    PAYLOAD(Custom, (v)).second.u
+
+#define IS_EVENT_MODEL(v,f) \
+    (VAL_EVENT_MODEL(v) == (f))
+
+inline static void SET_EVENT_INFO(
+    RELVAL *val,
+    uint8_t type,
+    uint8_t flags,
+    uint8_t win
+){
+    VAL_EVENT_TYPE(val) = type;
+    VAL_EVENT_FLAGS(val) = flags;
+    VAL_EVENT_WIN(val) = win;
+}
+
+// Position event data
+
+#define VAL_EVENT_X(v) \
+    cast(REBINT, cast(short, VAL_EVENT_DATA(v) & 0xffff))
+
+#define VAL_EVENT_Y(v) \
+    cast(REBINT, cast(short, (VAL_EVENT_DATA(v) >> 16) & 0xffff))
+
+#define VAL_EVENT_XY(v) \
+    (VAL_EVENT_DATA(v))
+
+inline static void SET_EVENT_XY(RELVAL *v, REBINT x, REBINT y) {
+    //
+    // !!! "conversion to u32 from REBINT may change the sign of the result"
+    // Hence cast.  Not clear what the intent is.
+    //
+    VAL_EVENT_DATA(v) = cast(uint32_t, ((y << 16) | (x & 0xffff)));
+}
+
+// Key event data
+
+#define VAL_EVENT_KEY(v) \
+    (VAL_EVENT_DATA(v) & 0xffff)
+
+#define VAL_EVENT_KCODE(v) \
+    ((VAL_EVENT_DATA(v) >> 16) & 0xffff)
+
+inline static void SET_EVENT_KEY(RELVAL *v, REBCNT k, REBCNT c) {
+    VAL_EVENT_DATA(v) = ((c << 16) + k);
+}

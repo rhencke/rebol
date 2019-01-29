@@ -91,8 +91,8 @@ REBCTX *Alloc_Context_Core(enum Reb_Kind kind, REBCNT capacity, REBFLGS flags)
     // are building which contains this context.
 
     REBVAL *rootvar = RESET_CELL(Alloc_Tail_Array(varlist), kind);
-    rootvar->payload.any_context.varlist = varlist;
-    rootvar->payload.any_context.phase = nullptr;
+    PAYLOAD(Context, rootvar).varlist = varlist;
+    PAYLOAD(Context, rootvar).phase = nullptr;
     INIT_BINDING(rootvar, UNBOUND);
 
     // keylist[0] is the "rootkey" which we currently initialize to an
@@ -306,7 +306,7 @@ REBCTX *Copy_Context_Shallow_Extra_Managed(REBCTX *src, REBCNT extra) {
         INIT_CTX_KEYLIST_UNIQUE(dest, keylist);
     }
 
-    CTX_ARCHETYPE(dest)->payload.any_context.varlist = CTX_VARLIST(dest);
+    PAYLOAD(Context, CTX_ARCHETYPE(dest)).varlist = CTX_VARLIST(dest);
 
     // !!! Should the new object keep the meta information, or should users
     // have to copy that manually?  If it's copied would it be a shallow or
@@ -834,8 +834,8 @@ REBCTX *Make_Selfish_Context_Detect_Managed(
     // context[0] is an instance value of the OBJECT!/PORT!/ERROR!/MODULE!
     //
     REBVAL *var = RESET_CELL(ARR_HEAD(varlist), kind);
-    var->payload.any_context.varlist = varlist;
-    var->payload.any_context.phase = NULL;
+    PAYLOAD(Context, var).varlist = varlist;
+    PAYLOAD(Context, var).phase = NULL;
     INIT_BINDING(var, UNBOUND);
 
     ++var;
@@ -1074,8 +1074,8 @@ REBCTX *Merge_Contexts_Selfish_Managed(REBCTX *parent1, REBCTX *parent2)
     // so review consequences.
     //
     REBVAL *rootvar = RESET_CELL(ARR_HEAD(varlist), CTX_TYPE(parent1));
-    rootvar->payload.any_context.varlist = varlist;
-    rootvar->payload.any_context.phase = NULL;
+    PAYLOAD(Context, rootvar).varlist = varlist;
+    PAYLOAD(Context, rootvar).phase = NULL;
     INIT_BINDING(rootvar, UNBOUND);
 
     // Copy parent1 values.  (Can't use memcpy() because it would copy things
@@ -1399,7 +1399,7 @@ void Assert_Context_Core(REBCTX *c)
     if (keys_len != vars_len)
         panic (c);
 
-    if (rootvar->payload.any_context.varlist != varlist)
+    if (PAYLOAD(Context, rootvar).varlist != varlist)
         panic (rootvar);
 
     if (GET_SERIES_INFO(c, INACCESSIBLE)) {
@@ -1435,7 +1435,7 @@ void Assert_Context_Core(REBCTX *c)
         // the "phase" field...held in the rootvar.
         //
         if (
-            ACT_UNDERLYING(rootvar->payload.any_context.phase)
+            ACT_UNDERLYING(PAYLOAD(Context, rootvar).phase)
             != VAL_ACTION(rootkey)
         ){
             panic (rootvar);
@@ -1448,7 +1448,7 @@ void Assert_Context_Core(REBCTX *c)
             // with the same underlying function as the rootkey.
             //
             if (
-                ACT_UNDERLYING(rootvar->payload.any_context.phase)
+                ACT_UNDERLYING(PAYLOAD(Context, rootvar).phase)
                 != VAL_ACTION(rootkey)
             ){
                 panic (rootvar);

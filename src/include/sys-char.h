@@ -1,13 +1,13 @@
 //
-//  File: %sys-deci.h
-//  Summary: "Deci Datatype"
+//  File: %sys-char.h
+//  Summary: "CHAR! Datatype Header"
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -27,11 +27,19 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 
-typedef struct deci {
-    uint_fast32_t m0;  /* significand, lowest part */
-    uint_fast32_t m1;  /* significand, continuation */
-    uint_fast32_t m2; /* significand, highest part (only 23 bits used) */
-    bool s;   /* sign, 0 means nonnegative, 1 means nonpositive */
-    int_fast8_t e;        /* exponent */
-} deci;
+#define MAX_CHAR 0xffff
 
+#define VAL_CHAR(v) \
+    PAYLOAD(Character, (v)).codepoint
+
+inline static REBVAL *Init_Char(RELVAL *out, REBUNI uni) {
+    RESET_CELL(out, REB_CHAR);
+    VAL_CHAR(out) = uni;
+    return cast(REBVAL*, out);
+}
+
+#define SPACE_VALUE \
+    Root_Space_Char
+
+#define NEWLINE_VALUE \
+    Root_Newline_Char

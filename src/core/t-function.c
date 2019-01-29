@@ -191,8 +191,7 @@ REBTYPE(Action)
             SPECIFIED, // !!! Note: not actually "deep", just typesets
             SERIES_MASK_ACTION
         );
-        ARR_HEAD(proxy_paramlist)->payload.action.paramlist
-            = proxy_paramlist;
+        PAYLOAD(Action, ARR_HEAD(proxy_paramlist)).paramlist = proxy_paramlist;
         MISC(proxy_paramlist).meta = ACT_META(act);
 
         // If the function had code, then that code will be bound relative

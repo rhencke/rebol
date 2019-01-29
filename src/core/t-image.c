@@ -27,9 +27,19 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-
+// !!! Images were semantically very sloppy in R3-Alpha, in particular the
+// idea of working them into the generic idea of being a "series":
+//
+// https://github.com/rebol/rebol-issues/issues/801
+//
+// Ren-C has focused on evaluator work, and done little to address the
+// deficiencies of IMAGE!.  But the type has been kept working about as much
+// as it ever worked, and updated to internal API changes as they've come.
+//
 
 #include "sys-core.h"
+
+#include "sys-tuple.h"
 
 inline static void RESET_IMAGE(REBYTE *p, REBCNT num_pixels) {
     REBYTE *start = p;

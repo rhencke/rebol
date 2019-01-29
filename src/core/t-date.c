@@ -372,7 +372,7 @@ void Adjust_Date_Zone(RELVAL *d, bool to_utc)
         secs = -secs;
     secs += VAL_NANO(d);
 
-    d->payload.time.nanoseconds = (secs + TIME_IN_DAY) % TIME_IN_DAY;
+    PAYLOAD(Time, d).nanoseconds = (secs + TIME_IN_DAY) % TIME_IN_DAY;
 
     REBCNT n = VAL_DAY(d) - 1;
 
@@ -537,7 +537,7 @@ REB_R MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
         RESET_CELL(out, REB_DATE);
         VAL_DATE(out) = Normalize_Date(day, month, year, tz);
-        out->payload.time.nanoseconds = secs;
+        PAYLOAD(Time, out).nanoseconds = secs;
 
         const bool to_utc = true;
         Adjust_Date_Zone(out, to_utc);
@@ -649,7 +649,7 @@ void Pick_Or_Poke_Date(
             const bool to_utc = false;
             Adjust_Date_Zone(opt_out, to_utc); // !!! necessary?
 
-            opt_out->payload.time.nanoseconds = NO_DATE_TIME;
+            PAYLOAD(Time, opt_out).nanoseconds = NO_DATE_TIME;
             VAL_DATE(opt_out).zone = NO_DATE_ZONE;
             break; }
 
@@ -742,7 +742,7 @@ void Pick_Or_Poke_Date(
 
         case SYM_TIME:
             if (IS_NULLED(opt_poke)) { // clear out the time component
-                v->payload.time.nanoseconds = NO_DATE_TIME;
+                PAYLOAD(Time, v).nanoseconds = NO_DATE_TIME;
                 VAL_DATE(v).zone = NO_DATE_ZONE;
                 return;
             }
@@ -845,7 +845,7 @@ void Pick_Or_Poke_Date(
         // normalization, it just passes it through
         //
         VAL_DATE(v) = Normalize_Date(day, month, year, tz);
-        v->payload.time.nanoseconds = secs; // may be NO_DATE_TIME
+        PAYLOAD(Time, v).nanoseconds = secs; // may be NO_DATE_TIME
 
         const bool to_utc = true;
         Adjust_Date_Zone(v, to_utc);
@@ -1038,7 +1038,7 @@ fixDate:
 
 setDate:
     VAL_DATE(D_OUT) = date;
-    D_OUT->payload.time.nanoseconds = secs; // may be NO_DATE_TIME
+    PAYLOAD(Time, D_OUT).nanoseconds = secs; // may be NO_DATE_TIME
     return D_OUT;
 }
 
@@ -1079,7 +1079,7 @@ REBNATIVE(make_date_ymdsnz)
 
     VAL_DATE(D_OUT).zone = VAL_INT32(ARG(zone)) / ZONE_MINS;
 
-    D_OUT->payload.time.nanoseconds
+    PAYLOAD(Time, D_OUT).nanoseconds
         = SECS_TO_NANO(VAL_INT64(ARG(seconds))) + VAL_INT64(ARG(nano));
 
     assert(Does_Date_Have_Time(D_OUT));

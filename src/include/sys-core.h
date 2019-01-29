@@ -266,7 +266,6 @@
 
 
 #include "reb-device.h"
-#include "reb-event.h"
 
 // !!! Definitions for the memory allocator generally don't need to be
 // included by all clients, though currently it is necessary to indicate
@@ -579,7 +578,16 @@ extern void reb_qsort_r(void *a, size_t n, size_t es, void *thunk, cmp_t *cmp);
 //
 inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding);
 
+#include "sys-track.h"
 #include "sys-value.h" // basic definitions that don't need series accessors
+#include "sys-nulled.h"
+#include "sys-void.h"
+#include "sys-blank.h"
+#include "sys-logic.h"
+#include "sys-char.h"
+#include "sys-integer.h"
+#include "sys-decimal.h"
+#include "sys-datatype.h"
 
 inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
     Eval_Signals |= f;

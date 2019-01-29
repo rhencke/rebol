@@ -41,10 +41,9 @@
 // is at the idea stage, but is evolving.
 //
 
-
 inline static bool IS_WORD_UNBOUND(const REBCEL *v) {
     assert(ANY_WORD_KIND(CELL_KIND(v)));
-    return v->extra.binding == nullptr;
+    return not EXTRA(Binding, v).node;
 }
 
 #define IS_WORD_BOUND(v) \
@@ -52,12 +51,12 @@ inline static bool IS_WORD_UNBOUND(const REBCEL *v) {
 
 inline static REBSTR *VAL_WORD_SPELLING(const REBCEL *v) {
     assert(ANY_WORD_KIND(CELL_KIND(v)));
-    return v->payload.any_word.spelling;
+    return PAYLOAD(Word, v).spelling;
 }
 
 inline static REBSTR *VAL_WORD_CANON(const REBCEL *v) {
     assert(ANY_WORD_KIND(CELL_KIND(v)));
-    return STR_CANON(v->payload.any_word.spelling);
+    return STR_CANON(PAYLOAD(Word, v).spelling);
 }
 
 // Some scenarios deliberately store canon spellings in words, to avoid
@@ -70,13 +69,13 @@ inline static REBSTR *VAL_WORD_CANON(const REBCEL *v) {
 //
 inline static REBSTR *VAL_STORED_CANON(const REBCEL *v) {
     assert(ANY_WORD_KIND(CELL_KIND(v)));
-    assert(GET_SERIES_INFO(v->payload.any_word.spelling, STRING_CANON));
-    return v->payload.any_word.spelling;
+    assert(GET_SERIES_INFO(PAYLOAD(Word, v).spelling, STRING_CANON));
+    return PAYLOAD(Word, v).spelling;
 }
 
 inline static OPT_REBSYM VAL_WORD_SYM(const REBCEL *v) {
     assert(ANY_WORD_KIND(CELL_KIND(v)));
-    return STR_SYMBOL(v->payload.any_word.spelling);
+    return STR_SYMBOL(PAYLOAD(Word, v).spelling);
 }
 
 inline static REBCTX *VAL_WORD_CONTEXT(const REBVAL *v) {
@@ -94,12 +93,12 @@ inline static void INIT_WORD_INDEX(RELVAL *v, REBCNT i) {
   #if !defined(NDEBUG)
     INIT_WORD_INDEX_Extra_Checks_Debug(v, i); // not inline, needs FRM_PHASE()
   #endif
-    v->payload.any_word.index = cast(REBINT, i);
+    PAYLOAD(Word, v).index = cast(REBINT, i);
 }
 
 inline static REBCNT VAL_WORD_INDEX(const REBCEL *v) {
     assert(IS_WORD_BOUND(v));
-    REBINT i = v->payload.any_word.index;
+    REBINT i = PAYLOAD(Word, v).index;
     assert(i > 0);
     return cast(REBCNT, i);
 }
@@ -107,7 +106,7 @@ inline static REBCNT VAL_WORD_INDEX(const REBCEL *v) {
 inline static void Unbind_Any_Word(RELVAL *v) {
     INIT_BINDING(v, UNBOUND);
 #if !defined(NDEBUG)
-    v->payload.any_word.index = 0;
+    PAYLOAD(Word, v).index = 0;
 #endif
 }
 
@@ -117,10 +116,10 @@ inline static REBVAL *Init_Any_Word(
     REBSTR *spelling
 ){
     RESET_CELL(out, kind);
-    out->payload.any_word.spelling = spelling;
+    PAYLOAD(Word, out).spelling = spelling;
     INIT_BINDING(out, UNBOUND);
   #if !defined(NDEBUG)
-    out->payload.any_word.index = 0; // index not heeded if no binding
+    PAYLOAD(Word, out).index = 0; // index not heeded if no binding
   #endif
     return KNOWN(out);
 }
@@ -150,7 +149,7 @@ inline static REBVAL *Init_Any_Word_Bound(
     REBCNT index
 ) {
     RESET_CELL(out, type);
-    out->payload.any_word.spelling = spelling;
+    PAYLOAD(Word, out).spelling = spelling;
     INIT_BINDING(out, context);
     INIT_WORD_INDEX(out, index);
     return KNOWN(out);

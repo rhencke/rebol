@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -38,8 +38,7 @@
 // REB_BLOCK, REB_TEXT, etc.  Then there are flags which are for general
 // purposes that could apply equally well to any type of value (including
 // whether the value should have a new-line after it when molded out inside
-// of a block).  Followed by that are bits which are custom to each type (for
-// instance whether a key in an object is hidden or not).
+// of a block).
 //
 // Obviously, an arbitrary long string won't fit into the remaining 3*32 bits,
 // or even 3*64 bits!  You can fit the data for an INTEGER or DECIMAL in that
@@ -288,11 +287,7 @@ inline static union Reb_Header Endlike_Header(uintptr_t bits) {
 }
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  Cell Reset and Copy Masks
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// CELL RESET AND COPY MASKS /////////////////////////////////////////=//
 //
 // It's important for operations that write to cells not to overwrite *all*
 // the bits in the header, because some of those bits give information about
@@ -300,9 +295,8 @@ inline static union Reb_Header Endlike_Header(uintptr_t bits) {
 // being copied from one cell to another, those header bits must be masked
 // out to avoid corrupting the information in the target cell.
 //
-// !!! Future optimizations may put the integer stack level of the cell in
-// the header in the unused 32 bits for the 64-bit build.  That would also
-// be kept in this mask.
+// !!! In the future, the 64-bit build may put the integer stack level of a
+// cell in the header--which would be part of the cell's masked out format.
 //
 // Additionally, operations that copy need to not copy any of those bits that
 // are owned by the cell, plus additional bits that would be reset in the
@@ -328,216 +322,17 @@ inline static union Reb_Header Endlike_Header(uintptr_t bits) {
         | CELL_FLAG_ENFIXED | CELL_FLAG_UNEVALUATED | CELL_FLAG_EVAL_FLIP)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  TRACK payload (not a value type, only in DEBUG)
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// `Reb_Track_Payload` is the value payload in debug builds for any REBVAL
-// whose VAL_TYPE() doesn't need any information beyond the header.  This
-// offers a chance to inject some information into the payload to help
-// know where the value originated.  It is used by NULL cells, VOID!, BLANK!,
-// LOGIC!, and BAR!.
-//
-// In addition to the file and line number where the assignment was made,
-// the "tick count" of the DO loop is also saved.  This means that it can
-// be possible in a repro case to find out which evaluation step produced
-// the value--and at what place in the source.  Repro cases can be set to
-// break on that tick count, if it is deterministic.
-//
-// If tracking information is desired for all cell types, that means the cell
-// size has to be increased.  See DEBUG_TRACK_EXTEND_CELLS for this setting,
-// which can be useful in extreme debugging cases.
-//
-
-#if defined(DEBUG_TRACK_CELLS)
-    struct Reb_Track_Payload {
-        const char *file; // is REBYTE (UTF-8), but char* for debug watch
-        int line;
-    };
-#endif
-
-struct Reb_Datatype_Payload {
-    enum Reb_Kind kind;
-    REBARR *spec;
-};
-
-// !!! In R3-alpha, the money type was implemented under a type called "deci".
-// The payload for a deci was more than 64 bits in size, which meant it had
-// to be split across the separated union components in Ren-C.  (The 64-bit
-// aligned "payload" and 32-bit aligned "extra" were broken out independently,
-// so that setting one union member would not disengage the other.)
-
-struct Reb_Money_Payload {
-    unsigned m1:32; /* significand, continuation */
-    unsigned m2:23; /* significand, highest part */
-    unsigned s:1;   /* sign, 0 means nonnegative, 1 means nonpositive */
-    int e:8;        /* exponent */
-};
-
-
-// The same payload is used for TIME! and DATE!.  The extra bits needed by
-// DATE! (as REBYMD) fit into 32 bits, so can live in the ->extra field,
-// which is the size of a platform pointer.
-//
-struct Reb_Time_Payload {
-    REBI64 nanoseconds;
-};
-
-typedef struct Reb_Tuple_Payload {
-    REBYTE tuple[8];
-} REBTUP;
-
-
-struct Reb_Quoted_Payload // see %sys-quoted.h (only used if quote level > 3)
-{
-    RELVAL *cell; // lives in singular array, find with Singular_From_Cell()
-    REBCNT depth; // kept in payload so allocation shares across quote levels
-};
-
-struct Reb_Series_Payload // see %sys-series.h, %sys-array.h, %sys-string.h...
-{
-    REBSER *series; // vector (or double-ended queue) of equal-sized items
-    REBCNT index; // 0-based position (if it is 0, that means Rebol index 1)
-};
-
-struct Reb_Typeset_Payload {
-    REBU64 bits; // One bit for each DATATYPE! (use with FLAGIT_KIND)
-};
-
-struct Reb_Word_Payload // see %sys-word.h
-{
-    REBSTR *spelling; // word's non-canonized spelling, UTF-8 string series
-    REBINT index; // index of word in context (if binding is not null)
-};
-
-struct Reb_Action_Payload // see %sys-action.h
-{
-    REBARR *paramlist; // see MISC.meta, LINK.underlying in %sys-rebser.h
-    REBARR *details; // see MISC.dispatcher, LINK.specialty in %sys-rebser.h
-};
-
-struct Reb_Context_Payload // see %sys-context.h
-{
-    REBARR *varlist; // see MISC.meta, LINK.keysource in %sys-rebser.h
-    REBACT *phase; // only used by FRAME! contexts
-};
-
-
-struct Reb_Varargs_Payload {
-    //
-    // If the extra->binding of the varargs is not UNBOUND, it represents the
-    // frame in which this VARARGS! was tied to a parameter.  This 0-based
-    // offset can be used to find the param the varargs is tied to, in order
-    // to know whether it is quoted or not (and its name for error delivery).
-    //
-    // It can also find the arg.  Similar to the param, the arg is only good
-    // for the lifetime of the FRAME! in extra->binding...but even less so,
-    // because VARARGS! can (currently) be overwritten with another value in
-    // the function frame at any point.  Despite this, we proxy the
-    // CELL_FLAG_UNEVALUATED from the last TAKE to reflect its status.
-    //
-    REBINT signed_param_index; // if negative, consider the arg enfixed
-
-    REBACT *phase; // where to look up parameter by its offset
-};
-
-
-// SPECIALIZE attempts to be smart enough to do automatic partial specializing
-// when it can, and to allow you to augment the APPLY-style FRAME! with an
-// order of refinements that is woven into the single operation.  It links
-// all the partially specialized (or unspecified) refinements as it traverses
-// in order to revisit them and fill them in more efficiently.  This special
-// payload is used along with a singly linked list via extra.next_partial
-
-struct Reb_Partial_Payload { // Used with REB_X_PARTIAL
-    REBDSP dsp; // the DSP of this partial slot (if ordered on the stack)
-    REBINT signed_index; // index in the paramlist, negative if not "in use"
-};
-
-
-// Handles hold a pointer and a size...which allows them to stand-in for
-// a binary REBSER.
-//
-// Since a function pointer and a data pointer aren't necessarily the same
-// size, the data has to be a union.
-//
-// Note that the ->extra field of the REBVAL may contain a singular REBARR
-// that is leveraged for its GC-awareness.
-//
-struct Reb_Handle_Payload {
-    union {
-        void *pointer;
-        CFUNC *cfunc;
-    } data;
-
-    uintptr_t length;
-};
-
-
-// File descriptor in singular->link.fd
-// Meta information in singular->misc.meta
-//
-struct Reb_Library_Payload {
-    REBARR *singular; // singular array holding this library value
-};
-
-typedef REBARR REBLIB;
-
-
-// The general FFI direction is to move it so that it is "baked in" less,
-// and represents an instance of a generalized extension mechanism (like GOB!
-// should be).  On that path, a struct's internals are simplified to being
-// just an array:
-//
-// [0] is a specification array which contains all the information about
-// the structure's layout, regardless of what offset it would find itself at
-// inside of a data blob.  This includes the total size, and arrays of
-// field definitions...essentially, the validated spec.  It also contains
-// a HANDLE! which contains the FFI-type.
-//
-// [1] is the content BINARY!.  The VAL_INDEX of the binary indicates the
-// offset within the struct.  See notes in ADDR-OF from the FFI about how
-// the potential for memory instability of content pointers may not be a
-// match for the needs of an FFI interface.
-//
-struct Reb_Struct_Payload {
-    REBARR *stu; // [0] is canon self value, ->misc.schema is schema
-    REBSER *data; // binary data series (may be shared with other structs)
-};
-
-// To help document places in the core that are complicit in the "extension
-// hack", alias arrays being used for the FFI to another name.
-//
-typedef REBARR REBSTU;
-typedef REBARR REBFLD;
-
-
-#include "reb-gob.h"
-
-struct Reb_Gob_Payload {
-    REBGOB *gob;
-    REBCNT index;
-};
-
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  VALUE CELL DEFINITION (`struct Reb_Value` or `struct Reb_Relative_Value`)
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// CELL's `EXTRA` FIELD DEFINITION ///////////////////////////////////=//
 //
 // Each value cell has a header, "extra", and payload.  Having the header come
 // first is taken advantage of by the byte-order-sensitive macros to be
 // differentiated from UTF-8 strings, etc. (See: Detect_Rebol_Pointer())
 //
 // Conceptually speaking, one might think of the "extra" as being part of
-// the payload.  But it is broken out into a separate union.  This is because
+// the payload.  But it is broken out into a separate field.  This is because
 // the `binding` property is written using common routines for several
 // different types.  If the common routine picked just one of the payload
-// unions to initialize, it would "disengage" the other unions.
+// forms initialize, it would "disengage" the other forms.
 //
 // (C permits *reading* of common leading elements from another union member,
 // even if that wasn't the last union used to write it.  But all bets are off
@@ -552,130 +347,256 @@ struct Reb_Gob_Payload {
 // work.  It's also likely preferred by x86.
 //
 
-union Reb_Value_Extra {
+struct Reb_Binding_Extra // see %sys-bind.h
+{
+    REBNOD* node;
+};
+
+struct Reb_Key_Extra // see %sys-action.h, %sys-context.h
+{
+    REBSTR *spelling; // UTF-8 byte series, name of parameter / context key
+};
+
+struct Reb_Handle_Extra // see %sys-handle.h
+{
+    REBARR *singular;
+};
+
+struct Reb_Date_Extra // see %sys-time.h
+{
+    REBYMD ymdz; // month/day/year/zone (time payload *may* hold nanoseconds) 
+};
+
+struct Reb_Partial_Extra // see %c-specialize.c (used with REB_X_PARTIAL)
+{
+    REBVAL *next; // links to next potential partial refinement arg
+};
+
+union Reb_Custom_Extra { // needed to beat strict aliasing, used in payload
+    void *p;
+    uintptr_t u;
+    intptr_t i;
+};
+
+union Reb_Bytes_Extra {
+    REBYTE common[sizeof(uint32_t) * 1];
+    REBYTE varies[sizeof(void*) * 1];
+};
+
+union Reb_Value_Extra { //=/////////////////// ACTUAL EXTRA DEFINITION ////=//
+
+    struct Reb_Binding_Extra Binding;
+    struct Reb_Key_Extra Key;
+    struct Reb_Handle_Extra Handle;
+    struct Reb_Date_Extra Date;
+    struct Reb_Partial_Extra Partial;
+
+    union Reb_Custom_Extra Custom;
+    union Reb_Bytes_Extra Bytes;
+
+  #if !defined(NDEBUG)
     //
+    // A tick field is included in all debug builds, not just those which
+    // DEBUG_TRACK_CELLS...because negative signs are used to give a distinct
+    // state to unreadable blanks.  See %sys-track.h and %sys-blank.h
+    //
+    intptr_t tick; // Note: will be negative for unreadable blanks
+  #endif
+
     // The release build doesn't put anything in the ->extra field by default,
     // so sensitive compilers notice when cells are moved without that
     // initialization.  Rather than disable the warning, this can be used to
-    // put some junk into, but TRASH_POINTER_IF_DEBUG() won't subvert the
+    // put some junk into it, but TRASH_POINTER_IF_DEBUG() won't subvert the
     // warning.  So just poke whatever pointer is at hand that is likely to
     // already be in a register and not meaningful (e.g. nullptr is a bad
     // value, because that could look like a valid non-binding)
     //
     void *trash;
-
-    // The binding will be either a REBACT (relative to a function) or a
-    // REBCTX (specific to a context), or simply a plain REBARR such as
-    // EMPTY_ARRAY which indicates UNBOUND.  ARRAY_FLAG_IS_VARLIST and
-    // ARRAY_FLAG_IS_PARAMLIST can be used to tell which it is.
-    //
-    // ANY-WORD!: binding is the word's binding
-    //
-    // ANY-ARRAY!: binding is the relativization or specifier for the REBVALs
-    // which can be found inside of the frame (for recursive resolution
-    // of ANY-WORD!s)
-    //
-    // ACTION!: binding is the instance data for archetypal invocation, so
-    // although all the RETURN instances have the same paramlist, it is
-    // the binding which is unique to the REBVAL specifying which to exit
-    //
-    // ANY-CONTEXT!: if a FRAME!, the binding carries the instance data from
-    // the function it is for.  So if the frame was produced for an instance
-    // of RETURN, the keylist only indicates the archetype RETURN.  Putting
-    // the binding back together can indicate the instance.
-    //
-    // VARARGS!: the binding identifies the feed from which the values are
-    // coming.  It can be an ordinary singular array which was created with
-    // MAKE VARARGS! and has its index updated for all shared instances.
-    //
-    REBNOD* binding;
-
-    // See REB_X_PARTIAL.
-    //
-    REBVAL *next_partial; // links to next potential partial refinement arg
-
-    // The remaining properties are the "leftovers" of what won't fit in the
-    // payload for other types.  If those types have a quanitity that requires
-    // 64-bit alignment, then that gets the priority for being in the payload,
-    // with the "Extra" pointer-sized item here.
-
-    REBSTR *key_spelling; // if typeset is key of object or function parameter
-    REBYMD ymdz; // time's payload holds the nanoseconds, this is the date
-    REBCNT struct_offset; // offset for struct in the possibly shared series
-
-    // !!! Biasing Ren-C to helping solve its technical problems led the
-    // REBEVT stucture to get split up.  The "eventee" is now in the extra
-    // field, while the event payload is elsewhere.  This brings about a long
-    // anticipated change where REBEVTs would need to be passed around in
-    // clients as REBVAL-sized entities.
-    //
-    // See also rebol_devreq->requestee
-
-    union Reb_Eventee eventee;
-
-    unsigned m0:32; // !!! significand, lowest part - see notes on Reb_Money
-
-    // There are two types of HANDLE!, and one version leverages the GC-aware
-    // ability of a REBSER to know when no references to the handle exist and
-    // call a cleanup function.  The GC-aware variant allocates a "singular"
-    // array, which is the exact size of a REBSER and carries the canon data.
-    // If the cheaper kind that's just raw data and no callback, this is null.
-    //
-    REBARR *singular;
-
-  #if !defined(NDEBUG)
-    //
-    // Reb_Track_Payload is not big enough for a tick as well as a file and a
-    // line number, so it's put here.  It's included in all debug builds,
-    // not just those which have DEBUG_TRACK_CELLS...because it is used to
-    // implement a distinct state for unreadable blanks.  It will simply be
-    // a -1 for unreadable blanks, and a +1 for ordinary ones if there is
-    // no tick available, otherwise it will be the negative value of the
-    // tick if unreadable.  This keeps from stealing a header bit, as well
-    // as avoiding the variations which could occur if the VAL_TYPE() was
-    // changed between debug and release builds.
-    //
-    intptr_t tick;
-  #endif
 };
 
-union Reb_Value_Payload {
+
+//=//// CELL's `PAYLOAD` FIELD DEFINITION /////////////////////////////////=//
+//
+// The payload is located in the second half of the cell.  Since it consists
+// of four platform pointers, the payload should be aligned on a 64-bit
+// boundary even on 32-bit platorms.
+//
+// `Pointers` and `Bytes` provide a generic strategy for adding payloads
+// after-the-fact.  This means clients (like extensions) don't have to have
+// their payload declarations cluttering this file.
+//
+// IMPORTANT: `Bytes` should *not* be cast to an arbitrary pointer!!!  That
+// would violate strict aliasing.  Only direct payload types should be used:
+//
+//     https://stackoverflow.com/q/41298619/
+//
+
+struct Reb_Quoted_Payload // see %sys-quoted.h
+{
+    RELVAL *cell; // lives in singular array, find with Singular_From_Cell()
+    REBCNT depth; // kept in payload so allocation shares across quote levels
+};
+
+struct Reb_Character_Payload { REBUNI codepoint; }; // see %sys-char.h
+
+struct Reb_Integer_Payload { REBI64 i64; }; // see %sys-integer.h
+
+struct Reb_Decimal_Payload { REBDEC dec; }; // see %sys-decimal.h
+
+struct Reb_Datatype_Payload // see %sys-datatype.h
+{
+    enum Reb_Kind kind;
+    REBARR *spec;
+};
+
+struct Reb_Typeset_Payload // see %sys-typeset.h
+{
+    REBU64 bits; // One bit for each DATATYPE! (use with FLAGIT_KIND)
+};
+
+struct Reb_Series_Payload // see %sys-series.h
+{
+    REBSER *rebser; // vector-like-double-ended-queue of equal-sized items
+    REBCNT index; // 0-based position (if it is 0, that means Rebol index 1)
+};
+
+struct Reb_Action_Payload // see %sys-action.h
+{
+    REBARR *paramlist; // see MISC.meta, LINK.underlying in %sys-rebser.h
+    REBARR *details; // see MISC.dispatcher, LINK.specialty in %sys-rebser.h
+};
+
+struct Reb_Context_Payload // see %sys-context.h
+{
+    REBARR *varlist; // see MISC.meta, LINK.keysource in %sys-rebser.h
+    REBACT *phase; // only used by FRAME! contexts, see %sys-frame.h
+};
+
+struct Reb_Word_Payload // see %sys-word.h
+{
+    REBSTR *spelling; // word's non-canonized spelling, UTF-8 string series
+    REBINT index; // index of word in context (if binding is not null)
+};
+
+struct Reb_Varargs_Payload // see %sys-varargs.h
+{
+    REBINT signed_param_index; // if negative, consider the arg enfixed
+    REBACT *phase; // where to look up parameter by its offset
+};
+
+struct Reb_Time_Payload { // see %sys-time.h
+    REBI64 nanoseconds;
+};
+
+struct Reb_Pair_Payload // see %sys-pair.h
+{
+    REBVAL *pairing; // 2 values packed in a series node - see Alloc_Pairing()
+};
+
+struct Reb_Handle_Payload { // see %sys-handle.h
+    union {
+        void *pointer;
+        CFUNC *cfunc; // C function/data pointers pointers may differ in size
+    } data;
+    uintptr_t length; // will be 0 if a cfunc, and nonzero otherwise
+};
+
+struct Reb_Library_Payload // see %sys-library.h
+{
+    REBARR *singular; // File discriptor in LINK.fd, meta in MISC.meta 
+};
+
+struct Reb_Custom_Payload // generic, for adding payloads after-the-fact
+{
+    union Reb_Custom_Extra first;
+    union Reb_Custom_Extra second;
+};
+
+struct Reb_Partial_Payload // see %c-specialize.c (used with REB_X_PARTIAL)
+{
+    REBDSP dsp; // the DSP of this partial slot (if ordered on the stack)
+    REBINT signed_index; // index in the paramlist, negative if not "in use"
+};
+
+union Reb_Bytes_Payload // IMPORTANT: Do not cast, use `Pointers` instead
+{
+    REBYTE common[sizeof(uint32_t) * 2]; // same on 32-bit/64-bit platforms
+    REBYTE varies[sizeof(void*) * 2]; // size depends on platform
+};
+
+#if defined(DEBUG_TRACK_CELLS)
+    struct Reb_Track_Payload // see %sys-track.h
+    {
+        const char *file; // is REBYTE (UTF-8), but char* for debug watch
+        int line;
+    };
+#endif
+
+union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
+
+    struct Reb_Quoted_Payload Quoted;
+    struct Reb_Character_Payload Character;
+    struct Reb_Integer_Payload Integer;
+    struct Reb_Decimal_Payload Decimal;
+    struct Reb_Datatype_Payload Datatype;
+    struct Reb_Typeset_Payload Typeset;
+    struct Reb_Series_Payload Series;
+    struct Reb_Action_Payload Action;
+    struct Reb_Context_Payload Context;
+    struct Reb_Word_Payload Word;
+    struct Reb_Varargs_Payload Varargs;
+    struct Reb_Time_Payload Time;
+    struct Reb_Pair_Payload Pair;
+    struct Reb_Handle_Payload Handle;
+    struct Reb_Library_Payload Library;
+
+    struct Reb_Partial_Payload Partial; // internal (see REB_X_PARTIAL)
+
+    struct Reb_Custom_Payload Custom;
+    union Reb_Bytes_Payload Bytes;
 
   #if defined(DEBUG_TRACK_CELLS) && !defined(DEBUG_TRACK_EXTEND_CELLS)
-    struct Reb_Track_Payload track; // NULL, VOID!, BLANK!, LOGIC!, BAR!
+    //
+    // Debug builds put the file and line number of initialization for a cell
+    // into the payload.  It will remain there after initialization for types
+    // that do not need a payload (NULL, VOID!, BLANK!, LOGIC!).  See the
+    // DEBUG_TRACK_EXTEND_CELLS option for tracking even types with payloads,
+    // and also see TOUCH_CELL() for how to update tracking at runtime.
+    //
+    struct Reb_Track_Payload Track;
   #endif
 
-    REBUNI character; // It's CHAR! (for now), but 'char' is a C keyword
-    REBI64 integer;
-    REBDEC decimal;
-
-    REBVAL *pair; // actually a "pairing" pointer
-    struct Reb_Money_Payload money;
-    struct Reb_Handle_Payload handle;
-    struct Reb_Time_Payload time;
-    struct Reb_Tuple_Payload tuple;
-    struct Reb_Datatype_Payload datatype;
-    struct Reb_Typeset_Payload typeset;
-
-    struct Reb_Library_Payload library;
-    struct Reb_Struct_Payload structure; // STRUCT!, but 'struct' is C keyword
-
-    struct Reb_Event_Payload event;
-    struct Reb_Gob_Payload gob;
-
-    // These use `specific` or `relative` in `binding`, based on IS_RELATIVE()
-
-    struct Reb_Word_Payload any_word;
-    struct Reb_Quoted_Payload quoted;
-    struct Reb_Series_Payload any_series;
-    struct Reb_Action_Payload action;
-    struct Reb_Context_Payload any_context;
-    struct Reb_Varargs_Payload varargs;
-
-    // Internal-only payloads for cells that use > REB_MAX as the VAL_TYPE()
-    //
-    struct Reb_Partial_Payload partial; // used with REB_X_PARTIAL
+  #if !defined(NDEBUG) // unsafe "puns" for easy debug viewing in C watchlist
+    int64_t i;
+    void *p;
+  #endif
 };
+
+
+//=//// COMPLETED 4-PLATFORM POINTER CELL DEFINITION //////////////////////=//
+//
+// This bundles up the cell into a structure.  The C++ build includes some
+// special checks to make sure that overwriting one cell with another can't
+// be done with direct assignment, such as `*dest = *src;`  Cells contain
+// formatting bits that must be preserved, and some flag bits shouldn't be
+// copied. (See: CELL_MASK_PRESERVE)
+//
+// Also, copying needs to be sensitive to the target slot.  If that slot is
+// at a higher stack level than the source (or persistent in an array) then
+// special handling is necessary to make sure any stack constrained pointers
+// are "reified" and visible to the GC.
+//
+// Goal is that the mechanics are managed with low-level C, so the C++ build
+// is just there to notice when you try to use a raw byte copy.  Use functions
+// instead.  (See: Move_Value(), Blit_Cell(), Derelativize())
+//
+// Note: It is annoying that this means any structure that embeds a value cell
+// cannot be assigned.  However, `struct Reb_Value` must be the type exported
+// in both C and C++ under the same name and bit patterns.  Pretty much any
+// attempt to work around this and create a base class that works in C too
+// (e.g. Reb_Cell) would wind up violating strict aliasing.  Think *very hard*
+// before changing!
+//
 
 #ifdef CPLUSPLUS_11
     struct Reb_Cell
@@ -698,28 +619,6 @@ union Reb_Value_Payload {
       #endif
 
       #ifdef CPLUSPLUS_11
-        //
-        // Overwriting one cell with another can't be done with a direct
-        // assignment, such as `*dest = *src;`  Cells contain formatting bits
-        // that must be preserved, and some flag bits shouldn't be copied.
-        // (See: CELL_MASK_PRESERVE)
-        //
-        // Also, copying needs to be sensitive to the target slot.  If that
-        // slot is at a higher stack level than the source (or persistent in
-        // an array) then special handling is necessary to make sure any stack
-        // constrained pointers are "reified" and visible to the GC.
-        //
-        // Goal is that the mechanics are managed with low-level C, so the
-        // C++ build gives errors on bit copy.  Use functions instead.
-        // (See: Move_Value(), Blit_Cell(), Derelativize())
-        //
-        // Note: It is annoying that this means any structure that embeds a
-        // value cell cannot be assigned.  However, `struct Reb_Value` must
-        // be the type exported in both C and C++ under the same name and
-        // bit patterns.  Pretty much any attempt to work around this and
-        // create a base class that works in C too (e.g. Reb_Cell) would wind
-        // up violating strict aliasing.  Think *very hard* before changing!
-        //
       public:
         Reb_Cell () = default;
       private:
@@ -737,6 +636,13 @@ union Reb_Value_Payload {
     //
     struct Reb_Relative_Value : public Reb_Cell {};
 #endif
+
+
+#define PAYLOAD(Type, v) \
+    (v)->payload.Type
+
+#define EXTRA(Type, v) \
+    (v)->extra.Type
 
 
 //=////////////////////////////////////////////////////////////////////////=//

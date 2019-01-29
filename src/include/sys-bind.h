@@ -49,6 +49,30 @@
 // The debug build also adds another feature, that makes sure the clear count
 // matches the set count.
 //
+// The binding will be either a REBACT (relative to a function) or a
+// REBCTX (specific to a context), or simply a plain REBARR such as
+// EMPTY_ARRAY which indicates UNBOUND.  ARRAY_FLAG_IS_VARLIST and
+// ARRAY_FLAG_IS_PARAMLIST can be used to tell which it is.
+//
+//     ANY-WORD!: binding is the word's binding
+//
+//     ANY-ARRAY!: binding is the relativization or specifier for the REBVALs
+//     which can be found inside of the frame (for recursive resolution
+//     of ANY-WORD!s)
+//
+//     ACTION!: binding is the instance data for archetypal invocation, so
+//     although all the RETURN instances have the same paramlist, it is
+//     the binding which is unique to the REBVAL specifying which to exit
+//
+//     ANY-CONTEXT!: if a FRAME!, the binding carries the instance data from
+//     the function it is for.  So if the frame was produced for an instance
+//     of RETURN, the keylist only indicates the archetype RETURN.  Putting
+//     the binding back together can indicate the instance.
+//
+//     VARARGS!: the binding identifies the feed from which the values are
+//     coming.  It can be an ordinary singular array which was created with
+//     MAKE VARARGS! and has its index updated for all shared instances.
+//
 
 
 #ifdef NDEBUG
@@ -56,7 +80,7 @@
         cast(REBSPC*, (p)) // makes UNBOUND look like SPECIFIED
 
     #define VAL_SPECIFIER(v) \
-        SPC(v->extra.binding)
+        SPC(EXTRA(Binding, (v)).node)
 #else
     inline static REBSPC* SPC(void *p) {
         assert(p != SPECIFIED); // use SPECIFIED, not SPC(SPECIFIED)
@@ -72,11 +96,11 @@
 
     inline static REBSPC *VAL_SPECIFIER(const REBCEL *v) {
         if (ANY_PATH_KIND(CELL_KIND(v)))
-            assert(v->payload.any_series.index == 0);
+            assert(PAYLOAD(Series, v).index == 0);
         else
             assert(ANY_ARRAY_KIND(CELL_KIND(v)));
 
-        if (not v->extra.binding)
+        if (not EXTRA(Binding, v).node)
             return SPECIFIED;
 
         // While an ANY-WORD! can be bound specifically to an arbitrary
@@ -84,7 +108,7 @@
         // The keylist for a frame's context should come from a function's
         // paramlist, which should have an ACTION! value in keylist[0]
         //
-        REBCTX *c = CTX(v->extra.binding);
+        REBCTX *c = CTX(EXTRA(Binding, v).node);
         assert(CTX_TYPE(c) == REB_FRAME); // may be inaccessible
         assert(GET_SERIES_FLAG(c, STACK_LIFETIME));
         return cast(REBSPC*, c);
@@ -321,7 +345,7 @@ inline static REBNOD *SPC_BINDING(REBSPC *specifier)
     assert(specifier != UNBOUND);
     REBVAL *rootvar = CTX_ARCHETYPE(CTX(specifier)); // works even if Decay()d
     assert(IS_FRAME(rootvar));
-    return rootvar->extra.binding;
+    return EXTRA(Binding, rootvar).node;
 }
 
 
@@ -329,11 +353,11 @@ inline static REBNOD *SPC_BINDING(REBSPC *specifier)
 // management/reification of the binding can be avoided.
 //
 inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
-    out->extra.binding = binding; // payload and header should be valid
+    EXTRA(Binding, out).node = binding; // payload and header should be valid
 
     if (KIND_BYTE(out) == REB_QUOTED) {
-        RELVAL *old = out->payload.quoted.cell;
-        if (old->extra.binding == binding)
+        RELVAL *old = PAYLOAD(Quoted, out).cell;
+        if (EXTRA(Binding, old).node == binding)
             return; // it's okay to reuse the payload
 
         REBARR *a = Alloc_Singular(
@@ -341,10 +365,10 @@ inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
         );
         RELVAL *cell = ARR_SINGLE(a);
         cell->header = old->header;
-        cell->extra.binding = binding;
+        EXTRA(Binding, cell).node = binding;
         cell->payload = old->payload;
 
-        out->payload.quoted.cell = cell; // update to new binding
+        PAYLOAD(Quoted, out).cell = cell; // update to new binding
     }
 
     if (
@@ -381,7 +405,7 @@ inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
     }
 
     binding->header.bits |= NODE_FLAG_MANAGED; // burdens the GC, now...
-    out->extra.binding = binding;
+    EXTRA(Binding, out).node = binding;
 }
 
 
@@ -625,10 +649,10 @@ inline static REBVAL *Derelativize(
         return KNOWN(out);
     }
 
-    REBNOD *binding = v->extra.binding;
+    REBNOD *binding = EXTRA(Binding, v).node;
 
     if (not binding) {
-        out->extra.binding = UNBOUND;
+        EXTRA(Binding, out).node = UNBOUND;
     }
     else if (binding->header.bits & ARRAY_FLAG_IS_PARAMLIST) {
         //

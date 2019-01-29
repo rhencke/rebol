@@ -159,6 +159,10 @@ void Free_Mem(void *mem, size_t size)
     PG_Mem_Usage -= size;
 }
 
+// !!! Needed for sizeof(REBGOB)...plan is to make GOB!s ordinary arrays and
+// build on the normal GC logic...find optimizations so that's palatable.
+//
+#include "reb-gob.h"
 
 /***********************************************************************
 **
@@ -1089,7 +1093,7 @@ void Decay_Series(REBSER *s)
         if (IS_SER_ARRAY(s)) {
             RELVAL *v = ARR_HEAD(ARR(s));
             if (CELL_KIND_UNCHECKED(v) == REB_HANDLE) {
-                if (v->extra.singular == ARR(s)) {
+                if (EXTRA(Handle, v).singular == ARR(s)) {
                     //
                     // Some handles use the managed form just because they
                     // want changes to the pointer in one instance to be seen

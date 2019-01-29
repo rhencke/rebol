@@ -29,7 +29,36 @@
 //
 
 #include "sys-core.h"
-#include "sys-deci-funcs.h"
+
+#include "sys-money.h"
+
+//
+//  Scan_Money: C
+//
+// Scan and convert money.  Return zero if error.
+//
+const REBYTE *Scan_Money(
+    RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
+    const REBYTE *cp,
+    REBCNT len
+) {
+    TRASH_CELL_IF_DEBUG(out);
+
+    const REBYTE *end;
+
+    if (*cp == '$') {
+        ++cp;
+        --len;
+    }
+    if (len == 0)
+        return nullptr;
+
+    Init_Money(out, string_to_deci(cp, &end));
+    if (end != cp + len)
+        return nullptr;
+
+    return end;
+}
 
 
 //
@@ -210,15 +239,13 @@ REBTYPE(Money)
         ));
         break;
 
-    case SYM_NEGATE:
-        val->payload.money.s = !val->payload.money.s;
-        Move_Value(D_OUT, D_ARG(1));
-        return D_OUT;
+    case SYM_NEGATE: // sign bit is the 32nd bit, highest one used
+        PAYLOAD(Custom, val).second.u ^= (cast(uintptr_t, 1) << 31);
+        RETURN (val);
 
     case SYM_ABSOLUTE:
-        val->payload.money.s = 0;
-        Move_Value(D_OUT, D_ARG(1));
-        return D_OUT;
+        PAYLOAD(Custom, val).second.u &= ~(cast(uintptr_t, 1) << 31);
+        RETURN (val);
 
     case SYM_ROUND: {
         INCLUDE_PARAMS_OF_ROUND;

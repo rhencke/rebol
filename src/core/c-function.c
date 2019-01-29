@@ -140,7 +140,7 @@ static bool Typesets_Of_Hook(
     //
     Move_Value(s->dest, param);
     assert(IS_TYPESET(s->dest));
-    s->dest->extra.key_spelling = nullptr;
+    EXTRA(Key, s->dest).spelling = nullptr;
     ++s->dest;
 
     return true;
@@ -383,7 +383,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // Leaves VAL_TYPESET_SYM as-is.
             //
             REBSPC *derived = Derive_Specifier(VAL_SPECIFIER(spec), item);
-            param->payload.typeset.bits = 0;
+            PAYLOAD(Typeset, param).bits = 0;
             Add_Typeset_Bits_Core(
                 param,
                 VAL_ARRAY_HEAD(item),
@@ -627,15 +627,15 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         SER(paramlist)->header.bits |= PARAMLIST_FLAG_HAS_RETURN;
 
     if (true) {
-        REBVAL *canon = RESET_CELL_EXTRA(
+        REBVAL *archetype = RESET_CELL_EXTRA(
             ARR_HEAD(paramlist),
             REB_ACTION,
             header_bits
         );
-        canon->payload.action.paramlist = paramlist;
-        INIT_BINDING(canon, UNBOUND);
+        PAYLOAD(Action, archetype).paramlist = paramlist;
+        INIT_BINDING(archetype, UNBOUND);
 
-        REBVAL *dest = canon + 1;
+        REBVAL *dest = archetype + 1;
 
         // We want to check for duplicates and a Binder can be used for that
         // purpose--but note that a fail() cannot happen while binders are
@@ -747,8 +747,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         INIT_CTX_KEYLIST_SHARED(CTX(types_varlist), paramlist);
 
         REBVAL *rootvar = RESET_CELL(ARR_HEAD(types_varlist), REB_FRAME);
-        rootvar->payload.any_context.varlist = types_varlist; // canon FRAME!
-        rootvar->payload.any_context.phase = ACT(paramlist);
+        PAYLOAD(Context, rootvar).varlist = types_varlist; // canon FRAME!
+        PAYLOAD(Context, rootvar).phase = ACT(paramlist);
         INIT_BINDING(rootvar, UNBOUND);
 
         REBVAL *dest = rootvar + 1;
@@ -809,8 +809,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         INIT_CTX_KEYLIST_SHARED(CTX(notes_varlist), paramlist);
 
         REBVAL *rootvar = RESET_CELL(ARR_HEAD(notes_varlist), REB_FRAME);
-        rootvar->payload.any_context.varlist = notes_varlist; // canon FRAME!
-        rootvar->payload.any_context.phase = ACT(paramlist);
+        PAYLOAD(Context, rootvar).varlist = notes_varlist; // canon FRAME!
+        PAYLOAD(Context, rootvar).phase = ACT(paramlist);
         INIT_BINDING(rootvar, UNBOUND);
 
         REBVAL *dest = rootvar + 1;
@@ -924,8 +924,8 @@ REBACT *Make_Action(
 
     RELVAL *rootparam = ARR_HEAD(paramlist);
     assert(KIND_BYTE(rootparam) == REB_ACTION); // !!! not fully formed...
-    assert(rootparam->payload.action.paramlist == paramlist);
-    assert(rootparam->extra.binding == UNBOUND); // archetype
+    assert(PAYLOAD(Action, rootparam).paramlist == paramlist);
+    assert(EXTRA(Binding, rootparam).node == UNBOUND); // archetype
 
     // "details" for an action is an array of cells which can be anything
     // the dispatcher understands it to be, by contract.  Terminate it
@@ -934,7 +934,7 @@ REBACT *Make_Action(
     REBARR *details = Make_Arr_Core(details_capacity, NODE_FLAG_MANAGED);
     TERM_ARRAY_LEN(details, details_capacity);
 
-    rootparam->payload.action.details = details;
+    PAYLOAD(Action, rootparam).details = details;
 
     MISC(details).dispatcher = dispatcher; // level of indirection, hijackable
 
@@ -1051,8 +1051,8 @@ REBCTX *Make_Expired_Frame_Ctx_Managed(REBACT *a)
     MISC(varlist).meta = nullptr;
 
     RELVAL *rootvar = RESET_CELL(ARR_SINGLE(varlist), REB_FRAME);
-    rootvar->payload.any_context.varlist = varlist;
-    rootvar->payload.any_context.phase = a;
+    PAYLOAD(Context, rootvar).varlist = varlist;
+    PAYLOAD(Context, rootvar).phase = a;
     INIT_BINDING(rootvar, UNBOUND); // !!! is a binding relevant?
 
     REBCTX *expired = CTX(varlist);
@@ -1712,7 +1712,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     // encloser again (infinite loop).
     //
     REBVAL *rootvar = CTX_ARCHETYPE(c);
-    rootvar->payload.any_context.phase = VAL_ACTION(inner);
+    PAYLOAD(Context, rootvar).phase = VAL_ACTION(inner);
     INIT_BINDING_MAY_MANAGE(rootvar, VAL_BINDING(inner));
 
     Move_Value(FRM_CELL(f), rootvar); // user may DO this, or not...

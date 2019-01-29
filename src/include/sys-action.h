@@ -273,10 +273,10 @@ inline static REBARR *ACT_PARAMLIST(REBACT *a) {
     cast(REBVAL*, cast(REBSER*, ACT_PARAMLIST(a))->content.dynamic.data)
 
 #define ACT_DISPATCHER(a) \
-    (MISC(ACT_ARCHETYPE(a)->payload.action.details).dispatcher)
+    (MISC(PAYLOAD(Action, ACT_ARCHETYPE(a)).details).dispatcher)
 
 #define ACT_DETAILS(a) \
-    ACT_ARCHETYPE(a)->payload.action.details
+    PAYLOAD(Action, ACT_ARCHETYPE(a)).details
 
 // These are indices into the details array agreed upon by actions which have
 // the PARAMLIST_FLAG_IS_NATIVE set.
@@ -314,7 +314,7 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
 // This makes Push_Action() slightly faster in assigning f->special.
 //
 inline static REBCTX *ACT_EXEMPLAR(REBACT *a) {
-    REBARR *details = ACT_ARCHETYPE(a)->payload.action.details;
+    REBARR *details = PAYLOAD(Action, ACT_ARCHETYPE(a)).details;
     REBARR *specialty = LINK(details).specialty;
     if (GET_ARRAY_FLAG(specialty, IS_VARLIST))
         return CTX(specialty);
@@ -323,7 +323,7 @@ inline static REBCTX *ACT_EXEMPLAR(REBACT *a) {
 }
 
 inline static REBVAL *ACT_SPECIALTY_HEAD(REBACT *a) {
-    REBARR *details = ACT_ARCHETYPE(a)->payload.action.details;
+    REBARR *details = PAYLOAD(Action, ACT_ARCHETYPE(a)).details;
     REBSER *s = SER(LINK(details).specialty);
     return cast(REBVAL*, s->content.dynamic.data) + 1; // skip archetype/root
 }
@@ -338,7 +338,7 @@ inline static REBVAL *ACT_SPECIALTY_HEAD(REBACT *a) {
 
 inline static REBACT *VAL_ACTION(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_ACTION); // so it works on literals
-    REBSER *s = SER(v->payload.action.paramlist);
+    REBSER *s = SER(PAYLOAD(Action, v).paramlist);
     if (GET_SERIES_INFO(s, INACCESSIBLE))
         fail (Error_Series_Data_Freed_Raw());
     return ACT(s);
@@ -358,17 +358,17 @@ inline static REBACT *VAL_ACTION(const REBCEL *v) {
 
 inline static REBARR *VAL_ACT_DETAILS(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_ACTION);
-    return v->payload.action.details;
+    return PAYLOAD(Action, v).details;
 }
 
 inline static REBNAT VAL_ACT_DISPATCHER(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_ACTION);
-    return MISC(v->payload.action.details).dispatcher;
+    return MISC(PAYLOAD(Action, v).details).dispatcher;
 }
 
 inline static REBCTX *VAL_ACT_META(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_ACTION);
-    return MISC(v->payload.action.paramlist).meta;
+    return MISC(PAYLOAD(Action, v).paramlist).meta;
 }
 
 

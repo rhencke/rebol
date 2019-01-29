@@ -30,6 +30,9 @@
 
 #include "sys-core.h"
 
+#include "sys-money.h" // !!! Needed for hash (should be a method?)
+#include "sys-tuple.h" // !!! ...same
+
 #include "sys-zlib.h" // re-use CRC code from zlib
 const z_crc_t *crc32_table; // pointer to the zlib CRC32 table
 
@@ -178,6 +181,7 @@ REBINT Hash_UTF8(const REBYTE *utf8, REBSIZ size)
 }
 
 
+
 //
 //  Hash_Value: C
 //
@@ -222,20 +226,13 @@ uint32_t Hash_Value(const RELVAL *v)
 
       case REB_MONEY: {
         //
-        // !!! R3-Alpha used a sketchy "Reb_All" union for this, violating the
-        // rule of only reading from the union you last read from.  Access
-        // via unsigned char* to use the actual bytes of the money payload to
-        // accomplish the same thing (whether it was good or not, at least it
-        // isn't breaking the C standard)
-
-        const REBYTE *payload = cast(const REBYTE*, &cell->payload.money);
-
-        uintptr_t bits0;
-        uintptr_t bits1;
-        memcpy(&bits0, payload, sizeof(uintptr_t));
-        memcpy(&bits1, payload + sizeof(uintptr_t), sizeof(uintptr_t));
-
-        hash = bits0 ^ bits1 ^ cell->extra.m0;
+        // Writes the 3 pointer fields as three uintptr_t integer values to
+        // build a `deci` type.  So it is safe to read the three pointers as
+        // uintptr_t back, and hash them.
+        //
+        hash = PAYLOAD(Custom, cell).first.u;
+        hash ^= PAYLOAD(Custom, cell).second.u;
+        hash ^= EXTRA(Custom, cell).u;
         break; }
 
       case REB_CHAR:
@@ -432,8 +429,8 @@ REBVAL *Init_Map(RELVAL *out, REBMAP *map)
 
     RESET_CELL(out, REB_MAP);
     INIT_BINDING(out, UNBOUND);
-    out->payload.any_series.series = SER(MAP_PAIRLIST(map));
-    out->payload.any_series.index = 0;
+    PAYLOAD(Series, out).rebser = SER(MAP_PAIRLIST(map));
+    PAYLOAD(Series, out).index = 0;
 
     return KNOWN(out);
 }

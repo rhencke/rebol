@@ -84,6 +84,14 @@
 #include "sys-core.h"
 
 
+// SPECIALIZE attempts to be smart enough to do automatic partial specializing
+// when it can, and to allow you to augment the APPLY-style FRAME! with an
+// order of refinements that is woven into the single operation.  It links
+// all the partially specialized (or unspecified) refinements as it traverses
+// in order to revisit them and fill them in more efficiently.  A special
+// payload is used along with a singly linked list via extra.next_partial
+
+
 //
 //  Make_Context_For_Action_Int_Partials: C
 //
@@ -126,8 +134,8 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     );
 
     REBVAL *rootvar = RESET_CELL(ARR_HEAD(varlist), REB_FRAME);
-    rootvar->payload.any_context.varlist = varlist;
-    rootvar->payload.any_context.phase = VAL_ACTION(action);
+    PAYLOAD(Context, rootvar).varlist = varlist;
+    PAYLOAD(Context, rootvar).phase = VAL_ACTION(action);
     INIT_BINDING(rootvar, VAL_BINDING(action));
 
     // Copy values from any prior specializations, transforming REFINEMENT!
@@ -266,7 +274,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
 
                 assert(not IS_WORD_BOUND(ordered)); // we bind only one
                 INIT_BINDING(ordered, varlist);
-                ordered->payload.any_word.index = index;
+                PAYLOAD(Word, ordered).index = index;
 
                 // Wasn't hidden in the incoming paramlist, but it should be
                 // hidden from the user when they are running their code
@@ -344,11 +352,11 @@ REBCTX *Make_Context_For_Action(
 // the partials.  Better to do it with a macro than repeat the code.  :-/
 //
 #define FINALIZE_REFINE_IF_FULFILLED \
-    assert(evoked != refine or evoked->payload.partial.dsp == 0); \
+    assert(evoked != refine or PAYLOAD(Partial, evoked).dsp == 0); \
     if (KIND_BYTE(refine) == REB_X_PARTIAL) { \
         /* Partial, and wasn't flipped to REB_X_PARTIAL_SAW_NULL_ARG... */ \
-        if (refine->payload.partial.dsp != 0) \
-            Init_Blank(DS_AT(refine->payload.partial.dsp)); /* full! */ \
+        if (PAYLOAD(Partial, refine).dsp != 0) \
+            Init_Blank(DS_AT(PAYLOAD(Partial, refine).dsp)); /* full! */ \
         else if (refine == evoked) \
             evoked = NULL; /* allow another evoke to be last partial! */ \
     }
@@ -498,16 +506,16 @@ bool Specialize_Action_Throws(
                 if (not first_partial)
                     first_partial = refine;
                 else
-                    last_partial->extra.next_partial = refine;
+                    EXTRA(Partial, last_partial).next = refine;
 
                 RESET_CELL(refine, REB_X_PARTIAL);
-                refine->payload.partial.dsp = partial_dsp;
-                TRASH_POINTER_IF_DEBUG(refine->extra.next_partial);
+                PAYLOAD(Partial, refine).dsp = partial_dsp;
+                TRASH_POINTER_IF_DEBUG(EXTRA(Partial, refine).next);
 
                 last_partial = refine;
 
                 if (partial_dsp == 0) {
-                    refine->payload.partial.signed_index
+                    PAYLOAD(Partial, refine).signed_index
                         = -cast(REBINT, index); // negative signals unused
                     goto unspecialized_arg_but_may_evoke;
                 }
@@ -517,7 +525,7 @@ bool Specialize_Action_Throws(
                 // all the null arguments.  We need to know the stack position
                 // of the ordering, to BLANK! it from the partial stack if so.
                 //
-                refine->payload.partial.signed_index = index; // + in use
+                PAYLOAD(Partial, refine).signed_index = index; // + in use
                 goto specialized_arg_no_typecheck;
             }
 
@@ -564,7 +572,7 @@ bool Specialize_Action_Throws(
                 goto unspecialized_arg;
             }
 
-            if (refine->payload.partial.dsp != 0) // started true
+            if (PAYLOAD(Partial, refine).dsp != 0) // started true
                 goto specialized_arg;
 
             if (evoked == refine)
@@ -583,9 +591,9 @@ bool Specialize_Action_Throws(
             TYPE_SET(DS_TOP, REB_TS_HIDDEN);
 
             evoked = refine; // gets reset to NULL if ends up fulfilled
-            assert(refine->payload.partial.signed_index < 0);
-            refine->payload.partial.signed_index =
-                -refine->payload.partial.signed_index; // negate to mark used
+            assert(PAYLOAD(Partial, refine).signed_index < 0);
+            PAYLOAD(Partial, refine).signed_index =
+                -(PAYLOAD(Partial, refine).signed_index); // negate, mark used
             goto specialized_arg;
         }
 
@@ -618,13 +626,13 @@ bool Specialize_Action_Throws(
         if (not first_partial)
             first_partial = refine;
         else
-            last_partial->extra.next_partial = refine;
+            EXTRA(Partial, last_partial).next = refine;
 
         RESET_CELL(refine, REB_X_PARTIAL_SAW_NULL_ARG); // this is a null arg
-        refine->payload.partial.dsp = 0; // no ordered position on stack
-        refine->payload.partial.signed_index
+        PAYLOAD(Partial, refine).dsp = 0; // no ordered position on stack
+        PAYLOAD(Partial, refine).signed_index
             = index - (arg - refine); // positive to indicate used
-        TRASH_POINTER_IF_DEBUG(refine->extra.next_partial);
+        TRASH_POINTER_IF_DEBUG(EXTRA(Partial, refine).next);
 
         last_partial = refine;
 
@@ -633,7 +641,7 @@ bool Specialize_Action_Throws(
 
     unspecialized_arg_but_may_evoke:;
 
-        assert(refine->payload.partial.dsp == 0);
+        assert(PAYLOAD(Partial, refine).dsp == 0);
 
     unspecialized_arg:;
 
@@ -676,7 +684,7 @@ bool Specialize_Action_Throws(
 
     if (first_partial) {
         FINALIZE_REFINE_IF_FULFILLED; // last chance (no more refinements)
-        last_partial->extra.next_partial = nullptr; // not needed until now
+        EXTRA(Partial, last_partial).next = nullptr; // not needed until now
     }
 
     REBARR *paramlist = Pop_Stack_Values_Core(
@@ -685,7 +693,7 @@ bool Specialize_Action_Throws(
     );
     MANAGE_ARRAY(paramlist);
     RELVAL *rootparam = ARR_HEAD(paramlist);
-    rootparam->payload.action.paramlist = paramlist;
+    PAYLOAD(Action, rootparam).paramlist = paramlist;
 
     // REB_P_REFINEMENT slots which started partially specialized (or
     // unspecialized) in the exemplar now all contain REB_X_PARTIAL, but we
@@ -725,9 +733,9 @@ bool Specialize_Action_Throws(
             KIND_BYTE(partial) == REB_X_PARTIAL
             or KIND_BYTE(partial) == REB_X_PARTIAL_SAW_NULL_ARG
         );
-        REBVAL *next_partial = partial->extra.next_partial; // overwritten
+        REBVAL *next_partial = EXTRA(Partial, partial).next; // overwritten
 
-        if (partial->payload.partial.signed_index < 0) { // not in use
+        if (PAYLOAD(Partial, partial).signed_index < 0) { // not in use
             if (ordered == DS_TOP)
                 Init_Nulled(partial); // no more partials coming
             else {
@@ -741,9 +749,9 @@ bool Specialize_Action_Throws(
             Init_Refinement(
                 partial,
                 VAL_PARAM_SPELLING(
-                    rootkey + ((partial->payload.partial.signed_index > 0)
-                            ? partial->payload.partial.signed_index
-                            : -(partial->payload.partial.signed_index))
+                    rootkey + ((PAYLOAD(Partial, partial).signed_index > 0)
+                            ? PAYLOAD(Partial, partial).signed_index
+                            : -(PAYLOAD(Partial, partial).signed_index))
                 )
             );
             SET_CELL_FLAG(partial, ARG_MARKED_CHECKED);
@@ -756,10 +764,10 @@ bool Specialize_Action_Throws(
             // code block will come after all the refinements in the path,
             // making it *first* in the exemplar partial/unspecialized slots.
             //
-            assert(evoked->payload.partial.signed_index > 0); // in use
+            assert(PAYLOAD(Partial, evoked).signed_index > 0); // in use
             REBCNT evoked_index = cast(
                 REBCNT,
-                evoked->payload.partial.signed_index
+                PAYLOAD(Partial, evoked).signed_index
             );
             Init_Any_Word_Bound(
                 partial,
@@ -856,7 +864,7 @@ bool Specialize_Action_Throws(
     RELVAL *body = ARR_HEAD(ACT_DETAILS(specialized));
     Move_Value(body, CTX_ARCHETYPE(exemplar));
     INIT_BINDING(body, VAL_BINDING(specializee));
-    body->payload.any_context.phase = unspecialized;
+    PAYLOAD(Context, body).phase = unspecialized;
 
     Init_Action_Unbound(out, specialized);
     return false; // code block did not throw
@@ -879,7 +887,7 @@ REB_R Specializer_Dispatcher(REBFRM *f)
     REBVAL *exemplar = KNOWN(ARR_HEAD(details));
     assert(IS_FRAME(exemplar));
 
-    FRM_PHASE(f) = exemplar->payload.any_context.phase;
+    FRM_PHASE(f) = PAYLOAD(Context, exemplar).phase;
     FRM_BINDING(f) = VAL_BINDING(exemplar);
 
     return R_REDO_UNCHECKED; // redo uses the updated phase and binding
@@ -1465,7 +1473,7 @@ REBNATIVE(does)
         );
 
         REBVAL *archetype = RESET_CELL(Alloc_Tail_Array(paramlist), REB_ACTION);
-        archetype->payload.action.paramlist = paramlist;
+        PAYLOAD(Action, archetype).paramlist = paramlist;
         INIT_BINDING(archetype, UNBOUND);
         TERM_ARRAY_LEN(paramlist, 1);
 
@@ -1545,7 +1553,7 @@ REBNATIVE(does)
     REBARR *paramlist = Make_Arr_Core(num_slots, SERIES_MASK_ACTION);
 
     RELVAL *archetype = RESET_CELL(ARR_HEAD(paramlist), REB_ACTION);
-    archetype->payload.action.paramlist = paramlist;
+    PAYLOAD(Action, archetype).paramlist = paramlist;
     INIT_BINDING(archetype, UNBOUND);
     TERM_ARRAY_LEN(paramlist, 1);
 

@@ -816,7 +816,7 @@ REBNATIVE(redo)
         if (FRM_UNDERLYING(f) != ACT_UNDERLYING(VAL_ACTION(sibling)))
             fail ("/OTHER function passed to REDO has incompatible FRAME!");
 
-        restartee->payload.any_context.phase = VAL_ACTION(sibling);
+        PAYLOAD(Context, restartee).phase = VAL_ACTION(sibling);
         INIT_BINDING(restartee, VAL_BINDING(sibling));
     }
 
@@ -824,7 +824,7 @@ REBNATIVE(redo)
     //
     assert(
         GET_ARRAY_FLAG(
-            ACT_PARAMLIST(restartee->payload.any_context.phase),
+            ACT_PARAMLIST(PAYLOAD(Context, restartee).phase),
             IS_PARAMLIST
         )
     );

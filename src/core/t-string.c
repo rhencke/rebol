@@ -29,9 +29,11 @@
 //
 
 #include "sys-core.h"
-#include "sys-deci-funcs.h"
+
 #include "sys-int-funcs.h"
 
+#include "sys-money.h"
+#include "sys-tuple.h"
 
 #define MAX_QUOTED_STR  50  // max length of "string" before going to { }
 

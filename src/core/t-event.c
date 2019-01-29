@@ -34,7 +34,9 @@
 
 #include "sys-core.h"
 #include "reb-evtypes.h"
+#include "reb-event.h"
 
+#include "reb-gob.h"
 
 //
 //  CT_Event: C
@@ -98,11 +100,11 @@ static bool Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val)
     case SYM_PORT:
         if (IS_PORT(val)) {
             VAL_EVENT_MODEL(event) = EVM_PORT;
-            VAL_EVENT_SER(event) = SER(CTX_VARLIST(VAL_CONTEXT(val)));
+            mutable_VAL_EVENT_SER(event) = SER(CTX_VARLIST(VAL_CONTEXT(val)));
         }
         else if (IS_OBJECT(val)) {
             VAL_EVENT_MODEL(event) = EVM_OBJECT;
-            VAL_EVENT_SER(event) = SER(CTX_VARLIST(VAL_CONTEXT(val)));
+            mutable_VAL_EVENT_SER(event) = SER(CTX_VARLIST(VAL_CONTEXT(val)));
         }
         else if (IS_BLANK(val)) {
             VAL_EVENT_MODEL(event) = EVM_GUI;
@@ -115,7 +117,7 @@ static bool Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val)
     case SYM_GOB:
         if (IS_GOB(val)) {
             VAL_EVENT_MODEL(event) = EVM_GUI;
-            VAL_EVENT_SER(event) = cast(REBSER*, VAL_GOB(val));
+            mutable_VAL_EVENT_SER(event) = cast(REBSER*, VAL_GOB(val));
             break;
         }
         return false;
@@ -347,7 +349,8 @@ static REBVAL *Get_Event_Var(RELVAL *out, const REBCEL *v, REBSTR *name)
             //
             REBVAL *writable = m_cast(REBVAL*, KNOWN(v));
 
-            VAL_EVENT_SER(writable) = Copy_Bytes(cast(REBYTE*, str), -1);
+            mutable_VAL_EVENT_SER(writable)
+                = Copy_Bytes(cast(REBYTE*, str), -1);
             VAL_EVENT_FLAGS(writable) |= EVF_COPIED;
 
             free(str);

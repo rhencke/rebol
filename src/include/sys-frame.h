@@ -225,10 +225,10 @@ inline static int FRM_LINE(REBFRM *f) {
     ((f)->prior + 0) // prevent assignment via this macro
 
 #define FRM_PHASE(f) \
-    f->rootvar->payload.any_context.phase
+    PAYLOAD(Context, (f)->rootvar).phase
 
 #define FRM_BINDING(f) \
-    f->rootvar->extra.binding
+    EXTRA(Binding, (f)->rootvar).node
 
 #define FRM_UNDERLYING(f) \
     ACT_UNDERLYING((f)->original)
@@ -523,12 +523,12 @@ inline static void Push_Action(
         | CELL_FLAG_PROTECTED // cell payload/binding tweaked, not by user
         | FLAG_KIND_BYTE(REB_FRAME);
     TRACK_CELL_IF_DEBUG(f->rootvar, __FILE__, __LINE__);
-    f->rootvar->payload.any_context.varlist = f->varlist;
+    PAYLOAD(Context, f->rootvar).varlist = f->varlist;
 
   sufficient_allocation:
 
-    f->rootvar->payload.any_context.phase = act; // FRM_PHASE() (can be dummy)
-    f->rootvar->extra.binding = binding; // FRM_BINDING()
+    PAYLOAD(Context, f->rootvar).phase = act; // FRM_PHASE() (can be dummy)
+    EXTRA(Binding, f->rootvar).node = binding; // FRM_BINDING()
 
     s->content.dynamic.len = num_args + 1;
     RELVAL *tail = ARR_TAIL(f->varlist);
@@ -671,9 +671,9 @@ inline static void Drop_Action(REBFRM *f) {
 
         REBVAL *rootvar = cast(REBVAL*, ARR_HEAD(f->varlist));
         assert(IS_FRAME(rootvar));
-        assert(rootvar->payload.any_context.varlist == f->varlist);
-        TRASH_POINTER_IF_DEBUG(rootvar->payload.any_context.phase);
-        TRASH_POINTER_IF_DEBUG(rootvar->extra.binding);
+        assert(PAYLOAD(Context, rootvar).varlist == f->varlist);
+        TRASH_POINTER_IF_DEBUG(PAYLOAD(Context, rootvar).phase);
+        TRASH_POINTER_IF_DEBUG(EXTRA(Binding, rootvar).node);
     }
   #endif
 
@@ -699,5 +699,5 @@ inline static REBCTX *Context_For_Frame_May_Manage(REBFRM *f)
 
 inline static REBACT *VAL_PHASE(REBVAL *frame) {
     assert(IS_FRAME(frame));
-    return frame->payload.any_context.phase;
+    return PAYLOAD(Context, frame).phase;
 }

@@ -44,7 +44,19 @@
 // then a single element array (the `array`) holds an ANY-ARRAY! value that
 // is shared between the instances, to reflect the state.
 //
-
+//=//// NOTES /////////////////////////////////////////////////////////////=//
+//
+// * If the extra->binding of the varargs is not UNBOUND, it represents the
+//   frame in which this VARARGS! was tied to a parameter.  This 0-based
+//   offset can be used to find the param the varargs is tied to, in order
+//   to know whether it is quoted or not (and its name for error delivery).
+//
+// * It can also find the arg.  Similar to the param, the arg is only good
+//   for the lifetime of the FRAME! in extra->binding...but even less so,
+//   because VARARGS! can (currently) be overwritten with another value in
+//   the function frame at any point.  Despite this, we proxy the
+//   CELL_FLAG_UNEVALUATED from the last TAKE to reflect its status.
+//
 
 inline static bool Is_Block_Style_Varargs(
     REBVAL **shared_out,
@@ -52,7 +64,7 @@ inline static bool Is_Block_Style_Varargs(
 ){
     assert(CELL_KIND(vararg) == REB_VARARGS);
 
-    if (vararg->extra.binding->header.bits & ARRAY_FLAG_IS_VARLIST) {
+    if (EXTRA(Binding, vararg).node->header.bits & ARRAY_FLAG_IS_VARLIST) {
         *shared_out = nullptr; // avoid compiler warning in -Og build
         return false; // it's an ordinary vararg, representing a FRAME!
     }
@@ -61,7 +73,7 @@ inline static bool Is_Block_Style_Varargs(
     // filled by the evaluator on a <...> parameter.  Should be a singular
     // array with one BLOCK!, that is the actual array and index to advance.
     //
-    REBARR *array1 = ARR(vararg->extra.binding);
+    REBARR *array1 = ARR(EXTRA(Binding, vararg).node);
     *shared_out = KNOWN(ARR_HEAD(array1));
     assert(
         IS_END(*shared_out)
@@ -78,18 +90,16 @@ inline static bool Is_Frame_Style_Varargs_Maybe_Null(
 ){
     assert(CELL_KIND(vararg) == REB_VARARGS);
 
-    if (not (
-        vararg->extra.binding->header.bits & ARRAY_FLAG_IS_VARLIST
-    )){
-        *f_out = nullptr; // avoid compiler warning in -Og build
-        return false; // it's a block varargs, made via MAKE VARARGS!
+    if (EXTRA(Binding, vararg).node->header.bits & ARRAY_FLAG_IS_VARLIST) {
+        // "Ordinary" case... use the original frame implied by the VARARGS!
+        // (so long as it is still live on the stack)
+
+        *f_out = CTX_FRAME_IF_ON_STACK(CTX(EXTRA(Binding, vararg).node));
+        return true;
     }
 
-    // "Ordinary" case... use the original frame implied by the VARARGS!
-    // (so long as it is still live on the stack)
-
-    *f_out = CTX_FRAME_IF_ON_STACK(CTX(vararg->extra.binding));
-    return true;
+    *f_out = nullptr; // avoid compiler warning in -Og build
+    return false; // it's a block varargs, made via MAKE VARARGS!
 }
 
 
@@ -122,32 +132,30 @@ inline static bool Is_Frame_Style_Varargs_May_Fail(
 // they can be offered to any userspace routine.
 //
 #define Is_Varargs_Enfix(v) \
-    ((v)->payload.varargs.signed_param_index < 0)
+    (PAYLOAD(Varargs, (v)).signed_param_index < 0)
 
 
 inline static const REBVAL *Param_For_Varargs_Maybe_Null(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_VARARGS);
 
-    REBACT *phase = v->payload.varargs.phase;
+    REBACT *phase = PAYLOAD(Varargs, v).phase;
     if (phase) {
         REBARR *paramlist = ACT_PARAMLIST(phase);
-        if (v->payload.varargs.signed_param_index < 0) // e.g. enfix
+        if (PAYLOAD(Varargs, v).signed_param_index < 0) // e.g. enfix
             return KNOWN(ARR_AT(
                 paramlist,
-                -(v->payload.varargs.signed_param_index)
+                -(PAYLOAD(Varargs, v).signed_param_index)
             ));
         return KNOWN(ARR_AT(
             paramlist,
-            v->payload.varargs.signed_param_index
+            PAYLOAD(Varargs, v).signed_param_index
         ));
     }
 
     // A vararg created from a block AND never passed as an argument so no
     // typeset or quoting settings available.  Treat as "normal" parameter.
     //
-    assert(not (
-        v->extra.binding->header.bits & ARRAY_FLAG_IS_VARLIST
-    ));
+    assert(not (EXTRA(Binding, v).node->header.bits & ARRAY_FLAG_IS_VARLIST));
     return nullptr;
 }
 

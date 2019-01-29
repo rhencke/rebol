@@ -166,7 +166,7 @@ void Clonify(
         //
         REBSER *series;
         if (ANY_CONTEXT(v)) {
-            v->payload.any_context.varlist = CTX_VARLIST(
+            PAYLOAD(Context, v).varlist = CTX_VARLIST(
                 Copy_Context_Shallow_Managed(VAL_CONTEXT(v))
             );
             series = SER(CTX_VARLIST(VAL_CONTEXT(v)));
@@ -350,17 +350,17 @@ REBARR *Copy_Rerelativized_Array_Deep_Managed(
         Move_Value_Header(dest, src);
 
         if (ANY_ARRAY_OR_PATH(src)) {
-            dest->payload.any_series.series = SER(
+            PAYLOAD(Series, dest).rebser = SER(
                 Copy_Rerelativized_Array_Deep_Managed(
                     VAL_ARRAY(src), before, after
                 )
             );
-            dest->payload.any_series.index = src->payload.any_series.index;
+            PAYLOAD(Series, dest).index = PAYLOAD(Series, src).index;
             INIT_BINDING(dest, after); // relative binding
         }
         else {
             assert(ANY_WORD(src));
-            dest->payload.any_word = src->payload.any_word;
+            PAYLOAD(Word, dest) = PAYLOAD(Word, src);
             INIT_BINDING(dest, after);
         }
 

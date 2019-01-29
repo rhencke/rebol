@@ -30,6 +30,8 @@
 
 #include "sys-core.h"
 
+#include "sys-tuple.h"
+
 #include "reb-net.h"
 #include "reb-evtypes.h"
 
@@ -51,7 +53,7 @@ static void Query_Net(REBVAL *out, REBVAL *port, struct devreq_net *sock)
 
     REBCTX *ctx = VAL_CONTEXT(info);
 
-    Set_Tuple(
+    Init_Tuple(
         CTX_VAR(ctx, STD_NET_INFO_LOCAL_IP),
         cast(REBYTE*, &sock->local_ip),
         4
@@ -61,7 +63,7 @@ static void Query_Net(REBVAL *out, REBVAL *port, struct devreq_net *sock)
         sock->local_port
     );
 
-    Set_Tuple(
+    Init_Tuple(
         CTX_VAR(ctx, STD_NET_INFO_REMOTE_IP),
         cast(REBYTE*, &sock->remote_ip),
         4

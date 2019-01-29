@@ -332,7 +332,7 @@ REBNATIVE(now)
         // seconds portion (with the nanoseconds set to 0).  This achieves
         // that by extracting the seconds and then multiplying by nanoseconds.
         //
-        D_OUT->payload.time.nanoseconds = SECS_TO_NANO(VAL_SECS(D_OUT));
+        PAYLOAD(Time, D_OUT).nanoseconds = SECS_TO_NANO(VAL_SECS(D_OUT));
     }
 
     if (REF(utc)) {
@@ -340,7 +340,7 @@ REBNATIVE(now)
         // Say it has a time zone component, but it's 0:00 (as opposed
         // to saying it has no time zone component at all?)
         //
-        INIT_VAL_ZONE(D_OUT, 0);
+        VAL_DATE(D_OUT).zone = 0;
     }
     else if (REF(local)) {
         //
@@ -366,14 +366,14 @@ REBNATIVE(now)
     REBINT n = -1;
 
     if (REF(date)) {
-        D_OUT->payload.time.nanoseconds = NO_DATE_TIME;
+        PAYLOAD(Time, D_OUT).nanoseconds = NO_DATE_TIME;
         VAL_DATE(D_OUT).zone = NO_DATE_ZONE;
     }
     else if (REF(time)) {
         RESET_VAL_HEADER(D_OUT, REB_TIME);
     }
     else if (REF(zone)) {
-        D_OUT->payload.time.nanoseconds
+        PAYLOAD(Time, D_OUT).nanoseconds
             = VAL_ZONE(D_OUT) * ZONE_MINS * MIN_SEC;
         RESET_VAL_HEADER(D_OUT, REB_TIME);
     }

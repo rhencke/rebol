@@ -48,12 +48,11 @@
 // against the unquoted REB_WORD value they are interested in.
 //
 
-
 inline static REBCNT VAL_QUOTED_DEPTH(const RELVAL *v) {
     if (KIND_BYTE(v) >= REB_64) // shallow enough to use type byte trick...
         return KIND_BYTE(v) / REB_64; // ...see explanation above
     assert(KIND_BYTE(v) == REB_QUOTED);
-    return v->payload.quoted.depth;
+    return PAYLOAD(Quoted, v).depth;
 }
 
 inline static REBCNT VAL_NUM_QUOTES(const RELVAL *v) {
@@ -70,8 +69,8 @@ inline static RELVAL *Quotify_Core(
     REBCNT depth
 ){
     if (KIND_BYTE(v) == REB_QUOTED) { // reuse payload, bump count
-        assert(v->payload.quoted.depth > 3); // or should've used kind byte
-        v->payload.quoted.depth += depth;
+        assert(PAYLOAD(Quoted, v).depth > 3); // or should've used kind byte
+        PAYLOAD(Quoted, v).depth += depth;
         return v;
     }
 
@@ -118,10 +117,10 @@ inline static RELVAL *Quotify_Core(
             // prevents needing to make Is_Bindable() a more complex check,
             // we can just say yes always but have the binding null if not.
             //
-            v->extra.binding = nullptr;
+            EXTRA(Binding, v).node = nullptr;
         }
-        v->payload.quoted.cell = cell;
-        v->payload.quoted.depth = depth;
+        PAYLOAD(Quoted, v).cell = cell;
+        PAYLOAD(Quoted, v).depth = depth;
     }
 
     return v;
@@ -168,11 +167,11 @@ inline static RELVAL *Unquotify_Core(RELVAL *v, REBCNT unquotes) {
     if (KIND_BYTE(v) != REB_QUOTED)
         return Unquotify_In_Situ(v, unquotes);
 
-    REBCNT depth = v->payload.quoted.depth;
+    REBCNT depth = PAYLOAD(Quoted, v).depth;
     assert(depth > 3 and depth >= unquotes);
     depth -= unquotes;
 
-    RELVAL *cell = v->payload.quoted.cell;
+    RELVAL *cell = PAYLOAD(Quoted, v).cell;
     assert(
         KIND_BYTE(cell) != REB_0
         and KIND_BYTE(cell) != REB_QUOTED
@@ -180,13 +179,13 @@ inline static RELVAL *Unquotify_Core(RELVAL *v, REBCNT unquotes) {
     );
 
     if (depth > 3) // still can't do in-situ escaping within a single cell
-        v->payload.quoted.depth = depth;
+        PAYLOAD(Quoted, v).depth = depth;
     else {
         Move_Value_Header(v, cell);
         mutable_KIND_BYTE(v) += (REB_64 * depth);
         assert(
-            not Is_Bindable(cell)
-            or v->extra.binding == cell->extra.binding // must be in sync
+            not Is_Bindable(cell) or
+            EXTRA(Binding, v).node == EXTRA(Binding, cell).node // must sync
         );
         v->payload = cell->payload;
     }
@@ -213,7 +212,7 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v) {
     // shared in an escaping.  Modifications must be done with awareness of
     // the original RELVAL, and that it might be a QUOTED!.
     //
-    return v->payload.quoted.cell;
+    return PAYLOAD(Quoted, v).cell;
 }
 
 
@@ -224,16 +223,16 @@ inline static REBCNT Dequotify(RELVAL *v) {
         return depth;
     }
 
-    REBCNT depth = v->payload.quoted.depth;
-    RELVAL *cell = v->payload.quoted.cell;
+    REBCNT depth = PAYLOAD(Quoted, v).depth;
+    RELVAL *cell = PAYLOAD(Quoted, v).cell;
     assert(KIND_BYTE(cell) != REB_QUOTED and KIND_BYTE(cell) < REB_64);
 
     Move_Value_Header(v, cell);
   #if !defined(NDEBUG)
     if (Is_Bindable(cell))
-        assert(v->extra.binding == cell->extra.binding);
+        assert(EXTRA(Binding, v).node == EXTRA(Binding, cell).node);
     else
-        assert(not v->extra.binding);
+        assert(not EXTRA(Binding, v).node);
   #endif
     v->extra = cell->extra;
     v->payload = cell->payload;

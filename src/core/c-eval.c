@@ -361,12 +361,12 @@ inline static void Finalize_Variadic_Arg_Core(REBFRM *f, bool enfix) {
     // be recovered, while using only a single slot in the REBVAL.  But make
     // the sign denote whether the parameter was enfixed or not.
     //
-    f->arg->payload.varargs.signed_param_index =
+    PAYLOAD(Varargs, f->arg).signed_param_index =
         enfix
             ? -(f->arg - FRM_ARGS_HEAD(f) + 1)
             : f->arg - FRM_ARGS_HEAD(f) + 1;
 
-    f->arg->payload.varargs.phase = FRM_PHASE(f);
+    PAYLOAD(Varargs, f->arg).phase = FRM_PHASE(f);
     SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
 }
 
@@ -1030,7 +1030,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                     Init_Issue(DS_PUSH(), partial_canon);
                     INIT_BINDING(DS_TOP, f->varlist);
-                    DS_TOP->payload.any_word.index = partial_index;
+                    PAYLOAD(Word, DS_TOP).index = partial_index;
 
                     f->refine = SKIPPING_REFINEMENT_ARGS;
                     goto used_refinement;
@@ -1738,9 +1738,9 @@ bool Eval_Core_Throws(REBFRM * const f)
                     //
                     REBCTX *exemplar;
                     if (
-                        FRM_PHASE(f) != f->out->payload.any_context.phase
+                        FRM_PHASE(f) != PAYLOAD(Context, f->out).phase
                         and did (exemplar = ACT_EXEMPLAR(
-                            f->out->payload.any_context.phase
+                            PAYLOAD(Context, f->out).phase
                         ))
                     ){
                         f->special = CTX_VARS_HEAD(exemplar);
@@ -1752,7 +1752,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                         }
                     }
 
-                    FRM_PHASE(f) = f->out->payload.any_context.phase;
+                    FRM_PHASE(f) = PAYLOAD(Context, f->out).phase;
                     FRM_BINDING(f) = VAL_BINDING(f->out);
                     goto redo_checked;
                 }

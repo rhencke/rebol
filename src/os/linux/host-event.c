@@ -119,12 +119,12 @@ static void Add_Event_XY(REBGOB *gob, REBINT id, REBINT xy, REBINT flags)
     REBVAL *e = Append_Event(); // sets signal, null if no room in series
     if (e) {
         RESET_CELL(e, REB_EVENT);
-        e->payload.event.model = EVM_GUI;
-        e->extra.eventee.ser = gob;
-        e->payload.event.type = id;
-        e->payload.event.flags = cast(u8, flags | EVF_HAS_XY);
-        e->payload.event.win = 0;
-        e->payload.event.data = xy;
+        PAYLOAD(Event, e).model = EVM_GUI;
+        EXTRA(Event, e).eventee.ser = gob;
+        PAYLOAD(Event, e).type = id;
+        PAYLOAD(Event, e).flags = cast(u8, flags | EVF_HAS_XY);
+        PAYLOAD(Event, e).win = 0;
+        PAYLOAD(Event, e).data = xy;
     }
 }
 
@@ -141,15 +141,14 @@ static void Update_Event_XY(REBGOB *gob, REBINT id, REBINT xy, REBINT flags)
     //
     // The return result was not heeded here.
     //
-    REBVAL *event = Find_Last_Event(EVM_GUI, id);
-
-    if (event != NULL) {
-        event->extra.eventee = evt->eventee;
-        event->payload.event.type = id;
-        event->payload.event.flags = cast(u8, flags | EVF_HAS_XY);
-        event->payload.event.win = NULL;
-        event->payload.event.model = EVM_GUI;
-        event->payload.event.data = xy;
+    REBVAL *e = Find_Last_Event(EVM_GUI, id);
+    if (e) {
+        EXTRA(Event, e).eventee = evt->eventee;
+        PAYLOAD(Event, e).model = EVM_GUI;
+        PAYLOAD(Event, e).type = id;
+        PAYLOAD(Event, e).flags = cast(u8, flags | EVF_HAS_XY);
+        PAYLOAD(Event, e).win = NULL;
+        PAYLOAD(Event, e).data = xy;
     }
 }
 
@@ -158,12 +157,12 @@ static void Add_Event_Key(REBGOB *gob, REBINT id, REBINT key, REBINT flags)
     REBVAL *e = Append_Event(); // sets signal, null if no room in series
     if (e) {
         RESET_CELL(e, REB_EVENT);
-        e->payload.event.model = EVM_GUI;
-        e->extra.eventee.ser = gob;
-        e->payload.event.type = id;
-        e->payload.event.flags = flags;
-        e->payload.event.win = 0;
-        e->payload.event.data = key;
+        PAYLOAD(Event, e).model = EVM_GUI;
+        EXTRA(Event, e).eventee.ser = gob;
+        PAYLOAD(Event, e).type = id;
+        PAYLOAD(Event, e).flags = flags;
+        PAYLOAD(Event, e).win = 0;
+        PAYLOAD(Event, e).data = key;
     }
 }
 

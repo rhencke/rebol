@@ -83,15 +83,15 @@ static void get_scalar(
         //
         // Note: The original code allowed this for STU_INACCESSIBLE(stu).
         //
-        single->payload.structure.stu = sub_stu;
+        mutable_VAL_STRUCT(single) = sub_stu;
 
         // The parent data may be a singular array for a HANDLE! or a BINARY!
         // series, depending on whether the data is owned by Rebol or not.
         // That series pointer is being referenced again here.
         //
-        single->payload.structure.data =
-            ARR_HEAD(stu)->payload.structure.data;
-        single->extra.struct_offset = offset;
+        mutable_VAL_STRUCT_DATA(single)
+            = ARR_HEAD(stu)->payload.structure.data;
+        VAL_STRUCT_OFFSET(single) = offset;
 
         // With all fields initialized, assign canon value as result
         //
@@ -986,7 +986,7 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
                 fail (Error_Invalid(spec));
 
             parse_attr(spec_item, &raw_size, &raw_addr);
-            ret->payload.structure.data
+            mutable_VAL_STRUCT_DATA(ret)
                  = make_ext_storage(VAL_STRUCT_SIZE(ret), raw_size, raw_addr);
 
             break;
@@ -1344,18 +1344,18 @@ REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     LINK(stu).schema = schema;
 
     RESET_CELL(out, REB_STRUCT);
-    out->payload.structure.stu = stu;
+    mutable_VAL_STRUCT(out) = stu;
     if (raw_addr) {
-        out->payload.structure.data
+        mutable_VAL_STRUCT_DATA(out)
             = make_ext_storage(
                 FLD_LEN_BYTES_TOTAL(schema), raw_size, raw_addr
             );
     }
     else {
         MANAGE_SERIES(data_bin);
-        out->payload.structure.data = data_bin;
+        mutable_VAL_STRUCT_DATA(out) = data_bin;
     }
-    out->extra.struct_offset = 0;
+    VAL_STRUCT_OFFSET(out) = 0;
 
     Move_Value(ARR_HEAD(stu), out);
 
@@ -1527,7 +1527,7 @@ REBSTU *Copy_Struct_Managed(REBSTU *src)
     REBSER *bin_copy = Make_Binary(STU_DATA_LEN(src));
     memcpy(BIN_HEAD(bin_copy), STU_DATA_HEAD(src), STU_DATA_LEN(src));
     TERM_BIN_LEN(bin_copy, STU_DATA_LEN(src));
-    STU_VALUE(copy)->payload.structure.data = bin_copy;
+    mutable_VAL_STRUCT_DATA(STU_VALUE(copy)) = bin_copy;
     assert(STU_DATA_HEAD(copy) == BIN_HEAD(bin_copy));
 
     MANAGE_SERIES(bin_copy);
