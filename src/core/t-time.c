@@ -630,6 +630,8 @@ REBTYPE(Time)
     else {
         // unary actions
         switch (sym) {
+        case SYM_COPY:
+            RETURN (val);  // immediate type, just copy bits
 
         case SYM_ODD_Q:
             return Init_Logic(D_OUT, (SECS_FROM_NANO(secs) & 1) != 0);

@@ -950,6 +950,9 @@ REBTYPE(Date)
     }
     else {
         switch (sym) {
+        case SYM_COPY:
+            RETURN (val);  // immediate type, just copy bits
+
         case SYM_EVEN_Q:
             return Init_Logic(D_OUT, ((~day) & 1) == 0);
 
