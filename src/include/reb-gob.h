@@ -33,24 +33,65 @@
 //
 // Because a GUI could contain thousands of GOBs, it was believed that they
 // could not be implemented as ordinary OBJECT!s.  Instead they were made as
-// small fixed-size objects (somewhat parallel to REBSER) which held pointers
+// small fixed-size structs (somewhat parallel to REBSER) which held pointers
 // to dynamic series data, like pane lists or associated user data.  Because
 // they held pointers to Rebol nodes, they had to have custom behavior in
 // the garbage collector--meaning they shipped as part of the core, despite
 // that there was no GUI in R3-Alpha's core open-source release.
 //
-// !!! Ren-C aims to find a way to wedge GOBs into the user-defined type
-// system, where no custom GC behavior is needed.  This would likely involve
-// making them more OBJECT!-like, while possibly allowing the series node
-// of the object to carry capacity for additional fixed bits in the array
-// used for the varlist, without needing another allocation.
+// Ren-C has transitioned this so that GOBs work within the user-defined type
+// system, where no custom GC behavior is needed.  e.g. a REBGOB is actually
+// just a REBARR, and marked using the array marking mechanics.
+//
+// To keep memory usage in the same order of magnitude as R3-Alpha, the GOB!'s
+// array is only 7 cells in length.  This allows it to fit into the 8 cell
+// memory pool, when the END marker is taken into account.  To achieve this
+// goal, creative use is made of "pseudotype" REB_G_XYF cells--to allow the
+// packing of floats and flags into cells that don't participate in GC.  This
+// gives an approximation of "struct-like" compactness for that inert data.
+//
+////=// NOTES ////////////////////////////////////////////////////////////=//
+//
+// !!! Note: Currently there is some marking behavior that has to be managed
+// specially to recognize the REB_GOB type, and to mark the LINK() and MISC()
+// fields of the array.  The plan is to continue generalizing this (e.g. with
+// SERIES_INFO_MARK_LINK and SERIES_INFO_MARK_MISC that mark a generic
+// REBNOD* that extensions use).  But the main point has been achieved...that
+// there is no "gob memory pool" or special marking procedure in %m-gc.c
 //
 // GOB PAYLOAD:
 //
 //     REBGOB *gob;
 //     REBCNT index;
 
-enum GOB_FLAGS {
+// On the GOB array's REBSER node itself:
+//
+//     LINK.parent is the "parent GOB or window ptr"
+//     MISC.owner is the "owner" (seemingly unused?)
+//
+// The offset, size, old_offset and old_size cells are REB_G_XYF cells that
+// are GC-inert.  They use their payloads for x and y coordinates, but the
+// extra slot is used for other things.
+//
+// (Note that only one byte of the extra on `size` and `old_size` are used at
+// the moment, and `old_offset` still has all 32-bits of extra space.  So
+// there are more bits to squeeze out if the complexity warranted it.)
+//
+enum {
+    IDX_GOB_PANE,  // List of child GOBs, was REBSER, now REBARR for marking
+    IDX_GOB_CONTENT,
+    IDX_GOB_DATA,
+    IDX_GOB_OFFSET_AND_FLAGS,  // location (x, y) in payload, flags in extra
+    IDX_GOB_SIZE_AND_ALPHA,  // size (w, h) in payload, transparency in extra
+    IDX_GOB_OLD_OFFSET,  // prior location in payload [extra is available]
+    IDX_GOB_TYPE_AND_OLD_SIZE,  // prior size in payload, type in extra
+    IDX_GOB_MAX
+};
+
+STATIC_ASSERT(IDX_GOB_MAX <= 7); // ideally true--see notes at top of file
+
+
+enum Reb_Gob_Flags {
     //
     // !!! These were "GOB state flags".  Despite there being only 3 of them,
     // they were previously in a different place than the "GOB flags".
@@ -81,81 +122,47 @@ enum GOB_FLAGS {
     GOBF_FULLSCREEN = 1 << 20 // Window is fullscreen
 };
 
-enum GOB_TYPES {        // Types of content
-    GOBT_NONE = 0,
-    GOBT_COLOR,
-    GOBT_IMAGE,
-    GOBT_STRING,
-    GOBT_DRAW,
-    GOBT_TEXT,
-    GOBT_EFFECT,
-    GOBT_MAX
+
+// The GOB's "content" is a cell and may imply what kind of GOB it is (e.g
+// an IMAGE! means GOBT_IMAGE).  But if the content is a BLOCK! it could mean
+// other things.  So there's a separate type field.
+
+enum Reb_Gob_Type {
+    GOBT_NONE,  // BLANK!
+    GOBT_COLOR,  // TUPLE!
+    GOBT_IMAGE,  // IMAGE!
+    GOBT_STRING,  // TEXT!
+    GOBT_DRAW,  // BLOCK!
+    GOBT_TEXT,  // BLOCK!
+    GOBT_EFFECT  // BLOCK!
 };
 
-enum GOB_DTYPES {       // Userdata types
-    GOBD_NONE = 0,
-    GOBD_OBJECT,
-    GOBD_BLOCK,
-    GOBD_STRING,
-    GOBD_BINARY,
-    GOBD_RESV,          // unicode
-    GOBD_INTEGER,
-    GOBD_MAX
-};
 
-#pragma pack(4)
+// Ren-C's PAIR! data type uses full precision values, thus supporting any
+// INTEGER!, any DECIMAL!, or more generally any two values.  But that needs
+// an extra allocation (albeit an efficient one, a single REBSER node, where
+// the two values are packed into it with no allocation beyond the node).
+//
+// Whether it be important or not, GOB!s were conceived to pack their data
+// more efficiently than that.  So the custom strategy for PAYLOAD() and
+// EXTRA() allows compact possibilites using cells, so that it can use a
+// float resolution and fit two floats in the payload, with the extra field
+// left over for additional data.  This lets GOB!s use a "somewhat ordinary"
+// array (though these XYF types are internal).
 
-// These packed values for Rebol pairs are "X and Y coordinates" as "F"loat.
-// (For PAIR! in Ren-C, actual pairing series are used, which
-// can hold two values at full REBVAL precision (either integer or decimal)
+#define VAL_XYF_X(v)    PAYLOAD(Custom, (v)).first.f
+#define VAL_XYF_Y(v)    PAYLOAD(Custom, (v)).second.f
 
-typedef struct {
-    float x;
-    float y;
-} REBXYF;
-
-
-struct rebol_gob {
-    union Reb_Header header;
-
-    uint32_t flags; // GOBF_XXX flags and GOBS_XXX state flags
-
-#ifdef REB_DEF
-    REBSER *pane;       // List of child GOBs
-#else
-    void *pane;
-#endif
-
-    REBGOB *parent;     // Parent GOB (or window ptr)
-
-    REBYTE alpha;       // transparency
-    REBYTE ctype;       // content data type
-    REBYTE dtype;       // pointer data type
-    REBYTE resv;        // reserved
-
-    REBGOB *owner;      // !!! was a singular item in a union
-
-#ifdef REB_DEF
-    REBSER *content;    // content value (block, string, color)
-    REBSER *data;       // user defined data
-#else
-    void *content;
-    void *data;
-#endif
-
-    REBXYF offset;      // location
-    REBXYF size;
-    REBXYF old_offset;  // prior location
-    REBXYF old_size;    // prior size
-
-#if defined(__LP64__) || defined(__LLP64__)
-    //
-    // Depending on how the fields are arranged, this may require padding to
-    // make sure the REBNOD-derived type is a multiple of 64-bits in size.
-    //
-#endif
-};
-#pragma pack()
+inline static REBVAL *Init_XYF(
+    RELVAL *out,
+    REBD32 x,  // 32-bit floating point type, typically just `float`...
+    REBD32 y   // there's no standard: https://stackoverflow.com/a/18705626/
+){
+    RESET_CELL(out, REB_G_XYF);
+    VAL_XYF_X(out) = x;
+    VAL_XYF_Y(out) = y;
+    return cast(REBVAL*, out);
+}
 
 typedef struct gob_window {             // Maps gob to window
     REBGOB *gob;
@@ -163,103 +170,104 @@ typedef struct gob_window {             // Maps gob to window
     void* compositor;
 } REBGOBWINDOWS;
 
-#define GOB_X(g)        ((g)->offset.x)
-#define GOB_Y(g)        ((g)->offset.y)
-#define GOB_W(g)        ((g)->size.x)
-#define GOB_H(g)        ((g)->size.y)
+#define GOB_X(g)        VAL_XYF_X(ARR_AT((g), IDX_GOB_OFFSET_AND_FLAGS))
+#define GOB_Y(g)        VAL_XYF_Y(ARR_AT((g), IDX_GOB_OFFSET_AND_FLAGS))
+#define GOB_W(g)        VAL_XYF_X(ARR_AT((g), IDX_GOB_SIZE_AND_ALPHA))
+#define GOB_H(g)        VAL_XYF_Y(ARR_AT((g), IDX_GOB_SIZE_AND_ALPHA))
 
-#define GOB_LOG_X(g)        (LOG_COORD_X((g)->offset.x))
-#define GOB_LOG_Y(g)        (LOG_COORD_Y((g)->offset.y))
-#define GOB_LOG_W(g)        (LOG_COORD_X((g)->size.x))
-#define GOB_LOG_H(g)        (LOG_COORD_Y((g)->size.y))
+#define GOB_LOG_X(g)        LOG_COORD_X(GOB_X(g))
+#define GOB_LOG_Y(g)        LOG_COORD_Y(GOB_Y(g))
+#define GOB_LOG_W(g)        LOG_COORD_W(GOB_X(g))
+#define GOB_LOG_H(g)        LOG_COORD_H(GOB_Y(g))
 
-#define GOB_X_INT(g)    ROUND_TO_INT((g)->offset.x)
-#define GOB_Y_INT(g)    ROUND_TO_INT((g)->offset.y)
-#define GOB_W_INT(g)    ROUND_TO_INT((g)->size.x)
-#define GOB_H_INT(g)    ROUND_TO_INT((g)->size.y)
+#define GOB_X_INT(g)    ROUND_TO_INT(GOB_X(g))
+#define GOB_Y_INT(g)    ROUND_TO_INT(GOB_Y(g))
+#define GOB_W_INT(g)    ROUND_TO_INT(GOB_W(g))
+#define GOB_H_INT(g)    ROUND_TO_INT(GOB_H(g))
 
-#define GOB_LOG_X_INT(g)    ROUND_TO_INT(LOG_COORD_X((g)->offset.x))
-#define GOB_LOG_Y_INT(g)    ROUND_TO_INT(LOG_COORD_Y((g)->offset.y))
-#define GOB_LOG_W_INT(g)    ROUND_TO_INT(LOG_COORD_X((g)->size.x))
-#define GOB_LOG_H_INT(g)    ROUND_TO_INT(LOG_COORD_Y((g)->size.y))
+#define GOB_LOG_X_INT(g)    ROUND_TO_INT(GOB_LOG_X(g))
+#define GOB_LOG_Y_INT(g)    ROUND_TO_INT(GOB_LOG_Y(g))
+#define GOB_LOG_W_INT(g)    ROUND_TO_INT(GOB_LOG_W(g))
+#define GOB_LOG_H_INT(g)    ROUND_TO_INT(GOB_LOG_H(g))
 
-#define GOB_XO(g)       ((g)->old_offset.x)
-#define GOB_YO(g)       ((g)->old_offset.y)
-#define GOB_WO(g)       ((g)->old_size.x)
-#define GOB_HO(g)       ((g)->old_size.y)
-#define GOB_XO_INT(g)   ROUND_TO_INT((g)->old_offset.x)
-#define GOB_YO_INT(g)   ROUND_TO_INT((g)->old_offset.y)
-#define GOB_WO_INT(g)   ROUND_TO_INT((g)->old_size.x)
-#define GOB_HO_INT(g)   ROUND_TO_INT((g)->old_size.y)
+#define GOB_XO(g)       VAL_XYF_X(ARR_AT((g), IDX_OLD_OFFSET))
+#define GOB_YO(g)       VAL_XYF_Y(ARR_AT((g), IDX_OLD_OFFSET))
+#define GOB_WO(g)       VAL_XYF_X(ARR_AT((g), IDX_OLD_SIZE))
+#define GOB_HO(g)       VAL_XYF_Y(ARR_AT((g), IDX_OLD_SIZE))
 
+#define GOB_XO_INT(g)   ROUND_TO_INT(GOB_XO(g))
+#define GOB_YO_INT(g)   ROUND_TO_INT(GOB_YO(g))
+#define GOB_WO_INT(g)   ROUND_TO_INT(GOB_WO(g))
+#define GOB_HO_INT(g)   ROUND_TO_INT(GOB_HO(g))
 
-#define SET_GOB_FLAG(g,f) \
-    cast(void, (g)->flags |= (f))
-#define GET_GOB_FLAG(g,f) \
-    (did ((g)->flags & (f)))
-#define CLR_GOB_FLAG(g,f) \
-    cast(void, (g)->flags &= ~(f))
+#define GOB_FLAGS(g) \
+    EXTRA(Custom, ARR_AT((g), IDX_GOB_OFFSET_AND_FLAGS)).u
 
+#define SET_GOB_FLAG(g,f)       cast(void, GOB_FLAGS(g) |= (f))
+#define GET_GOB_FLAG(g,f)       (did (GOB_FLAGS(g) & (f)))
+#define CLR_GOB_FLAG(g,f)       cast(void, GOB_FLAGS(g) &= ~(f))
 
-#define GOB_ALPHA(g)        ((g)->alpha)
-#define GOB_TYPE(g)         ((g)->ctype)
-#define SET_GOB_TYPE(g,t)   ((g)->ctype = (t))
-#define GOB_DTYPE(g)        ((g)->dtype)
-#define SET_GOB_DTYPE(g,t)  ((g)->dtype = (t))
-#define GOB_DATA(g)         ((g)->data)
-#define SET_GOB_DATA(g,v)   ((g)->data = (v))
-#define GOB_TMP_OWNER(g)    ((g)->owner)
+#define GOB_ALPHA(g) \
+    EXTRA(Bytes, ARR_AT((g), IDX_GOB_SIZE_AND_ALPHA)).common[0]
 
-#define IS_GOB_OPAQUE(g)  GET_GOB_FLAG(g, GOBF_OPAQUE)
-#define SET_GOB_OPAQUE(g) SET_GOB_FLAG(g, GOBF_OPAQUE)
-#define CLR_GOB_OPAQUE(g) CLR_GOB_FLAG(g, GOBF_OPAQUE)
+#define GOB_CONTENT(g)              KNOWN(ARR_AT((g), IDX_GOB_CONTENT))
+#define mutable_GOB_CONTENT(g)      ARR_AT((g), IDX_GOB_CONTENT)
 
-#define GOB_PANE(g)     ((g)->pane)
-#define GOB_PARENT(g)   ((g)->parent)
-#define GOB_CONTENT(g)  ((g)->content)
+#define GOB_TYPE(g) \
+    EXTRA(Bytes, ARR_AT(g, IDX_GOB_TYPE_AND_OLD_SIZE)).common[0]
+
+#define SET_GOB_TYPE(g,t)       (GOB_TYPE(g) = (t))
+
+#define GOB_DATA(g)             KNOWN(ARR_AT((g), IDX_GOB_DATA))
+#define mutable_GOB_DATA(g)     ARR_AT((g), IDX_GOB_DATA)
+#define GOB_DTYPE(g)            VAL_TYPE(GOB_DATA(g))
+
+#define IS_GOB_OPAQUE(g)        GET_GOB_FLAG((g), GOBF_OPAQUE)
+#define SET_GOB_OPAQUE(g)       SET_GOB_FLAG((g), GOBF_OPAQUE)
+#define CLR_GOB_OPAQUE(g)       CLR_GOB_FLAG((g), GOBF_OPAQUE)
+
+#define GOB_PANE_VALUE(g)       ARR_AT((g), IDX_GOB_PANE)
+
+inline static REBARR *GOB_PANE(REBGOB *g) {
+    RELVAL *v = GOB_PANE_VALUE(g);
+    if (IS_BLANK(v))
+        return nullptr;
+
+    assert(IS_BLOCK(v)); // only other legal thing that can be in pane cell
+    assert(VAL_INDEX(v) == 0); // pane array shouldn't have an index
+    return VAL_ARRAY(v);
+}
+
+#define GOB_PARENT(g)       LINK(g).parent
+#define GOB_TMP_OWNER(g)    MISC(g).owner  // !!! What's this TMP_XXX thing?
 
 #define GOB_STRING(g)       SER_HEAD(GOB_CONTENT(g))
-#define GOB_LEN(g)          SER_LEN((g)->pane)
-#define SET_GOB_LEN(g,l)    SET_SERIES_LEN((g)->pane, (l))
-#define GOB_HEAD(g)         SER_HEAD(REBGOB*, GOB_PANE(g))
+#define GOB_LEN(g)          ARR_LEN(GOB_PANE(g))
+#define SET_GOB_LEN(g,l)    TERM_ARRAY_LEN(GOB_PANE(g), (l))
+#define GOB_HEAD(g)         KNOWN(ARR_HEAD(GOB_PANE(g)))
 
 #define GOB_BITMAP(g)   GOB_STRING(g)
 #define GOB_AT(g,n)   (GOB_HEAD(g)+n)
 
-#define IS_WINDOW(g)    (GOB_PARENT(g) == Gob_Root && GET_GOB_FLAG(g, GOBF_WINDOW))
+#define IS_WINDOW(g) \
+    (GOB_PARENT(g) == Gob_Root && GET_GOB_FLAG(g, GOBF_WINDOW))
 
 #define IS_GOB_COLOR(g)  (GOB_TYPE(g) == GOBT_COLOR)
-#define IS_GOB_DRAW(g)   (GOB_CONTENT(g) && GOB_TYPE(g) == GOBT_DRAW)
-#define IS_GOB_IMAGE(g)  (GOB_CONTENT(g) && GOB_TYPE(g) == GOBT_IMAGE)
-#define IS_GOB_EFFECT(g) (GOB_CONTENT(g) && GOB_TYPE(g) == GOBT_EFFECT)
-#define IS_GOB_STRING(g) (GOB_CONTENT(g) && GOB_TYPE(g) == GOBT_STRING)
-#define IS_GOB_TEXT(g)   (GOB_CONTENT(g) && GOB_TYPE(g) == GOBT_TEXT)
+#define IS_GOB_DRAW(g)   (GOB_TYPE(g) == GOBT_DRAW)
+#define IS_GOB_IMAGE(g)  (GOB_TYPE(g) == GOBT_IMAGE)
+#define IS_GOB_EFFECT(g) (GOB_TYPE(g) == GOBT_EFFECT)
+#define IS_GOB_STRING(g) (GOB_TYPE(g) == GOBT_STRING)
+#define IS_GOB_TEXT(g)   (GOB_TYPE(g) == GOBT_TEXT)
 
 extern REBGOB *Gob_Root; // Top level GOB (the screen)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  GOB! Graphic Object
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// !!! The GOB! is a datatype specific to R3-View.  Its data is a small
-// fixed-size object.  It is linked together by series containing more
-// GOBs and values, and participates in the garbage collection process.
-//
-// The monolithic structure of Rebol had made it desirable to take advantage
-// of the memory pooling to quickly allocate, free, and garbage collect
-// these.  With GOB! being moved to an extension, it is not likely that it
-// would hook the memory pools directly.
-//
-
 #if defined(NDEBUG) || !defined(CPLUSPLUS_11)
     #define VAL_GOB(v) \
-        cast(REBGOB*, PAYLOAD(Custom, (v)).first.p)
+        cast(REBGOB*, PAYLOAD(Custom, (v)).first.p) // use w/a const REBVAL*
 
     #define mutable_VAL_GOB(v) \
-        (*cast(REBGOB**, &PAYLOAD(Custom, (v)).first.p))
+        (*cast(REBGOB**, &PAYLOAD(Custom, (v)).first.p)) // non-const REBVAL*
 
     #define VAL_GOB_INDEX(v) \
         PAYLOAD(Custom, v).second.u
@@ -286,6 +294,8 @@ extern REBGOB *Gob_Root; // Top level GOB (the screen)
 #endif
 
 inline static REBVAL *Init_Gob(RELVAL *out, REBGOB *g) {
+    assert(GET_SERIES_FLAG(g, MANAGED));
+
     RESET_CELL(out, REB_GOB);
     mutable_VAL_GOB(out) = g;
     VAL_GOB_INDEX(out) = 0;

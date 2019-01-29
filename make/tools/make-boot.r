@@ -399,6 +399,7 @@ e-types/emit {
 
         PSEUDOTYPE_SEVEN,
         REB_TS_QUOTED_PATH = PSEUDOTYPE_SEVEN, /* !!! temp compatibility */
+        REB_G_XYF = PSEUDOTYPE_SEVEN, /* used by GOB, compact 2xfloat */
 
         PSEUDOTYPE_EIGHT,
         REB_TS_SKIN_EXPANDED = PSEUDOTYPE_EIGHT,

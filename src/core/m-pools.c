@@ -159,10 +159,6 @@ void Free_Mem(void *mem, size_t size)
     PG_Mem_Usage -= size;
 }
 
-// !!! Needed for sizeof(REBGOB)...plan is to make GOB!s ordinary arrays and
-// build on the normal GC logic...find optimizations so that's palatable.
-//
-#include "reb-gob.h"
 
 /***********************************************************************
 **
@@ -218,7 +214,6 @@ const REBPOOLSPEC Mem_Pool_Spec[MAX_POOLS] =
     DEF_POOL(sizeof(REBVAL) * 2, 16), // Pairings, PAR_POOL
   #endif
 
-    DEF_POOL(sizeof(REBGOB), 128),  // Gobs
     DEF_POOL(sizeof(REBI64), 1), // Just used for tracking main memory
 };
 

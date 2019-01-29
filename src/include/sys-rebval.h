@@ -376,6 +376,7 @@ union Reb_Custom_Extra { // needed to beat strict aliasing, used in payload
     void *p;
     uintptr_t u;
     intptr_t i;
+    REBD32 f; // 32-bit float, typically just `float`, needs own union member
 };
 
 union Reb_Bytes_Extra {

@@ -97,7 +97,11 @@ inline static REBVAL *Alloc_Value(void)
     REBVAL *v = KNOWN(ARR_SINGLE(a));
     v->header.bits |= NODE_FLAG_ROOT; // it's trash (can't use SET_CELL_FLAGS)
 
-    LINK(a).owner = NOD(Context_For_Frame_May_Manage(FS_TOP));
+    REBFRM *f = FS_TOP;
+    while (not Is_Action_Frame(f)) // e.g. a path fulfillment
+        f = f->prior; // FS_BOTTOM is a dummy action, should always stop
+
+    LINK(a).owner = NOD(Context_For_Frame_May_Manage(f));
     return v;
 }
 

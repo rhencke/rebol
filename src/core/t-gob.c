@@ -36,7 +36,7 @@
 
 const struct {
     REBSYM sym;
-    REBFLGS flags;
+    uintptr_t flags;
 } Gob_Flag_Words[] = {
     {SYM_RESIZE,      GOBF_RESIZE},
     {SYM_NO_TITLE,    GOBF_NO_TITLE},
@@ -73,14 +73,28 @@ REBINT CT_Gob(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 REBGOB *Make_Gob(void)
 {
-    REBGOB *gob = cast(REBGOB*, Make_Node(GOB_POOL));
-    CLEAR(gob, sizeof(REBGOB));
-    GOB_W(gob) = 100;
-    GOB_H(gob) = 100;
-    GOB_ALPHA(gob) = 255;
-    gob->header.bits = NODE_FLAG_NODE;
-    if ((GC_Ballast -= Mem_Pools[GOB_POOL].wide) <= 0) SET_SIGNAL(SIG_RECYCLE);
-    return gob;
+    REBGOB *a = Make_Arr_Core(IDX_GOB_MAX, SERIES_FLAG_FIXED_SIZE);
+
+    LINK(a).parent = nullptr;
+    MISC(a).owner = nullptr;
+
+    Init_Blank(ARR_AT(a, IDX_GOB_PANE));
+    Init_Blank(ARR_AT(a, IDX_GOB_CONTENT));
+    Init_Blank(ARR_AT(a, IDX_GOB_DATA));
+
+    Init_XYF(ARR_AT(a, IDX_GOB_OFFSET_AND_FLAGS), 100, 100); // !!! Why 100?
+    GOB_FLAGS(a) = 0;
+
+    Init_XYF(ARR_AT(a, IDX_GOB_SIZE_AND_ALPHA), 0, 0);
+    GOB_ALPHA(a) = 255;
+
+    Init_XYF(ARR_AT(a, IDX_GOB_OLD_OFFSET), 0, 0);
+
+    Init_XYF(ARR_AT(a, IDX_GOB_TYPE_AND_OLD_SIZE), 0, 0);
+    GOB_TYPE(a) = GOBT_NONE;
+
+    TERM_ARRAY_LEN(a, IDX_GOB_MAX);
+    return a;  // REBGOB is-a REBARR
 }
 
 
@@ -100,19 +114,19 @@ REBINT Cmp_Gob(const REBCEL *g1, const REBCEL *g2)
 
 
 //
-//  Set_Pair: C
+//  Did_Set_XYF: C
 //
-static bool Set_Pair(REBXYF *pair, const REBVAL *val)
+static bool Did_Set_XYF(RELVAL *xyf, const REBVAL *val)
 {
     if (IS_PAIR(val)) {
-        pair->x = VAL_PAIR_X(val);
-        pair->y = VAL_PAIR_Y(val);
+        VAL_XYF_X(xyf) = VAL_PAIR_X(val);
+        VAL_XYF_Y(xyf) = VAL_PAIR_Y(val);
     }
     else if (IS_INTEGER(val)) {
-        pair->x = pair->y = (REBD32)VAL_INT64(val);
+        VAL_XYF_X(xyf) = VAL_XYF_Y(xyf) = cast(REBD32, VAL_INT64(val));
     }
     else if (IS_DECIMAL(val)) {
-        pair->x = pair->y = (REBD32)VAL_DECIMAL(val);
+        VAL_XYF_X(xyf) = VAL_XYF_Y(xyf) = cast(REBD32, VAL_DECIMAL(val));
     }
     else
         return false;
@@ -129,16 +143,17 @@ static bool Set_Pair(REBXYF *pair, const REBVAL *val)
 //
 static REBCNT Find_Gob(REBGOB *gob, REBGOB *target)
 {
-    REBCNT len;
-    REBCNT n;
-    REBGOB **ptr;
+    if (not GOB_PANE(gob))
+        return NOT_FOUND;
 
-    if (GOB_PANE(gob)) {
-        len = GOB_LEN(gob);
-        ptr = GOB_HEAD(gob);
-        for (n = 0; n < len; n++, ptr++)
-            if (*ptr == target) return n;
-    }
+    REBCNT len = GOB_LEN(gob);
+    REBVAL *item = GOB_HEAD(gob);
+
+    REBCNT n;
+    for (n = 0; n < len; ++n, ++item)
+        if (VAL_GOB(item) == target)
+            return n;
+
     return NOT_FOUND;
 }
 
@@ -151,14 +166,19 @@ static REBCNT Find_Gob(REBGOB *gob, REBGOB *target)
 //
 static void Detach_Gob(REBGOB *gob)
 {
-    REBGOB *par;
-    REBCNT i;
+    REBGOB *par = GOB_PARENT(gob);
+    if (not par)
+        return;
 
-    par = GOB_PARENT(gob);
-    if (par && GOB_PANE(par) && (i = Find_Gob(par, gob)) != NOT_FOUND) {
-        Remove_Series(GOB_PANE(par), i, 1);
+    if (GOB_PANE(par)) {
+        REBCNT i = Find_Gob(par, gob);
+        if (i != NOT_FOUND)
+            Remove_Series(SER(GOB_PANE(par)), i, 1);
+        else
+            assert(!"Detaching GOB from parent that didn't find it"); // !!! ?
     }
-    GOB_PARENT(gob) = 0;
+
+    GOB_PARENT(gob) = nullptr;
 }
 
 
@@ -176,7 +196,6 @@ static void Insert_Gobs(
     REBCNT len,
     bool change
 ) {
-    REBGOB **ptr;
     REBCNT n, count;
     const RELVAL *val;
     const RELVAL *sarg;
@@ -215,28 +234,27 @@ static void Insert_Gobs(
     arg = sarg;
 
     // Create or expand the pane series:
-    if (!GOB_PANE(gob)) {
-        GOB_PANE(gob) = Make_Ser(count + 1, sizeof(REBGOB*));
-        SET_GOB_LEN(gob, count);
+    
+    REBARR *pane = GOB_PANE(gob);
+
+    if (not pane) {
+        pane = Make_Arr_Core(count + 1, NODE_FLAG_MANAGED);
+        TERM_ARRAY_LEN(pane, count);
         index = 0;
-
-        // !!! A GOB_PANE could theoretically be MKS_UNTRACKED and manually
-        // memory managed, if that made sense.  Does it?
-
-        MANAGE_SERIES(GOB_PANE(gob));
     }
     else {
         if (change) {
-            if (index + count > GOB_LEN(gob)) {
-                EXPAND_SERIES_TAIL(GOB_PANE(gob), index + count - GOB_LEN(gob));
+            if (index + count > ARR_LEN(pane)) {
+                EXPAND_SERIES_TAIL(SER(pane), index + count - ARR_LEN(pane));
             }
         } else {
-            Expand_Series(GOB_PANE(gob), index, count);
-            if (index >= GOB_LEN(gob)) index = GOB_LEN(gob)-1;
+            Expand_Series(SER(pane), index, count);
+            if (index >= ARR_LEN(pane))
+                index = ARR_LEN(pane) - 1;
         }
     }
 
-    ptr = GOB_AT(gob, index);
+    RELVAL *item = ARR_AT(pane, index);
     for (n = 0; n < len; n++) {
         val = arg++;
         if (IS_WORD(val)) {
@@ -248,11 +266,15 @@ static void Insert_Gobs(
         if (IS_GOB(val)) {
             if (GOB_PARENT(VAL_GOB(val)) != NULL)
                 fail ("GOB! not expected to have parent");
-            *ptr++ = VAL_GOB(val);
+            Move_Value(item, KNOWN(val));
+            ++item;
+            
             GOB_PARENT(VAL_GOB(val)) = gob;
             SET_GOB_FLAG(VAL_GOB(val), GOBS_NEW);
         }
     }
+
+    Init_Block(ARR_AT(gob, IDX_GOB_PANE), pane); // may alrady have been set
 }
 
 
@@ -263,36 +285,13 @@ static void Insert_Gobs(
 //
 static void Remove_Gobs(REBGOB *gob, REBCNT index, REBCNT len)
 {
-    REBGOB **ptr;
+    REBVAL *item = GOB_AT(gob, index);
+
     REBCNT n;
+    for (n = 0; n < len; ++n, ++item)
+        GOB_PARENT(VAL_GOB(item)) = 0;
 
-    ptr = GOB_AT(gob, index);
-    for (n = 0; n < len; n++, ptr++) {
-        GOB_PARENT(*ptr) = 0;
-    }
-
-    Remove_Series(GOB_PANE(gob), index, len);
-}
-
-
-//
-//  Pane_To_Array: C
-//
-// Convert pane list of gob pointers to a Rebol array of GOB! REBVALs.
-//
-static REBARR *Pane_To_Array(REBGOB *gob, REBCNT index, REBINT len)
-{
-    if (len == -1 || (len + index) > GOB_LEN(gob)) len = GOB_LEN(gob) - index;
-    if (len < 0) len = 0;
-
-    REBARR *a = Make_Arr(len);
-    RELVAL *dest = ARR_HEAD(a);
-    REBGOB **gp = GOB_HEAD(gob);
-    for (; len > 0; len--, ++dest, ++gp)
-        Init_Gob(dest, *gp);
-
-    TERM_ARRAY_LEN(a, len);
-    return a;
+    Remove_Series(SER(GOB_PANE(gob)), index, len);
 }
 
 
@@ -357,85 +356,89 @@ static void Set_Gob_Flag(REBGOB *gob, REBSTR *name)
 
 
 //
-//  Set_GOB_Var: C
+//  Did_Set_GOB_Var: C
 //
-static bool Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
+static bool Did_Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
 {
     switch (VAL_WORD_SYM(word)) {
-    case SYM_OFFSET:
-        return Set_Pair(&(gob->offset), val);
+      case SYM_OFFSET:
+        return Did_Set_XYF(ARR_AT(gob, IDX_GOB_OFFSET_AND_FLAGS), val);
 
-    case SYM_SIZE:
-        return Set_Pair(&gob->size, val);
+      case SYM_SIZE:
+        return Did_Set_XYF(ARR_AT(gob, IDX_GOB_SIZE_AND_ALPHA), val);
 
-    case SYM_IMAGE:
+      case SYM_IMAGE:
         CLR_GOB_OPAQUE(gob);
         if (IS_IMAGE(val)) {
+            GOB_W(gob) = cast(REBD32, VAL_IMAGE_WIDE(val));
+            GOB_H(gob) = cast(REBD32, VAL_IMAGE_HIGH(val));
             SET_GOB_TYPE(gob, GOBT_IMAGE);
-            GOB_W(gob) = (REBD32)VAL_IMAGE_WIDE(val);
-            GOB_H(gob) = (REBD32)VAL_IMAGE_HIGH(val);
-            GOB_CONTENT(gob) = VAL_SERIES(val);
-//          if (!VAL_IMAGE_TRANSP(val)) SET_GOB_OPAQUE(gob);
         }
         else if (IS_BLANK(val))
             SET_GOB_TYPE(gob, GOBT_NONE);
         else
             return false;
+
+        Move_Value(GOB_CONTENT(gob), val);
         break;
 
-    case SYM_DRAW:
+      case SYM_DRAW:
         CLR_GOB_OPAQUE(gob);
-        if (IS_BLOCK(val)) {
+        if (IS_BLOCK(val))
             SET_GOB_TYPE(gob, GOBT_DRAW);
-            GOB_CONTENT(gob) = VAL_SERIES(val);
-        }
         else if (IS_BLANK(val))
             SET_GOB_TYPE(gob, GOBT_NONE);
         else
             return false;
+
+        Move_Value(GOB_CONTENT(gob), val);
         break;
 
-    case SYM_TEXT:
+      case SYM_TEXT:
         CLR_GOB_OPAQUE(gob);
-        if (IS_BLOCK(val)) {
+        if (IS_BLOCK(val))
             SET_GOB_TYPE(gob, GOBT_TEXT);
-            GOB_CONTENT(gob) = VAL_SERIES(val);
-        }
-        else if (IS_TEXT(val)) {
+        else if (IS_TEXT(val))
             SET_GOB_TYPE(gob, GOBT_STRING);
-            GOB_CONTENT(gob) = VAL_SERIES(val);
-        }
         else if (IS_BLANK(val))
             SET_GOB_TYPE(gob, GOBT_NONE);
         else
             return false;
+
+        Move_Value(GOB_CONTENT(gob), val);
         break;
 
-    case SYM_EFFECT:
+      case SYM_EFFECT:
         CLR_GOB_OPAQUE(gob);
-        if (IS_BLOCK(val)) {
+        if (IS_BLOCK(val))
             SET_GOB_TYPE(gob, GOBT_EFFECT);
-            GOB_CONTENT(gob) = VAL_SERIES(val);
-        }
         else if (IS_BLANK(val))
             SET_GOB_TYPE(gob, GOBT_NONE);
         else
             return false;
+
+        Move_Value(GOB_CONTENT(gob), val);
         break;
 
-    case SYM_COLOR:
+      case SYM_COLOR:
         CLR_GOB_OPAQUE(gob);
         if (IS_TUPLE(val)) {
             SET_GOB_TYPE(gob, GOBT_COLOR);
-            Set_Pixel_Tuple((REBYTE*)&GOB_CONTENT(gob), val);
-            if (VAL_TUPLE_LEN(val) < 4 || VAL_TUPLE(val)[3] == 0)
+            if (VAL_TUPLE_LEN(val) < 4 or VAL_TUPLE(val)[3] == 0)
                 SET_GOB_OPAQUE(gob);
         }
-        else if (IS_BLANK(val)) SET_GOB_TYPE(gob, GOBT_NONE);
+        else if (IS_BLANK(val))
+            SET_GOB_TYPE(gob, GOBT_NONE);
+        else
+            return false;
+
+        Move_Value(GOB_CONTENT(gob), val);
         break;
 
-    case SYM_PANE:
-        if (GOB_PANE(gob)) Clear_Series(GOB_PANE(gob));
+      case SYM_PANE:
+        if (GOB_PANE(gob))
+            Clear_Series(SER(GOB_PANE(gob)));
+
         if (IS_BLOCK(val))
             Insert_Gobs(
                 gob, VAL_ARRAY_AT(val), 0, VAL_ARRAY_LEN_AT(val), false
@@ -443,44 +446,37 @@ static bool Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
         else if (IS_GOB(val))
             Insert_Gobs(gob, val, 0, 1, false);
         else if (IS_BLANK(val))
-            gob->pane = 0;
+            Init_Blank(ARR_AT(gob, IDX_GOB_PANE)); // pane array will GC
         else
             return false;
         break;
 
-    case SYM_ALPHA:
+      case SYM_ALPHA:
         GOB_ALPHA(gob) = VAL_UINT8(val); // !!! "clip" instead of range error?
         break;
 
-    case SYM_DATA:
-        SET_GOB_DTYPE(gob, GOBD_NONE);
+      case SYM_DATA:
         if (IS_OBJECT(val)) {
-            SET_GOB_DTYPE(gob, GOBD_OBJECT);
-            SET_GOB_DATA(gob, SER(CTX_VARLIST(VAL_CONTEXT(val))));
         }
         else if (IS_BLOCK(val)) {
-            SET_GOB_DTYPE(gob, GOBD_BLOCK);
-            SET_GOB_DATA(gob, VAL_SERIES(val));
         }
         else if (IS_TEXT(val)) {
-            SET_GOB_DTYPE(gob, GOBD_STRING);
-            SET_GOB_DATA(gob, VAL_SERIES(val));
         }
         else if (IS_BINARY(val)) {
-            SET_GOB_DTYPE(gob, GOBD_BINARY);
-            SET_GOB_DATA(gob, VAL_SERIES(val));
         }
         else if (IS_INTEGER(val)) {
-            SET_GOB_DTYPE(gob, GOBD_INTEGER);
-            SET_GOB_DATA(gob, cast(REBSER*, cast(intptr_t, VAL_INT64(val))));
         }
-        else if (IS_BLANK(val))
-            SET_GOB_TYPE(gob, GOBT_NONE);
+        else if (IS_BLANK(val)) {
+            SET_GOB_TYPE(gob, GOBT_NONE); // !!! Why touch the content?
+            Init_Blank(GOB_CONTENT(gob));
+        }
         else
             return false;
+
+        Move_Value(GOB_DATA(gob), val);
         break;
 
-    case SYM_FLAGS:
+      case SYM_FLAGS:
         if (IS_WORD(val))
             Set_Gob_Flag(gob, VAL_WORD_SPELLING(val));
         else if (IS_BLOCK(val)) {
@@ -495,7 +491,7 @@ static bool Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
         }
         break;
 
-    case SYM_OWNER:
+      case SYM_OWNER:
         if (IS_GOB(val))
             GOB_TMP_OWNER(gob) = VAL_GOB(val);
         else
@@ -525,61 +521,72 @@ static REBVAL *Get_GOB_Var(RELVAL *out, REBGOB *gob, const REBVAL *word)
         return Init_Pair(out, GOB_W(gob), GOB_H(gob));
 
       case SYM_IMAGE:
-        if (GOB_TYPE(gob) == GOBT_IMAGE)
-            fail ("Support for GOBT_IMAGE seems to be missing.");
+        if (GOB_TYPE(gob) == GOBT_IMAGE) {
+            assert(IS_IMAGE(GOB_CONTENT(gob)));
+            return Move_Value(out, GOB_CONTENT(gob));
+        }
         return Init_Blank(out);
 
       case SYM_DRAW:
-        if (GOB_TYPE(gob) == GOBT_DRAW)
-            return Init_Block(out, ARR(GOB_CONTENT(gob)));
+        if (GOB_TYPE(gob) == GOBT_DRAW) {
+            assert(IS_BLOCK(GOB_CONTENT(gob)));
+            return Move_Value(out, GOB_CONTENT(gob));
+        }
         return Init_Blank(out);
 
       case SYM_TEXT:
-        if (GOB_TYPE(gob) == GOBT_TEXT)
-            return Init_Block(out, ARR(GOB_CONTENT(gob)));
-        if (GOB_TYPE(gob) == GOBT_STRING)
-            return Init_Text(out, GOB_CONTENT(gob));
+        if (GOB_TYPE(gob) == GOBT_TEXT) {
+            assert(IS_BLOCK(GOB_CONTENT(gob)));
+            return Move_Value(out, GOB_CONTENT(gob));
+        }
+        if (GOB_TYPE(gob) == GOBT_STRING) {
+            assert(IS_TEXT(GOB_CONTENT(gob)));
+            return Move_Value(out, GOB_CONTENT(gob));
+        }
         return Init_Blank(out);
 
       case SYM_EFFECT:
-        if (GOB_TYPE(gob) == GOBT_EFFECT)
-            return Init_Block(out, ARR(GOB_CONTENT(gob)));
+        if (GOB_TYPE(gob) == GOBT_EFFECT) {
+            assert(IS_BLOCK(GOB_CONTENT(gob)));
+            return Move_Value(out, GOB_CONTENT(gob));
+        }
         return Init_Blank(out);
 
       case SYM_COLOR:
         if (GOB_TYPE(gob) == GOBT_COLOR) {
-            return Init_Tuple_From_Pixel(
-                out,
-                cast(REBYTE*, &GOB_CONTENT(gob))
-            );
+            assert(IS_TUPLE(GOB_CONTENT(gob)));
+            return Move_Value(out, GOB_CONTENT(gob));
         }
         return Init_Blank(out);
 
       case SYM_ALPHA:
         return Init_Integer(out, GOB_ALPHA(gob));
 
-      case SYM_PANE:
-        if (GOB_PANE(gob))
-            return Init_Block(out, Pane_To_Array(gob, 0, -1));
-        return Init_Block(out, Make_Arr(0));
+      case SYM_PANE: {
+        REBARR *pane = GOB_PANE(gob);
+        if (not pane)
+            return Init_Block(out, Make_Arr(0));
+
+        return Init_Block(out, Copy_Array_Shallow(pane, SPECIFIED)); }
 
       case SYM_PARENT:
         if (GOB_PARENT(gob))
             return Init_Gob(out, GOB_PARENT(gob));
         return Init_Blank(out);
 
-      case SYM_DATA:
-        if (GOB_DTYPE(gob) == GOBD_OBJECT)
-            return Init_Object(out, CTX(GOB_DATA(gob)));
-        if (GOB_DTYPE(gob) == GOBD_BLOCK)
-            return Init_Block(out, ARR(GOB_DATA(gob)));
-        if (GOB_DTYPE(gob) == GOBD_STRING)
-            return Init_Text(out, GOB_DATA(gob));
-        if (GOB_DTYPE(gob) == GOBD_BINARY)
-            return Init_Binary(out, GOB_DATA(gob));
-        if (GOB_DTYPE(gob) == GOBD_INTEGER)
-            return Init_Integer(out, cast(intptr_t, GOB_DATA(gob)));
-        return Init_Blank(out);
+      case SYM_DATA: {
+        enum Reb_Kind kind = VAL_TYPE(GOB_DATA(gob));
+        if (
+            kind == REB_OBJECT
+            or kind == REB_BLOCK
+            or kind == REB_TEXT
+            or kind == REB_BINARY
+            or kind == REB_INTEGER
+        ){
+            return Move_Value(out, GOB_DATA(gob));
+        }
+        assert(kind == REB_BLANK);
+        return Init_Blank(out); }
 
       case SYM_FLAGS:
         return Init_Block(out, Gob_Flags_To_Array(gob));
@@ -616,7 +623,7 @@ static void Set_GOB_Vars(REBGOB *gob, const RELVAL *blk, REBSPC *specifier)
         if (IS_SET_WORD(val))
             fail (Error_Need_Non_End_Raw(var));
 
-        if (!Set_GOB_Var(gob, var, val))
+        if (not Did_Set_GOB_Var(gob, var, val))
             fail (Error_Bad_Field_Set_Raw(var, Type_Of(val)));
     }
 }
@@ -679,38 +686,39 @@ static REBARR *Gob_To_Array(REBGOB *gob)
 // Map a higher level gob coordinate to a lower level.
 // Returns GOB and sets new offset pair.
 //
-static REBGOB *Map_Gob_Inner(REBGOB *gob, REBXYF *offset)
+static REBGOB *Map_Gob_Inner(REBGOB *gob, REBD32 *xo, REBD32 *yo)
 {
-    REBD32 xo = offset->x;
-    REBD32 yo = offset->y;
-    REBINT n;
-    REBINT len;
-    REBGOB **gop;
-    REBD32 x = 0;
-    REBD32 y = 0;
     REBINT max_depth = 1000; // avoid infinite loops
 
+    REBD32 x = 0;
+    REBD32 y = 0;
+
     while (GOB_PANE(gob) && (max_depth-- > 0)) {
-        len = GOB_LEN(gob);
-        gop = GOB_HEAD(gob) + len - 1;
-        for (n = 0; n < len; n++, gop--) {
+        REBINT len = GOB_LEN(gob);
+
+        REBVAL *item = GOB_HEAD(gob) + len - 1;
+
+        REBINT n;
+        for (n = 0; n < len; ++n, --item) {
+            REBGOB *child = VAL_GOB(item);
             if (
-                (xo >= x + GOB_X(*gop)) &&
-                (xo <  x + GOB_X(*gop) + GOB_W(*gop)) &&
-                (yo >= y + GOB_Y(*gop)) &&
-                (yo <  y + GOB_Y(*gop) + GOB_H(*gop))
+                (*xo >= x + GOB_X(child)) &&
+                (*xo <  x + GOB_X(child) + GOB_W(child)) &&
+                (*yo >= y + GOB_Y(child)) &&
+                (*yo <  y + GOB_Y(child) + GOB_H(child))
             ){
-                x += GOB_X(*gop);
-                y += GOB_Y(*gop);
-                gob = *gop;
+                x += GOB_X(child);
+                y += GOB_Y(child);
+                gob = child;
                 break;
             }
         }
-        if (n >= len) break; // not found
+        if (n >= len)
+            break; // not found
     }
 
-    offset->x -= x;
-    offset->y -= y;
+    *xo -= x;
+    *yo -= y;
 
     return gob;
 }
@@ -730,13 +738,12 @@ REBNATIVE(map_event)
 
     REBVAL *val = ARG(event);
     REBGOB *gob = cast(REBGOB*, VAL_EVENT_SER(val));
-    REBXYF xy;
 
-    if (gob != NULL && (VAL_EVENT_FLAGS(val) & EVF_HAS_XY)) {
-        xy.x = (REBD32)VAL_EVENT_X(val);
-        xy.y = (REBD32)VAL_EVENT_Y(val);
-        mutable_VAL_EVENT_SER(val) = cast(REBSER*, Map_Gob_Inner(gob, &xy));
-        SET_EVENT_XY(val, ROUND_TO_INT(xy.x), ROUND_TO_INT(xy.y));
+    if (gob and (VAL_EVENT_FLAGS(val) & EVF_HAS_XY)) {
+        REBD32 x = VAL_EVENT_X(val);
+        REBD32 y = VAL_EVENT_Y(val);
+        mutable_VAL_EVENT_SER(val) = cast(REBSER*, Map_Gob_Inner(gob, &x, &y));
+        SET_EVENT_XY(val, ROUND_TO_INT(x), ROUND_TO_INT(x));
     }
 
     RETURN (ARG(event));
@@ -782,13 +789,9 @@ REBNATIVE(map_gob_offset)
         }
     }
     else {
-        REBXYF xy;
-        xy.x = VAL_PAIR_X(ARG(xy));
-        xy.x = VAL_DECIMAL(PAYLOAD(Pair, ARG(xy)).pairing + 1);
-        xy.y = VAL_PAIR_Y(ARG(xy));
-        gob = Map_Gob_Inner(gob, &xy);
-        xo = xy.x;
-        yo = xy.y;
+        xo = VAL_PAIR_X(ARG(xy));
+        yo = VAL_PAIR_Y(ARG(xy));
+        gob = Map_Gob_Inner(gob, &xo, &yo);
     }
 
     REBARR *arr = Make_Arr(2);
@@ -820,8 +823,8 @@ void Extend_Gob_Core(REBGOB *gob, const REBVAL *arg) {
         Set_GOB_Vars(gob, VAL_ARRAY_AT(arg), VAL_SPECIFIER(arg));
     }
     else if (IS_PAIR(arg)) {
-        gob->size.x = VAL_PAIR_X(arg);
-        gob->size.y = VAL_PAIR_Y(arg);
+        GOB_X(gob) = VAL_PAIR_X(arg);
+        GOB_Y(gob) = VAL_PAIR_Y(arg);
     }
     else
         fail (Error_Bad_Make(REB_GOB, arg));
@@ -836,20 +839,20 @@ REB_R MAKE_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     assert(kind == REB_GOB);
     UNUSED(kind);
 
-    REBGOB *gob = Make_Gob();
-
-    if (IS_GOB(arg)) {
-        //
-        // !!! See notes in Extend_Gob_Core; previously a parent was allowed
-        // here, but completely overwritten with a GOB! argument.
-        //
-        *gob = *VAL_GOB(arg);
-        gob->pane = NULL;
-        gob->parent = NULL;
-    }
-    else
+    if (not IS_GOB(arg)) { // call Extend() on an empty GOB with BLOCK!, etc.
+        REBGOB *gob = Make_Gob();
         Extend_Gob_Core(gob, arg);
+        MANAGE_ARRAY(gob);
+        return Init_Gob(out, gob);
+    }
 
+    // !!! See notes in Extend_Gob_Core; previously a parent was allowed
+    // here, but completely overwritten with a GOB! argument.
+    //
+    REBGOB *gob = Copy_Array_Shallow(VAL_GOB(arg), SPECIFIED);
+    Init_Blank(GOB_PANE_VALUE(gob));
+    GOB_PARENT(gob) = nullptr;
+    MANAGE_ARRAY(gob);
     return Init_Gob(out, gob);
 }
 
@@ -877,8 +880,6 @@ REB_R PD_Gob(
     const REBVAL *opt_setval
 ){
     REBGOB *gob = VAL_GOB(pvs->out);
-    REBCNT index;
-    REBCNT tail;
 
     if (IS_WORD(picker)) {
         if (opt_setval == NULL) {
@@ -909,33 +910,24 @@ REB_R PD_Gob(
 
                 // write it back to gob
                 //
-                Set_GOB_Var(gob, orig_picker, pvs->out);
+                if (not Did_Set_GOB_Var(gob, orig_picker, pvs->out))
+                    return R_UNHANDLED;
+
                 DROP_GC_GUARD(orig_picker);
             }
             return pvs->out;
         }
         else {
-            if (!Set_GOB_Var(gob, picker, opt_setval))
+            if (not Did_Set_GOB_Var(gob, picker, opt_setval))
                 return R_UNHANDLED;
             return R_INVISIBLE;
         }
     }
 
-    if (IS_INTEGER(picker)) {
-        if (!GOB_PANE(gob)) return Init_Blank(pvs->out);
-
-        tail = GOB_PANE(gob) ? GOB_LEN(gob) : 0;
-        index = VAL_GOB_INDEX(pvs->out);
-        index += Int32(picker) - 1;
-
-        if (index >= tail) return Init_Blank(pvs->out);
-
-        gob = *GOB_AT(gob, index);
-        RESET_CELL(pvs->out, REB_GOB);
-        mutable_VAL_GOB(pvs->out) = gob;
-        VAL_GOB_INDEX(pvs->out) = 0;
-        return pvs->out;
-    }
+    if (IS_INTEGER(picker))
+        return rebRun(
+            rebEval(NAT_VALUE(pick)), ARR_AT(gob, IDX_GOB_PANE), picker,
+        rebEND);
 
     return R_UNHANDLED;
 }
@@ -999,13 +991,11 @@ REBTYPE(Gob)
             return Init_Logic(D_OUT, index > tail);
 
         case SYM_INDEX:
-            Init_Integer(D_OUT, index + 1);
-            break;
+            return Init_Integer(D_OUT, index + 1);
 
         case SYM_LENGTH:
             index = (tail > index) ? tail - index : 0;
-            Init_Integer(D_OUT, index);
-            break;
+            return Init_Integer(D_OUT, index);
 
         default:
             break;
@@ -1127,37 +1117,31 @@ REBTYPE(Gob)
         if (index < tail && len != 0)
             Remove_Gobs(gob, index, len);
 
-        Move_Value(D_OUT, val);
-        return D_OUT; }
+        RETURN (val); }
 
     case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
 
-        UNUSED(PAR(series));
+        UNUSED(PAR(series)); // implicitly, it was this GOB!
+        /* UNUSED(REF(part)); */ // !!! APPLY not taking implicitly, review
 
-        if (REF(deep))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(last))
-            fail (Error_Bad_Refines_Raw());
-
-        REBCNT len = REF(part) ? Get_Num_From_Arg(ARG(limit)) : 1;
-        if (index + len > tail)
-            len = tail - index;
-        if (index >= tail)
-            return nullptr;
-
-        if (!REF(part)) { // just one value
-            RESET_CELL(D_OUT, REB_GOB);
-            mutable_VAL_GOB(D_OUT) = *GOB_AT(gob, index);
-            VAL_GOB_INDEX(D_OUT) = 0;
-            Remove_Gobs(gob, index, 1);
-            return D_OUT;
-        }
-
-        Init_Block(D_OUT, Pane_To_Array(gob, index, len));
-        Remove_Gobs(gob, index, len);
-        Move_Value(D_OUT, val);
-        return D_OUT; }
+        // Pane is an ordinary array, so chain to the ordinary TAKE* code.
+        // Its index is always at zero, because the GOB! instances are the
+        // ones with the index.  Skip to compensate.
+        //
+        // !!! Could make the indexed pane into a local if we had a spare
+        // local, but its' good to exercise the API as much as possible).
+        //
+        REBVAL *pane = KNOWN(ARR_AT(gob, IDX_GOB_PANE));
+        return rebRun(
+            "apply :take* [", // !!! v-- shouldn't need mutable, working on it
+                "series: mutable at", pane, rebI(index + 1),
+                "part:", ARG(part),
+                "limit:", ARG(limit),
+                "deep:", ARG(deep),
+                "last:", ARG(last),
+            "]",
+        rebEND); }
 
     case SYM_AT:
         index--;
@@ -1176,12 +1160,9 @@ REBTYPE(Gob)
         return nullptr;
 
     case SYM_REVERSE:
-        for (index = 0; index < tail/2; index++) {
-            REBGOB *ngob = *GOB_AT(gob, tail-index-1);
-            *GOB_AT(gob, tail-index-1) = *GOB_AT(gob, index);
-            *GOB_AT(gob, index) = ngob;
-        }
-        RETURN (D_ARG(1));
+        return rebRun(
+            "reverse", ARR_AT(gob, IDX_GOB_PANE),
+        rebEND);
 
     default:
         break;

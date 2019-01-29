@@ -327,11 +327,12 @@ typedef struct rebol_time_fields {
 
 #include "sys-deci.h"
 
-typedef struct rebol_gob REBGOB;
 
 
 // To help document places in the core that are complicit in the "extension
-// hack", alias arrays being used for the FFI to another name.
+// hack", alias arrays being used for the FFI and GOB to another name.
 //
+typedef REBARR REBGOB;
+
 typedef REBARR REBSTU;
 typedef REBARR REBFLD;

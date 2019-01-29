@@ -908,21 +908,18 @@ REBNATIVE(construct)
     REBCTX *context;
 
     if (IS_GOB(spec)) {
-        //
+        if (not IS_BLOCK(body))
+            fail (Error_Bad_Make(REB_GOB, body));
+
         // !!! Compatibility for `MAKE gob [...]` or `MAKE gob NxN` from
         // R3-Alpha GUI.  Start by copying the gob (minus pane and parent),
         // then apply delta to its properties from arg.  Doesn't save memory,
         // or keep any parent linkage--could be done in user code as a copy
         // and then apply the difference.
         //
-        REBGOB *gob = Make_Gob();
-        *gob = *VAL_GOB(spec);
-        gob->pane = NULL;
-        gob->parent = NULL;
-
-        if (!IS_BLOCK(body))
-            fail (Error_Bad_Make(REB_GOB, body));
-
+        REBGOB *gob = Copy_Array_Shallow(VAL_GOB(spec), SPECIFIED);
+        Init_Blank(ARR_AT(gob, IDX_GOB_PANE));
+        GOB_PARENT(gob) = nullptr;
         Extend_Gob_Core(gob, body);
         return Init_Gob(D_OUT, gob);
     }

@@ -626,7 +626,7 @@ REBNATIVE(pick)
     PATH_HOOK hook = Path_Hooks[kind];
 
     REB_R r = hook(pvs, PVS_PICKER(pvs), NULL);
-    if (not r or r == pvs->out)
+    if (not r or r == pvs->out or GET_CELL_FLAG(r, ROOT))
         return r;
 
     switch (KIND_BYTE(r)) {

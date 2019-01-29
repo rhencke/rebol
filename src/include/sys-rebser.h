@@ -838,6 +838,12 @@ union Reb_Series_Link {
     //
     REBFLD *schema;
 
+    // for GOB!, these are pointers to GOB REBARR structures.  It seems that
+    // SERIES_INFO_MARK_LINK and SERIES_INFO_MARK_MISC could probably be
+    // flags that generically handled this if there were a REBNOD *custom.
+
+    REBGOB *parent;
+
     // For LIBRARY!, the file descriptor.  This is set to NULL when the
     // library is not loaded.
     //
@@ -951,6 +957,10 @@ union Reb_Series_Misc {
         unsigned int bits:7; // 8, 16, 32, 64
         unsigned int unused:23;
     } vect_info;
+
+    // !!! Used for GOB!, should be part of a generic REBNOD* custom.
+    //
+    REBGOB *owner;
 };
 
 
