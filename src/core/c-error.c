@@ -1652,7 +1652,7 @@ void MF_Error(REB_MOLD *mo, const REBCEL *v, bool form)
             //
             Append_Utf8_String(mo->series, nearest, VAL_LEN_HEAD(nearest));
         }
-        else if (ANY_ARRAY(nearest))
+        else if (ANY_ARRAY(nearest) or ANY_PATH(nearest))
             Mold_Value_Limit(mo, nearest, 60);
         else
             Append_Unencoded(mo->series, RM_BAD_ERROR_FORMAT);

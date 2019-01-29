@@ -346,7 +346,7 @@ bool Eval_Path_Throws_Core(
 
     DECLARE_FRAME (pvs);
 
-    Push_Frame_At(pvs, array, index, specifier, flags);
+    Push_Frame_At(pvs, array, index, specifier, flags | EVAL_FLAG_PATH_MODE);
     assert(NOT_END(pvs->value)); // tested 0-length path previously
 
     // Push_Frame_At sets the output to the global unwritable END cell, so we

@@ -176,8 +176,13 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
     //
     Collapsify_Array(near, SPECIFIED, 3);
 
-    if (NOT_END(f->value) and ANY_ARRAY_KIND(VAL_TYPE(f->value)))
-        Init_Any_Array(out, VAL_TYPE(f->value), near);
+    // The evaluator tries to keep the frame state as lean as it can, so at
+    // the moment it may not even know if it's dispatching a SET-PATH! or a
+    // GET-PATH!.  It has one bit to say whether it's in a path mode or not,
+    // so assume that will help a little bit with making the error clear.
+    //
+    if (GET_EVAL_FLAG(f, PATH_MODE))
+        Init_Path(out, near);
     else
         Init_Block(out, near);
 
