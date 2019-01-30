@@ -2,16 +2,16 @@
 [#1763
     (
         a: <before>
-        [#void] = set [a] reduce [null]
-        void? :a
+        [_] = set [a] reduce [null]
+        blank? :a
     )
 ]
 (
     a: <a-before>
     b: <b-before>
-    [2 #[void]] = set [a b] reduce [2 null]
+    [2 _] = set [a b] reduce [2 null]
     a = 2
-    void? :b
+    blank? :b
 )
 (x: has [a: 1] all [error? trap [set x reduce [()]] x/a = 1])
 (x: has [a: 1 b: 2] all [error? trap [set x reduce [3 ()]] x/a = 1])

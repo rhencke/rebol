@@ -149,7 +149,7 @@ REB_R TO_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
         if (NOT_END(ARR_AT(a, index)))
             fail ("Can't MAKE ANY-WORD! from PATH! with > 1 non-BLANK! item");
-        
+
         DECLARE_LOCAL (solo);
         Derelativize(solo, non_blank, VAL_SPECIFIER(arg));
         return MAKE_Word(out, kind, solo);

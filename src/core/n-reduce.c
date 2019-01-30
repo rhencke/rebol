@@ -64,8 +64,13 @@ bool Reduce_To_Stack_Throws(
             break;
         }
 
-        if (IS_NULLED(out)) // can't put nulls in blocks, so voidify it
-            Init_Void(DS_PUSH());
+        // We can't put nulls into array cells, so we put BLANK!.  This is
+        // compatible with historical behavior of `reduce [if 1 = 2 [<x>]]`
+        // which produced `[#[none]]`, and is generally more useful than
+        // putting VOID!, as more operations skip blanks vs. erroring.
+        //
+        if (IS_NULLED(out))
+            Init_Blank(DS_PUSH());
         else
             Move_Value(DS_PUSH(), out);
 
