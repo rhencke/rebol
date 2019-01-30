@@ -94,6 +94,7 @@ REBNATIVE(eval)
 //      :right [<...> <end> any-value!]
 //          "(uses magic -- SHOVE can't be written easily in usermode yet)"
 //      /enfix "Follow completion rules for enfix, e.g. `1 + 2 <- * 3` is 9"
+//      /set "If left hand side is a SET-WORD! or SET-PATH!, shove and assign"
 //  ]
 //
 REBNATIVE(shove)
@@ -205,10 +206,7 @@ REBNATIVE(shove)
     //
     TRASH_CELL_IF_DEBUG(D_OUT); // make sure we reassign it
 
-    if (
-        NOT_ACTION_FLAG(VAL_ACTION(shovee), QUOTES_FIRST)
-        and GET_CELL_FLAG(left, UNEVALUATED)
-    ){
+    if (REF(set)) {
         if (IS_SET_WORD(left)) {
             Move_Value(D_OUT, Get_Opt_Var_May_Fail(left, SPECIFIED));
         }
@@ -219,7 +217,14 @@ REBNATIVE(shove)
             Move_Value(D_OUT, temp);
             rebRelease(temp);
         }
-        else if (Eval_Value_Throws(D_OUT, left))
+        else
+            fail ("Left hand side must be SET-WORD! or SET-PATH!");
+    }
+    else if (
+        NOT_ACTION_FLAG(VAL_ACTION(shovee), QUOTES_FIRST)
+        and GET_CELL_FLAG(left, UNEVALUATED)
+    ){
+        if (Eval_Value_Throws(D_OUT, left))
             return R_THROWN;
     }
     else {
@@ -240,10 +245,7 @@ REBNATIVE(shove)
         return R_THROWN;
     }
 
-    if (
-        NOT_ACTION_FLAG(VAL_ACTION(shovee), QUOTES_FIRST)
-        and GET_CELL_FLAG(left, UNEVALUATED)
-    ){
+    if (REF(set)) {
         if (IS_SET_WORD(left)) {
             Move_Value(Sink_Var_May_Fail(left, SPECIFIED), D_OUT);
         }
@@ -252,139 +254,10 @@ REBNATIVE(shove)
             rebElide("set/hard", composed_set_path, D_OUT, rebEND);
             rebRelease(composed_set_path);
         }
+        else
+            assert(false); // SET-WORD!/SET-PATH! was checked above
     }
 
-    return D_OUT;
-}
-
-
-//
-//  eval-enfix: native [
-//
-//  {Service routine for implementing ME (needs review/generalization)}
-//
-//      return: [<opt> any-value!]
-//      left [<opt> any-value!]
-//          {Value to preload as the left hand-argument (won't reevaluate)}
-//      rest [varargs!]
-//          {The code stream to execute (head element must be enfixed)}
-//      /prefix
-//          {Variant used when rest is prefix (e.g. for MY operator vs. ME)}
-//  ]
-//
-REBNATIVE(eval_enfix)
-//
-// !!! Being able to write `some-var: me + 10` isn't as "simple" <ahem> as:
-//
-// * making ME a backwards quoting operator that fetches the value of some-var
-// * quoting its next argument (e.g. +) to get a word looking up to a function
-// * making the next argument variadic, and normal-enfix TAKE-ing it
-// * APPLYing the quoted function on those two values
-// * setting the left set-word (e.g. some-var:) to the result
-//
-// The problem with that strategy is that the parameter conventions of +
-// matter.  Removing it from the evaluator and taking matters into one's own
-// hands means one must reproduce the evaluator's logic--and that means it
-// will probably be done poorly.  It's clearly not as sensible as having some
-// way of slipping the value of some-var into the flow of normal evaluation.
-//
-// But generalizing this mechanic is...non-obvious.  It needs to be done, but
-// this hacks up the specific case of "enfix with left hand side and variadic
-// feed" by loading the given value into D_OUT and then re-entering the
-// evaluator via the EVAL_FLAG_POST_SWITCH mechanic (which was actuallly
-// designed for backtracking on enfix normal deferment.)
-{
-    INCLUDE_PARAMS_OF_EVAL_ENFIX;
-
-    REBFRM *f;
-    if (not Is_Frame_Style_Varargs_May_Fail(&f, ARG(rest))) {
-        //
-        // It wouldn't be *that* hard to support block-style varargs, but as
-        // this routine is a hack to implement ME, don't make it any longer
-        // than it needs to be.
-        //
-        fail ("EVAL-ENFIX is not made to support MAKE VARARGS! [...] rest");
-    }
-
-    if (IS_END(f->value)) // no PATH! yet...
-        fail ("ME and MY hit end of input");
-
-    DECLARE_SUBFRAME (child, f); // saves DSP before refinement push
-
-    const bool push_refinements = true;
-    REBSTR *opt_label;
-    DECLARE_LOCAL (temp);
-    if (Get_If_Word_Or_Path_Throws(
-        temp,
-        &opt_label,
-        f->value,
-        f->specifier,
-        push_refinements
-    )){
-        RETURN (temp);
-    }
-
-    if (not IS_ACTION(temp))
-        fail ("ME and MY only work if right hand WORD! is an ACTION!");
-
-    // Here we do something devious.  We subvert the system by setting
-    // f->gotten to an enfixed version of the function even if it is
-    // not enfixed.  This lets us slip in a first argument to a function
-    // *as if* it were enfixed, e.g. `series: my next`.
-    //
-    SET_CELL_FLAG(temp, ENFIXED);
-    PUSH_GC_GUARD(temp);
-    f->gotten = temp;
-
-    // !!! If we were to give an error on using ME with non-enfix or MY with
-    // non-prefix, we'd need to know the fetched enfix state.  At the moment,
-    // Get_If_Word_Or_Path_Throws() does not pass back that information.  But
-    // if PATH! is going to do enfix dispatch, it should be addressed then.
-    //
-    UNUSED(REF(prefix));
-
-    // Since enfix dispatch only works for words (for the moment), we lie
-    // and use the label found in path processing as a word.
-    //
-    // !!! This is another devious thing, because this is not a word that is
-    // bound to look up to to f->gotten.  There's an explicit check in the
-    // evaluator for that match in the debug build, which has to have an
-    // exception made for NAT_FUNC(eval_enfix).  More stuff to think about
-    // when doing this the right way.
-    //
-    DECLARE_LOCAL (word);
-    Init_Word(word, opt_label);
-    f->value = word;
-
-    // Simulate as if the passed-in value was calculated into the output slot,
-    // which is where enfix functions usually find their left hand values.
-    //
-    Move_Value(D_OUT, ARG(left));
-
-    // We're kind-of-abusing an internal mechanism, where it is checked that
-    // we are actually doing a deferment.  Try not to make that abuse break
-    // the assertions in Eval_Core.
-    //
-    // Note that while f may have a "prior" already, its prior will become
-    // this frame...so when it asserts about "f->prior->deferred" it means
-    // the frame of EVAL-ENFIX that is invoking it.
-    //
-    assert(frame_ == FS_TOP);
-
-    REBFLGS flags = DO_MASK_DEFAULT
-        | EVAL_FLAG_FULFILLING_ARG
-        | EVAL_FLAG_POST_SWITCH;
-
-    assert(NOT_FEED_FLAG(FS_TOP->feed, NO_LOOKAHEAD));
-
-    if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child)) {
-        DROP_GC_GUARD(temp);
-        return R_THROWN;
-    }
-
-    assert(NOT_FEED_FLAG(FS_TOP->feed, NO_LOOKAHEAD));
-
-    DROP_GC_GUARD(temp);
     return D_OUT;
 }
 

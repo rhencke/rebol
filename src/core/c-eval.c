@@ -2670,17 +2670,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     if (not f->gotten)
         f->gotten = Try_Get_Opt_Var(f->value, f->specifier);
-    else {
-        // !!! a particularly egregious hack in EVAL-ENFIX lets us simulate
-        // enfix for a function whose value is not enfix.  This means the
-        // value in f->gotten isn't the fetched function, but the function
-        // plus a CELL_FLAG_ENFIXED.  Account for this hack.
-        //
-        assert(
-            f->gotten == Try_Get_Opt_Var(f->value, f->specifier)
-            or (f->prior->original == NAT_ACTION(eval_enfix)) // !!! hack
-        );
-    }
+    else
+        assert(f->gotten == Try_Get_Opt_Var(f->value, f->specifier));
 
 //=//// NEW EXPRESSION IF UNBOUND, NON-FUNCTION, OR NON-ENFIX /////////////=//
 

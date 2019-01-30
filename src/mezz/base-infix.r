@@ -102,37 +102,6 @@ for-each [comparison-op function-name] compose [
 ]
 
 
-; The -- and ++ operators were deemed too "C-like", so ME was created to allow
-; `some-var: me + 1` or `some-var: me / 2` in a generic way.
-;
-; !!! This depends on a fairly lame hack called EVAL-ENFIX at the moment, but
-; that evaluator exposure should be generalized more cleverly.
-;
-me: enfix func [
-    {Update variable using it as the left hand argument to an enfix operator}
-
-    return: [<opt> any-value!]
-    :var [set-word! set-path!]
-        {Variable to assign (and use as the left hand enfix argument)}
-    :rest [any-value! <...>]
-        {Code to run with var as left (first element should be enfixed)}
-][
-    set var eval-enfix (get var) rest
-]
-
-my: enfix func [
-    {Update variable using it as the first argument to a prefix operator}
-
-    return: [<opt> any-value!]
-    :var [set-word! set-path!]
-        {Variable to assign (and use as the first prefix argument)}
-    :rest [any-value! <...>]
-        {Code to run with var as left (first element should be prefix)}
-][
-    set var eval-enfix/prefix (get var) rest
-]
-
-
 ; Lambdas are experimental quick function generators via a symbol.
 ; The identity is used to shake up enfix ordering.
 ;
@@ -155,6 +124,23 @@ set/enfix (r3-alpha-lit "=>") :lambda
 ;
 set/enfix (r3-alpha-lit "<-") :shove/enfix
 set/enfix (r3-alpha-lit "->") :shove
+
+
+; The -- and ++ operators were deemed too "C-like", so ME was created to allow
+; `some-var: me + 1` or `some-var: me / 2` in a generic way.  They share code
+; with SHOVE, so it's folded into the implementation of that.
+
+me: enfix redescribe [
+    {Update variable using it as the left hand argument to an enfix operator}
+](
+    :shove/set/enfix  ; /ENFIX so `x: 1 | x: me + 1 * 10` is 20, not 11
+)
+
+my: enfix redescribe [
+    {Update variable using it as the first argument to a prefix operator}
+](
+    :shove/set
+)
 
 
 ; These constructs used to be enfix to complete their left hand side.  Yet
