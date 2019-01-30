@@ -230,14 +230,13 @@ int main(int argc, char *argv_ansi[])
 
     // Use TRANSCODE to get a BLOCK! from the BINARY!, then release the binary
     //
-    REBVAL *host_code = rebRun(
-        "lib/transcode/file", host_bin, "%tmp-host-start.inc", rebEND
-    );
-    rebElide(
-        "lib/ensure :lib/empty? lib/take/last", host_code, // empty bin @ tail
-        rebEND
-    );
-    rebRelease(host_bin);
+    REBVAL *host_code_group = rebRun(
+        "as group! lib/transcode/file", rebR(host_bin), "%tmp-host-start.inc",
+    rebEND); // turn into group so it can run without a DO in stack trace
+
+    rebElide(  // has an empty bin @ tail
+        "lib/ensure :lib/empty? lib/take/last", host_code_group,
+    rebEND);
 
     // Create a new context specifically for startup.  This way, changes
     // to the user context should hopefully not affect it...e.g. if the user
@@ -261,32 +260,23 @@ int main(int argc, char *argv_ansi[])
     // overwrite lib declarations.  It should probably import its own copy,
     // just in case.  (Lib should also be protected by default)
     //
-    Bind_Values_Deep(VAL_ARRAY_HEAD(host_code), Lib_Context);
+    Bind_Values_Deep(VAL_ARRAY_HEAD(host_code_group), Lib_Context);
 
     // Do two passes on the startup context.  One to find SET-WORD!s at the
     // top level and add them to the context, and another pass to deeply bind
     // to those declarations.
     //
-    Bind_Values_Set_Midstream_Shallow(VAL_ARRAY_HEAD(host_code), startup_ctx);
-    Bind_Values_Deep(VAL_ARRAY_HEAD(host_code), startup_ctx);
+    Bind_Values_Set_Midstream_Shallow(
+        VAL_ARRAY_HEAD(host_code_group),
+        startup_ctx
+    );
+    Bind_Values_Deep(VAL_ARRAY_HEAD(host_code_group), startup_ctx);
 
-    // The new policy for source code in Ren-C is that it loads read only.
-    // This didn't go through the LOAD Rebol action or anything like it, so
-    // go ahead and lock it manually.
-    //
-    // !!! This file is supposed to be based on libRebol APIs, and the method
-    // of creating a new context here is low level using the internal API.
-    // However the console context is created should ideally be done in a
-    // way that would work well for users, by leveraging modules or some other
-    // level of abstraction, where issues like this would be taken care of.
-    //
-    rebElide("lib/lock", host_code, rebEND);
-
-    REBVAL *host_start = rebRunInline(host_code); // HOST-START is an ACTION!
-    rebRelease(host_code);
-
+    REBVAL *host_start = rebRun(rebEval(host_code_group), rebEND);
     if (rebNot("lib/action?", host_start, rebEND))
         rebJumps("lib/PANIC-VALUE", host_start, rebEND);
+
+    rebRelease(host_code_group);
 
     // While some people may think that argv[0] in C contains the path to
     // the running executable, this is not necessarily the case.  The actual

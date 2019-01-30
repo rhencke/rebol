@@ -572,31 +572,6 @@ void RL_rebJumps(const void *p, va_list *vaptr)
 
 
 //
-//  rebRunInline: RL_API
-//
-// Non-variadic function which takes a single argument which must be a single
-// value that is a BLOCK! or GROUP!.  The goal is that it not add an extra
-// stack level the way calling DO would.  This is important for instance in
-// the console, so that BACKTRACE does not look up and see a Rebol function
-// like DO on the stack.
-//
-// !!! May be replaceable with `rebRun(rebInline(v), rebEND);` or something
-// similar.
-//
-REBVAL *RL_rebRunInline(const REBVAL *array)
-{
-    if (not IS_BLOCK(array) and not IS_GROUP(array))
-        fail ("rebRunInline() only supports BLOCK! and GROUP!");
-
-    DECLARE_LOCAL (group);
-    Move_Value(group, array);
-    mutable_KIND_BYTE(group) = REB_GROUP;
-
-    return rebRun(rebEval(group), rebEND);
-}
-
-
-//
 //  rebEval: RL_API
 //
 // When rebRun() receives a REBVAL*, the default is to assume it should be

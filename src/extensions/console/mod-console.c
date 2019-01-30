@@ -176,16 +176,18 @@ void Enable_Ctrl_C(void)
 
 
 
-// Can't just use a TRAP when running user code, because it might legitimately
-// evaluate to an ERROR! value, as well as FAIL.  Uses rebRescue().
-
-static REBVAL *Run_Sandboxed_Code(REBVAL *group_or_block) {
-    //
-    // Don't want to use DO here, because that would add an extra stack
-    // level of Rebol ACTION! in the backtrace.  See notes on rebRunInline()
-    // for its possible future.
-    //
-    REBVAL *result = rebRunInline(group_or_block);
+// This is called when either the console is running some untrusted skin code
+// for its own implementation, or when it wants to execute code on the user's
+// behalf.  If the code is on the user's behalf, then any tracing or debug
+// hooks will have been enabled before the rebRescue() call invoking this.
+//
+// NOTE THAT ANY LIBREBOL CODE THAT IS RUN HERE WILL WIND UP IN THE TRACE.
+// The only thing that's acceptable to see in the backtrace is the GROUP!
+// itself that we are running (getting that out of the trace would take some
+// magic).  So don't add superfluous libRebol calls here, except to debug.
+//
+static REBVAL *Run_Sandboxed_Group(REBVAL *group) {
+    REBVAL *result = rebRun(rebEval(group), rebEND);
     if (not result)
         return nullptr;
 
@@ -267,7 +269,7 @@ REBNATIVE(console)
         // arbitrary code by way of its return results.  The TRAP and CATCH
         // are thus here to intercept bugs *in HOST-CONSOLE itself*.  Any
         // evaluations for the user (or on behalf of the console skin) are
-        // done in Run_Sandboxed_Code().
+        // done in Run_Sandboxed_Group().
         //
         REBVAL *trapped; // goto crosses initialization
         trapped = rebRun(
@@ -315,31 +317,40 @@ REBNATIVE(console)
         }
 
         bool is_console_instruction = rebDid("block?", code, rebEND);
+        REBVAL *group;
 
-        // Restore custom DO and APPLY hooks, but only if running a GROUP!.
-        // (We do not want to trace/debug/instrument Rebol code that the
-        // console is using to implement *itself*, which it does with BLOCK!)
-        // Same for Trace_Level seen by PARSE.
-        //
-        if (not is_console_instruction) {
-            //
-            // If they made it to a user mode instruction, re-enable recovery.
+        if (is_console_instruction) {
+            group = rebRun("as group!", code, rebEND); // to run w/o DO
+        }
+        else {
+            group = rebRun(code, rebEND); // can rebRelease w/o releasing code
+
+            // If they made it to a user mode instruction, the console skin
+            // must not be broken beyond all repair.  So re-enable recovery.
             //
             no_recover = false;
 
+            // Restore custom DO and APPLY hooks, but only if it was a GROUP!
+            // initially (indicating running code initiated by the user).
+            //
+            // (We do not want to trace/debug/instrument Rebol code that the
+            // console is using to implement *itself*, which it does with
+            // BLOCK! Same for Trace_Level seen by PARSE.
+            //
             PG_Eval_Throws = saved_eval_hook;
             PG_Dispatcher = saved_dispatcher_hook;
             Trace_Level = Save_Trace_Level;
             Trace_Depth = Save_Trace_Depth;
         }
 
-        // Both GROUP! and BLOCK! code is cancellable with Ctrl-C (though it's
-        // up to HOST-CONSOLE on the next iteration to decide whether to
-        // accept the cancellation or consider it an error condition or a
-        // reason to fall back to the default skin).
+        // Both console-initiated and user-initiated code is cancellable with
+        // Ctrl-C (though it's up to HOST-CONSOLE on the next iteration to
+        // decide whether to accept the cancellation or consider it an error
+        // condition or a reason to fall back to the default skin).
         //
         Enable_Ctrl_C();
-        result = rebRescue(cast(REBDNG*, &Run_Sandboxed_Code), code);
+        result = rebRescue(cast(REBDNG*, &Run_Sandboxed_Group), group);
+        rebRelease(group); // Note: does not release `code`
         Disable_Ctrl_C();
 
         // If the custom DO and APPLY hooks were changed by the user code,
