@@ -294,7 +294,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
             break; }
 
         case REB_P_HARD_QUOTE:
-            Quote_Next_In_Frame(out, f);
+            Literal_Next_In_Frame(out, f);
             break;
 
         case REB_P_SOFT_QUOTE:
@@ -309,7 +309,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
                 Fetch_Next_In_Frame(nullptr, f);
             }
             else // not a soft-"exception" case, quote ordinarily
-                Quote_Next_In_Frame(out, f);
+                Literal_Next_In_Frame(out, f);
             break;
 
         default:

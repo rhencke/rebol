@@ -313,6 +313,7 @@ refinement?: func [value [<opt> any-value!]] [
         word? :value/2
     ]
 ]
+; !!! refinement! is set to #refinement! during boot; signals a PATH! filter
 
 print: func [
     {Textually output spaced line (evaluating elements if a block)}

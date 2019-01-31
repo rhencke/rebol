@@ -353,29 +353,3 @@ inline static REBVAL *Init_Param(
 //
 #define Init_Context_Key(out,spelling) \
     Init_Param((out), REB_P_NORMAL, (spelling), TS_VALUE)
-
-
-// !!! Temporary workaround--there were natives that depend on type checking
-// LIT-WORD! and LIT-PATH! or would crash.  We could change those to use
-// QUOTED! and force them to manually check in the native dispatcher, but
-// instead keep it going with the hopes that in the future typesets will
-// become more sophisticated and be able to expand beyond their 64-bit limit
-// to account for generic quoting.
-//
-inline static bool Typecheck_Including_Quoteds(
-    const RELVAL *param,
-    const RELVAL *v
-){
-    if (TYPE_CHECK(param, VAL_TYPE(v)))
-        return true;
-
-    if (KIND_BYTE(v) == REB_WORD + REB_64)  // what was a "lit word"
-        if (TYPE_CHECK(param, REB_TS_QUOTED_WORD))
-            return true;
-
-    if (KIND_BYTE(v) == REB_PATH + REB_64) // what was a "lit path"
-        if (TYPE_CHECK(param, REB_TS_QUOTED_PATH))
-            return true;
-
-    return false;
-}

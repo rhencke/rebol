@@ -26,3 +26,19 @@
 
 (t: 1 | 1 = switch t [(t)])
 (1 = switch 1 [1])
+
+
+; SWITCH/ALL gives the last branch result, then fallout as a last resort
+
+(<b> = switch/all 10 [5 + 5 [<a>] 5 + 5 [<b>] <fallout>])
+(<b> = switch/all 10 [0 + 0 [<a>] 5 + 5 [<b>] <fallout>])
+(<a> = switch/all 10 [5 + 5 [<a>] 0 + 0 [<b>] <fallout>])
+(<fallout> = switch/all 10 [0 + 0 [<a>] 0 + 0 [<b>] <fallout>])
+
+
+; New feature for specifying comparison functions via a refinement
+
+(<b> = switch 10 /(reduce pick [:greater? :lesser?] 1) [20 [<a>] 5 [<b>]])
+(<a> = switch 10 /(reduce pick [:greater? :lesser?] 2) [20 [<a>] 5 [<b>]])
+(<yep> = switch 10 /greater? [20 [<nope>] 5 [<yep>]])
+(<yep> = switch 10 /> [20 [<nope>] 5 [<yep>]])

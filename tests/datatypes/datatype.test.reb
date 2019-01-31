@@ -32,7 +32,6 @@
 (datatype? path!)
 (datatype? percent!)
 (datatype? port!)
-(datatype? refinement!)
 (datatype? set-path!)
 (datatype? set-word!)
 (datatype? text!)

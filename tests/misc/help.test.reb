@@ -30,7 +30,9 @@
         if action? get w
             (compose [help (w)])
         else [
-            help (get w)
+            if not issue? get w [ comment "don't open web browser"
+                help (get w)
+            ]
         ]
     ]
 ])

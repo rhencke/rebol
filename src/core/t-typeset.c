@@ -151,13 +151,7 @@ bool Add_Typeset_Bits_Core(
         else
             item = maybe_word; // wasn't variable
 
-        // Though MAKE ACTION! at its lowest level attempts to avoid any
-        // keywords, there are native-optimized function generators that do
-        // use them.  Since this code is shared by both, it may or may not
-        // set typeset flags as a parameter.  Default to always for now.
-        //
-        const bool keywords = true;
-        if (keywords and IS_TAG(item)) {
+        if (IS_TAG(item)) {
             if (0 == Compare_String_Vals(item, Root_Ellipsis_Tag, true)) {
                 TYPE_SET(typeset, REB_TS_VARIADIC);
             }
@@ -222,8 +216,19 @@ bool Add_Typeset_Bits_Core(
             else
                 fail ("WORD!/PATH! quote typechecking only, use QUOTED!");
         }
+        else if (IS_ISSUE(item)) {  // !!! Hacks !!!
+            //
+            // Allow type-checking to filter on paths which start with BLANK!,
+            // especially useful to combine with <skip>, e.g. `switch /equal?`
+            //
+            if (VAL_WORD_SYM(item) == SYM_REFINEMENT_X)
+                TYPE_SET(typeset, REB_TS_REFINEMENT);
+        }
         else
             fail (Error_Bad_Value_Core(item, specifier));
+
+        // !!! Review erroring policy--should probably not just be ignoring
+        // things that aren't recognized here (!)
     }
 
     return true;

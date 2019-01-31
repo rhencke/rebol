@@ -601,7 +601,7 @@ inline static void Fetch_Next_In_Frame(
 }
 
 
-inline static void Quote_Next_In_Frame(REBVAL *dest, REBFRM *f) {
+inline static void Literal_Next_In_Frame(REBVAL *dest, REBFRM *f) {
     Derelativize(dest, f->value, f->specifier);
     SET_CELL_FLAG(dest, UNEVALUATED);
 

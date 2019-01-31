@@ -902,30 +902,34 @@ REBNATIVE(case)
 //          [<opt> any-value!]
 //      value "Target value"
 //          [<opt> any-value!]
+//      :compare "Refinement PATH! to action (e.g. /equal?) or literal action"
+//          [refinement! action! <skip>]
 //      cases "Block of cases (comparison lists followed by block branches)"
 //          [block!]
 //      /all "Evaluate all matches (not just first one)"
-//      ; !!! /STRICT may have a different name
-//      ; https://forum.rebol.info/t/349
-//      /strict "Use STRICT-EQUAL? when comparing cases instead of EQUAL?"
-//      ; !!! Is /QUOTE truly needed?
-//      /quote "Do not evaluate comparison values"
-//      ; !!! Needed in spec for ADAPT to override in shim
-//      /default "Deprecated: use fallout feature or ELSE, UNLESS, etc."
-//      default-branch [block!]
+//      /literal "Do not evaluate comparison values"
 //  ]
 //
 REBNATIVE(switch)
 {
     INCLUDE_PARAMS_OF_SWITCH;
 
-    if (REF(default))
-        fail (
-            "SWITCH/DEFAULT is no longer supported by the core.  Use the"
-            " DEFAULT [...] as the last clause, or ELSE/UNLESS/!!/etc. based"
-            " on null result: https://forum.rebol.info/t/312"
-        );
-    UNUSED(ARG(default_branch));
+    if (not IS_NULLED(ARG(compare))) {
+        REBSTR *opt_label;
+        if (Get_If_Word_Or_Path_Throws(
+            D_OUT,
+            &opt_label,
+            ARG(compare),
+            SPECIFIED,
+            false  // push_refinements = false, specialize for multiple uses
+        )){
+            return R_THROWN;
+        }
+        if (not IS_ACTION(D_OUT))
+            fail ("COMPARE provided to SWITCH must look up to an ACTION!");
+
+        Move_Value(ARG(compare), D_OUT);
+    }
 
     DECLARE_FRAME (f);
     Push_Frame(f, ARG(cases));
@@ -933,106 +937,132 @@ REBNATIVE(switch)
     REBVAL *value = ARG(value);
 
     if (IS_BLOCK(value) and GET_CELL_FLAG(value, UNEVALUATED))
-        fail (Error_Block_Switch_Raw(value)); // `switch [x] [...]` safeguard
+        fail (Error_Block_Switch_Raw(value));  // `switch [x] [...]` safeguard
 
-    Init_Nulled(D_OUT); // used for "fallout"
+    Init_Nulled(D_CELL);  // fallout result if no branches run
+    SET_END(D_OUT);  // last evaluated branch result (needed for /ALL)
 
     while (NOT_END(f->value)) {
-        //
-        // If a branch is seen at this point, it doesn't correspond to any
-        // condition to match.  If no more tests are run, let it suppress the
-        // feature of the last value "falling out" the bottom of the switch
-        //
-        if (IS_BLOCK(f->value)) {
-            Init_Nulled(D_OUT);
+
+        if (IS_BLOCK(f->value) or IS_ACTION(f->value)) {
             Fetch_Next_In_Frame(nullptr, f);
+            Init_Nulled(D_CELL);  // reset fallout output to null
             continue;
         }
 
-        if (IS_ACTION(f->value)) {
-            //
-            // It's a literal ACTION!, e.g. one composed in the block:
-            //
-            //    switch :some-func compose [
-            //        :append [print "not this case... this is fine"]
-            //        :insert (:branch) ;-- it's this situation
-            //    ]
-            //
-        action_not_supported:
-            fail (
-                "ACTION! branches currently not supported in SWITCH --"
-                " none existed after having the feature for 2 years."
-                " Complain if you found a good use for it."
-            );
-        }
-
-        if (REF(quote))
-            Quote_Next_In_Frame(D_OUT, f);
+        // Feed the frame forward...evaluate one step (unless /LITERAL)
+        //
+        if (REF(literal))
+            Literal_Next_In_Frame(D_CELL, f);
         else {
-            if (Eval_Step_Throws(SET_END(D_OUT), f)) {
-                Abort_Frame(f);
-                return R_THROWN;
-            }
+            if (Eval_Step_Throws(SET_END(D_CELL), f))
+                goto threw;
 
-            if (IS_END(D_OUT)) {
+            if (IS_END(D_CELL)) {  // nothing left, or was just COMMENT/etc.
                 assert(IS_END(f->value));
-                Init_Nulled(D_OUT);
                 break;
             }
         }
 
-        // It's okay that we are letting the comparison change `value`
-        // here, because equality is supposed to be transitive.  So if it
-        // changes 0.01 to 1% in order to compare it, anything 0.01 would
-        // have compared equal to so will 1%.  (That's the idea, anyway,
-        // required for `a = b` and `b = c` to properly imply `a = c`.)
+        if (IS_NULLED(ARG(compare))) {
+            //
+            // It's okay that we are letting the comparison change `value`
+            // here, because equality is supposed to be transitive.  So if it
+            // changes 0.01 to 1% in order to compare it, anything 0.01 would
+            // have compared equal to so will 1%.  (That's the idea, anyway,
+            // required for `a = b` and `b = c` to properly imply `a = c`.)
+            //
+            // !!! This means fallout can be modified from its intent.  Rather
+            // than copy here, this is a reminder to review the mechanism by
+            // which equality is determined--and why it has to mutate.
+            //
+            // !!! A branch composed into the switch cases block may want to
+            // see the un-mutated condition value.
+            //
+            if (not Compare_Modify_Values(ARG(value), D_CELL, 0))  // 0 => lax
+                continue;
+        }
+        else {
+            assert(IS_ACTION(ARG(compare)));  // entry code should guarantee
+
+            // `switch x /greater? [10 [...]]` acts like `case [x > 10 [...]]
+            // The ARG(value) passed is the left/first argument to compare.
+            //
+            // !!! Using Apply_Only_Throws loses the labeling of the function
+            // we were given (opt_label).  Consider how it might be passed
+            // through for better stack traces and error messages.
+            //
+            DECLARE_LOCAL (temp);
+            if (Apply_Only_Throws(
+                temp,
+                true,  // fully = true (e.g. both arguments must be taken)
+                ARG(compare),
+                ARG(value),  // first arg (left hand side if infix)
+                D_CELL,  // second arg (right hand side if infix)
+                rebEND
+            )){
+                goto threw;
+            }
+            if (IS_FALSEY(temp))
+                continue;
+        }
+
+        // Skip ahead to try and find BLOCK!/ACTION! branch to take the match
         //
-        // !!! This means fallout can be modified from its intent.  Rather
-        // than copy here, this is a reminder to review the mechanism by
-        // which equality is determined--and why it has to mutate.
-        //
-        // !!! A branch composed into the switch cases block may want to see
-        // the un-mutated condition value.
-
-        if (!Compare_Modify_Values(ARG(value), D_OUT, REF(strict) ? 1 : 0))
-            continue;
-
-        // Skip ahead to try and find a block, to treat as code for the match
-
         while (true) {
             if (IS_END(f->value)) {
                 Drop_Frame(f);
-                return D_OUT; // last test "falls out", might be void
+                if (NOT_END(D_OUT))  // prioritize last matching branch result
+                    return D_OUT;
+                RETURN (D_CELL);  // else last test "falls out", might be null
             }
-            if (IS_BLOCK(f->value))
+
+            if (IS_BLOCK(f->value)) {  // f->value is RELVAL, can't Do_Branch
+                if (Do_At_Throws(
+                    D_OUT,
+                    VAL_ARRAY(f->value),
+                    VAL_INDEX(f->value),
+                    f->specifier
+                )){
+                    goto threw;
+                }
                 break;
-            if (IS_ACTION(f->value))
-                goto action_not_supported; // literal action
+            }
+
+            if (IS_ACTION(f->value)) {  // must have been COMPOSE'd in cases
+                if (Apply_Only_Throws(
+                    D_OUT,
+                    false,  // fully = false, e.g. arity-0 functions are ok
+                    KNOWN(f->value),  // actions don't need specifiers
+                    D_CELL,
+                    rebEND
+                )){
+                    goto threw;
+                }
+                break;
+            }
+
             Fetch_Next_In_Frame(nullptr, f);
         }
 
-        if (Do_At_Throws( // it's a match, so run the BLOCK!
-            D_OUT,
-            VAL_ARRAY(f->value),
-            VAL_INDEX(f->value),
-            f->specifier
-        )){
-            Abort_Frame(f);
-            return R_THROWN;
-        }
+        Voidify_If_Nulled(D_OUT);  // null is reserved for no branch run
 
-        Voidify_If_Nulled(D_OUT); // null is reserved for no branch run
+        if (not REF(all))
+            break;
 
-        if (not REF(all)) {
-            Abort_Frame(f);
-            return D_OUT;
-        }
-
-        Fetch_Next_In_Frame(nullptr, f); // keep matching if /ALL
+        Fetch_Next_In_Frame(nullptr, f);  // keep matching if /ALL
     }
 
     Drop_Frame(f);
-    return D_OUT; // last test "falls out" or last match if /ALL, may be void
+
+    if (NOT_END(D_OUT))  // prioritize last match branch result if available
+        return D_OUT;
+    RETURN (D_CELL);  // last test "falls out" if no last match, may be null
+
+  threw:;
+
+    Drop_Frame(f);
+    return R_THROWN;
 }
 
 

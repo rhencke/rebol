@@ -1464,7 +1464,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
               case REB_P_HARD_QUOTE:
                 if (not Is_Param_Skippable(f->param))
-                    Quote_Next_In_Frame(f->arg, f); // CELL_FLAG_UNEVALUATED
+                    Literal_Next_In_Frame(f->arg, f); // CELL_FLAG_UNEVALUATED
                 else {
                     if (not Typecheck_Including_Quoteds(f->param, f->value)) {
                         assert(Is_Param_Endable(f->param));
@@ -1472,7 +1472,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                         SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                         goto continue_arg_loop;
                     }
-                    Quote_Next_In_Frame(f->arg, f);
+                    Literal_Next_In_Frame(f->arg, f);
                     SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                     SET_CELL_FLAG(f->arg, UNEVALUATED);
                 }
@@ -1492,7 +1492,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
               case REB_P_SOFT_QUOTE:
                 if (not IS_QUOTABLY_SOFT(f->value)) {
-                    Quote_Next_In_Frame(f->arg, f); // CELL_FLAG_UNEVALUATED
+                    Literal_Next_In_Frame(f->arg, f); // CELL_FLAG_UNEVALUATED
                 }
                 else {
                     if (Eval_Value_Core_Throws(
@@ -2482,7 +2482,7 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_STRUCT:
       case REB_LIBRARY:
 
-      inert:; // SEE ALSO: Quote_Next_In_Frame()...similar behavior
+      inert:; // SEE ALSO: Literal_Next_In_Frame()...similar behavior
 
         Derelativize(f->out, current, f->specifier);
         SET_CELL_FLAG(f->out, UNEVALUATED); // CELL_FLAG_INERT ??

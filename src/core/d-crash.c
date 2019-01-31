@@ -64,37 +64,22 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
     const char *file, // UTF8
     int line
 ){
-    // We are crashing, so a legitimate time to be disabling the garbage
-    // collector.  (It won't be turned back on.)
-    //
-    GC_Disabled = true;
+    GC_Disabled = true;  // crashing is a legitimate reason to disable the GC
 
   #if defined(NDEBUG)
     UNUSED(tick);
     UNUSED(file);
     UNUSED(line);
   #else
-    //
-    // First thing's first in the debug build, make sure the file and the
-    // line are printed out, as well as the current evaluator tick.
-    //
     printf("C Source File %s, Line %d, Pointer %p\n", file, line, p);
     printf("At evaluator tick: %lu\n", cast(unsigned long, tick));
 
-    // Generally Rebol does not #include <stdio.h>, but the debug build does.
-    // It's often used for debug spew--as opposed to Debug_Fmt()--when there
-    // is a danger of causing recursive errors if the problem is being caused
-    // by I/O in the first place.  So flush anything lingering in the
-    // standard output or error buffers
-    //
-    fflush(stdout);
-    fflush(stderr);
+    fflush(stdout);  // release builds don't use <stdio.h>, but debug ones do
+    fflush(stderr);  // ...so be helpful and flush any lingering debug output
   #endif
 
-    // Because the release build of Rebol does not link to printf or its
-    // support functions, the crash buf is assembled into a buffer for
-    // raw output through the host.
-    //
+    // Delivering a panic should not rely on printf()/etc. in release build.
+
     char title[PANIC_TITLE_BUF_SIZE + 1]; // account for null terminator
     char buf[PANIC_BUF_SIZE + 1]; // "
 
@@ -111,13 +96,8 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
   #endif
 
   #if !defined(NDEBUG) && defined(HAVE_EXECINFO_AVAILABLE)
-    //
-    // Backtrace is a GNU extension.  There should be a way to turn this on
-    // or off, as it will be redundant with a valgrind or address sanitizer
-    // trace (and contain less information).
-    //
     void *backtrace_buf[1024];
-    int n_backtrace = backtrace(
+    int n_backtrace = backtrace(  // GNU extension (but valgrind is better)
         backtrace_buf,
         sizeof(backtrace_buf) / sizeof(backtrace_buf[0])
     );
@@ -210,21 +190,13 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
     }
 
   #if !defined(NDEBUG)
-    //
-    // In a debug build, we'd like to try and cause a break so as not to lose
-    // the state of the panic, which would happen if we called out to the
-    // host kit's exit routine...
-    //
     printf("%s\n", Str_Panic_Title);
     printf("%s\n", buf);
     fflush(stdout);
-    debug_break(); // see %debug_break.h
+    debug_break();  // try to hook up to a C debugger - see %debug_break.h
   #endif
 
-    // 255 is standardized as "exit code out of range", but it seems like the
-    // best choice for an anomalous exit.
-    //
-    exit (255);
+    exit (255);  // shell convention treats 255 as "exit code out of range"
 }
 
 

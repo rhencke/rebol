@@ -294,7 +294,7 @@ static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
         nullptr,
         Canon(SYM_REFINEMENT_X)
     );
-    Init_Datatype(refinement, REB_PATH); // imprecise, paths not all refines
+    Init_Issue(refinement, Canon(SYM_REFINEMENT_X));
 
     return catalog;
 }

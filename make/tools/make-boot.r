@@ -407,6 +407,9 @@ e-types/emit {
         PSEUDOTYPE_NINE,
         REB_TS_DEQUOTE_REQUOTE = PSEUDOTYPE_NINE,
 
+        PSEUDOTYPE_TEN,
+        REB_TS_REFINEMENT = PSEUDOTYPE_TEN, /* !!! temp (?) compatibility */
+
         REB_MAX_PLUS_MAX
     };
 
