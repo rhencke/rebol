@@ -495,7 +495,7 @@ bool Eval_Path_Throws_Core(
 
         assert(IS_ACTION(pvs->out));
 
-        if (GET_EVAL_FLAG(pvs, PUSH_PATH_REFINEMENTS)) {
+        if (GET_EVAL_FLAG(pvs, PUSH_PATH_REFINES)) {
             //
             // The caller knows how to handle the refinements-pushed-to-stack
             // in-reverse-order protocol, and doesn't want to pay for making

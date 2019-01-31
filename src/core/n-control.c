@@ -647,6 +647,40 @@ REBNATIVE(match)
 
 
 //
+//  matches: enfix native[
+//
+//  {Check value using tests (match types, TRUE or FALSE, or filter action)}
+//
+//      return: "Input if it matched, otherwise null (void if falsey match)"
+//          [<opt> any-value!]
+//       value [<opt> any-value!]
+//      'test "Typeset membership, LOGIC! to test for truth, filter function"
+//          [
+//              word! ;-- GET to find actual test
+//              action! get-word! get-path! ;-- arity-1 filter function
+//              path! ;-- AND'd tests
+//              block! ;-- OR'd tests
+//              datatype! typeset! ;-- literals accepted
+//              logic! ;-- tests TO-LOGIC compatibility
+//              tag! ;-- just <opt> for now
+//              integer! ;-- matches length of series
+//              quoted! ;-- same test, but make quote level part of the test
+//          ]
+//  ]
+//
+REBNATIVE(matches)
+{
+    INCLUDE_PARAMS_OF_MATCHES;
+
+    if (Match_Core_Throws(D_OUT, ARG(test), SPECIFIED, ARG(value), SPECIFIED))
+        return R_THROWN;
+
+    assert(IS_LOGIC(D_OUT));
+    return D_OUT;
+}
+
+
+//
 //  all: native [
 //
 //  {Short-circuiting variant of AND, using a block of expressions as input}

@@ -1619,14 +1619,18 @@ REB_R Commenter_Dispatcher(REBFRM *f)
 //
 REB_R Hijacker_Dispatcher(REBFRM *f)
 {
-    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    REBACT *phase = FRM_PHASE(f);
+    REBARR *details = ACT_DETAILS(phase);
     RELVAL *hijacker = ARR_HEAD(details);
 
     // We need to build a new frame compatible with the hijacker, and
     // transform the parameters we've gathered to be compatible with it.
     //
-    if (Redo_Action_Throws(f, VAL_ACTION(hijacker)))
+    if (Redo_Action_Throws(f->out, f, VAL_ACTION(hijacker)))
         return R_THROWN;
+
+    if (GET_ACTION_FLAG(phase, IS_INVISIBLE))
+        return R_INVISIBLE;
 
     return f->out;
 }
@@ -1798,7 +1802,7 @@ bool Get_If_Word_Or_Path_Throws(
             derived,
             NULL, // `setval`: null means don't treat as SET-PATH!
             DO_MASK_DEFAULT | (push_refinements
-                ? EVAL_FLAG_PUSH_PATH_REFINEMENTS // pushed in reverse order
+                ? EVAL_FLAG_PUSH_PATH_REFINES // pushed in reverse order
                 : 0)
         )){
             return true;

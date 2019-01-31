@@ -67,7 +67,6 @@
 (error? make error! [type: 'script id: 'invalid-compare])
 (error? make error! [type: 'script id: 'invalid-part])
 (error? make error! [type: 'script id: 'no-return])
-(error? make error! [type: 'script id: 'block-lines])
 (error? make error! [type: 'script id: 'bad-bad])
 (error? make error! [type: 'script id: 'bad-make-arg])
 (error? make error! [type: 'script id: 'wrong-denom])

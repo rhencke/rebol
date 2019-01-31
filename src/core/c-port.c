@@ -316,7 +316,7 @@ void Sieve_Ports(REBARR *ports)
 //     foo: func [a /b c] [...]  =>  bar: func [/b d e] [...]
 //                    foo/b 1 2  =>  bar/b 1 2
 //
-bool Redo_Action_Throws(REBFRM *f, REBACT *run)
+bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
 {
     REBARR *code_arr = Make_Arr(FRM_NUM_ARGS(f)); // max, e.g. no refines
     RELVAL *code = ARR_HEAD(code_arr);
@@ -389,7 +389,7 @@ bool Redo_Action_Throws(REBFRM *f, REBACT *run)
     // prevent application of the const bit to the arguments at this level.
     //
     REBIXO indexor = Eval_Array_At_Core(
-        SET_END(f->out),
+        out,
         first, // path not in array, will be "virtual" first element
         code_arr,
         0, // index
@@ -399,9 +399,6 @@ bool Redo_Action_Throws(REBFRM *f, REBACT *run)
             | EVAL_FLAG_NO_RESIDUE // raise an error if all args not consume
             | (f->flags.bits & EVAL_FLAG_CONST)
     );
-
-    if (IS_END(f->out))
-        fail ("Redo_Action_Throws() was either empty or all COMMENTs/ELIDEs");
 
     return indexor == THROWN_FLAG;
 }
@@ -451,7 +448,7 @@ REB_R Do_Port_Action(REBFRM *frame_, REBVAL *port, REBVAL *verb)
     if (n == 0 or not IS_ACTION(action = VAL_CONTEXT_VAR(actor, n)))
         fail (Error_No_Port_Action_Raw(verb));
 
-    if (Redo_Action_Throws(frame_, VAL_ACTION(action)))
+    if (Redo_Action_Throws(frame_->out, frame_, VAL_ACTION(action)))
         return R_THROWN;
 
     r = D_OUT; // result should be in frame_->out

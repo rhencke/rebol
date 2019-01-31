@@ -316,6 +316,12 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
     if (Saved_State == NULL)
         panic (error);
 
+    // If the error doesn't have a where/near set, set it from stack
+    //
+    ERROR_VARS *vars = ERR_VARS(error);
+    if (IS_NULLED(&vars->where) or IS_BLANK(&vars->where))
+        Set_Location_Of_Error(error, FS_TOP);
+
     // The information for the Rebol call frames generally is held in stack
     // variables, so the data will go bad in the longjmp.  We have to free
     // the data *before* the jump.  Be careful not to let this code get too
@@ -431,9 +437,10 @@ const REBVAL *Find_Error_For_Sym(enum Reb_Symbol id_sym)
 //
 void Set_Location_Of_Error(
     REBCTX *error,
-    REBFRM *where // must be valid and executing on the stack
+    REBFRM *where  // must be valid and executing on the stack
 ) {
-    assert(where != NULL);
+    while (GET_EVAL_FLAG(where, BLAME_PARENT))  // e.g. Apply_Only_Throws()
+        where = where->prior;
 
     REBDSP dsp_orig = DSP;
 
@@ -665,8 +672,6 @@ REB_R MAKE_Error(
         }
     }
 
-    Set_Location_Of_Error(error, FS_TOP);
-
     return Init_Error(out, error);
 }
 
@@ -856,7 +861,6 @@ REBCTX *Make_Error_Managed_Core(
     Move_Value(&vars->id, id);
     Move_Value(&vars->type, type);
 
-    Set_Location_Of_Error(error, FS_TOP);
     return error;
 }
 

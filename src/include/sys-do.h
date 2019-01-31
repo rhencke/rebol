@@ -135,6 +135,7 @@ inline static bool Apply_Only_Throws(
             | (fully ? EVAL_FLAG_NO_RESIDUE : 0)
             | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
             | (applicand->header.bits & EVAL_FLAG_CONST)
+            | EVAL_FLAG_BLAME_PARENT
     );
 
     if (IS_END(out))

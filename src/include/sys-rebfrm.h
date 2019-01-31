@@ -391,7 +391,9 @@ STATIC_ASSERT(EVAL_FLAG_CONST == CELL_FLAG_CONST);
     FLAG_LEFT_BIT(28)
 
 
-//=//// EVAL_FLAG_PUSH_PATH_REFINEMENTS ///////////////////////////////////=//
+//=//// EVAL_FLAG_PUSH_PATH_REFINES + EVAL_FLAG_BLAME_PARENT //////////////=//
+//
+// IF EVAL_FLAG_PATH_MODE...
 //
 // It is technically possible to produce a new specialized ACTION! each
 // time you used a PATH!.  This is needed for `apdo: :append/dup/only` as a
@@ -403,8 +405,16 @@ STATIC_ASSERT(EVAL_FLAG_CONST == CELL_FLAG_CONST);
 // in order via a path and values via a block of code can be done in one
 // step, vs needing to make an intermediate ACTION!.
 //
-#define EVAL_FLAG_PUSH_PATH_REFINEMENTS \
+// IF NOT(EVAL_FLAG_PATH_MODE)...
+//
+// Marks an error to hint that a frame is internal, and that reporting an
+// error on it probably won't give a good report.
+//
+#define EVAL_FLAG_29 \
     FLAG_LEFT_BIT(29)
+
+#define EVAL_FLAG_PUSH_PATH_REFINES         EVAL_FLAG_29
+#define EVAL_FLAG_BLAME_PARENT              EVAL_FLAG_29
 
 
 //=//// EVAL_FLAG_FULFILL_ONLY ////////////////////////////////////////////=//

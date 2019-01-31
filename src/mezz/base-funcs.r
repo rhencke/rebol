@@ -19,7 +19,7 @@ REBOL [
 assert: func [
     {Ensure conditions are conditionally true if hooked by debugging}
 
-    return: <void>
+    return: []
     conditions [block!]
         {Block of conditions to evaluate and test for logical truth}
 ][
@@ -29,24 +29,6 @@ assert: func [
     ; !!! R3-Alpha and Rebol2 did not distinguish ASSERT and VERIFY, since
     ; there was no idea of a "debug mode"
 ]
-
-so: enfix func [
-    {Postfix assertion which won't keep running if left expression is false}
-
-    return: <void>
-    condition "Condition to test, must resolve to a LOGIC! (use DID, NOT)"
-        [logic!]
-    :look [<opt> <end> any-value! <...>]
-][
-    if block? first look [
-        fail "Don't use literal block as SO right hand side, use ([...])"
-    ]
-    if not condition [
-        fail 'condition ["Postfix 'SO assertion' failed"]
-    ]
-]
-
-tweak :so #postpone on
 
 
 maybe: enfix func [
@@ -89,7 +71,7 @@ maybe: enfix func [
 ]
 
 
-was: func [
+steal: func [
     {Return a variable's value prior to an assignment, then do the assignment}
 
     return: [<opt> any-value!]
@@ -98,13 +80,13 @@ was: func [
         {Used to take the assigned value}
     :look [set-word! set-path! <...>]
 ][
-    get first look ;-- returned value
+    get first look  ; returned value
 
     elide take evaluation
 ]
 
-assert [null = binding of :return] ;-- it's archetypal, nowhere to return to
-unset 'return ;-- so don't let the archetype be visible
+assert [null = binding of :return]  ; it's archetypal, nowhere to return to
+unset 'return  ; so don't let the archetype be visible
 
 function: func [
     {Make action with set-words as locals, <static>, <in>, <with>, <local>}
@@ -473,6 +455,70 @@ redescribe: function [
 redescribe [
     {Create an ACTION, implicity gathering SET-WORD!s as <local> by default}
 ] :function
+
+
+so: enfix func [
+    {Postfix assertion which won't keep running if left expression is false}
+
+    return: [<opt> any-value!]
+    condition "Condition to test, must resolve to a LOGIC! (use DID, NOT)"
+        [logic!]
+    feed [<opt> <end> any-value! <...>]
+][
+    if not condition [
+        fail 'condition make error! [
+            type: 'Script
+            id: 'assertion-failure
+            arg1: compose [(:condition) so]
+        ]
+    ]
+    if tail? feed [return void]
+    feed: take feed
+    if (block? feed) and [semiquoted? 'feed] [
+        fail "Don't use literal block as SO right hand side, use ([...])"
+    ]
+    return :feed
+]
+tweak :so #postpone on
+
+
+matched: enfix redescribe [
+    "Assert that the left hand side--when fully evaluated--MATCHES the right"
+](
+    enclose :matches function [f [frame!]] [
+        test: :f/test  ; save for reporting what failed
+        :f/value  ; returned value, note DO F makes F/VALUE unavailable
+
+        elide if not do f [
+            fail 'f make error! [
+                type: 'Script
+                id: 'assertion-failure
+                arg1: compose [(:value) matches (:test)]
+            ]
+        ]
+    ]
+)
+tweak :matched #postpone on
+
+; Rare case where a `?` variant is useful, to avoid VOID! on falsey matches
+match?: chain [:match | :value?]
+
+
+was: enfix redescribe [
+    "Assert that the left hand side--when fully evaluated--IS the right"
+](
+    function [left [<opt> any-value!] right [<opt> any-value!]] [
+        if :left != :right [
+            fail 'return make error! [
+                type: 'Script
+                id: 'assertion-failure
+                arg1: compose [(:left) is (:right)]
+            ]
+        ]
+        :left  ; choose left in case binding or case matters somehow
+    ]
+)
+tweak :was #postpone on
 
 
 zdeflate: redescribe [
@@ -985,7 +1031,7 @@ fail: function [
     ; !!! PATH! doesn't do BINDING OF, and in the general case it couldn't
     ; tell you where it resolved to without evaluating, just do WORD! for now.
     ;
-    frame: try match frame! binding of try match word! :blame
+    frame: try match frame! binding of try match 'word! :blame
 
     error: switch type of :reason [
         error! [reason]
@@ -1022,21 +1068,17 @@ fail: function [
         ]
     ]
 
-    if (not error? :reason) or [not pick reason 'where] [
+    if not pick error 'where [
         ;
         ; If no specific location specified, and error doesn't already have a
         ; location, make it appear to originate from the frame calling FAIL.
         ;
         location: default [frame or [binding of 'reason]]
 
-        ; !!! Does SET-LOCATION-OF-ERROR need to be a native?
-        ;
-        set-location-of-error error location
+        set-location-of-error error location  ; !!! must this be a native?
     ]
 
-    ; Raise error to the nearest TRAP up the stack (if any)
-    ;
-    do ensure error! error
+    do ensure error! error  ; raise to nearest TRAP up the stack (if any)
 ]
 
 generate: function [ "Make a generator."

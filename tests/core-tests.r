@@ -187,6 +187,7 @@
 %math/subtract.test.reb
 %math/tangent.test.reb
 %math/zeroq.test.reb
+%misc/assert.test.reb
 %misc/help.test.reb
 %reflectors/body-of.test.reb
 %secure/const.test.reb

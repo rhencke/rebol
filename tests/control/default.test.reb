@@ -21,18 +21,18 @@
     [10 20 20] = reduce [o/x o/y o/z]
 )
 
-; WAS tests
+; STEAL tests
 (
     x: 10
     all [
-        10 = was x: 20
+        10 = steal x: 20
         x = 20
     ]
 )
 (
     x: _
     all [
-        _ = was x: default [20]
+        _ = steal x: default [20]
         x = 20
     ]
 )

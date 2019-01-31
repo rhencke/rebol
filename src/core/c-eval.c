@@ -1312,8 +1312,13 @@ bool Eval_Core_Throws(REBFRM * const f)
                     //
                     if (GET_EVAL_FLAG(f, RUNNING_ENFIX)) {
                         assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
-                        if (NOT_ACTION_FLAG(FRM_PHASE(f), DEFERS_LOOKBACK))
+                        if (
+                            NOT_ACTION_FLAG(FRM_PHASE(f), POSTPONES_ENTIRELY)
+                            and
+                            NOT_ACTION_FLAG(FRM_PHASE(f), DEFERS_LOOKBACK)
+                        ){
                             SET_FEED_FLAG(f->feed, NO_LOOKAHEAD);
+                        }
                     }
                     Finalize_Arg(f);
                     break;
@@ -2120,7 +2125,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             VAL_INDEX(current),
             Derive_Specifier(f->specifier, current),
             nullptr, // `setval`: null means don't treat as SET-PATH!
-            EVAL_FLAG_PUSH_PATH_REFINEMENTS
+            EVAL_FLAG_PUSH_PATH_REFINES
         )){
             if (where != f->out)
                 Move_Value(f->out, where);

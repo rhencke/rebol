@@ -14,28 +14,29 @@ REBOL [
 verify: function [
     {Verify all the conditions in the passed-in block are conditionally true}
 
-    return: <void>
+    return: []
     conditions [block!]
         {Conditions to check}
     <local> result
 ][
     while [pos: evaluate/set conditions 'result] [
-        if not :result [
+        if (void? :result) or [not :result] [
             ;
-            ; including BAR!s in the failure report looks messy, skip them
+            ; including bars in the failure report looks messy, skip them
             ;
             while ['| = first conditions] [conditions: my next]
 
-            fail 'conditions [
-                "Assertion condition returned"
-                 case [
-                    unset? 'result ["null"]
-                    void? result ["void"]
-                    blank? result ["blank"]
-                    result = false ["false"]
+            fail 'conditions make error! [
+                type: 'Script
+                id: 'assertion-failure
+                arg1: compose [
+                    (copy/part conditions pos) ** (case [
+                        unset? 'result ['null]
+                        void? result ['void]
+                        blank? result ['blank]
+                        result = false ['false]
+                    ])
                 ]
-                ":"
-                copy/part conditions pos
             ]
         ]
 

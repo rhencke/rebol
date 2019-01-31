@@ -87,6 +87,7 @@ Script: [
     no-relative:        [:arg1 {word is bound relative to context not on stack}]
     not-in-context:     [:arg1 {is not in the specified context}]
 
+    assertion-failure:  [{assertion failure:} :arg1]
 
     phase-bad-arg-type:
         [:arg1 {internal phase disallows} :arg2 {for its} :arg3 {argument}]
@@ -171,7 +172,6 @@ Script: [
     invalid-part:       [{invalid /part count:} :arg1]
 
     no-return:          {block did not return a value}
-    block-lines:        {expected block of lines}
 
     ; !!! Consider enhancements which would allow suppressing the /NAME in the
     ; rendering if not present.
