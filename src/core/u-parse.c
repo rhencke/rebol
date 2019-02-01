@@ -1486,133 +1486,146 @@ REBNATIVE(subparse)
                     fail (Error_Parse_Command_Raw(non_word));
                 }
 
-                if (cmd <= SYM_BREAK) { // optimization
+                if (cmd > SYM_BREAK)  // R3-Alpha claimed "optimization"
+                    goto skip_pre_rule;  // but jump tables are fast, review
 
-                    switch (cmd) {
-                    // Note: mincount = maxcount = 1 on entry
-                    case SYM_WHILE:
-                        flags |= PF_WHILE;
-                        // falls through
-                    case SYM_ANY:
-                        mincount = 0;
-                        // falls through
-                    case SYM_SOME:
-                        maxcount = INT32_MAX;
-                        FETCH_NEXT_RULE(f);
-                        continue;
+                switch (cmd) {
+                  case SYM_WHILE:
+                    assert(mincount == 1 and maxcount == 1);  // true on entry
+                    flags |= PF_WHILE;
+                    goto sym_any;
 
-                    case SYM_OPT:
-                        mincount = 0;
-                        FETCH_NEXT_RULE(f);
-                        continue;
+                  case SYM_ANY:
+                    assert(mincount == 1 and maxcount == 1);  // true on entry
+                  sym_any:;
+                    mincount = 0;
+                    goto sym_some;
 
-                    case SYM_COPY:
-                        flags |= PF_COPY;
-                        goto set_or_copy_pre_rule;
-                    case SYM_SET:
-                        flags |= PF_SET;
-                        // falls through
-                    set_or_copy_pre_rule:
-                        FETCH_NEXT_RULE(f);
+                  case SYM_SOME:
+                    assert(mincount == 1 and maxcount == 1);  // true on entry
+                  sym_some:;
+                    maxcount = INT32_MAX;
+                    FETCH_NEXT_RULE(f);
+                    continue;
 
-                        if (not (IS_WORD(P_RULE) or IS_SET_WORD(P_RULE))) {
-                            DECLARE_LOCAL (bad_var);
-                            Derelativize(bad_var, P_RULE, P_RULE_SPECIFIER);
-                            fail (Error_Parse_Variable_Raw(bad_var));
-                        }
+                  case SYM_OPT:
+                    mincount = 0;
+                    FETCH_NEXT_RULE(f);
+                    continue;
 
-                        if (VAL_CMD(P_RULE)) { // set set [...]
-                            DECLARE_LOCAL (keyword);
-                            Derelativize(keyword, P_RULE, P_RULE_SPECIFIER);
-                            fail (Error_Parse_Command_Raw(keyword));
-                        }
+                  case SYM_COPY:
+                    flags |= PF_COPY;
+                    goto set_or_copy_pre_rule;
+                
+                  case SYM_SET:
+                    flags |= PF_SET;
+                    goto set_or_copy_pre_rule;
 
-                        FETCH_NEXT_RULE_KEEP_LAST(&set_or_copy_word, f);
-                        continue;
+                  set_or_copy_pre_rule:;
 
-                    case SYM_NOT:
-                        flags |= PF_NOT;
-                        flags ^= PF_NOT2;
-                        FETCH_NEXT_RULE(f);
-                        continue;
+                    FETCH_NEXT_RULE(f);
 
-                    case SYM_AND:
-                    case SYM_AHEAD:
-                        flags |= PF_AHEAD;
-                        FETCH_NEXT_RULE(f);
-                        continue;
-
-                    case SYM_THEN:
-                        flags |= PF_THEN;
-                        FETCH_NEXT_RULE(f);
-                        continue;
-
-                    case SYM_REMOVE:
-                        flags |= PF_REMOVE;
-                        FETCH_NEXT_RULE(f);
-                        continue;
-
-                    case SYM_INSERT:
-                        flags |= PF_INSERT;
-                        FETCH_NEXT_RULE(f);
-                        goto post_match_processing;
-
-                    case SYM_CHANGE:
-                        flags |= PF_CHANGE;
-                        FETCH_NEXT_RULE(f);
-                        continue;
-
-                    case SYM_ACCEPT:
-                    case SYM_BREAK: {
-                        //
-                        // This has to be throw-style, because it's not enough
-                        // to just say the current rule succeeded...it climbs
-                        // up and affects an enclosing parse loop.
-                        //
-                        DECLARE_LOCAL (thrown_arg);
-                        Init_Integer(thrown_arg, P_POS);
-                        thrown_arg->extra.trash = thrown_arg; // see notes
-
-                        return Init_Thrown_With_Label(
-                            P_OUT,
-                            thrown_arg,
-                            NAT_VALUE(parse_accept)
-                        ); }
-
-                    case SYM_REJECT: {
-                        //
-                        // Similarly, this is a break/continue style "throw"
-                        //
-                        return Init_Thrown_With_Label(
-                            P_OUT,
-                            NULLED_CELL,
-                            NAT_VALUE(parse_reject)
-                        ); }
-
-                    case SYM_FAIL: // deprecated... use LOGIC! false instead
-                        P_POS = NOT_FOUND;
-                        FETCH_NEXT_RULE(f);
-                        goto post_match_processing;
-
-                    case SYM_LIMIT:
-                        fail (Error_Not_Done_Raw());
-
-                    case SYM__Q_Q:
-                        Print_Parse_Index(f);
-                        FETCH_NEXT_RULE(f);
-                        continue;
-
-                    case SYM_IF:
-                        fail ("IF removed from PARSE, use LOGIC!");
-
-                    case SYM_RETURN:
-                        fail ("RETURN removed from PARSE, use ((THROW ...))");
-
-                    default: //the list above should be exhaustive
-                        assert(false);
+                    if (not (IS_WORD(P_RULE) or IS_SET_WORD(P_RULE))) {
+                        DECLARE_LOCAL (bad_var);
+                        Derelativize(bad_var, P_RULE, P_RULE_SPECIFIER);
+                        fail (Error_Parse_Variable_Raw(bad_var));
                     }
+
+                    if (VAL_CMD(P_RULE)) {  // set set [...]
+                        DECLARE_LOCAL (keyword);
+                        Derelativize(keyword, P_RULE, P_RULE_SPECIFIER);
+                        fail (Error_Parse_Command_Raw(keyword));
+                    }
+
+                    FETCH_NEXT_RULE_KEEP_LAST(&set_or_copy_word, f);
+                    continue;
+
+                  case SYM_NOT:
+                    flags |= PF_NOT;
+                    flags ^= PF_NOT2;
+                    FETCH_NEXT_RULE(f);
+                    continue;
+
+                  case SYM_AND:
+                  case SYM_AHEAD:
+                    flags |= PF_AHEAD;
+                    FETCH_NEXT_RULE(f);
+                    continue;
+
+                  case SYM_THEN:
+                    flags |= PF_THEN;
+                    FETCH_NEXT_RULE(f);
+                    continue;
+
+                  case SYM_REMOVE:
+                    flags |= PF_REMOVE;
+                    FETCH_NEXT_RULE(f);
+                    continue;
+
+                  case SYM_INSERT:
+                    flags |= PF_INSERT;
+                    FETCH_NEXT_RULE(f);
+                    goto post_match_processing;
+
+                  case SYM_CHANGE:
+                    flags |= PF_CHANGE;
+                    FETCH_NEXT_RULE(f);
+                    continue;
+
+                  case SYM_ACCEPT:
+                  case SYM_BREAK: {
+                    //
+                    // This has to be throw-style, because it's not enough
+                    // to just say the current rule succeeded...it climbs
+                    // up and affects an enclosing parse loop.
+                    //
+                    DECLARE_LOCAL (thrown_arg);
+                    Init_Integer(thrown_arg, P_POS);
+                    thrown_arg->extra.trash = thrown_arg;  // see notes
+
+                    return Init_Thrown_With_Label(
+                        P_OUT,
+                        thrown_arg,
+                        NAT_VALUE(parse_accept)
+                    ); }
+
+                  case SYM_REJECT: {
+                    //
+                    // Similarly, this is a break/continue style "throw"
+                    //
+                    return Init_Thrown_With_Label(
+                        P_OUT,
+                        NULLED_CELL,
+                        NAT_VALUE(parse_reject)
+                    ); }
+
+                  case SYM_FAIL:  // deprecated... use LOGIC! false instead
+                    P_POS = NOT_FOUND;
+                    FETCH_NEXT_RULE(f);
+                    goto post_match_processing;
+
+                  case SYM_LIMIT:
+                    fail (Error_Not_Done_Raw());
+
+                  case SYM__Q_Q:
+                    Print_Parse_Index(f);
+                    FETCH_NEXT_RULE(f);
+                    continue;
+
+                  case SYM_IF:
+                    fail ("IF removed from PARSE, use LOGIC!");
+
+                  case SYM_RETURN:
+                    fail ("RETURN removed from PARSE, use (THROW ...)");
+
+                  default:  // the list above should be exhaustive
+                    assert(false);
                 }
-                // Any other cmd must be a match command, so proceed...
+
+              skip_pre_rule:;
+
+                // Any other WORD! with VAL_CMD() is a parse keyword, but is
+                // a "match command", so proceed...
             }
             else {
                 // It's not a PARSE command, get or set it
@@ -1665,18 +1678,14 @@ REBNATIVE(subparse)
                     continue;
                 }
 
-                // word - some other variable
-                if (IS_WORD(rule)) {
-                    if (rule != save) {
-                        Move_Opt_Var_May_Fail(save, rule, P_RULE_SPECIFIER);
-                        rule = save;
-                    }
-                    if (IS_NULLED(rule))
-                        fail (Error_No_Value_Core(rule, P_RULE_SPECIFIER));
+                assert(IS_WORD(rule));  // word - some other variable
+
+                if (rule != save) {
+                    Move_Opt_Var_May_Fail(save, rule, P_RULE_SPECIFIER);
+                    rule = save;
                 }
-                else {
-                    // rule can still be 'word or /word
-                }
+                if (IS_NULLED(rule))
+                    fail (Error_No_Value_Core(rule, P_RULE_SPECIFIER));
             }
         }
         else if (ANY_PATH(rule)) {
