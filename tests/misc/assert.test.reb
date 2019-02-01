@@ -43,7 +43,7 @@
     e: trap [10 + 10 was 30]
     e/id = 'assertion-failure
 )(
-    40 = (10 + 10 was 20 + 20)
+    40 = (10 + 30 was 20 + 20)
 )(
     e: trap [10 + 20 -> was 20 + 20]
     e/id = 'assertion-failure

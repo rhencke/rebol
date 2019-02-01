@@ -486,16 +486,17 @@ matched: enfix redescribe [
     "Assert that the left hand side--when fully evaluated--MATCHES the right"
 ](
     enclose :matches function [f [frame!]] [
-        test: :f/test  ; save for reporting what failed
-        :f/value  ; returned value, note DO F makes F/VALUE unavailable
+        test: :f/test  ; save for reporting, note DO F makes F/XXX unavailable
+        value: :f/value  ; returned value
 
-        elide if not do f [
+        if not do f [
             fail 'f make error! [
                 type: 'Script
                 id: 'assertion-failure
                 arg1: compose [(:value) matches (:test)]
             ]
         ]
+        :value
     ]
 )
 tweak :matched #postpone on
