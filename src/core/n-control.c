@@ -303,6 +303,24 @@ inline static bool Single_Test_Throws(
         );
         return false;
 
+      case REB_ISSUE: {
+        //
+        // !!! Currently a hack for the absence of higher-level typecheck
+        // functions.  e.g. there's no way to make a typecheck that says
+        // "PATH! with a BLANK! at the head".  You can only say PATH.  So
+        // for now, #REFINEMENT is that test.  Generalizations of typechecks
+        // should improve the state of this.
+        //
+        if (VAL_WORD_SYM(test_cell) == SYM_REFINEMENT_X) {
+            Init_Logic(
+                out,
+                REB_PATH == CELL_KIND(arg_cell)
+                    and IS_BLANK(ARR_AT(VAL_ARRAY(arg_cell), 0))
+            );
+            return false;
+        }
+        break; }
+
       default:
         break;
     }
@@ -539,8 +557,12 @@ REBNATIVE(match)
         Move_Value(test, D_OUT);
 
         if (not IS_ACTION(test)) {
-            if (ANY_WORD(test) or ANY_PATH(test))
+            if (
+                IS_WORD(test) or IS_GET_WORD(test) or IS_SET_WORD(test)
+                or ANY_PATH(test)  // ^-- we allow ISSUE!
+            ){
                 fail (PAR(test)); // disallow `X: 'Y | MATCH X ...`
+            }
             goto either_match; // will typecheck the result
         }
 
