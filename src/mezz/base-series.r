@@ -16,84 +16,32 @@ REBOL [
     }
 ]
 
-first: redescribe [
-    {Returns the first value of a series.}
-](
-    specialize 'pick [picker: 1]
-)
-
-second: redescribe [
-    {Returns the second value of a series.}
-](
-    specialize 'pick [picker: 2]
-)
-
-third: redescribe [
-    {Returns the third value of a series.}
-](
-    specialize 'pick [picker: 3]
-)
-
-fourth: redescribe [
-    {Returns the fourth value of a series.}
-](
-    specialize 'pick [picker: 4]
-)
-
-fifth: redescribe [
-    {Returns the fifth value of a series.}
-](
-    specialize 'pick [picker: 5]
-)
-
-sixth: redescribe [
-    {Returns the sixth value of a series.}
-](
-    specialize 'pick [picker: 6]
-)
-
-seventh: redescribe [
-    {Returns the seventh value of a series.}
-](
-    specialize 'pick [picker: 7]
-)
-
-eighth: redescribe [
-    {Returns the eighth value of a series.}
-](
-    specialize 'pick [picker: 8]
-)
-
-ninth: redescribe [
-    {Returns the ninth value of a series.}
-](
-    specialize 'pick [picker: 9]
-)
-
-tenth: redescribe [
-    {Returns the tenth value of a series.}
-](
-    specialize 'pick [picker: 10]
-)
-
-last: func [
-    {Returns the last value of a series.}
-    return: [<opt> any-value!]
-    value [any-series! tuple! gob!]
-][
-    if gob? value [
-        ;
-        ; The C code effectively used 'pick value t' with:
-        ;
-        ; t = GOB_PANE(VAL_GOB(val)) ? GOB_LEN(VAL_GOB(val)) : 0;
-        ; VAL_GOB_INDEX(val) = 0;
-        ;
-        print "Caution: LAST on GOB! may not work, look over the code"
-        wait 2
+eval function [:terms [tag! set-word! <...>]] [
+    n: 1
+    while [<end> != w: take terms] [
+        set w redescribe reduce [
+            spaced [{Returns the} to word! w {value of a series}]
+        ](
+            specialize 'pick [picker: n]
+        )
+        n: n + 1
     ]
-
-    pick value length of value
 ]
+    ; Variadic function so these words can be at top-level, module collects
+    ;
+    first: second: third: fourth: fifth:
+    sixth: seventh: eighth: ninth: tenth:
+    <end>
+
+last: redescribe [
+    {Returns the last value of a series.}
+](
+    specialize adapt 'pick [
+        picker: length of get lit location:
+    ][
+        picker: <removed-parameter>
+    ]
+)
 
 ;
 ; !!! End of functions that used to be natives, now mezzanine
