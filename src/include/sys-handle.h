@@ -55,12 +55,12 @@
 //   kind that's just raw data and no callback, ->extra is null.
 //
 
-inline static bool Is_Handle_Cfunc(const RELVAL *v) {
-    assert(IS_HANDLE(v));
+inline static bool Is_Handle_Cfunc(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_HANDLE);
     return PAYLOAD(Handle, v).length == 0;
 }
 
-inline static uintptr_t VAL_HANDLE_LEN(const RELVAL *v) {
+inline static uintptr_t VAL_HANDLE_LEN(const REBCEL *v) {
     assert(not Is_Handle_Cfunc(v));
     REBARR *a = EXTRA(Handle, v).singular;
     if (a)
@@ -69,7 +69,7 @@ inline static uintptr_t VAL_HANDLE_LEN(const RELVAL *v) {
         return PAYLOAD(Handle, v).length;
 }
 
-inline static void *VAL_HANDLE_VOID_POINTER(const RELVAL *v) {
+inline static void *VAL_HANDLE_VOID_POINTER(const REBCEL *v) {
     assert(not Is_Handle_Cfunc(v));
     REBARR *a = EXTRA(Handle, v).singular;
     if (a)
@@ -81,7 +81,7 @@ inline static void *VAL_HANDLE_VOID_POINTER(const RELVAL *v) {
 #define VAL_HANDLE_POINTER(t, v) \
     cast(t *, VAL_HANDLE_VOID_POINTER(v))
 
-inline static CFUNC *VAL_HANDLE_CFUNC(const RELVAL *v) {
+inline static CFUNC *VAL_HANDLE_CFUNC(const REBCEL *v) {
     assert(Is_Handle_Cfunc(v));
     REBARR *a = EXTRA(Handle, v).singular;
     if (a)
@@ -90,16 +90,16 @@ inline static CFUNC *VAL_HANDLE_CFUNC(const RELVAL *v) {
         return PAYLOAD(Handle, v).data.cfunc;
 }
 
-inline static CLEANUP_CFUNC *VAL_HANDLE_CLEANER(const RELVAL *v) {
-    assert(IS_HANDLE(v));
+inline static CLEANUP_CFUNC *VAL_HANDLE_CLEANER(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_HANDLE);
     REBARR *a = EXTRA(Handle, v).singular;
     if (not a)
         return nullptr;
     return MISC(a).cleaner;
 }
 
-inline static void SET_HANDLE_LEN(RELVAL *v, uintptr_t length) {
-    assert(IS_HANDLE(v));
+inline static void SET_HANDLE_LEN(REBCEL *v, uintptr_t length) {
+    assert(CELL_KIND(v) == REB_HANDLE);
     REBARR *a = EXTRA(Handle, v).singular;
     if (a)
         PAYLOAD(Handle, ARR_SINGLE(a)).length = length;
@@ -107,7 +107,7 @@ inline static void SET_HANDLE_LEN(RELVAL *v, uintptr_t length) {
         PAYLOAD(Handle, v).length = length;
 }
 
-inline static void SET_HANDLE_POINTER(RELVAL *v, void *pointer) {
+inline static void SET_HANDLE_POINTER(REBCEL *v, void *pointer) {
     assert(not Is_Handle_Cfunc(v));
     REBARR *a = EXTRA(Handle, v).singular;
     if (a)
@@ -116,7 +116,7 @@ inline static void SET_HANDLE_POINTER(RELVAL *v, void *pointer) {
         PAYLOAD(Handle, v).data.pointer = pointer;
 }
 
-inline static void SET_HANDLE_CFUNC(RELVAL *v, CFUNC *cfunc) {
+inline static void SET_HANDLE_CFUNC(REBCEL *v, CFUNC *cfunc) {
     assert(Is_Handle_Cfunc(v));
     REBARR *a = EXTRA(Handle, v).singular;
     if (a)

@@ -92,7 +92,7 @@
 //
 
 #include "reb-evtypes.h"
-static void Queue_Mark_Event_Deep(const RELVAL *value);
+static void Queue_Mark_Event_Deep(const REBCEL *value);
 
 static void Mark_Devices_Deep(void);
 
@@ -227,7 +227,7 @@ inline static void Queue_Mark_Map_Deep(REBMAP *m) { // ARRAY_FLAG_IS_PAIRLIST
     Queue_Mark_Array_Subclass_Deep(pairlist); // see Propagate_All_GC_Marks()
 }
 
-inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
+inline static void Queue_Mark_Binding_Deep(const REBCEL *v) {
     REBNOD *binding = VAL_BINDING(v);
     if (not binding)
         return;
@@ -242,7 +242,7 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
         // It's a context, any reasonable added check?
     }
     else {
-        assert(KIND_BYTE(v) % REB_64 == REB_VARARGS);
+        assert(CELL_KIND(v) == REB_VARARGS);
         assert(IS_SER_ARRAY(binding));
         assert(not IS_SER_DYNAMIC(binding)); // singular
     }
@@ -309,32 +309,36 @@ inline static void Queue_Mark_Value_Deep(const RELVAL *v)
 // If a slot is not supposed to allow END, use Queue_Mark_Opt_Value_Deep()
 // If a slot allows neither END nor NULLED cells, use Queue_Mark_Value_Deep()
 //
-static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
+static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
 {
     assert(not in_mark);
   #if !defined(NDEBUG)
     in_mark = true;
   #endif
 
+    const REBCEL *v;  // do GC work on this variable, not quoted
     enum Reb_Kind kind;
-    if (KIND_BYTE_UNCHECKED(v) != REB_QUOTED)
-        kind = CELL_KIND_UNCHECKED(cast(const REBCEL*, v)); // mod 64 of byte
+    if (KIND_BYTE_UNCHECKED(quotable) != REB_QUOTED) {
+        kind = CELL_KIND_UNCHECKED(cast(const REBCEL*, quotable)); // mod 64
+        v = quotable;
+    }
     else {
-        assert(PAYLOAD(Quoted, v).depth > 3);
+        assert(PAYLOAD(Quoted, quotable).depth > 3);
 
-        RELVAL *cell = PAYLOAD(Quoted, v).cell;
+        v = PAYLOAD(Quoted, quotable).cell;
       #if !defined(NDEBUG)
-        if (Is_Bindable(cell))
-            assert(EXTRA(Binding, v).node == EXTRA(Binding, cell).node);
-        else
-            assert(EXTRA(Binding, v).node == nullptr);
+        if (Is_Bindable(v))
+            assert(EXTRA(Binding, v).node == EXTRA(Binding, quotable).node);
+        else {
+            assert(EXTRA(Binding, quotable).node == nullptr);
+            // Note: Unbindable cell bits can be used for whatever they like
+        }
       #endif
 
-        Mark_Rebser_Only(SER(Singular_From_Cell(cell)));
+        Mark_Rebser_Only(SER(Singular_From_Cell(v)));
 
-        assert(KIND_BYTE(cell) <= REB_MAX_NULLED); // REB_QUOTED check below
-        kind = cast(enum Reb_Kind, KIND_BYTE(cell));
-        v = cell;
+        assert(KIND_BYTE_UNCHECKED(v) <= REB_MAX_NULLED);
+        kind = cast(enum Reb_Kind, KIND_BYTE_UNCHECKED(v));
     }
 
     // This switch is done via contiguous REB_XXX values, in order to
@@ -624,11 +628,11 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
 
         REBACT *phase = PAYLOAD(Context, v).phase;
         if (phase) {
-            assert(VAL_TYPE(v) == REB_FRAME); // may be heap-based frame
+            assert(kind == REB_FRAME); // may be heap-based frame
             Queue_Mark_Action_Deep(phase);
         }
         else
-            assert(VAL_TYPE(v) != REB_FRAME); // phase if-and-only-if frame
+            assert(kind != REB_FRAME); // phase if-and-only-if frame
 
         if (GET_SERIES_INFO(context, INACCESSIBLE))
             break;
@@ -1872,7 +1876,7 @@ void Shutdown_GC(void)
 // one will have to call Propagate_All_GC_Marks() to have the
 // deep transitive closure completely marked.
 //
-static void Queue_Mark_Event_Deep(const RELVAL *value)
+static void Queue_Mark_Event_Deep(const REBCEL *value)
 {
     REBREQ *req;
 
@@ -1901,7 +1905,7 @@ static void Queue_Mark_Event_Deep(const RELVAL *value)
         and (VAL_EVENT_FLAGS(value) & EVF_COPIED)
     ){
         assert(false);
-        Queue_Mark_Array_Deep(ARR(VAL_EVENT_SER(m_cast(RELVAL*, value))));
+        Queue_Mark_Array_Deep(ARR(VAL_EVENT_SER(value)));
     }
 
     if (IS_EVENT_MODEL(value, EVM_DEVICE)) {
