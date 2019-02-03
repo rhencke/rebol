@@ -2,6 +2,14 @@
 
 (did parse "abc" ["abc" end])
 
+; Are null rules raising the right error?
+
+(
+    foo: null
+    e: trap [parse "a" [foo]]
+    e/id = 'no-value
+)
+
 ; Blank and empty block case handling
 
 (did parse [] [end])

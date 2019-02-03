@@ -1897,7 +1897,7 @@ REBNATIVE(subparse)
                     rule = save;
                 }
                 if (IS_NULLED(rule))
-                    fail (Error_No_Value_Core(rule, P_RULE_SPECIFIER));
+                    fail (Error_No_Value_Core(P_RULE, P_RULE_SPECIFIER));
             }
         }
         else if (ANY_PATH(rule)) {

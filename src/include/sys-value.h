@@ -965,7 +965,7 @@ inline static REBVAL *Const(REBVAL *v) {
     Prep_Stack_Cell(name)
 
 
-#if !defined(__cplusplus)
+#if !defined(CPLUSPLUS_11)
     #define SHORTHAND(type,name,pointer) \
         type* const name = &pointer
 #else
