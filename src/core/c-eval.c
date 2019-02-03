@@ -1866,22 +1866,13 @@ bool Eval_Core_Throws(REBFRM * const f)
         // Just a heuristic--if it doesn't work for someone, they'll have to
         // take QUOTED! themselves and do whatever specific logic they need.
         //
-        if (
-            KIND_BYTE_UNCHECKED(f->out) != REB_0_END
-            and (
+        if (GET_ACTION_FLAG(f->original, RETURN_REQUOTES)) {
+            if (
                 KIND_BYTE_UNCHECKED(f->out) != REB_MAX_NULLED
                 or GET_EVAL_FLAG(f, REQUOTE_NULL)
-            )
-            and GET_ACTION_FLAG(f->original, HAS_RETURN)
-        ){
-            REBVAL *return_param = ACT_PARAM(
-                f->original,
-                ACT_NUM_PARAMS(f->original)
-            );
-            assert(VAL_PARAM_SYM(return_param) == SYM_RETURN);
-
-            if (TYPE_CHECK(return_param, REB_TS_DEQUOTE_REQUOTE))
+            ){
                 Quotify(f->out, f->requotes);
+            }
         }
 
         Drop_Action(f);

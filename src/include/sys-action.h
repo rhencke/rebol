@@ -166,18 +166,29 @@
     ARRAY_FLAG_30
 
 
-//=//// PARAMLIST_FLAG_UNUSED_31 //////////////////////////////////////////=//
+//=//// PARAMLIST_FLAG_RETURN_REQUOTES ////////////////////////////////////=//
 //
-#define PARAMLIST_FLAG_UNUSED_31 \
+// This is a cached property with a slight performance advantage for the
+// evaluator, as it doesn't have to go find the RETURN parameter to know if
+// it should apply the requote.  It is a minor optimization, and could be
+// sacrificed if this bit were needed for something else.
+//
+#define PARAMLIST_FLAG_RETURN_REQUOTES \
     ARRAY_FLAG_31
 
 
 // These are the flags which are scanned for and set during Make_Action
 //
 #define PARAMLIST_MASK_CACHED \
-    (PARAMLIST_FLAG_IS_INVISIBLE \
+    (PARAMLIST_FLAG_IS_INVISIBLE | PARAMLIST_FLAG_RETURN_REQUOTES \
         | PARAMLIST_FLAG_QUOTES_FIRST | PARAMLIST_FLAG_SKIPPABLE_FIRST)
 
+// These flags should be copied when specializing or adapting.  They may not
+// be derivable from the paramlist (e.g. a native with no RETURN does not
+// track if it requotes beyond the paramlist).
+//
+#define PARAMLIST_MASK_INHERIT \
+    (PARAMLIST_FLAG_DEFERS_LOOKBACK | PARAMLIST_FLAG_POSTPONES_ENTIRELY)
 
 
 #define SET_ACTION_FLAG(s,name) \

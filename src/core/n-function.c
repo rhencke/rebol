@@ -421,7 +421,9 @@ REBNATIVE(adapt)
     REBARR *paramlist = Copy_Array_Shallow_Flags(
         VAL_ACT_PARAMLIST(adaptee),
         SPECIFIED,
-        SERIES_MASK_ACTION | NODE_FLAG_MANAGED
+        SERIES_MASK_ACTION
+            | (SER(VAL_ACTION(adaptee))->header.bits & PARAMLIST_MASK_INHERIT)
+            | NODE_FLAG_MANAGED
     );
     PAYLOAD(Action, ARR_HEAD(paramlist)).paramlist = paramlist;
 
@@ -872,9 +874,10 @@ REBNATIVE(reskinned)
     REBARR *paramlist = Copy_Array_Shallow_Flags(
         ACT_PARAMLIST(original),
         SPECIFIED, // no relative values in parameter lists
-        SERIES_MASK_ACTION | NODE_FLAG_MANAGED // flags not auto-copied
+        SERIES_MASK_ACTION
+            | (SER(original)->header.bits & PARAMLIST_MASK_INHERIT)
+            | NODE_FLAG_MANAGED
     );
-    PUSH_GC_GUARD(paramlist);
 
     bool need_skin_phase = false; // only needed if types were broadened
 
@@ -1072,7 +1075,7 @@ REBNATIVE(reskinned)
 
     TERM_ARRAY_LEN(ACT_DETAILS(defers), details_len);
 
-    DROP_GC_GUARD(paramlist);
+    MANAGE_ARRAY(paramlist);
 
     return Init_Action_Maybe_Bound(
         D_OUT,

@@ -690,6 +690,7 @@ bool Specialize_Action_Throws(
     REBARR *paramlist = Pop_Stack_Values_Core(
         dsp_paramlist,
         SERIES_MASK_ACTION
+            | (SER(unspecialized)->header.bits & PARAMLIST_MASK_INHERIT)
     );
     MANAGE_ARRAY(paramlist);
     RELVAL *rootparam = ARR_HEAD(paramlist);

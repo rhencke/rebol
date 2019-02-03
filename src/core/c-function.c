@@ -209,18 +209,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     uintptr_t header_bits = 0;
 
-  #if !defined(NDEBUG)
-    //
-    // Debug builds go ahead and include a RETURN field and hang onto the
-    // typeset for fake returns (e.g. natives).
-    //
-    if (flags & MKF_FAKE_RETURN) {
-        flags &= ~MKF_FAKE_RETURN;
-        assert(not (flags & MKF_RETURN));
-        flags |= MKF_RETURN;
-    }
-  #endif
-
     REBDSP dsp_orig = DSP;
     assert(DS_TOP == DS_AT(dsp_orig));
 
@@ -473,7 +461,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // Cancel definitional return if any non-SET-WORD! uses the name
             // RETURN when defining a FUNC.
             //
-            flags &= ~(MKF_RETURN | MKF_FAKE_RETURN);
+            flags &= ~MKF_RETURN;
         }
 
         // Because FUNC does not do any locals gathering by default, the main
@@ -538,7 +526,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             if (pclass == REB_P_LOCAL)
                 definitional_return_dsp = DSP; // RETURN: explicitly tolerated
             else
-                flags &= ~(MKF_RETURN | MKF_FAKE_RETURN);
+                flags &= ~MKF_RETURN;
         }
     }
 
@@ -595,13 +583,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // Slots, which is length +1 (includes the rootvar or rootparam)
     //
     REBCNT num_slots = (DSP - dsp_orig) / 3;
-
-    // If we pushed a typeset for a return and it's a native, it actually
-    // doesn't want a RETURN: key in the frame in release builds.  We'll omit
-    // from the copy.
-    //
-    if (definitional_return_dsp != 0 and (flags & MKF_FAKE_RETURN))
-        --num_slots;
 
     // There should be no more pushes past this point, so a stable pointer
     // into the stack for the definitional return can be found.
@@ -662,21 +643,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         }
 
         if (definitional_return) {
-            if (flags & MKF_FAKE_RETURN) {
-                //
-                // This is where you don't actually want a RETURN key in the
-                // function frame (e.g. because it's native code and would be
-                // wasteful and unused).
-                //
-                // !!! The debug build uses real returns, not fake ones.
-                // This means actions and natives have an extra slot.
-                //
-            }
-            else {
-                assert(flags & MKF_RETURN);
-                Move_Value(dest, definitional_return);
-                ++dest;
-            }
+            assert(flags & MKF_RETURN);
+            Move_Value(dest, definitional_return);
+            ++dest;
         }
 
         // Must remove binder indexes for all words, even if about to fail
@@ -779,10 +748,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 );
             }
 
-            if (not (flags & MKF_FAKE_RETURN)) {
-                Init_Nulled(dest); // clear the local RETURN: var's description
-                ++dest;
-            }
+            Init_Nulled(dest); // clear the local RETURN: var's description
+            ++dest;
         }
 
         TERM_ARRAY_LEN(types_varlist, num_slots);
@@ -840,10 +807,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 );
             }
 
-            if (not (flags & MKF_FAKE_RETURN)) {
-                Init_Nulled(dest);
-                ++dest;
-            }
+            Init_Nulled(dest);
+            ++dest;
         }
 
         TERM_ARRAY_LEN(notes_varlist, num_slots);
@@ -993,8 +958,10 @@ REBACT *Make_Action(
     if (GET_ACTION_FLAG(act, HAS_RETURN)) {
         REBVAL *param = ACT_PARAM(act, ACT_NUM_PARAMS(act));
         assert(VAL_PARAM_SYM(param) == SYM_RETURN);
-        if (VAL_TYPESET_BITS(param) == 0) // e.g. `return []`, invisible
+        if ((VAL_TYPESET_BITS(param) & TS_OPT_VALUE) == 0) // e.g. `return []`
             SET_ACTION_FLAG(act, IS_INVISIBLE);
+        if (TYPE_CHECK(param, REB_TS_DEQUOTE_REQUOTE))
+            SET_ACTION_FLAG(act, RETURN_REQUOTES);
     }
 
     REBVAL *first_unspecialized = First_Unspecialized_Param(act);

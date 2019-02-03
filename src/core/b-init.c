@@ -348,14 +348,10 @@ REBNATIVE(generic)
 
     REBVAL *spec = ARG(spec);
 
-    // We only want to check the return type in the debug build.  In the
-    // release build, we want to have as few argument slots as possible...
-    // especially to get the optimization for 1 argument to go in the cell
-    // and not need to push arguments.
-    //
-    REBFLGS flags = MKF_KEYWORDS | MKF_FAKE_RETURN;
-
-    REBARR *paramlist = Make_Paramlist_Managed_May_Fail(spec, flags);
+    REBARR *paramlist = Make_Paramlist_Managed_May_Fail(
+        spec,
+        MKF_KEYWORDS | MKF_RETURN  // return type checked only in debug build
+    );
 
     // !!! Some Generic_Dispatcher()s retrigger on a literal version of a
     // type and do the same thing as to the plain version, on the thing that
@@ -372,7 +368,7 @@ REBNATIVE(generic)
 
     REBACT *generic = Make_Action(
         paramlist,
-        &Generic_Dispatcher,
+        &Generic_Dispatcher,  // Note: return type only checked in debug build
         nullptr, // no underlying action (use paramlist)
         nullptr, // no specialization exemplar (or inherited exemplar)
         IDX_NATIVE_MAX // details array capacity
@@ -612,15 +608,13 @@ REBVAL *Make_Native(
     // the Natives table.  The associated C function is provided by a
     // table built in the bootstrap scripts, `Native_C_Funcs`.
 
-    // We only want to check the return type in the debug build.  In the
-    // release build, we want to have as few argument slots as possible...
-    // especially to get the optimization for 1 argument to go in the cell
-    // and not need to push arguments.
-    //
-    REBFLGS flags = MKF_KEYWORDS | MKF_FAKE_RETURN;
+    REBARR *paramlist = Make_Paramlist_Managed_May_Fail(
+        KNOWN(spec),
+        MKF_KEYWORDS | MKF_RETURN  // return type checked only in debug build
+    );
 
     REBACT *act = Make_Action(
-        Make_Paramlist_Managed_May_Fail(KNOWN(spec), flags),
+        paramlist,
         dispatcher, // "dispatcher" is unique to this "native"
         nullptr, // no underlying action (use paramlist)
         nullptr, // no specialization exemplar (or inherited exemplar)

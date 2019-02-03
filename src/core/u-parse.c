@@ -255,12 +255,8 @@ static bool Subparse_Throws(
         collect_tail = 0;
     }
 
-  #if defined(NDEBUG)
-    assert(ACT_NUM_PARAMS(NAT_ACTION(subparse)) == 4); // elides RETURN:
-  #else
     assert(ACT_NUM_PARAMS(NAT_ACTION(subparse)) == 5); // checks RETURN:
     Init_Nulled(Prep_Stack_Cell(f->rootvar + 5));
-  #endif
 
     // !!! By calling the subparse native here directly from its C function
     // vs. going through the evaluator, we don't get the opportunity to do
