@@ -410,18 +410,26 @@ REBNATIVE(c_debug_break)
 {
     INCLUDE_PARAMS_OF_C_DEBUG_BREAK;
 
-  #if !defined(NDEBUG) && defined(DEBUG_COUNT_TICKS)
-    //
-    // For instance with:
-    //
-    //    print c-debug-break mold value
-    //
-    // Queue it so the break happens right before the MOLD, not after it
-    // happened and has been passed as an argument.
-    //
-    TG_Break_At_Tick = frame_->tick + 1;
-
-    return R_INVISIBLE;
+  #if defined(INCLUDE_C_DEBUG_BREAK_NATIVE)
+    #if defined(DEBUG_COUNT_TICKS)
+        //
+        // For instance with:
+        //
+        //    print c-debug-break mold value
+        //
+        // Queue it so the break happens right before the MOLD, not after it
+        // happened and has been passed as an argument.
+        //
+        TG_Break_At_Tick = frame_->tick + 1;
+        return R_INVISIBLE;
+     #else
+        // No tick counting or tick-break checking, but still want some
+        // debug break functionality (e.g. callgrind build).  Break here--
+        // you'll have to step up out into the evaluator stack.
+        //
+        debug_break();
+        return R_INVISIBLE;
+      #endif
   #else
     fail (Error_Debug_Only_Raw());
   #endif

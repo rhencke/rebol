@@ -587,28 +587,38 @@ switch user-config/debug [
     ; be used when trying to find bugs that only appear in release builds or
     ; higher optimization levels.
     ;
+    ; A special CALLGRIND native is included which allows metrics gathering to
+    ; be turned on and off.  Needs <valgrind/callgrind.h> which should be
+    ; installed when you install the valgrind package.
+    ;
+    ; To start valgrind in a mode where it's not gathering at the outset:
+    ;
+    ; valgrind --tool=callgrind --dump-instr=yes --collect-atstart=no ./r3
+    ;
+    ; Then use CALLGRIND ON and CALLGRIND OFF.  To view the callgrind.out
+    ; file, one option is to use KCacheGrind.
+    ;
     'callgrind [
         cfg-symbols: true
-        append app-config/definitions ["NDEBUG"]
         append app-config/cflags "-g" ;; for symbols
         app-config/debug: off
 
-        ; Include debugging features which do not in-and-of-themselves affect
-        ; runtime performance (DEBUG_TRACK_CELLS would be an example of
-        ; something that significantly affects runtime)
-        ;
-        append app-config/definitions ["DEBUG_STDIO_OK"]
-        append app-config/definitions ["DEBUG_PROBE_OK"]
+        append app-config/definitions [
+            "NDEBUG"  ; disable assert(), and many other general debug checks
 
-        ; A special CALLGRIND native is included which allows metrics
-        ; gathering to be turned on and off.  Needs <valgrind/callgrind.h>
-        ; which should be installed when you install the valgrind package.
-        ;
-        ; To start valgrind in a mode where it's not gathering at the outset:
-        ;
-        ; valgrind --tool=callgrind --dump-instr=yes --collect-atstart=no ./r3
-        ;
-        append app-config/definitions ["INCLUDE_CALLGRIND_NATIVE"]
+            ; Include debugging features which do not in-and-of-themselves
+            ; affect runtime performance (DEBUG_TRACK_CELLS would be an
+            ; example of something that significantly affects runtime, and
+            ; even things like DEBUG_FRAME_LABELS adds a tiny bit!)
+            ;
+            "DEBUG_STDIO_OK"
+            "DEBUG_PROBE_OK"
+            "INCLUDE_C_DEBUG_BREAK_NATIVE"
+
+            ; Adds CALLGRIND, see REBNATIVE(callgrind) for implementation
+            ;
+            "INCLUDE_CALLGRIND_NATIVE"
+        ]
     ]
 
     fail ["unrecognized debug setting:" user-config/debug]

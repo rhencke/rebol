@@ -395,6 +395,10 @@ Special internal defines used by RT, not Host-Kit developers:
     //
     #define DEBUG_STALE_ARGS
 
+    // See debugbreak.h and REBNATIVE(c_debug_break)...useful!
+    //
+    #define INCLUDE_C_DEBUG_BREAK_NATIVE
+
     // !!! Checking the memory alignment is an important invariant but may be
     // overkill to run on all platforms at all times.  It requires the
     // DEBUG_CELL_WRITABILITY flag to be enabled, since it's the moment of
