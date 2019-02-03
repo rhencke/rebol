@@ -731,19 +731,6 @@ inline static REBVAL *Derelativize(
 #endif
 
 
-inline static REBVAL *Derelativize_Keep_Eval_Flip(
-    RELVAL *out,
-    const RELVAL *v,
-    REBSPC *specifier
-){
-    bool flip = GET_CELL_FLAG(v, EVAL_FLIP);
-    Derelativize(out, v, specifier);
-    if (flip)
-        SET_CELL_FLAG(out, EVAL_FLIP);
-    return KNOWN(out);
-}
-
-
 //=////////////////////////////////////////////////////////////////////////=//
 //
 //  DETERMINING SPECIFIER FOR CHILDREN IN AN ARRAY

@@ -181,7 +181,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
 
         switch (pclass) {
         case REB_P_NORMAL: {
-            REBFLGS flags = DO_MASK_DEFAULT | EVAL_FLAG_FULFILLING_ARG;
+            REBFLGS flags = EVAL_MASK_DEFAULT | EVAL_FLAG_FULFILLING_ARG;
 
             DECLARE_FRAME (f_temp);
             Push_Frame_At(
@@ -284,7 +284,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
             if (Eval_Step_In_Subframe_Throws(
                 SET_END(out),
                 f,
-                DO_MASK_DEFAULT
+                EVAL_MASK_DEFAULT
                     | EVAL_FLAG_FULFILLING_ARG,
                 child
             )){
@@ -306,7 +306,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
                 )){
                     return true;
                 }
-                Fetch_Next_In_Frame(nullptr, f);
+                Fetch_Next_Forget_Lookback(f);
             }
             else // not a soft-"exception" case, quote ordinarily
                 Literal_Next_In_Frame(out, f);

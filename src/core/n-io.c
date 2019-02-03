@@ -581,7 +581,7 @@ REBNATIVE(wake_up)
     if (IS_ACTION(awake)) {
         const bool fully = true; // error if not all arguments consumed
 
-        if (Apply_Only_Throws(D_OUT, fully, awake, ARG(event), rebEND))
+        if (Run_Throws(D_OUT, fully, rebEVAL, awake, ARG(event), rebEND))
             fail (Error_No_Catch_For_Throw(D_OUT));
 
         if (not (IS_LOGIC(D_OUT) and VAL_LOGIC(D_OUT)))

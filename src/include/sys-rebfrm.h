@@ -70,10 +70,10 @@
 // args to functions are evaluated (vs. quoted), and lookahead is enabled.
 //
 #if defined(NDEBUG)
-    #define DO_MASK_DEFAULT \
+    #define EVAL_MASK_DEFAULT \
         EVAL_FLAG_CONST
 #else
-    #define DO_MASK_DEFAULT \
+    #define EVAL_MASK_DEFAULT \
         (EVAL_FLAG_CONST | EVAL_FLAG_DEFAULT_DEBUG)
 #endif
 
@@ -137,11 +137,7 @@ STATIC_ASSERT(EVAL_FLAG_1_IS_FALSE == NODE_FLAG_FREE);
 //
 // Function dispatchers have a special return value used by EVAL, which tells
 // it to use the frame's cell as the head of the next evaluation (before
-// what f->value would have ordinarily run.)  It used to have another mode
-// which requested the frame to change its EVAL_FLAG_EXPLICIT_EVALUATE
-// state for the duration of the next evaluation...a feature that was used
-// by EVAL/ONLY.  The somewhat obscure feature was used to avoid needing to
-// make a new frame to do that, but raised several questions about semantics.
+// what f->value would have ordinarily run.)
 //
 // This allows EVAL/ONLY to be implemented by entering a new subframe with
 // new flags, and may have other purposes as well.
@@ -256,28 +252,21 @@ STATIC_ASSERT(EVAL_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
     FLAG_LEFT_BIT(20)
 
 
-//=//// EVAL_FLAG_EXPLICIT_EVALUATE ///////////////////////////////////////=//
+//=//// EVAL_FLAG_PATH_HARD_QUOTE /////////////////////////////////////////=//
 //
-// Sometimes a DO operation has already calculated values, and does not want
-// to interpret them again.  e.g. the call to the function wishes to use a
-// precalculated WORD! value, and not look up that word as a variable.  This
-// is common when calling Rebol functions from C code when the parameters are
-// known (also present in what R3-Alpha called "APPLY/ONLY")
-//
-// Special escaping operations must be used in order to get evaluation
-// behavior.
-//
-// Path processing uses this same flag, to say that if a path has GROUP!s in
+// IF EVAL_FLAG_PATH_MODE...
+// ...Path processing uses this flag, to say that if a path has GROUP!s in
 // it, operations like DEFAULT do not want to run them twice...once on a get
 // path and then on a set path.  This means the path needs to be COMPOSEd and
 // then use GET/HARD and SET/HARD.
 //
-#define EVAL_FLAG_EXPLICIT_EVALUATE \
+// IF NOT(EVAL_FLAG_PATH_MODE)...
+// ...currently available!
+//
+#define EVAL_FLAG_21 \
     FLAG_LEFT_BIT(21)
-STATIC_ASSERT(EVAL_FLAG_EXPLICIT_EVALUATE == CELL_FLAG_EVAL_FLIP);
 
-#define EVAL_FLAG_PATH_HARD_QUOTE \
-    EVAL_FLAG_EXPLICIT_EVALUATE
+#define EVAL_FLAG_PATH_HARD_QUOTE       EVAL_FLAG_21
 
 
 //=//// EVAL_FLAG_CONST ///////////////////////////////////////////////////=//
@@ -438,10 +427,10 @@ STATIC_ASSERT(EVAL_FLAG_CONST == CELL_FLAG_CONST);
     //
     // It may be advantageous to have some bits set to true by default instead
     // of false, so all evaluations should describe their settings relative
-    // to DO_MASK_DEFAULT, and purposefully mask out any truthy flags that
+    // to EVAL_MASK_DEFAULT, and purposefully mask out any truthy flags that
     // apply by default they don't want (e.g. EVAL_FLAG_CONST, which is included
     // to err on the side of caution).  The default mask includes this flag
-    // just so the evaluator can make sure DO_MASK_DEFAULT was used.
+    // just so the evaluator can make sure EVAL_MASK_DEFAULT was used.
     //
     #define EVAL_FLAG_DEFAULT_DEBUG \
         FLAG_LEFT_BIT(31)
@@ -503,8 +492,46 @@ STATIC_ASSERT(31 < 32); // otherwise EVAL_FLAG_XXX too high
     ((k) >= REB_BLOCK)
 
 
-struct Reb_Frame_Feed {
+struct Reb_Feed {
     //
+    // Sometimes the frame can be advanced without keeping track of the
+    // last cell.  And sometimes the last cell lives in an array that is
+    // being held onto and read only, so its pointer is guaranteed to still
+    // be valid after a fetch.  But there are cases where values are being
+    // read from transient sources that disappear as they go...if that is
+    // the case, and lookback is needed, it is written into this cell.
+    //
+    RELVAL lookback;
+
+    // When feeding cells from a variadic, those cells may wish to mutate the
+    // value in some way... e.g. to add a quoting level.  Rather than
+    // complicate the evaluator itself with flags and switches, each frame
+    // has a holding cell which can optionally be used as the pointer that
+    // is returned by Fetch_Next_in_Frame(), where arbitrary mutations can
+    // be applied without corrupting the value they operate on.
+    //
+    RELVAL fetched;
+
+    union Reb_Header flags;
+
+    // If the binder isn't NULL, then any words or arrays are bound into it
+    // during the loading process.  
+    //
+    // !!! Note: At the moment a UTF-8 string is seen in the feed, it sets
+    // these fields on-demand, and then runs a scan of the entire rest of the
+    // feed, caching it.  It doesn't have a choice as only one binder can
+    // be in effect at a time, and so it can't run code as it goes.
+    //
+    // Hence these fields aren't in use at the same time as the lookback
+    // at this time; since no evaluations are being done.  They could be put
+    // into a pseudotype cell there, if this situation of scanning-to-end
+    // is a going to stick around.  But it is slow and smarter methods are
+    // going to be necessary.
+    //
+    struct Reb_Binder *binder;
+    REBCTX *lib;  // does not expand, has negative indices in binder
+    REBCTX *context;  // expands, has positive indices in binder
+
     // A frame may be sourced from a va_list of pointers, or not.  If this is
     // NULL it is assumed that the values are sourced from a simple array.
     //
@@ -523,24 +550,45 @@ struct Reb_Frame_Feed {
     //
     REBARR *array;
 
-    // SERIES_INFO_HOLD is used to make a temporary read-only lock of an array
-    // while it is running.  Since the same array can wind up on multiple
-    // levels of the stack (e.g. recursive functions), the source must be
-    // connected with a bit saying whether it was the level that protected it,
-    // so it can know to release the hold when it's done.
-    //
-    union Reb_Header flags;
-
     // This holds the index of the *next* item in the array to fetch as
     // f->value for processing.  It's invalid if the frame is for a C va_list.
     //
     REBCNT index;
+
+
+  #if defined(DEBUG_EXPIRED_LOOKBACK)
+    //
+    // On each call to Fetch_Next_In_Feed, it's possible to ask it to give
+    // a pointer to a cell with equivalent data to what was previously in
+    // f->value, but that might not be f->value.  So for all practical
+    // purposes, one is to assume that the f->value pointer died after the
+    // fetch.  If clients are interested in doing "lookback" and examining
+    // two values at the same time (or doing a GC and expecting to still
+    // have the old f->current work), then they must not use the old f->value
+    // but request the lookback pointer from Fetch_Next_In_Frame().
+    //
+    // To help stress this invariant, frames will forcibly expire REBVAL
+    // cells, handing out disposable lookback pointers on each eval.
+    //
+    // !!! Test currently leaks on shutdown, review how to not leak.
+    //
+    RELVAL *stress;
+  #endif
+
 };
 
 #define FEED_MASK_DEFAULT 0
 
+
+// SERIES_INFO_HOLD is used to make a temporary read-only lock of an array
+// while it is running.  Since the same array can wind up on multiple levels
+// of the stack (e.g. recursive functions), the source must be connected with
+// a bit saying whether it was the level that protected it, so it can know to
+// release the hold when it's done.
+//
 #define FEED_FLAG_TOOK_HOLD \
     FLAG_LEFT_BIT(0)
+
 
 // Infix functions may (depending on the #tight or non-tight parameter
 // acquisition modes) want to suppress further infix lookahead while getting
@@ -551,6 +599,7 @@ struct Reb_Frame_Feed {
 //
 #define FEED_FLAG_NO_LOOKAHEAD \
     FLAG_LEFT_BIT(1)
+
 
 // Defer notes when there is a pending enfix operation that was seen while an
 // argument was being gathered, that decided not to run yet.  It will run only
@@ -589,10 +638,18 @@ struct Reb_Frame_Feed {
     FLAG_LEFT_BIT(3)
 
 
+// By default, the feed will quote items that are being spliced.  But if it
+// is marked unevaluative, it will not quote them.  In this mode, null
+// splices are prohibited.
+//
+#define FEED_FLAG_UNEVALUATIVE \
+    FLAG_LEFT_BIT(4)
+
+
 #if !defined __cplusplus
     #define FEED(f) f
 #else
-    #define FEED(f) static_cast<struct Reb_Frame_Feed*>(f)
+    #define FEED(f) static_cast<struct Reb_Feed*>(f)
 #endif
 
 #define SET_FEED_FLAG(f,name) \
@@ -620,15 +677,6 @@ struct Reb_Frame_Feed {
 //
 struct Reb_Frame {
     //
-    // Sometimes the frame can be advanced without keeping track of the
-    // last cell.  And sometimes the last cell lives in an array that is
-    // being held onto and read only, so its pointer is guaranteed to still
-    // be valid after a fetch.  But there are cases where values are being
-    // read from transient sources that disappear as they go...if that is
-    // the case, and lookback is needed, it is written into this cell.
-    //
-    RELVAL lookback;
-
     // The frame's cell is used for different purposes.  PARSE uses it as a
     // scratch storage space.  Path evaluation uses it as where the calculated
     // "picker" goes (so if `foo/(1 + 2)`, the 3 would be stored there to be
@@ -676,7 +724,7 @@ struct Reb_Frame {
     // Since frames may share source information, this needs to be done with
     // a dereference.
     //
-    struct Reb_Frame_Feed *feed;
+    struct Reb_Feed *feed;
 
     // This is used for relatively bound words to be looked up to become
     // specific.  Typically the specifier is extracted from the payload of the
@@ -883,59 +931,7 @@ struct Reb_Frame {
     //
     struct Reb_State state;
   #endif
-
-  #if defined(DEBUG_EXPIRED_LOOKBACK)
-    //
-    // On each call to Fetch_Next_In_Frame, it's possible to ask it to give
-    // a pointer to a cell with equivalent data to what was previously in
-    // f->value, but that might not be f->value.  So for all practical
-    // purposes, one is to assume that the f->value pointer died after the
-    // fetch.  If clients are interested in doing "lookback" and examining
-    // two values at the same time (or doing a GC and expecting to still
-    // have the old f->current work), then they must not use the old f->value
-    // but request the lookback pointer from Fetch_Next_In_Frame().
-    //
-    // To help stress this invariant, frames will forcibly expire REBVAL
-    // cells, handing out disposable lookback pointers on each eval.
-    //
-    // !!! Test currently leaks on shutdown, review how to not leak.
-    //
-    RELVAL *stress;
-  #endif
 };
-
-
-// It is more pleasant to have a uniform way of speaking of frames by pointer,
-// so this macro sets that up for you, the same way DECLARE_LOCAL does.  The
-// optimizer should eliminate the extra pointer.
-//
-// Just to simplify matters, the frame cell is set to a bit pattern the GC
-// will accept.  It would need stack preparation anyway, and this simplifies
-// the invariant so if a recycle happens before Eval_Core_Throws() gets to its
-// body, it's always set to something.  Using an unreadable blank means we
-// signal to users of the frame that they can't be assured of any particular
-// value between evaluations; it's not cleared.
-//
-
-#define DECLARE_FRAME_CORE(name,feed_ptr) \
-    REBFRM name##struct; \
-    name##struct.feed = (feed_ptr); \
-    REBFRM * const name = &name##struct; \
-    Prep_Stack_Cell(&name->lookback); \
-    Init_Unreadable_Blank(&name->lookback); \
-    Prep_Stack_Cell(&name->cell); \
-    Init_Unreadable_Blank(&name->cell); \
-    name->dsp_orig = DSP;
-
-#define DECLARE_FRAME(name) \
-    struct Reb_Frame_Feed name##feed; \
-    DECLARE_FRAME_CORE(name, &name##feed)
-
-#define DECLARE_END_FRAME(name) \
-    DECLARE_FRAME_CORE(name, &TG_Frame_Source_End)
-
-#define DECLARE_SUBFRAME(name, parent) \
-    DECLARE_FRAME_CORE(name, (parent)->feed)
 
 
 #define FS_TOP (TG_Top_Frame + 0) // avoid assign to FS_TOP via + 0

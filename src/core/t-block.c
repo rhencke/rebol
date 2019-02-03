@@ -252,7 +252,7 @@ REB_R MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         //
         REBDSP dsp_orig = DSP;
         while (true) {
-            REBVAL *generated = rebRun(rebEval(arg), rebEND);
+            REBVAL *generated = rebRun(rebEVAL, arg, rebEND);
             if (not generated)
                 break;
             Move_Value(DS_PUSH(), generated);
@@ -457,9 +457,10 @@ static int Compare_Val_Custom(void *arg, const void *v1, const void *v2)
     const bool fully = true; // error if not all arguments consumed
 
     DECLARE_LOCAL (result);
-    if (Apply_Only_Throws(
+    if (Run_Throws(
         result,
         fully,
+        rebEVAL,
         flags->comparator,
         flags->reverse ? v1 : v2,
         flags->reverse ? v2 : v1,

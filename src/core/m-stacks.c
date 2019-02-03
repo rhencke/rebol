@@ -44,6 +44,7 @@ void Startup_Data_Stack(REBCNT size)
     //
     DS_Array = Make_Arr_Core(1, ARRAY_FLAG_NULLEDS_LEGAL);
     Init_Unreadable_Blank(ARR_HEAD(DS_Array));
+    SET_CELL_FLAG(ARR_HEAD(DS_Array), PROTECTED);
 
     // The END marker will signal DS_PUSH() that it has run out of space,
     // and it will perform the allocation at that time.
@@ -91,20 +92,16 @@ void Startup_Frame_Stack(void)
     TG_Top_Frame = TG_Bottom_Frame = nullptr;
   #endif
 
-    TG_Frame_Source_End.index = 0;
-    TG_Frame_Source_End.vaptr = nullptr;
-    TG_Frame_Source_End.array = EMPTY_ARRAY; // for HOLD flag in Push_Frame
-    TRASH_POINTER_IF_DEBUG(TG_Frame_Source_End.pending);
+    TG_Frame_Feed_End.index = 0;
+    TG_Frame_Feed_End.vaptr = nullptr;
+    TG_Frame_Feed_End.array = EMPTY_ARRAY; // for HOLD flag in Push_Frame
+    TRASH_POINTER_IF_DEBUG(TG_Frame_Feed_End.pending);
 
-    REBFRM *f = ALLOC(REBFRM); // needs dynamic allocation
-    Prep_Stack_Cell(&f->lookback);
-    Init_Unreadable_Blank(&f->lookback);
-    Prep_Stack_Cell(&f->cell);
-    Init_Unreadable_Blank(&f->cell);
+    REBFRM *f = ALLOC(REBFRM);  // can't use DECLARE_FRAME(), must be dynamic
+    Prep_Frame_Core(f, &TG_Frame_Feed_End);
 
     f->out = m_cast(REBVAL*, END_NODE); // should not be written
-    f->feed = &TG_Frame_Source_End;
-    Push_Frame_At_End(f, DO_MASK_DEFAULT);
+    Push_Frame_At_End(f, EVAL_MASK_DEFAULT);
 
     // It's too early to be using Make_Paramlist_Managed_May_Fail()
     //

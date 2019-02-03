@@ -925,6 +925,10 @@ union Reb_Series_Misc {
     //
     REBNAT dispatcher;
 
+    // Used on arrays for special instructions to Fetch_Next_In_Frame().
+    //
+    enum Reb_Api_Opcode opcode;
+
     // some HANDLE!s use this for GC finalization
     //
     CLEANUP_CFUNC *cleaner;

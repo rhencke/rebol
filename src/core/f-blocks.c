@@ -103,8 +103,8 @@ REBARR *Copy_Array_At_Max_Shallow(
 //
 //  Copy_Values_Len_Extra_Shallow_Core: C
 //
-// Shallow copy the first 'len' values of `head` into a new
-// series created to hold exactly that many entries.
+// Shallow copy the first 'len' values of `head` into a new series created to
+// hold that many entries, with an optional bit of extra space at the end.
 //
 REBARR *Copy_Values_Len_Extra_Shallow_Core(
     const RELVAL *head,
@@ -119,11 +119,10 @@ REBARR *Copy_Values_Len_Extra_Shallow_Core(
     const RELVAL *src = head;
     RELVAL *dest = ARR_HEAD(a);
     for (; count < len; ++count, ++src, ++dest) {
+        if (KIND_BYTE(src) == REB_MAX_NULLED)
+            assert(flags & ARRAY_FLAG_NULLEDS_LEGAL);
+
         Derelativize(dest, src, specifier);
-        if (flags & ARRAY_FLAG_NULLEDS_LEGAL) {
-            if (GET_CELL_FLAG(src, EVAL_FLIP))
-                SET_CELL_FLAG(dest, EVAL_FLIP);
-        }
     }
 
     TERM_ARRAY_LEN(a, len);

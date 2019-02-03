@@ -288,6 +288,21 @@ enum Reb_Vararg_Op {
 #include "sys-scan.h"
 
 
+//=//// API OPCODES ///////////////////////////////////////////////////////=//
+//
+// The libRebol API can take REBVAL*, or UTF-8 strings of raw textual material
+// to scan and bind, or it can take a REBARR* of an "API instruction".
+//
+// These opcodes must be visible to the REBSER definition, as they live in
+// the `MISC()` section.
+//
+
+enum Reb_Api_Opcode {
+    API_OPCODE_EVAL,
+    API_OPCODE_RELEASE
+};
+
+
 //=//// DEVICE REQUEST ////////////////////////////////////////////////////=//
 //
 // !!! The device and port model is being reviewed/excised.  However, for the

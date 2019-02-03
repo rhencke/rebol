@@ -107,12 +107,16 @@
 // invalid after that.  It takes several observations and goes back expecting
 // a word to be in the same condition, so it can't use opt_lookback yet.
 //
+// (The evaluator pushes SET-WORD!s and SET-PATH!s to the stack in order to
+// be able to reuse the frame and avoid a recursion.  This would have to do
+// that as well.)
+//
 #define FETCH_NEXT_RULE_KEEP_LAST(opt_lookback,f) \
     *opt_lookback = P_RULE; \
-    Fetch_Next_In_Frame(nullptr, (f))
+    Fetch_Next_Forget_Lookback(f)
 
 #define FETCH_NEXT_RULE(f) \
-    Fetch_Next_In_Frame(nullptr, (f))
+    Fetch_Next_Forget_Lookback(f)
 
 inline static bool IS_BAR(const RELVAL *v)
     { return IS_WORD(v) and VAL_WORD_SYM(v) == SYM_BAR; }
@@ -214,7 +218,7 @@ static bool Subparse_Throws(
     // structure...there may be few enough of them that they can, as they
     // do not compete with EVAL_FLAG_XXX for the most part.
     //
-    f->flags.bits = DO_MASK_DEFAULT; // terminates f->cell
+    f->flags.bits = EVAL_MASK_DEFAULT; // terminates f->cell
 
     Push_Frame_Core(f); // checks for C stack overflow
     Reuse_Varlist_If_Available(f);
@@ -1254,7 +1258,7 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
             ARR(P_INPUT),
             P_POS,
             P_INPUT_SPECIFIER,
-            DO_MASK_DEFAULT
+            EVAL_MASK_DEFAULT
         );
         if (indexor == THROWN_FLAG) { // BREAK/RETURN/QUIT/THROW...
             Move_Value(P_OUT, P_CELL);
@@ -1558,7 +1562,7 @@ REBNATIVE(subparse)
                   case SYM_COPY:
                     flags |= PF_COPY;
                     goto set_or_copy_pre_rule;
-                
+
                   case SYM_SET:
                     flags |= PF_SET;
                     goto set_or_copy_pre_rule;

@@ -357,8 +357,8 @@ ext-console-impl: function [
         [block! group! integer! path!] ;-- Note: RETURN is hooked below!!!
     prior "BLOCK! or GROUP! that last invocation of HOST-CONSOLE requested"
         [blank! block! group!]
-    result "Result from evaluating PRIOR in a 1-element BLOCK!, or error/null"
-        [<opt> block! error!]
+    result "Quoted result from evaluating PRIOR, or non-quoted error"
+        [quoted! error!]
     resumable "Is the RESUME function allowed to exit this console"
         [logic!]
 ][
@@ -417,7 +417,7 @@ ext-console-impl: function [
             <bad> [
                 emit #no-unskin-if-error
                 emit [print (<*> mold uneval prior)]
-                emit [fail ["Bad REPL continuation:" ((<*> uneval result))]]
+                emit [fail ["Bad REPL continuation:" ((<*> result))]]
             ]
         ] then [
             return-to-c instruction
@@ -599,15 +599,10 @@ ext-console-impl: function [
         return <prompt>
     ]
 
-    if block? :result [
-        assert [1 = length of result]
-        set* lit result: :result/1
-    ] else [
-        assert [unset? 'result]
-    ]
+    assert [quoted? :result]
 
     if group? prior [ ;-- plain execution of user code
-        emit [system/console/print-result ((<*> uneval :result))]
+        emit [system/console/print-result ((<*> result))]
         return <prompt>
     ]
 
@@ -618,6 +613,8 @@ ext-console-impl: function [
     ; BLOCK! - block of gathered input lines so far, need another one
     ;
     assert [block? prior]
+
+    result: unquote result
 
     if group? result [
         if empty? result [return <prompt>] ;-- user just hit enter, don't run

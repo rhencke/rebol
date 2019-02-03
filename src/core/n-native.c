@@ -220,7 +220,9 @@ REB_R Pending_Native_Dispatcher(REBFRM *f) {
     // Today's COMPILE doesn't return a result on success (just fails on
     // errors), but if it changes to return one consider what to do with it.
     //
-    rebElide(rebEval(NAT_VALUE(compile)), "[", action, "]", rebEND);
+    rebElide(
+        rebEVAL, NAT_VALUE(compile), "[", rebU(action, rebEND), "]",
+    rebEND);
 
     // Now that it's compiled, it should have replaced the dispatcher with a
     // function pointer that lives in the TCC_State.  Use REDO, and don't

@@ -47,7 +47,7 @@ bool Reduce_To_Stack_Throws(
         VAL_ARRAY(any_array),
         VAL_INDEX(any_array),
         specifier,
-        DO_MASK_DEFAULT
+        EVAL_MASK_DEFAULT
     );
 
     while (NOT_END(f->value)) {
@@ -182,12 +182,12 @@ REB_R Compose_To_Stack_Core(
         VAL_ARRAY(any_array),
         VAL_INDEX(any_array),
         specifier,
-        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
             | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
             | (any_array->header.bits & EVAL_FLAG_CONST)
     );
 
-    for (; NOT_END(f->value); Fetch_Next_In_Frame(nullptr, f)) {
+    for (; NOT_END(f->value); Fetch_Next_Forget_Lookback(f)) {
         const REBCEL *cell = VAL_UNESCAPED(f->value);
         enum Reb_Kind kind = CELL_KIND(cell); // notice `\\(...)`
 
@@ -245,7 +245,7 @@ REB_R Compose_To_Stack_Core(
                 VAL_ARRAY(match),
                 index,
                 match_specifier,
-                (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+                (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
                     | EVAL_FLAG_TO_END
                     | (f->flags.bits & EVAL_FLAG_CONST)
                     | (match->header.bits & EVAL_FLAG_CONST)

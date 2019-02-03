@@ -198,7 +198,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     file->path = rebRun(
         "apply 'local-to-file [",
             "path:", rebR(rebTextW(info.cFileName)),
-            "dir:", rebR(rebLogic(file_req->modes & RFM_DIR)),
+            "dir:", rebL(file_req->modes & RFM_DIR),
         "]", rebEND
     );
 
@@ -269,7 +269,7 @@ DEVICE_CMD Open_File(REBREQ *req)
     WCHAR *path_wide = rebSpellW(
         "apply 'file-to-local [",
             "path:", file->path,
-            "wild:", rebR(rebLogic(req->modes & RFM_DIR)),
+            "wild:", rebL(req->modes & RFM_DIR),
             "full: true",
         "]", rebEND
     );

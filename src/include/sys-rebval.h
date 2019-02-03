@@ -104,6 +104,7 @@
 #define CELL_FLAG_VAR_MARKED_REUSE NODE_FLAG_MARKED
 #define CELL_FLAG_MARKED_REMOVE NODE_FLAG_MARKED
 #define CELL_FLAG_BIND_MARKED_REUSE NODE_FLAG_MARKED
+#define CELL_FLAG_FETCHED_MARKED_TEMPORARY NODE_FLAG_MARKED
 
 
 // v-- BEGIN GENERAL CELL BITS HERE, third byte in the header
@@ -206,17 +207,10 @@
     FLAG_LEFT_BIT(20)
 
 
-//=//// CELL_FLAG_EVAL_FLIP ///////////////////////////////////////////////=//
+//=//// CELL_FLAG_UNUSED_21 ///////////////////////////////////////////////=//
 //
-// This is a bit which should not be present on cells in user-exposed arrays.
-//
-// If a DO is happening with EVAL_FLAG_EXPLICIT_EVALUATE, only values which
-// carry this bit will override it.  It may be the case that the flag on a
-// value would signal a kind of quoting to suppress evaluation in ordinary
-// evaluation (without EVAL_FLAG_EXPLICIT_EVALUATE), hence it is a "flip" bit.
-//
-#define CELL_FLAG_EVAL_FLIP \
-    FLAG_LEFT_BIT(21) // IMPORTANT: Same bit as EVAL_FLAG_EXPLICIT_EVALUATE
+#define CELL_FLAG_UNUSED_21 \
+    FLAG_LEFT_BIT(21)
 
 
 //=//// CELL_FLAG_CONST ///////////////////////////////////////////////////=//
@@ -319,7 +313,7 @@ inline static union Reb_Header Endlike_Header(uintptr_t bits) {
 
 #define CELL_MASK_COPY \
     ~(CELL_MASK_PERSIST | NODE_FLAG_MARKED | CELL_FLAG_PROTECTED \
-        | CELL_FLAG_ENFIXED | CELL_FLAG_UNEVALUATED | CELL_FLAG_EVAL_FLIP)
+        | CELL_FLAG_ENFIXED | CELL_FLAG_UNEVALUATED | CELL_FLAG_UNUSED_21)
 
 
 //=//// CELL's `EXTRA` FIELD DEFINITION ///////////////////////////////////=//

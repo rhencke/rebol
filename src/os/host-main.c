@@ -272,7 +272,7 @@ int main(int argc, char *argv_ansi[])
     );
     Bind_Values_Deep(VAL_ARRAY_HEAD(host_code_group), startup_ctx);
 
-    REBVAL *host_start = rebRun(rebEval(host_code_group), rebEND);
+    REBVAL *host_start = rebRun(rebEVAL, host_code_group, rebEND);
     if (rebNot("lib/action?", host_start, rebEND))
         rebJumps("lib/PANIC-VALUE", host_start, rebEND);
 
@@ -299,11 +299,11 @@ int main(int argc, char *argv_ansi[])
     // are thus here to intercept bugs *in HOST-START itself*.
     //
     REBVAL *trapped = rebRun(
-        "lib/entrap [",
-            rebR(host_start), // action! that takes 2 args
-            "mutable", rebR(argv_block),
-        "]", rebEND
-    );
+        "lib/entrap [",  // HOST-START action! takes one argument (argv[])
+            rebEVAL, host_start, "mutable", rebR(argv_block),
+        "]",
+    rebEND);
+    rebRelease(host_start);
 
     if (rebDid("lib/error?", trapped, rebEND)) // error in HOST-START itself
         rebJumps("lib/PANIC", trapped, rebEND);

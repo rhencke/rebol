@@ -181,17 +181,18 @@ void Enable_Ctrl_C(void)
 // behalf.  If the code is on the user's behalf, then any tracing or debug
 // hooks will have been enabled before the rebRescue() call invoking this.
 //
-// NOTE THAT ANY LIBREBOL CODE THAT IS RUN HERE WILL WIND UP IN THE TRACE.
-// The only thing that's acceptable to see in the backtrace is the GROUP!
-// itself that we are running (getting that out of the trace would take some
-// magic).  So don't add superfluous libRebol calls here, except to debug.
 //
 static REBVAL *Run_Sandboxed_Group(REBVAL *group) {
-    REBVAL *result = rebRun(rebEval(group), rebEND);
-    if (not result)
-        return nullptr;
-
-    return rebRun("[", rebR(result), "]", rebEND); // ownership gets proxied
+    //
+    // DON'T ADD ANY MORE LIBREBOL CODE HERE.  If this is a user-requested
+    // evaluation, then any extra libRebol code run here will wind up being
+    // shown in a TRACE.  The only thing that's acceptable to see in the
+    // backtrace is the GROUP! itself that we are running.  (If we didn't
+    // want that, getting rid of it would take some magic).
+    //
+    // So don't add superfluous libRebol calls here, except to debug.
+    //
+    return rebQuote(rebEVAL, group, rebEND);  // ownership gets proxied
 }
 
 
@@ -274,10 +275,10 @@ REBNATIVE(console)
         REBVAL *trapped; // goto crosses initialization
         trapped = rebRun(
             "entrap [",
-                "ext-console-impl", // action! that takes 2 args, run it
-                rebQ(code), // group!/block! executed prior (or blank!)
-                rebQ(result), // prior result in a block, or error/null
-                rebR(rebLogic(REF(resumable))),
+                "ext-console-impl",  // action! that takes 2 args, run it
+                code,  // group! or block! executed prior (or blank!)
+                result,  // prior result quoted, or error/null
+                rebL(REF(resumable)),
             "]", rebEND
         );
 

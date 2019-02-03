@@ -126,26 +126,12 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
     REBCNT count = 0;
     RELVAL *item = ARR_AT(FRM_ARRAY(f), start);
     for (; NOT_END(item) and count < 6; ++item, ++count) {
-        if (IS_NULLED(item)) {
-            //
-            // If a va_list is used to do a non-evaluative call (something
-            // like R3-Alpha's APPLY/ONLY) then nulled cells are currently
-            // allowed.  Reify_Va_To_Array_In_Frame() may come along and
-            // make a special block containing voids, which we don't want
-            // to expose in a user-visible block.  Since this array is just
-            // for display purposes and is "lossy" (as evidenced by the ...)
-            // substitute a placeholder to avoid crashing the GC.
-            //
-            assert(GET_ARRAY_FLAG(FRM_ARRAY(f), NULLEDS_LEGAL));
-            Init_Word(DS_PUSH(), Canon(SYM___VOID__));
-        }
-        else
-            Derelativize(DS_PUSH(), item, f->specifier);
+        assert(not IS_NULLED(item));  // can't be in arrays, API won't splice
+        Derelativize(DS_PUSH(), item, f->specifier);
 
         if (count == FRM_INDEX(f) - start - 1) {
             //
             // Leave a marker at the point of the error, currently `~~`.
-            // (Formerly it was ?? but that is now being actually used).
             //
             // This is the marker for an execution point, so it can either
             // mean "error source is to the left" or just "frame is at a

@@ -154,9 +154,10 @@ REBINT Awake_System(REBARR *ports, bool only)
     // Call the system awake function:
     //
     DECLARE_LOCAL (result);
-    if (Apply_Only_Throws(
+    if (Run_Throws(
         result,
         true, // fully
+        rebEVAL,
         only ? awake_only : awake,
         port,
         tmp,
@@ -367,7 +368,13 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
         if (ignoring)
             continue;
 
-        Move_Value(code, f->arg);
+        // The arguments were already evaluated to put them in the frame, do
+        // not evaluate them again.
+        //
+        // !!! This tampers with the VALUE_FLAG_UNEVALUATED bit, which is
+        // another good reason this should probably be done another way.
+        //
+        Quotify(Move_Value(code, f->arg), 1);
         ++code;
     }
 
@@ -382,8 +389,6 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
     else
         Init_Path(first, Pop_Stack_Values(dsp_orig));
 
-    SET_CELL_FLAG(first, EVAL_FLIP); // make the PATH! invoke action
-
     // Invoke DO with the special mode requesting non-evaluation on all
     // args, as they were evaluated the first time around.  This will also
     // prevent application of the const bit to the arguments at this level.
@@ -394,8 +399,7 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
         code_arr,
         0, // index
         SPECIFIED, // reusing existing REBVAL arguments, no relative values
-        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-            | EVAL_FLAG_EXPLICIT_EVALUATE // DON'T double-evaluate arguments
+        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
             | EVAL_FLAG_NO_RESIDUE // raise an error if all args not consume
             | (f->flags.bits & EVAL_FLAG_CONST)
     );

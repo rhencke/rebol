@@ -216,7 +216,7 @@ inline static void Push_Frame_Core(REBFRM *f)
 inline static void Push_Frame_At_End(REBFRM *f, REBFLGS flags) {
     f->flags = Endlike_Header(flags);
 
-    assert(f->feed == &TG_Frame_Source_End); // see DECLARE_END_FRAME
+    assert(f->feed == &TG_Frame_Feed_End); // see DECLARE_END_FRAME
     f->gotten = nullptr;
     SET_FRAME_VALUE(f, END_NODE);
     f->specifier = SPECIFIED;
@@ -274,7 +274,7 @@ inline static void Push_Frame_At(
 inline static void Push_Frame(REBFRM *f, const REBVAL *v)
 {
     Push_Frame_At(
-        f, VAL_ARRAY(v), VAL_INDEX(v), VAL_SPECIFIER(v), DO_MASK_DEFAULT
+        f, VAL_ARRAY(v), VAL_INDEX(v), VAL_SPECIFIER(v), EVAL_MASK_DEFAULT
     );
 }
 
@@ -283,71 +283,64 @@ inline static void Push_Frame(REBFRM *f, const REBVAL *v)
 // But a va_list can contain UTF-8 string components or special instructions
 // that are other Detect_Rebol_Pointer() types.  Anyone who wants to set or
 // preload a frame's state for a va_list has to do this detection, so this
-// code has to be factored out (because a C va_list cannot have its first
-// parameter in the variadic).
+// code has to be factored out to just take a void* (because a C va_list
+// cannot have its first parameter in the variadic, va_list* is insufficient)
 //
-inline static void Set_Frame_Detected_Fetch(
-    const RELVAL **opt_lookback,
-    REBFRM *f,
+inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
+    const RELVAL **opt_lookback,  // if non null, must be old f->value
+    struct Reb_Feed *feed,
     const void *p
 ){
-    // This is the last chance we'll have to see f->value.  So if we are
-    // supposed to be freeing it or releasing it, then it must be proxied
-    // into a place where the data will be safe long enough for lookback.
+    if (opt_lookback) {  // caller wants what was in f->value for reference
+        assert(READABLE(*opt_lookback, __FILE__, __LINE__));  // ensure cell
 
-    if (NOT_CELL_FLAG(f->value, ROOT)) {
-        if (opt_lookback)
-            *opt_lookback = f->value; // non-API values must be stable/GC-safe
-        goto detect;
+        if (GET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY)) {
+            //
+            // f->value was transient and hence constructed into f->fetched.
+            // We may overwrite it below for this fetch.  So save the old one
+            // into f->lookback, where it will be safe until the next fetch.
+            //
+            assert(*opt_lookback == &feed->fetched);
+            *opt_lookback = Move_Value(&feed->lookback, KNOWN(&feed->fetched));
+        }
+        else {
+            // pointer they had should be stable, GC-safe
+        }
     }
 
-    REBARR *a; // ^--goto
-    a = Singular_From_Cell(f->value);
-    if (NOT_SERIES_FLAG(a, SINGULAR_API_RELEASE)) {
-        if (opt_lookback)
-            *opt_lookback = f->value; // keep-alive API value or instruction
-        goto detect;
-    }
+  detect_again:;
 
-    if (opt_lookback) {
+    const RELVAL *detected;
+
+    if (not p) {  // libRebol's null/<opt> (IS_NULLED prohibited in CELL case)
+
+        if (GET_FEED_FLAG(feed, UNEVALUATIVE))
+            fail ("rebUNEVALUATIVE/rebU API mode cannot splice nulls");
+
+        // !!! We could make a global QUOTED_NULLED_VALUE with a stable
+        // pointer and not have to use fetched or FETCHED_MARKED_TEMPORARY.
         //
-        // Eval_Core_Throws() is wants the old f->value, but we're going to
-        // free it.  It has to be kept alive -and- kept safe from GC.  e.g.
-        //
-        //     REBVAL *word = rebRun("make word! {hello}");
-        //     rebRun(rebR(word), "<- (recycle :quote)");
-        //
-        // The `current` cell the evaluator is looking at is the WORD!, then
-        // f->value receives the "shove" `<-`.  The shove runs the code in
-        // the GROUP!.  But there are no other references to `hello` after
-        // the Free_Value() done by rebR(), so it's a candidate for recycle,
-        // which would mean shoving a bad `current` as the arg to `:quote`
-        //
-        // The f->lookback cell is used as the GC-safe location proxied to.
-        //
-        *opt_lookback = Move_Value(&f->lookback, KNOWN(f->value));
-        if (GET_CELL_FLAG(f->value, EVAL_FLIP))
-            SET_CELL_FLAG(&f->lookback, EVAL_FLIP);
-    }
-
-    if (GET_SERIES_FLAG(a, SINGULAR_API_INSTRUCTION))
-        Free_Instruction(Singular_From_Cell(f->value));
-    else
-        rebRelease(cast(const REBVAL*, f->value));
-
-
-  detect:;
-
-    if (not p) { // libRebol's null/<opt> (IS_NULLED prohibited below)
-
-        f->feed->array = nullptr;
-        f->feed->flags.bits = FEED_MASK_DEFAULT;
-        f->value = NULLED_CELL;
+        feed->array = nullptr;
+        Quotify(Init_Nulled(&feed->fetched), 1);
+        SET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
+        detected = &feed->fetched;
 
     } else switch (Detect_Rebol_Pointer(p)) {
 
       case DETECTED_AS_UTF8: {
         REBDSP dsp_orig = DSP;
+
+        // !!! Current hack is to just allow one binder to be passed in for
+        // use binding any newly loaded portions (spliced ones are left with
+        // their bindings, though there may be special "binding instructions"
+        // or otherwise, that get added).
+        //
+        feed->context = Get_Context_From_Stack();
+        feed->lib = (feed->context != Lib_Context) ? Lib_Context : nullptr;
+
+        struct Reb_Binder binder;
+        Init_Interning_Binder(&binder, feed->context);
+        feed->binder = &binder;
 
         SCAN_STATE ss;
         const REBLIN start_line = 1;
@@ -356,44 +349,11 @@ inline static void Set_Frame_Detected_Fetch(
             Intern("sys-do.h"),
             start_line,
             cast(const REBYTE*, p),
-            f->feed->vaptr
+            feed
         );
 
-        // !!! In the working definition, the "topmost level" of a variadic
-        // call is considered to be already evaluated...unless you ask to
-        // evaluate it further.  This is what allows `rebSpellInto(v, rebEND)`
-        // to work as well as `rebSpellInto("first", v, rebEND)`, the idea of
-        // "fetch" is the reading of the C variable V, and it would be a
-        // "double eval" if that v were a WORD! that then executed.
-        //
-        // Hence, nulls are legal, because it's as if you said `first :v`
-        // with v being the C variable name.  However, this is not meaningful
-        // if the value winds up spliced into a block--so any null in those
-        // cases are treated as errors.
-        //
-        // For the moment, this also cues automatic interning on the string
-        // runs...because if we did the binding here, all the strings would
-        // have become arrays, and be indistinguishable from the components
-        // that they were spliced in with.  So it would be too late to tell
-        // which elements came from strings and which were existing blocks
-        // from elsewhere.  This is not ideal, but it's just to start.
-        //
-        ss.opts |= SCAN_FLAG_NULLEDS_LEGAL;
-
-        // !!! Current hack is to just allow one binder to be passed in for
-        // use binding any newly loaded portions (spliced ones are left with
-        // their bindings, though there may be special "binding instructions"
-        // or otherwise, that get added).
-        //
-        ss.context = Get_Context_From_Stack();
-        ss.lib = (ss.context != Lib_Context) ? Lib_Context : nullptr;
-
-        struct Reb_Binder binder;
-        Init_Interning_Binder(&binder, ss.context);
-        ss.binder = &binder;
-
         REBVAL *error = rebRescue(cast(REBDNG*, &Scan_To_Stack), &ss);
-        Shutdown_Interning_Binder(&binder, ss.context);
+        Shutdown_Interning_Binder(&binder, feed->context);
 
         if (error) {
             REBCTX *error_ctx = VAL_CONTEXT(error);
@@ -402,9 +362,9 @@ inline static void Set_Frame_Detected_Fetch(
         }
 
         // !!! for now, assume scan went to the end; ultimately it would need
-        // to pass the "source".
+        // to pass the feed in as a parameter for partial scans
         //
-        f->feed->vaptr = NULL;
+        feed->vaptr = nullptr;
 
         if (DSP == dsp_orig) {
             //
@@ -414,97 +374,182 @@ inline static void Set_Frame_Detected_Fetch(
             // feed is actually over so as to put null... so get another
             // value out of the va_list and keep going.
             //
-            p = va_arg(*f->feed->vaptr, const void*);
-            goto detect;
+            p = va_arg(*feed->vaptr, const void*);
+            goto detect_again;
         }
 
-        REBARR *reified = Pop_Stack_Values_Keep_Eval_Flip(dsp_orig);
+        REBARR *reified = Pop_Stack_Values(dsp_orig);
 
         // !!! We really should be able to free this array without managing it
         // when we're done with it, though that can get a bit complicated if
         // there's an error or need to reify into a value.  For now, do the
         // inefficient thing and manage it.
         //
+        // !!! Scans that produce only one value (which are likely very
+        // common) can go into feed->fetched and not make an array at all.
+        //
         MANAGE_ARRAY(reified);
 
-        f->value = ARR_HEAD(reified);
-        f->feed->pending = f->value + 1; // may be END
-        f->feed->array = reified;
-        f->feed->flags.bits = FEED_MASK_DEFAULT;
-        f->feed->index = 1;
+        detected = ARR_HEAD(reified);
+        feed->pending = detected + 1;  // may be END
+        feed->array = reified;
+        feed->index = 1;
 
-        assert(GET_ARRAY_FLAG(f->feed->array, NULLEDS_LEGAL));
+        CLEAR_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
         break; }
 
-      case DETECTED_AS_SERIES: { // "instructions" like rebEval(), rebQ()
-        REBARR *instruction = ARR(m_cast(void*, p));
+      case DETECTED_AS_SERIES: {  // e.g. rebEVAL(), or a rebR() handle
+        REBARR *inst1 = ARR(m_cast(void*, p));
 
         // The instruction should be unmanaged, and will be freed on the next
         // entry to this routine (optionally copying out its contents into
         // the frame's cell for stable lookback--if necessary).
         //
-        assert(GET_SERIES_FLAG(instruction, SINGULAR_API_INSTRUCTION));
-        assert(NOT_SERIES_FLAG(instruction, MANAGED));
-        f->value = ARR_SINGLE(instruction);
-        break; }
+        if (GET_ARRAY_FLAG(inst1, SINGULAR_API_INSTRUCTION)) {
+            assert(NOT_SERIES_FLAG(inst1, MANAGED));
 
-      case DETECTED_AS_FREED_SERIES:
-        panic (p);
+            switch (MISC(inst1).opcode) {
+              case API_OPCODE_EVAL: {
+
+                Free_Instruction(inst1);
+                TRASH_POINTER_IF_DEBUG(inst1);
+
+                p = va_arg(*feed->vaptr, const void*);
+                if (not p)
+                    fail ("rebEVAL and rebU/rebUNEVALUATIVE can't take null");
+
+                switch (Detect_Rebol_Pointer(p)) {
+                  case DETECTED_AS_CELL: {
+                    detected = cast(REBVAL*, p);
+                    feed->index = TRASHED_INDEX;  // necessary?
+
+                    CLEAR_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
+                    break; }
+
+                  case DETECTED_AS_SERIES: {
+                    //
+                    // We allow `rebRun(..., rebEVAL, rebR(v), ...)`
+                    //
+                    REBARR *inst2 = ARR(m_cast(void*, p));
+                    if (
+                        GET_ARRAY_FLAG(inst2, SINGULAR_API_INSTRUCTION)
+                        or NOT_ARRAY_FLAG(inst2, SINGULAR_API_RELEASE)
+                    ){
+                        goto not_supported;
+                    }
+
+                    // We're freeing the value, so even though it has the
+                    // right non-quoted bit pattern, we copy it.  (Previous
+                    // attempts to avoid copying and releasing on the *next*
+                    // fetch were too convoluted to be worth it, reconsider
+                    // if a tidy approach can be done.
+                    //
+                    // !!! Repeats code below with tiny deviation (no quote)
+                    //
+                    REBVAL *single = KNOWN(ARR_SINGLE(inst2));
+                    Move_Value(&feed->fetched, single);
+                    SET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
+                    detected = &feed->fetched;
+                    rebRelease(cast(const REBVAL*, single));
+                    break; }
+
+                  default:
+                  not_supported:
+                    fail ("rebEVAL and rebUNEVALUATIVE/rebU only on REBVAL*");
+                }
+
+                break; }
+
+              default:
+                panic (p);
+            }
+        }
+        else if (GET_ARRAY_FLAG(inst1, SINGULAR_API_RELEASE)) {
+            assert(GET_SERIES_FLAG(inst1, MANAGED));
+
+            REBVAL *single = KNOWN(ARR_SINGLE(inst1));
+            if (GET_FEED_FLAG(feed, UNEVALUATIVE)) {
+                //
+                // See notes above (duplicate code, fix!) about how if we
+                // aren't adding a quote, then we might like to use the
+                // as-is value and wait to free until the next cycle vs.
+                // putting it in fetched/MARKED_TEMPORARY...but that makes
+                // this more convoluted.  Review.
+                //
+                Move_Value(&feed->fetched, single);
+            }
+            else
+                Quotify(Move_Value(&feed->fetched, single), 1);
+
+            SET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
+            detected = &feed->fetched;
+            rebRelease(cast(const REBVAL*, single));  // *is* the instruction
+        }
+        else
+            panic (inst1);
+
+        break; }
 
       case DETECTED_AS_CELL: {
         const REBVAL *cell = cast(const REBVAL*, p);
-        if (IS_NULLED(cell))
-            fail ("NULLED cell API leak, see NULLIFY_NULLED() in C sources");
+        assert(not IS_RELATIVE(cast(const RELVAL*, cell)));
 
-        // If the cell is in an API holder with SINGULAR_FLAG_API_RELEASE then
-        // it will be released on the *next* call (see top of function)
+        feed->array = nullptr;
 
-        f->feed->array = nullptr;
-        f->feed->flags.bits = FEED_MASK_DEFAULT;
-        f->value = cell; // note that END is detected separately
-        assert(
-            not IS_RELATIVE(f->value) or (
-                IS_NULLED(f->value)
-                and GET_EVAL_FLAG(f, EXPLICIT_EVALUATE)
-            )
-        );
+        if (IS_NULLED(cell))  // API enforces use of C's nullptr (0) for NULL
+            assert(!"NULLED cell API leak, see NULLIFY_NULLED() in C source");
+
+        if (GET_FEED_FLAG(feed, UNEVALUATIVE)) {
+            detected = cell;  // non-nulled cell can be used as-is
+        }
+        else {
+            // Cells that do not have rebEVAL() preceding them need to appear
+            // at one quote level to the evaluator, so that they seem to have
+            // already been evaluated (e.g. the lookup by C name counts as
+            // their "evaluation", as if they'd been fetched by a WORD!).
+            // But we don't want to corrupt the value itself.  We have to move
+            // it into the fetched cell and quote it.
+            //
+            Quotify(Move_Value(&feed->fetched, cell), 1);
+            SET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
+            detected = &feed->fetched;  // note that END is detected separately
+        }
         break; }
 
-      case DETECTED_AS_END: {
-        //
-        // We're at the end of the variadic input, so end of the line.
-        //
-        f->value = END_NODE;
-        TRASH_POINTER_IF_DEBUG(f->feed->pending);
+      case DETECTED_AS_END: {  // end of variadic input, so that's it for this
+        detected = END_NODE;
+        TRASH_POINTER_IF_DEBUG(feed->pending);
 
         // The va_end() is taken care of here, or if there is a throw/fail it
         // is taken care of by Abort_Frame_Core()
         //
-        va_end(*f->feed->vaptr);
-        f->feed->vaptr = nullptr;
+        va_end(*feed->vaptr);
+        feed->vaptr = nullptr;
 
         // !!! Error reporting expects there to be an array.  The whole story
         // of errors when there's a va_list is not told very well, and what
-        // will have to likely happen is that in debug modes, all valists
+        // will have to likely happen is that in debug modes, all va_list
         // are reified from the beginning, else there's not going to be
         // a way to present errors in context.  Fake an empty array for now.
         //
-        f->feed->array = EMPTY_ARRAY;
-        f->feed->flags.bits = FEED_MASK_DEFAULT;
-        f->feed->index = 0;
+        feed->array = EMPTY_ARRAY;
+        feed->index = 0;
+
+        CLEAR_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);  // needed?
         break; }
 
+      case DETECTED_AS_FREED_SERIES:
       case DETECTED_AS_FREED_CELL:
-        panic (p);
-
       default:
-        assert(false);
+        panic (p);
     }
+
+    return detected;
 }
 
 
 //
-// Fetch_Next_In_Frame() (see notes above)
+// Fetch_Next_In_Frame_Core() (see notes above)
 //
 // Once a va_list is "fetched", it cannot be "un-fetched".  Hence only one
 // unit of fetch is done at a time, into f->value.  f->feed->pending thus
@@ -514,12 +559,10 @@ inline static void Set_Frame_Detected_Fetch(
 // More generally, an END marker in f->feed->pending for this routine is a
 // signal that the vaptr (if any) should be consulted next.
 //
-inline static void Fetch_Next_In_Frame(
-    const RELVAL **opt_lookback,
-    REBFRM *f
+inline static const RELVAL *Fetch_Next_In_Feed(
+    const RELVAL **opt_lookback,  // preload with old prior value if not null!
+    struct Reb_Feed *feed
 ){
-    assert(NOT_END(f->value)); // caller should test this first
-
   #ifdef DEBUG_EXPIRED_LOOKBACK
     if (f->stress) {
         TRASH_CELL_IF_DEBUG(f->stress);
@@ -527,6 +570,77 @@ inline static void Fetch_Next_In_Frame(
         f->stress = nullptr;
     }
   #endif
+
+    const RELVAL *fetched;
+
+    if (NOT_END(feed->pending)) {
+        //
+        // We assume the ->pending value lives in a source array, and can
+        // just be incremented since the array has SERIES_INFO_HOLD while it
+        // is being executed hence won't be relocated or modified.  This
+        // means the release build doesn't need to call ARR_AT().
+        //
+        assert(
+            feed->array // incrementing plain array of REBVAL[]
+            or feed->pending == ARR_AT(feed->array, feed->index)
+        );
+
+        fetched = feed->pending;
+
+        ++feed->pending; // might be becoming an END marker, here
+        ++feed->index;
+    }
+    else if (not feed->vaptr) {
+        //
+        // The frame was either never variadic, or it was but got spooled into
+        // an array by Reify_Va_To_Array_In_Frame().  The first END we hit
+        // is the full stop end.
+
+        fetched = END_NODE;
+        TRASH_POINTER_IF_DEBUG(feed->pending);
+
+        ++feed->index; // for consistency in index termination state
+
+        if (GET_FEED_FLAG(feed, TOOK_HOLD)) {
+            assert(GET_SERIES_INFO(feed->array, HOLD));
+            CLEAR_SERIES_INFO(feed->array, HOLD);
+
+            // !!! Future features may allow you to move on to another array.
+            // If so, the "hold" bit would need to be reset like this.
+            //
+            CLEAR_FEED_FLAG(feed, TOOK_HOLD);
+        }
+    }
+    else {
+        // A variadic can source arbitrary pointers, which can be detected
+        // and handled in different ways.  Notably, a UTF-8 string can be
+        // differentiated and loaded.
+        //
+        const void *p = va_arg(*feed->vaptr, const void*);
+        feed->index = TRASHED_INDEX; // avoids warning in release build
+        fetched = Detect_Feed_Pointer_Maybe_Fetch(opt_lookback, feed, p);
+    }
+
+  #ifdef DEBUG_EXPIRED_LOOKBACK
+    if (opt_lookback) {
+        f->stress = cast(RELVAL*, malloc(sizeof(RELVAL)));
+        memcpy(f->stress, *opt_lookback, sizeof(RELVAL));
+        *opt_lookback = f->stress;
+    }
+  #endif
+
+    return fetched;
+}
+
+
+// Most calls to Fetch_Next_In_Frame() are no longer interested in the
+// cell backing the pointer that used to be in f->value (this is enforced
+// by a rigorous test in DEBUG_EXPIRED_LOOKBACK).  Special care must be
+// taken when one is interested in that data, because it may have to be
+// moved.  So current can be returned from Fetch_Next_In_Frame_Core().
+//
+inline static const RELVAL *Lookback_While_Fetching_Next(REBFRM *f) {
+    assert(NOT_END(f->value));  // caller should test this first
 
     // We are changing f->value, and thus by definition any f->gotten value
     // will be invalid.  It might be "wasteful" to always set this to END,
@@ -537,67 +651,25 @@ inline static void Fetch_Next_In_Frame(
     //
     f->gotten = nullptr;
 
-    if (NOT_END(f->feed->pending)) {
-        //
-        // We assume the ->pending value lives in a source array, and can
-        // just be incremented since the array has SERIES_INFO_HOLD while it
-        // is being executed hence won't be relocated or modified.  This
-        // means the release build doesn't need to call ARR_AT().
-        //
-        assert(
-            f->feed->array // incrementing plain array of REBVAL[]
-            or f->feed->pending == ARR_AT(f->feed->array, f->feed->index)
-        );
+    const RELVAL *lookback = f->value;
+    f->value = Fetch_Next_In_Feed(&lookback, f->feed);
+    assert(
+        IS_END(f->value)
+        or f->value == &f->feed->fetched
+        or NOT_CELL_FLAG(&f->feed->fetched, FETCHED_MARKED_TEMPORARY)
+    );
+    return lookback;
+}
 
-        if (opt_lookback)
-            *opt_lookback = f->value; // must be non-movable, GC-safe
-
-        f->value = f->feed->pending;
-
-        ++f->feed->pending; // might be becoming an END marker, here
-        ++f->feed->index;
-    }
-    else if (not f->feed->vaptr) {
-        //
-        // The frame was either never variadic, or it was but got spooled into
-        // an array by Reify_Va_To_Array_In_Frame().  The first END we hit
-        // is the full stop end.
-        //
-        if (opt_lookback)
-            *opt_lookback = f->value; // all values would have been spooled
-
-        f->value = END_NODE;
-        TRASH_POINTER_IF_DEBUG(f->feed->pending);
-
-        ++f->feed->index; // for consistency in index termination state
-
-        if (GET_FEED_FLAG(f->feed, TOOK_HOLD)) {
-            assert(GET_SERIES_INFO(f->feed->array, HOLD));
-            CLEAR_SERIES_INFO(f->feed->array, HOLD);
-
-            // !!! Future features may allow you to move on to another array.
-            // If so, the "hold" bit would need to be reset like this.
-            //
-            CLEAR_FEED_FLAG(f->feed, TOOK_HOLD);
-        }
-    }
-    else {
-        // A variadic can source arbitrary pointers, which can be detected
-        // and handled in different ways.  Notably, a UTF-8 string can be
-        // differentiated and loaded.
-        //
-        const void *p = va_arg(*f->feed->vaptr, const void*);
-        f->feed->index = TRASHED_INDEX; // avoids warning in release build
-        Set_Frame_Detected_Fetch(opt_lookback, f, p);
-    }
-
-  #ifdef DEBUG_EXPIRED_LOOKBACK
-    if (opt_lookback) {
-        f->stress = cast(RELVAL*, malloc(sizeof(RELVAL)));
-        memcpy(f->stress, *opt_lookback, sizeof(RELVAL));
-        *opt_lookback = f->stress;
-    }
-  #endif
+inline static void Fetch_Next_Forget_Lookback(REBFRM *f) {
+    assert(NOT_END(f->value));
+    f->gotten = nullptr;  // see notes in Lookback_While_Fetching_Next()
+    f->value = Fetch_Next_In_Feed(nullptr, f->feed);
+    assert(
+        IS_END(f->value)
+        or f->value == &f->feed->fetched
+        or NOT_CELL_FLAG(&f->feed->fetched, FETCHED_MARKED_TEMPORARY)
+    );
 }
 
 
@@ -611,7 +683,7 @@ inline static void Literal_Next_In_Frame(REBVAL *dest, REBFRM *f) {
     //
     dest->header.bits |= (f->flags.bits & EVAL_FLAG_CONST);
 
-    Fetch_Next_In_Frame(nullptr, f);
+    Fetch_Next_Forget_Lookback(f);
 }
 
 
@@ -649,7 +721,7 @@ inline static void Abort_Frame(REBFRM *f) {
         // the frame processing the array will take the other branch.
 
         while (NOT_END(f->value))
-            Fetch_Next_In_Frame(nullptr, f);
+            Fetch_Next_Forget_Lookback(f);
     }
     else {
         if (GET_FEED_FLAG(f->feed, TOOK_HOLD)) {
@@ -948,10 +1020,8 @@ inline static void Reify_Va_To_Array_In_Frame(
         assert(f->feed->pending == END_NODE);
 
         do {
-            // Preserve CELL_FLAG_EVAL_FLIP flag.  Note: may be a NULLED cell
-            //
-            Derelativize_Keep_Eval_Flip(DS_PUSH(), f->value, f->specifier);
-            Fetch_Next_In_Frame(nullptr, f);
+            Derelativize(DS_PUSH(), f->value, f->specifier);  // may be NULLED
+            Fetch_Next_Forget_Lookback(f);
         } while (NOT_END(f->value));
 
         if (truncated)
@@ -970,10 +1040,8 @@ inline static void Reify_Va_To_Array_In_Frame(
 
     assert(not f->feed->vaptr); // feeding forward should have called va_end
 
-    // special array...may contain voids and eval flip is kept
-    f->feed->array = Pop_Stack_Values_Keep_Eval_Flip(dsp_orig);
+    f->feed->array = Pop_Stack_Values(dsp_orig);
     MANAGE_ARRAY(f->feed->array); // held alive while frame running
-    SET_ARRAY_FLAG(f->feed->array, NULLEDS_LEGAL);
 
     // The array just popped into existence, and it's tied to a running
     // frame...so safe to say we're holding it.  (This would be more complex
@@ -1028,21 +1096,14 @@ inline static REBIXO Eval_Va_Core(
     f->feed->vaptr = vaptr;
     f->feed->pending = END_NODE; // signal next fetch comes from va_list
 
-  #if !defined(NDEBUG)
-    //
-    // We reuse logic in Fetch_Next_In_Frame() and Set_Frame_Detected_Fetch()
-    // but the previous f->value will be tested for NODE_FLAG_ROOT.
-    //
-    DECLARE_LOCAL (junk);
-    f->value = Init_Void(junk); // shows where garbage came from
-  #else
-    f->value = BLANK_VALUE; // less informative but faster to initialize
-  #endif
-
     if (opt_first)
-        Set_Frame_Detected_Fetch(nullptr, f, opt_first);
+        f->value = Detect_Feed_Pointer_Maybe_Fetch(
+            nullptr,
+            f->feed,
+            opt_first
+        );
     else
-        Fetch_Next_In_Frame(nullptr, f);
+        Fetch_Next_Forget_Lookback(f);
 
     if (IS_END(f->value))
         return END_FLAG;
@@ -1090,7 +1151,7 @@ inline static bool Eval_Value_Core_Throws(
         EMPTY_ARRAY,
         0, // start index (it's an empty array, there's no added processing)
         specifier,
-        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
             | EVAL_FLAG_TO_END
             | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
             | (value->header.bits & EVAL_FLAG_CONST)

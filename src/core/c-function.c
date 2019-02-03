@@ -1731,7 +1731,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     SET_SERIES_FLAG(f->varlist, MANAGED);
 
     const bool fully = true;
-    if (Apply_Only_Throws(f->out, fully, outer, FRM_CELL(f), rebEND))
+    if (Run_Throws(f->out, fully, rebEVAL, outer, FRM_CELL(f), rebEND))
         return R_THROWN;
 
     return f->out;
@@ -1801,7 +1801,7 @@ bool Get_If_Word_Or_Path_Throws(
             VAL_INDEX(v),
             derived,
             NULL, // `setval`: null means don't treat as SET-PATH!
-            DO_MASK_DEFAULT | (push_refinements
+            EVAL_MASK_DEFAULT | (push_refinements
                 ? EVAL_FLAG_PUSH_PATH_REFINES // pushed in reverse order
                 : 0)
         )){

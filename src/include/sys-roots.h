@@ -48,7 +48,7 @@
 //
 
 
-//=//// SERIES_FLAG_SINGULAR_API_RELEASE //////////////////////////////////=//
+//=//// ARRAY_FLAG_SINGULAR_API_RELEASE //////////////////////////////////=//
 //
 // The rebT() function can be used with an API handle to tell a variadic
 // function to release that handle after encountering it.
@@ -58,17 +58,17 @@
 // info bits, when most are not applicable to them.  This is a tradeoff, and
 // contention for bits may become an issue in the future.
 //
-#define SERIES_FLAG_SINGULAR_API_RELEASE \
+#define ARRAY_FLAG_SINGULAR_API_RELEASE \
     ARRAY_FLAG_23
 
 
-//=//// SERIES_FLAG_SINGULAR_API_INSTRUCTION //////////////////////////////=//
+//=//// ARRAY_FLAG_SINGULAR_API_INSTRUCTION //////////////////////////////=//
 //
 // Rather than have LINK() and MISC() fields used to distinguish an API
-// handle like an INTEGER! from something like a rebEval(), a flag helps
+// handle like an INTEGER! from something like a rebEVAL(), a flag helps
 // keep those free for different purposes.
 //
-#define SERIES_FLAG_SINGULAR_API_INSTRUCTION \
+#define ARRAY_FLAG_SINGULAR_API_INSTRUCTION \
     ARRAY_FLAG_24
 
 
@@ -125,16 +125,17 @@ inline static void Free_Value(REBVAL *v)
 // Instructions should be returned as a const void *, in order to discourage
 // using these anywhere besides as arguments to a variadic API like rebRun().
 //
-inline static REBARR *Alloc_Instruction(void) {
+inline static REBARR *Alloc_Instruction(enum Reb_Api_Opcode opcode) {
     REBSER *s = Alloc_Series_Node(
         SERIES_FLAG_FIXED_SIZE // not tracked as stray manual, but unmanaged
-        | SERIES_FLAG_SINGULAR_API_INSTRUCTION
-        | SERIES_FLAG_SINGULAR_API_RELEASE
+        | ARRAY_FLAG_SINGULAR_API_INSTRUCTION
+        | ARRAY_FLAG_SINGULAR_API_RELEASE
     );
     s->info = Endlike_Header(
         FLAG_WIDE_BYTE_OR_0(0) // signals array, also implicit terminator
             | FLAG_LEN_BYTE_OR_255(1) // signals singular
     );
+    MISC(s).opcode = opcode;
     SER_CELL(s)->header.bits =
         CELL_MASK_NON_STACK_END | NODE_FLAG_ROOT;
     TRACK_CELL_IF_DEBUG(SER_CELL(s), "<<instruction>>", 0);
@@ -142,7 +143,7 @@ inline static REBARR *Alloc_Instruction(void) {
 }
 
 inline static void Free_Instruction(REBARR *instruction) {
-    assert(WIDE_BYTE_OR_0(SER(instruction)) == 0);
+    assert(IS_SER_ARRAY(SER(instruction)));
     TRASH_CELL_IF_DEBUG(ARR_SINGLE(instruction));
     Free_Node(SER_POOL, instruction);
 }

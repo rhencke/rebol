@@ -388,8 +388,8 @@ REBNATIVE(zmq_socket) {
             "PUSH", rebI(ZMQ_PUSH),
             "PULL", rebI(ZMQ_PULL),
             "PAIR", rebI(ZMQ_PAIR),
-        "]", rebQ(ARG(type)), "] else [",
-            "fail [{Unknown zmq_socket() type:}", rebQ(ARG(type)), "]",
+        "]", ARG(type), "] else [",
+            "fail [{Unknown zmq_socket() type:}", ARG(type), "]",
         "]");
 
     void *socket = zmq_socket(ctx, type);
@@ -544,8 +544,8 @@ REBNATIVE(zmq_setsockopt) {
         REBVAL *opts = Make_Sockopts_Table(); // !!! should cache on startup
 
         REBVAL *pos = rebRun(
-            "(find", opts, "as issue!", rebQ(ARG(name)), ") else [",
-                "fail [{Couldn't find option for}", rebQ(ARG(name)), "]",
+            "(find", opts, "as issue!", ARG(name), ") else [",
+                "fail [{Couldn't find option for}", ARG(name), "]",
             "]");
 
         // !!! Is it overzealous to disallow integer arguments that are 0 or 1
@@ -617,8 +617,8 @@ REBNATIVE(zmq_getsockopt) {
         REBVAL *opts = Make_Sockopts_Table(); // !!! should cache on startup
 
         REBVAL *pos = rebRun(
-            "(find", opts, "as issue!", rebQ(ARG(name)), ") else [",
-                "fail [{Couldn't find option for}", rebQ(ARG(name)), "]",
+            "(find", opts, "as issue!", ARG(name), ") else [",
+                "fail [{Couldn't find option for}", ARG(name), "]",
             "]");
 
         datatype = rebRun("ensure datatype! second", pos);

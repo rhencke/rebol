@@ -289,10 +289,12 @@ DEVICE_CMD Lookup_Socket(REBREQ *req)
     memcpy(&sock->remote_ip, *host->h_addr_list, 4); //he->h_length);
     req->flags &= ~RRF_DONE;
 
-    rebElide("insert system/ports/system make event! [",
-        "type: 'lookup",
-        "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-    "]", rebEND);
+    rebElide(
+        "insert system/ports/system make event!", rebU("[",
+            "type: 'lookup",
+            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+        "]", rebEND),
+    rebEND);
 
     return DR_DONE;
 }
@@ -329,10 +331,12 @@ DEVICE_CMD Connect_Socket(REBREQ *req)
         req->state &= ~RSM_ATTEMPT;
         req->state |= RSM_CONNECT;
 
-        rebElide("insert system/ports/system make event! [",
-            "type: 'connect",
-            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-        "]", rebEND);
+        rebElide(
+            "insert system/ports/system make event!", rebU("[",
+                "type: 'connect",
+                "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+            "]", rebEND),
+        rebEND);
 
         if (req->modes & RST_LISTEN)
             return Listen_Socket(req);
@@ -378,10 +382,12 @@ DEVICE_CMD Connect_Socket(REBREQ *req)
     req->state |= RSM_CONNECT;
     Get_Local_IP(sock);
 
-    rebElide("insert system/ports/system make event! [",
-        "type: 'connect",
-        "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-    "]", rebEND);
+    rebElide(
+        "insert system/ports/system make event!", rebU("[",
+            "type: 'connect",
+            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+        "]", rebEND),
+    rebEND);
 
     return DR_DONE;
 }
@@ -447,10 +453,12 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
             req->common.data += result;
             req->actual += result;
             if (req->actual >= req->length) {
-                rebElide("insert system/ports/system make event! [",
-                    "type: 'wrote",
-                    "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-                "]", rebEND);
+                rebElide(
+                    "insert system/ports/system make event!", rebU("[",
+                        "type: 'wrote",
+                        "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+                    "]", rebEND),
+                rebEND);
 
                 return DR_DONE;
             }
@@ -475,10 +483,12 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
             }
             req->actual = result;
 
-            rebElide("insert system/ports/system make event! [",
-                "type: 'read",
-                "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-            "]", rebEND);
+            rebElide(
+                "insert system/ports/system make event!", rebU("[",
+                    "type: 'read",
+                    "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+                "]", rebEND),
+            rebEND);
 
             return DR_DONE;
         }
@@ -486,10 +496,12 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
             req->actual = 0;
             req->state &= ~RSM_CONNECT; // But, keep RRF_OPEN true
 
-            rebElide("insert system/ports/system make event! [",
-                "type: 'close",
-                "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-            "]", rebEND);
+            rebElide(
+                "insert system/ports/system make event!", rebU("[",
+                    "type: 'close",
+                    "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+                "]", rebEND),
+            rebEND);
 
             return DR_DONE;
         }
@@ -658,10 +670,11 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
     // must be accepted, however, to recvfrom() data in the future.
     //
     if (req->modes & RST_UDP) {
-        rebElide("insert system/ports/system make event! [",
-            "type: 'accept",
-            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-        "]", rebEND);
+            rebElide("insert system/ports/system make event!", rebU("[",
+                "type: 'accept",
+                "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+            "]", rebEND),
+        rebEND);
 
         return DR_PEND;
     }
@@ -724,10 +737,12 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
     // We've added the new PORT! for the connection, but the client has to
     // find out about it and get an `accept` event.  Signal that.
     //
-    rebElide("insert system/ports/system make event! [",
-        "type: 'accept",
-        "port:", CTX_ARCHETYPE(listener),
-    "]", rebEND);
+    rebElide(
+        "insert system/ports/system make event!", rebU("[",
+            "type: 'accept",
+            "port:", CTX_ARCHETYPE(listener),
+        "]", rebEND),
+    rebEND);
 
     // Even though we signalled, we keep the listen pending to
     // accept additional connections.

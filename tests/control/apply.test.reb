@@ -53,20 +53,6 @@
     1 == eval func [] [applique func [a b] [a] [2 return 1]]
 )
 
-; EVAL/ONLY
-(
-    o: make object! [a: 0]
-    b: eval/only (lit o/a:) 1 + 2
-    did all [
-        o/a = 1
-        b = 3 ;-- above acts as `b: (eval/only (lit o/a:) 1) + 2`
-    ]
-)
-(
-    a: func [b c :d] [reduce [b c d]]
-    [1 + 2] = (eval/only :a 1 + 2)
-)
-
 (
     void? applique func [
         return: [<opt> any-value!]

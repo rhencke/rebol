@@ -251,22 +251,26 @@ inline static bool Single_Test_Throws(
       case REB_ACTION: {
         DECLARE_LOCAL (arg_specified);
         Derelativize(arg_specified, arg, arg_specifier);
-        Dequotify(arg_specified); // e.g. '':refinement? wants unquoted
+        Dequotify(arg_specified);  // e.g. '':refinement? wants unquoted
         PUSH_GC_GUARD(arg_specified);
 
-        bool threw = Apply_Only_Throws(
-            out,
-            true, // `fully` (ensure argument consumed)
+        DECLARE_LOCAL (temp);  // test is in `out`
+        bool threw = Run_Throws(
+            temp,
+            true,  // `fully` (ensure argument consumed)
+            rebEVAL,
             KNOWN(test),
-            NULLIFY_NULLED(arg_specified), // nulled cells to nullptr for API
+            NULLIFY_NULLED(arg_specified),  // nulled cells to nullptr for API
             rebEND
         );
 
         DROP_GC_GUARD(arg_specified);
-        if (threw)
+        if (threw) {
+            Move_Value(out, temp);
             return true;
+        }
 
-        Init_Logic(out, IS_TRUTHY(out)); // errors on VOID!
+        Init_Logic(out, IS_TRUTHY(temp));  // errors on VOID!
         return false; }
 
       case REB_DATATYPE:
@@ -600,7 +604,7 @@ REBNATIVE(match)
         f->arg = f->rootvar + 1;
         f->special = f->arg;
 
-        f->flags.bits = (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+        f->flags.bits = (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
             | EVAL_FLAG_FULLY_SPECIALIZED
             | EVAL_FLAG_PROCESS_ACTION;
 
@@ -900,9 +904,10 @@ REBNATIVE(case)
         }
         else {
             DECLARE_LOCAL (temp);
-            if (Apply_Only_Throws(
+            if (Run_Throws(
                 temp,
                 true,  // fully = true (e.g. argument must be taken)
+                rebEVAL,
                 predicate,
                 D_OUT,  // argument
                 rebEND
@@ -928,7 +933,7 @@ REBNATIVE(case)
                 fail (Error_Bad_Value_Core(D_CELL, f->specifier));
             }
 
-            Fetch_Next_In_Frame(nullptr, f); // skip next, whatever it is
+            Fetch_Next_Forget_Lookback(f); // skip next, whatever it is
             continue;
         }
 
@@ -979,7 +984,7 @@ REBNATIVE(case)
         }
 
         Move_Value(last_branch_result, D_OUT);
-        Fetch_Next_In_Frame(nullptr, f); // keep matching if /ALL
+        Fetch_Next_Forget_Lookback(f);  // keep matching if /ALL
     }
 
   reached_end:;
@@ -1055,7 +1060,7 @@ REBNATIVE(switch)
     while (NOT_END(f->value)) {
 
         if (IS_BLOCK(f->value) or IS_ACTION(f->value)) {
-            Fetch_Next_In_Frame(nullptr, f);
+            Fetch_Next_Forget_Lookback(f);
             Init_Nulled(D_OUT);  // reset fallout output to null
             continue;
         }
@@ -1105,18 +1110,19 @@ REBNATIVE(switch)
             // `switch x /greater? [10 [...]]` acts like `case [x > 10 [...]]
             // The ARG(value) passed in is the left/first argument to compare.
             //
-            // !!! Using Apply_Only_Throws loses the labeling of the function
-            // we were given (opt_label).  Consider how it might be passed
-            // through for better stack traces and error messages.
+            // !!! Using Run_Throws loses the labeling of the function we were
+            // given (opt_label).  Consider how it might be passed through
+            // for better stack traces and error messages.
             //
             // !!! We'd like to run this faster, so we aim to be able to
             // reuse this frame...hence D_CELL should not be expected to
             // survive across this point.
             //
             DECLARE_LOCAL (temp);
-            if (Apply_Only_Throws(
+            if (Run_Throws(
                 temp,
                 true,  // fully = true (e.g. both arguments must be taken)
+                rebEVAL,
                 predicate,
                 ARG(value),  // first arg (left hand side if infix)
                 D_OUT,  // second arg (right hand side if infix)
@@ -1148,9 +1154,10 @@ REBNATIVE(switch)
 
             if (IS_ACTION(f->value)) {  // must have been COMPOSE'd in cases
                 DECLARE_LOCAL (temp);
-                if (Apply_Only_Throws(
+                if (Run_Throws(
                     temp,
                     false,  // fully = false, e.g. arity-0 functions are ok
+                    rebEVAL,
                     KNOWN(f->value),  // actions don't need specifiers
                     D_OUT,
                     rebEND
@@ -1162,7 +1169,7 @@ REBNATIVE(switch)
                 break;
             }
 
-            Fetch_Next_In_Frame(nullptr, f);
+            Fetch_Next_Forget_Lookback(f);
         }
 
         Voidify_If_Nulled(D_OUT);  // null is reserved for no branch run
@@ -1174,7 +1181,7 @@ REBNATIVE(switch)
 
         Move_Value(last_branch_result, D_OUT);  // save in case no fallout
         Init_Nulled(D_OUT);  // switch back to using for fallout
-        Fetch_Next_In_Frame(nullptr, f);  // keep matching if /ALL
+        Fetch_Next_Forget_Lookback(f);  // keep matching if /ALL
     }
 
   reached_end:
@@ -1281,7 +1288,7 @@ REBNATIVE(default)
                         VAL_ARRAY(item),
                         VAL_INDEX(item),
                         derived,
-                        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+                        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
                             | EVAL_FLAG_TO_END
                             | (frame_->flags.bits & EVAL_FLAG_CONST)
                     );

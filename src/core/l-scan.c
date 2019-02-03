@@ -937,13 +937,13 @@ static REBCNT Prescan_Token(SCAN_STATE *ss)
 static void Locate_Token_May_Push_Mold(
     REB_MOLD *mo,
     SCAN_STATE *ss
-) {
-#if !defined(NDEBUG)
+){
+  #if !defined(NDEBUG)
     TRASH_POINTER_IF_DEBUG(ss->end);
     ss->token = TOKEN_MAX; // trash token to help ensure it's recalculated
-#endif
+  #endif
 
-acquisition_loop:
+  acquisition_loop:
     //
     // If a non-variadic scan of a UTF-8 string is being done, then ss->vaptr
     // will be NULL and ss->begin will be set to the data to scan.  A variadic
@@ -954,92 +954,46 @@ acquisition_loop:
     // to be processed.
     //
     while (ss->begin == NULL) {
-        if (ss->vaptr == NULL) { // not a variadic va_list-based scan...
-            ss->token = TOKEN_END; // ...so end of the utf-8 input was the end
+        if (not ss->feed) {  // not a variadic va_list-based scan...
+            ss->token = TOKEN_END;  // ...so end of utf-8 input was *the* end
             return;
         }
 
-        const void *p = va_arg(*ss->vaptr, const void*);
-
-        if (not p) { // libRebol representation of <opt>/NULL
-
-            if (not (ss->opts & SCAN_FLAG_NULLEDS_LEGAL))
-                fail ("can't splice null in ANY-ARRAY!...use rebQ()");
-
-            Init_Nulled(DS_PUSH()); // Reify as cell for evaluator
-
-        } else switch (Detect_Rebol_Pointer(p)) {
-
-        case DETECTED_AS_END: {
-            ss->token = TOKEN_END;
-            return; }
-
-        case DETECTED_AS_CELL: {
-            const REBVAL *splice = cast(const REBVAL*, p);
-            if (IS_NULLED(splice))
-                fail ("NULLED cell API leak, see NULLIFY_NULLED() in the C");
-
-            Move_Value(DS_PUSH(), splice);
-
-            // !!! The needs of rebRun() are such that it wants to preserve
-            // the non-user-visible EVAL_FLIP bit, which is usually not copied
-            // by Move_Value.
+        const void *p = va_arg(*ss->feed->vaptr, const void*);
+        if (not p or Detect_Rebol_Pointer(p) != DETECTED_AS_UTF8) {
             //
-            if (GET_CELL_FLAG(splice, EVAL_FLIP))
-                SET_CELL_FLAG(DS_TOP, EVAL_FLIP);
+            // If it's not a UTF-8 string we don't know how to handle it.
+            // Don't want to repeat complex value decoding logic here, so
+            // call common routine.
+            //
+            // !!! This is a recursion, since it is the function that calls
+            // the scanner in the first place when it saw a UTF-8 pointer.
+            // This should be protected against feeding through instructions
+            // and causing another recursion (it shouldn't do so now).  This
+            // suggests we might need a better way of doing things, but it
+            // shows the general gist for now.
+            //
+            const REBVAL *splice = KNOWN(Detect_Feed_Pointer_Maybe_Fetch(
+                nullptr,  // not interested in lookback here
+                ss->feed,
+                p
+            ));
+
+            if (IS_END(splice)) {
+                ss->token = TOKEN_END;
+                return;
+            }
+
+            Move_Value(DS_PUSH(), splice);  // no relative values?
 
             if (ss->newline_pending) {
                 ss->newline_pending = false;
                 SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
             }
+        }
+        else {  // It's UTF-8, so have to scan it ordinarily.
 
-            if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
-                REBSER *locker = NULL;
-                Ensure_Value_Frozen(DS_TOP, locker);
-            }
-
-            if (Is_Api_Value(splice)) { // moved to DS_TOP, can release *now*
-                REBARR *a = Singular_From_Cell(splice);
-                if (GET_SERIES_FLAG(a, SINGULAR_API_RELEASE))
-                    rebRelease(m_cast(REBVAL*, splice)); // !!! m_cast
-            }
-
-            break; } // push values to emit stack until UTF-8 or END
-
-        case DETECTED_AS_SERIES: {
-            //
-            // An "instruction", currently just rebEval() and rebQ().
-
-            REBARR *instruction = cast(REBARR*, c_cast(void*, p));
-            REBVAL *single = KNOWN(ARR_SINGLE(instruction));
-
-            if (GET_CELL_FLAG(single, EVAL_FLIP)) { // rebEval()
-                if (not (ss->opts & SCAN_FLAG_NULLEDS_LEGAL))
-                    fail ("can only use rebEval() at top level of run");
-
-                Move_Value(DS_PUSH(), single);
-                SET_CELL_FLAG(DS_TOP, EVAL_FLIP);
-            }
-            else { // rebQ()
-                assert(VAL_NUM_QUOTES(single) > 0);
-                Move_Value(DS_PUSH(), single);
-            }
-
-            if (ss->newline_pending) {
-                ss->newline_pending = false;
-                SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
-            }
-
-            if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
-                REBSER *locker = NULL;
-                Ensure_Value_Frozen(DS_TOP, locker);
-            }
-
-            Free_Instruction(instruction);
-            break; }
-
-        case DETECTED_AS_UTF8: {
-            ss->begin = cast(const REBYTE*, p);
+            ss->begin = cast(const REBYTE*, p);  // breaks the loop...
 
             // If we're using a va_list, we start the scan with no C string
             // pointer to serve as the beginning of line for an error message.
@@ -1051,15 +1005,11 @@ acquisition_loop:
             // context for the error-causing input.
             //
             if (ss->line_head == NULL) {
-                assert(ss->vaptr != NULL);
+                assert(ss->feed->vaptr != nullptr);
                 assert(ss->start_line_head == NULL);
                 ss->line_head = ss->start_line_head = ss->begin;
             }
-            break; } // fallthrough to "ordinary" scanning
-
-        default:
-            panic ("Scanned pointer not END, REBVAL*, or valid UTF-8 string");
-        }
+         }
     }
 
     REBCNT flags = Prescan_Token(ss); // sets ->begin, ->end
@@ -1663,11 +1613,11 @@ void Init_Va_Scan_State_Core(
     REBSTR *file,
     REBLIN line,
     const REBYTE *opt_begin, // preload the scanner outside the va_list
-    va_list *vaptr
+    struct Reb_Feed *feed
 ){
     ss->mode_char = '\0';
 
-    ss->vaptr = vaptr;
+    ss->feed = feed;
 
     ss->begin = opt_begin; // if NULL Locate_Token does first fetch from vaptr
     TRASH_POINTER_IF_DEBUG(ss->end);
@@ -1687,8 +1637,6 @@ void Init_Va_Scan_State_Core(
     ss->newline_pending = false;
 
     ss->opts = 0;
-
-    ss->binder = NULL;
 
 #if !defined(NDEBUG)
     ss->token = TOKEN_MAX;
@@ -1717,7 +1665,7 @@ void Init_Scan_State(
 
     ss->mode_char = '\0';
 
-    ss->vaptr = NULL; // signal Locate_Token to not use vaptr
+    ss->feed = nullptr;  // signal Locate_Token this isn't a variadic scan
     ss->begin = utf8;
     TRASH_POINTER_IF_DEBUG(ss->end);
 
@@ -1730,7 +1678,7 @@ void Init_Scan_State(
     ss->file = file;
     ss->opts = 0;
 
-    ss->binder = NULL;
+    ss->feed = nullptr;
 
 #if !defined(NDEBUG)
     ss->token = TOKEN_MAX;
@@ -2257,14 +2205,14 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
         // the lib context (which we do not expand) and any positive numbers
         // are into the user context (which we will expand).
         //
-        if (ss->binder and ANY_WORD(DS_TOP)) {
+        if (ss->feed and ss->feed->binder and ANY_WORD(DS_TOP)) {
             REBSTR *canon = VAL_WORD_CANON(DS_TOP);
-            REBINT n = Get_Binder_Index_Else_0(ss->binder, canon);
+            REBINT n = Get_Binder_Index_Else_0(ss->feed->binder, canon);
             if (n > 0) {
                 //
                 // Exists in user context at the given positive index.
                 //
-                INIT_BINDING(DS_TOP, ss->context);
+                INIT_BINDING(DS_TOP, ss->feed->context);
                 INIT_WORD_INDEX(DS_TOP, n);
             }
             else if (n < 0) {
@@ -2272,24 +2220,35 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 // Index is the negative of where the value exists in lib.
                 // A proxy needs to be imported from lib to context.
                 //
-                Expand_Context(ss->context, 1);
+                Expand_Context(ss->feed->context, 1);
                 Move_Var( // preserve enfix state
-                    Append_Context(ss->context, DS_TOP, 0),
-                    CTX_VAR(ss->lib, -n) // -n is positive
+                    Append_Context(ss->feed->context, DS_TOP, 0),
+                    CTX_VAR(ss->feed->lib, -n) // -n is positive
                 );
-                REBINT check = Remove_Binder_Index_Else_0(ss->binder, canon);
+                REBINT check = Remove_Binder_Index_Else_0(
+                    ss->feed->binder,
+                    canon
+                );
                 assert(check == n); // n is negative
                 UNUSED(check);
-                Add_Binder_Index(ss->binder, canon, VAL_WORD_INDEX(DS_TOP));
+                Add_Binder_Index(
+                    ss->feed->binder,
+                    canon,
+                    VAL_WORD_INDEX(DS_TOP)
+                );
             }
             else {
                 // Doesn't exist in either lib or user, create a new binding
                 // in user (this is not the preferred behavior for modules
                 // and isolation, but going with it for the API for now).
                 //
-                Expand_Context(ss->context, 1);
-                Append_Context(ss->context, DS_TOP, 0);
-                Add_Binder_Index(ss->binder, canon, VAL_WORD_INDEX(DS_TOP));
+                Expand_Context(ss->feed->context, 1);
+                Append_Context(ss->feed->context, DS_TOP, 0);
+                Add_Binder_Index(
+                    ss->feed->binder,
+                    canon,
+                    VAL_WORD_INDEX(DS_TOP)
+                );
             }
         }
 
@@ -2429,23 +2388,6 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             //
             Quotify(DS_TOP, lit_depth);
             lit_depth = 0;
-        }
-
-        // If we get to this point, it means that the value came from UTF-8
-        // source data--it was not "spliced" out of the variadic as a plain
-        // value.  From the API's point of view, such runs of UTF-8 are
-        // considered "evaluator active", vs. the inert default.  (A spliced
-        // value would have to use `rebEval()` to become active.)  To signal
-        // the active state, add a special flag which only the API heeds.
-        // (Ordinary Pop_Stack_Values() will not copy out this bit, as it is
-        // not legal in ordinary user arrays--just as voids aren't--only in
-        // arrays which are internally held by the evaluator)
-        //
-        SET_CELL_FLAG(DS_TOP, EVAL_FLIP);
-
-        if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
-            REBSER *locker = NULL;
-            Ensure_Value_Frozen(DS_TOP, locker);
         }
 
         // Set the newline on the new value, indicating molding should put a
@@ -2597,7 +2539,7 @@ static REBARR *Scan_Child_Array(SCAN_STATE *ss, REBYTE mode_char)
 
     ss->begin = child.begin;
     ss->end = child.end;
-    ss->vaptr = child.vaptr;
+    assert(ss->feed == child.feed);  // shouldn't have changed
     ss->line = child.line;
     ss->line_head = child.line_head;
 
@@ -2621,80 +2563,6 @@ static REBARR *Scan_Full_Array(SCAN_STATE *ss, REBYTE mode_char)
     if (saved_only)
         ss->opts |= SCAN_FLAG_ONLY;
     return array;
-}
-
-
-//
-//  Scan_Va_Managed: C
-//
-// Variadic form of source scanning.  Due to the nature of REBNOD (see
-// %sys-node.h), it's possible to feed the scanner with a list of pointers
-// that may be to UTF-8 strings or to Rebol values.  The behavior is to
-// "splice" in the values at the point in the scan that they occur, e.g.
-//
-//     REBVAL *item1 = ...;
-//     REBVAL *item2 = ...;
-//     REBVAL *item3 = ...;
-//     REBSTR *filename = ...; // where to say code came from
-//
-//     REBARR *result = Scan_Va_Managed(filename,
-//         "if not", item1, "[\n",
-//             item2, "| print {Close brace separate from content}\n",
-//         "] else [\n",
-//             item3, "| print {Close brace with content}]\n",
-//         END
-//     );
-//
-// While the approach is flexible, any token must appear fully inside its
-// UTF-8 string component.  So you can't--for instance--divide a scan up like
-// ("{abc", "def", "ghi}") and get the STRING! {abcdefghi}.  On that note,
-// ("a", "/", "b") produces `a / b` and not the PATH! `a/b`.
-//
-REBARR *Scan_Va_Managed(
-    REBSTR *filename, // NOTE: va_start must get last parameter before ...
-    ...
-){
-    REBDSP dsp_orig = DSP;
-
-    const REBLIN start_line = 1;
-
-    va_list va;
-    va_start(va, filename);
-
-    SCAN_STATE ss;
-    Init_Va_Scan_State_Core(&ss, filename, start_line, NULL, &va);
-    Scan_To_Stack(&ss);
-
-    // Because a variadic rebRun() can have rebEval() entries, when it
-    // delegates to the scanner that may mean it sees those entries.  They
-    // should only be accepted in the shallowest level of the rebRun().
-    //
-    // (See also Pop_Stack_Values_Keep_Eval_Flip(), which we don't want to use
-    // since we're setting the file and line information from scan state.)
-    //
-    REBARR *a = Pop_Stack_Values_Core(
-        dsp_orig,
-        ARRAY_FLAG_NULLEDS_LEGAL | NODE_FLAG_MANAGED
-            | (ss.newline_pending ? ARRAY_FLAG_NEWLINE_AT_TAIL : 0)
-    );
-
-    MISC(a).line = ss.line;
-    LINK(a).file = ss.file;
-    SET_ARRAY_FLAG(a, HAS_FILE_LINE);
-
-    // !!! While in practice every system has va_end() as a no-op, it's not
-    // necessarily true from a standards point of view:
-    //
-    // https://stackoverflow.com/q/32259543/
-    //
-    // It needs to be called before the longjmp in fail() crosses this stack
-    // level.  That means either PUSH_TRAP here, or coming up with
-    // some more generic mechanism to register cleanup code that runs during
-    // the fail().
-    //
-    va_end(va);
-
-    return a;
 }
 
 

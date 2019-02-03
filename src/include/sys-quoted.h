@@ -84,8 +84,9 @@ inline static RELVAL *Quotify_Core(
         // No point having ARRAY_HAS_FILE_LINE when only deep levels of a
         // literal would have it--wastes time/storage to save it.
         //
-        // !!! Efficiency trick here could point to VOID_VALUE, BLANK_VALUE,
-        // NULLED_CELL, etc. in those cases, so long as GC knew.
+        // An efficiency trick here could point to VOID_VALUE, BLANK_VALUE,
+        // NULLED_CELL, etc. in those cases, so long as GC knew.  (But how
+        // efficient do 4-level-deep-quoted nulls need to be, really?)
         //
         REBARR *a = Alloc_Singular(
             NODE_FLAG_MANAGED | ARRAY_FLAG_NULLEDS_LEGAL

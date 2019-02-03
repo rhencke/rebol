@@ -232,10 +232,12 @@ DEVICE_CMD Read_Serial(REBREQ *req)
 
     req->actual = result;
 
-    rebElide("insert system/ports/system make event! [",
-        "type: 'read",
-        "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-    "]", rebEND);
+    rebElide(
+        "insert system/ports/system make event!", rebU("[",
+            "type: 'read",
+            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+        "]", rebEND),
+    rebEND);
 
 #ifdef DEBUG_SERIAL
     printf("read %d ret: %d\n", req->length, req->actual);
@@ -271,10 +273,12 @@ DEVICE_CMD Write_Serial(REBREQ *req)
     req->actual += result;
     req->common.data += result;
     if (req->actual >= req->length) {
-        rebElide("insert system/ports/system make event! [",
-            "type: 'wrote",
-            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-        "]", rebEND);
+        rebElide(
+            "insert system/ports/system make event!", rebU("[",
+                "type: 'wrote",
+                "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+            "]", rebEND),
+        rebEND);
 
         return DR_DONE;
     }

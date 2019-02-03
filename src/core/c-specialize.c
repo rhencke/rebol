@@ -1274,7 +1274,7 @@ bool Make_Invocation_Frame_Throws(
     // it is desired that any voids encountered be processed as if they are
     // not specialized...and gather at the callsite if necessary.
     //
-    f->flags.bits = DO_MASK_DEFAULT
+    f->flags.bits = EVAL_MASK_DEFAULT
         | EVAL_FLAG_PROCESS_ACTION
         | EVAL_FLAG_ERROR_ON_DEFERRED_ENFIX;  // can't deal with ELSE/THEN/etc.
 

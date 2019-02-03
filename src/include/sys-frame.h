@@ -80,6 +80,54 @@
 // hit of putting the label off to the side.
 //
 
+
+// It is more pleasant to have a uniform way of speaking of frames by pointer,
+// so this macro sets that up for you, the same way DECLARE_LOCAL does.  The
+// optimizer should eliminate the extra pointer.
+//
+// Just to simplify matters, the frame cell is set to a bit pattern the GC
+// will accept.  It would need stack preparation anyway, and this simplifies
+// the invariant so if a recycle happens before Eval_Core_Throws() gets to its
+// body, it's always set to something.  Using an unreadable blank means we
+// signal to users of the frame that they can't be assured of any particular
+// value between evaluations; it's not cleared.
+//
+
+inline static void Prep_Feed_Core(struct Reb_Feed *feed)
+{
+    Prep_Stack_Cell(&feed->fetched); \
+    Init_Unreadable_Blank(&feed->fetched); \
+    Prep_Stack_Cell(&feed->lookback); \
+    Init_Unreadable_Blank(&feed->lookback); \
+}
+
+inline static void Prep_Frame_Core(
+    REBFRM *f,
+    struct Reb_Feed *feed_ptr
+){
+    f->feed = feed_ptr;
+    Prep_Stack_Cell(&f->cell);
+    Init_Unreadable_Blank(&f->cell);
+    f->dsp_orig = DS_Index;
+}
+
+#define DECLARE_FRAME_CORE(name,feed_ptr) \
+    REBFRM name##struct; \
+    Prep_Frame_Core(&name##struct, (feed_ptr)); \
+    REBFRM * const name = &name##struct
+
+#define DECLARE_FRAME(name) \
+    struct Reb_Feed name##feed; \
+    Prep_Feed_Core(&name##feed); \
+    DECLARE_FRAME_CORE(name, &name##feed)
+
+#define DECLARE_END_FRAME(name) \
+    DECLARE_FRAME_CORE(name, &TG_Frame_Feed_End)
+
+#define DECLARE_SUBFRAME(name, parent) \
+    DECLARE_FRAME_CORE(name, (parent)->feed)
+
+
 #if !defined(NDEBUG)
     inline static bool Is_Evaluator_Throwing_Debug(void) {
         return NOT_END(&TG_Thrown_Arg);

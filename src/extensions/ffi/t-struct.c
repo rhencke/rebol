@@ -1227,7 +1227,7 @@ REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
                     VAL_ARRAY(arg),
                     item - VAL_ARRAY_AT(arg), // index
                     VAL_SPECIFIER(arg),
-                    DO_MASK_DEFAULT
+                    EVAL_MASK_DEFAULT
                 );
 
                 if (eval_idx == THROWN_FLAG)

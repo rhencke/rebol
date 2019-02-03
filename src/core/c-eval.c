@@ -147,15 +147,6 @@ static inline bool Start_New_Expression_Throws(REBFRM *f) {
             g;
 #endif
 
-// Either we're NOT evaluating and there's NO special exemption, or we ARE
-// evaluating and there IS a special exemption on the value saying not to.
-//
-// (Note: EVAL_FLAG_EXPLICIT_EVALUATE is same bit as CELL_FLAG_EVAL_FLIP)
-//
-#define EVALUATING(v) \
-    ((f->flags.bits & EVAL_FLAG_EXPLICIT_EVALUATE) \
-        == ((v)->header.bits & CELL_FLAG_EVAL_FLIP))
-
 
 #ifdef DEBUG_COUNT_TICKS
     //
@@ -379,10 +370,10 @@ inline static void Finalize_Variadic_Arg_Core(REBFRM *f, bool enfix) {
 
 #ifdef DEBUG_EXPIRED_LOOKBACK
     #define CURRENT_CHANGES_IF_FETCH_NEXT \
-        (f->fake_lookback != nullptr)
+        (f->feed->stress != nullptr)
 #else
     #define CURRENT_CHANGES_IF_FETCH_NEXT \
-        (current == &f->lookback)
+        (current == &f->feed->lookback)
 #endif
 
 
@@ -485,7 +476,7 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     //
     if (KIND_BYTE(f->value) == REB_VOID + REB_64) {
         Init_Void(f->out);
-        Fetch_Next_In_Frame(nullptr, f); // advances f->value
+        Fetch_Next_Forget_Lookback(f);  // advances f->value
         return false;
     }
 
@@ -496,8 +487,7 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
     REBFLGS flags =
-        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-        | (f->flags.bits & EVAL_FLAG_EXPLICIT_EVALUATE)
+        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
         | (f->flags.bits & EVAL_FLAG_CONST)
         | (f->flags.bits & EVAL_FLAG_FULFILLING_ARG); // if f was, we are
 
@@ -517,6 +507,19 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
         fail (Error_Need_Non_Void_Core(current, f->specifier));
 
     return false;
+}
+
+
+void Push_Enfix_Action(REBFRM *f, const REBVAL *action, REBSTR *opt_label)
+{
+    Push_Action(f, VAL_ACTION(action), VAL_BINDING(action));
+
+    Dampen_Lookahead(f); // not until after action pushed, invisibles cache it
+
+    Begin_Action(f, opt_label);
+
+    SET_EVAL_FLAG(f, RUNNING_ENFIX);
+    SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
 }
 
 
@@ -575,7 +578,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     assert(DSP >= f->dsp_orig); // REDUCE accrues, APPLY adds refinements, >=
     assert(not IS_TRASH_DEBUG(f->out)); // all invisibles preserves output
     assert(f->out != cell); // overwritten by temporary calculations
-    assert(GET_EVAL_FLAG(f, DEFAULT_DEBUG)); // must use DO_MASK_DEFAULT
+    assert(GET_EVAL_FLAG(f, DEFAULT_DEBUG)); // must use EVAL_MASK_DEFAULT
 
     // Caching KIND_BYTE(f->value) in a local can make a slight performance
     // difference, though how much depends on what the optimizer figures out.
@@ -622,9 +625,9 @@ bool Eval_Core_Throws(REBFRM * const f)
         CLEAR_EVAL_FLAG(f, REEVALUATE_CELL);
 
         if (GET_CELL_FLAG(f->u.reval.value, ENFIXED)) {
-            f->value = VOID_VALUE; // !!! special signal to push_enfix_action
-            f->gotten = f->u.reval.value;
-            goto push_enfix_action;
+            Push_Enfix_Action(f, f->u.reval.value, nullptr);
+            Fetch_Next_Forget_Lookback(f);  // advances f->value
+            goto process_action;
         }
 
         current = f->u.reval.value;
@@ -657,19 +660,10 @@ bool Eval_Core_Throws(REBFRM * const f)
     // of the feature actually is.
     //
     current_gotten = f->gotten;
+    current = Lookback_While_Fetching_Next(f);
 
-    // Most calls to Fetch_Next_In_Frame() are no longer interested in the
-    // cell backing the pointer that used to be in f->value (this is enforced
-    // by a rigorous test in DEBUG_EXPIRED_LOOKBACK).  Special care must be
-    // taken when one is interested in that data, because it may have to be
-    // moved.  So current is returned from Fetch_Next_In_Frame().
-    //
-    Fetch_Next_In_Frame(&current, f);
-
-    assert(
-        kind.byte != REB_0_END
-        and kind.byte == KIND_BYTE_UNCHECKED(current)
-    );
+    assert(kind.byte != REB_0_END);
+    assert(kind.byte == KIND_BYTE_UNCHECKED(current));
 
   reevaluate:;
 
@@ -693,10 +687,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     if (KIND_BYTE(f->value) != REB_WORD) // right's kind - END would be REB_0
         goto give_up_backward_quote_priority;
 
-    if (not EVALUATING(f->value))
-        goto give_up_backward_quote_priority;
-
-    assert(not f->gotten); // Fetch_Next_In_Frame() cleared it
+    assert(not f->gotten);  // Fetch_Next_In_Frame() cleared it
     f->gotten = Try_Get_Opt_Var(f->value, f->specifier);
     if (not f->gotten or NOT_CELL_FLAG(f->gotten, ENFIXED))
         goto give_up_backward_quote_priority;
@@ -744,7 +735,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     // resident in the frame cell).  (f->out holds what was the left)
     //
     current_gotten = f->gotten;
-    Fetch_Next_In_Frame(&current, f);
+    current = Lookback_While_Fetching_Next(f);
 
     if (
         IS_END(f->value)
@@ -760,12 +751,12 @@ bool Eval_Core_Throws(REBFRM * const f)
         // what was current into f->out so it can be consumed as the first
         // parameter of whatever that was.
 
-        Move_Value(&f->lookback, f->out);
+        Move_Value(&f->feed->lookback, f->out);
         Derelativize(f->out, current, f->specifier);
         SET_CELL_FLAG(f->out, UNEVALUATED);
 
         // leave f->value at END
-        current = &f->lookback;
+        current = &f->feed->lookback;
         current_gotten = nullptr;
 
         SET_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH); // for better error message
@@ -799,19 +790,6 @@ bool Eval_Core_Throws(REBFRM * const f)
     // http://stackoverflow.com/questions/17061967/c-switch-and-jump-tables
 
     assert(kind.byte == KIND_BYTE_UNCHECKED(current));
-
-    if (not EVALUATING(current)) {
-        Derelativize(f->out, current, f->specifier);
-        SET_CELL_FLAG(f->out, UNEVALUATED);
-
-        // Unlike the `inert` branch, when we are not evaluating we do not
-        // inherit the `const` bits from the evaluation.  This is so that
-        // when you say things like `rebElide("append", block, "10");` in the
-        // API, it acts like `append block 10` instead of `append [] 10`,
-        // avoiding the consting of the variable.
-        //
-        goto post_switch;
-    }
 
     switch (kind.byte) {
 
@@ -1452,9 +1430,8 @@ bool Eval_Core_Throws(REBFRM * const f)
    //=//// REGULAR ARG-OR-REFINEMENT-ARG (consumes 1 EVALUATE's worth) ////=//
 
               case REB_P_NORMAL: {
-                REBFLGS flags = (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+                REBFLGS flags = (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
                     | EVAL_FLAG_FULFILLING_ARG
-                    | (f->flags.bits & EVAL_FLAG_EXPLICIT_EVALUATE)
                     | (f->flags.bits & EVAL_FLAG_CONST);
 
                 DECLARE_SUBFRAME (child, f); // capture DSP *now*
@@ -1508,7 +1485,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                         Move_Value(f->out, f->arg);
                         goto abort_action;
                     }
-                    Fetch_Next_In_Frame(nullptr, f);
+                    Fetch_Next_Forget_Lookback(f);
                 }
 
                 // Have to account for enfix deferrals in cases like:
@@ -1813,7 +1790,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             //     do [comment "a" 1] => 1
 
             current_gotten = f->gotten;
-            Fetch_Next_In_Frame(&current, f);
+            current = Lookback_While_Fetching_Next(f);
             kind.byte = KIND_BYTE(current);
 
             Drop_Action(f);
@@ -2050,7 +2027,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 array,
                 index,
                 derived,
-                (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+                (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
                     | EVAL_FLAG_TO_END
                     | (f->flags.bits & EVAL_FLAG_CONST)
                     | (current->header.bits & EVAL_FLAG_CONST)
@@ -2071,7 +2048,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 array,
                 index,
                 derived,
-                (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+                (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
                     | EVAL_FLAG_TO_END
                     | (f->flags.bits & EVAL_FLAG_CONST)
                     | (current->header.bits & EVAL_FLAG_CONST)
@@ -2214,7 +2191,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             VAL_INDEX(current),
             f->specifier,
             f->out,
-            DO_MASK_DEFAULT // evaluating GROUP!s ok
+            EVAL_MASK_DEFAULT // evaluating GROUP!s ok
         )){
             Move_Value(f->out, cell);
             goto return_thrown;
@@ -2497,10 +2474,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         // (no const, no mutable), so the constness brought by the execution
         // via DO-ing it should win.  But `rebRun("append", block, "10");`
         // needs to get the mutability bits of that block, more like as if
-        // you had the plain Rebol code `append block 10`.  This is why the
-        // non-EVALUATING() case--which applies to non-text-scanned arguments
-        // in API calls--is checked before the switch.  So it does not
-        // run this line that only applies to "evaluated inert values".
+        // you had the plain Rebol code `append block 10`.
         //
         f->out->header.bits |= (f->flags.bits & EVAL_FLAG_CONST);
         break;
@@ -2630,7 +2604,6 @@ bool Eval_Core_Throws(REBFRM * const f)
             or VAL_LEN_AT(f->value) != 2
             or not IS_BLANK(ARR_AT(VAL_ARRAY(f->value), 0))
             or not IS_BLANK(ARR_AT(VAL_ARRAY(f->value), 1))
-            or not EVALUATING(f->value)
         ){
             if (NOT_EVAL_FLAG(f, TO_END))
                 goto finished; // just 1 step of work, so stop evaluating
@@ -2655,11 +2628,11 @@ bool Eval_Core_Throws(REBFRM * const f)
         SET_EVAL_FLAG(f, RUNNING_ENFIX);
         SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
 
-        Fetch_Next_In_Frame(nullptr, f); // advances f->value
+        Fetch_Next_Forget_Lookback(f);  // advances f->value
         goto process_action;
     }
 
-    if (kind.byte != REB_WORD or not EVALUATING(f->value)) {
+    if (kind.byte != REB_WORD) {
         Dampen_Lookahead(f);
 
         if (NOT_EVAL_FLAG(f, TO_END))
@@ -2724,7 +2697,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         }
 
         current_gotten = f->gotten; // if nullptr, the word will error
-        Fetch_Next_In_Frame(&current, f);
+        current = Lookback_While_Fetching_Next(f);
 
         // Were we to jump to the REB_WORD switch case here, LENGTH would
         // cause an error in the expression below:
@@ -2857,23 +2830,8 @@ bool Eval_Core_Throws(REBFRM * const f)
     // of parameter fulfillment.  We want to reuse the f->out value and get it
     // into the new function's frame.
 
-  push_enfix_action:;
-
-    Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
-
-    Dampen_Lookahead(f); // not until after action pushed, invisibles cache it
-
-    // Note we jump here from reevaluate, with no label, ATM
-    //
-    Begin_Action(
-        f,
-        f->value != VOID_VALUE ? VAL_WORD_SPELLING(f->value) : nullptr
-    );
-
-    SET_EVAL_FLAG(f, RUNNING_ENFIX);
-    SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
-
-    Fetch_Next_In_Frame(nullptr, f); // advances f->value
+    Push_Enfix_Action(f, f->gotten, VAL_WORD_SPELLING(f->value));
+    Fetch_Next_Forget_Lookback(f);  // advances f->value
     goto process_action;
 
   abort_action:;

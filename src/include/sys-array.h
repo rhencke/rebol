@@ -95,10 +95,10 @@ inline static RELVAL *ARR_SINGLE(REBARR *a) {
 // It's possible to calculate the array from just a cell if you know it's a
 // cell inside a singular array.
 //
-inline static REBARR *Singular_From_Cell(const RELVAL *v) {
+inline static REBARR *Singular_From_Cell(const REBCEL *v) {
     REBARR *singular = ARR( // some checking in debug builds is done by ARR()
         cast(void*,
-            cast(REBYTE*, m_cast(RELVAL*, v))
+            cast(REBYTE*, m_cast(REBCEL*, v))
             - offsetof(struct Reb_Series, content)
         )
     );

@@ -585,7 +585,7 @@ bool Form_Reduce_Throws(
     Push_Mold(mo);
 
     DECLARE_FRAME (f);
-    Push_Frame_At(f, array, index, specifier, DO_MASK_DEFAULT);
+    Push_Frame_At(f, array, index, specifier, EVAL_MASK_DEFAULT);
 
     bool pending = false; // pending delimiter output, *if* more non-nulls
     bool nothing = true; // any elements seen so far have been null or blank

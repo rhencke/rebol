@@ -265,11 +265,11 @@ typedef struct rebol_scan_state {
     //
     REBYTE mode_char;
 
-    // If vaptr is NULL, then it is assumed that the `begin` is the source of
+    // If feed is NULL, then it is assumed that the `begin` is the source of
     // the UTF-8 data to scan.  Otherwise, it is a variadic feed of UTF-8
     // strings and values that are spliced in.
     //
-    va_list *vaptr;
+    struct Reb_Feed *feed;
 
     const REBYTE *begin;
     const REBYTE *end;
@@ -297,13 +297,6 @@ typedef struct rebol_scan_state {
 
     REBFLGS opts;
     enum Reb_Token token;
-
-    // If the binder isn't NULL, then any words or arrays are bound into it
-    // during the loading process.
-    //
-    struct Reb_Binder *binder;
-    REBCTX *lib; // does not expand, has negative indices in binder
-    REBCTX *context; // expands, has positive indices in binder
 } SCAN_STATE;
 
 #define ANY_CR_LF_END(c) ((c) == '\0' or (c) == CR or (c) == LF)

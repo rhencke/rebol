@@ -2144,7 +2144,9 @@ REBNATIVE(list_env)
         int val_len = len - (eq_pos - key_equals_val) - 1;
         REBVAL *val = rebLengthedTextW(eq_pos + 1, val_len);
 
-        rebElide("append", map, "[", rebR(key), rebR(val), "]", rebEND);
+        rebElide(
+            "append", map, rebU("[", rebR(key), rebR(val), "]", rebEND),
+        rebEND);
 
         key_equals_val += len + 1; // next
     }
@@ -2174,7 +2176,9 @@ REBNATIVE(list_env)
         int val_size = size - (eq_pos - key_equals_val) - 1;
         REBVAL *val = rebSizedText(eq_pos + 1, val_size);
 
-        rebElide("append", map, "[", rebR(key), rebR(val), "]", rebEND);
+        rebElide(
+            "append", map, rebU("[", rebR(key), rebR(val), "]", rebEND),
+        rebEND);
     }
   #endif
 

@@ -50,8 +50,6 @@
 //          {BLOCK! passes-thru, ACTION! runs, SET-WORD! assigns...}
 //      expressions [<opt> any-value! <...>]
 //          {Depending on VALUE, more expressions may be consumed}
-//      /only
-//          {Suppress evaluation on any ensuing arguments value consumes}
 //  ]
 //
 REBNATIVE(eval)
@@ -69,11 +67,7 @@ REBNATIVE(eval)
     //
     child->u.reval.value = ARG(value);
 
-    REBFLGS flags = DO_MASK_DEFAULT | EVAL_FLAG_REEVALUATE_CELL;
-    if (REF(only)) {
-        flags |= EVAL_FLAG_EXPLICIT_EVALUATE;
-        ARG(value)->header.bits ^= CELL_FLAG_EVAL_FLIP;
-    }
+    REBFLGS flags = EVAL_MASK_DEFAULT | EVAL_FLAG_REEVALUATE_CELL;
 
     if (Eval_Step_In_Subframe_Throws(D_OUT, frame_, flags, child))
         return R_THROWN;
@@ -165,7 +159,7 @@ REBNATIVE(shove)
             VAL_ARRAY(f->value),
             VAL_INDEX(f->value),
             Derive_Specifier(f->specifier, f->value),
-            (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+            (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
                 | EVAL_FLAG_TO_END
                 | (f->flags.bits & EVAL_FLAG_CONST)
                 | (f->value->header.bits & EVAL_FLAG_CONST)
@@ -187,9 +181,9 @@ REBNATIVE(shove)
     // like `5 + 5 -> subtract 7` to give 3.
     //
     if (REF(enfix))
-        SET_CELL_FLAG(shovee, ENFIXED); // for `add 1 2 -> 3` to be 7
+        SET_CELL_FLAG(shovee, ENFIXED);  // so that `add 1 2 -> 3` is 7
     else
-        Fetch_Next_In_Frame(nullptr, f); // for `10 -> = 5 + 5` to be true
+        Fetch_Next_Forget_Lookback(f);  // so that `10 -> = 5 + 5` is true
 
     // Trying to EVAL a SET-WORD! or SET-PATH! with no args would be an error.
     // So interpret it specially...GET the value and SET it back.  Note this
@@ -235,7 +229,7 @@ REBNATIVE(shove)
 
     DECLARE_SUBFRAME (child, frame_);
 
-    REBFLGS flags = DO_MASK_DEFAULT
+    REBFLGS flags = EVAL_MASK_DEFAULT
         | EVAL_FLAG_NEXT_ARG_FROM_OUT
         | EVAL_FLAG_REEVALUATE_CELL;
     child->u.reval.value = shovee; // EVAL_FLAG_REEVALUATE_CELL retriggers this
@@ -341,7 +335,7 @@ REBNATIVE(do)
         // to disrupt its state.  Use a subframe.
         //
         DECLARE_SUBFRAME (child, f);
-        REBFLGS flags = DO_MASK_DEFAULT;
+        REBFLGS flags = EVAL_MASK_DEFAULT;
         Init_Void(D_OUT);
         while (NOT_END(f->value)) {
             if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child))
@@ -363,10 +357,10 @@ REBNATIVE(do)
 
         UNUSED(REF(args)); // detected via `value? :arg`
 
-        const bool fully = true; // error if not all arguments consumed
-        if (Apply_Only_Throws(
+        if (Run_Throws(
             D_OUT,
-            fully,
+            true,  // fully = true, error if not all arguments consumed
+            rebEVAL,
             sys_do_helper,
             source,
             NULLIFY_NULLED(ARG(arg)), // nulled cells => nullptr for API
@@ -424,7 +418,7 @@ REBNATIVE(do)
         bool mutability = GET_CELL_FLAG(source, EXPLICITLY_MUTABLE);
         Push_Frame_At_End(
             f,
-            (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+            (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
                 | EVAL_FLAG_FULLY_SPECIALIZED
                 | EVAL_FLAG_PROCESS_ACTION
                 | (mutability ? 0 : (
@@ -514,7 +508,7 @@ REBNATIVE(evaluate)
             VAL_ARRAY(source),
             VAL_INDEX(source),
             VAL_SPECIFIER(source),
-            DO_MASK_DEFAULT
+            EVAL_MASK_DEFAULT
         );
 
         if (indexor == THROWN_FLAG) {
@@ -553,7 +547,7 @@ REBNATIVE(evaluate)
                 VAL_ARRAY(position),
                 VAL_INDEX(position),
                 VAL_SPECIFIER(source),
-                DO_MASK_DEFAULT
+                EVAL_MASK_DEFAULT
             );
 
             if (indexor == THROWN_FLAG) {
@@ -587,7 +581,7 @@ REBNATIVE(evaluate)
         // to disrupt its state.  Use a subframe.
         //
         DECLARE_SUBFRAME (child, f);
-        REBFLGS flags = DO_MASK_DEFAULT;
+        REBFLGS flags = EVAL_MASK_DEFAULT;
         if (IS_END(f->value))
             return nullptr;
 
@@ -835,7 +829,7 @@ REBNATIVE(apply)
         RETURN (temp);
     }
 
-    Push_Frame_At_End(f, DO_MASK_DEFAULT | EVAL_FLAG_PROCESS_ACTION);
+    Push_Frame_At_End(f, EVAL_MASK_DEFAULT | EVAL_FLAG_PROCESS_ACTION);
 
     if (not REF(opt)) {
         //

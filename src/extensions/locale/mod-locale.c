@@ -67,7 +67,7 @@ REBNATIVE(locale)
             "territory", rebI(LOCALE_SENGCOUNTRY),
             "territory*", rebI(LOCALE_SCOUNTRY),
         "]", cat, "else [",
-            "fail [{Invalid locale category:}", rebQ(cat), "]",
+            "fail [{Invalid locale category:}", cat, "]",
         "]", rebEND // !!! review using fail with ID-based errors
     );
 

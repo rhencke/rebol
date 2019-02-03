@@ -393,6 +393,48 @@ e-lib/emit {
         ((const void*)"\x80")
 
     /*
+     * Some trick macros are not done with function calls to the API.  So
+     * they risk having bad typing.  This helper can be low cost (or no
+     * cost, if you don't want it).
+     */
+    #if defined(__cplusplus)
+        #define rebCELL(v) \
+            static_cast<const REBVAL*>(v)
+    #elif !defined(NDEBUG)
+        inline static const void *rebCELL(const REBVAL *v)
+            { return v; }
+    #else
+        #define rebCELL(v) (v)
+    #endif
+
+    /*
+     * These shorthand macros make the API somewhat more readable, but as
+     * they are macros you can redefine them to other definitions if you want.
+     *
+     * !!! Here macro tricks are being used that work for C but won't work for
+     * JavaScript.  
+     */
+
+    #define rebR(v) \
+        rebRELEASING(v)
+
+    #define rebEVAL \
+        rebEVAL_internal()
+
+    #define rebU \
+        rebUNEVALUATIVE
+
+    #define rebT(utf8) \
+        rebEVAL, rebR(rebText(utf8))  /* might rebTEXT() delayed-load? */
+
+    #define rebI(int64) \
+        rebEVAL, rebR(rebInteger(int64))
+
+    #define rebL(flag) \
+        rebEVAL, rebR(rebLogic(flag))
+
+
+    /*
      * Function entry points for reb-lib.  Formulating this way allows the
      * interface structure to be passed from an EXE to a DLL, then the DLL
      * can call into the EXE (which is not generically possible via linking).

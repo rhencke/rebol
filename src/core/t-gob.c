@@ -926,7 +926,7 @@ REB_R PD_Gob(
 
     if (IS_INTEGER(picker))
         return rebRun(
-            rebEval(NAT_VALUE(pick)), ARR_AT(gob, IDX_GOB_PANE), picker,
+            rebEVAL, NAT_VALUE(pick), ARR_AT(gob, IDX_GOB_PANE), picker,
         rebEND);
 
     return R_UNHANDLED;

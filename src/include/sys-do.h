@@ -48,7 +48,7 @@ inline static bool Do_At_Mutability_Throws(
         array,
         index,
         specifier,
-        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
             | EVAL_FLAG_TO_END
             | (mutability ? 0 : (FS_TOP->flags.bits & EVAL_FLAG_CONST))
     );
@@ -76,7 +76,7 @@ inline static bool Do_Any_Array_At_Throws(
         VAL_ARRAY(any_array),
         VAL_INDEX(any_array),
         VAL_SPECIFIER(any_array),
-        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
             | EVAL_FLAG_TO_END
             | (mutability ? 0 : (
                 (FS_TOP->flags.bits & EVAL_FLAG_CONST)
@@ -97,9 +97,8 @@ inline static bool Do_Va_Throws(
         Init_Void(out),
         opt_first,
         vaptr,
-        DO_MASK_DEFAULT
+        EVAL_MASK_DEFAULT
             | EVAL_FLAG_TO_END
-            | EVAL_FLAG_EXPLICIT_EVALUATE
             | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
     );
 }
@@ -113,33 +112,27 @@ inline static bool Do_Va_Throws(
 // then calling EVAL/ONLY on it.  If all the inputs are not consumed, an
 // error will be thrown.
 //
-inline static bool Apply_Only_Throws(
+inline static bool Run_Throws(
     REBVAL *out,
     bool fully,
-    const REBVAL *applicand, // last param before ... mentioned in va_start()
+    const void *p,  // last param before ... mentioned in va_start()
     ...
 ) {
     va_list va;
-    va_start(va, applicand);
-
-    DECLARE_LOCAL (applicand_eval);
-    Move_Value(applicand_eval, applicand);
-    SET_CELL_FLAG(applicand_eval, EVAL_FLIP);
+    va_start(va, p);
 
     REBIXO indexor = Eval_Va_Core(
         SET_END(out), // start at END to detect error if no eval product
-        applicand_eval, // opt_first
+        p, // opt_first
         &va, // va_end() handled by Eval_Va_Core on success, fail, throw, etc.
-        (DO_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-            | EVAL_FLAG_EXPLICIT_EVALUATE
+        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
             | (fully ? EVAL_FLAG_NO_RESIDUE : 0)
             | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
-            | (applicand->header.bits & EVAL_FLAG_CONST)
             | EVAL_FLAG_BLAME_PARENT
     );
 
     if (IS_END(out))
-        fail ("Apply_Only_Throws() empty or just COMMENTs/ELIDEs/BAR!s");
+        fail ("Run_Throws() empty or just COMMENTs/ELIDEs/BAR!s");
 
     return indexor == THROWN_FLAG;
 }
@@ -168,9 +161,10 @@ inline static bool Do_Branch_Core_Throws(
         return Do_Any_Array_At_Throws(out, branch);
 
     assert(IS_ACTION(branch));
-    return Apply_Only_Throws(
+    return Run_Throws(
         out,
         false, // !fully, e.g. arity-0 functions can ignore condition
+        rebEVAL,
         branch,
         condition, // may be an END marker, if not Do_Branch_With() case
         rebEND // ...but if condition wasn't an END marker, we need one

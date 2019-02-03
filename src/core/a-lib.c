@@ -38,10 +38,29 @@
 // the C code using the library isn't competing as much for definitions in
 // the global namespace.
 //
-// (That was true of the original RL_API in R3-Alpha, but this later iteration
-// speaks in terms of actual REBVAL* cells--vs. creating a new type.  They are
-// just opaque pointers to cells whose lifetime is either indefinite, or
-// tied to particular function FRAME!s.)
+// Also, due to the nature of REBNOD (see %sys-node.h), it's possible to feed
+// the scanner with a list of pointers that may be to UTF-8 strings or to
+// Rebol values.  The behavior is to "splice" in the values at the point in
+// the scan that they occur, e.g.
+//
+//     REBVAL *item1 = ...;
+//     REBVAL *item2 = ...;
+//     REBVAL *item3 = ...;
+//
+//     REBARR *result = rebRun(
+//         "if not", item1, "[\n",
+//             item2, "| print {Close brace separate from content}\n",
+//         "] else [\n",
+//             item3, "| print {Close brace with content}]\n",
+//         rebEND
+//     );
+//
+// While the approach is flexible, any token must appear fully inside its
+// UTF-8 string component.  So you can't--for instance--divide a scan up like
+// ("{abc", "def", "ghi}") and get the TEXT! {abcdefghi}.  On that note,
+// ("a", "/", "b") produces `a / b` and not the PATH! `a/b`.
+//
+//==//// NOTES ////////////////////////////////////////////////////////////=//
 //
 // Each exported routine here has a name RL_rebXxxYyy.  This is a name by
 // which it can be called internally from the codebase like any other function
@@ -501,21 +520,90 @@ REBVAL *RL_rebArg(const void *p, va_list *vaptr)
 // Each pointer may either be a REBVAL* or a UTF-8 string which will be
 // scanned to reflect one or more values in the sequence.
 //
-// All REBVAL* are spliced in inert by default, as if they were an evaluative
-// product already.  Use rebEval() to "retrigger" them (which wraps them in
-// a singular REBARR*, another type of detectable pointer.)
+// All REBVAL* are spliced in quoted by default.  Use rebEVAL or rebU():
+//
+// https://forum.rebol.info/t/1050
 //
 REBVAL *RL_rebRun(const void *p, va_list *vaptr)
 {
     REBVAL *result = Alloc_Value();
-    if (Do_Va_Throws(result, p, vaptr)) // calls va_end()
-        fail (Error_No_Catch_For_Throw(result)); // no need to release result
+    if (Do_Va_Throws(result, p, vaptr))  // will ensure va_end() is called
+        fail (Error_No_Catch_For_Throw(result));  // implicit result release
 
     if (not IS_NULLED(result))
         return result;
 
     rebRelease(result);
-    return nullptr; // see NULLIFY_NULLED()
+    return nullptr;  // No NULLED cells in API, see notes on NULLIFY_NULLED()
+}
+
+
+//
+//  rebQuote: RL_API
+//
+// Variant of rebRun() that simply quotes its result.  So `rebQuote(...)` is
+// equivalent to `rebRun("quote", ...)`, with the advantage of being faster
+// and not depending on what the QUOTE word looks up to.
+//
+// (It also has the advantage of not showing QUOTE on the call stack.  That
+// is important for the console when trapping its generated result, to be
+// able to quote it without the backtrace showing a QUOTE stack frame.)
+//
+REBVAL *RL_rebQuote(const void *p, va_list *vaptr)
+{
+    REBVAL *result = Alloc_Value();
+    if (Do_Va_Throws(result, p, vaptr))  // will ensure va_end() is called
+        fail (Error_No_Catch_For_Throw(result));  // implicit result release
+
+    return Quotify(result, 1);
+}
+
+
+//
+//  rebUNEVALUATIVE: RL_API
+//
+// https://forum.rebol.info/t/1050
+//
+// !!! It may be possible to create variations of this which are done in a
+// way that would allow arbitrary spans, `rebU("[, value1), value2, "]")`.
+// But those variants would have to be more sophisticated than this.
+//
+const void *RL_rebUNEVALUATIVE(const void *p, va_list *vaptr)
+{
+    struct Reb_Feed feed_struct;
+    struct Reb_Feed *feed = &feed_struct;
+    Prep_Feed_Core(feed);
+
+    feed->index = TRASHED_INDEX; // avoids warning in release build
+    feed->array = nullptr;
+    feed->flags.bits = FEED_FLAG_UNEVALUATIVE;
+    feed->vaptr = vaptr;
+    feed->pending = END_NODE; // signal next fetch comes from va_list
+
+    REBDSP dsp_orig = DSP;
+
+    // Feed through all the values to the stack
+    //
+    const RELVAL *value = Detect_Feed_Pointer_Maybe_Fetch(nullptr, feed, p);
+    while (NOT_END(value)) {
+        Move_Value(DS_PUSH(), KNOWN(value));
+        value = Fetch_Next_In_Feed(nullptr, feed);
+    }
+
+    if (dsp_orig == DSP)
+        fail ("No values in rebUNEVALUATIVE()");
+
+    if (dsp_orig > DSP + 1)
+        fail ("Multiple values in rebUNEVALUATIVE(), not implemented");
+
+    assert(not IS_NULLED(DS_TOP));  // UNEVALUATIVE should fail on nulls
+
+    REBVAL *result = Move_Value(Alloc_Value(), DS_TOP);
+    DS_DROP();
+
+    REBARR *a = Singular_From_Cell(result);
+    SET_ARRAY_FLAG(a, SINGULAR_API_RELEASE);
+    return a;
 }
 
 
@@ -572,76 +660,50 @@ void RL_rebJumps(const void *p, va_list *vaptr)
 
 
 //
-//  rebEval: RL_API
+//  rebEVAL_internal: RL_API
 //
-// When rebRun() receives a REBVAL*, the default is to assume it should be
-// spliced into the input stream as if it had already been evaluated.  It's
-// only segments of code supplied via UTF-8 strings, that are live and can
-// execute functions.
+// (Note: "_internal" is so that macro can be rebEVAL with no parentheses.)
 //
-// This instruction is used with rebRun() in order to mark a value as being
-// evaluated.  So `rebRun(rebEval(some_word), ...)` will execute that word
-// if it's bound to an ACTION! and dereference if it's a variable.
+// Optimized stand in for the EVAL function, useful for triggering actions
+// or picking the quotes off of things.
 //
-const void *RL_rebEval(const REBVAL *v)
+// It is not intended for use inside blocks, e.g.:
+//
+//    REBVAL *block = rebRun("[", rebEVAL, word, "]");
+//
+// Plan is that this will either raise an error in the variadic scanner,
+// or possibly put the native EVAL ACTION! in that spot.  Instead, use the
+// rebUNEVALUATIVE() mechanism:
+//
+//    REBVAL *block = rebRun("[", rebU(word), "]");
+//    REBVAL *block = rebRun(rebU("[", word, "]"));  // only 1 scan item ATM
+//
+const void *RL_rebEVAL_internal(void)
 {
-    if (IS_NULLED(v))
-        fail ("Cannot pass NULL to rebEval()");
-
-    REBARR *instruction = Alloc_Instruction();
-    RELVAL *single = ARR_SINGLE(instruction);
-    Move_Value(single, v);
-
-    // !!! The presence of the CELL_FLAG_EVAL_FLIP is a pretty good
-    // indication that it's an eval instruction.  So it's not necessary to
-    // fill in the ->link or ->misc fields.  But if there were more
-    // instructions like this, there'd probably need to be a misc->opcode or
-    // something to distinguish them.
-    //
-    SET_CELL_FLAG(single, EVAL_FLIP);
-
+    REBARR *instruction = Alloc_Instruction(API_OPCODE_EVAL);
     return instruction;
 }
 
 
 //
-//  rebQ: RL_API
-//
-// Instruction used to add a quoting level to the argument.
-//
-const void *RL_rebQ(const REBVAL *v)
-{
-    REBARR *instruction = Alloc_Instruction();
-    RELVAL *single = ARR_SINGLE(instruction);
-    Move_Value(single, REIFY_NULL(v));
-    Quotify(single, 1);
-
-    // !!! See notes in rebEval() about adding opcodes.  No particular need
-    // for one right now, just put in the value.
-
-    return instruction;
-}
-
-
-//
-//  rebR: RL_API
+//  rebRELEASING: RL_API
 //
 // Convenience tool for making "auto-release" form of values.  They will only
 // exist for one API call.  They will be automatically rebRelease()'d when
 // they are seen (or even if they are not seen, if there is a failure on that
 // call it will still process the va_list in order to release these handles)
 //
-const void *RL_rebR(REBVAL *v)
+const void *RL_rebRELEASING(REBVAL *v)
 {
     if (not Is_Api_Value(v))
         fail ("Cannot apply rebR() to non-API value");
 
     REBARR *a = Singular_From_Cell(v);
-    if (GET_SERIES_FLAG(a, SINGULAR_API_RELEASE))
+    if (GET_ARRAY_FLAG(a, SINGULAR_API_RELEASE))
         fail ("Cannot apply rebR() more than once to the same API value");
 
-    SET_SERIES_FLAG(a, SINGULAR_API_RELEASE);
-    return v; // returned as const void* to discourage use outside variadics
+    SET_ARRAY_FLAG(a, SINGULAR_API_RELEASE);
+    return a; // returned as const void* to discourage use outside variadics
 }
 
 
@@ -710,17 +772,6 @@ REBVAL *RL_rebChar(uint32_t codepoint)
 REBVAL *RL_rebInteger(int64_t i)
 {
     return Init_Integer(Alloc_Value(), i);
-}
-
-
-//
-//  rebI: RL_API
-//
-// Convenience form of `rebR(rebInteger(i))`.
-//
-const void *RL_rebI(int64_t i)
-{
-    return rebR(rebInteger(i));
 }
 
 
@@ -816,7 +867,7 @@ REBVAL *RL_rebRescue(
     f->out = m_cast(REBVAL*, END_NODE); // should not be written
 
     REBSTR *opt_label = NULL;
-    Push_Frame_At_End(f, DO_MASK_DEFAULT); // not FULLY_SPECIALIZED
+    Push_Frame_At_End(f, EVAL_MASK_DEFAULT); // not FULLY_SPECIALIZED
 
     Reuse_Varlist_If_Available(f); // needed to attach API handles to
     Push_Action(f, PG_Dummy_Action, UNBOUND);
@@ -1303,21 +1354,6 @@ REBVAL *RL_rebText(const char *utf8)
 
 
 //
-//  rebT: RL_API
-//
-// Shorthand for `rebR(rebText(...))` to more easily create text parameters.
-//
-// !!! Since the data is UTF-8, it may be possible to make this a "delayed"
-// text argument...that saves the pointer it is given and uses it directly,
-// then only proxies it into a series at Move_Value() time.
-//
-const void *RL_rebT(const char *utf8)
-{
-    return rebR(rebText(utf8));
-}
-
-
-//
 //  rebLengthedTextW: RL_API
 //
 REBVAL *RL_rebLengthedTextW(const REBWCHAR *wstr, unsigned int num_chars)
@@ -1567,7 +1603,7 @@ void RL_rebPromise_callback(intptr_t promise_id)
         arr,
         0, // index
         SPECIFIED,
-        DO_MASK_DEFAULT
+        EVAL_MASK_DEFAULT
             | EVAL_FLAG_TO_END
             | EVAL_FLAG_EXPLICIT_EVALUATE // was reified w/explicit
     )){

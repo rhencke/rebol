@@ -147,7 +147,7 @@ bool Next_Path_Throws(REBPVS *pvs)
     if (IS_NULLED(PVS_PICKER(pvs)))
         fail (Error_No_Value_Core(pvs->value, pvs->specifier));
 
-    Fetch_Next_In_Frame(nullptr, pvs); // may be at end
+    Fetch_Next_Forget_Lookback(pvs);  // may be at end
 
   redo:;
 
@@ -431,7 +431,8 @@ bool Eval_Path_Throws_Core(
         Derelativize(pvs->out, pvs->value, pvs->specifier);
     }
 
-    Fetch_Next_In_Frame(nullptr, pvs);
+    const RELVAL *lookback;
+    lookback = Lookback_While_Fetching_Next(pvs);
 
     if (IS_END(pvs->value)) {
         //
@@ -449,19 +450,21 @@ bool Eval_Path_Throws_Core(
             // we got the cell immutably we couldn't safely write to it.
             // Prioritize rethinking this when the feature gets used more.
             //
-            assert(not GET_CELL_FLAG(pvs->u.ref.cell, PROTECTED));
+            assert(NOT_CELL_FLAG(pvs->u.ref.cell, PROTECTED));
             Move_Value(pvs->u.ref.cell, PVS_OPT_SETVAL(pvs));
         }
     }
     else {
         if (IS_NULLED(pvs->out))
-            fail (Error_No_Value_Core(pvs->value, pvs->specifier));
+            fail (Error_No_Value_Core(lookback, pvs->specifier));
 
         if (Next_Path_Throws(pvs))
             goto return_thrown;
 
         assert(IS_END(pvs->value));
     }
+
+    TRASH_POINTER_IF_DEBUG(lookback);  // goto crosses it, don't use below
 
     if (opt_setval) {
         // If SET then we don't return anything
@@ -641,7 +644,7 @@ REBNATIVE(pick)
     }
 
     DECLARE_FRAME (pvs);
-    pvs->flags.bits = DO_MASK_DEFAULT;
+    pvs->flags.bits = EVAL_MASK_DEFAULT;
 
     Move_Value(D_OUT, location);
     pvs->out = D_OUT;
@@ -730,7 +733,7 @@ REBNATIVE(poke)
     }
 
     DECLARE_FRAME (pvs);
-    pvs->flags.bits = DO_MASK_DEFAULT;
+    pvs->flags.bits = EVAL_MASK_DEFAULT;
 
     Move_Value(D_OUT, location);
     pvs->out = D_OUT;
