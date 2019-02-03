@@ -617,7 +617,7 @@ REBNATIVE(match)
         if (threw)
             return R_THROWN;
 
-        assert(IS_END(f->value)); // we started at END_FLAG, can only throw
+        assert(IS_END(f->feed->value)); // started @ END_FLAG, can only throw
 
         if (IS_VOID(temp))
             fail (Error_Void_Conditional_Raw());
@@ -726,7 +726,7 @@ REBNATIVE(all)
 
     Init_Nulled(D_OUT); // default return result
 
-    while (NOT_END(f->value)) {
+    while (NOT_END(f->feed->value)) {
         if (Eval_Step_Maybe_Stale_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return R_THROWN;
@@ -767,7 +767,7 @@ REBNATIVE(any)
 
     Init_Nulled(D_OUT); // default return result
 
-    while (NOT_END(f->value)) {
+    while (NOT_END(f->feed->value)) {
         if (Eval_Step_Maybe_Stale_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return R_THROWN;
@@ -811,7 +811,7 @@ REBNATIVE(none)
 
     Init_Nulled(D_OUT); // default return result
 
-    while (NOT_END(f->value)) {
+    while (NOT_END(f->feed->value)) {
         if (Eval_Step_Maybe_Stale_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return R_THROWN;
@@ -869,11 +869,14 @@ REBNATIVE(case)
     }
 
     DECLARE_FRAME (f);
+    SHORTHAND (const RELVAL*, v, f->feed->value);
+    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+
     Push_Frame(f, ARG(cases));  // frame has array, can re-use GC-safe cell
     REBVAL *last_branch_result = ARG(cases);
     Init_Nulled(last_branch_result); // default return result
 
-    for (; Init_Nulled(D_OUT), NOT_END(f->value);) {
+    for (; Init_Nulled(D_OUT), NOT_END(*v);) {
 
         // Feed the frame forward one step for predicate argument.
         //
@@ -889,7 +892,7 @@ REBNATIVE(case)
         if (GET_CELL_FLAG(D_OUT, OUT_MARKED_STALE))  // could've been COMMENT
             goto reached_end;
 
-        if (IS_END(f->value)) {
+        if (IS_END(*v)) {
             //
             // !!! We don't want to do a IS_TRUTHY() test on something that
             // is going to fall out, because voids are legal there.  But what
@@ -918,63 +921,72 @@ REBNATIVE(case)
         }
 
         if (not matched) {
-            //
-            // Maintain symmetry with IF's typechecking of non-taken branches:
-            //
-            // >> if false <some-tag>
-            // ** Script Error: if does not allow tag! for its branch argument
-            //
-            if (not (
-                IS_BLOCK(f->value)
-                or IS_ACTION(f->value)
-                or IS_QUOTED(f->value)
-                or IS_GROUP(f->value) // don't evaluate this case...
-            )){
-                fail (Error_Bad_Value_Core(D_CELL, f->specifier));
+            if (IS_BLOCK(*v) or IS_ACTION(*v) or IS_QUOTED(*v)) {
+                //
+                // Accepted branches for IF/etc. that are skipped on no match
+            }
+            else if (IS_GROUP(*v)) {
+                //
+                // IF evaluates branches that are GROUP! even if it does not
+                // run them.  This implies CASE should too.
+                //
+                if (Eval_Value_Core_Throws(D_SPARE, *v, *specifier)) {
+                    Move_Value(D_OUT, D_SPARE);
+                    goto threw;
+                }
+            }
+            else {
+                //
+                // Maintain symmetry with IF's on non-taken branches:
+                //
+                // >> if false <some-tag>
+                // ** Script Error: if does not allow tag! for its branch...
+                //
+                fail (Error_Bad_Value_Core(D_SPARE, *specifier));
             }
 
             Fetch_Next_Forget_Lookback(f); // skip next, whatever it is
             continue;
         }
 
-        // Can't use Do_Branch(), f->value is unevaluated RELVAL...simulate it
+        // Can't use Do_Branch(), *v is unevaluated RELVAL...simulate it
 
-        if (IS_GROUP(f->value)) {
+        if (IS_GROUP(*v)) {
             if (Do_At_Throws(
-                D_CELL,
-                VAL_ARRAY(f->value),
-                VAL_INDEX(f->value),
-                f->specifier
+                D_SPARE,
+                VAL_ARRAY(*v),
+                VAL_INDEX(*v),
+                *specifier
             )){
-                Move_Value(D_OUT, D_CELL);
+                Move_Value(D_OUT, D_SPARE);
                 goto threw;
             }
-            f->value = D_CELL;
+            *v = D_SPARE;
         }
 
-        if (IS_QUOTED(f->value)) {
-            Unquotify(Derelativize(D_OUT, f->value, f->specifier), 1);
+        if (IS_QUOTED(*v)) {
+            Unquotify(Derelativize(D_OUT, *v, *specifier), 1);
         }
-        else if (IS_BLOCK(f->value)) {
+        else if (IS_BLOCK(*v)) {
             if (Do_At_Throws(
                 D_OUT,
-                VAL_ARRAY(f->value),
-                VAL_INDEX(f->value),
-                f->specifier
+                VAL_ARRAY(*v),
+                VAL_INDEX(*v),
+                *specifier
             )){
                 goto threw;
             }
         }
-        else if (IS_ACTION(f->value)) {
+        else if (IS_ACTION(*v)) {
             DECLARE_LOCAL (temp);
-            if (Do_Branch_With_Throws(temp, KNOWN(f->value), D_OUT)) {
+            if (Do_Branch_With_Throws(temp, KNOWN(*v), D_OUT)) {
                 Move_Value(D_OUT, temp);
                 goto threw;
             }
             Move_Value(D_OUT, temp);
         }
         else
-            fail (Error_Bad_Value_Core(f->value, f->specifier));
+            fail (Error_Bad_Value_Core(*v, *specifier));
 
         Voidify_If_Nulled(D_OUT); // null is reserved for no branch taken
 
@@ -1047,19 +1059,22 @@ REBNATIVE(switch)
     }
 
     DECLARE_FRAME (f);
+    SHORTHAND (const RELVAL*, v, f->feed->value);
+    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+
     Push_Frame(f, ARG(cases));  // frame has block, can reuse GC-safe cell
     REBVAL *last_branch_result = ARG(cases);
     Init_Nulled(last_branch_result);
 
-    REBVAL *value = ARG(value);
-    if (IS_BLOCK(value) and GET_CELL_FLAG(value, UNEVALUATED))
-        fail (Error_Block_Switch_Raw(value));  // `switch [x] [...]` safeguard
+    REBVAL *left = ARG(value);
+    if (IS_BLOCK(left) and GET_CELL_FLAG(left, UNEVALUATED))
+        fail (Error_Block_Switch_Raw(left));  // `switch [x] [...]` safeguard
 
     Init_Nulled(D_OUT);  // fallout result if no branches run
 
-    while (NOT_END(f->value)) {
+    while (NOT_END(*v)) {
 
-        if (IS_BLOCK(f->value) or IS_ACTION(f->value)) {
+        if (IS_BLOCK(*v) or IS_ACTION(*v)) {
             Fetch_Next_Forget_Lookback(f);
             Init_Nulled(D_OUT);  // reset fallout output to null
             continue;
@@ -1079,7 +1094,7 @@ REBNATIVE(switch)
             goto threw;
 
         if (IS_END(D_OUT)) {  // nothing left, or was just COMMENT/etc.
-            assert(IS_END(f->value));
+            assert(IS_END(*v));
             Drop_Frame(f);
 
             assert(REF(all) or IS_NULLED(last_branch_result));
@@ -1101,7 +1116,7 @@ REBNATIVE(switch)
             // !!! A branch composed into the switch cases block may want to
             // see the un-mutated condition value.
             //
-            if (not Compare_Modify_Values(ARG(value), D_OUT, 0))  // 0 => lax
+            if (not Compare_Modify_Values(left, D_OUT, 0))  // 0 => lax
                 continue;
         }
         else {
@@ -1115,7 +1130,7 @@ REBNATIVE(switch)
             // for better stack traces and error messages.
             //
             // !!! We'd like to run this faster, so we aim to be able to
-            // reuse this frame...hence D_CELL should not be expected to
+            // reuse this frame...hence D_SPARE should not be expected to
             // survive across this point.
             //
             DECLARE_LOCAL (temp);
@@ -1124,7 +1139,7 @@ REBNATIVE(switch)
                 true,  // fully = true (e.g. both arguments must be taken)
                 rebEVAL,
                 predicate,
-                ARG(value),  // first arg (left hand side if infix)
+                left,  // first arg (left hand side if infix)
                 D_OUT,  // second arg (right hand side if infix)
                 rebEND
             )){
@@ -1137,28 +1152,28 @@ REBNATIVE(switch)
         // Skip ahead to try and find BLOCK!/ACTION! branch to take the match
         //
         while (true) {
-            if (IS_END(f->value))
+            if (IS_END(*v))
                 goto reached_end;
 
-            if (IS_BLOCK(f->value)) {  // f->value is RELVAL, can't Do_Branch
+            if (IS_BLOCK(*v)) {  // *v is RELVAL, can't Do_Branch
                 if (Do_At_Throws(
                     D_OUT,
-                    VAL_ARRAY(f->value),
-                    VAL_INDEX(f->value),
-                    f->specifier
+                    VAL_ARRAY(*v),
+                    VAL_INDEX(*v),
+                    *specifier
                 )){
                     goto threw;
                 }
                 break;
             }
 
-            if (IS_ACTION(f->value)) {  // must have been COMPOSE'd in cases
+            if (IS_ACTION(*v)) {  // must have been COMPOSE'd in cases
                 DECLARE_LOCAL (temp);
                 if (Run_Throws(
                     temp,
                     false,  // fully = false, e.g. arity-0 functions are ok
                     rebEVAL,
-                    KNOWN(f->value),  // actions don't need specifiers
+                    KNOWN(*v),  // actions don't need specifiers
                     D_OUT,
                     rebEND
                 )){
@@ -1241,7 +1256,7 @@ REBNATIVE(default)
 
     if (IS_NULLED(target)) { // e.g. `case [... default [...]]`
         UNUSED(ARG(look));
-        if (NOT_END(frame_->value)) // !!! shortcut using variadic for now
+        if (NOT_END(frame_->feed->value))  // !!! shortcut w/variadic for now
             fail ("DEFAULT usage with no left hand side must be at <end>");
 
         if (Do_Branch_Throws(D_OUT, ARG(branch)))
@@ -1332,7 +1347,7 @@ REBNATIVE(default)
             VAL_INDEX(target),
             VAL_SPECIFIER(target),
             D_OUT,
-            EVAL_FLAG_PATH_HARD_QUOTE // path precomposed, no double evaluating
+            EVAL_FLAG_PATH_HARD_QUOTE  // precomposed, no double evaluating
         )){
             panic (dummy); // shouldn't be possible, no executions!
         }

@@ -1664,15 +1664,15 @@ REBNATIVE(while)
     Init_Blank(D_OUT); // result if body never runs
 
     do {
-        if (Do_Branch_Throws(D_CELL, ARG(condition))) {
-            Move_Value(D_OUT, D_CELL);
+        if (Do_Branch_Throws(D_SPARE, ARG(condition))) {
+            Move_Value(D_OUT, D_SPARE);
             return R_THROWN; // don't see BREAK/CONTINUE in the *condition*
         }
 
-        if (IS_FALSEY(D_CELL)) // will error if void (neither true nor false)
+        if (IS_FALSEY(D_SPARE)) // will error if void (neither true nor false)
             return D_OUT; // condition was false, so return last body result
 
-        if (Do_Branch_With_Throws(D_OUT, ARG(body), D_CELL)) {
+        if (Do_Branch_With_Throws(D_OUT, ARG(body), D_SPARE)) {
             bool broke;
             if (not Catching_Break_Or_Continue(D_OUT, &broke))
                 return R_THROWN;

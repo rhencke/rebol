@@ -100,7 +100,7 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
 {
     REBCNT dsp_start = DSP;
 
-    if (NOT_END(f->value) and FRM_IS_VALIST(f)) {
+    if (NOT_END(f->feed->value) and FRM_IS_VALIST(f)) {
         //
         // Traversing a C va_arg, so reify into a (truncated) array.
         //
@@ -127,7 +127,7 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
     RELVAL *item = ARR_AT(FRM_ARRAY(f), start);
     for (; NOT_END(item) and count < 6; ++item, ++count) {
         assert(not IS_NULLED(item));  // can't be in arrays, API won't splice
-        Derelativize(DS_PUSH(), item, f->specifier);
+        Derelativize(DS_PUSH(), item, f->feed->specifier);
 
         if (count == FRM_INDEX(f) - start - 1) {
             //

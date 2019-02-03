@@ -258,7 +258,7 @@ REBNATIVE(new_line_q)
             }
 
             arr = f->feed->array;
-            item = f->value;
+            item = f->feed->value;
         }
         else if (Is_Block_Style_Varargs(&shared, pos)) {
             arr = VAL_ARRAY(shared);

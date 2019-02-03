@@ -973,18 +973,14 @@ static void Locate_Token_May_Push_Mold(
             // suggests we might need a better way of doing things, but it
             // shows the general gist for now.
             //
-            const REBVAL *splice = KNOWN(Detect_Feed_Pointer_Maybe_Fetch(
-                nullptr,  // not interested in lookback here
-                ss->feed,
-                p
-            ));
+            Detect_Feed_Pointer_Maybe_Fetch(ss->feed, p, false);
 
-            if (IS_END(splice)) {
+            if (IS_END(ss->feed->value)) {
                 ss->token = TOKEN_END;
                 return;
             }
 
-            Move_Value(DS_PUSH(), splice);  // no relative values?
+            Derelativize(DS_PUSH(), ss->feed->value, ss->feed->specifier);
 
             if (ss->newline_pending) {
                 ss->newline_pending = false;

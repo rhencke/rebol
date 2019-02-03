@@ -144,7 +144,7 @@ bool Measured_Eval_Hook_Throws(REBFRM * const f)
     while (true) {
         threw = Eval_Core_Throws(f);
 
-        if (not was_do_to_end or IS_END(f->value))
+        if (not was_do_to_end or IS_END(f->feed->value))
             break;
     }
 

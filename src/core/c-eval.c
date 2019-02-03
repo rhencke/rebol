@@ -373,7 +373,7 @@ inline static void Finalize_Variadic_Arg_Core(REBFRM *f, bool enfix) {
         (f->feed->stress != nullptr)
 #else
     #define CURRENT_CHANGES_IF_FETCH_NEXT \
-        (current == &f->feed->lookback)
+        (v == &f->feed->lookback)
 #endif
 
 
@@ -426,20 +426,22 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 // consistent with the pattern people expect.
 //
 void Lookahead_To_Sync_Enfix_Defer_Flag(REBFRM *f) {
+    SHORTHAND (const REBVAL*, gotten, f->feed->gotten);
+
     assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
-    assert(not f->gotten);
+    assert(not *gotten);
 
     CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
-    if (not IS_WORD(f->value))
+    if (not IS_WORD(f->feed->value))
         return;
 
-    f->gotten = Try_Get_Opt_Var(f->value, f->specifier);
+    *gotten = Try_Get_Opt_Var(f->feed->value, f->feed->specifier);
 
-    if (not f->gotten or not IS_ACTION(f->gotten))
+    if (not *gotten or not IS_ACTION(*gotten))
         return;
 
-    if (GET_ACTION_FLAG(VAL_ACTION(f->gotten), DEFERS_LOOKBACK))
+    if (GET_ACTION_FLAG(VAL_ACTION(*gotten), DEFERS_LOOKBACK))
         SET_FEED_FLAG(f->feed, DEFERRING_ENFIX);
 }
 
@@ -465,16 +467,19 @@ inline static bool Dampen_Lookahead(REBFRM *f) {
 //
 inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     REBFRM *f,
-    const RELVAL *current
+    const RELVAL *v
 ){
-    if (IS_END(f->value)) // `do [x:]`, `do [o/x:]`, etc. are illegal
-        fail (Error_Need_Non_End_Core(current, f->specifier));
+    SHORTHAND (const RELVAL*, next, f->feed->value);
+    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+
+    if (IS_END(*next)) // `do [x:]`, `do [o/x:]`, etc. are illegal
+        fail (Error_Need_Non_End_Core(v, *specifier));
 
     // !!! While assigning `x: #[void]` is not legal, we make a special
     // exemption for quoted voids, e.g. '#[void]`.  This means a molded
     // object with void fields can be safely MAKE'd back.
     //
-    if (KIND_BYTE(f->value) == REB_VOID + REB_64) {
+    if (KIND_BYTE(*next) == REB_VOID + REB_64) {
         Init_Void(f->out);
         Fetch_Next_Forget_Lookback(f);  // advances f->value
         return false;
@@ -495,7 +500,7 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
 
     if (CURRENT_CHANGES_IF_FETCH_NEXT) { // must use new frame
         DECLARE_SUBFRAME(child, f);
-        if (Eval_Step_In_Subframe_Throws(f->out, f, flags, child))
+        if (Eval_Step_In_Subframe_Throws(f->out, flags, child))
             return true;
     }
     else {
@@ -504,7 +509,7 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     }
 
     if (IS_VOID(f->out)) // some set operations accept null, none take void
-        fail (Error_Need_Non_Void_Core(current, f->specifier));
+        fail (Error_Need_Non_Void_Core(v, *specifier));
 
     return false;
 }
@@ -538,7 +543,7 @@ void Push_Enfix_Action(REBFRM *f, const REBVAL *action, REBSTR *opt_label)
 //     REBVAL pointer to which the evaluation's result should be written.
 //     Should be to writable memory in a cell that lives above this call to
 //     Eval_Core in stable memory that is not user-visible (e.g. DECLARE_LOCAL
-//     or the frame's f->cell).  This can't point into an array whose memory
+//     or the frame's f->spare).  This can't point into an array whose memory
 //     may move during arbitrary evaluation, and that includes cells on the
 //     expandable data stack.  It also usually can't write a function argument
 //     cell, because that could expose an unfinished calculation during this
@@ -554,9 +559,6 @@ void Push_Enfix_Action(REBFRM *f, const REBVAL *action, REBSTR *opt_label)
 //     f->specifier
 //     Resolver for bindings of values in f->feed, SPECIFIED if all resolved
 //
-//     f->gotten
-//     Must be either be the Get_Var() lookup of f->value, or END
-//
 //     f->dsp_orig
 //     Must be set to the base stack location of the operation (this may be
 //     a deeper stack level than current DSP if this is an apply, and
@@ -569,18 +571,25 @@ bool Eval_Core_Throws(REBFRM * const f)
 {
     bool threw = false;
 
-    REBVAL * const cell = cast(REBVAL*, &(f->cell)); // briefer, optimized out
+    // These shorthands help readability, and any decent compiler optimizes
+    // such things out.  Note it means you refer to `next` via `*next`.
+    // (This is ensured by the C++ build, that you don't say `if (next)...`)
+    //
+    REBVAL * const spare = FRM_SPARE(f);  // pointer is const (not the cell)
+    SHORTHAND (const RELVAL*, next, f->feed->value);
+    SHORTHAND (const REBVAL*, next_gotten, f->feed->gotten);
+    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
 
   #if defined(DEBUG_COUNT_TICKS)
-    REBTCK tick = f->tick = TG_Tick; // snapshot start tick
+    REBTCK tick = f->tick = TG_Tick;  // snapshot start tick
   #endif
 
-    assert(DSP >= f->dsp_orig); // REDUCE accrues, APPLY adds refinements, >=
-    assert(not IS_TRASH_DEBUG(f->out)); // all invisibles preserves output
-    assert(f->out != cell); // overwritten by temporary calculations
-    assert(GET_EVAL_FLAG(f, DEFAULT_DEBUG)); // must use EVAL_MASK_DEFAULT
+    assert(DSP >= f->dsp_orig);  // REDUCE accrues, APPLY adds refinements
+    assert(not IS_TRASH_DEBUG(f->out));  // all invisible will preserve output
+    assert(f->out != spare);  // overwritten by temporary calculations
+    assert(GET_EVAL_FLAG(f, DEFAULT_DEBUG));  // must use EVAL_MASK_DEFAULT
 
-    // Caching KIND_BYTE(f->value) in a local can make a slight performance
+    // Caching KIND_BYTE(*at) in a local can make a slight performance
     // difference, though how much depends on what the optimizer figures out.
     // Either way, it's useful to have handy in the debugger.
     //
@@ -592,10 +601,11 @@ bool Eval_Core_Throws(REBFRM * const f)
         enum Reb_Kind pun; // for debug viewing *if* byte < REB_MAX_PLUS_MAX
     } kind;
 
-    const REBVAL *current_gotten;
-    TRASH_POINTER_IF_DEBUG(current_gotten);
-    const RELVAL *current;
-    TRASH_POINTER_IF_DEBUG(current);
+    const RELVAL *v;  // shorthand for the value we are switch()-ing on
+    TRASH_POINTER_IF_DEBUG(v);
+
+    const REBVAL *gotten;
+    TRASH_POINTER_IF_DEBUG(gotten);
 
     // Given how the evaluator is written, it's inevitable that there will
     // have to be a test for points to `goto` before running normal eval.
@@ -626,51 +636,33 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         if (GET_CELL_FLAG(f->u.reval.value, ENFIXED)) {
             Push_Enfix_Action(f, f->u.reval.value, nullptr);
-            Fetch_Next_Forget_Lookback(f);  // advances f->value
+            Fetch_Next_Forget_Lookback(f);  // advances f->at
             goto process_action;
         }
 
-        current = f->u.reval.value;
-        current_gotten = nullptr;
-        kind.byte = KIND_BYTE(current);
+        v = f->u.reval.value;
+        gotten = nullptr;
+        kind.byte = KIND_BYTE(v);
         goto reevaluate;
     }
 
-    kind.byte = KIND_BYTE(f->value);
+    kind.byte = KIND_BYTE(*next);
 
   do_next:;
 
     START_NEW_EXPRESSION_MAY_THROW(f, goto return_thrown);
-    // ^-- resets local `tick` count, Ctrl-C may abort
+    // ^-- resets local `tick` count, Ctrl-C may abort and goto return_thrown
 
-    // We attempt to reuse any lookahead fetching done with Get_Var.  In the
-    // general case, this is not going to be possible, e.g.:
-    //
-    //     obj: make object! [x: 10]
-    //     foo: does [append obj [y: 20]]
-    //     do in obj [foo x]
-    //
-    // Consider the lookahead fetch for `foo x`.  It will get x to f->gotten,
-    // and see that it is not a lookback function.  But then when it runs foo,
-    // the memory location where x had been found before may have moved due
-    // to expansion.  Basically any function call invalidates f->gotten, as
-    // does obviously any Fetch_Next_In_Frame (because the position changes)
-    //
-    // !!! Review how often gotten has hits vs. misses, and what the benefit
-    // of the feature actually is.
-    //
-    current_gotten = f->gotten;
-    current = Lookback_While_Fetching_Next(f);
+    gotten = *next_gotten;
+    v = Lookback_While_Fetching_Next(f);
+    // ^-- can't just `v = *next` as fetch may overwrite--request a lookback!
 
     assert(kind.byte != REB_0_END);
-    assert(kind.byte == KIND_BYTE_UNCHECKED(current));
+    assert(kind.byte == KIND_BYTE_UNCHECKED(v));
 
   reevaluate:;
 
     // ^-- doesn't advance expression index, so `eval x` starts with `eval`
-
-    UPDATE_TICK_DEBUG(current);
-    // v-- This is the TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
 
     //==////////////////////////////////////////////////////////////////==//
     //
@@ -684,15 +676,20 @@ bool Eval_Core_Throws(REBFRM * const f)
     // called "current" holds the current head of the expression that the
     // main switch would process.
 
-    if (KIND_BYTE(f->value) != REB_WORD) // right's kind - END would be REB_0
+    UPDATE_TICK_DEBUG(v);
+
+    // v-- This is the TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
+
+    if (KIND_BYTE(*next) != REB_WORD) // right's kind - END would be REB_0
         goto give_up_backward_quote_priority;
 
-    assert(not f->gotten);  // Fetch_Next_In_Frame() cleared it
-    f->gotten = Try_Get_Opt_Var(f->value, f->specifier);
-    if (not f->gotten or NOT_CELL_FLAG(f->gotten, ENFIXED))
-        goto give_up_backward_quote_priority;
+    assert(not *next_gotten);  // Fetch_Next_In_Frame() cleared it
+    *next_gotten = Try_Get_Opt_Var(*next, *specifier);
 
-    if (NOT_ACTION_FLAG(VAL_ACTION(f->gotten), QUOTES_FIRST)) // enfix=>action
+    if (not *next_gotten or NOT_CELL_FLAG(*next_gotten, ENFIXED))
+        goto give_up_backward_quote_priority;  // note only ACTION! is ENFIXED
+
+    if (NOT_ACTION_FLAG(VAL_ACTION(*next_gotten), QUOTES_FIRST))
         goto give_up_backward_quote_priority;
 
     // If the action soft quotes its left, that means it's aware that its
@@ -700,7 +697,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     // material on the left, treat it like it's in a group.
     //
     if (
-        GET_ACTION_FLAG(VAL_ACTION(f->gotten), POSTPONES_ENTIRELY)
+        GET_ACTION_FLAG(VAL_ACTION(*next_gotten), POSTPONES_ENTIRELY)
         or (
             GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)
             and (kind.byte != REB_SET_WORD and kind.byte != REB_SET_PATH)
@@ -708,7 +705,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     ){
         // !!! cache this test?
         //
-        REBVAL *first = First_Unspecialized_Param(VAL_ACTION(f->gotten));
+        REBVAL *first = First_Unspecialized_Param(VAL_ACTION(*next_gotten));
         if (VAL_PARAM_CLASS(first) == REB_P_SOFT_QUOTE)
             goto give_up_backward_quote_priority; // yield as an exemption
     }
@@ -718,8 +715,8 @@ bool Eval_Core_Throws(REBFRM * const f)
     // such that `case [condition [...] default [...]]` does not interfere
     // with the BLOCK! on the left, but `x: default [...]` gets the SET-WORD!
     //
-    if (GET_ACTION_FLAG(VAL_ACTION(f->gotten), SKIPPABLE_FIRST)) {
-        REBVAL *first = First_Unspecialized_Param(VAL_ACTION(f->gotten));
+    if (GET_ACTION_FLAG(VAL_ACTION(*next_gotten), SKIPPABLE_FIRST)) {
+        REBVAL *first = First_Unspecialized_Param(VAL_ACTION(*next_gotten));
         if (not TYPE_CHECK(first, kind.byte)) // left's kind
             goto give_up_backward_quote_priority;
     }
@@ -727,18 +724,18 @@ bool Eval_Core_Throws(REBFRM * const f)
     // Lookback args are fetched from f->out, then copied into an arg
     // slot.  Put the backwards quoted value into f->out.
     //
-    Derelativize(f->out, current, f->specifier); // for NEXT_ARG_FROM_OUT
+    Derelativize(f->out, v, *specifier); // for NEXT_ARG_FROM_OUT
     SET_CELL_FLAG(f->out, UNEVALUATED); // so lookback knows it was quoted
 
     // We skip over the word that invoked the action (e.g. <-, OF, =>).
-    // current will then hold a pointer to that word (possibly now
-    // resident in the frame cell).  (f->out holds what was the left)
+    // v will then hold a pointer to that word (possibly now resident in the
+    // frame spare).  (f->out holds what was the left)
     //
-    current_gotten = f->gotten;
-    current = Lookback_While_Fetching_Next(f);
+    gotten = *next_gotten;
+    v = Lookback_While_Fetching_Next(f);
 
     if (
-        IS_END(f->value)
+        IS_END(*next)
         and (kind.byte == REB_WORD or kind.byte == REB_PATH) // left kind
     ){
         // We make a special exemption for left-stealing arguments, when
@@ -752,12 +749,12 @@ bool Eval_Core_Throws(REBFRM * const f)
         // parameter of whatever that was.
 
         Move_Value(&f->feed->lookback, f->out);
-        Derelativize(f->out, current, f->specifier);
+        Derelativize(f->out, v, *specifier);
         SET_CELL_FLAG(f->out, UNEVALUATED);
 
-        // leave f->value at END
-        current = &f->feed->lookback;
-        current_gotten = nullptr;
+        // leave *next at END
+        v = &f->feed->lookback;
+        gotten = nullptr;
 
         SET_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH); // for better error message
         SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT); // literal right op is arg
@@ -767,8 +764,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     // Wasn't the at-end exception, so run normal enfix with right winning.
 
-    Push_Action(f, VAL_ACTION(current_gotten), VAL_BINDING(current_gotten));
-    Begin_Action(f, VAL_WORD_SPELLING(current));
+    Push_Action(f, VAL_ACTION(gotten), VAL_BINDING(gotten));
+    Begin_Action(f, VAL_WORD_SPELLING(v));
 
     SET_EVAL_FLAG(f, RUNNING_ENFIX);
     SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
@@ -789,7 +786,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     //
     // http://stackoverflow.com/questions/17061967/c-switch-and-jump-tables
 
-    assert(kind.byte == KIND_BYTE_UNCHECKED(current));
+    assert(kind.byte == KIND_BYTE_UNCHECKED(v));
 
     switch (kind.byte) {
 
@@ -810,7 +807,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_QUOTED: {
-        Derelativize(f->out, current, f->specifier);
+        Derelativize(f->out, v, *specifier);
         Unquotify(f->out, 1); // take off one level of quoting
         break; }
 
@@ -828,11 +825,11 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_ACTION: {
-        assert(NOT_CELL_FLAG(current, ENFIXED)); // come from WORD!/PATH! only
+        assert(NOT_CELL_FLAG(v, ENFIXED)); // come from WORD!/PATH! only
 
         REBSTR *opt_label = nullptr; // not invoked through a word, "nameless"
 
-        Push_Action(f, VAL_ACTION(current), VAL_BINDING(current));
+        Push_Action(f, VAL_ACTION(v), VAL_BINDING(v));
         Begin_Action(f, opt_label);
 
         // We'd like `10 -> = 5 + 5` to work, and to do so it reevaluates in
@@ -870,8 +867,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         assert(DSP >= f->dsp_orig); // path processing may push REFINEMENT!s
         assert(f->refine == ORDINARY_ARG);
 
-        TRASH_POINTER_IF_DEBUG(current); // shouldn't be used below
-        TRASH_POINTER_IF_DEBUG(current_gotten);
+        TRASH_POINTER_IF_DEBUG(v); // shouldn't be used below
+        TRASH_POINTER_IF_DEBUG(gotten);
 
         CLEAR_EVAL_FLAG(f, DOING_PICKUPS);
 
@@ -902,7 +899,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 // which avoids reification on stack nodes of lower stack
                 // levels--so it's not going to cause problems -yet-
                 //
-                f->arg->header.bits |= CELL_FLAG_STACK_LIFETIME; // unreadable blank ok
+                f->arg->header.bits |= CELL_FLAG_STACK_LIFETIME;
             }
 
             assert(f->arg->header.bits & NODE_FLAG_CELL);
@@ -1416,7 +1413,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     //=//// ERROR ON END MARKER, BAR! IF APPLICABLE ///////////////////////=//
 
-            if (IS_END(f->value) or GET_FEED_FLAG(f->feed, BARRIER_HIT)) {
+            if (IS_END(*next) or GET_FEED_FLAG(f->feed, BARRIER_HIT)) {
                 if (not Is_Param_Endable(f->param))
                     fail (Error_No_Arg(f, f->param));
 
@@ -1436,7 +1433,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                 DECLARE_SUBFRAME (child, f); // capture DSP *now*
                 SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
-                if (Eval_Step_In_Subframe_Throws(f->arg, f, flags, child)) {
+                if (Eval_Step_In_Subframe_Throws(f->arg, flags, child)) {
                     Move_Value(f->out, f->arg);
                     goto abort_action;
                 }
@@ -1448,7 +1445,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 if (not Is_Param_Skippable(f->param))
                     Literal_Next_In_Frame(f->arg, f); // CELL_FLAG_UNEVALUATED
                 else {
-                    if (not Typecheck_Including_Quoteds(f->param, f->value)) {
+                    if (not Typecheck_Including_Quoteds(f->param, *next)) {
                         assert(Is_Param_Endable(f->param));
                         Init_Endish_Nulled(f->arg); // not EVAL_FLAG_BARRIER_HIT
                         SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
@@ -1473,15 +1470,11 @@ bool Eval_Core_Throws(REBFRM * const f)
     //=//// SOFT QUOTED ARG-OR-REFINEMENT-ARG  ////////////////////////////=//
 
               case REB_P_SOFT_QUOTE:
-                if (not IS_QUOTABLY_SOFT(f->value)) {
+                if (not IS_QUOTABLY_SOFT(*next)) {
                     Literal_Next_In_Frame(f->arg, f); // CELL_FLAG_UNEVALUATED
                 }
                 else {
-                    if (Eval_Value_Core_Throws(
-                        f->arg,
-                        f->value,
-                        f->specifier
-                    )){
+                    if (Eval_Value_Core_Throws(f->arg, *next, *specifier)) {
                         Move_Value(f->out, f->arg);
                         goto abort_action;
                     }
@@ -1610,9 +1603,9 @@ bool Eval_Core_Throws(REBFRM * const f)
         assert(IS_END(f->param));
         // refine can be anything.
         assert(
-            IS_END(f->value)
+            IS_END(*next)
             or FRM_IS_VALIST(f)
-            or IS_VALUE_IN_ARRAY_DEBUG(f->feed->array, f->value)
+            or IS_VALUE_IN_ARRAY_DEBUG(f->feed->array, *next)
         );
 
         if (GET_EVAL_FLAG(f, FULFILL_ONLY)) {
@@ -1635,7 +1628,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         //
         /*assert(f->out->header.bits & (CELL_FLAG_STACK_LIFETIME | NODE_FLAG_ROOT)); */
 
-        f->gotten = nullptr; // arbitrary code changes fetched variables
+        *next_gotten = nullptr; // arbitrary code changes fetched variables
 
         // Note that the dispatcher may push ACTION! values to the data stack
         // which are used to process the return result after the switch.
@@ -1779,7 +1772,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             //
             // !!! Why is this test a NOT?
 
-            if (NOT_CELL_FLAG(f->out, OUT_MARKED_STALE) or IS_END(f->value))
+            if (NOT_CELL_FLAG(f->out, OUT_MARKED_STALE) or IS_END(*next))
                 goto skip_output_check;
 
             // If an invisible is at the start of a frame and nothing is
@@ -1789,9 +1782,9 @@ bool Eval_Core_Throws(REBFRM * const f)
             //
             //     do [comment "a" 1] => 1
 
-            current_gotten = f->gotten;
-            current = Lookback_While_Fetching_Next(f);
-            kind.byte = KIND_BYTE(current);
+            gotten = *next_gotten;
+            v = Lookback_While_Fetching_Next(f);
+            kind.byte = KIND_BYTE(v);
 
             Drop_Action(f);
             goto reevaluate; }
@@ -1890,18 +1883,18 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_WORD:
-        if (not current_gotten)
-            current_gotten = Get_Opt_Var_May_Fail(current, f->specifier);
+        if (not gotten)
+            gotten = Get_Opt_Var_May_Fail(v, *specifier);
 
-        if (IS_ACTION(current_gotten)) { // before IS_NULLED() is common case
-            REBACT *act = VAL_ACTION(current_gotten);
+        if (IS_ACTION(gotten)) { // before IS_NULLED() is common case
+            REBACT *act = VAL_ACTION(gotten);
 
             // Note: The usual dispatch of enfix functions is not via a
             // REB_WORD in this switch, it's by some code at the end of
             // the switch.  So you only see enfix in cases like `(+ 1 2)`,
             // or after PARAMLIST_IS_INVISIBLE e.g. `10 comment "hi" + 20`.
             //
-            if (GET_CELL_FLAG(current_gotten, ENFIXED)) {
+            if (GET_CELL_FLAG(gotten, ENFIXED)) {
                 if (
                     GET_ACTION_FLAG(act, POSTPONES_ENTIRELY)
                     or GET_ACTION_FLAG(act, DEFERS_LOOKBACK)
@@ -1915,23 +1908,23 @@ bool Eval_Core_Throws(REBFRM * const f)
                 }
             }
 
-            Push_Action(f, act, VAL_BINDING(current_gotten));
-            Begin_Action(f, VAL_WORD_SPELLING(current)); // use word as label
+            Push_Action(f, act, VAL_BINDING(gotten));
+            Begin_Action(f, VAL_WORD_SPELLING(v)); // use word as label
 
-            if (GET_CELL_FLAG(current_gotten, ENFIXED)) {
+            if (GET_CELL_FLAG(gotten, ENFIXED)) {
                 SET_EVAL_FLAG(f, RUNNING_ENFIX); // Push_Action() disallows
                 SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
             }
             goto process_action;
         }
 
-        if (IS_NULLED_OR_VOID(current_gotten)) { // need `:x` if `x` is unset
-            if (IS_NULLED(current_gotten))
-                fail (Error_No_Value_Core(current, f->specifier));
-            fail (Error_Need_Non_Void_Core(current, f->specifier));
+        if (IS_NULLED_OR_VOID(gotten)) { // need `:x` if `x` is unset
+            if (IS_NULLED(gotten))
+                fail (Error_No_Value_Core(v, *specifier));
+            fail (Error_Need_Non_Void_Core(v, *specifier));
         }
 
-        Move_Value(f->out, current_gotten); // no copy CELL_FLAG_UNEVALUATED
+        Move_Value(f->out, gotten); // no copy CELL_FLAG_UNEVALUATED
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -1952,12 +1945,12 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_SET_WORD: {
-        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, current))
+        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, v))
             goto return_thrown;
 
       set_word_with_out:;
 
-        Move_Value(Sink_Var_May_Fail(current, f->specifier), f->out);
+        Move_Value(Sink_Var_May_Fail(v, *specifier), f->out);
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -1970,7 +1963,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GET_WORD:
-        Move_Opt_Var_May_Fail(f->out, current, f->specifier);
+        Move_Opt_Var_May_Fail(f->out, v, *specifier);
         break;
 
 //==//// INERT WORD AND STRING TYPES /////////////////////////////////////==//
@@ -1999,13 +1992,13 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GROUP: {
-        f->gotten = nullptr; // arbitrary code changes fetched variables
+        *next_gotten = nullptr; // arbitrary code changes fetched variables
 
-        // Since current may be f->cell, extract properties to reuse it.
+        // Since v may be f->spare, extract properties to reuse it.
         //
-        REBARR *array = VAL_ARRAY(current); // array of the GROUP!
-        REBCNT index = VAL_INDEX(current); // index may not be @ head
-        REBSPC *derived = Derive_Specifier(f->specifier, current);
+        REBARR *array = VAL_ARRAY(v);  // array of the GROUP!
+        REBCNT index = VAL_INDEX(v);  // index may not be @ head
+        REBSPC *derived = Derive_Specifier(*specifier, v);
 
         if (IS_END(f->out)) {
             //
@@ -2021,41 +2014,41 @@ bool Eval_Core_Throws(REBFRM * const f)
                 (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
                     | EVAL_FLAG_TO_END
                     | (f->flags.bits & EVAL_FLAG_CONST)
-                    | (current->header.bits & EVAL_FLAG_CONST)
+                    | (v->header.bits & EVAL_FLAG_CONST)
             );
             if (indexor == THROWN_FLAG)
                 goto return_thrown;
             if (GET_CELL_FLAG(f->out, OUT_MARKED_STALE))
                 goto finished;
-            f->out->header.bits &= ~CELL_FLAG_UNEVALUATED; // (1) "evaluates"
+            f->out->header.bits &= ~CELL_FLAG_UNEVALUATED;  // (1) "evaluates"
         }
         else {
             // Not as lucky... we might have something like (1 + 2 elide "Hi")
             // that would show up as having the stale bit.
             //
             REBIXO indexor = Eval_Array_At_Core(
-                SET_END(cell),
-                nullptr, // opt_first (null means nothing, not nulled cell)
+                SET_END(spare),
+                nullptr,  // opt_first (null means nothing, not nulled cell)
                 array,
                 index,
                 derived,
                 (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
                     | EVAL_FLAG_TO_END
                     | (f->flags.bits & EVAL_FLAG_CONST)
-                    | (current->header.bits & EVAL_FLAG_CONST)
+                    | (v->header.bits & EVAL_FLAG_CONST)
             );
             if (indexor == THROWN_FLAG) {
-                Move_Value(f->out, cell);
+                Move_Value(f->out, spare);
                 goto return_thrown;
             }
-            if (IS_END(cell)) {
-                kind.byte = KIND_BYTE(f->value);
+            if (IS_END(spare)) {
+                kind.byte = KIND_BYTE(*next);
                 if (kind.byte == REB_0_END)
                     goto finished;
                 goto do_next; // quickly process next item, no infix test
             }
 
-            Move_Value(f->out, cell); // no CELL_FLAG_UNEVALUATED
+            Move_Value(f->out, spare);  // no CELL_FLAG_UNEVALUATED
         }
         break; }
 
@@ -2072,26 +2065,26 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_PATH: {
-        assert(PAYLOAD(Series, current).index == 0); // rule for now
+        assert(PAYLOAD(Series, v).index == 0);  // this is the rule for now
 
-        if (ANY_INERT(ARR_HEAD(VAL_ARRAY(current)))) {
+        if (ANY_INERT(ARR_HEAD(VAL_ARRAY(v)))) {
             //
             // !!! TODO: Make special exception for `/` here, look up function
             // it is bound to.
             //
-            Derelativize(f->out, current, f->specifier);
+            Derelativize(f->out, v, *specifier);
             break;
         }
 
-        REBVAL *where = GET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT) ? cell : f->out;
+        REBVAL *where = GET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT) ? spare : f->out;
 
         REBSTR *opt_label;
         if (Eval_Path_Throws_Core(
             where,
-            &opt_label, // requesting says we run functions (not GET-PATH!)
-            VAL_ARRAY(current),
-            VAL_INDEX(current),
-            Derive_Specifier(f->specifier, current),
+            &opt_label,  // requesting says we run functions (not GET-PATH!)
+            VAL_ARRAY(v),
+            VAL_INDEX(v),
+            Derive_Specifier(*specifier, v),
             nullptr, // `setval`: null means don't treat as SET-PATH!
             EVAL_FLAG_PUSH_PATH_REFINES
         )){
@@ -2102,8 +2095,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         if (IS_NULLED_OR_VOID(where)) { // need `:x/y` if `y` is unset
             if (IS_NULLED(where))
-                fail (Error_No_Value_Core(current, f->specifier));
-            fail (Error_Need_Non_Void_Core(current, f->specifier));
+                fail (Error_No_Value_Core(v, *specifier));
+            fail (Error_Need_Non_Void_Core(v, *specifier));
         }
 
         if (IS_ACTION(where)) {
@@ -2170,21 +2163,21 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_SET_PATH: {
-        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, current))
+        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, v))
             goto return_thrown;
 
       set_path_with_out:;
 
         if (Eval_Path_Throws_Core(
-            cell, // output if thrown, used as scratch space otherwise
-            nullptr, // not requesting symbol means refinements not allowed
-            VAL_ARRAY(current),
-            VAL_INDEX(current),
-            f->specifier,
+            spare,  // output if thrown, used as scratch space otherwise
+            nullptr,  // not requesting symbol means refinements not allowed
+            VAL_ARRAY(v),
+            VAL_INDEX(v),
+            *specifier,
             f->out,
-            EVAL_MASK_DEFAULT // evaluating GROUP!s ok
+            EVAL_MASK_DEFAULT  // evaluating GROUP!s ok
         )){
-            Move_Value(f->out, cell);
+            Move_Value(f->out, spare);
             goto return_thrown;
         }
 
@@ -2213,7 +2206,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GET_PATH:
-        if (Get_Path_Throws_Core(f->out, current, f->specifier))
+        if (Get_Path_Throws_Core(f->out, v, *specifier))
             goto return_thrown;
 
         // !!! This didn't appear to be true for `-- "hi" "hi"`, processing
@@ -2234,34 +2227,29 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GET_GROUP: {
-        f->gotten = nullptr; // arbitrary code changes fetched variables
+        *next_gotten = nullptr; // arbitrary code changes fetched variables
 
-        if (Do_At_Throws(
-            cell,
-            VAL_ARRAY(current),
-            VAL_INDEX(current),
-            f->specifier
-        )){
-            Move_Value(f->out, cell);
+        if (Do_At_Throws(spare, VAL_ARRAY(v), VAL_INDEX(v), *specifier)) {
+            Move_Value(f->out, spare);
             goto return_thrown;
         }
 
-        if (ANY_WORD(cell))
-            kind.byte = mutable_KIND_BYTE(cell) = REB_GET_WORD;
-        else if (ANY_PATH(cell))
-            kind.byte = mutable_KIND_BYTE(cell) = REB_GET_PATH;
-        else if (ANY_BLOCK(cell))
-            kind.byte = mutable_KIND_BYTE(cell) = REB_GET_BLOCK;
-        else if (IS_ACTION(cell)) {
-            if (Eval_Value_Throws(f->out, cell)) // only arity-0 allowed
+        if (ANY_WORD(spare))
+            kind.byte = mutable_KIND_BYTE(spare) = REB_GET_WORD;
+        else if (ANY_PATH(spare))
+            kind.byte = mutable_KIND_BYTE(spare) = REB_GET_PATH;
+        else if (ANY_BLOCK(spare))
+            kind.byte = mutable_KIND_BYTE(spare) = REB_GET_BLOCK;
+        else if (IS_ACTION(spare)) {
+            if (Eval_Value_Throws(f->out, spare)) // only arity-0 allowed
                 goto return_thrown;
             goto post_switch;
         }
         else
             fail (Error_Bad_Get_Group_Raw());
 
-        current = cell;
-        current_gotten = nullptr;
+        v = spare;
+        *next_gotten = nullptr;
 
         goto reevaluate; }
 
@@ -2281,22 +2269,17 @@ bool Eval_Core_Throws(REBFRM * const f)
         // of PARSE, where it has to hold the SET-GROUP! in suspension while
         // it looks on the right in order to decide if it will run it at all!)
         //
-        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, current))
+        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, v))
             goto return_thrown;
 
-        f->gotten = nullptr; // arbitrary code changes fetched variables
+        *next_gotten = nullptr; // arbitrary code changes fetched variables
 
-        if (Do_At_Throws(
-            cell,
-            VAL_ARRAY(current),
-            VAL_INDEX(current),
-            f->specifier
-        )){
-            Move_Value(f->out, cell);
+        if (Do_At_Throws(spare, VAL_ARRAY(v), VAL_INDEX(v), *specifier)) {
+            Move_Value(f->out, spare);
             goto return_thrown;
         }
 
-        if (IS_ACTION(cell)) {
+        if (IS_ACTION(spare)) {
             //
             // Apply the function, and we can reuse this frame to do it.
             //
@@ -2307,7 +2290,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // should also be restricted to a single value...though it's
             // being experimented with letting it take more.)
             //
-            Push_Action(f, VAL_ACTION(cell), VAL_BINDING(cell));
+            Push_Action(f, VAL_ACTION(spare), VAL_BINDING(spare));
             Begin_Action(f, nullptr); // no label
 
             kind.byte = REB_ACTION;
@@ -2317,18 +2300,18 @@ bool Eval_Core_Throws(REBFRM * const f)
             goto process_action;
         }
 
-        current = cell;
+        v = spare;
 
-        if (ANY_WORD(cell)) {
-            kind.byte = mutable_KIND_BYTE(cell) = REB_SET_WORD;
+        if (ANY_WORD(spare)) {
+            kind.byte = mutable_KIND_BYTE(spare) = REB_SET_WORD;
             goto set_word_with_out;
         }
-        else if (ANY_PATH(cell)) {
-            kind.byte = mutable_KIND_BYTE(cell) = REB_SET_PATH;
+        else if (ANY_PATH(spare)) {
+            kind.byte = mutable_KIND_BYTE(spare) = REB_SET_PATH;
             goto set_path_with_out;
         }
-        else if (ANY_BLOCK(cell)) {
-            kind.byte = mutable_KIND_BYTE(cell) = REB_SET_BLOCK;
+        else if (ANY_BLOCK(spare)) {
+            kind.byte = mutable_KIND_BYTE(spare) = REB_SET_BLOCK;
             goto set_block_with_out;
         }
 
@@ -2343,9 +2326,9 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GET_BLOCK:
-        f->gotten = nullptr; // arbitrary evaluation can move fetched pointers
+        *next_gotten = nullptr; // arbitrary code changes fetched variables
 
-        if (Reduce_To_Stack_Throws(f->out, current, f->specifier))
+        if (Reduce_To_Stack_Throws(f->out, v, *specifier))
             goto return_thrown;
 
         Init_Block(f->out, Pop_Stack_Values(f->dsp_orig));
@@ -2360,36 +2343,36 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_SET_BLOCK: {
-        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, current))
+        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, v))
             goto return_thrown;
 
       set_block_with_out:;
 
         if (IS_NULLED(f->out)) // `[x y]: null` is illegal
-            fail (Error_Need_Non_Null_Core(current, f->specifier));
+            fail (Error_Need_Non_Null_Core(v, *specifier));
 
-        const RELVAL *item = VAL_ARRAY_AT(current);
+        const RELVAL *dest = VAL_ARRAY_AT(v);
 
-        const RELVAL *v;
+        const RELVAL *src;
         if (IS_BLOCK(f->out))
-            v = VAL_ARRAY_AT(f->out);
+            src = VAL_ARRAY_AT(f->out);
         else
-            v = f->out;
+            src = f->out;
 
         for (
             ;
-            NOT_END(item);
-            ++item, IS_END(v) or not IS_BLOCK(f->out) ? NOOP : (++v, NOOP)
+            NOT_END(dest);
+            ++dest, IS_END(src) or not IS_BLOCK(f->out) ? NOOP : (++src, NOOP)
         ){
             Set_Opt_Polymorphic_May_Fail(
-                item,
-                f->specifier,
-                IS_END(v) ? BLANK_VALUE : v, // R3-Alpha/Red blank after END
+                dest,
+                *specifier,
+                IS_END(src) ? BLANK_VALUE : src,  // R3-Alpha blanks after END
                 IS_BLOCK(f->out)
                     ? VAL_SPECIFIER(f->out)
                     : SPECIFIED,
-                false, // doesn't set enfixedly
-                false // doesn't use "hard" semantics on groups in paths
+                false,  // doesn't set enfixedly
+                false  // doesn't use "hard" semantics on groups in paths
             );
         }
 
@@ -2457,7 +2440,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
       inert:; // SEE ALSO: Literal_Next_In_Frame()...similar behavior
 
-        Derelativize(f->out, current, f->specifier);
+        Derelativize(f->out, v, *specifier);
         SET_CELL_FLAG(f->out, UNEVALUATED); // CELL_FLAG_INERT ??
 
         // `rebRun("append", "[]", "10");` should error, passing on the const
@@ -2518,7 +2501,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       default:
-        Derelativize(f->out, current, f->specifier);
+        Derelativize(f->out, v, *specifier);
         Unquotify_In_Situ(f->out, 1); // checks for illegal REB_XXX bytes
         break;
     }
@@ -2582,7 +2565,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     // enfix.  If it's necessary to dispatch an enfix function via path, then
     // a word is used to do it, like `->` in `x: -> lib/method [...] [...]`.
 
-    kind.byte = KIND_BYTE(f->value);
+    kind.byte = KIND_BYTE(*next);
 
     if (kind.byte == REB_0_END) {
         CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
@@ -2592,9 +2575,9 @@ bool Eval_Core_Throws(REBFRM * const f)
     if (kind.byte == REB_PATH) {
         if (
             Dampen_Lookahead(f)
-            or VAL_LEN_AT(f->value) != 2
-            or not IS_BLANK(ARR_AT(VAL_ARRAY(f->value), 0))
-            or not IS_BLANK(ARR_AT(VAL_ARRAY(f->value), 1))
+            or VAL_LEN_AT(*next) != 2
+            or not IS_BLANK(ARR_AT(VAL_ARRAY(*next), 0))
+            or not IS_BLANK(ARR_AT(VAL_ARRAY(*next), 1))
         ){
             if (NOT_EVAL_FLAG(f, TO_END))
                 goto finished; // just 1 step of work, so stop evaluating
@@ -2637,10 +2620,10 @@ bool Eval_Core_Throws(REBFRM * const f)
     // First things first, we fetch the WORD! (if not previously fetched) so
     // we can see if it looks up to any kind of ACTION! at all.
 
-    if (not f->gotten)
-        f->gotten = Try_Get_Opt_Var(f->value, f->specifier);
+    if (not *next_gotten)
+        *next_gotten = Try_Get_Opt_Var(*next, *specifier);
     else
-        assert(f->gotten == Try_Get_Opt_Var(f->value, f->specifier));
+        assert(*next_gotten == Try_Get_Opt_Var(*next, *specifier));
 
 //=//// NEW EXPRESSION IF UNBOUND, NON-FUNCTION, OR NON-ENFIX /////////////=//
 
@@ -2648,12 +2631,12 @@ bool Eval_Core_Throws(REBFRM * const f)
     // continues the evaluator loop if EVAL_FLAG_TO_END, but will stop with
     // `goto finished` if not (EVAL_FLAG_TO_END).
     //
-    // Fall back on word-like "dispatch" even if f->gotten is null (unset or
+    // Fall back on word-like "dispatch" even if ->gotten is null (unset or
     // unbound word).  It'll be an error, but that code path raises it for us.
 
     if (
-        not f->gotten // note that only ACTIONs have CELL_FLAG_ENFIXED
-        or NOT_CELL_FLAG(VAL(f->gotten), ENFIXED)
+        not *next_gotten  // v-- note that only ACTIONs have CELL_FLAG_ENFIXED
+        or NOT_CELL_FLAG(*next_gotten, ENFIXED)
     ){
       lookback_quote_too_late:; // run as if starting new expression
 
@@ -2668,9 +2651,9 @@ bool Eval_Core_Throws(REBFRM * const f)
         }
 
         if (
-            f->gotten
-            and IS_ACTION(VAL(f->gotten))
-            and GET_ACTION_FLAG(VAL_ACTION(f->gotten), IS_INVISIBLE)
+            *next_gotten
+            and IS_ACTION(*next_gotten)
+            and GET_ACTION_FLAG(VAL_ACTION(*next_gotten), IS_INVISIBLE)
         ){
             // Even if not EVALUATE, we do not want START_NEW_EXPRESSION on
             // "invisible" functions.  e.g. `do [1 + 2 comment "hi"]` should
@@ -2687,8 +2670,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             // v-- The TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
         }
 
-        current_gotten = f->gotten; // if nullptr, the word will error
-        current = Lookback_While_Fetching_Next(f);
+        gotten = *next_gotten; // if nullptr, the word will error
+        v = Lookback_While_Fetching_Next(f);
 
         // Were we to jump to the REB_WORD switch case here, LENGTH would
         // cause an error in the expression below:
@@ -2705,7 +2688,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //=//// IT'S A WORD ENFIXEDLY TIED TO A FUNCTION (MAY BE "INVISIBLE") /////=//
 
-    if (GET_ACTION_FLAG(VAL_ACTION(f->gotten), QUOTES_FIRST)) {
+    if (GET_ACTION_FLAG(VAL_ACTION(*next_gotten), QUOTES_FIRST)) {
         //
         // Left-quoting by enfix needs to be done in the lookahead before an
         // evaluation, not this one that's after.  This happens in cases like:
@@ -2721,7 +2704,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         if (GET_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH))
             fail (Error_Literal_Left_Path_Raw());
 
-        REBVAL *first = First_Unspecialized_Param(VAL_ACTION(f->gotten));
+        REBVAL *first = First_Unspecialized_Param(VAL_ACTION(*next_gotten));
         if (VAL_PARAM_CLASS(first) == REB_P_SOFT_QUOTE) {
             if (GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)) {
                 CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
@@ -2735,9 +2718,9 @@ bool Eval_Core_Throws(REBFRM * const f)
     if (
         GET_EVAL_FLAG(f, FULFILLING_ARG)
         and not (
-            GET_ACTION_FLAG(VAL_ACTION(f->gotten), DEFERS_LOOKBACK)
+            GET_ACTION_FLAG(VAL_ACTION(*next_gotten), DEFERS_LOOKBACK)
                                        // ^-- `1 + if false [2] else [3]` => 4
-            or GET_ACTION_FLAG(VAL_ACTION(f->gotten), IS_INVISIBLE)
+            or GET_ACTION_FLAG(VAL_ACTION(*next_gotten), IS_INVISIBLE)
                                        // ^-- `1 + 2 + comment "foo" 3` => 6
         )
     ){
@@ -2766,9 +2749,9 @@ bool Eval_Core_Throws(REBFRM * const f)
     if (
         GET_EVAL_FLAG(f, FULFILLING_ARG)
         and (
-            GET_ACTION_FLAG(VAL_ACTION(f->gotten), POSTPONES_ENTIRELY)
+            GET_ACTION_FLAG(VAL_ACTION(*next_gotten), POSTPONES_ENTIRELY)
             or (
-                GET_ACTION_FLAG(VAL_ACTION(f->gotten), DEFERS_LOOKBACK)
+                GET_ACTION_FLAG(VAL_ACTION(*next_gotten), DEFERS_LOOKBACK)
                 and NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX)
             )
         )
@@ -2801,7 +2784,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         SET_FEED_FLAG(f->feed, DEFERRING_ENFIX);
 
-        if (GET_ACTION_FLAG(VAL_ACTION(f->gotten), POSTPONES_ENTIRELY))
+        if (GET_ACTION_FLAG(VAL_ACTION(*next_gotten), POSTPONES_ENTIRELY))
             SET_CELL_FLAG(f->out, OUT_MARKED_STALE);
 
         // Leave the enfix operator pending in the frame, and it's up to the
@@ -2821,8 +2804,8 @@ bool Eval_Core_Throws(REBFRM * const f)
     // of parameter fulfillment.  We want to reuse the f->out value and get it
     // into the new function's frame.
 
-    Push_Enfix_Action(f, f->gotten, VAL_WORD_SPELLING(f->value));
-    Fetch_Next_Forget_Lookback(f);  // advances f->value
+    Push_Enfix_Action(f, *next_gotten, VAL_WORD_SPELLING(*next));
+    Fetch_Next_Forget_Lookback(f);  // advances next
     goto process_action;
 
   abort_action:;

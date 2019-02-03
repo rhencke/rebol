@@ -112,32 +112,34 @@ REB_R PD_Unhooked(
 //
 bool Next_Path_Throws(REBPVS *pvs)
 {
-    if (IS_NULLED(pvs->out))
-        fail (Error_No_Value_Core(pvs->value, pvs->specifier));
+    SHORTHAND (const RELVAL *, v, pvs->feed->value);
+    SHORTHAND (REBSPC *, specifier, pvs->feed->specifier);
 
-    if (IS_GET_WORD(pvs->value)) { // e.g. object/:field
-        Move_Opt_Var_May_Fail(PVS_PICKER(pvs), pvs->value, pvs->specifier);
+    if (IS_NULLED(pvs->out))
+        fail (Error_No_Value_Core(*v, *specifier));
+
+    if (IS_GET_WORD(*v)) {  // e.g. object/:field
+        Move_Opt_Var_May_Fail(PVS_PICKER(pvs), *v, *specifier);
     }
     else if (
-        IS_GROUP(pvs->value) // object/(expr) case:
-        and NOT_EVAL_FLAG(pvs, PATH_HARD_QUOTE) // not precomposed
+        IS_GROUP(*v)  // object/(expr) case:
+        and NOT_EVAL_FLAG(pvs, PATH_HARD_QUOTE)  // not precomposed
     ){
         if (GET_EVAL_FLAG(pvs, NO_PATH_GROUPS))
             fail ("GROUP! in PATH! used with GET or SET (use REDUCE/EVAL)");
 
-        REBSPC *derived = Derive_Specifier(pvs->specifier, pvs->value);
         if (Do_At_Throws(
             PVS_PICKER(pvs),
-            VAL_ARRAY(pvs->value),
-            VAL_INDEX(pvs->value),
-            derived
-        )) {
+            VAL_ARRAY(*v),
+            VAL_INDEX(*v),
+            Derive_Specifier(*specifier, *v)
+        )){
             Move_Value(pvs->out, PVS_PICKER(pvs));
             return true; // thrown
         }
     }
     else { // object/word and object/value case:
-        Derelativize(PVS_PICKER(pvs), pvs->value, pvs->specifier);
+        Derelativize(PVS_PICKER(pvs), *v, *specifier);
     }
 
     // Disallow voids from being used in path dispatch.  This rule seems like
@@ -145,7 +147,7 @@ bool Next_Path_Throws(REBPVS *pvs)
     // to use in SELECT.
     //
     if (IS_NULLED(PVS_PICKER(pvs)))
-        fail (Error_No_Value_Core(pvs->value, pvs->specifier));
+        fail (Error_No_Value_Core(*v, *specifier));
 
     Fetch_Next_Forget_Lookback(pvs);  // may be at end
 
@@ -154,12 +156,9 @@ bool Next_Path_Throws(REBPVS *pvs)
     enum Reb_Kind kind = VAL_TYPE(pvs->out);
     PATH_HOOK hook = Path_Hooks[kind]; // &PD_Fail is used instead of NULL
 
-    if (IS_END(pvs->value) and PVS_IS_SET_PATH(pvs)) {
-        const REBVAL *r = hook(
-            pvs,
-            PVS_PICKER(pvs),
-            PVS_OPT_SETVAL(pvs)
-        );
+    if (IS_END(*v) and PVS_IS_SET_PATH(pvs)) {
+
+        const REBVAL *r = hook(pvs, PVS_PICKER(pvs), PVS_OPT_SETVAL(pvs));
 
         switch (KIND_BYTE(r)) {
           case REB_0_END: // unhandled
@@ -224,11 +223,7 @@ bool Next_Path_Throws(REBPVS *pvs)
     else {
         pvs->u.ref.cell = nullptr; // clear status of the reference
 
-        const REBVAL *r = hook(
-            pvs,
-            PVS_PICKER(pvs),
-            nullptr // no opt_setval, GET-PATH! or a SET-PATH! not at the end
-        );
+        const REBVAL *r = hook(pvs, PVS_PICKER(pvs), nullptr);  // no "setval"
 
         if (r and r != END_NODE) {
             assert(r->header.bits & NODE_FLAG_CELL);
@@ -266,7 +261,7 @@ bool Next_Path_Throws(REBPVS *pvs)
             // while they still have memory of what the struct and variable
             // are (which would be lost in this protocol otherwise).
             //
-            assert(IS_END(pvs->value));
+            assert(IS_END(*v));
             break;
 
           case REB_R_REFERENCE: {
@@ -304,7 +299,7 @@ bool Next_Path_Throws(REBPVS *pvs)
             pvs->opt_label = VAL_WORD_SPELLING(PVS_PICKER(pvs));
     }
 
-    if (IS_END(pvs->value))
+    if (IS_END(*v))
         return false; // did not throw
 
     return Next_Path_Throws(pvs);
@@ -364,9 +359,10 @@ bool Eval_Path_Throws_Core(
     }
 
     DECLARE_FRAME (pvs);
+    SHORTHAND (const RELVAL*, v, pvs->feed->value);
 
     Push_Frame_At(pvs, array, index, specifier, flags | EVAL_FLAG_PATH_MODE);
-    assert(NOT_END(pvs->value)); // tested 0-length path previously
+    assert(NOT_END(*v)); // tested 0-length path previously
 
     // Push_Frame_At sets the output to the global unwritable END cell, so we
     // have to wait for this point to set to the output cell we want.
@@ -390,12 +386,12 @@ bool Eval_Path_Throws_Core(
     // Seed the path evaluation process by looking up the first item (to
     // get a datatype to dispatch on for the later path items)
     //
-    if (IS_WORD(pvs->value)) {
+    if (IS_WORD(*v)) {
         //
         // Remember the actual location of this variable, not just its value,
         // in case we need to do R_IMMEDIATE writeback (e.g. month/day: 1)
         //
-        pvs->u.ref.cell = Get_Mutable_Var_May_Fail(pvs->value, pvs->specifier);
+        pvs->u.ref.cell = Get_Mutable_Var_May_Fail(*v, specifier);
 
         Move_Value(pvs->out, KNOWN(pvs->u.ref.cell));
 
@@ -403,24 +399,23 @@ bool Eval_Path_Throws_Core(
             if (GET_CELL_FLAG(pvs->u.ref.cell, ENFIXED))
                 SET_CELL_FLAG(pvs->out, ENFIXED);
 
-            pvs->opt_label = VAL_WORD_SPELLING(pvs->value);
+            pvs->opt_label = VAL_WORD_SPELLING(*v);
         }
     }
     else if (
-        IS_GROUP(pvs->value)
-        and NOT_EVAL_FLAG(pvs, PATH_HARD_QUOTE) // not precomposed
+        IS_GROUP(*v)
+         and NOT_EVAL_FLAG(pvs, PATH_HARD_QUOTE)  // not precomposed
     ){
         pvs->u.ref.cell = nullptr; // nowhere to R_IMMEDIATE write back to
 
         if (GET_EVAL_FLAG(pvs, NO_PATH_GROUPS))
             fail ("GROUP! in PATH! used with GET or SET (use REDUCE/EVAL)");
 
-        REBSPC *derived = Derive_Specifier(pvs->specifier, pvs->value);
         if (Do_At_Throws(
             pvs->out,
-            VAL_ARRAY(pvs->value),
-            VAL_INDEX(pvs->value),
-            derived
+            VAL_ARRAY(*v),
+            VAL_INDEX(*v),
+            Derive_Specifier(specifier, *v)
         )){
             goto return_thrown;
         }
@@ -428,13 +423,13 @@ bool Eval_Path_Throws_Core(
     else {
         pvs->u.ref.cell = nullptr; // nowhere to R_IMMEDIATE write back to
 
-        Derelativize(pvs->out, pvs->value, pvs->specifier);
+        Derelativize(pvs->out, *v, specifier);
     }
 
     const RELVAL *lookback;
     lookback = Lookback_While_Fetching_Next(pvs);
 
-    if (IS_END(pvs->value)) {
+    if (IS_END(*v)) {
         //
         // We want `set /a` and `get /a` to work.  The GET case should work
         // with just what we loaded in pvs->out being returned (which may be
@@ -456,12 +451,12 @@ bool Eval_Path_Throws_Core(
     }
     else {
         if (IS_NULLED(pvs->out))
-            fail (Error_No_Value_Core(lookback, pvs->specifier));
+            fail (Error_No_Value_Core(lookback, specifier));
 
         if (Next_Path_Throws(pvs))
             goto return_thrown;
 
-        assert(IS_END(pvs->value));
+        assert(IS_END(*v));
     }
 
     TRASH_POINTER_IF_DEBUG(lookback);  // goto crosses it, don't use below
@@ -651,8 +646,8 @@ REBNATIVE(pick)
 
     Move_Value(PVS_PICKER(pvs), ARG(picker));
 
-    pvs->value = END_NODE;
-    pvs->specifier = SPECIFIED;
+    pvs->feed->value = END_NODE;
+    pvs->feed->specifier = SPECIFIED;
 
     pvs->opt_label = NULL; // applies to e.g. :append/only returning APPEND
     pvs->special = NULL;
@@ -740,8 +735,8 @@ REBNATIVE(poke)
 
     Move_Value(PVS_PICKER(pvs), ARG(picker));
 
-    pvs->value = END_NODE;
-    pvs->specifier = SPECIFIED;
+    pvs->feed->value = END_NODE;
+    pvs->feed->specifier = SPECIFIED;
 
     pvs->opt_label = NULL; // applies to e.g. :append/only returning APPEND
     pvs->special = ARG(value);
@@ -956,7 +951,7 @@ REB_R MAKE_Path(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
     REBDSP dsp_orig = DSP;
 
-    while (NOT_END(f->value)) {
+    while (NOT_END(f->feed->value)) {
         if (Eval_Step_Throws(SET_END(out), f)) {
             Abort_Frame(f);
             return R_THROWN;

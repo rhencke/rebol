@@ -128,6 +128,9 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
     if (depth < 0 || depth >= Trace_Level)
         return Eval_Core_Throws(f); // don't trace (REPL uses this to hide)
 
+    SHORTHAND (const RELVAL*, v, f->feed->value);
+    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+
     if (depth > 10)
         depth = 10; // don't indent so far it goes off the screen
 
@@ -138,7 +141,7 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
 
     while (true) {
         if (not (
-            KIND_BYTE(f->value) == REB_ACTION
+            KIND_BYTE(*v) == REB_ACTION
             or (Trace_Flags & TRACE_FLAG_FUNCTION)
         )){
             // If a caller reuses a frame (as we are doing by single-stepping),
@@ -157,16 +160,13 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
                 // beyond the current element), but TRACE does not currently
                 // output more than one unit of lookahead.
                 //
-                Debug_Fmt_("va: %50r", f->value);
+                Debug_Fmt_("va: %50r", *v);
             }
             else
-                Debug_Fmt_("%-02d: %50r", FRM_INDEX(f), f->value);
+                Debug_Fmt_("%-02d: %50r", FRM_INDEX(f), *v);
 
-            if (IS_WORD(f->value) || IS_GET_WORD(f->value)) {
-                const RELVAL *var = Try_Get_Opt_Var(
-                    f->value,
-                    f->specifier
-                );
+            if (IS_WORD(*v) || IS_GET_WORD(*v)) {
+                const RELVAL *var = Try_Get_Opt_Var(*v, *specifier);
                 if (not var) {
                     Debug_Fmt_(" ; end");
                 }
@@ -217,7 +217,7 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
             return threw;
         }
 
-        if (threw or IS_END(f->value)) {
+        if (threw or IS_END(*v)) {
             //
             // If we get here, that means the initial request was for a DO
             // to END but we distorted it into stepwise.  We don't restore

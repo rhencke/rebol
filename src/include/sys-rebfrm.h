@@ -555,6 +555,62 @@ struct Reb_Feed {
     //
     REBCNT index;
 
+    // This is used for relatively bound words to be looked up to become
+    // specific.  Typically the specifier is extracted from the payload of the
+    // ANY-ARRAY! value that provided the source.array for the call to DO.
+    // It may also be NULL if it is known that there are no relatively bound
+    // words that will be encountered from the source--as in va_list calls.
+    //
+    REBSPC *specifier;
+
+    // This is the "prefetched" value being processed.  Entry points to the
+    // evaluator must load a first value pointer into it...which for any
+    // successive evaluations will be updated via Fetch_Next_In_Frame()--which
+    // retrieves values from arrays or va_lists.  But having the caller pass
+    // in the initial value gives the option of that value being out of band.
+    //
+    // (Hence if one has the series `[[a b c] [d e]]` it would be possible to
+    // have an independent path value `append/only` and NOT insert it in the
+    // series, yet get the effect of `append/only [a b c] [d e]`.  This only
+    // works for one value, but is a convenient no-cost trick for apply-like
+    // situations...as insertions usually have to "slide down" the values in
+    // the series and may also need to perform alloc/free/copy to expand.
+    // It also is helpful since in C, variadic functions must have at least
+    // one non-variadic parameter...and one might want that non-variadic
+    // parameter to be blended in with the variadics.)
+    //
+    // !!! Review impacts on debugging; e.g. a debug mode should hold onto
+    // the initial value in order to display full error messages.
+    //
+    const RELVAL *value;
+
+    // There is a lookahead step to see if the next item in an array is a
+    // WORD!.  If so it is checked to see if that word is a "lookback word"
+    // (e.g. one that refers to an ACTION! value set with SET/ENFIX).
+    // Performing that lookup has the same cost as getting the variable value.
+    // Considering that the value will need to be used anyway--infix or not--
+    // the pointer is held in this field for WORD!s.
+    //
+    // However, reusing the work is not possible in the general case.  For
+    // instance, this would cause a problem:
+    //
+    //     obj: make object! [x: 10]
+    //     foo: does [append obj [y: 20]]
+    //     do in obj [foo x]
+    //                   ^-- consider the moment of lookahead, here
+    //
+    // Before foo is run, it will fetch x to ->gotten, and see that it is not
+    // a lookback function.  But then when it runs foo, the memory location
+    // where x had been found before may have moved due to expansion.
+    //
+    // Basically any function call invalidates ->gotten, as does obviously any
+    // Fetch_Next_In_Frame (because the position changes).  So it has to be
+    // nulled out fairly often, and checked for null before reuse.
+    //
+    // !!! Review how often gotten has hits vs. misses, and what the benefit
+    // of the feature actually is.
+    //
+    const REBVAL *gotten;
 
   #if defined(DEBUG_EXPIRED_LOOKBACK)
     //
@@ -677,16 +733,19 @@ struct Reb_Feed {
 //
 struct Reb_Frame {
     //
-    // The frame's cell is used for different purposes.  PARSE uses it as a
+    // The frame's "spare" is used for different purposes.  PARSE uses it as a
     // scratch storage space.  Path evaluation uses it as where the calculated
     // "picker" goes (so if `foo/(1 + 2)`, the 3 would be stored there to be
     // used to pick the next value in the chain).
     //
-    // !!! Add notes here explaining how Fetch_Next_In_Frame uses the cell
-    // during C va_list() processing, and how that makes it tricky to be able
-    // to make use of the cell space in the evaluator.
+    // The evaluator uses it as a general temporary place for evaluations, but
+    // it is available for use by natives while they are running.  This is
+    // particularly useful because it is GC guarded and also a valid target
+    // location for evaluations.  (The argument cells of a native are *not*
+    // legal evaluation targets, although they can be used as GC safe scratch
+    // space for things other than evaluation.)
     //
-    RELVAL cell;
+    RELVAL spare;
 
     // These are EVAL_FLAG_XXX or'd together--see their documentation above.
     // A Reb_Header is used so that it can implicitly terminate `cell`, if
@@ -726,53 +785,10 @@ struct Reb_Frame {
     //
     struct Reb_Feed *feed;
 
-    // This is used for relatively bound words to be looked up to become
-    // specific.  Typically the specifier is extracted from the payload of the
-    // ANY-ARRAY! value that provided the source.array for the call to DO.
-    // It may also be NULL if it is known that there are no relatively bound
-    // words that will be encountered from the source--as in va_list calls.
-    //
-    REBSPC *specifier;
-
-    // This is the "prefetched" value being processed.  Entry points to the
-    // evaluator must load a first value pointer into it...which for any
-    // successive evaluations will be updated via Fetch_Next_In_Frame()--which
-    // retrieves values from arrays or va_lists.  But having the caller pass
-    // in the initial value gives the option of that value being out of band.
-    //
-    // (Hence if one has the series `[[a b c] [d e]]` it would be possible to
-    // have an independent path value `append/only` and NOT insert it in the
-    // series, yet get the effect of `append/only [a b c] [d e]`.  This only
-    // works for one value, but is a convenient no-cost trick for apply-like
-    // situations...as insertions usually have to "slide down" the values in
-    // the series and may also need to perform alloc/free/copy to expand.
-    // It also is helpful since in C, variadic functions must have at least
-    // one non-variadic parameter...and one might want that non-variadic
-    // parameter to be blended in with the variadics.)
-    //
-    // !!! Review impacts on debugging; e.g. a debug mode should hold onto
-    // the initial value in order to display full error messages.
-    //
-    const RELVAL *value;
-
     // The error reporting machinery doesn't want where `index` is right now,
     // but where it was at the beginning of a single EVALUATE step.
     //
     uintptr_t expr_index;
-
-    // There is a lookahead step to see if the next item in an array is a
-    // WORD!.  If so it is checked to see if that word is a "lookback word"
-    // (e.g. one that refers to an ACTION! value set with SET/ENFIX).
-    // Performing that lookup has the same cost as getting the variable value.
-    // Considering that the value will need to be used anyway--infix or not--
-    // the pointer is held in this field for WORD!s (and sometimes ACTION!)
-    //
-    // This carries a risk if a DO_NEXT is performed--followed by something
-    // that changes variables or the array--followed by another DO_NEXT.
-    // There is an assert to check this, and clients wishing to be robust
-    // across this (and other modifications) need to use the INDEXOR-based API.
-    //
-    const REBVAL *gotten;
 
     // If a function call is currently in effect, FRM_PHASE() is how you get
     // at the current function being run.  This is the action that started

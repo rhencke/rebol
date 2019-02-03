@@ -69,7 +69,7 @@ REBNATIVE(eval)
 
     REBFLGS flags = EVAL_MASK_DEFAULT | EVAL_FLAG_REEVALUATE_CELL;
 
-    if (Eval_Step_In_Subframe_Throws(D_OUT, frame_, flags, child))
+    if (Eval_Step_In_Subframe_Throws(D_OUT, flags, child))
         return R_THROWN;
 
     return D_OUT;
@@ -115,9 +115,12 @@ REBNATIVE(shove)
     if (not Is_Frame_Style_Varargs_May_Fail(&f, ARG(right)))
         fail ("SHOVE (<-) not implemented for MAKE VARARGS! [...] yet");
 
+    SHORTHAND (const RELVAL*, v, f->feed->value);
+    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+
     REBVAL *left = ARG(left);
 
-    if (IS_END(f->value)) // ...shouldn't happen for WORD!/PATH! unless APPLY
+    if (IS_END(*v)) // ...shouldn't happen for WORD!/PATH! unless APPLY
         RETURN (ARG(left)) // ...because evaluator wants `help <-` to work
 
     // It's best for SHOVE to do type checking here, as opposed to setting
@@ -139,12 +142,12 @@ REBNATIVE(shove)
     REBVAL *shovee = ARG(right); // reuse arg cell for the shoved-into
 
     REBSTR *opt_label = nullptr;
-    if (IS_WORD(f->value) or IS_PATH(f->value)) {
+    if (IS_WORD(*v) or IS_PATH(*v)) {
         if (Get_If_Word_Or_Path_Throws(
             D_OUT, // can't eval directly into arg slot
             &opt_label,
-            f->value,
-            f->specifier,
+            *v,
+            *specifier,
             false // !!! see above; false = don't push refinements
         )){
             return R_THROWN;
@@ -152,17 +155,17 @@ REBNATIVE(shove)
 
         Move_Value(shovee, D_OUT);
     }
-    else if (IS_GROUP(f->value)) {
+    else if (IS_GROUP(*v)) {
         REBIXO indexor = Eval_Array_At_Core(
             D_OUT, // can't eval directly into arg slot
             nullptr, // opt_first (null means nothing, not nulled cell)
-            VAL_ARRAY(f->value),
-            VAL_INDEX(f->value),
-            Derive_Specifier(f->specifier, f->value),
+            VAL_ARRAY(*v),
+            VAL_INDEX(*v),
+            Derive_Specifier(*specifier, *v),
             (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
                 | EVAL_FLAG_TO_END
                 | (f->flags.bits & EVAL_FLAG_CONST)
-                | (f->value->header.bits & EVAL_FLAG_CONST)
+                | ((*v)->header.bits & EVAL_FLAG_CONST)
         );
         if (indexor == THROWN_FLAG)
             return R_THROWN;
@@ -172,7 +175,7 @@ REBNATIVE(shove)
         Move_Value(shovee, D_OUT);
     }
     else
-        Move_Value(shovee, KNOWN(f->value));
+        Move_Value(shovee, KNOWN(*v));
 
     if (not IS_ACTION(shovee))
         fail ("SHOVE's immediate right must evaluate to an ACTION!");
@@ -205,7 +208,7 @@ REBNATIVE(shove)
             Move_Value(D_OUT, Get_Opt_Var_May_Fail(left, SPECIFIED));
         }
         else if (IS_SET_PATH(left)) {
-            f->gotten = nullptr; // calling arbitrary code, may disrupt!
+            f->feed->gotten = nullptr;  // calling arbitrary code, may disrupt
             composed_set_path = rebRun("compose", left, rebEND);
             REBVAL *temp = rebRun("get/hard", composed_set_path, rebEND);
             Move_Value(D_OUT, temp);
@@ -234,7 +237,7 @@ REBNATIVE(shove)
         | EVAL_FLAG_REEVALUATE_CELL;
     child->u.reval.value = shovee; // EVAL_FLAG_REEVALUATE_CELL retriggers this
 
-    if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child)) {
+    if (Eval_Step_In_Subframe_Throws(D_OUT, flags, child)) {
         rebRelease(composed_set_path); // ok if nullptr
         return R_THROWN;
     }
@@ -244,7 +247,7 @@ REBNATIVE(shove)
             Move_Value(Sink_Var_May_Fail(left, SPECIFIED), D_OUT);
         }
         else if (IS_SET_PATH(left)) {
-            f->gotten = nullptr; // calling arbitrary code, may disrupt!
+            f->feed->gotten = nullptr;  // calling arbitrary code, may disrupt
             rebElide("set/hard", composed_set_path, D_OUT, rebEND);
             rebRelease(composed_set_path);
         }
@@ -337,8 +340,8 @@ REBNATIVE(do)
         DECLARE_SUBFRAME (child, f);
         REBFLGS flags = EVAL_MASK_DEFAULT;
         Init_Void(D_OUT);
-        while (NOT_END(f->value)) {
-            if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child))
+        while (NOT_END(f->feed->value)) {
+            if (Eval_Step_In_Subframe_Throws(D_OUT, flags, child))
                 return R_THROWN;
         }
 
@@ -457,7 +460,7 @@ REBNATIVE(do)
         if (threw)
             return R_THROWN; // prohibits recovery from exits
 
-        assert(IS_END(f->value)); // we started at END_FLAG, can only throw
+        assert(IS_END(f->feed->value)); // started at END_FLAG, can only throw
 
         return f->out; }
 
@@ -582,11 +585,11 @@ REBNATIVE(evaluate)
         //
         DECLARE_SUBFRAME (child, f);
         REBFLGS flags = EVAL_MASK_DEFAULT;
-        if (IS_END(f->value))
+        if (IS_END(f->feed->value))
             return nullptr;
 
         DECLARE_LOCAL (temp);
-        if (Eval_Step_In_Subframe_Throws(SET_END(temp), f, flags, child))
+        if (Eval_Step_In_Subframe_Throws(SET_END(temp), flags, child))
             RETURN (temp);
 
         if (IS_END(temp))
@@ -860,6 +863,6 @@ REBNATIVE(apply)
     if (action_threw)
         return R_THROWN;
 
-    assert(IS_END(f->value)); // we started at END_FLAG, can only throw
+    assert(IS_END(f->feed->value)); // we started at END_FLAG, can only throw
     return D_OUT;
 }

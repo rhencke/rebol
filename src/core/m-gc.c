@@ -971,7 +971,7 @@ static void Reify_Any_C_Valist_Frames(void)
 
     REBFRM *f = FS_TOP;
     for (; f != FS_BOTTOM; f = f->prior) {
-        if (NOT_END(f->value) and FRM_IS_VALIST(f)) {
+        if (NOT_END(f->feed->value) and FRM_IS_VALIST(f)) {
             const bool truncated = true;
             Reify_Va_To_Array_In_Frame(f, truncated);
         }
@@ -1243,24 +1243,24 @@ static void Mark_Frame_Stack_Deep(void)
         // will stay on the stack while the zero-arity function is running.
         // The array still might be used in an error, so can't GC it.
         //
-        Queue_Mark_Opt_End_Cell_Deep(f->value);
+        Queue_Mark_Opt_End_Cell_Deep(f->feed->value);
 
-        // If f->gotten is set, it usually shouldn't need markeding because
+        // If ->gotten is set, it usually shouldn't need markeding because
         // it's fetched via f->value and so would be kept alive by it.  Any
         // code that a frame runs that might disrupt that relationship so it
-        // would fetch differently should have meant clearing f->gotten.
+        // would fetch differently should have meant clearing ->gotten.
         //
-        if (f->gotten)
+        if (f->feed->gotten)
             assert(
-                IS_POINTER_TRASH_DEBUG(f->gotten)
-                or f->gotten == Try_Get_Opt_Var(f->value, f->specifier)
+                f->feed->gotten
+                == Try_Get_Opt_Var(f->feed->value, f->feed->specifier)
             );
 
         if (
-            f->specifier != SPECIFIED
-            and (f->specifier->header.bits & NODE_FLAG_MANAGED)
+            f->feed->specifier != SPECIFIED
+            and (f->feed->specifier->header.bits & NODE_FLAG_MANAGED)
         ){
-            Queue_Mark_Context_Deep(CTX(f->specifier));
+            Queue_Mark_Context_Deep(CTX(f->feed->specifier));
         }
 
         Queue_Mark_Opt_End_Cell_Deep(f->out); // END legal, but not nullptr
@@ -1270,7 +1270,7 @@ static void Mark_Frame_Stack_Deep(void)
         //
         Queue_Mark_Opt_End_Cell_Deep(&f->feed->fetched);
         Queue_Mark_Opt_End_Cell_Deep(&f->feed->lookback);
-        Queue_Mark_Opt_End_Cell_Deep(&f->cell);
+        Queue_Mark_Opt_End_Cell_Deep(&f->spare);
 
         if (not Is_Action_Frame(f)) {
             //

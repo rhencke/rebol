@@ -876,7 +876,6 @@ REBNATIVE(reskinned)
         SPECIFIED, // no relative values in parameter lists
         SERIES_MASK_ACTION
             | (SER(original)->header.bits & PARAMLIST_MASK_INHERIT)
-            | NODE_FLAG_MANAGED
     );
 
     bool need_skin_phase = false; // only needed if types were broadened
@@ -1046,6 +1045,8 @@ REBNATIVE(reskinned)
     //
     MISC(paramlist).meta = ACT_META(original);
 
+    MANAGE_ARRAY(paramlist);
+
     // If we only *narrowed* the type conventions, then we don't need to put
     // in a new dispatcher.  But if we *expanded* them, the type checking
     // done by the skinned version for ARG_MARKED_CHECKED may not be enough.
@@ -1074,8 +1075,6 @@ REBNATIVE(reskinned)
     }
 
     TERM_ARRAY_LEN(ACT_DETAILS(defers), details_len);
-
-    MANAGE_ARRAY(paramlist);
 
     return Init_Action_Maybe_Bound(
         D_OUT,

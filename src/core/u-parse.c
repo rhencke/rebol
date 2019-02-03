@@ -78,8 +78,8 @@
 // usermode authored function arguments only.)
 //
 
-#define P_RULE              (f->value + 0) // rvalue, don't change pointer
-#define P_RULE_SPECIFIER    (f->specifier + 0) // rvalue, don't change pointer
+#define P_RULE              (f->feed->value + 0)  // rvalue
+#define P_RULE_SPECIFIER    (f->feed->specifier + 0)  // rvalue
 
 #define P_INPUT_VALUE       (f->rootvar + 1)
 #define P_TYPE              VAL_TYPE(P_INPUT_VALUE)
@@ -99,7 +99,7 @@
 
 #define P_OUT (f->out)
 
-#define P_CELL FRM_CELL(f)
+#define P_CELL FRM_SPARE(f)
 
 // !!! R3-Alpha's PARSE code long predated frames, and was retrofitted to use
 // them as an experiment in Ren-C.  If it followed the rules of frames, then
@@ -122,7 +122,7 @@ inline static bool IS_BAR(const RELVAL *v)
     { return IS_WORD(v) and VAL_WORD_SYM(v) == SYM_BAR; }
 
 #define FETCH_TO_BAR_OR_END(f) \
-    while (NOT_END(f->value) and not IS_BAR(P_RULE)) \
+    while (NOT_END(P_RULE) and not IS_BAR(P_RULE)) \
         { FETCH_NEXT_RULE(f); }
 
 
@@ -204,15 +204,15 @@ static bool Subparse_Throws(
     SET_END(out);
     f->out = out;
 
-    f->gotten = nullptr;
-    SET_FRAME_VALUE(f, VAL_ARRAY_AT(rules)); // not an END due to test above
-    f->specifier = Derive_Specifier(rules_specifier, rules);
+    f->feed->value = VAL_ARRAY_AT(rules); // not an END due to test above
+    f->feed->specifier = Derive_Specifier(rules_specifier, rules);
 
     f->feed->vaptr = nullptr;
     f->feed->array = VAL_ARRAY(rules);
     f->feed->flags.bits = FEED_MASK_DEFAULT;
     f->feed->index = VAL_INDEX(rules) + 1;
-    f->feed->pending = f->value + 1;
+    f->feed->pending = f->feed->value + 1;
+    assert(f->feed->gotten == nullptr);  // DECLARE_FRAME() sets
 
     // !!! Review if all the parse state flags can be merged into this flag
     // structure...there may be few enough of them that they can, as they
@@ -354,7 +354,7 @@ static void Print_Parse_Index(REBFRM *f) {
     // !!! Or does PARSE adjust to ensure it never is past the end, e.g.
     // when seeking a position given in a variable or modifying?
     //
-    if (IS_END(f->value)) {
+    if (IS_END(P_RULE)) {
         if (P_POS >= SER_LEN(P_INPUT))
             Debug_Fmt("[]: ** END **");
         else
@@ -1430,7 +1430,7 @@ REBNATIVE(subparse)
     REBINT mincount = 1; // min pattern count
     REBINT maxcount = 1; // max pattern count
 
-    while (NOT_END(f->value)) {
+    while (NOT_END(P_RULE)) {
 
         /* Print_Parse_Index(f); */
         UPDATE_EXPRESSION_START(f);
@@ -1984,7 +1984,7 @@ REBNATIVE(subparse)
                 maxcount = Int32s(rule, 0);
 
                 FETCH_NEXT_RULE(f);
-                if (IS_END(f->value))
+                if (IS_END(P_RULE))
                     fail (Error_Parse_End());
 
                 rule = Get_Parse_Value(save, P_RULE, P_RULE_SPECIFIER);
@@ -2047,7 +2047,7 @@ REBNATIVE(subparse)
 
                 case SYM_TO:
                 case SYM_THRU: {
-                    if (IS_END(f->value))
+                    if (IS_END(P_RULE))
                         fail (Error_Parse_End());
 
                     if (!subrule) { // capture only on iteration #1
@@ -2071,7 +2071,7 @@ REBNATIVE(subparse)
                     if (not IS_SER_ARRAY(P_INPUT))
                         fail (Error_Parse_Rule()); // see #2253
 
-                    if (IS_END(f->value))
+                    if (IS_END(P_RULE))
                         fail (Error_Parse_End());
 
                     if (not subrule) // capture only on iteration #1
@@ -2110,7 +2110,7 @@ REBNATIVE(subparse)
                     if (not IS_SER_ARRAY(P_INPUT))
                         fail (Error_Parse_Rule()); // see #2253
 
-                    if (IS_END(f->value))
+                    if (IS_END(P_RULE))
                         fail (Error_Parse_End());
 
                     if (not subrule) // capture only on iteration #1
@@ -2139,7 +2139,7 @@ REBNATIVE(subparse)
                     break; }
 
                 case SYM_INTO: {
-                    if (IS_END(f->value))
+                    if (IS_END(P_RULE))
                         fail (Error_Parse_End());
 
                     if (!subrule) {
@@ -2391,7 +2391,7 @@ REBNATIVE(subparse)
                             P_CELL,
                             VAL_ARRAY(set_or_copy_word),
                             VAL_INDEX(set_or_copy_word),
-                            f->specifier
+                            P_RULE_SPECIFIER
                         )){
                             Move_Value(P_OUT, P_CELL);
                             return R_THROWN;
@@ -2440,7 +2440,7 @@ REBNATIVE(subparse)
                     count = (flags & PF_INSERT) ? 0 : count;
                     bool only = false;
 
-                    if (IS_END(f->value))
+                    if (IS_END(P_RULE))
                         fail (Error_Parse_End());
 
                     if (IS_WORD(P_RULE)) { // check for ONLY flag

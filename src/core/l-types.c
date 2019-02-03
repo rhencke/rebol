@@ -364,11 +364,11 @@ REBNATIVE(of)
     REBVAL *prop = ARG(property);
 
     if (IS_GROUP(prop)) {
-        if (Eval_Value_Throws(D_CELL, prop))
+        if (Eval_Value_Throws(D_SPARE, prop))
             return R_THROWN;
     }
     else
-        Move_Value(D_CELL, prop);
+        Move_Value(D_SPARE, prop);
 
     // !!! Ugly hack to make OF frame-compatible with REFLECT.  If there was
     // a separate dispatcher for REFLECT it could be called with proper
@@ -377,7 +377,7 @@ REBNATIVE(of)
     // property in the second.
     //
     Move_Value(ARG(property), ARG(value));
-    Move_Value(ARG(value), D_CELL);
+    Move_Value(ARG(value), D_SPARE);
 
     return Reflect_Core(frame_);
 }

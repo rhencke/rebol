@@ -1266,10 +1266,6 @@ bool Make_Invocation_Frame_Throws(
     f->out = out;
 
     f->feed = parent->feed;
-    f->value = parent->value;
-    f->gotten = parent->gotten;
-    f->specifier = parent->specifier;
-    TRASH_POINTER_IF_DEBUG(parent->gotten);
 
     // Just do one step of the evaluator, so no EVAL_FLAG_TO_END.  Specifically,
     // it is desired that any voids encountered be processed as if they are
@@ -1310,10 +1306,6 @@ bool Make_Invocation_Frame_Throws(
     // and handed out for other purposes by the caller.
     //
     assert(NOT_SERIES_FLAG(f->varlist, MANAGED));
-
-    parent->value = f->value;
-    parent->gotten = f->gotten;
-    assert(parent->specifier == f->specifier); // !!! can't change?
 
     if (threw)
         return true;

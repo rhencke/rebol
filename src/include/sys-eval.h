@@ -217,9 +217,9 @@ inline static void Push_Frame_At_End(REBFRM *f, REBFLGS flags) {
     f->flags = Endlike_Header(flags);
 
     assert(f->feed == &TG_Frame_Feed_End); // see DECLARE_END_FRAME
-    f->gotten = nullptr;
-    SET_FRAME_VALUE(f, END_NODE);
-    f->specifier = SPECIFIED;
+    assert(f->feed->gotten == nullptr);
+    f->feed->value = END_NODE;
+    f->feed->specifier = SPECIFIED;
 
     Push_Frame_Core(f);
 }
@@ -249,16 +249,16 @@ inline static void Push_Frame_At(
 ){
     f->flags = Endlike_Header(flags);
 
-    f->gotten = nullptr; // Eval_Core_Throws() must fetch for REB_WORD, etc.
-    SET_FRAME_VALUE(f, ARR_AT(array, index));
+    f->feed->value = ARR_AT(array, index);
 
     f->feed->vaptr = nullptr;
     f->feed->array = array;
     f->feed->flags.bits = FEED_MASK_DEFAULT;
     f->feed->index = index + 1;
-    f->feed->pending = f->value + 1;
+    f->feed->pending = f->feed->value + 1;
+    assert(f->feed->gotten == nullptr);  // DECLARE_FRAME()/etc. sets
 
-    f->specifier = specifier;
+    f->feed->specifier = specifier;
 
     // Frames are pushed to reuse for several sequential operations like
     // ANY, ALL, CASE, REDUCE.  It is allowed to change the output cell for
@@ -287,12 +287,16 @@ inline static void Push_Frame(REBFRM *f, const REBVAL *v)
 // cannot have its first parameter in the variadic, va_list* is insufficient)
 //
 inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
-    const RELVAL **opt_lookback,  // if non null, must be old f->value
     struct Reb_Feed *feed,
-    const void *p
+    const void *p,
+    bool preserve
 ){
-    if (opt_lookback) {  // caller wants what was in f->value for reference
-        assert(READABLE(*opt_lookback, __FILE__, __LINE__));  // ensure cell
+    const RELVAL *lookback;
+
+    if (not preserve)
+        lookback = nullptr;
+    else {
+        assert(READABLE(feed->value, __FILE__, __LINE__));  // ensure cell
 
         if (GET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY)) {
             //
@@ -300,17 +304,19 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
             // We may overwrite it below for this fetch.  So save the old one
             // into f->lookback, where it will be safe until the next fetch.
             //
-            assert(*opt_lookback == &feed->fetched);
-            *opt_lookback = Move_Value(&feed->lookback, KNOWN(&feed->fetched));
+            assert(feed->value == &feed->fetched);
+            lookback = Move_Value(&feed->lookback, KNOWN(&feed->fetched));
         }
         else {
             // pointer they had should be stable, GC-safe
+
+            lookback = feed->value;
         }
     }
 
   detect_again:;
 
-    const RELVAL *detected;
+    TRASH_POINTER_IF_DEBUG(feed->value);  // should be assigned below
 
     if (not p) {  // libRebol's null/<opt> (IS_NULLED prohibited in CELL case)
 
@@ -323,7 +329,7 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
         feed->array = nullptr;
         Quotify(Init_Nulled(&feed->fetched), 1);
         SET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
-        detected = &feed->fetched;
+        feed->value = &feed->fetched;
 
     } else switch (Detect_Rebol_Pointer(p)) {
 
@@ -341,6 +347,8 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
         struct Reb_Binder binder;
         Init_Interning_Binder(&binder, feed->context);
         feed->binder = &binder;
+
+        feed->specifier = SPECIFIED;
 
         SCAN_STATE ss;
         const REBLIN start_line = 1;
@@ -390,8 +398,8 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
         //
         MANAGE_ARRAY(reified);
 
-        detected = ARR_HEAD(reified);
-        feed->pending = detected + 1;  // may be END
+        feed->value = ARR_HEAD(reified);
+        feed->pending = feed->value + 1;  // may be END
         feed->array = reified;
         feed->index = 1;
 
@@ -419,8 +427,8 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
                     fail ("rebEVAL and rebU/rebUNEVALUATIVE can't take null");
 
                 switch (Detect_Rebol_Pointer(p)) {
-                  case DETECTED_AS_CELL: {
-                    detected = cast(REBVAL*, p);
+                  case DETECTED_AS_CELL: {  // should not be relative
+                    feed->value = KNOWN(cast(const REBVAL*, p));
                     feed->index = TRASHED_INDEX;  // necessary?
 
                     CLEAR_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
@@ -449,7 +457,7 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
                     REBVAL *single = KNOWN(ARR_SINGLE(inst2));
                     Move_Value(&feed->fetched, single);
                     SET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
-                    detected = &feed->fetched;
+                    feed->value = &feed->fetched;
                     rebRelease(cast(const REBVAL*, single));
                     break; }
 
@@ -482,7 +490,7 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
                 Quotify(Move_Value(&feed->fetched, single), 1);
 
             SET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
-            detected = &feed->fetched;
+            feed->value = &feed->fetched;
             rebRelease(cast(const REBVAL*, single));  // *is* the instruction
         }
         else
@@ -500,7 +508,7 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
             assert(!"NULLED cell API leak, see NULLIFY_NULLED() in C source");
 
         if (GET_FEED_FLAG(feed, UNEVALUATIVE)) {
-            detected = cell;  // non-nulled cell can be used as-is
+            feed->value = cell;  // non-nulled cell can be used as-is
         }
         else {
             // Cells that do not have rebEVAL() preceding them need to appear
@@ -512,12 +520,12 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
             //
             Quotify(Move_Value(&feed->fetched, cell), 1);
             SET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
-            detected = &feed->fetched;  // note that END is detected separately
+            feed->value = &feed->fetched;  // note END is detected separately
         }
         break; }
 
       case DETECTED_AS_END: {  // end of variadic input, so that's it for this
-        detected = END_NODE;
+        feed->value = END_NODE;
         TRASH_POINTER_IF_DEBUG(feed->pending);
 
         // The va_end() is taken care of here, or if there is a throw/fail it
@@ -544,7 +552,7 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
         panic (p);
     }
 
-    return detected;
+    return lookback;
 }
 
 
@@ -560,18 +568,29 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
 // signal that the vaptr (if any) should be consulted next.
 //
 inline static const RELVAL *Fetch_Next_In_Feed(
-    const RELVAL **opt_lookback,  // preload with old prior value if not null!
-    struct Reb_Feed *feed
+    struct Reb_Feed *feed,
+    bool preserve
 ){
+    assert(NOT_END(feed->value));  // caller should test this first
+
   #ifdef DEBUG_EXPIRED_LOOKBACK
-    if (f->stress) {
-        TRASH_CELL_IF_DEBUG(f->stress);
-        free(f->stress);
-        f->stress = nullptr;
+    if (feed->stress) {
+        TRASH_CELL_IF_DEBUG(feed->stress);
+        free(feed->stress);
+        feed->stress = nullptr;
     }
   #endif
 
-    const RELVAL *fetched;
+    // We are changing ->value, and thus by definition any ->gotten value
+    // will be invalid.  It might be "wasteful" to always set this to null,
+    // especially if it's going to be overwritten with the real fetch...but
+    // at a source level, having every call to Fetch_Next_In_Frame have to
+    // explicitly set ->gotten to null is overkill.  Could be split into
+    // a version that just trashes ->gotten in the debug build vs. null.
+    //
+    feed->gotten = nullptr;
+
+    const RELVAL *lookback;
 
     if (NOT_END(feed->pending)) {
         //
@@ -585,7 +604,8 @@ inline static const RELVAL *Fetch_Next_In_Feed(
             or feed->pending == ARR_AT(feed->array, feed->index)
         );
 
-        fetched = feed->pending;
+        lookback = feed->value;  // should have been stable
+        feed->value = feed->pending;
 
         ++feed->pending; // might be becoming an END marker, here
         ++feed->index;
@@ -596,7 +616,8 @@ inline static const RELVAL *Fetch_Next_In_Feed(
         // an array by Reify_Va_To_Array_In_Frame().  The first END we hit
         // is the full stop end.
 
-        fetched = END_NODE;
+        lookback = feed->value;
+        feed->value = END_NODE;
         TRASH_POINTER_IF_DEBUG(feed->pending);
 
         ++feed->index; // for consistency in index termination state
@@ -618,18 +639,24 @@ inline static const RELVAL *Fetch_Next_In_Feed(
         //
         const void *p = va_arg(*feed->vaptr, const void*);
         feed->index = TRASHED_INDEX; // avoids warning in release build
-        fetched = Detect_Feed_Pointer_Maybe_Fetch(opt_lookback, feed, p);
+        lookback = Detect_Feed_Pointer_Maybe_Fetch(feed, p, preserve);
     }
 
+    assert(
+        IS_END(feed->value)
+        or feed->value == &feed->fetched
+        or NOT_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY)
+    );
+
   #ifdef DEBUG_EXPIRED_LOOKBACK
-    if (opt_lookback) {
+    if (preserve) {
         f->stress = cast(RELVAL*, malloc(sizeof(RELVAL)));
         memcpy(f->stress, *opt_lookback, sizeof(RELVAL));
-        *opt_lookback = f->stress;
+        lookback = f->stress;
     }
   #endif
 
-    return fetched;
+    return lookback;
 }
 
 
@@ -638,43 +665,16 @@ inline static const RELVAL *Fetch_Next_In_Feed(
 // by a rigorous test in DEBUG_EXPIRED_LOOKBACK).  Special care must be
 // taken when one is interested in that data, because it may have to be
 // moved.  So current can be returned from Fetch_Next_In_Frame_Core().
-//
-inline static const RELVAL *Lookback_While_Fetching_Next(REBFRM *f) {
-    assert(NOT_END(f->value));  // caller should test this first
 
-    // We are changing f->value, and thus by definition any f->gotten value
-    // will be invalid.  It might be "wasteful" to always set this to END,
-    // especially if it's going to be overwritten with the real fetch...but
-    // at a source level, having every call to Fetch_Next_In_Frame have to
-    // explicitly set f->gotten to null is overkill.  Could be split into
-    // a version that just trashes f->gotten in the debug build vs. END.
-    //
-    f->gotten = nullptr;
+#define Lookback_While_Fetching_Next(f) \
+    Fetch_Next_In_Feed(FRM(f)->feed, true)
 
-    const RELVAL *lookback = f->value;
-    f->value = Fetch_Next_In_Feed(&lookback, f->feed);
-    assert(
-        IS_END(f->value)
-        or f->value == &f->feed->fetched
-        or NOT_CELL_FLAG(&f->feed->fetched, FETCHED_MARKED_TEMPORARY)
-    );
-    return lookback;
-}
-
-inline static void Fetch_Next_Forget_Lookback(REBFRM *f) {
-    assert(NOT_END(f->value));
-    f->gotten = nullptr;  // see notes in Lookback_While_Fetching_Next()
-    f->value = Fetch_Next_In_Feed(nullptr, f->feed);
-    assert(
-        IS_END(f->value)
-        or f->value == &f->feed->fetched
-        or NOT_CELL_FLAG(&f->feed->fetched, FETCHED_MARKED_TEMPORARY)
-    );
-}
+#define Fetch_Next_Forget_Lookback(f) \
+    ((void)Fetch_Next_In_Feed(FRM(f)->feed, false))
 
 
 inline static void Literal_Next_In_Frame(REBVAL *dest, REBFRM *f) {
-    Derelativize(dest, f->value, f->specifier);
+    Derelativize(dest, f->feed->value, f->feed->specifier);
     SET_CELL_FLAG(dest, UNEVALUATED);
 
     // SEE ALSO: The `inert:` branch in %c-eval.c, which is similar.  We
@@ -695,7 +695,7 @@ inline static void Abort_Frame(REBFRM *f) {
     // Abort_Frame() handles any work that wouldn't be done done naturally by
     // feeding a frame to its natural end.
     // 
-    if (IS_END(f->value))
+    if (IS_END(f->feed->value))
         goto pop;
 
     if (FRM_IS_VALIST(f)) {
@@ -720,7 +720,7 @@ inline static void Abort_Frame(REBFRM *f) {
         // any faster...they're usually reified into an array anyway, so
         // the frame processing the array will take the other branch.
 
-        while (NOT_END(f->value))
+        while (NOT_END(f->feed->value))
             Fetch_Next_Forget_Lookback(f);
     }
     else {
@@ -775,7 +775,7 @@ inline static void Drop_Frame_Unbalanced(REBFRM *f) {
 inline static void Drop_Frame(REBFRM *f)
 {
     if (GET_EVAL_FLAG(f, TO_END))
-        assert(IS_END(f->value) or Is_Evaluator_Throwing_Debug());
+        assert(IS_END(f->feed->value) or Is_Evaluator_Throwing_Debug());
 
     assert(DSP == f->dsp_orig); // Drop_Frame_Core() does not check
     Drop_Frame_Unbalanced(f);
@@ -870,59 +870,32 @@ inline static bool Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
 //
 inline static bool Eval_Step_In_Subframe_Throws(
     REBVAL *out,
-    REBFRM *higher, // may not be direct parent (not child->prior upon push!)
     REBFLGS flags,
     REBFRM *child // passed w/dsp_orig preload, refinements can be on stack
 ){
-    assert(NOT_FEED_FLAG(higher->feed, BARRIER_HIT));
+    assert(NOT_FEED_FLAG(child->feed, BARRIER_HIT));
 
     child->out = out;
 
-    // !!! Should they share a feed instead of updating?
-    //
-    assert(child->feed == higher->feed);
-    child->value = higher->value;
-    child->gotten = higher->gotten;
-    child->specifier = higher->specifier;
-
-    // f->gotten is never marked for GC, because it should never be kept
-    // alive across arbitrary evaluations (f->value should keep it alive).
-    // We'll write it back with an updated value from the child after the
-    // call, and no one should be able to read it until then (e.g. the caller
-    // can't be a variadic frame that is executing yet)
-    //
   #if !defined(NDEBUG)
-    TRASH_POINTER_IF_DEBUG(higher->gotten);
-    REBCNT old_index = higher->feed->index;
+    REBCNT old_index = child->feed->index;
   #endif
 
     child->flags = Endlike_Header(flags);
 
-    // One case in which child->prior on this push may not be equal to the
-    // higher frame passed in is variadics.  The frame making the call to
-    // advance the variadic feed can be deeper down the stack, and it will
-    // be the ->prior, so it's important not to corrupt it based on assuming
-    // it is the variadic frame.
-    //
     Push_Frame_Core(child);
     Reuse_Varlist_If_Available(child);
     bool threw = (*PG_Eval_Throws)(child);
     Drop_Frame(child);
 
     assert(
-        IS_END(child->value)
+        IS_END(child->feed->value)
         or FRM_IS_VALIST(child)
         or old_index != child->feed->index
         or (flags & EVAL_FLAG_REEVALUATE_CELL)
         or (flags & EVAL_FLAG_POST_SWITCH)
         or Is_Evaluator_Throwing_Debug()
     );
-
-    // !!! Should they share a feed instead of updating?
-    //
-    higher->value = child->value;
-    higher->gotten = child->gotten;
-    assert(higher->specifier == child->specifier); // !!! can't change?
 
     return threw;
 }
@@ -940,29 +913,29 @@ inline static REBIXO Eval_Array_At_Core(
     REBFLGS flags // EVAL_FLAG_TO_END, EVAL_FLAG_EXPLICIT_EVALUATE, etc.
 ){
     DECLARE_FRAME (f);
-    f->flags = Endlike_Header(flags); // SET_FRAME_VALUE() *could* use
+    f->flags = Endlike_Header(flags);
 
     f->feed->vaptr = nullptr;
     f->feed->array = array;
     f->feed->flags.bits = FEED_MASK_DEFAULT;
+    assert(f->feed->gotten == nullptr);
 
-    f->gotten = nullptr; // SET_FRAME_VALUE() asserts this is nullptr
     if (opt_first) {
-        SET_FRAME_VALUE(f, opt_first);
+        f->feed->value = opt_first;
         f->feed->index = index;
         f->feed->pending = ARR_AT(array, index);
-        assert(NOT_END(f->value));
+        assert(NOT_END(f->feed->value));
     }
     else {
-        SET_FRAME_VALUE(f, ARR_AT(array, index));
+        f->feed->value = ARR_AT(array, index);
         f->feed->index = index + 1;
-        f->feed->pending = f->value + 1;
-        if (IS_END(f->value))
+        f->feed->pending = f->feed->value + 1;
+        if (IS_END(f->feed->value))
             return END_FLAG;
     }
 
     f->out = out;
-    f->specifier = specifier;
+    f->feed->specifier = specifier;
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
@@ -1016,13 +989,14 @@ inline static void Reify_Va_To_Array_In_Frame(
         Init_Word(DS_TOP, Canon(SYM___OPTIMIZED_OUT__));
     }
 
-    if (NOT_END(f->value)) {
+    if (NOT_END(f->feed->value)) {
         assert(f->feed->pending == END_NODE);
 
         do {
-            Derelativize(DS_PUSH(), f->value, f->specifier);  // may be NULLED
+            Derelativize(DS_PUSH(), f->feed->value, f->feed->specifier);
+            assert(not IS_NULLED(DS_TOP));
             Fetch_Next_Forget_Lookback(f);
-        } while (NOT_END(f->value));
+        } while (NOT_END(f->feed->value));
 
         if (truncated)
             f->feed->index = 2; // skip the --optimized-out--
@@ -1053,11 +1027,11 @@ inline static void Reify_Va_To_Array_In_Frame(
     SET_FEED_FLAG(f->feed, TOOK_HOLD);
 
     if (truncated)
-        SET_FRAME_VALUE(f, ARR_AT(f->feed->array, 1)); // skip `--optimized--`
+        f->feed->value = ARR_AT(f->feed->array, 1); // skip `--optimized--`
     else
-        SET_FRAME_VALUE(f, ARR_HEAD(f->feed->array));
+        f->feed->value = ARR_HEAD(f->feed->array);
 
-    f->feed->pending = f->value + 1;
+    f->feed->pending = f->feed->value + 1;
 }
 
 
@@ -1095,22 +1069,18 @@ inline static REBIXO Eval_Va_Core(
     f->feed->flags.bits = FEED_MASK_DEFAULT; // see Reify_Va_To_Array_In_Frame
     f->feed->vaptr = vaptr;
     f->feed->pending = END_NODE; // signal next fetch comes from va_list
+    assert(f->feed->gotten == nullptr);
 
     if (opt_first)
-        f->value = Detect_Feed_Pointer_Maybe_Fetch(
-            nullptr,
-            f->feed,
-            opt_first
-        );
+        Detect_Feed_Pointer_Maybe_Fetch(f->feed, opt_first, false);
     else
         Fetch_Next_Forget_Lookback(f);
 
-    if (IS_END(f->value))
+    if (IS_END(f->feed->value))
         return END_FLAG;
 
     f->out = out;
-    f->specifier = SPECIFIED; // relative values not allowed in va_lists
-    f->gotten = nullptr;
+    f->feed->specifier = SPECIFIED; // relative values not allowed in va_lists
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
@@ -1124,11 +1094,11 @@ inline static REBIXO Eval_Va_Core(
         (flags & EVAL_FLAG_TO_END) // not just an EVALUATE, but a full DO
         or GET_CELL_FLAG(f->out, OUT_MARKED_STALE) // just ELIDEs and COMMENTs
     ){
-        assert(IS_END(f->value));
+        assert(IS_END(f->feed->value));
         return END_FLAG;
     }
 
-    if ((flags & EVAL_FLAG_NO_RESIDUE) and NOT_END(f->value))
+    if ((flags & EVAL_FLAG_NO_RESIDUE) and NOT_END(f->feed->value))
         fail (Error_Apply_Too_Many_Raw());
 
     return VA_LIST_FLAG; // frame may be at end, next call might just END_FLAG

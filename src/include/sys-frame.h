@@ -95,10 +95,11 @@
 
 inline static void Prep_Feed_Core(struct Reb_Feed *feed)
 {
-    Prep_Stack_Cell(&feed->fetched); \
-    Init_Unreadable_Blank(&feed->fetched); \
-    Prep_Stack_Cell(&feed->lookback); \
-    Init_Unreadable_Blank(&feed->lookback); \
+    Prep_Stack_Cell(&feed->fetched);
+    Init_Unreadable_Blank(&feed->fetched);
+    Prep_Stack_Cell(&feed->lookback);
+    Init_Unreadable_Blank(&feed->lookback);
+    feed->gotten = nullptr;
 }
 
 inline static void Prep_Frame_Core(
@@ -106,8 +107,8 @@ inline static void Prep_Frame_Core(
     struct Reb_Feed *feed_ptr
 ){
     f->feed = feed_ptr;
-    Prep_Stack_Cell(&f->cell);
-    Init_Unreadable_Blank(&f->cell);
+    Prep_Stack_Cell(&f->spare);
+    Init_Unreadable_Blank(&f->spare);
     f->dsp_orig = DS_Index;
 }
 
@@ -207,7 +208,7 @@ inline static bool FRM_IS_VALIST(REBFRM *f) {
 }
 
 inline static REBARR *FRM_ARRAY(REBFRM *f) {
-    assert(IS_END(f->value) or not FRM_IS_VALIST(f));
+    assert(IS_END(f->feed->value) or not FRM_IS_VALIST(f));
     return f->feed->array;
 }
 
@@ -218,7 +219,7 @@ inline static REBARR *FRM_ARRAY(REBFRM *f) {
 // to accurately present any errors.
 //
 inline static REBCNT FRM_INDEX(REBFRM *f) {
-    if (IS_END(f->value))
+    if (IS_END(f->feed->value))
         return ARR_LEN(f->feed->array);
 
     assert(not FRM_IS_VALIST(f));
@@ -266,8 +267,8 @@ inline static int FRM_LINE(REBFRM *f) {
 #define FRM_NUM_ARGS(f) \
     (cast(REBSER*, (f)->varlist)->content.dynamic.len - 1) // minus rootvar
 
-#define FRM_CELL(f) \
-    cast(REBVAL*, &(f)->cell)
+#define FRM_SPARE(f) \
+    cast(REBVAL*, &(f)->spare)
 
 #define FRM_PRIOR(f) \
     ((f)->prior + 0) // prevent assignment via this macro
@@ -312,7 +313,7 @@ inline static int FRM_LINE(REBFRM *f) {
 #define D_OUT       FRM_OUT(frame_)         // GC-safe slot for output value
 #define D_ARGC      FRM_NUM_ARGS(frame_)    // count of args+refinements/args
 #define D_ARG(n)    FRM_ARG(frame_, (n))    // pass 1 for first arg
-#define D_CELL      FRM_CELL(frame_)        // scratch GC-safe cell
+#define D_SPARE     FRM_SPARE(frame_)       // scratch GC-safe cell
 
 #define RETURN(v) \
     return Move_Value(D_OUT, (v));
@@ -354,12 +355,6 @@ inline static const char* Frame_Label_Or_Anonymous_UTF8(REBFRM *f) {
         return STR_HEAD(f->opt_label);
     return "[anonymous]";
 }
-
-inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
-    assert(not f->gotten); // is fetched f->value, we'd be invalidating it!
-    f->value = value;
-}
-
 
 
 //=////////////////////////////////////////////////////////////////////////=//

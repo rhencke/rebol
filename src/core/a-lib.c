@@ -584,10 +584,10 @@ const void *RL_rebUNEVALUATIVE(const void *p, va_list *vaptr)
 
     // Feed through all the values to the stack
     //
-    const RELVAL *value = Detect_Feed_Pointer_Maybe_Fetch(nullptr, feed, p);
-    while (NOT_END(value)) {
-        Move_Value(DS_PUSH(), KNOWN(value));
-        value = Fetch_Next_In_Feed(nullptr, feed);
+    Detect_Feed_Pointer_Maybe_Fetch(feed, p, false);
+    while (NOT_END(feed->value)) {
+        Move_Value(DS_PUSH(), KNOWN(feed->value));
+        Fetch_Next_In_Feed(feed, false);
     }
 
     if (dsp_orig == DSP)
@@ -1540,7 +1540,6 @@ intptr_t RL_rebPromise(const void *p, va_list *vaptr)
 
     f->out = m_cast(REBVAL*, END_NODE);
     f->specifier = SPECIFIED; // relative values not allowed in va_lists
-    f->gotten = nullptr;
 
     const bool truncated = false;
     Reify_Va_To_Array_In_Frame(f, truncated);

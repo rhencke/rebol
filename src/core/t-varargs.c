@@ -201,7 +201,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
             }
 
             if (
-                IS_END(f_temp->value)
+                IS_END(f_temp->feed->value)
                 or GET_FEED_FLAG(f_temp->feed, BARRIER_HIT)
             ){
                 SET_END(shared);
@@ -267,8 +267,8 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
             op,
             GET_FEED_FLAG(f->feed, BARRIER_HIT)
                 ? END_NODE
-                : f->value, // might be END
-            f->specifier,
+                : f->feed->value, // might be END
+            f->feed->specifier,
             pclass
         )){
             goto type_check_and_return;
@@ -283,14 +283,12 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
             DECLARE_SUBFRAME (child, f);
             if (Eval_Step_In_Subframe_Throws(
                 SET_END(out),
-                f,
                 EVAL_MASK_DEFAULT
                     | EVAL_FLAG_FULFILLING_ARG,
                 child
             )){
                 return true;
             }
-            f->gotten = nullptr; // cache must be forgotten...
             break; }
 
         case REB_P_HARD_QUOTE:
@@ -298,11 +296,11 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
             break;
 
         case REB_P_SOFT_QUOTE:
-            if (IS_QUOTABLY_SOFT(f->value)) {
+            if (IS_QUOTABLY_SOFT(f->feed->value)) {
                 if (Eval_Value_Core_Throws(
                     SET_END(out),
-                    f->value,
-                    f->specifier
+                    f->feed->value,
+                    f->feed->specifier
                 )){
                     return true;
                 }
@@ -627,12 +625,15 @@ void MF_Varargs(REB_MOLD *mo, const REBCEL *v, bool form) {
         if (f == NULL) {
             Append_Unencoded(mo->series, "!!!");
         }
-        else if (IS_END(f->value) or GET_FEED_FLAG(f->feed, BARRIER_HIT)) {
+        else if (
+            IS_END(f->feed->value)
+            or GET_FEED_FLAG(f->feed, BARRIER_HIT)
+        ){
             Append_Unencoded(mo->series, "[]");
         }
         else if (pclass == REB_P_HARD_QUOTE) {
             Append_Unencoded(mo->series, "[");
-            Mold_Value(mo, f->value); // one value can be shown if hard quoted
+            Mold_Value(mo, f->feed->value); // one value shown if hard quoted
             Append_Unencoded(mo->series, " ...]");
         }
         else

@@ -1522,7 +1522,7 @@ REB_R Returner_Dispatcher(REBFRM *f)
 //
 REB_R Elider_Dispatcher(REBFRM *f)
 {
-    REBVAL * const discarded = FRM_CELL(f); // cell available during dispatch
+    REBVAL * const discarded = FRM_SPARE(f);  // cell available during dispatch
 
     if (Interpreted_Dispatch_Throws(discarded, f)) {
         //
@@ -1620,7 +1620,7 @@ REB_R Adapter_Dispatcher(REBFRM *f)
     // does throw--including a RETURN--that means the adapted function will
     // not be run.
 
-    REBVAL * const discarded = FRM_CELL(f);
+    REBVAL * const discarded = FRM_SPARE(f);
 
     bool mutability = NOT_CELL_FLAG(prelude, CONST);
     if (Do_At_Mutability_Throws(
@@ -1682,8 +1682,6 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     PAYLOAD(Context, rootvar).phase = VAL_ACTION(inner);
     INIT_BINDING_MAY_MANAGE(rootvar, VAL_BINDING(inner));
 
-    Move_Value(FRM_CELL(f), rootvar); // user may DO this, or not...
-
     // We don't actually know how long the frame we give back is going to
     // live, or who it might be given to.  And it may contain things like
     // bindings in a RETURN or a VARARGS! which are to the old varlist, which
@@ -1698,7 +1696,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     SET_SERIES_FLAG(f->varlist, MANAGED);
 
     const bool fully = true;
-    if (Run_Throws(f->out, fully, rebEVAL, outer, FRM_CELL(f), rebEND))
+    if (Run_Throws(f->out, fully, rebEVAL, outer, rootvar, rebEND))
         return R_THROWN;
 
     return f->out;

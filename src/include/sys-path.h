@@ -90,7 +90,7 @@
     (PVS_OPT_SETVAL(pvs) != nullptr)
 
 #define PVS_PICKER(pvs) \
-    FRM_CELL(pvs)
+    FRM_SPARE(pvs)
 
 inline static bool Get_Path_Throws_Core(
     REBVAL *out,

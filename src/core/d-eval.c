@@ -54,29 +54,32 @@
 //
 //  Dump_Frame_Location: C
 //
-void Dump_Frame_Location(const RELVAL *current, REBFRM *f)
+void Dump_Frame_Location(const RELVAL *v, REBFRM *f)
 {
+    SHORTHAND (const RELVAL*, next, f->feed->value);
+    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+
     DECLARE_LOCAL (dump);
 
-    if (current) {
-        Derelativize(dump, current, f->specifier);
+    if (v) {
+        Derelativize(dump, v, *specifier);
         printf("Dump_Frame_Location() current\n");
         PROBE(dump);
     }
 
-    if (IS_END(f->value)) {
+    if (IS_END(*next)) {
         printf("...then Dump_Frame_Location() is at end of array\n");
-        if (not current and not f->value) { // well, that wasn't informative
+        if (not v and not *next) { // well, that wasn't informative
             if (not f->prior)
                 printf("...and no parent frame, so you're out of luck\n");
             else {
                 printf("...dumping parent in case that's more useful?\n");
-                Dump_Frame_Location(NULL, f->prior);
+                Dump_Frame_Location(nullptr, f->prior);
             }
         }
     }
     else {
-        Derelativize(dump, f->value, f->specifier);
+        Derelativize(dump, *next, *specifier);
         printf("Dump_Frame_Location() next\n");
         PROBE(dump);
 
@@ -98,7 +101,7 @@ void Dump_Frame_Location(const RELVAL *current, REBFRM *f)
             REB_BLOCK,
             SER(f->feed->array),
             cast(REBCNT, f->feed->index),
-            f->specifier
+            *specifier
         );
         PROBE(dump);
     }
@@ -120,20 +123,33 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
     // on the data stack or mold stack/etc.  See Drop_Frame() for the actual
     // balance check.
 
+    SHORTHAND (const RELVAL*, next, f->feed->value);
+    SHORTHAND (const REBVAL*, next_gotten, f->feed->gotten);
+    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+    SHORTHAND (REBCNT, index, f->feed->index);
+
+    // See notes on f->feed->gotten about the coherence issues in the face
+    // of arbitrary function execution.
+    //
+    if (*next_gotten) {
+        assert(IS_WORD(*next));
+        assert(Try_Get_Opt_Var(*next, *specifier) == *next_gotten);
+    }
+
     assert(f == FS_TOP);
     assert(DSP == f->dsp_orig);
 
     if (f->feed->array) {
         assert(not IS_POINTER_TRASH_DEBUG(f->feed->array));
         assert(
-            f->feed->index != TRASHED_INDEX
-            and f->feed->index != END_FLAG_PRIVATE // ...special case use!
-            and f->feed->index != THROWN_FLAG_PRIVATE // ...don't use these
-            and f->feed->index != VA_LIST_FLAG_PRIVATE // ...usually...
+            *index != TRASHED_INDEX
+            and *index != END_FLAG_PRIVATE // ...special case use!
+            and *index != THROWN_FLAG_PRIVATE // ...don't use these
+            and *index != VA_LIST_FLAG_PRIVATE // ...usually...
         ); // END, THROWN, VA_LIST only used by wrappers
     }
     else
-        assert(f->feed->index == TRASHED_INDEX);
+        assert(*index == TRASHED_INDEX);
 
     // If this fires, it means that Flip_Series_To_White was not called an
     // equal number of times after Flip_Series_To_Black, which means that
@@ -154,7 +170,7 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
 
     //=//// ^-- ABOVE CHECKS *ALWAYS* APPLY ///////////////////////////////=//
 
-    if (IS_END(f->value))
+    if (IS_END(*next))
         return;
 
     if (NOT_END(f->out) and Is_Evaluator_Throwing_Debug())
@@ -162,8 +178,8 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
 
     //=//// v-- BELOW CHECKS ONLY APPLY IN EXITS CASE WITH MORE CODE //////=//
 
-    assert(NOT_END(f->value));
-    assert(f->value != f->out);
+    assert(NOT_END(*next));
+    assert(*next != f->out);
 
     //=//// ^-- ADD CHECKS EARLIER THAN HERE IF THEY SHOULD ALWAYS RUN ////=//
 }
@@ -178,28 +194,11 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
 // making the code shareable allows code paths that jump to later spots
 // in the switch (vs. starting at the top) to reuse the work.
 //
-void Eval_Core_Expression_Checks_Debug(REBFRM *f) {
-
+void Eval_Core_Expression_Checks_Debug(REBFRM *f)
+{
     assert(f == FS_TOP); // should be topmost frame, still
 
     Eval_Core_Shared_Checks_Debug(f);
-
-    // The previous frame doesn't know *what* code is going to be running,
-    // and it can shake up data pointers arbitrarily.  Any cache of a fetched
-    // word must be dropped if it calls a sub-evaluator (signified by END).
-    // Exception is subframes, which proxy the gotten into the child and
-    // then copy the updated gotten back...signify this interim state in
-    // the debug build with trash pointer.
-    //
-    assert(
-        IS_POINTER_TRASH_DEBUG(f->prior->gotten)
-        or not f->prior->gotten
-    );
-
-    if (f->gotten) {
-        assert(IS_WORD(f->value));
-        assert(Try_Get_Opt_Var(f->value, f->specifier) == f->gotten);
-    }
 
     assert(not Is_Evaluator_Throwing_Debug()); // no evals between throws
 
@@ -300,12 +299,9 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
 void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
     Eval_Core_Shared_Checks_Debug(f);
 
-    if (f->gotten) {
-        assert(IS_WORD(f->value));
-        assert(Try_Get_Opt_Var(f->value, f->specifier) == f->gotten);
-    }
+    SHORTHAND (const RELVAL*, next, f->feed->value);
 
-    if (NOT_END(f->value) and not FRM_IS_VALIST(f)) {
+    if (NOT_END(*next) and not FRM_IS_VALIST(f)) {
         if (f->feed->index > ARR_LEN(f->feed->array)) {
             assert(
                 (f->feed->pending and IS_END(f->feed->pending))
@@ -316,7 +312,7 @@ void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
     }
 
     if (GET_EVAL_FLAG(f, TO_END))
-        assert(Is_Evaluator_Throwing_Debug() or IS_END(f->value));
+        assert(Is_Evaluator_Throwing_Debug() or IS_END(*next));
 
     // We'd like `do [1 + comment "foo"]` to act identically to `do [1 +]`
     // (as opposed to `do [1 + ()]`).  Eval_Core_Throws() thus distinguishes
