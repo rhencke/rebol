@@ -128,6 +128,11 @@ inline static bool IS_BAR(const RELVAL *v)
 
 // See the notes on `flags` in the main parse loop for how these work.
 //
+// !!! Review if all the parse state flags can be merged into the frame
+// flags...there may be few enough of them that they can, as they do not
+// compete with EVAL_FLAG_XXX for the most part.  Some may also become
+// not necessary with new methods of implementation.
+//
 enum parse_flags {
     PF_SET = 1 << 0,
     PF_COPY = 1 << 1,
@@ -138,7 +143,8 @@ enum parse_flags {
     PF_REMOVE = 1 << 6,
     PF_INSERT = 1 << 7,
     PF_CHANGE = 1 << 8,
-    PF_WHILE = 1 << 9
+    PF_WHILE = 1 << 9,
+    PF_ONE_RULE = 1 << 10  // parallels !EVAL_FLAG_TO_END
 };
 
 
@@ -175,12 +181,10 @@ static bool Subparse_Throws(
     REBVAL *out,
     RELVAL *input,
     REBSPC *input_specifier,
-    const RELVAL *rules,
-    REBSPC *rules_specifier,
+    struct Reb_Feed *rules_feed,
     REBARR *opt_collection,
     REBFLGS flags
 ){
-    assert(IS_BLOCK(rules));
     assert(ANY_SERIES_OR_PATH_KIND(CELL_KIND(VAL_UNESCAPED(input))));
 
     // Since SUBPARSE is a native that the user can call directly, and it
@@ -193,26 +197,13 @@ static bool Subparse_Throws(
     // just return.  This is because no matter what, empty rules means a match
     // with no items advanced.
     //
-    if (VAL_INDEX(rules) >= VAL_LEN_HEAD(rules)) {
+    if (IS_END(rules_feed->value)) {  // !!! Should caller check instead?
         *interrupted_out = false;
         Init_Integer(out, VAL_INDEX(VAL_UNESCAPED(input)));
         return false;
     }
 
-    DECLARE_ARRAY_FEED (feed,
-        VAL_ARRAY(rules),
-        VAL_INDEX(rules),
-        Derive_Specifier(rules_specifier, rules)
-    );
-
-    assert(NOT_END(feed->value)); // not an END due to test above
-
-    // !!! Review if all the parse state flags can be merged into the frame
-    // flags...there may be few enough of them that they can, as they do not
-    // compete with EVAL_FLAG_XXX for the most part.  Some may also become
-    // not necessary with new methods of implementation.
-    //
-    DECLARE_FRAME(f, feed, EVAL_MASK_DEFAULT);
+    DECLARE_FRAME(f, rules_feed, EVAL_MASK_DEFAULT);
 
     Push_Frame(out, f);  // checks for C stack overflow
     Push_Action(f, NAT_ACTION(subparse), UNBOUND);
@@ -571,6 +562,12 @@ static REBIXO Parse_One_Rule(
         REBCNT pos_before = P_POS;
         P_POS = pos; // modify input position
 
+        DECLARE_ARRAY_FEED(subfeed,
+            VAL_ARRAY(rule),
+            VAL_INDEX(rule),
+            P_RULE_SPECIFIER
+        );
+
         DECLARE_LOCAL (subresult);
         bool interrupted;
         if (Subparse_Throws(
@@ -578,10 +575,9 @@ static REBIXO Parse_One_Rule(
             SET_END(subresult),
             P_INPUT_VALUE, // affected by P_POS assignment above
             SPECIFIED,
-            rule,
-            P_RULE_SPECIFIER,
+            subfeed,
             P_COLLECTION,
-            P_FIND_FLAGS
+            P_FIND_FLAGS & ~PF_ONE_RULE
         )){
             Move_Value(P_OUT, subresult);
             return THROWN_FLAG;
@@ -1572,11 +1568,9 @@ REBNATIVE(subparse)
                   case SYM_COLLECT: {
                     FETCH_NEXT_RULE(f);
                     if (not (IS_WORD(P_RULE) or IS_SET_WORD(P_RULE)))
-                        fail (Error_Parse_Command(f));
+                        fail (Error_Parse_Variable(f));
 
                     FETCH_NEXT_RULE_KEEP_LAST(&set_or_copy_word, f);
-                    if (not IS_BLOCK(P_RULE))
-                        fail (Error_Parse_Variable(f));
 
                     REBARR *collection = Make_Arr_Core(
                         10,  // !!! how big?
@@ -1591,10 +1585,9 @@ REBNATIVE(subparse)
                         P_OUT,
                         P_INPUT_VALUE, // affected by P_POS assignment above
                         SPECIFIED,
-                        P_RULE,
-                        P_RULE_SPECIFIER,
+                        f->feed,
                         collection,
-                        P_FIND_FLAGS
+                        P_FIND_FLAGS | PF_ONE_RULE
                     );
 
                     DROP_GC_GUARD(collection);
@@ -1617,8 +1610,6 @@ REBNATIVE(subparse)
                         ),
                         collection
                     );
-
-                    FETCH_NEXT_RULE(f);
                     continue; }
 
                   case SYM_KEEP: {
@@ -1685,24 +1676,35 @@ REBNATIVE(subparse)
 
                         // Don't touch P_POS, we didn't consume anything from
                         // the input series.
-                    }
-                    else {
-                        // !!! R3-Alpha parse had a weird way of doing things
-                        // like `set x some integer!` which doesn't generalize
-                        // easily.  The "Parse_One_Rule" will allow us to do
-                        // `keep integer!` but not `keep some integer!`...you
-                        // have to do `keep [some integer!]`.  This should be
-                        // reviewed as part of a general PARSE overhaul--it's
-                        // much clearer and better checked than in R3-Alpha.
 
-                        REBIXO ixo = Parse_One_Rule(f, P_POS, rule);
-                        if (ixo == THROWN_FLAG)
+                        FETCH_NEXT_RULE(f);
+                    }
+                    else {  // Ordinary rule (may be block, may not be)
+
+                        bool interrupted;
+                        assert(IS_END(P_OUT));  // invariant until finished
+                        bool threw = Subparse_Throws(
+                            &interrupted,
+                            P_OUT,
+                            P_INPUT_VALUE,
+                            SPECIFIED,
+                            f->feed,
+                            P_COLLECTION,
+                            P_FIND_FLAGS | PF_ONE_RULE
+                        );
+
+                        UNUSED(interrupted);  // !!! ignore ACCEPT/REJECT (?)
+
+                        if (threw)
                             return R_THROWN;
 
-                        if (ixo == END_FLAG)  // match of rule failed
+                        if (IS_NULLED(P_OUT)) {  // match of rule failed
+                            SET_END(P_OUT);  // restore invariant
                             goto next_alternate;  // backtrack collect, seek |
+                        }
+                        P_POS = VAL_INT32(P_OUT);
+                        SET_END(P_OUT);  // restore invariant
 
-                        P_POS = cast(REBCNT, ixo);
                         assert(P_POS >= pos_before);  // 0 or more matches
 
                         REBARR *target;
@@ -1741,8 +1743,6 @@ REBNATIVE(subparse)
                                 );
                         }
                     }
-
-                    FETCH_NEXT_RULE(f);
                     continue; }
 
                   case SYM_NOT:
@@ -2164,14 +2164,19 @@ REBNATIVE(subparse)
                         break;
                     }
 
+                    DECLARE_ARRAY_FEED (subrules_feed,
+                        VAL_ARRAY(subrule),
+                        VAL_INDEX(subrule),
+                        P_RULE_SPECIFIER
+                    );
+
                     bool interrupted;
                     if (Subparse_Throws(
                         &interrupted,
                         SET_END(P_CELL),
                         into,
                         P_INPUT_SPECIFIER, // val was taken from P_INPUT
-                        subrule,
-                        P_RULE_SPECIFIER,
+                        subrules_feed,
                         P_COLLECTION,
                         P_FIND_FLAGS
                     )) {
@@ -2217,17 +2222,23 @@ REBNATIVE(subparse)
                     fail (Error_Parse_Rule());
                 }
             }
-            else if (IS_BLOCK(rule)) {
+            else if (IS_BLOCK(rule)) {  // word fetched block, or inline block
+
+                DECLARE_ARRAY_FEED (subrules_feed,
+                    VAL_ARRAY(rule),
+                    VAL_INDEX(rule),
+                    P_RULE_SPECIFIER
+                );
+
                 bool interrupted;
                 if (Subparse_Throws(
                     &interrupted,
                     SET_END(P_CELL),
                     P_INPUT_VALUE,
                     SPECIFIED,
-                    rule,
-                    P_RULE_SPECIFIER,
+                    subrules_feed,
                     P_COLLECTION,
-                    P_FIND_FLAGS
+                    P_FIND_FLAGS & ~(PF_ONE_RULE)
                 )) {
                     Move_Value(P_OUT, P_CELL);
                     return R_THROWN;
@@ -2551,6 +2562,16 @@ REBNATIVE(subparse)
 
           next_alternate:;
 
+            // If this is just one step, e.g.:
+            //
+            //     collect x keep some "a" | keep some "b"
+            //
+            // COLLECT asked for one step, and the first keep asked for one
+            // step.  So that second KEEP applies only to some outer collect.
+            //
+            if (P_FIND_FLAGS & PF_ONE_RULE)
+                return Init_Nulled(D_OUT);
+
             if (P_COLLECTION)
                 TERM_ARRAY_LEN(P_COLLECTION, collection_tail);
 
@@ -2563,6 +2584,9 @@ REBNATIVE(subparse)
             FETCH_NEXT_RULE(f);
             P_POS = begin = start;
         }
+
+        if (P_FIND_FLAGS & PF_ONE_RULE)  // don't loop
+            break;
 
         begin = P_POS;
         mincount = maxcount = 1;
@@ -2590,16 +2614,18 @@ REBNATIVE(parse)
 {
     INCLUDE_PARAMS_OF_PARSE;
 
-    REBVAL *rules = ARG(rules);
+    DECLARE_ARRAY_FEED (rules_feed,
+        VAL_ARRAY(ARG(rules)),
+        VAL_INDEX(ARG(rules)),
+        VAL_SPECIFIER(ARG(rules))
+    );
 
     bool interrupted;
     if (Subparse_Throws(
         &interrupted,
         SET_END(D_OUT),
-        ARG(input),
-        SPECIFIED, // input is a non-relative REBVAL
-        rules,
-        SPECIFIED, // rules is a non-relative REBVAL
+        ARG(input), SPECIFIED,
+        rules_feed,
         nullptr,  // start out with no COLLECT in effect, so no P_COLLECTION
         REF(case) or IS_BINARY(ARG(input)) ? AM_FIND_CASE : 0
         //

@@ -238,13 +238,11 @@
     i == 2
 )
 
-; Use experimental MATCH2 to get input on success, see #2165
-(
-    "abc" = match parse "abc" ["a" "b" "c" end]
-)
-(
-    null? match parse "abc" ["a" "b" "d" end]
-)
+; Use experimental MATCH to get input on success, see #2165
+; !!! This is a speculative feature, and is not confirmed for Beta/One
+
+("abc" = match parse "abc" ["a" "b" "c" end])
+(null? match parse "abc" ["a" "b" "d" end])
 
 
 ; GET-GROUP!
@@ -287,20 +285,14 @@
 ; QUOTED! BEHAVIOR
 ; Support for the new literal types
 
-(
-    [[a b]] == parse [... [a b]] [to '[a b]]
-)(
-    did parse [... [a b]] [thru '[a b] end]
-)(
-    did parse [1 1 1] [some '1 end]
-)
+([[a b]] == parse [... [a b]] [to '[a b]])
+(did parse [... [a b]] [thru '[a b] end])
+(did parse [1 1 1] [some '1 end])
 
-(
-    did all [
-       lit ''[] == parse lit ''[1 + 2] [copy x to end]
-       x == lit ''[1 + 2]
-    ]
-)
+(did all [
+    lit ''[] == parse lit ''[1 + 2] [copy x to end]
+    x == lit ''[1 + 2]
+])
 
 
 ; COLLECT and KEEP keywords
@@ -312,30 +304,30 @@
 ; In Ren-C, backtracking is implemented, and also it is used to set variables
 ; (like a SET or COPY) instead of affecting the return result.
 
-(all [
+(did all [
     parse [1 2 3] [collect x [keep [some integer!]]]
     x = [1 2 3]
 ])
-(all [
+(did all [
     parse [1 2 3] [collect x [some [keep integer!]]]
     x = [1 2 3]
 ])
-(all [
+(did all [
     parse [1 2 3] [collect x [keep only [some integer!]]]
     x = [[1 2 3]]
 ])
-(all [
+(did all [
     parse [1 2 3] [collect x [some [keep only integer!]]]
     x = [[1] [2] [3]]
 ])
 
 ; Collecting non-array series fragments
 
-(all [
+(did all [
     "bbb" = parse "aaabbb" [collect x [keep [some "a"]]]
     x = ["aaa"]
 ])
-(all [
+(did all [
     "" = parse "aaabbbccc" [
         collect x [keep [some "a"] some "b" keep [some "c"]]
     ]
@@ -344,7 +336,7 @@
 
 ; Backtracking (more tests needed!)
 
-(all [
+(did all [
     [] = parse [1 2 3] [
         collect x [
             keep integer! keep integer! keep text!
@@ -358,37 +350,33 @@
 ; No change to variable on failed match (consistent with Rebol2/R3-Alpha/Red
 ; behaviors w.r.t SET and COPY)
 
-(
+(did all [
     x: <before>
-    all [
-        null = parse [1 2] [collect x [keep integer! keep text!]]
-        x = <before>
-    ]
-)
+    null = parse [1 2] [collect x [keep integer! keep text!]]
+    x = <before>
+])
 
 ; Nested collect
 
-(
-    all [
-        did parse [1 2 3 4] [
-            collect a [
-                keep integer!
-                collect b [keep [2 integer!]]
-                keep integer!
-            ]
-            end
+(did all [
+    did parse [1 2 3 4] [
+        collect a [
+            keep integer!
+            collect b [keep [2 integer!]]
+            keep integer!
         ]
-
-        a = [1 4]
-        b = [2 3]
+        end
     ]
-)
+
+    a = [1 4]
+    b = [2 3]
+])
 
 ; GET-BLOCK! can be used to keep material that did not originate from the
 ; input series or a match rule.  It does a REDUCE to more closely parallel
 ; the behavior of a GET-BLOCK! in the ordinary evaluator.
 ;
-(all [
+(did all [
     [3] = parse [1 2 3] [
         collect x [
             keep integer!
@@ -398,7 +386,7 @@
     ]
     x = [1 a <b> #c 2]
 ])
-(all [
+(did all [
     [3] = parse [1 2 3] [
         collect x [
             keep integer!
@@ -408,7 +396,31 @@
     ]
     x = [1 [a <b> #c] 2]
 ])
-(all [
+(did all [
     parse [1 2 3] [collect x [keep only :[[a b c]]]]
     x = [[[a b c]]]
+])
+
+
+; KEEP without blocks
+; https://github.com/metaeducation/ren-c/issues/935
+
+(did all [
+    did parse "aaabbb" [collect x [keep some "a" keep some "b"] end]
+    x = ["aaa" "bbb"]
+])
+
+(did all [
+    parse "aaabbb" [collect x [keep to "b"] to end]
+    x = ["aaa"]
+])
+
+(did all [
+    parse "aaabbb" [
+        collect outer [
+            some [collect inner keep some "a" | keep some "b"]
+        ]
+    ]
+    outer = ["bbb"]
+    inner = ["aaa"]
 ])
