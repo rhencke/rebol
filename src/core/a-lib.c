@@ -1504,11 +1504,7 @@ intptr_t RL_rebPromise(const void *p, va_list *vaptr)
 
     DECLARE_VA_FEED (feed, p, vaptr, FEED_MASK_DEFAULT);
 
-    const REBFLGS flags = EVAL_FLAG_TO_END | EVAL_FLAG_EXPLICIT_EVALUATE;
-
-    DECLARE_FRAME_CORE (f, feed);
-    f->flags = Endlike_Header(flags); // read by Set_Frame_Detected_Fetch
-    f->out = m_cast(REBVAL*, END_NODE);
+    DECLARE_FRAME (f, feed, EVAL_MASK_DEFAULT | EVAL_FLAG_TO_END);
 
     const bool truncated = false;
     Reify_Va_To_Array_In_Frame(f, truncated);
@@ -1573,7 +1569,6 @@ void RL_rebPromise_callback(intptr_t promise_id)
         SPECIFIED,
         EVAL_MASK_DEFAULT
             | EVAL_FLAG_TO_END
-            | EVAL_FLAG_EXPLICIT_EVALUATE // was reified w/explicit
     )){
         fail (Error_No_Catch_For_Throw(result)); // no need to release result
     }

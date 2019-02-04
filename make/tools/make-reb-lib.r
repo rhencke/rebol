@@ -408,11 +408,16 @@ e-lib/emit {
     #endif
 
     /*
+     * SHORTHAND MACROS
+     *
      * These shorthand macros make the API somewhat more readable, but as
      * they are macros you can redefine them to other definitions if you want.
      *
-     * !!! Here macro tricks are being used that work for C but won't work for
-     * JavaScript.  
+     * THESE DON'T WORK IN JAVASCRIPT, so when updating them be sure to update
+     * the JavaScript versions, which have to make ordinary stub functions.
+     * (The C portion of the Emscripten build can use these internally, as
+     * the implementation is C.  But when calling the lib from JS, it is
+     * obviously not reading this generated header file!)
      */
 
     #define rebR(v) \
@@ -432,7 +437,6 @@ e-lib/emit {
 
     #define rebL(flag) \
         rebEVAL, rebR(rebLogic(flag))
-
 
     /*
      * Function entry points for reb-lib.  Formulating this way allows the
@@ -798,21 +802,44 @@ map-each-api [
     ]
 ]
 e-cwrap/emit {
+    rebR = rebRELEASING
+
+    rebEVAL = rebEVAL_internal
+
+    rebU = rebUNEVALUATIVE
+
+    /* !!! rebT()/rebI()/rebL() could be optimized entry points, but make them
+     * compositions for now, to ensure that it's possible for the user to
+     * do the same tricks without resorting to editing libRebol's C code.
+     */
+
+    rebT = function(utf8) {
+        return rebU(rebR(rebText(utf8)))  /* might rebTEXT() delayed-load? */
+    }
+
+    rebI = function(int64) {
+        return rebU(rebR(rebInteger(int64)))
+    }
+
+    rebL = function(flag) {
+        return rebU(rebR(rebLogic(flag)))
+    }
+
     rebStartup = function() {
         _RL_rebStartup()
 
         /* rebEND is a 2-byte sequence that must live at some address */
         rebEND = _malloc(2)
-        setValue(rebEND, -127, 'i8') // 0x80
-        setValue(rebEND + 1, 0, 'i8') // 0x00
+        setValue(rebEND, -127, 'i8')  /* 0x80 */
+        setValue(rebEND + 1, 0, 'i8')  /* 0x00 */
     }
 
     /*
      * JS-NATIVE has a spec which is a Rebol block (like FUNC) but a body that
      * is a TEXT! of JavaScript code.  For efficiency, that text is made into
      * a function one time (as opposed to EVAL'd each time).  The function is
-     * saved in this map, where the key is a stringification of the heap
-     * pointer that identifies the ACTION!.
+     * saved in this map, where the key is the heap pointer that identifies
+     * the ACTION! (turned into an integer)
      */
 
     var RL_JS_NATIVES = {};
@@ -833,9 +860,9 @@ e-cwrap/emit {
         if (!(id in RL_JS_NATIVES))
             throw Error("Can't dispatch " + id + " in JS_NATIVES table")
         var result = RL_JS_NATIVES[id]()
-        if (result === undefined) // no return, `return;`, `return undefined;`
-            return rebVoid() // treat equivalent to VOID! value return
-        else if (result === null) // explicit result, e.g. `return null;`
+        if (result === undefined)  /* `return;` or `return undefined;` */
+            return rebVoid()  /* treat equivalent to VOID! value return */
+        else if (result === null)  /* explicit result, e.g. `return null;` */
             return 0
         else if (Number.isInteger(result))
             return result // treat as REBVAL* heap address (should be wrapped)
@@ -849,10 +876,10 @@ e-cwrap/emit {
         var resolve = function(arg) {
             if (arguments.length > 1)
                 throw Error("JS-AWAITER's resolve() can only take 1 argument")
-            if (arg === undefined) // `resolve()`, `resolve(undefined)`
-                {} // allow it
-            else if (arg === null) // explicit result, e.g. `resolve(null)`
-                {} // allow it
+            if (arg === undefined)  /* `resolve()`, `resolve(undefined)` */
+                {}  /* allow it */
+            else if (arg === null)  /* explicitly, e.g. `resolve(null)` */
+                {}  /* allow it */
             else if (typeof arg !== "function")
                 throw Error("JS-AWAITER's resolve() only takes a function")
             RL_JS_NATIVES[atomic_addr] = arg

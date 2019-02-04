@@ -74,7 +74,7 @@ REB_R JavaScript_Native_Dispatcher(REBFRM *f)
         return RL_Dispatch($0);
     }, id);
 
-    return cast(const REBVAL*, r);
+    return VAL(cast(void*, r));
 }
 
 
@@ -86,7 +86,7 @@ REB_R JavaScript_Native_Dispatcher(REBFRM *f)
 // is done running...it has to wait for either the `resolve` or `reject`
 // parameter functions to get called.
 //
-const REBVAL *JavaScript_Awaiter_Dispatcher(REBFRM *f)
+REB_R JavaScript_Awaiter_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     UNUSED(details);

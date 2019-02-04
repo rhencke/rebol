@@ -137,7 +137,7 @@ REBNATIVE(load_extension)
     //
     REBARR *details;
 
-    if (IS_BLOCK(ARG(where))) { // It's one of rebBuiltinExtensions()
+    if (IS_BLOCK(ARG(where))) {  // It's one of the BUILTIN-EXTENSIONS
         Init_Blank(lib);
         Init_Blank(path);
         details = VAL_ARRAY(ARG(where)); // already "collated"

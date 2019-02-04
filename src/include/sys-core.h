@@ -207,7 +207,7 @@
 // so instead kick into an infinite loop which can be broken and stepped out
 // of in the debugger.
 //
-#if defined(INCLUDE_C_DEBUG_BREAK_NATIVE)
+#if defined(INCLUDE_C_DEBUG_BREAK_NATIVE) or defined(DEBUG_COUNT_TICKS)
     #if defined(TO_HAIKU) || defined(TO_EMSCRIPTEN)
         inline static int debug_break() {
             int x = 0;
