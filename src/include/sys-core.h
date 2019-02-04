@@ -83,6 +83,11 @@
 #endif
 #include "rebol.h"
 
+// assert() is enabled by default; disable with `#define NDEBUG`
+// http://stackoverflow.com/a/17241278
+//
+#include <assert.h>
+#include "assert-fixes.h"
 
 //=//// STANDARD DEPENDENCIES FOR CORE ////////////////////////////////////=//
 
@@ -93,12 +98,6 @@
 #include <setjmp.h>
 #include <math.h>
 #include <stddef.h> // for offsetof()
-
-// assert() is enabled by default; disable with `#define NDEBUG`
-// http://stackoverflow.com/a/17241278
-//
-#include <assert.h>
-#include "assert-fixes.h"
 
 
 //
@@ -606,10 +605,13 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "sys-context.h" // needs actions defined for FRAME! contexts
 
 #include "sys-word.h"
-#include "sys-frame.h" // needs words for frame-label-returning helpers
 
 #include "sys-stack.h"
 #include "sys-bind.h" // needs DS_PUSH() and DS_TOP from %sys-stack.h
+
+#include "sys-roots.h"
+
+#include "sys-frame.h"  // needs words for frame-label-returning helpers
 
 #include "sys-protect.h"
 
@@ -698,8 +700,6 @@ extern COMPARE_HOOK Compare_Hooks[REB_MAX];
 extern MAKE_HOOK Make_Hooks[REB_MAX];
 extern TO_HOOK To_Hooks[REB_MAX];
 extern MOLD_HOOK Mold_Or_Form_Hooks[REB_MAX];
-
-#include "sys-roots.h"
 
 #include "sys-eval.h" // low-level single-step evaluation API
 #include "sys-do.h" // higher-level evaluate-until-end API

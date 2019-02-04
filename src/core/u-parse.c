@@ -199,29 +199,22 @@ static bool Subparse_Throws(
         return false;
     }
 
-    DECLARE_FRAME (f);
+    DECLARE_ARRAY_FEED (feed,
+        VAL_ARRAY(rules),
+        VAL_INDEX(rules),
+        Derive_Specifier(rules_specifier, rules)
+    );
 
-    SET_END(out);
-    f->out = out;
+    assert(NOT_END(feed->value)); // not an END due to test above
 
-    f->feed->value = VAL_ARRAY_AT(rules); // not an END due to test above
-    f->feed->specifier = Derive_Specifier(rules_specifier, rules);
-
-    f->feed->vaptr = nullptr;
-    f->feed->array = VAL_ARRAY(rules);
-    f->feed->flags.bits = FEED_MASK_DEFAULT;
-    f->feed->index = VAL_INDEX(rules) + 1;
-    f->feed->pending = f->feed->value + 1;
-    assert(f->feed->gotten == nullptr);  // DECLARE_FRAME() sets
-
-    // !!! Review if all the parse state flags can be merged into this flag
-    // structure...there may be few enough of them that they can, as they
-    // do not compete with EVAL_FLAG_XXX for the most part.
+    // !!! Review if all the parse state flags can be merged into the frame
+    // flags...there may be few enough of them that they can, as they do not
+    // compete with EVAL_FLAG_XXX for the most part.  Some may also become
+    // not necessary with new methods of implementation.
     //
-    f->flags.bits = EVAL_MASK_DEFAULT; // terminates f->cell
+    DECLARE_FRAME(f, feed, EVAL_MASK_DEFAULT);
 
-    Push_Frame_Core(f); // checks for C stack overflow
-    Reuse_Varlist_If_Available(f);
+    Push_Frame(out, f);  // checks for C stack overflow
     Push_Action(f, NAT_ACTION(subparse), UNBOUND);
 
     Begin_Action(f, Canon(SYM_SUBPARSE));
@@ -582,7 +575,7 @@ static REBIXO Parse_One_Rule(
         bool interrupted;
         if (Subparse_Throws(
             &interrupted,
-            subresult,
+            SET_END(subresult),
             P_INPUT_VALUE, // affected by P_POS assignment above
             SPECIFIED,
             rule,
@@ -2174,7 +2167,7 @@ REBNATIVE(subparse)
                     bool interrupted;
                     if (Subparse_Throws(
                         &interrupted,
-                        P_CELL,
+                        SET_END(P_CELL),
                         into,
                         P_INPUT_SPECIFIER, // val was taken from P_INPUT
                         subrule,
@@ -2228,7 +2221,7 @@ REBNATIVE(subparse)
                 bool interrupted;
                 if (Subparse_Throws(
                     &interrupted,
-                    P_CELL,
+                    SET_END(P_CELL),
                     P_INPUT_VALUE,
                     SPECIFIED,
                     rule,
@@ -2602,7 +2595,7 @@ REBNATIVE(parse)
     bool interrupted;
     if (Subparse_Throws(
         &interrupted,
-        D_OUT,
+        SET_END(D_OUT),
         ARG(input),
         SPECIFIED, // input is a non-relative REBVAL
         rules,

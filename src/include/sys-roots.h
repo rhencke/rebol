@@ -72,6 +72,40 @@
     ARRAY_FLAG_24
 
 
+inline static bool Is_Action_Frame(REBFRM *f) {
+    if (f->original != nullptr) {
+        //
+        // Do not count as a function frame unless its gotten to the point
+        // of pushing arguments.
+        //
+        return true;
+    }
+    return false;
+}
+
+// While a function frame is fulfilling its arguments, the `f->param` will
+// be pointing to a typeset.  The invariant that is maintained is that
+// `f->param` will *not* be a typeset when the function is actually in the
+// process of running.  (So no need to set/clear/test another "mode".)
+//
+inline static bool Is_Action_Frame_Fulfilling(REBFRM *f)
+{
+    assert(Is_Action_Frame(f));
+    return NOT_END(f->param);
+}
+
+
+//
+//  Context_For_Frame_May_Manage: C
+//
+inline static REBCTX *Context_For_Frame_May_Manage(REBFRM *f)
+{
+    assert(not Is_Action_Frame_Fulfilling(f));
+    SET_SERIES_FLAG(f->varlist, MANAGED);
+    return CTX(f->varlist);
+}
+
+
 // What distinguishes an API value is that it has both the NODE_FLAG_CELL and
 // NODE_FLAG_ROOT bits set.
 //

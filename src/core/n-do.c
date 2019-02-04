@@ -60,16 +60,13 @@ REBNATIVE(eval)
     //
     UNUSED(ARG(expressions));
 
-    DECLARE_SUBFRAME (child, frame_);
-
-    // We need a way to slip the value through to the evaluator.  Can't run
-    // it from the frame's cell.
-    //
-    child->u.reval.value = ARG(value);
-
-    REBFLGS flags = EVAL_MASK_DEFAULT | EVAL_FLAG_REEVALUATE_CELL;
-
-    if (Eval_Step_In_Subframe_Throws(D_OUT, flags, child))
+    REBFLGS flags = EVAL_MASK_DEFAULT;
+    if (Reevaluate_In_Subframe_Throws(
+        SET_END(D_OUT),  // !!! What about invisibles?
+        frame_,
+        ARG(value),
+        flags
+    ))
         return R_THROWN;
 
     return D_OUT;
@@ -115,8 +112,8 @@ REBNATIVE(shove)
     if (not Is_Frame_Style_Varargs_May_Fail(&f, ARG(right)))
         fail ("SHOVE (<-) not implemented for MAKE VARARGS! [...] yet");
 
-    SHORTHAND (const RELVAL*, v, f->feed->value);
-    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+    SHORTHAND (v, f->feed->value, NEVERNULL(const RELVAL*));
+    SHORTHAND (specifier, f->feed->specifier, REBSPC*);
 
     REBVAL *left = ARG(left);
 
@@ -230,15 +227,10 @@ REBNATIVE(shove)
             SET_CELL_FLAG(D_OUT, UNEVALUATED);
     }
 
-    DECLARE_SUBFRAME (child, frame_);
+    REBFLGS flags = EVAL_MASK_DEFAULT | EVAL_FLAG_NEXT_ARG_FROM_OUT;
 
-    REBFLGS flags = EVAL_MASK_DEFAULT
-        | EVAL_FLAG_NEXT_ARG_FROM_OUT
-        | EVAL_FLAG_REEVALUATE_CELL;
-    child->u.reval.value = shovee; // EVAL_FLAG_REEVALUATE_CELL retriggers this
-
-    if (Eval_Step_In_Subframe_Throws(D_OUT, flags, child)) {
-        rebRelease(composed_set_path); // ok if nullptr
+    if (Reevaluate_In_Subframe_Throws(D_OUT, frame_, shovee, flags)) {
+        rebRelease(composed_set_path);  // ok if nullptr
         return R_THROWN;
     }
 
@@ -337,11 +329,10 @@ REBNATIVE(do)
         // the varargs came from.  It's still on the stack, and we don't want
         // to disrupt its state.  Use a subframe.
         //
-        DECLARE_SUBFRAME (child, f);
         REBFLGS flags = EVAL_MASK_DEFAULT;
         Init_Void(D_OUT);
         while (NOT_END(f->feed->value)) {
-            if (Eval_Step_In_Subframe_Throws(D_OUT, flags, child))
+            if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags))
                 return R_THROWN;
         }
 
@@ -416,19 +407,16 @@ REBNATIVE(do)
         // data is stolen from the copy.  This allows for efficient reuse of
         // the context's memory in the cases where a copy isn't needed.
 
-        DECLARE_END_FRAME (f);
-        f->out = D_OUT;
         bool mutability = GET_CELL_FLAG(source, EXPLICITLY_MUTABLE);
-        Push_Frame_At_End(
-            f,
-            (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-                | EVAL_FLAG_FULLY_SPECIALIZED
-                | EVAL_FLAG_PROCESS_ACTION
-                | (mutability ? 0 : (
-                    (FS_TOP->flags.bits & EVAL_FLAG_CONST)
-                    | (source->header.bits & EVAL_FLAG_CONST)
-                ))
-        );
+        REBFLGS flags = (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+            | EVAL_FLAG_FULLY_SPECIALIZED
+            | EVAL_FLAG_PROCESS_ACTION
+            | (mutability ? 0 : (
+                (FS_TOP->flags.bits & EVAL_FLAG_CONST)
+                | (source->header.bits & EVAL_FLAG_CONST)
+            ));
+
+        DECLARE_END_FRAME (f, flags);
 
         assert(CTX_KEYS_HEAD(c) == ACT_PARAMS_HEAD(phase));
         f->param = CTX_KEYS_HEAD(c);
@@ -441,10 +429,11 @@ REBNATIVE(do)
         assert(GET_SERIES_FLAG(c, MANAGED));
         assert(GET_SERIES_INFO(c, INACCESSIBLE));
 
+        Push_Frame_No_Varlist(D_OUT, f);
         f->varlist = CTX_VARLIST(stolen);
         f->rootvar = CTX_ARCHETYPE(stolen);
         f->arg = f->rootvar + 1;
-        //f->param set above
+        // f->param set above
         f->special = f->arg;
 
         assert(FRM_PHASE(f) == phase);
@@ -582,14 +571,13 @@ REBNATIVE(evaluate)
         // By definition, we are in the middle of a function call in the frame
         // the varargs came from.  It's still on the stack, and we don't want
         // to disrupt its state.  Use a subframe.
-        //
-        DECLARE_SUBFRAME (child, f);
+
         REBFLGS flags = EVAL_MASK_DEFAULT;
         if (IS_END(f->feed->value))
             return nullptr;
 
         DECLARE_LOCAL (temp);
-        if (Eval_Step_In_Subframe_Throws(SET_END(temp), flags, child))
+        if (Eval_Step_In_Subframe_Throws(SET_END(temp), f, flags))
             RETURN (temp);
 
         if (IS_END(temp))
@@ -744,8 +732,9 @@ REBNATIVE(apply)
 
     REBVAL *applicand = ARG(applicand);
 
-    DECLARE_END_FRAME (f); // captures f->dsp
-    f->out = D_OUT;
+    // Need to do this up front, because it captures f->dsp
+    //
+    DECLARE_END_FRAME (f, EVAL_MASK_DEFAULT | EVAL_FLAG_PROCESS_ACTION);
 
     // Argument can be a literal action (APPLY :APPEND) or a WORD!/PATH!.
     // If it is a path, we push the refinements to the stack so they can
@@ -832,8 +821,6 @@ REBNATIVE(apply)
         RETURN (temp);
     }
 
-    Push_Frame_At_End(f, EVAL_MASK_DEFAULT | EVAL_FLAG_PROCESS_ACTION);
-
     if (not REF(opt)) {
         //
         // If nulls are taken literally as null arguments, then no arguments
@@ -845,6 +832,7 @@ REBNATIVE(apply)
         DS_DROP_TO(lowest_ordered_dsp); // zero refinements on stack, now
     }
 
+    Push_Frame_No_Varlist(D_OUT, f);
     f->varlist = CTX_VARLIST(stolen);
     SET_SERIES_FLAG(f->varlist, STACK_LIFETIME);
     f->rootvar = CTX_ARCHETYPE(stolen);

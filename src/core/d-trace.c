@@ -128,8 +128,8 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
     if (depth < 0 || depth >= Trace_Level)
         return Eval_Core_Throws(f); // don't trace (REPL uses this to hide)
 
-    SHORTHAND (const RELVAL*, v, f->feed->value);
-    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+    SHORTHAND (v, f->feed->value, NEVERNULL(const RELVAL*));
+    SHORTHAND (specifier, f->feed->specifier, REBSPC*);
 
     if (depth > 10)
         depth = 10; // don't indent so far it goes off the screen

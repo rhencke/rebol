@@ -710,7 +710,8 @@ inline static REBVAL *Derelativize(
     else { // no potential override
         assert(
             (binding->header.bits & ARRAY_FLAG_IS_VARLIST)
-            or IS_VARARGS(v) // BLOCK! style varargs use binding to hold array
+            or REB_VARARGS == CELL_KIND(VAL_UNESCAPED(v))
+            // ^-- BLOCK! style varargs use binding to hold array
         );
         INIT_BINDING_MAY_MANAGE(out, binding);
     }

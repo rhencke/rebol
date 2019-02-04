@@ -570,21 +570,13 @@ REBVAL *RL_rebQuote(const void *p, va_list *vaptr)
 //
 const void *RL_rebUNEVALUATIVE(const void *p, va_list *vaptr)
 {
-    struct Reb_Feed feed_struct;
-    struct Reb_Feed *feed = &feed_struct;
-    Prep_Feed_Core(feed);
+    REBFLGS feed_flags = FEED_MASK_DEFAULT | FEED_FLAG_UNEVALUATIVE;
+    DECLARE_VA_FEED (feed, p, vaptr, feed_flags);
 
-    feed->index = TRASHED_INDEX; // avoids warning in release build
-    feed->array = nullptr;
-    feed->flags.bits = FEED_FLAG_UNEVALUATIVE;
-    feed->vaptr = vaptr;
-    feed->pending = END_NODE; // signal next fetch comes from va_list
+    // Feed through all the values to the stack, unevaluated
 
     REBDSP dsp_orig = DSP;
 
-    // Feed through all the values to the stack
-    //
-    Detect_Feed_Pointer_Maybe_Fetch(feed, p, false);
     while (NOT_END(feed->value)) {
         Move_Value(DS_PUSH(), KNOWN(feed->value));
         Fetch_Next_In_Feed(feed, false);
@@ -863,13 +855,11 @@ REBVAL *RL_rebRescue(
     // so it has to be an "action frame".  Improve mechanic later, but for
     // now pretend to be applying a dummy native.
     //
-    DECLARE_END_FRAME (f);
-    f->out = m_cast(REBVAL*, END_NODE); // should not be written
+    DECLARE_END_FRAME (f, EVAL_MASK_DEFAULT);  // not FULLY_SPECIALIZED
+    Push_Frame(nullptr, f);
 
     REBSTR *opt_label = NULL;
-    Push_Frame_At_End(f, EVAL_MASK_DEFAULT); // not FULLY_SPECIALIZED
 
-    Reuse_Varlist_If_Available(f); // needed to attach API handles to
     Push_Action(f, PG_Dummy_Action, UNBOUND);
     Begin_Action(f, opt_label);
     assert(IS_END(f->arg));
@@ -1512,34 +1502,13 @@ intptr_t RL_rebPromise(const void *p, va_list *vaptr)
     // the code the GC uses to reify va_lists in frames, which we presume does
     // all the ps and qs.  It's messy, but refactor if it turns out to work.
 
+    DECLARE_VA_FEED (feed, p, vaptr, FEED_MASK_DEFAULT);
+
     const REBFLGS flags = EVAL_FLAG_TO_END | EVAL_FLAG_EXPLICIT_EVALUATE;
 
-    // !!! The following code is derived from Eval_Va_Core()
-
-    DECLARE_FRAME (f);
+    DECLARE_FRAME_CORE (f, feed);
     f->flags = Endlike_Header(flags); // read by Set_Frame_Detected_Fetch
-
-    f->feed->index = TRASHED_INDEX; // avoids warning in release build
-    f->feed->array = nullptr;
-    f->feed->flags.bits = FEED_MASK_DEFAULT;
-    f->feed->vaptr = vaptr;
-    f->feed->pending = END_NODE; // signal next fetch comes from va_list
-
-  #if defined(DEBUG_UNREADABLE_BLANKS)
-    //
-    // We reuse logic in Fetch_Next_In_Frame() and Set_Frame_Detected_Fetch()
-    // but the previous f->value will be tested for NODE_FLAG_ROOT.
-    //
-    DECLARE_LOCAL (junk);
-    f->value = Init_Unreadable_Blank(junk); // shows where garbage came from
-  #else
-    f->value = BLANK_VALUE; // less informative but faster to initialize
-  #endif
-
-    Set_Frame_Detected_Fetch(nullptr, f, p);
-
     f->out = m_cast(REBVAL*, END_NODE);
-    f->specifier = SPECIFIED; // relative values not allowed in va_lists
 
     const bool truncated = false;
     Reify_Va_To_Array_In_Frame(f, truncated);

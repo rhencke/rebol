@@ -95,13 +95,14 @@ void Startup_Frame_Stack(void)
     TG_Frame_Feed_End.index = 0;
     TG_Frame_Feed_End.vaptr = nullptr;
     TG_Frame_Feed_End.array = EMPTY_ARRAY; // for HOLD flag in Push_Frame
+    TG_Frame_Feed_End.value = END_NODE;
+    TG_Frame_Feed_End.specifier = SPECIFIED;
     TRASH_POINTER_IF_DEBUG(TG_Frame_Feed_End.pending);
 
     REBFRM *f = ALLOC(REBFRM);  // can't use DECLARE_FRAME(), must be dynamic
-    Prep_Frame_Core(f, &TG_Frame_Feed_End);
+    Prep_Frame_Core(f, &TG_Frame_Feed_End, EVAL_MASK_DEFAULT);
 
-    f->out = m_cast(REBVAL*, END_NODE); // should not be written
-    Push_Frame_At_End(f, EVAL_MASK_DEFAULT);
+    Push_Frame(nullptr, f);
 
     // It's too early to be using Make_Paramlist_Managed_May_Fail()
     //
@@ -124,7 +125,6 @@ void Startup_Frame_Stack(void)
         1 // details array capacity (unused, but 0 is not legal)
     );
 
-    Reuse_Varlist_If_Available(f); // needed to attach API handles to
     Push_Action(f, PG_Dummy_Action, UNBOUND);
 
     REBSTR *opt_label = nullptr;

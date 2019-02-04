@@ -489,6 +489,40 @@
 #endif
 
 
+//=//// PREVENT NULL ASSIGNMENTS /////////////////////////////////////////=//
+//
+// This came in handly for a debugging scenario, and isn't bad documentation.
+//
+
+#if !defined(CPLUSPLUS_11) || defined(NDEBUG)
+    #define NEVERNULL(type) \
+        type
+#else
+    template <typename P>
+    class Never_Null {  // named so error message hints what's wrong
+        typedef typename std::remove_pointer<P>::type T;
+        P pointer;
+
+      public:
+        Never_Null () {}
+        Never_Null (P& pointer) : pointer (pointer) {
+            assert(pointer != nullptr);
+        }
+        T& operator*() { return *pointer; }
+        P operator->() { return pointer; }
+        operator P() { return pointer; }
+        P operator= (const P rhs) {  // if it returned reference, loses check
+            assert(rhs != nullptr);
+            this->pointer = rhs;
+            return pointer;
+        }
+    };
+
+    #define NEVERNULL(type) \
+        Never_Null<type>
+#endif
+
+
 //=//// MEMORY POISONING and POINTER TRASHING /////////////////////////////=//
 //
 // If one wishes to indicate a region of memory as being "off-limits", modern
@@ -566,6 +600,20 @@
                 p == reinterpret_cast<T*>(static_cast<uintptr_t>(0xDECAFBAD))
             );
         }
+
+      #if defined(CPLUSPLUS_11)
+        template<class P>
+        inline static void TRASH_POINTER_IF_DEBUG(Never_Null<P> &p) {
+            p = reinterpret_cast<P>(static_cast<uintptr_t>(0xDECAFBAD));
+        }
+
+        template<class P>
+        inline static bool IS_POINTER_TRASH_DEBUG(Never_Null<P> &p) {
+            return (
+                p == reinterpret_cast<P>(static_cast<uintptr_t>(0xDECAFBAD))
+            );
+        }
+      #endif
     #else
         #define TRASH_POINTER_IF_DEBUG(p) \
             ((p) = cast(void*, cast(uintptr_t, 0xDECAFBAD)))
@@ -852,6 +900,37 @@
 #undef MAX
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
+
+
+//=//// SHORTHAND FOR DEEPLY NESTED FIELDS ////////////////////////////////=//
+//
+// If a field is deeply nested in a structure and referred to many times in
+// C, it is possible to create a local pointer to that field and then use
+// a dereference to that pointer (which works for both assigning and reads).
+// Since it's a `const` pointer, the compiler should optimize it out.
+//
+// But there's a risk that one might say `if (shorthand)` and test for the
+// nullness or non-nullness of the shorthand vs. of the thing pointed to.
+// This adds a check in the C++ build that you always say `if (shorthand)`
+//
+
+#if !defined(CPLUSPLUS_11)
+    #define SHORTHAND(name,ref,type) \
+        type* const name = &ref
+#else
+    template <typename T>
+    class Must_Dereference {  // named so error message hints what's wrong
+        T &ref;
+
+      public:
+        Must_Dereference (T& ref) : ref (ref) {}
+        T & operator*() { return ref; }
+        operator bool () = delete;  // !!! Could this static_assert()?
+    };
+
+    #define SHORTHAND(name,ref,type) \
+        Must_Dereference<type> name = ref
+#endif
 
 
 //=//// BYTE STRINGS VS UNENCODED CHARACTER STRINGS ///////////////////////=//

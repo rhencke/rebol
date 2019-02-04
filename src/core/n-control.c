@@ -538,6 +538,23 @@ REBNATIVE(match)
 {
     INCLUDE_PARAMS_OF_MATCH;
 
+    // !!! The vararg's frame is not really a parent, but try to stay
+    // consistent with the naming in subframe code copy/pasted for now...
+    //
+    REBFRM *parent;
+    if (not Is_Frame_Style_Varargs_May_Fail(&parent, ARG(args)))
+        fail (
+            "Currently MATCH on a VARARGS! only works with a varargs"
+            " which is tied to an existing, running frame--not one that is"
+            " being simulated from a BLOCK! (e.g. MAKE VARARGS! [...])"
+        );
+
+    assert(Is_Action_Frame(parent));
+
+    // REBFRM whose built FRAME! context we will steal
+
+    DECLARE_FRAME (f, parent->feed, EVAL_MASK_DEFAULT);  // capture DSP *now*
+
     REBVAL *test = ARG(test);
 
     switch (KIND_BYTE(test)) {
@@ -547,13 +564,12 @@ REBNATIVE(match)
             goto either_match; // allow `MATCH ('NULL?) ...`
 
         REBSTR *opt_label = NULL;
-        REBDSP lowest_ordered_dsp = DSP;
         if (Get_If_Word_Or_Path_Throws(
             D_OUT,
             &opt_label,
             test,
             SPECIFIED,
-            true // push_refinements
+            true  // push_refinements, DECLARE_FRAME() captured original DSP
         )){
             return R_THROWN;
         }
@@ -577,19 +593,9 @@ REBNATIVE(match)
         // but actually captures its first argument.  That will be MATCH's
         // return value if the filter function returns a truthy result.
 
-        DECLARE_FRAME (f); // REBFRM whose built FRAME! context we will steal
-
         REBVAL *first_arg;
-        if (Make_Invocation_Frame_Throws(
-            D_OUT,
-            f,
-            &first_arg,
-            test,
-            ARG(args),
-            lowest_ordered_dsp
-        )){
+        if (Make_Invocation_Frame_Throws(D_OUT, f, &first_arg, test))
             return R_THROWN;
-        }
 
         if (not first_arg)
             fail ("MATCH with a function pattern must take at least 1 arg");
@@ -721,8 +727,8 @@ REBNATIVE(all)
 {
     INCLUDE_PARAMS_OF_ALL;
 
-    DECLARE_FRAME (f);
-    Push_Frame(f, ARG(block));
+    DECLARE_FRAME_AT (f, ARG(block), EVAL_MASK_DEFAULT);
+    Push_Frame(nullptr, f);
 
     Init_Nulled(D_OUT); // default return result
 
@@ -762,8 +768,8 @@ REBNATIVE(any)
 {
     INCLUDE_PARAMS_OF_ANY;
 
-    DECLARE_FRAME (f);
-    Push_Frame(f, ARG(block));
+    DECLARE_FRAME_AT (f, ARG(block), EVAL_MASK_DEFAULT);
+    Push_Frame(nullptr, f);
 
     Init_Nulled(D_OUT); // default return result
 
@@ -806,8 +812,8 @@ REBNATIVE(none)
 {
     INCLUDE_PARAMS_OF_NONE;
 
-    DECLARE_FRAME (f);
-    Push_Frame(f, ARG(block));
+    DECLARE_FRAME_AT (f, ARG(block), EVAL_MASK_DEFAULT);
+    Push_Frame(nullptr, f);
 
     Init_Nulled(D_OUT); // default return result
 
@@ -868,13 +874,14 @@ REBNATIVE(case)
         Move_Value(predicate, D_OUT);
     }
 
-    DECLARE_FRAME (f);
-    SHORTHAND (const RELVAL*, v, f->feed->value);
-    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+    DECLARE_FRAME_AT (f, ARG(cases), EVAL_MASK_DEFAULT);
+    SHORTHAND (v, f->feed->value, NEVERNULL(const RELVAL*));
+    SHORTHAND (specifier, f->feed->specifier, REBSPC*);
 
-    Push_Frame(f, ARG(cases));  // frame has array, can re-use GC-safe cell
-    REBVAL *last_branch_result = ARG(cases);
-    Init_Nulled(last_branch_result); // default return result
+    REBVAL *last_branch_result = ARG(cases);  // can reuse--frame holds cases
+    Init_Nulled(last_branch_result);  // default return result
+
+    Push_Frame(nullptr, f);
 
     for (; Init_Nulled(D_OUT), NOT_END(*v);) {
 
@@ -1058,12 +1065,12 @@ REBNATIVE(switch)
         Move_Value(predicate, D_OUT);
     }
 
-    DECLARE_FRAME (f);
-    SHORTHAND (const RELVAL*, v, f->feed->value);
-    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+    DECLARE_FRAME_AT (f, ARG(cases), EVAL_MASK_DEFAULT);
+    SHORTHAND (v, f->feed->value, NEVERNULL(const RELVAL*));
+    SHORTHAND (specifier, f->feed->specifier, REBSPC*);
 
-    Push_Frame(f, ARG(cases));  // frame has block, can reuse GC-safe cell
-    REBVAL *last_branch_result = ARG(cases);
+    Push_Frame(nullptr, f);
+    REBVAL *last_branch_result = ARG(cases); // frame holds cases, can reuse
     Init_Nulled(last_branch_result);
 
     REBVAL *left = ARG(value);

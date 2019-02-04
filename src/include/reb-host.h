@@ -40,6 +40,12 @@
 #endif
 #include "rebol.h"
 
+// assert() is enabled by default; disable with `#define NDEBUG`
+// http://stackoverflow.com/a/17241278
+//
+#include <assert.h>
+#include "assert-fixes.h"
+
 #include "reb-c.h" // API should only require <stdbool.h> and <stdint.h>
 
 struct rebol_devreq;

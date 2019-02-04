@@ -56,8 +56,8 @@
 //
 void Dump_Frame_Location(const RELVAL *v, REBFRM *f)
 {
-    SHORTHAND (const RELVAL*, next, f->feed->value);
-    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+    SHORTHAND (next, f->feed->value, NEVERNULL(const RELVAL*));
+    SHORTHAND (specifier, f->feed->specifier, REBSPC*);
 
     DECLARE_LOCAL (dump);
 
@@ -123,10 +123,10 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
     // on the data stack or mold stack/etc.  See Drop_Frame() for the actual
     // balance check.
 
-    SHORTHAND (const RELVAL*, next, f->feed->value);
-    SHORTHAND (const REBVAL*, next_gotten, f->feed->gotten);
-    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
-    SHORTHAND (REBCNT, index, f->feed->index);
+    SHORTHAND (next, f->feed->value, NEVERNULL(const RELVAL*));
+    SHORTHAND (next_gotten, f->feed->gotten, const REBVAL*);
+    SHORTHAND (specifier, f->feed->specifier, REBSPC*);
+    SHORTHAND (index, f->feed->index, REBCNT);
 
     // See notes on f->feed->gotten about the coherence issues in the face
     // of arbitrary function execution.
@@ -299,7 +299,7 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
 void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
     Eval_Core_Shared_Checks_Debug(f);
 
-    SHORTHAND (const RELVAL*, next, f->feed->value);
+    SHORTHAND (next, f->feed->value, NEVERNULL(const RELVAL*));
 
     if (NOT_END(*next) and not FRM_IS_VALIST(f)) {
         if (f->feed->index > ARR_LEN(f->feed->array)) {

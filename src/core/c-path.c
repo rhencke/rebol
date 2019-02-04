@@ -112,8 +112,8 @@ REB_R PD_Unhooked(
 //
 bool Next_Path_Throws(REBPVS *pvs)
 {
-    SHORTHAND (const RELVAL *, v, pvs->feed->value);
-    SHORTHAND (REBSPC *, specifier, pvs->feed->specifier);
+    SHORTHAND (v, pvs->feed->value, NEVERNULL(const RELVAL *));
+    SHORTHAND (specifier, pvs->feed->specifier, REBSPC *);
 
     if (IS_NULLED(pvs->out))
         fail (Error_No_Value_Core(*v, *specifier));
@@ -358,17 +358,14 @@ bool Eval_Path_Throws_Core(
         return false;
     }
 
-    DECLARE_FRAME (pvs);
-    SHORTHAND (const RELVAL*, v, pvs->feed->value);
+    DECLARE_ARRAY_FEED (feed, array, index, specifier);
+    DECLARE_FRAME (pvs, feed, flags | EVAL_FLAG_PATH_MODE);
 
-    Push_Frame_At(pvs, array, index, specifier, flags | EVAL_FLAG_PATH_MODE);
+    SHORTHAND (v, pvs->feed->value, NEVERNULL(const RELVAL*));
     assert(NOT_END(*v)); // tested 0-length path previously
 
-    // Push_Frame_At sets the output to the global unwritable END cell, so we
-    // have to wait for this point to set to the output cell we want.
-    //
-    pvs->out = out;
     SET_END(out);
+    Push_Frame(out, pvs);
 
     REBDSP dsp_orig = DSP;
 
@@ -638,16 +635,12 @@ REBNATIVE(pick)
         return Do_Port_Action(frame_, location, word);
     }
 
-    DECLARE_FRAME (pvs);
-    pvs->flags.bits = EVAL_MASK_DEFAULT;
+    DECLARE_END_FRAME (pvs, EVAL_MASK_DEFAULT);
 
     Move_Value(D_OUT, location);
     pvs->out = D_OUT;
 
     Move_Value(PVS_PICKER(pvs), ARG(picker));
-
-    pvs->feed->value = END_NODE;
-    pvs->feed->specifier = SPECIFIED;
 
     pvs->opt_label = NULL; // applies to e.g. :append/only returning APPEND
     pvs->special = NULL;
@@ -727,16 +720,12 @@ REBNATIVE(poke)
         return Do_Port_Action(frame_, location, word);
     }
 
-    DECLARE_FRAME (pvs);
-    pvs->flags.bits = EVAL_MASK_DEFAULT;
+    DECLARE_END_FRAME (pvs, EVAL_MASK_DEFAULT);
 
     Move_Value(D_OUT, location);
     pvs->out = D_OUT;
 
     Move_Value(PVS_PICKER(pvs), ARG(picker));
-
-    pvs->feed->value = END_NODE;
-    pvs->feed->specifier = SPECIFIED;
 
     pvs->opt_label = NULL; // applies to e.g. :append/only returning APPEND
     pvs->special = ARG(value);
@@ -946,8 +935,9 @@ REB_R MAKE_Path(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     if (not IS_BLOCK(arg))
         fail (Error_Bad_Make(kind, arg)); // "make path! 0" has no meaning
 
-    DECLARE_FRAME (f);
-    Push_Frame(f, arg);
+    DECLARE_FRAME_AT (f, arg, EVAL_MASK_DEFAULT);
+
+    Push_Frame(nullptr, f);
 
     REBDSP dsp_orig = DSP;
 

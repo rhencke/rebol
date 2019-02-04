@@ -183,14 +183,8 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
         case REB_P_NORMAL: {
             REBFLGS flags = EVAL_MASK_DEFAULT | EVAL_FLAG_FULFILLING_ARG;
 
-            DECLARE_FRAME (f_temp);
-            Push_Frame_At(
-                f_temp,
-                VAL_ARRAY(shared),
-                VAL_INDEX(shared),
-                VAL_SPECIFIER(shared),
-                flags
-            );
+            DECLARE_FRAME_AT (f_temp, shared, flags);
+            Push_Frame(nullptr, f_temp);
 
             // Note: Eval_Step_In_Subframe_Throws() is not needed here because
             // this is a single use frame, whose state can be overwritten.
@@ -267,7 +261,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
             op,
             GET_FEED_FLAG(f->feed, BARRIER_HIT)
                 ? END_NODE
-                : f->feed->value, // might be END
+                : cast(const RELVAL *, f->feed->value), // might be END
             f->feed->specifier,
             pclass
         )){
@@ -280,15 +274,9 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
         //
         switch (pclass) {
         case REB_P_NORMAL: {
-            DECLARE_SUBFRAME (child, f);
-            if (Eval_Step_In_Subframe_Throws(
-                SET_END(out),
-                EVAL_MASK_DEFAULT
-                    | EVAL_FLAG_FULFILLING_ARG,
-                child
-            )){
+            REBFLGS flags = EVAL_MASK_DEFAULT | EVAL_FLAG_FULFILLING_ARG;
+            if (Eval_Step_In_Subframe_Throws(SET_END(out), f, flags))
                 return true;
-            }
             break; }
 
         case REB_P_HARD_QUOTE:

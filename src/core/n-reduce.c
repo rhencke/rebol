@@ -41,16 +41,16 @@ bool Reduce_To_Stack_Throws(
 ){
     REBDSP dsp_orig = DSP;
 
-    DECLARE_FRAME (f);
-    Push_Frame_At(
-        f,
+    DECLARE_ARRAY_FEED (feed,
         VAL_ARRAY(any_array),
         VAL_INDEX(any_array),
-        specifier,
-        EVAL_MASK_DEFAULT
+        specifier
     );
 
-    SHORTHAND (const RELVAL*, v, f->feed->value);
+    DECLARE_FRAME (f, feed, EVAL_MASK_DEFAULT);
+    SHORTHAND (v, f->feed->value, NEVERNULL(const RELVAL*));
+
+    Push_Frame(nullptr, f);
 
     while (NOT_END(*v)) {
         bool line = GET_CELL_FLAG(*v, NEWLINE_BEFORE);
@@ -178,18 +178,20 @@ REB_R Compose_To_Stack_Core(
 
     bool changed = false;
 
-    DECLARE_FRAME (f);
-    Push_Frame_At(
-        f,
+    DECLARE_ARRAY_FEED (feed,
         VAL_ARRAY(any_array),
         VAL_INDEX(any_array),
-        specifier,
-        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-            | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
-            | (any_array->header.bits & EVAL_FLAG_CONST)
+        specifier
     );
 
-    SHORTHAND (const RELVAL*, v, f->feed->value);
+    REBFLGS flags = (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+            | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
+            | (any_array->header.bits & EVAL_FLAG_CONST);
+
+    DECLARE_FRAME (f, feed, flags);
+    SHORTHAND (v, f->feed->value, NEVERNULL(const RELVAL*));
+
+    Push_Frame(nullptr, f);
 
     for (; NOT_END(*v); Fetch_Next_Forget_Lookback(f)) {
         const REBCEL *cell = VAL_UNESCAPED(*v);
@@ -332,11 +334,11 @@ REB_R Compose_To_Stack_Core(
                 continue;
             }
 
-            REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE;
+            REBFLGS pop_flags = NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE;
             if (GET_ARRAY_FLAG(VAL_ARRAY(cell), NEWLINE_AT_TAIL))
-                flags |= ARRAY_FLAG_NEWLINE_AT_TAIL;
+                pop_flags |= ARRAY_FLAG_NEWLINE_AT_TAIL;
 
-            REBARR *popped = Pop_Stack_Values_Core(dsp_deep, flags);
+            REBARR *popped = Pop_Stack_Values_Core(dsp_deep, pop_flags);
             Init_Any_Array(
                 DS_PUSH(),
                 kind,

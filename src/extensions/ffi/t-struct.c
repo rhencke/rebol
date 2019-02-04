@@ -1214,7 +1214,7 @@ REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             }
             else {
                 // !!! If using the internal API, this should be done with
-                // DECLARE_FRAME (f) and Push_Frame_At(f, arg)...which would
+                // DECLARE_FRAME_AT (f) and Push_Frame(f)...which would
                 // reuse the frame across evaluations...as opposed to this
                 // unusual function.  But ideally, the FFI extension would be
                 // using Rebol code (e.g. with PARSE, etc.) to build narrow

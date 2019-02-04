@@ -426,7 +426,7 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 // consistent with the pattern people expect.
 //
 void Lookahead_To_Sync_Enfix_Defer_Flag(REBFRM *f) {
-    SHORTHAND (const REBVAL*, gotten, f->feed->gotten);
+    SHORTHAND (gotten, f->feed->gotten, const REBVAL*);
 
     assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
     assert(not *gotten);
@@ -469,8 +469,8 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     REBFRM *f,
     const RELVAL *v
 ){
-    SHORTHAND (const RELVAL*, next, f->feed->value);
-    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+    SHORTHAND (next, f->feed->value, NEVERNULL(const RELVAL*));
+    SHORTHAND (specifier, f->feed->specifier, REBSPC*);
 
     if (IS_END(*next)) // `do [x:]`, `do [o/x:]`, etc. are illegal
         fail (Error_Need_Non_End_Core(v, *specifier));
@@ -499,8 +499,7 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     Init_Void(f->out); // `1 x: comment "hi"` shouldn't set x to 1!
 
     if (CURRENT_CHANGES_IF_FETCH_NEXT) { // must use new frame
-        DECLARE_SUBFRAME(child, f);
-        if (Eval_Step_In_Subframe_Throws(f->out, flags, child))
+        if (Eval_Step_In_Subframe_Throws(f->out, f, flags))
             return true;
     }
     else {
@@ -576,9 +575,9 @@ bool Eval_Core_Throws(REBFRM * const f)
     // (This is ensured by the C++ build, that you don't say `if (next)...`)
     //
     REBVAL * const spare = FRM_SPARE(f);  // pointer is const (not the cell)
-    SHORTHAND (const RELVAL*, next, f->feed->value);
-    SHORTHAND (const REBVAL*, next_gotten, f->feed->gotten);
-    SHORTHAND (REBSPC*, specifier, f->feed->specifier);
+    SHORTHAND (next, f->feed->value, NEVERNULL(const RELVAL*));
+    SHORTHAND (next_gotten, f->feed->gotten, const REBVAL*);
+    SHORTHAND (specifier, f->feed->specifier, REBSPC*);
 
   #if defined(DEBUG_COUNT_TICKS)
     REBTCK tick = f->tick = TG_Tick;  // snapshot start tick
@@ -1431,9 +1430,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     | EVAL_FLAG_FULFILLING_ARG
                     | (f->flags.bits & EVAL_FLAG_CONST);
 
-                DECLARE_SUBFRAME (child, f); // capture DSP *now*
-                SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
-                if (Eval_Step_In_Subframe_Throws(f->arg, flags, child)) {
+                if (Eval_Step_In_Subframe_Throws(SET_END(f->arg), f, flags)) {
                     Move_Value(f->out, f->arg);
                     goto abort_action;
                 }

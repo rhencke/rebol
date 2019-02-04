@@ -963,26 +963,3 @@ inline static REBVAL *Const(REBVAL *v) {
     Prep_Stack_Cell(cast(REBVAL*, &name##_pair)); /* tbd: FS_TOP FRAME! */ \
     REBVAL * const name = cast(REBVAL*, &name##_pair) + 1; \
     Prep_Stack_Cell(name)
-
-
-#if !defined(CPLUSPLUS_11)
-    #define SHORTHAND(type,name,pointer) \
-        type* const name = &pointer
-#else
-    // In the C++ build, we want to protect against uses of `name` without
-    // the dereference (e.g. `if (name)` would always be true, you meant to
-    // say `if (*name))
-    //
-    template <typename T>
-    class Must_Dereference {
-        T &ref;
-
-      public:
-        Must_Dereference (T& ref) : ref (ref) {}
-        T & operator*() { return ref; }
-        operator bool () = delete;
-    };
-
-    #define SHORTHAND(type,name,pointer) \
-        Must_Dereference<type> name {pointer}
-#endif

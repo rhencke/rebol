@@ -1263,7 +1263,8 @@ static void Mark_Frame_Stack_Deep(void)
             Queue_Mark_Context_Deep(CTX(f->feed->specifier));
         }
 
-        Queue_Mark_Opt_End_Cell_Deep(f->out); // END legal, but not nullptr
+        if (f->out)  // Initialized to null if each Eval_Step asks for new out
+            Queue_Mark_Opt_End_Cell_Deep(f->out);
 
         // Frame temporary cell should always contain initialized bits, as
         // DECLARE_FRAME sets it up and no one is supposed to trash it.

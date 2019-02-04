@@ -1236,47 +1236,18 @@ bool Make_Invocation_Frame_Throws(
     REBVAL *out, // in case there is a throw
     REBFRM *f,
     REBVAL **first_arg_ptr, // returned so that MATCH can steal it
-    const REBVAL *action,
-    const REBVAL *varargs,
-    REBDSP lowest_ordered_dsp
+    const REBVAL *action
 ){
     assert(IS_ACTION(action));
-    assert(IS_VARARGS(varargs));
-
-    // !!! The vararg's frame is not really a parent, but try to stay
-    // consistent with the naming in subframe code copy/pasted for now...
-    //
-    REBFRM *parent;
-    if (not Is_Frame_Style_Varargs_May_Fail(&parent, varargs))
-        fail (
-            "Currently MAKE FRAME! on a VARARGS! only works with a varargs"
-            " which is tied to an existing, running frame--not one that is"
-            " being simulated from a BLOCK! (e.g. MAKE VARARGS! [...])"
-        );
-
-    assert(Is_Action_Frame(parent));
-
-    // Slip the REBFRM a dsp_orig which may be lower than the DSP captured by
-    // DECLARE_FRAME().  This way, it will see any pushes done during a
-    // path resolution as ordered refinements to use.
-    //
-    f->dsp_orig = lowest_ordered_dsp;
-
-    // === FIRST PART OF CODE FROM DO_SUBFRAME ===
-    f->out = out;
-
-    f->feed = parent->feed;
 
     // Just do one step of the evaluator, so no EVAL_FLAG_TO_END.  Specifically,
     // it is desired that any voids encountered be processed as if they are
     // not specialized...and gather at the callsite if necessary.
     //
-    f->flags.bits = EVAL_MASK_DEFAULT
-        | EVAL_FLAG_PROCESS_ACTION
+    f->flags.bits |= EVAL_FLAG_PROCESS_ACTION
         | EVAL_FLAG_ERROR_ON_DEFERRED_ENFIX;  // can't deal with ELSE/THEN/etc.
 
-    Push_Frame_Core(f);
-    Reuse_Varlist_If_Available(f);
+    Push_Frame(out, f);
 
     // === END FIRST PART OF CODE FROM DO_SUBFRAME ===
 
@@ -1370,14 +1341,30 @@ bool Make_Frame_From_Varargs_Throws(
     const REBVAL *specializee,
     const REBVAL *varargs
 ){
+    // !!! The vararg's frame is not really a parent, but try to stay
+    // consistent with the naming in subframe code copy/pasted for now...
+    //
+    REBFRM *parent;
+    if (not Is_Frame_Style_Varargs_May_Fail(&parent, varargs))
+        fail (
+            "Currently MAKE FRAME! on a VARARGS! only works with a varargs"
+            " which is tied to an existing, running frame--not one that is"
+            " being simulated from a BLOCK! (e.g. MAKE VARARGS! [...])"
+        );
+
+    assert(Is_Action_Frame(parent));
+
+    // REBFRM whose built FRAME! context we will steal
+
+    DECLARE_FRAME (f, parent->feed, EVAL_MASK_DEFAULT);
+
     REBSTR *opt_label;
-    REBDSP lowest_ordered_dsp = DSP;
     if (Get_If_Word_Or_Path_Throws(
         out,
         &opt_label,
         specializee,
         SPECIFIED,
-        true // push_refinements = true
+        true  // push_refinements = true (DECLARE_FRAME captured original DSP)
     )){
         return true;
     }
@@ -1397,19 +1384,10 @@ bool Make_Frame_From_Varargs_Throws(
     // semantics...which can be useful in their own right, plus the
     // resulting function will run faster.
 
-    DECLARE_FRAME (f); // REBFRM whose built FRAME! context we will steal
-
     REBVAL *first_arg;
-    if (Make_Invocation_Frame_Throws(
-        out,
-        f,
-        &first_arg,
-        action,
-        varargs,
-        lowest_ordered_dsp
-    )){
+    if (Make_Invocation_Frame_Throws(out, f, &first_arg, action))
         return true;
-    }
+
     UNUSED(first_arg); // MATCH uses to get its answer faster, we don't need
 
     REBACT *act = VAL_ACTION(action);

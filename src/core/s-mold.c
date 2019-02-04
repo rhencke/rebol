@@ -584,8 +584,10 @@ bool Form_Reduce_Throws(
     DECLARE_MOLD (mo);
     Push_Mold(mo);
 
-    DECLARE_FRAME (f);
-    Push_Frame_At(f, array, index, specifier, EVAL_MASK_DEFAULT);
+    DECLARE_ARRAY_FEED (feed, array, index, specifier);
+
+    DECLARE_FRAME (f, feed, EVAL_MASK_DEFAULT);
+    Push_Frame(nullptr, f);
 
     bool pending = false; // pending delimiter output, *if* more non-nulls
     bool nothing = true; // any elements seen so far have been null or blank
@@ -617,12 +619,12 @@ bool Form_Reduce_Throws(
         }
     }
 
-    Drop_Frame(f);
-
     if (nothing)
         Init_Nulled(out);
     else
         Init_Text(out, Pop_Molded_String(mo));
+
+    Drop_Frame(f);
 
     return false;
 }
