@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -26,20 +26,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// !!! R3-Alpha's implementation of the IMAGE! datatype had several strange
-// aspects--it tried to unify a 2-dimensional structure with the 1-dimensional
-// indexing idea of a series.  This gave rise to various semantic ambiguities
-// such as "what happens when you append red to a 1x1 image".  Do you get an
-// error, a new column to make a 1x2 image, or a new row for a 2x1 image?
-// How does the system handle IMAGE! values that have been advanced via
-// NEXT or FIND to positions other than the head?
-//
-// https://github.com/rebol/rebol-issues/issues/801
-//
-// Ren-C's primary goals are to research and pin down fundamentals, where
-// things like IMAGE! would be an extension through a user-defined type
-// vs. being in the core.  So the main goal is to excise "weirdness" that
-// comes from REB_IMAGE affecting builds that would not use it.
+// See %src/extensions/image/README.md
 //
 
 enum {
@@ -140,3 +127,14 @@ inline static REBVAL *Init_Image_Black_Opaque(RELVAL *out, REBCNT w, REBCNT h)
 
     return Init_Image(out, bin, w, h);
 }
+
+
+// !!! These hooks allow the REB_IMAGE cell type to dispatch to code in the
+// IMAGE! extension if it is loaded.
+//
+extern REBINT CT_Image(const REBCEL *a, const REBCEL *b, REBINT mode);
+extern REB_R MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);
+extern REB_R TO_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);
+extern void MF_Image(REB_MOLD *mo, const REBCEL *v, bool form);
+extern REBTYPE(Image);
+extern REB_R PD_Image(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval);

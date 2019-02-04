@@ -468,8 +468,8 @@ handle      "arbitrary internal object or value"
 struct      "native structure definition"
             ?           ?       ?       ?       []
 
-image       "RGB image with alpha channel"
-            image       +       +       +       []
+image       "RGB image with alpha channel"  ; %src/extensions/image/README.md
+            ?           ?       ?       ?       []
 
 library     "external library reference"
             library     -       +       +       []

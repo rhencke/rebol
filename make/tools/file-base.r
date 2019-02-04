@@ -150,7 +150,6 @@ core: [
     t-event.c
     t-function.c
     t-gob.c
-    [t-image.c <no-uninitialized>]
     t-integer.c
     t-library.c
     t-logic.c

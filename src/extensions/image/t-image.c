@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -27,20 +27,158 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// !!! Images were semantically very sloppy in R3-Alpha, in particular the
-// idea of working them into the generic idea of being a "series":
-//
-// https://github.com/rebol/rebol-issues/issues/801
-//
-// Ren-C has focused on evaluator work, and done little to address the
-// deficiencies of IMAGE!.  But the type has been kept working about as much
-// as it ever worked, and updated to internal API changes as they've come.
-//
+// See notes in %src/extensions/image/README.md
 
 #include "sys-core.h"
 
 #include "sys-tuple.h"
 #include "sys-image.h"
+
+
+//
+//  Tuples_To_RGBA: C
+//
+void Tuples_To_RGBA(REBYTE *rgba, REBCNT size, REBVAL *blk, REBCNT len)
+{
+    REBYTE *bin;
+
+    if (len > size) len = size; // avoid over-run
+
+    for (; len > 0; len--, rgba += 4, blk++) {
+        bin = VAL_TUPLE(blk);
+        rgba[0] = bin[0];
+        rgba[1] = bin[1];
+        rgba[2] = bin[2];
+        rgba[3] = bin[3];
+    }
+}
+
+
+//
+//  Set_Pixel_Tuple: C
+//
+void Set_Pixel_Tuple(REBYTE *dp, const RELVAL *tuple)
+{
+    const REBYTE *tup = VAL_TUPLE(tuple);
+    dp[0] = tup[0]; // red
+    dp[1] = tup[1]; // green
+    dp[2] = tup[2]; // blue
+    if (VAL_TUPLE_LEN(tuple) > 3)
+        dp[3] = tup[3]; // alpha
+    else
+        dp[3] = 0xff; // default alpha to opaque
+}
+
+
+//
+//  Array_Has_Non_Tuple: C
+//
+// Checks the given ANY-ARRAY! REBVAL from its current index position to
+// the end to see if any of its contents are not TUPLE!.  If so, returns
+// true and `index_out` will contain the index position from the head of
+// the array of the non-tuple.  Otherwise returns false.
+//
+bool Array_Has_Non_Tuple(REBCNT *index_out, RELVAL *blk)
+{
+    assert(ANY_ARRAY(blk));
+
+    REBCNT len = VAL_LEN_HEAD(blk);
+    *index_out = VAL_INDEX(blk);
+    for (; *index_out < len; (*index_out)++)
+        if (not IS_TUPLE(VAL_ARRAY_AT_HEAD(blk, *index_out)))
+            return true;
+
+    return false;
+}
+
+
+//
+//  Copy_Rect_Data: C
+//
+void Copy_Rect_Data(
+    REBVAL *dst,
+    REBINT dx,
+    REBINT dy,
+    REBINT w,
+    REBINT h,
+    const REBVAL *src,
+    REBINT sx,
+    REBINT sy
+){
+    if (w <= 0 || h <= 0)
+        return;
+
+    // Clip at edges:
+    if (dx + w > VAL_IMAGE_WIDE(dst))
+        w = VAL_IMAGE_WIDE(dst) - dx;
+    if (dy + h > VAL_IMAGE_HIGH(dst))
+        h = VAL_IMAGE_HIGH(dst) - dy;
+
+    const REBYTE *sbits =
+        VAL_IMAGE_HEAD(src)
+        + (sy * VAL_IMAGE_WIDE(src) + sx) * 4;
+    REBYTE *dbits =
+        VAL_IMAGE_HEAD(dst)
+        + (dy * VAL_IMAGE_WIDE(dst) + dx) * 4;
+    while (h--) {
+        memcpy(dbits, sbits, w*4);
+        sbits += VAL_IMAGE_WIDE(src) * 4;
+        dbits += VAL_IMAGE_WIDE(dst) * 4;
+    }
+}
+
+
+//
+//  Fill_Alpha_Line: C
+//
+void Fill_Alpha_Line(REBYTE *rgba, REBYTE alpha, REBINT len)
+{
+    for (; len > 0; len--, rgba += 4)
+        rgba[3] = alpha;
+}
+
+
+//
+//  Fill_Alpha_Rect: C
+//
+void Fill_Alpha_Rect(REBYTE *ip, REBYTE alpha, REBINT w, REBINT dupx, REBINT dupy)
+{
+    for (; dupy > 0; dupy--, ip += (w * 4))
+        Fill_Alpha_Line(ip, alpha, dupx);
+}
+
+
+//
+//  Fill_Line: C
+//
+void Fill_Line(REBYTE *ip, const REBYTE pixel[4], REBCNT len, bool only)
+{
+    for (; len > 0; len--) {
+        *ip++ = pixel[0]; // red
+        *ip++ = pixel[1]; // green
+        *ip++ = pixel[2]; // blue
+        if (only)
+            ++ip; // only RGB, don't change alpha...just skip it
+        else
+            *ip++ = pixel[3]; // alpha
+    }
+}
+
+
+//
+//  Fill_Rect: C
+//
+void Fill_Rect(
+    REBYTE *ip,
+    const REBYTE pixel[4],
+    REBCNT w,
+    REBINT dupx,
+    REBINT dupy,
+    bool only
+){
+    for (; dupy > 0; dupy--, ip += (w * 4))
+        Fill_Line(ip, pixel, dupx, only);
+}
 
 
 //
@@ -245,22 +383,6 @@ void Reset_Height(REBVAL *value)
 
 
 //
-//  Set_Pixel_Tuple: C
-//
-void Set_Pixel_Tuple(REBYTE *dp, const RELVAL *tuple)
-{
-    const REBYTE *tup = VAL_TUPLE(tuple);
-    dp[0] = tup[0]; // red
-    dp[1] = tup[1]; // green
-    dp[2] = tup[2]; // blue
-    if (VAL_TUPLE_LEN(tuple) > 3)
-        dp[3] = tup[3]; // alpha
-    else
-        dp[3] = 0xff; // default alpha to opaque
-}
-
-
-//
 //  Init_Tuple_From_Pixel: C
 //
 REBVAL *Init_Tuple_From_Pixel(RELVAL *out, const REBYTE *dp)
@@ -273,59 +395,6 @@ REBVAL *Init_Tuple_From_Pixel(RELVAL *out, const REBYTE *dp)
     tup[2] = dp[2]; // blue
     tup[3] = dp[3]; // alpha
     return cast(REBVAL*, out);
-}
-
-
-//
-//  Fill_Line: C
-//
-void Fill_Line(REBYTE *ip, const REBYTE pixel[4], REBCNT len, bool only)
-{
-    for (; len > 0; len--) {
-        *ip++ = pixel[0]; // red
-        *ip++ = pixel[1]; // green
-        *ip++ = pixel[2]; // blue
-        if (only)
-            ++ip; // only RGB, don't change alpha...just skip it
-        else
-            *ip++ = pixel[3]; // alpha
-    }
-}
-
-
-//
-//  Fill_Rect: C
-//
-void Fill_Rect(
-    REBYTE *ip,
-    const REBYTE pixel[4],
-    REBCNT w,
-    REBINT dupx,
-    REBINT dupy,
-    bool only
-){
-    for (; dupy > 0; dupy--, ip += (w * 4))
-        Fill_Line(ip, pixel, dupx, only);
-}
-
-
-//
-//  Fill_Alpha_Line: C
-//
-void Fill_Alpha_Line(REBYTE *rgba, REBYTE alpha, REBINT len)
-{
-    for (; len > 0; len--, rgba += 4)
-        rgba[3] = alpha;
-}
-
-
-//
-//  Fill_Alpha_Rect: C
-//
-void Fill_Alpha_Rect(REBYTE *ip, REBYTE alpha, REBINT w, REBINT dupx, REBINT dupy)
-{
-    for (; dupy > 0; dupy--, ip += (w * 4))
-        Fill_Alpha_Line(ip, alpha, dupx);
 }
 
 
@@ -451,47 +520,6 @@ void Bin_To_Alpha(REBYTE *rgba, REBCNT size, REBYTE *bin, REBINT len)
 
 
 //
-//  Array_Has_Non_Tuple: C
-//
-// Checks the given ANY-ARRAY! REBVAL from its current index position to
-// the end to see if any of its contents are not TUPLE!.  If so, returns
-// true and `index_out` will contain the index position from the head of
-// the array of the non-tuple.  Otherwise returns false.
-//
-bool Array_Has_Non_Tuple(REBCNT *index_out, RELVAL *blk)
-{
-    assert(ANY_ARRAY(blk));
-
-    REBCNT len = VAL_LEN_HEAD(blk);
-    *index_out = VAL_INDEX(blk);
-    for (; *index_out < len; (*index_out)++)
-        if (not IS_TUPLE(VAL_ARRAY_AT_HEAD(blk, *index_out)))
-            return true;
-
-    return false;
-}
-
-
-//
-//  Tuples_To_RGBA: C
-//
-void Tuples_To_RGBA(REBYTE *rgba, REBCNT size, REBVAL *blk, REBCNT len)
-{
-    REBYTE *bin;
-
-    if (len > size) len = size; // avoid over-run
-
-    for (; len > 0; len--, rgba += 4, blk++) {
-        bin = VAL_TUPLE(blk);
-        rgba[0] = bin[0];
-        rgba[1] = bin[1];
-        rgba[2] = bin[2];
-        rgba[3] = bin[3];
-    }
-}
-
-
-//
 //  Mold_Image_Data: C
 //
 // Output RGBA image data
@@ -548,34 +576,39 @@ void Clear_Image(REBVAL *img)
 //
 //  Modify_Image: C
 //
-// Insert or change image
+// CHANGE/INSERT/APPEND image
+//
+// !!! R3-Alpha had the concept that images were an "ANY-SERIES!", which was
+// slippery.  What does it mean to "append" a red pixel to a 10x10 image?
+// What about to "insert"?  CHANGE may seem to make sense in a positional
+// world where the position was a coordinate and you change to a rectangle
+// of data that is another image.
+//
+// While the decode/encode abilities of IMAGE! are preserved, R3-Alpha code
+// like this has been excised from the core and into an extension for a
+// reason.  (!)  The code is deprecated, but kept around and building for any
+// sufficiently motivated individual who wanted to review it.
 //
 REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
 {
-    INCLUDE_PARAMS_OF_INSERT; // currently must have same frame as CHANGE
+    INCLUDE_PARAMS_OF_CHANGE;  // currently must have same frame as CHANGE
 
     if (REF(line))
         fail (Error_Bad_Refines_Raw());
 
-    REBVAL  *value = ARG(series); // !!! confusing, very old (unused?) code!
-    REBVAL  *arg   = ARG(value);
-    REBVAL  *len   = ARG(limit); // void if no /PART
-    REBVAL  *count = ARG(count); // void if no /DUP
+    REBVAL *value = ARG(series);  // !!! confusing name
+    REBVAL *arg = ARG(value);
+    REBVAL *len = ARG(limit);  // nulled cell if no /PART
+    REBVAL *count = ARG(count);  // nulled cell if no /DUP
 
-    REBINT  part = 1; // /part len
-    REBINT  partx, party;
-    REBINT  dup = 1;  // /dup count
-    REBINT  dupx, dupy;
-    bool only = false; // /only
-    REBCNT  index = VAL_IMAGE_POS(value);
-    REBCNT  tail = VAL_IMAGE_LEN_HEAD(value);
-    REBCNT  n;
-    REBINT  x;
-    REBINT  w;
-    REBINT  y;
-    REBYTE  *ip;
+    REBCNT index = VAL_IMAGE_POS(value);
+    REBCNT tail = VAL_IMAGE_LEN_HEAD(value);
+    REBCNT n;
+    REBYTE *ip;
 
-    if (!(w = VAL_IMAGE_WIDE(value))) return value;
+    REBINT w = VAL_IMAGE_WIDE(value);
+    if (w == 0)
+        RETURN (value);
 
     REBSYM sym = VAL_WORD_SYM(verb);
     if (sym == SYM_APPEND) {
@@ -583,11 +616,10 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
         sym = SYM_INSERT;
     }
 
-    x = index % w; // offset on the line
-    y = index / w; // offset line
+    REBINT x = index % w;  // offset on the line
+    REBINT y = index / w;  // offset line
 
-    if (REF(only))
-        only = true;
+    bool only = REF(only);
 
     // Validate that block arg is all tuple values:
     if (IS_BLOCK(arg) && Array_Has_Non_Tuple(&n, arg))
@@ -595,29 +627,39 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
             VAL_ARRAY_AT_HEAD(arg, n), VAL_SPECIFIER(arg)
         ));
 
-    if (REF(dup)) { // "it specifies fill size"
+    REBINT dup = 1;
+    REBINT dup_x = 0;
+    REBINT dup_y = 0;
+
+    if (REF(dup)) {  // "it specifies fill size"
         if (IS_INTEGER(count)) {
             dup = VAL_INT32(count);
             dup = MAX(dup, 0);
-            if (dup == 0) return value;
+            if (dup == 0)
+                RETURN (value);
         }
-        else if (IS_PAIR(count)) { // rectangular dup
-            dupx = VAL_PAIR_X_INT(count);
-            dupy = VAL_PAIR_Y_INT(count);
-            dupx = MAX(dupx, 0);
-            dupx = MIN(dupx, (REBINT)w - x); // clip dup width
-            dupy = MAX(dupy, 0);
+        else if (IS_PAIR(count)) {  // rectangular dup
+            dup_x = VAL_PAIR_X_INT(count);
+            dup_y = VAL_PAIR_Y_INT(count);
+            dup_x = MAX(dup_x, 0);
+            dup_x = MIN(dup_x, cast(REBINT, w) - x);  // clip dup width
+            dup_y = MAX(dup_y, 0);
             if (sym != SYM_INSERT)
-                dupy = MIN(dupy, (REBINT)VAL_IMAGE_HIGH(value) - y);
+                dup_y = MIN(dup_y, cast(REBINT, VAL_IMAGE_HIGH(value)) - y);
             else
-                dup = dupy * w;
-            if (dupx == 0 || dupy == 0) return value;
+                dup = dup_y * w;
+            if (dup_x == 0 or dup_y == 0)
+                RETURN (value);
         }
         else
             fail (Error_Invalid_Type(VAL_TYPE(count)));
     }
 
-    if (REF(part)) { // only allowed when arg is a series
+    REBINT part = 1;
+    REBINT part_x = 0;
+    REBINT part_y = 0;
+
+    if (REF(part)) {  // only allowed when arg is a series
         if (IS_BINARY(arg)) {
             if (IS_INTEGER(len)) {
                 part = VAL_INT32(len);
@@ -636,43 +678,44 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
                 if (VAL_IMAGE_WIDE(len) == 0)
                     fail (len);
 
-                partx = VAL_IMAGE_POS(len) - VAL_IMAGE_POS(arg);
-                party = partx / VAL_IMAGE_WIDE(len);
-                party = MAX(party, 1);
-                partx = MIN(partx, cast(REBINT, VAL_IMAGE_WIDE(arg)));
+                part_x = VAL_IMAGE_POS(len) - VAL_IMAGE_POS(arg);
+                part_y = part_x / VAL_IMAGE_WIDE(len);
+                part_y = MAX(part_y, 1);
+                part_x = MIN(part_x, cast(REBINT, VAL_IMAGE_WIDE(arg)));
                 goto len_compute;
             }
             else if (IS_PAIR(len)) {
-                partx = VAL_PAIR_X_INT(len);
-                party = VAL_PAIR_Y_INT(len);
+                part_x = VAL_PAIR_X_INT(len);
+                part_y = VAL_PAIR_Y_INT(len);
             len_compute:
-                partx = MAX(partx, 0);
-                partx = MIN(partx, cast(REBINT, w) - x); // clip part width
-                party = MAX(party, 0);
+                part_x = MAX(part_x, 0);
+                part_x = MIN(part_x, cast(REBINT, w) - x);  // clip part width
+                part_y = MAX(part_y, 0);
                 if (sym != SYM_INSERT)
-                    party = MIN(
-                        party,
+                    part_y = MIN(
+                        part_y,
                         cast(REBINT, VAL_IMAGE_HIGH(value) - y)
                     );
                 else
-                    part = party * w;
-                if (partx == 0 || party == 0) return value;
+                    part = part_y * w;
+                if (part_x == 0 || part_y == 0)
+                    RETURN (value);
             }
             else
                 fail (Error_Invalid_Type(VAL_TYPE(len)));
         }
         else
-            fail (arg); // /part not allowed
+            fail (arg);  // /PART not allowed
     }
     else {
-        if (IS_IMAGE(arg)) { // Use image for /part sizes
-            partx = VAL_IMAGE_WIDE(arg);
-            party = VAL_IMAGE_HIGH(arg);
-            partx = MIN(partx, (REBINT)w - x); // clip part width
+        if (IS_IMAGE(arg)) {  // Use image for /PART sizes
+            part_x = VAL_IMAGE_WIDE(arg);
+            part_y = VAL_IMAGE_HIGH(arg);
+            part_x = MIN(part_x, cast(REBINT, w) - x);  // clip part width
             if (sym != SYM_INSERT)
-                party = MIN(party, (REBINT)VAL_IMAGE_HIGH(value) - y);
+                part_y = MIN(part_y, cast(REBINT, VAL_IMAGE_HIGH(value)) - y);
             else
-                part = party * w;
+                part = part_y * w;
         }
         else if (IS_BINARY(arg)) {
             part = VAL_LEN_AT(arg) / 4;
@@ -698,39 +741,41 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
     ip = VAL_IMAGE_HEAD(value);
 
     // Handle the datatype of the argument.
-    if (IS_INTEGER(arg) || IS_TUPLE(arg)) { // scalars
-        if (index + dup > tail) dup = tail - index; // clip it
+    if (IS_INTEGER(arg) || IS_TUPLE(arg)) {  // scalars
+        if (index + dup > tail) dup = tail - index;  // clip it
         ip += index * 4;
         if (IS_INTEGER(arg)) { // Alpha channel
             REBINT arg_int = VAL_INT32(arg);
             if ((arg_int < 0) || (arg_int > 255))
                 fail (Error_Out_Of_Range(arg));
-            if (IS_PAIR(count)) // rectangular fill
+
+            if (IS_PAIR(count))  // rectangular fill
                 Fill_Alpha_Rect(
-                    ip, cast(REBYTE, arg_int), w, dupx, dupy
+                    ip, cast(REBYTE, arg_int), w, dup_x, dup_y
                 );
             else
                 Fill_Alpha_Line(ip, cast(REBYTE, arg_int), dup);
         }
-        else if (IS_TUPLE(arg)) { // RGB
+        else if (IS_TUPLE(arg)) {  // RGB
             REBYTE pixel[4];
             Set_Pixel_Tuple(pixel, arg);
-            if (IS_PAIR(count)) // rectangular fill
-                Fill_Rect(ip, pixel, w, dupx, dupy, only);
+            if (IS_PAIR(count))  // rectangular fill
+                Fill_Rect(ip, pixel, w, dup_x, dup_y, only);
             else
                 Fill_Line(ip, pixel, dup, only);
         }
     } else if (IS_IMAGE(arg)) {
-        Copy_Rect_Data(value, x, y, partx, party, arg, 0, 0); // dst dx dy w h src sx sy
+        // dst dx dy w h src sx sy
+        Copy_Rect_Data(value, x, y, part_x, part_y, arg, 0, 0);
     }
     else if (IS_BINARY(arg)) {
-        if (index + part > tail) part = tail - index; // clip it
+        if (index + part > tail) part = tail - index;  // clip it
         ip += index * 4;
         for (; dup > 0; dup--, ip += part * 4)
             Bin_To_RGBA(ip, part, VAL_BIN_AT(arg), part, only);
     }
     else if (IS_BLOCK(arg)) {
-        if (index + part > tail) part = tail - index; // clip it
+        if (index + part > tail) part = tail - index;  // clip it
         ip += index * 4;
         for (; dup > 0; dup--, ip += part * 4)
             Tuples_To_RGBA(ip, part, KNOWN(VAL_ARRAY_AT(arg)), part);
@@ -759,13 +804,11 @@ void Find_Image(REBFRM *frame_)
 {
     INCLUDE_PARAMS_OF_FIND;
 
-    REBVAL  *value = ARG(series);
-    REBVAL  *arg = ARG(value);
-    REBCNT  index = VAL_IMAGE_POS(value);
-    REBCNT  tail = VAL_IMAGE_LEN_HEAD(value);
+    REBVAL *value = ARG(series);
+    REBVAL *arg = ARG(value);
+    REBCNT index = VAL_IMAGE_POS(value);
+    REBCNT tail = VAL_IMAGE_LEN_HEAD(value);
     REBYTE *ip = VAL_IMAGE_AT(value);
-    REBYTE *p;
-    REBINT  n;
 
     REBCNT len = tail - index;
     if (len == 0) {
@@ -790,8 +833,10 @@ void Find_Image(REBFRM *frame_)
         fail (Error_Bad_Refines_Raw());
     }
 
-    bool only; // initialization would be crossed by goto
-    only = false;
+    bool only = false;
+
+    REBYTE *p;
+
     if (IS_TUPLE(arg)) {
         if (REF(only))
             only = true;
@@ -803,9 +848,11 @@ void Find_Image(REBFRM *frame_)
         p = Find_Color(ip, pixel, len, only);
     }
     else if (IS_INTEGER(arg)) {
-        n = VAL_INT32(arg);
-        if (n < 0 || n > 255) fail (Error_Out_Of_Range(arg));
-        p = Find_Alpha(ip, n, len);
+        REBINT i = VAL_INT32(arg);
+        if (i < 0 or i > 255)
+            fail (Error_Out_Of_Range(arg));
+
+        p = Find_Alpha(ip, i, len);
     }
     else if (IS_IMAGE(arg)) {
         p = nullptr;
@@ -825,7 +872,8 @@ void Find_Image(REBFRM *frame_)
 
     Move_Value(D_OUT, value);
     assert((p - VAL_IMAGE_HEAD(value)) % 4 == 0);
-    n = cast(REBCNT, (p - VAL_IMAGE_HEAD(value)) / 4);
+
+    REBINT n = cast(REBCNT, (p - VAL_IMAGE_HEAD(value)) / 4);
     if (REF(match)) {
         if (n != cast(REBINT, index)) {
             Init_Nulled(D_OUT);
@@ -857,42 +905,6 @@ bool Image_Has_Alpha(const REBVAL *v)
             return true;
     }
     return false;
-}
-
-
-//
-//  Copy_Rect_Data: C
-//
-void Copy_Rect_Data(
-    REBVAL *dst,
-    REBINT dx,
-    REBINT dy,
-    REBINT w,
-    REBINT h,
-    const REBVAL *src,
-    REBINT sx,
-    REBINT sy
-){
-    if (w <= 0 || h <= 0)
-        return;
-
-    // Clip at edges:
-    if (dx + w > VAL_IMAGE_WIDE(dst))
-        w = VAL_IMAGE_WIDE(dst) - dx;
-    if (dy + h > VAL_IMAGE_HIGH(dst))
-        h = VAL_IMAGE_HIGH(dst) - dy;
-
-    const REBYTE *sbits =
-        VAL_IMAGE_HEAD(src)
-        + (sy * VAL_IMAGE_WIDE(src) + sx) * 4;
-    REBYTE *dbits =
-        VAL_IMAGE_HEAD(dst)
-        + (dy * VAL_IMAGE_WIDE(dst) + dx) * 4;
-    while (h--) {
-        memcpy(dbits, sbits, w*4);
-        sbits += VAL_IMAGE_WIDE(src) * 4;
-        dbits += VAL_IMAGE_WIDE(dst) * 4;
-    }
 }
 
 

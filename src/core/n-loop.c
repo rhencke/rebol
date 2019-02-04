@@ -544,14 +544,6 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                     more_data = false;
                 break;
 
-              case REB_IMAGE: {
-                REBYTE *rgba = BIN_AT(les->data_ser, les->data_idx);
-                Init_Tuple_From_Pixel(var, rgba);
-                les->data_idx += 4;
-                if (les->data_idx == les->data_len)
-                    more_data = false;
-                break; }
-
               case REB_TEXT:
               case REB_TAG:
               case REB_FILE:
