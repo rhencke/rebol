@@ -30,7 +30,7 @@
 #
 
 notifications:
-  email: false # committers are keeping an eye on failures, supposedly :-/
+  email: false  # committers are keeping an eye on failures, supposedly :-/
 
 
 # Each configured travis instance has its own customized environment variables
@@ -74,7 +74,7 @@ matrix:
     # prescriptive and annoying reason.
     #
     - os: osx
-      osx_image: xcode8.2 # try an older XCode (on OS X 10.12)
+      osx_image: xcode8.2  # try an older XCode (on OS X 10.12)
       language: cpp
       env:
         - CONFIG=generic-c++.r
@@ -82,7 +82,7 @@ matrix:
         - DEBUG=asserts
         - STANDARD=c++11
         - RIGOROUS=no
-        - STATIC=no # static linking switch not honored
+        - STATIC=no  # static linking switch not honored
         - WITH_FFI=dynamic
         - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS="ODBC + ZeroMQ +"
@@ -109,11 +109,11 @@ matrix:
       env:
         - CONFIG=generic-c++.r
         - OS_ID=0.2.40
-        - DEBUG=none # see notes, release C++ exercises cast() macros
+        - DEBUG=none  # see notes, release C++ exercises cast() macros
         - STANDARD=c++14
         - RIGOROUS=no
-        - STATIC=no # static linking switch not honored
-        - WITH_FFI=no # no FFI in this build
+        - STATIC=no  # static linking switch not honored
+        - WITH_FFI=no  # no FFI in this build
         - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS="ODBC + ZeroMQ +"
         - BREW=yes
@@ -126,7 +126,7 @@ matrix:
     # dependencies on things like ODBC and ZeroMQ, it doesn't include them.
     #
     - os: osx
-      osx_image: xcode7.3 # try an older XCode and OS X image (OS X 10.11)
+      osx_image: xcode7.3  # try an older XCode and OS X image (OS X 10.11)
       language: c
       env:
         - CONFIG=generic.r
@@ -137,7 +137,7 @@ matrix:
         - STATIC=no
         - WITH_FFI=no
         - ODBC_REQUIRES_LTDL=no
-        - EXTENSIONS="" # No ODBC or ZeroMQ in this build
+        - EXTENSIONS=""  # No ODBC or ZeroMQ in this build
         - BREW=no
        # The "Brew" OS X package installer appears to have stopped maintaining
        # their service on this older system.  It hangs.  So just don't use it.
@@ -145,26 +145,26 @@ matrix:
     # Linux x86, release, gcc
     #
     - os: linux
-      sudo: required # "containers will be retired soon"
+      sudo: required  # "containers will be retired soon"
       language: c
       env:
         - CONFIG=generic.r
         - OS_ID=0.4.4
         - DEBUG=none
-        - STANDARD=gnu89 # Note: ZeroMQ extension needs C99 or C++11
+        - STANDARD=gnu89  # Note: ZeroMQ extension needs C99 or C++11
         - RIGOROUS=yes
         - STATIC=yes
         - TCC=i386-tcc
         - ARCH_CFLAGS=-m32
         - WITH_FFI=dynamic
-        - EXTENSIONS="" # 32-bit version does not have ODBC or ZeroMQ
+        - EXTENSIONS=""  # 32-bit version does not have ODBC or ZeroMQ
       addons:
         apt:
           packages:
             - gcc-multilib
             # - unixodbc-dev:i386 # for ODBC extension; stopped installing
             # - libzmq3-dev:i386 # ZeroMQ:i386 stopped installing in Nov-2018
-            - texinfo # for makeinfo, required to build FFI
+            - texinfo  # for makeinfo, required to build FFI
 
     # Linux x64, debug, g++
     #
@@ -173,7 +173,7 @@ matrix:
     #
     - os: linux
       dist: trusty
-      sudo: false # force new container-based infrastructure.
+      sudo: false  # force new container-based infrastructure.
       language: cpp
       env:
         - CONFIG=generic-c++.r
@@ -192,9 +192,9 @@ matrix:
         apt:
           packages:
             - g++-multilib
-            - unixodbc-dev # for ODBC extension
-            - libzmq3-dev # for ZeroMQ extension
-            - texinfo # for makeinfo, required to build FFI
+            - unixodbc-dev  # for ODBC extension
+            - libzmq3-dev  # for ZeroMQ extension
+            - texinfo  # for makeinfo, required to build FFI
 
     # Linux x64, release, gcc
     #
@@ -218,11 +218,11 @@ matrix:
         - RIGOROUS=yes
         - STATIC=yes
         - WITH_FFI=dynamic
-        - EXTENSIONS="" # no ODBC, ZeroMQ, FFI dependencies
+        - EXTENSIONS=""  # no ODBC, ZeroMQ, FFI dependencies
       addons:
         apt:
           packages:
-            - gcc-multilib # !!! what was this for?
+            - gcc-multilib  # !!! what was this for?
 
     # Windows x86, release, gcc
     #
@@ -246,7 +246,7 @@ matrix:
         - CONFIG=mingw-x86.r
         - OS_ID=0.3.1
         - DEBUG=none
-        - TOOLS=i686-w64-mingw32- # trailing hyphen is intentional
+        - TOOLS=i686-w64-mingw32-  # trailing hyphen is intentional
         - STANDARD=c
         - RIGOROUS=yes
         - STATIC=yes
@@ -261,18 +261,18 @@ matrix:
             - binutils-mingw-w64-i686
             - gcc-mingw-w64-i686
             - mingw-w64
-            - texinfo # for makeinfo, required to build FFI
+            - texinfo  # for makeinfo, required to build FFI
 
     # Windows x64, debug, gcc
     #
     - os: linux
-      sudo: false # force new container-based infrastructure.
+      sudo: false  # force new container-based infrastructure.
       language: c
       env:
         - CONFIG=mingw-x64.r
         - OS_ID=0.3.40
         - DEBUG=asserts
-        - TOOLS=x86_64-w64-mingw32- # trailing hyphen is intentional
+        - TOOLS=x86_64-w64-mingw32-  # trailing hyphen is intentional
         - STANDARD=c
         - RIGOROUS=yes
         - STATIC=yes
@@ -301,14 +301,14 @@ matrix:
     # !!! Note this binary does not support c++11 or above
     #
     - os: linux
-      dist: trusty # see note above
-      sudo: false # force new container-based infrastructure
+      dist: trusty  # see note above
+      sudo: false  # force new container-based infrastructure
       language: cpp
       env:
         - CONFIG=mingw-x64-c++.r
         - OS_ID=0.3.40
         - DEBUG=asserts
-        - TOOLS=x86_64-w64-mingw32- # trailing hyphen is intentional
+        - TOOLS=x86_64-w64-mingw32-  # trailing hyphen is intentional
         - STANDARD=c++98
         - RIGOROUS=yes
         - STATIC=yes
@@ -329,7 +329,7 @@ matrix:
     #
     - os: linux
       dist: trusty
-      sudo: false # force new container-based infrastructure
+      sudo: false  # force new container-based infrastructure
       language: c
       env:
         - CONFIG=android5-arm.r
@@ -347,7 +347,7 @@ matrix:
     #
     - os: linux
       dist: trusty
-      sudo: false # force new container-based infrastructure
+      sudo: false  # force new container-based infrastructure
       language: c
       env:
         - CONFIG=android5-arm.r
@@ -365,7 +365,7 @@ matrix:
       addons:
         apt:
           packages:
-            - gcc-multilib # for cross-compiling
+            - gcc-multilib  # for cross-compiling
 
     # Emscripten, Webassembly, debug
     #
@@ -383,7 +383,7 @@ matrix:
         - STATIC=no
         - WITH_FFI=no
         - ODBC_REQUIRES_LTDL=no
-        - EXTENSIONS=- # requests inclusion of no extensions (default?)
+        - EXTENSIONS=-  # requests inclusion of no extensions (default?)
 
 # The install step occurs before the `script:` step runs.  The language that
 # was specified in the `matrix:` entry for each instance will guide certain
@@ -429,8 +429,8 @@ install:
       if [[ "$BREW" == "yes" ]]; then # seems to not work on old OS X
         brew update > /dev/null
 
-        brew install unixodbc # for ODBC extension
-        brew install zmq # for ZeroMQ extension
+        brew install unixodbc  # for ODBC extension
+        brew install zmq  # for ZeroMQ extension
 
         export REBOL_TOOL=./r3-osx-x64-8994d23
       else
