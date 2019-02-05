@@ -74,7 +74,7 @@
 ][
     (
         soft: enfix function ['v [any-value! <...>]] [
-            collect-block [
+            collect [
                 while [not tail? v] [
                     keep/only take v
                 ]
@@ -92,7 +92,7 @@
 ][
     (
         hard: enfix function [:v [any-value! <...>]] [
-            collect-block [
+            collect [
                 while [not tail? v] [
                     keep/only take v
                 ]

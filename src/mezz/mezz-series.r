@@ -473,14 +473,14 @@ alter: func [
 ]
 
 
-collect-with: func [
+collect*-with: func [
     "Evaluate body, and return block of values collected via keep function."
 
     return: "result block, or null if no KEEPs (prevent nulls with KEEP [])"
         [<opt> block!]
     'name [word! lit-word!]
         "Name to which keep function will be assigned (<local> if word!)"
-    body [block!]
+    body [<blank> block!]
         "Block to evaluate"
 
     <local> out keeper
@@ -517,19 +517,29 @@ collect-with: func [
     :out
 ]
 
+collect*: redescribe [
+    "Evaluate body, and return block of values collected via KEEP function."
+] specialize :collect*-with [name: 'keep]
+
 
 ; Classic version of COLLECT which assumes that the word you want to use
 ; is KEEP, and that the body needs to be deep copied and rebound (via FUNC)
-; to a new variable to hold the keeping function.
+; to a new variable to hold the keeping function.  Returns an empty block
+; if nothing is collected.
 ;
 collect: redescribe [
-    "Evaluate body, and return block of values collected via KEEP function."
-] specialize :collect-with [name: 'keep]
+    {Evaluate body, and return block of values collected via KEEP function.
+    Returns empty block if nothing KEEPed.}
+] chain [ ;; Gives empty block instead of null if no keeps
+    :collect*
+        |
+    specialize 'else [branch: [copy []]]
+]
 
 collect-lines: redescribe [
     {Evaluate body, and return block of values collected via KEEP function.
     KEEPed blocks become spaced TEXT!.}
-] adapt 'collect [ ;; https://forum.rebol.info/t/945/1
+] adapt 'collect [  ; https://forum.rebol.info/t/945/1
     body: compose [
         keep: adapt specialize 'keep [
             line: true | only: false | part: false
@@ -538,19 +548,10 @@ collect-lines: redescribe [
     ]
 ]
 
-collect-block: redescribe [
-    {Evaluate body, and return block of values collected via KEEP function.
-    Returns empty block if nothing KEEPed.}
-] chain [ ;; Gives empty block instead of null if no keeps
-    :collect
-        |
-    specialize 'else [branch: [copy []]]
-]
-
 collect-text: redescribe [
     {Evaluate body, and return block of values collected via KEEP function.
     Returns all values as a single spaced TEXT!, individual KEEPed blocks get UNSPACED.}
-] chain [ ;; https://forum.rebol.info/t/945/2
+] chain [  ; https://forum.rebol.info/t/945/2
     adapt 'collect [
         body: compose [
             keep: adapt specialize 'keep [
@@ -561,9 +562,6 @@ collect-text: redescribe [
             ((as group! body))
         ]
     ]
-        |
-    :try
-        |
     :spaced
         |
     specialize 'else [branch: [copy ""]]
@@ -656,7 +654,7 @@ split: function [
 
     if tag? dlm [dlm: form dlm] ;-- reserve other strings for future meanings
 
-    result: collect-block [
+    result: collect [
         parse series if integer? dlm [
             size: dlm ;-- alias for readability in integer case
             if size < 1 [fail "Bad SPLIT size given:" size]

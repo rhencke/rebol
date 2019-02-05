@@ -48,6 +48,11 @@ trap [
 
 print "== SHIMMING OLDER R3 TO MODERN LANGUAGE DEFINITIONS =="
 
+; COLLECT was changed back to default to returning an empty block on no
+; collect, but it is built on a null collect lower-level primitive COLLECT*
+;
+collect*: :collect
+collect: :collect-block
 
 modernize-action: function [
     "Account for the <blank> annotation as a usermode feature"
@@ -56,7 +61,7 @@ modernize-action: function [
     body [block!]
 ][
     blankers: copy []
-    spec: collect-block [
+    spec: collect [
         iterate spec [
             ;
             ; Find ANY-WORD!s (args/locals)

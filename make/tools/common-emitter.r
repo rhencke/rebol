@@ -51,7 +51,7 @@ cscape: function [
     num: 1
     num-text: to text! num  ; CHANGE won't take GROUP! to evaluate, #1279
 
-    list: collect [
+    list: collect* [
         parse string [(col: 0) start: any [
             [
                 (prefix: _ suffix: _) finish:
@@ -95,7 +95,7 @@ cscape: function [
 
     list: unique/case list
 
-    substitutions: try collect [
+    substitutions: collect [
         for-each item list [
             set [pattern: col: mode: expr: prefix: suffix:] item
 

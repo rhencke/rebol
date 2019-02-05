@@ -79,7 +79,7 @@ emit-include-params-macro: function [
     /ext ext-name
 ][
     n: 1
-    items: try collect [
+    items: try collect* [
         for-each item paramlist [
             any [
                 not match [any-word! refinement! lit-word!] item

@@ -811,7 +811,7 @@ switch: emulate [redescribe [
 ](
     chain [
         adapt 'switch [
-            cases: try collect [
+            cases: collect [
                 for-each c cases [
                     keep/only either block? :c [:c] [uneval :c]
                 ]
@@ -823,7 +823,7 @@ switch: emulate [redescribe [
             ]
         ]
             |
-        :to-value ;-- wants blank on failed SWITCH, not null
+        :try  ; wants blank on failed SWITCH, not null
     ]
 )]
 
