@@ -622,7 +622,6 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "sys-varargs.h"
 
 #include "sys-library.h" // maybe should be defined in an extension
-#include "sys-image.h" // definitely should be defined in an extension
 
 #include "host-lib.h"
 

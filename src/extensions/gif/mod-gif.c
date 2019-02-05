@@ -335,10 +335,7 @@ REBNATIVE(decode_gif)
         }
         cp += 9;
 
-        DECLARE_LOCAL (image);
-        Make_Image(image, w, h);
-
-        REBYTE *dp = VAL_IMAGE_HEAD(image);
+        REBYTE *dp = rebAllocN(REBYTE, (w * h) * 4);  // RGBA pixels, 4 bytes
 
         Decode_LZW(dp, &cp, colormap, w, h, interlaced);
 
@@ -348,7 +345,16 @@ REBNATIVE(decode_gif)
             ///Chroma_Key_Alpha(Temp_Value, (uint32_t)(p[2]|(p[1]<<8)|(p[0]<<16)), BLIT_MODE_COLOR);
         }
 
-        rebElide("append", frames, image, rebEND);
+        REBVAL *binary = rebRepossess(dp, (w * h) * 4);
+
+        rebElide(
+            "append", frames, "make image! compose", rebU("[",
+                "(to pair! [", rebI(w), rebI(h), "])",
+                binary,
+            "]", rebEND),
+        rebEND);
+
+        rebRelease(binary);
     }
 
     // If 0 images, raise an error

@@ -40,17 +40,8 @@
 #include "sys-core.h"
 
 #include "sys-tuple.h"
+#include "sys-image.h"
 
-inline static void RESET_IMAGE(REBYTE *p, REBCNT num_pixels) {
-    REBYTE *start = p;
-    REBYTE *stop = start + (num_pixels * 4);
-    while (start < stop) {
-        *start++ = 0; // red
-        *start++ = 0; // green
-        *start++ = 0; // blue
-        *start++ = 0xff; // opaque alpha, R=G=B as 0 means black pixel
-    }
-}
 
 //
 //  CT_Image: C
@@ -60,12 +51,22 @@ REBINT CT_Image(const REBCEL *a, const REBCEL *b, REBINT mode)
     if (mode < 0)
         return -1;
 
-    if (
-        VAL_IMAGE_WIDE(a) == VAL_IMAGE_WIDE(a)
-        && VAL_IMAGE_HIGH(b) == VAL_IMAGE_HIGH(b)
-    ) {
-        return (0 == Compare_Binary_Vals(a, b)) ? 1 : 0;
-    }
+    if (VAL_IMAGE_WIDE(a) != VAL_IMAGE_WIDE(a))
+        return 0;
+
+    if (VAL_IMAGE_HIGH(b) != VAL_IMAGE_HIGH(b))
+        return 0;
+
+    // !!! There is an image "position" stored in the binary.  This is a
+    // dodgy concept of a linear index into the image being an X/Y
+    // coordinate and permitting "series" operations.  In any case, for
+    // two images to compare alike they are compared according to this...
+    // but note the width and height aren't taken into account.
+    //
+    // https://github.com/rebol/rebol-issues/issues/801
+    //
+    if (0 == Compare_Binary_Vals(VAL_IMAGE_BIN(a), VAL_IMAGE_BIN(b)))
+        return 1;
 
     return 0;
 }
@@ -90,7 +91,7 @@ void Copy_Image_Value(REBVAL *out, const REBVAL *arg, REBINT len)
     if (w == 0)
         h = 0;
 
-    Make_Image(out, w, h);
+    Init_Image_Black_Opaque(out, w, h);
     memcpy(VAL_IMAGE_HEAD(out), VAL_IMAGE_AT(arg), w * h * 4);
 }
 
@@ -110,63 +111,62 @@ REB_R MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         //
         // make image! [] (or none)
         //
-        Make_Image(out, 0, 0);
+        Init_Image_Black_Opaque(out, 0, 0);
     }
-    else if (IS_PAIR(arg)) {
-        //
-        // make image! size
-        //
+    else if (IS_PAIR(arg)) {  // `make image! 10x20`
         REBINT w = VAL_PAIR_X_INT(arg);
         REBINT h = VAL_PAIR_Y_INT(arg);
         w = MAX(w, 0);
         h = MAX(h, 0);
-        Make_Image(out, w, h);
+        Init_Image_Black_Opaque(out, w, h);
     }
-    else if (IS_BLOCK(arg)) {
-        //
-        // make image! [size rgb alpha index]
-        //
+    else if (IS_BLOCK(arg)) {  // make image! [size rgba index]
         RELVAL *item = VAL_ARRAY_AT(arg);
-
-        if (!IS_PAIR(item)) goto bad_make;
+        if (not IS_PAIR(item))
+            goto bad_make;
 
         REBINT w = VAL_PAIR_X_INT(item);
         REBINT h = VAL_PAIR_Y_INT(item);
-        if (w < 0 || h < 0) goto bad_make;
-
-        Make_Image(out, w, h);
-
-        REBYTE *ip = VAL_IMAGE_HEAD(out); // image pointer
-        REBCNT size = w * h;
+        if (w < 0 or h < 0)
+            goto bad_make;
 
         ++item;
 
-        if (IS_END(item)) {
-            //
-            // make image! [10x20]... already done
+        if (IS_END(item)) {  // was just `make image! [10x20]`, allow it
+            Init_Image_Black_Opaque(out, w, h);
+            ++item;
         }
-        else if (IS_BINARY(item)) {
+        else if (IS_BINARY(item)) {  // use bytes as-is
 
-            // Load image data:
-            Bin_To_RGB(ip, size, VAL_BIN_AT(item), VAL_LEN_AT(item) / 3);
+            // !!! R3-Alpha separated out the alpha channel from the RGB
+            // data in MAKE, even though it stored all the data together.
+            // We can't use a binary directly as the backing store for an
+            // image unless it has all the RGBA components together.  While
+            // some MAKE-like procedure might allow you to pass in separate
+            // components, the value of a system one is to use the data
+            // directly as-is...so Ren-C only supports RGBA.
+
+            if (VAL_INDEX(item) != 0)
+                fail ("MAKE IMAGE! w/BINARY! must have binary at HEAD");
+
+            if (VAL_LEN_HEAD(item) != cast(REBCNT, w * h * 4))
+                fail ("MAKE IMAGE! w/BINARY! must have RGBA pixels for size");
+
+            Init_Image(out, VAL_BINARY(item), w, h);
             ++item;
 
-            // !!! Review handling of END here; was not explicit before and
-            // just fell through the binary and integer tests...
+            // !!! Sketchy R3-Alpha concept: "image position".  The block
+            // MAKE IMAGE! format allowed you to specify it.
 
-            // Load alpha channel data:
-            if (NOT_END(item) && IS_BINARY(item)) {
-                Bin_To_Alpha(ip, size, VAL_BIN_AT(item), VAL_LEN_AT(item));
-    //          VAL_IMAGE_TRANSP(value)=VITT_ALPHA;
-                ++item;
-            }
-
-            if (NOT_END(item) && IS_INTEGER(item)) {
-                VAL_INDEX(out) = (Int32s(KNOWN(item), 1) - 1);
+            if (NOT_END(item) and IS_INTEGER(item)) {
+                VAL_IMAGE_POS(out) = (Int32s(KNOWN(item), 1) - 1);
                 ++item;
             }
         }
-        else if (IS_TUPLE(item)) {
+        else if (IS_TUPLE(item)) {  // `make image! [1.2.3.255 4.5.6.128 ...]`
+            Init_Image_Black_Opaque(out, w, h);  // inefficient, overwritten
+            REBYTE *ip = VAL_IMAGE_HEAD(out); // image pointer
+
             REBYTE pixel[4];
             Set_Pixel_Tuple(pixel, item);
             Fill_Rect(ip, pixel, w, w, h, true);
@@ -175,11 +175,12 @@ REB_R MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
                 Fill_Alpha_Rect(
                     ip, cast(REBYTE, VAL_INT32(item)), w, w, h
                 );
-    //          VAL_IMAGE_TRANSP(value)=VITT_ALPHA;
                 ++item;
             }
         }
         else if (IS_BLOCK(item)) {
+            Init_Image_Black_Opaque(out, w, h);  // inefficient, overwritten
+
             REBCNT bad_index;
             if (Array_Has_Non_Tuple(&bad_index, item)) {
                 REBSPC *derived = Derive_Specifier(VAL_SPECIFIER(arg), item);
@@ -189,14 +190,16 @@ REB_R MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
                 ));
             }
 
+            REBYTE *ip = VAL_IMAGE_HEAD(out);  // image pointer
             Tuples_To_RGBA(
-                ip, size, KNOWN(VAL_ARRAY_AT(item)), VAL_LEN_AT(item)
+                ip, w * h, KNOWN(VAL_ARRAY_AT(item)), VAL_LEN_AT(item)
             );
         }
         else
             goto bad_make;
 
-        assert(IS_IMAGE(out));
+        if (NOT_END(item))
+            fail ("Too many elements in BLOCK! for MAKE IMAGE!");
     }
     else
         fail (Error_Invalid_Type(VAL_TYPE(arg)));
@@ -216,36 +219,11 @@ REB_R TO_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     assert(kind == REB_IMAGE);
     UNUSED(kind);
 
-    if (IS_IMAGE(arg)) {
-        Copy_Image_Value(out, arg, VAL_IMAGE_LEN_AT(arg));
-    }
-    else if (IS_GOB(arg)) {
+    if (IS_GOB(arg)) {
         REBVAL *image = OS_GOB_TO_IMAGE(arg);
         if (image == NULL)
             fail (Error_Bad_Make(REB_IMAGE, arg)); // not GUI build...
         Move_Value(out, image); // what are the GC semantics here?
-    }
-    else if (IS_BINARY(arg)) {
-        REBINT diff = VAL_LEN_AT(arg) / 4;
-        if (diff == 0)
-            fail (Error_Bad_Make(REB_IMAGE, arg));
-
-        REBINT w;
-        if (diff < 100) w = diff;
-        else if (diff < 10000) w = 100;
-        else w = 500;
-
-        REBINT h = diff / w;
-        if (w * h < diff) h++; // partial line
-
-        Make_Image(out, w, h);
-        Bin_To_RGBA(
-            VAL_IMAGE_HEAD(out),
-            w * h,
-            VAL_BIN_AT(arg),
-            VAL_LEN_AT(arg) / 4,
-            false
-        );
     }
     else
         fail (Error_Invalid_Type(VAL_TYPE(arg)));
@@ -482,15 +460,12 @@ void Bin_To_Alpha(REBYTE *rgba, REBCNT size, REBYTE *bin, REBINT len)
 //
 bool Array_Has_Non_Tuple(REBCNT *index_out, RELVAL *blk)
 {
-    REBCNT len;
-
     assert(ANY_ARRAY(blk));
 
-    len = VAL_LEN_HEAD(blk);
+    REBCNT len = VAL_LEN_HEAD(blk);
     *index_out = VAL_INDEX(blk);
-
     for (; *index_out < len; (*index_out)++)
-        if (!IS_TUPLE(VAL_ARRAY_AT_HEAD(blk, *index_out)))
+        if (not IS_TUPLE(VAL_ARRAY_AT_HEAD(blk, *index_out)))
             return true;
 
     return false;
@@ -519,7 +494,15 @@ void Tuples_To_RGBA(REBYTE *rgba, REBCNT size, REBVAL *blk, REBCNT len)
 //
 //  Mold_Image_Data: C
 //
-// Output RGB image data, and then alpha channel (if it has one)
+// Output RGBA image data
+//
+// !!! R3-Alpha always used 4 bytes per pixel for images, so the idea that
+// images would "not have an alpha channel" only meant that they had all
+// transparent bytes.  In order to make images less monolithic (and enable
+// them to be excised from the core into an extension), the image builds
+// directly on a BINARY! that the user can pass in and extract.  This has
+// to be consistent with the internal format, so the idea of "alpha-less"
+// images is removed from MAKE IMAGE! and related molding.
 //
 void Mold_Image_Data(const REBVAL *value, REB_MOLD *mold)
 {
@@ -532,84 +515,19 @@ void Mold_Image_Data(const REBVAL *value, REB_MOLD *mold)
     //
     REBYTE *bp = Prep_Mold_Overestimated(
         mold,
-        (num_pixels * 6) + (num_pixels / 10) + 1
+        (num_pixels * 8) + (num_pixels / 10) + 1
     );
 
     REBCNT i;
     for (i = 0; i < num_pixels; ++i, rgba += 4) {
         if ((i % 10) == 0)
             *bp++ = LF;
-        bp = Form_RGB_Utf8(bp, rgba);
-    }
-
-    // Output Alpha channel, if it has one:
-    if (Image_Has_Alpha(value)) {
-
-        Append_Unencoded(mold->series, "\n} #{");
-
-        // !!! Actually accurate?
-        //
-        bp = Prep_Mold_Overestimated(
-            mold,
-            (num_pixels * 2) + (num_pixels / 10) + 1
-        );
-
-        rgba = VAL_IMAGE_AT(value);
-        for (i = 0; i < num_pixels; ++i, rgba += 4) {
-            if ((i % 10) == 0)
-                *bp++ = LF;
-            bp = Form_Hex2_UTF8(bp, rgba[3]); // alpha
-        }
+        bp = Form_RGBA_Utf8(bp, rgba);
     }
 
     *bp = '\0'; // tail already set from Prep (so it thinks it guessed right)
 
     Append_Unencoded(mold->series, "\n}");
-}
-
-
-//
-//  Make_Image_Binary: C
-//
-REBSER *Make_Image_Binary(const REBVAL *image)
-{
-    size_t size = VAL_IMAGE_LEN_AT(image) * 4;
-    REBSER *bin = Make_Binary(size);
-    SET_SERIES_LEN(bin, size);
-    memcpy(BIN_HEAD(bin), VAL_IMAGE_AT(image), size);
-    return bin;
-}
-
-
-//
-//  Make_Image: C
-//
-// Creates WxH image, black pixels, all opaque.
-//
-void Make_Image(REBVAL *out, REBCNT w, REBCNT h)
-{
-    // !!! Temporary size storage limit for images, applicable only because
-    // the size is poked into a hidden location of the REBSER node.  This
-    // will not be a problem when stored in a separate PAIR!
-    //
-    if (w > 0xFFFF || h > 0xFFFF)
-        fail (Error_Size_Limit_Raw(Datatype_From_Kind(REB_IMAGE)));
-
-    // Series is created with 4-byte elements.  One reason for this is so that
-    // the common series mechanics (for handling things like NEXT or BACK)
-    // will move in pixel-size units.  So long as IMAGE! is implemented with
-    // the common series routines, this will be necessary--it should change
-    // when it becomes a user defined type with a PAIR! and a BINARY!.
-    //
-    REBSER *img = Make_Ser(w * h + 1, 4);
-    SET_SERIES_LEN(img, (w * h));
-
-    RESET_IMAGE(SER_DATA_RAW(img), (w * h)); // length in 'pixels'
-
-    IMG_WIDE(img) = w;
-    IMG_HIGH(img) = h;
-
-    Init_Any_Series(out, REB_IMAGE, img);
 }
 
 
@@ -649,8 +567,8 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
     REBINT  dup = 1;  // /dup count
     REBINT  dupx, dupy;
     bool only = false; // /only
-    REBCNT  index = VAL_INDEX(value);
-    REBCNT  tail = VAL_LEN_HEAD(value);
+    REBCNT  index = VAL_IMAGE_POS(value);
+    REBCNT  tail = VAL_IMAGE_LEN_HEAD(value);
     REBCNT  n;
     REBINT  x;
     REBINT  w;
@@ -718,10 +636,10 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
                 if (VAL_IMAGE_WIDE(len) == 0)
                     fail (len);
 
-                partx = VAL_INDEX(len) - VAL_INDEX(arg);
+                partx = VAL_IMAGE_POS(len) - VAL_IMAGE_POS(arg);
                 party = partx / VAL_IMAGE_WIDE(len);
                 party = MAX(party, 1);
-                partx = MIN(partx, (REBINT)VAL_IMAGE_WIDE(arg));
+                partx = MIN(partx, cast(REBINT, VAL_IMAGE_WIDE(arg)));
                 goto len_compute;
             }
             else if (IS_PAIR(len)) {
@@ -729,10 +647,13 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
                 party = VAL_PAIR_Y_INT(len);
             len_compute:
                 partx = MAX(partx, 0);
-                partx = MIN(partx, (REBINT)w - x); // clip part width
+                partx = MIN(partx, cast(REBINT, w) - x); // clip part width
                 party = MAX(party, 0);
                 if (sym != SYM_INSERT)
-                    party = MIN(party, (REBINT)VAL_IMAGE_HIGH(value) - y);
+                    party = MIN(
+                        party,
+                        cast(REBINT, VAL_IMAGE_HIGH(value) - y)
+                    );
                 else
                     part = party * w;
                 if (partx == 0 || party == 0) return value;
@@ -766,7 +687,7 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
     // Expand image data if necessary:
     if (sym == SYM_INSERT) {
         if (index > tail) index = tail;
-        Expand_Series(VAL_SERIES(value), index, dup * part);
+        Expand_Series(VAL_BINARY(VAL_IMAGE_BIN(value)), index, dup * part);
 
         //length in 'pixels'
         RESET_IMAGE(VAL_BIN_HEAD(value) + (index * 4), dup * part);
@@ -820,7 +741,7 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
     Reset_Height(value);
 
     if (sym == SYM_APPEND)
-        VAL_INDEX(value) = 0;
+        VAL_IMAGE_POS(value) = 0;
     RETURN (value);
 }
 
@@ -840,8 +761,8 @@ void Find_Image(REBFRM *frame_)
 
     REBVAL  *value = ARG(series);
     REBVAL  *arg = ARG(value);
-    REBCNT  index = VAL_INDEX(value);
-    REBCNT  tail = VAL_LEN_HEAD(value);
+    REBCNT  index = VAL_IMAGE_POS(value);
+    REBCNT  tail = VAL_IMAGE_LEN_HEAD(value);
     REBYTE *ip = VAL_IMAGE_AT(value);
     REBYTE *p;
     REBINT  n;
@@ -916,7 +837,7 @@ void Find_Image(REBFRM *frame_)
         if (REF(tail))
             ++n;
 
-    VAL_INDEX(value) = n;
+    VAL_IMAGE_POS(value) = n;
     return;
 }
 
@@ -978,12 +899,12 @@ void Copy_Rect_Data(
 //
 //  Make_Complemented_Image: C
 //
-static void Make_Complemented_Image(REBVAL *out, const REBVAL *value)
+static void Make_Complemented_Image(REBVAL *out, const REBVAL *v)
 {
-    REBYTE *img = VAL_IMAGE_AT(value);
-    REBINT len = VAL_IMAGE_LEN_AT(value);
+    REBYTE *img = VAL_IMAGE_AT(v);
+    REBINT len = VAL_IMAGE_LEN_AT(v);
 
-    Make_Image(out, VAL_IMAGE_WIDE(value), VAL_IMAGE_HIGH(value));
+    Init_Image_Black_Opaque(out, VAL_IMAGE_WIDE(v), VAL_IMAGE_HIGH(v));
 
     REBYTE *dp = VAL_IMAGE_HEAD(out);
     for (; len > 0; len --) {
@@ -1006,7 +927,7 @@ void MF_Image(REB_MOLD *mo, const REBCEL *v, bool form)
     if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL)) {
         DECLARE_LOCAL (head);
         Move_Value(head, KNOWN(v));
-        VAL_INDEX(head) = 0; // mold all of it
+        VAL_IMAGE_POS(head) = 0; // mold all of it
         Mold_Image_Data(head, mo);
         Post_Mold(mo, v);
     }
@@ -1029,8 +950,8 @@ REBTYPE(Image)
     REBINT  diff, len, w, h;
     REBVAL  *val;
 
-    REBSER *series = VAL_SERIES(value);
-    REBINT index = VAL_INDEX(value);
+    REBSER *series = VAL_BINARY(VAL_IMAGE_BIN(value));
+    REBINT index = VAL_IMAGE_POS(value);
     REBINT tail = cast(REBINT, SER_LEN(series));
 
     // Clip index if past tail:
@@ -1050,11 +971,11 @@ REBTYPE(Image)
 
         switch (property) {
         case SYM_HEAD:
-            VAL_INDEX(value) = 0;
+            VAL_IMAGE_POS(value) = 0;
             break;
 
         case SYM_TAIL:
-            VAL_INDEX(value) = cast(REBCNT, tail);
+            VAL_IMAGE_POS(value) = cast(REBCNT, tail);
             break;
 
         case SYM_HEAD_Q:
@@ -1075,6 +996,15 @@ REBTYPE(Image)
 
         case SYM_LENGTH:
             return Init_Integer(D_OUT, tail > index ? tail - index : 0);
+
+        case SYM_BYTES: {
+            //
+            // !!! The BINARY! currently has a position in it.  This notion
+            // of images being at an "index" is sketchy.  Assume that someone
+            // asking for the bytes doesn't care about the index.
+            //
+            REBBIN *bin = VAL_BINARY(VAL_IMAGE_BIN(value));
+            return Init_Binary(D_OUT, bin); }  // at 0 index
 
         default:
             break;
@@ -1113,18 +1043,20 @@ REBTYPE(Image)
         else if (index < 0)
             index = 0;
 
-        Move_Value(D_OUT, value);
-        VAL_INDEX(D_OUT) = cast(REBCNT, index);
-        return D_OUT;
+        VAL_IMAGE_POS(value) = cast(REBCNT, index);
+        RETURN (value);
 
     case SYM_CLEAR:
         FAIL_IF_READ_ONLY_SERIES(value);
         if (index < tail) {
-            SET_SERIES_LEN(VAL_SERIES(value), cast(REBCNT, index));
+            SET_SERIES_LEN(
+                VAL_BINARY(VAL_IMAGE_BIN(value)),
+                cast(REBCNT, index)
+            );
             Reset_Height(value);
         }
-        Move_Value(D_OUT, value);
-        return D_OUT;
+        RETURN (value);
+
 
     case SYM_REMOVE: {
         FAIL_IF_READ_ONLY_SERIES(value);
@@ -1146,27 +1078,26 @@ REBTYPE(Image)
             else if (IS_IMAGE(val)) {
                 if (!VAL_IMAGE_WIDE(val))
                     fail (val);
-                len = VAL_INDEX(val) - VAL_INDEX(value); // not same is ok
+                len = VAL_IMAGE_POS(val) - VAL_IMAGE_POS(value);
             }
             else
                 fail (Error_Invalid_Type(VAL_TYPE(val)));
         }
         else len = 1;
 
-        index = (REBINT)VAL_INDEX(value);
+        index = cast(REBINT, VAL_IMAGE_POS(value));
         if (index < tail && len != 0) {
-            Remove_Series(series, VAL_INDEX(value), len);
+            Remove_Series(series, index, len);
         }
         Reset_Height(value);
-        Move_Value(D_OUT, value);
-        return D_OUT; }
+        RETURN (value); }
 
     case SYM_APPEND:
     case SYM_INSERT:  // insert ser val /part len /only /dup count
     case SYM_CHANGE:  // change ser val /part len /only /dup count
         if (IS_NULLED_OR_BLANK(arg)) {
             if (sym == SYM_APPEND) // append returns head position
-                VAL_INDEX(value) = 0;
+                VAL_IMAGE_POS(value) = 0;
             RETURN (value); // don't fail on read only if it would be a no-op
         }
         FAIL_IF_READ_ONLY_SERIES(value);
@@ -1196,9 +1127,9 @@ REBTYPE(Image)
         }
         arg = ARG(limit); // can be image, integer, pair.
         if (IS_IMAGE(arg)) {
-            if (VAL_SERIES(arg) != VAL_SERIES(value))
+            if (VAL_IMAGE_BIN(arg) != VAL_IMAGE_BIN(value))
                 fail (arg);
-            len = VAL_INDEX(arg) - VAL_INDEX(value);
+            len = VAL_IMAGE_POS(arg) - VAL_IMAGE_POS(value);
             arg = value;
             goto makeCopy2;
         }
@@ -1212,7 +1143,7 @@ REBTYPE(Image)
             h = VAL_PAIR_Y_INT(arg);
             w = MAX(w, 0);
             h = MAX(h, 0);
-            diff = MIN(VAL_LEN_HEAD(value), VAL_INDEX(value)); // index offset
+            diff = MIN(VAL_LEN_HEAD(value), VAL_IMAGE_POS(value));
             diff = MAX(0, diff);
             index = VAL_IMAGE_WIDE(value); // width
             if (index) {
@@ -1221,7 +1152,7 @@ REBTYPE(Image)
             } else len = diff = 0; // avoid div zero
             w = MIN(w, index - diff); // img-width - x-pos
             h = MIN(h, (int)(VAL_IMAGE_HIGH(value) - len)); // img-high - y-pos
-            Make_Image(D_OUT, w, h);
+            Init_Image_Black_Opaque(D_OUT, w, h);
             Copy_Rect_Data(D_OUT, 0, 0, w, h, value, diff, len);
 //          VAL_IMAGE_TRANSP(D_OUT) = VAL_IMAGE_TRANSP(value);
             return D_OUT;
@@ -1251,8 +1182,8 @@ inline static bool Adjust_Image_Pick_Index_Is_Valid(
     REBINT n;
     if (IS_PAIR(picker)) {
         n = (
-            VAL_PAIR_Y_INT(picker) * VAL_IMAGE_WIDE(value)
-            + VAL_PAIR_X_INT(picker)
+            (VAL_PAIR_Y_INT(picker) - 1) * VAL_IMAGE_WIDE(value)
+            + (VAL_PAIR_X_INT(picker) - 1)
         ) + 1;
     }
     else if (IS_INTEGER(picker))
@@ -1268,8 +1199,13 @@ inline static bool Adjust_Image_Pick_Index_Is_Valid(
     if (n > 0)
         (*index)--;
 
-    if (n == 0 || *index < 0 || *index >= cast(REBINT, VAL_LEN_HEAD(value)))
+    if (
+        n == 0
+        or *index < 0
+        or *index >= cast(REBINT, VAL_IMAGE_LEN_HEAD(value))
+    ){
         return false; // out of range
+    }
 
     return true;
 }
@@ -1280,8 +1216,8 @@ inline static bool Adjust_Image_Pick_Index_Is_Valid(
 //
 void Pick_Image(REBVAL *out, const REBVAL *value, const REBVAL *picker)
 {
-    REBINT index = cast(REBINT, VAL_INDEX(value));
-    REBINT len = VAL_LEN_HEAD(value) - index;
+    REBINT index = cast(REBINT, VAL_IMAGE_POS(value));
+    REBINT len = VAL_IMAGE_LEN_HEAD(value) - index;
     len = MAX(len, 0);
 
     REBYTE *src = VAL_IMAGE_AT(value);
@@ -1300,6 +1236,7 @@ void Pick_Image(REBVAL *out, const REBVAL *value, const REBVAL *picker)
             REBSER *nser = Make_Binary(len * 3);
             SET_SERIES_LEN(nser, len * 3);
             RGB_To_Bin(BIN_HEAD(nser), src, len, false);
+            TERM_SERIES(nser);
             Init_Binary(out, nser);
             break; }
 
@@ -1307,6 +1244,7 @@ void Pick_Image(REBVAL *out, const REBVAL *value, const REBVAL *picker)
             REBSER *nser = Make_Binary(len);
             SET_SERIES_LEN(nser, len);
             Alpha_To_Bin(BIN_HEAD(nser), src, len);
+            TERM_SERIES(nser);
             Init_Binary(out, nser);
             break; }
 
@@ -1333,8 +1271,8 @@ void Poke_Image_Fail_If_Read_Only(
 ){
     FAIL_IF_READ_ONLY_SERIES(value);
 
-    REBINT index = cast(REBINT, VAL_INDEX(value));
-    REBINT len = VAL_LEN_HEAD(value) - index;
+    REBINT index = cast(REBINT, VAL_IMAGE_POS(value));
+    REBINT len = VAL_IMAGE_LEN_HEAD(value) - index;
     len = MAX(len, 0);
 
     REBYTE *src = VAL_IMAGE_AT(value);

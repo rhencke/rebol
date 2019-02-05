@@ -717,7 +717,7 @@ REBNATIVE(same_q)
         return Init_True(D_OUT);
     }
 
-    if (ANY_SERIES(value1) || IS_IMAGE(value1)) {
+    if (ANY_SERIES(value1)) {
         //
         // ANY-SERIES! can only be the same if pointers and indices match.
         //
@@ -790,6 +790,10 @@ REBNATIVE(same_q)
     }
 
     // For other types, just fall through to strict equality comparison
+    //
+    // !!! What about user extension types, like IMAGE! and STRUCT!?  It
+    // seems that "sameness" should go through whatever extension mechanism
+    // for comparison user defined types would have.
     //
     if (Compare_Modify_Values(value1, value2, 1))
         return Init_True(D_OUT);

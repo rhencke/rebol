@@ -341,36 +341,36 @@ inline static union Reb_Header Endlike_Header(uintptr_t bits) {
 // work.  It's also likely preferred by x86.
 //
 
-struct Reb_Binding_Extra // see %sys-bind.h
+struct Reb_Binding_Extra  // see %sys-bind.h
 {
     REBNOD* node;
 };
 
-struct Reb_Key_Extra // see %sys-action.h, %sys-context.h
+struct Reb_Key_Extra  // see %sys-action.h, %sys-context.h
 {
-    REBSTR *spelling; // UTF-8 byte series, name of parameter / context key
+    REBSTR *spelling;  // UTF-8 byte series, name of parameter / context key
 };
 
-struct Reb_Handle_Extra // see %sys-handle.h
+struct Reb_Handle_Extra  // see %sys-handle.h
 {
     REBARR *singular;
 };
 
-struct Reb_Date_Extra // see %sys-time.h
+struct Reb_Date_Extra  // see %sys-time.h
 {
-    REBYMD ymdz; // month/day/year/zone (time payload *may* hold nanoseconds) 
+    REBYMD ymdz;  // month/day/year/zone (time payload *may* hold nanoseconds) 
 };
 
-struct Reb_Partial_Extra // see %c-specialize.c (used with REB_X_PARTIAL)
+struct Reb_Partial_Extra  // see %c-specialize.c (used with REB_X_PARTIAL)
 {
-    REBVAL *next; // links to next potential partial refinement arg
+    REBVAL *next;  // links to next potential partial refinement arg
 };
 
-union Reb_Custom_Extra { // needed to beat strict aliasing, used in payload
+union Reb_Custom {  // needed to beat strict aliasing, used in payload
     void *p;
     uintptr_t u;
     intptr_t i;
-    REBD32 f; // 32-bit float, typically just `float`, needs own union member
+    REBD32 f;  // 32-bit float, typically just `float`, needs own union member
 };
 
 union Reb_Bytes_Extra {
@@ -386,7 +386,7 @@ union Reb_Value_Extra { //=/////////////////// ACTUAL EXTRA DEFINITION ////=//
     struct Reb_Date_Extra Date;
     struct Reb_Partial_Extra Partial;
 
-    union Reb_Custom_Extra Custom;
+    union Reb_Custom Custom;
     union Reb_Bytes_Extra Bytes;
 
   #if !defined(NDEBUG)
@@ -395,7 +395,7 @@ union Reb_Value_Extra { //=/////////////////// ACTUAL EXTRA DEFINITION ////=//
     // DEBUG_TRACK_CELLS...because negative signs are used to give a distinct
     // state to unreadable blanks.  See %sys-track.h and %sys-blank.h
     //
-    intptr_t tick; // Note: will be negative for unreadable blanks
+    intptr_t tick;  // Note: will be negative for unreadable blanks
   #endif
 
     // The release build doesn't put anything in the ->extra field by default,
@@ -416,7 +416,7 @@ union Reb_Value_Extra { //=/////////////////// ACTUAL EXTRA DEFINITION ////=//
 // of four platform pointers, the payload should be aligned on a 64-bit
 // boundary even on 32-bit platorms.
 //
-// `Pointers` and `Bytes` provide a generic strategy for adding payloads
+// `Custom` and `Bytes` provide a generic strategy for adding payloads
 // after-the-fact.  This means clients (like extensions) don't have to have
 // their payload declarations cluttering this file.
 //
@@ -425,104 +425,116 @@ union Reb_Value_Extra { //=/////////////////// ACTUAL EXTRA DEFINITION ////=//
 //
 //     https://stackoverflow.com/q/41298619/
 //
+// So for custom types, use the correct union field in Reb_Custom_Payload,
+// and only read back from the exact field written to.
+//
 
-struct Reb_Quoted_Payload // see %sys-quoted.h
+struct Reb_Quoted_Payload  // see %sys-quoted.h
 {
-    RELVAL *cell; // lives in singular array, find with Singular_From_Cell()
-    REBCNT depth; // kept in payload so allocation shares across quote levels
+    RELVAL *cell;  // lives in singular array, find with Singular_From_Cell()
+    REBCNT depth;  // kept in payload so allocation shares across quote levels
 };
 
-struct Reb_Character_Payload { REBUNI codepoint; }; // see %sys-char.h
+struct Reb_Character_Payload { REBUNI codepoint; };  // see %sys-char.h
 
-struct Reb_Integer_Payload { REBI64 i64; }; // see %sys-integer.h
+struct Reb_Integer_Payload { REBI64 i64; };  // see %sys-integer.h
 
-struct Reb_Decimal_Payload { REBDEC dec; }; // see %sys-decimal.h
+struct Reb_Decimal_Payload { REBDEC dec; };  // see %sys-decimal.h
 
-struct Reb_Datatype_Payload // see %sys-datatype.h
+struct Reb_Datatype_Payload  // see %sys-datatype.h
 {
     enum Reb_Kind kind;
     REBARR *spec;
 };
 
-struct Reb_Typeset_Payload // see %sys-typeset.h
+struct Reb_Typeset_Payload  // see %sys-typeset.h
 {
-    REBU64 bits; // One bit for each DATATYPE! (use with FLAGIT_KIND)
+    REBU64 bits;  // One bit for each DATATYPE! (use with FLAGIT_KIND)
 };
 
-struct Reb_Series_Payload // see %sys-series.h
+struct Reb_Series_Payload  // see %sys-series.h
 {
-    REBSER *rebser; // vector-like-double-ended-queue of equal-sized items
-    REBCNT index; // 0-based position (if it is 0, that means Rebol index 1)
+    REBSER *rebser;  // vector-like-double-ended-queue of equal-sized items
+    REBCNT index;  // 0-based position (if it is 0, that means Rebol index 1)
 };
 
-struct Reb_Action_Payload // see %sys-action.h
+struct Reb_Action_Payload  // see %sys-action.h
 {
-    REBARR *paramlist; // see MISC.meta, LINK.underlying in %sys-rebser.h
-    REBARR *details; // see MISC.dispatcher, LINK.specialty in %sys-rebser.h
+    REBARR *paramlist;  // see MISC.meta, LINK.underlying in %sys-rebser.h
+    REBARR *details;  // see MISC.dispatcher, LINK.specialty in %sys-rebser.h
 };
 
-struct Reb_Context_Payload // see %sys-context.h
+struct Reb_Context_Payload  // see %sys-context.h
 {
-    REBARR *varlist; // see MISC.meta, LINK.keysource in %sys-rebser.h
-    REBACT *phase; // only used by FRAME! contexts, see %sys-frame.h
+    REBARR *varlist;  // see MISC.meta, LINK.keysource in %sys-rebser.h
+    REBACT *phase;  // only used by FRAME! contexts, see %sys-frame.h
 };
 
-struct Reb_Word_Payload // see %sys-word.h
+struct Reb_Word_Payload  // see %sys-word.h
 {
-    REBSTR *spelling; // word's non-canonized spelling, UTF-8 string series
-    REBINT index; // index of word in context (if binding is not null)
+    REBSTR *spelling;  // word's non-canonized spelling, UTF-8 string series
+    REBINT index;  // index of word in context (if binding is not null)
 };
 
-struct Reb_Varargs_Payload // see %sys-varargs.h
+struct Reb_Varargs_Payload  // see %sys-varargs.h
 {
-    REBINT signed_param_index; // if negative, consider the arg enfixed
-    REBACT *phase; // where to look up parameter by its offset
+    REBINT signed_param_index;  // if negative, consider the arg enfixed
+    REBACT *phase;  // where to look up parameter by its offset
 };
 
-struct Reb_Time_Payload { // see %sys-time.h
+struct Reb_Time_Payload {  // see %sys-time.h
     REBI64 nanoseconds;
 };
 
-struct Reb_Pair_Payload // see %sys-pair.h
+struct Reb_Pair_Payload  // see %sys-pair.h
 {
-    REBVAL *pairing; // 2 values packed in a series node - see Alloc_Pairing()
+    REBVAL *pairing;  // 2 values packed in a series node, see Alloc_Pairing()
 };
 
-struct Reb_Handle_Payload { // see %sys-handle.h
+struct Reb_Handle_Payload {  // see %sys-handle.h
     union {
         void *pointer;
-        CFUNC *cfunc; // C function/data pointers pointers may differ in size
+        CFUNC *cfunc;  // C function/data pointers pointers may differ in size
     } data;
-    uintptr_t length; // will be 0 if a cfunc, and nonzero otherwise
+    uintptr_t length;  // will be 0 if a cfunc, and nonzero otherwise
 };
 
-struct Reb_Library_Payload // see %sys-library.h
+struct Reb_Library_Payload  // see %sys-library.h
 {
-    REBARR *singular; // File discriptor in LINK.fd, meta in MISC.meta 
+    REBARR *singular;  // File discriptor in LINK.fd, meta in MISC.meta 
 };
 
-struct Reb_Custom_Payload // generic, for adding payloads after-the-fact
+struct Reb_Image_Payload  // !!! want to move to custom/extension 
 {
-    union Reb_Custom_Extra first;
-    union Reb_Custom_Extra second;
+    REBARR *details;  // 3 element array: width, height, RGBA bin
+
+    // !!! Note: position in R3-Alpha was an index, not a pair.  It has been
+    // subsumed into the BINARY! element of the image, but might should be
+    // a separate PAIR! here if positional images are a good idea.
+};
+
+struct Reb_Custom_Payload  // generic, for adding payloads after-the-fact
+{
+    union Reb_Custom first;
+    union Reb_Custom second;
 };
 
 struct Reb_Partial_Payload // see %c-specialize.c (used with REB_X_PARTIAL)
 {
-    REBDSP dsp; // the DSP of this partial slot (if ordered on the stack)
-    REBINT signed_index; // index in the paramlist, negative if not "in use"
+    REBDSP dsp;  // the DSP of this partial slot (if ordered on the stack)
+    REBINT signed_index;  // index in the paramlist, negative if not "in use"
 };
 
-union Reb_Bytes_Payload // IMPORTANT: Do not cast, use `Pointers` instead
+union Reb_Bytes_Payload  // IMPORTANT: Do not cast, use `Pointers` instead
 {
-    REBYTE common[sizeof(uint32_t) * 2]; // same on 32-bit/64-bit platforms
-    REBYTE varies[sizeof(void*) * 2]; // size depends on platform
+    REBYTE common[sizeof(uint32_t) * 2];  // same on 32-bit/64-bit platforms
+    REBYTE varies[sizeof(void*) * 2];  // size depends on platform
 };
 
 #if defined(DEBUG_TRACK_CELLS)
-    struct Reb_Track_Payload // see %sys-track.h
+    struct Reb_Track_Payload  // see %sys-track.h
     {
-        const char *file; // is REBYTE (UTF-8), but char* for debug watch
+        const char *file;  // is REBYTE (UTF-8), but char* for debug watch
         int line;
     };
 #endif
@@ -545,7 +557,8 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     struct Reb_Handle_Payload Handle;
     struct Reb_Library_Payload Library;
 
-    struct Reb_Partial_Payload Partial; // internal (see REB_X_PARTIAL)
+    struct Reb_Image_Payload Image;  // !!! Temporary (targeting custom type)
+    struct Reb_Partial_Payload Partial;  // internal (see REB_X_PARTIAL)
 
     struct Reb_Custom_Payload Custom;
     union Reb_Bytes_Payload Bytes;

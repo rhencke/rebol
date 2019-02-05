@@ -531,7 +531,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         break; }
 
       case REB_IMAGE:
-        Mark_Rebser_Only(VAL_SERIES(v));
+        Queue_Mark_Array_Deep(PAYLOAD(Image, v).details);
         break;
 
       case REB_VECTOR:

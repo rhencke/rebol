@@ -28,6 +28,9 @@
 //
 
 
+typedef REBSER REBBIN;  // currently just commentary
+
+
 // Is it a byte-sized series?
 //
 #define BYTE_SIZE(s) \
@@ -50,16 +53,16 @@
 #define BIN_LAST(s) \
     SER_LAST(REBYTE, (s))
 
-inline static REBCNT BIN_LEN(REBSER *s) {
+inline static REBCNT BIN_LEN(REBBIN *s) {
     assert(BYTE_SIZE(s));
     return SER_LEN(s);
 }
 
-inline static void TERM_BIN(REBSER *s) {
+inline static void TERM_BIN(REBBIN *s) {
     BIN_HEAD(s)[SER_LEN(s)] = 0;
 }
 
-inline static void TERM_BIN_LEN(REBSER *s, REBCNT len) {
+inline static void TERM_BIN_LEN(REBBIN *s, REBCNT len) {
     SET_SERIES_LEN(s, len);
     BIN_HEAD(s)[len] = 0;
 }
@@ -96,3 +99,8 @@ inline static REBYTE *VAL_BIN_TAIL(const REBCEL *v) {
 
 #define Init_Binary(out, bin) \
     Init_Any_Series((out), REB_BINARY, (bin))
+
+inline static REBBIN *VAL_BINARY(const REBCEL* v) {
+    assert(CELL_KIND(v) == REB_BINARY);
+    return VAL_SERIES(v);
+}

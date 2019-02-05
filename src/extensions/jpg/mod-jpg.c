@@ -85,9 +85,8 @@ REBNATIVE(decode_jpeg)
     JPG_INCLUDE_PARAMS_OF_DECODE_JPEG;
 
     // Handle JPEG error throw:
-    if (setjmp(jpeg_state)) {
+    if (setjmp(jpeg_state))
         fail (Error_Bad_Media_Raw()); // generic
-    }
 
     REBYTE *data = VAL_BIN_AT(ARG(data));
     REBCNT len = VAL_LEN_AT(ARG(data));
@@ -95,8 +94,20 @@ REBNATIVE(decode_jpeg)
     int w, h;
     jpeg_info(s_cast(data), len, &w, &h); // may longjmp above
 
-    Make_Image(D_OUT, w, h);
-    jpeg_load(s_cast(data), len, cast(char*, VAL_IMAGE_HEAD(D_OUT)));
+    char *image_bytes = rebAllocN(char, (w * h) * 4);  // RGBA is 4 bytes
 
-    return D_OUT;
+    jpeg_load(s_cast(data), len, image_bytes);
+
+    REBVAL *binary = rebRepossess(image_bytes, (w * h) * 4);
+
+    REBVAL *image = rebRun(
+        "make image! compose", rebU("[",
+            "(make pair! [", rebI(w), rebI(h), "])",
+            binary,
+        "]", rebEND),
+    rebEND);
+
+    rebRelease(binary);
+
+    return image;
 }

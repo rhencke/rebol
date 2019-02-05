@@ -225,12 +225,12 @@ REBNATIVE(decode_png)
     state.info_png.color.bitdepth = 8;
 
     unsigned char* image_bytes;
-    unsigned width;
-    unsigned height;
+    unsigned w;
+    unsigned h;
     unsigned error = lodepng_decode(
         &image_bytes,
-        &width,
-        &height,
+        &w,
+        &h,
         &state,
         VAL_BIN_AT(ARG(data)), // PNG data
         VAL_LEN_AT(ARG(data)) // PNG data length
@@ -252,27 +252,19 @@ REBNATIVE(decode_png)
     //
     // https://github.com/lvandeve/lodepng/issues/17
     //
-    // !!! We don't currently rebRepossess() the data as a BINARY! because the
-    // series backing Make_Image() needs to be wide=sizeof(u32), and fiddling
-    // it would take to get that to work is not clearly better than having
-    // IMAGE! use a byte-sized series.  Changing it to a user-defined type
-    // that is built up from a BINARY! and a PAIR! is a future agenda item.
-    //
-    Make_Image(D_OUT, width, height);
-    unsigned char *src = image_bytes;
-    REBYTE *dest = VAL_IMAGE_HEAD(D_OUT);
-    REBCNT index;
-    for (index = 0; index < width * height; ++index) {
-        dest[0] = src[0];
-        dest[1] = src[1];
-        dest[2] = src[2];
-        dest[3] = src[3];
-        dest += 4;
-        src += 4;
-    }
-    rebFree(image_bytes); // !!! would have been nicer to rebRepossess()
 
-    return D_OUT;
+    REBVAL *binary = rebRepossess(image_bytes, (w * h) * 4);
+
+    REBVAL *image = rebRun(
+        "make image! compose", rebU("[",
+            "(make pair! [", rebI(w), rebI(h), "])",
+            binary,
+        "]", rebEND),
+    rebEND);
+
+    rebRelease(binary);
+
+    return image;
 }
 
 
@@ -324,10 +316,13 @@ REBNATIVE(encode_png)
     //
     state.encoder.auto_convert = 0;
 
-    REBCNT width = VAL_IMAGE_WIDE(image);
-    REBCNT height = VAL_IMAGE_HIGH(image);
+    REBVAL *size = rebRun("pick", image, "'size", rebEND);
+    REBCNT width = rebUnboxInteger("pick", size, "'x", rebEND);
+    REBCNT height = rebUnboxInteger("pick", size, "'y", rebEND);
+    rebRelease(size);
 
-    REBYTE *image_bytes = SER_DATA_RAW(VAL_SERIES(image));
+    size_t binsize;
+    REBYTE *image_bytes = rebBytes(&binsize, "bytes of", image, rebEND);
 
     size_t encoded_size;
     REBYTE *encoded_bytes = NULL;
@@ -339,8 +334,9 @@ REBNATIVE(encode_png)
         height,
         &state
     );
-
     lodepng_state_cleanup(&state);
+
+    rebFree(image_bytes);
 
     if (error != 0)
         fail (lodepng_error_text(error));

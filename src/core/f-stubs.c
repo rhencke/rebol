@@ -293,7 +293,7 @@ REBVAL *Init_Any_Series_At_Core(
     assert(ANY_SERIES_KIND(type));
     ENSURE_SERIES_MANAGED(s);
 
-    if (type != REB_IMAGE and type != REB_VECTOR) {
+    if (type != REB_VECTOR) {
         // Code in various places seemed to have different opinions of
         // whether a BINARY needed to be zero terminated.  It doesn't
         // make a lot of sense to zero terminate a binary unless it

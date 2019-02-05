@@ -384,9 +384,6 @@ tag         "markup string (HTML or XML)"
 bitset      "set of bit flags"
             bitset      +       +       +       []
 
-image       "RGB image with alpha channel"
-            image       +       +       +       [series]
-
 vector      "high performance arrays (single datatype)"
             vector      +       +       +       [series]
 
@@ -470,6 +467,9 @@ handle      "arbitrary internal object or value"
 
 struct      "native structure definition"
             ?           ?       ?       ?       []
+
+image       "RGB image with alpha channel"
+            image       +       +       +       []
 
 library     "external library reference"
             library     -       +       +       []

@@ -480,7 +480,6 @@ inline static REBSER *VAL_SERIES(const REBCEL *v) {
     assert(
         ANY_SERIES_KIND(CELL_KIND(v)) or ANY_PATH_KIND(CELL_KIND(v))
         or CELL_KIND(v) == REB_MAP
-        or CELL_KIND(v) == REB_IMAGE
     ); // !!! Note: there was a problem here once, with a gcc 5.4 -O2 bug
     REBSER *s = PAYLOAD(Series, v).rebser;
     if (GET_SERIES_INFO(s, INACCESSIBLE))

@@ -25,7 +25,7 @@
 )
 ; image
 [#1706
-    ((make image! [1x1 #{000000} #{00}]) = complement make image! [1x1 #{ffffff} #{ff}])
+    ((make image! [1x1 #{00000000}]) = complement make image! [1x1 #{ffffffff}])
 ]
-((make image! [1x1 #{ffffff} #{ff}]) = complement make image! [1x1 #{000000} #{00}])
+((make image! [1x1 #{ffffffff}]) = complement make image! [1x1 #{00000000}])
 ; typeset

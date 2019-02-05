@@ -64,8 +64,11 @@ make object! compose [
                 spaced ["error" any [to text! result/id | "w/no ID"]]
             ]
 
-            elide (result: first result)
+            elide (set* 'result: first result)
 
+            void? :result [
+                "test returned void"
+            ]
             not logic? :result [
                 spaced ["was" (an type of :result) ", not logic!"]
             ]

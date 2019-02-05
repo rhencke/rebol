@@ -425,11 +425,11 @@ REBYTE *Form_Hex_Esc(REBYTE *bp, REBYTE b)
 
 
 //
-//  Form_RGB_Utf8: C
+//  Form_RGBA_Utf8: C
 //
-// Convert 24 bit RGB to xxxxxx format.
+// Convert 32 bit RGBA to xxxxxx format.
 //
-REBYTE *Form_RGB_Utf8(REBYTE *utf8, const REBYTE *dp)
+REBYTE *Form_RGBA_Utf8(REBYTE *utf8, const REBYTE *dp)
 {
     utf8[0] = Hex_Digits[(dp[0] >> 4) & 0xf];
     utf8[1] = Hex_Digits[dp[0] & 0xf];
@@ -437,9 +437,11 @@ REBYTE *Form_RGB_Utf8(REBYTE *utf8, const REBYTE *dp)
     utf8[3] = Hex_Digits[dp[1] & 0xf];
     utf8[4] = Hex_Digits[(dp[2] >> 4) & 0xf];
     utf8[5] = Hex_Digits[dp[2] & 0xf];
-    utf8[6] = '\0';
+    utf8[6] = Hex_Digits[(dp[3] >> 4) & 0xf];
+    utf8[7] = Hex_Digits[dp[3] & 0xf];
+    utf8[8] = '\0';
 
-    return utf8 + 6;
+    return utf8 + 8;
 }
 
 

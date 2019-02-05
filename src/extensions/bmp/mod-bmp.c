@@ -395,9 +395,9 @@ REBNATIVE(decode_bmp)
     if (bmfh.bfOffBits != cast(DWORD, cp - data))
         cp = data + bmfh.bfOffBits;
 
-    Make_Image(D_OUT, w, h);
+    REBYTE *image_bytes = rebAllocN(REBYTE, (w * h) * 4);  // RGBA is 4 bytes
 
-    REBYTE *dp = VAL_IMAGE_HEAD(D_OUT);
+    REBYTE *dp = image_bytes;
 
     dp += (w * h - w) * 4;
 
@@ -568,7 +568,20 @@ REBNATIVE(decode_bmp)
         dp -= (2 * w) * 4;
     }
 
-    return D_OUT;
+    REBVAL *binary;  // goto crosses initialization
+    binary = rebRepossess(image_bytes, (w * h) * 4);
+
+    REBVAL *image;
+    image = rebRun(  // goto crosses initialization
+        "make image! compose", rebU("[",
+            "(make pair! [", rebI(w), rebI(h), "])",
+            binary,
+        "]", rebEND),
+    rebEND);
+
+    rebRelease(binary);
+
+    return image;
 
 bit_len_error:
 bad_encoding_error:
@@ -595,8 +608,14 @@ REBNATIVE(encode_bmp)
     BITMAPFILEHEADER bmfh;
     BITMAPINFOHEADER bmih;
 
-    int32_t w = VAL_IMAGE_WIDE(ARG(image));
-    int32_t h = VAL_IMAGE_HIGH(ARG(image));
+    REBVAL *size = rebRun("pick", ARG(image), "'size", rebEND);
+    int32_t w = rebUnboxInteger("pick", size, "'x", rebEND);
+    int32_t h = rebUnboxInteger("pick", size, "'y", rebEND);
+    rebRelease(size);
+
+    size_t binsize;
+    REBYTE *image_bytes = rebBytes(&binsize, "bytes of", ARG(image), rebEND);
+    assert(cast(int32_t, binsize) == w * h * 4);
 
     memset(&bmfh, 0, sizeof(bmfh));
     bmfh.bfType[0] = 'B';
@@ -604,9 +623,8 @@ REBNATIVE(encode_bmp)
     bmfh.bfSize = 14 + 40 + h * WADJUST(w);
     bmfh.bfOffBits = 14 + 40;
 
-    // Create binary string:
-    REBSER *bin = Make_Binary(bmfh.bfSize);
-    REBYTE *cp = BIN_HEAD(bin);
+    REBYTE *bmp_bytes = rebAllocN(REBYTE, bmfh.bfSize);
+    REBYTE *cp = bmp_bytes;
     Unmap_Bytes(&bmfh, &cp, mapBITMAPFILEHEADER);
 
     memset(&bmih, 0, sizeof(bmih));
@@ -623,7 +641,7 @@ REBNATIVE(encode_bmp)
     bmih.biClrImportant = 0;
     Unmap_Bytes(&bmih, &cp, mapBITMAPINFOHEADER);
 
-    REBYTE *dp = VAL_IMAGE_HEAD(ARG(image)) + ((w * h - w) * 4);
+    REBYTE *dp = image_bytes + ((w * h - w) * 4);
 
     for (y = 0; y<h; y++) {
         for (i = 0; i<w; i++) {
@@ -646,6 +664,8 @@ REBNATIVE(encode_bmp)
         dp -= (2 * w) * 4;
     }
 
-    TERM_BIN_LEN(bin, bmfh.bfSize);
-    return Init_Binary(D_OUT, bin);
+    rebFree(image_bytes);
+
+    REBVAL *binary = rebRepossess(bmp_bytes, bmfh.bfSize);
+    return binary;
 }

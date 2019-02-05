@@ -42,23 +42,32 @@
 // comes from REB_IMAGE affecting builds that would not use it.
 //
 
-#define IMG_WIDE(s) \
-    (MISC(s).area.wide)
+enum {
+    IDX_IMGDATA_BINARY,
+    IDX_IMGDATA_WIDTH,
+    IDX_IMGDATA_HEIGHT
+};
 
-#define IMG_HIGH(s) \
-    (MISC(s).area.high)
+inline static REBVAL *VAL_IMAGE_BIN(const REBCEL *v) {
+    assert(REB_IMAGE == CELL_KIND(v));
+    return KNOWN(ARR_AT(PAYLOAD(Image, v).details, IDX_IMGDATA_BINARY));
+}
 
 #define VAL_IMAGE_WIDE(v) \
-    IMG_WIDE(VAL_SERIES(v))
+    VAL_INT64(ARR_AT(PAYLOAD(Image, v).details, IDX_IMGDATA_WIDTH))
 
 #define VAL_IMAGE_HIGH(v) \
-    IMG_HIGH(VAL_SERIES(v))
+    VAL_INT64(ARR_AT(PAYLOAD(Image, v).details, IDX_IMGDATA_HEIGHT))
 
-#define VAL_IMAGE_HEAD(v) \
-    SER_DATA_RAW(VAL_SERIES(v))
+inline static REBYTE *VAL_IMAGE_HEAD(const REBCEL *v) {
+    assert(REB_IMAGE == CELL_KIND(v));
+    return SER_DATA_RAW(VAL_BINARY(VAL_IMAGE_BIN(v)));
+}
 
-#define VAL_IMAGE_AT_HEAD(v,index) \
-    (SER_DATA_RAW(VAL_SERIES(v)) + ((index) * 4))
+inline static REBYTE *VAL_IMAGE_AT_HEAD(const REBCEL *v, REBCNT pos) {
+    return VAL_IMAGE_HEAD(v) + (pos * 4);
+}
+
 
 // !!! The functions that take into account the current index position in the
 // IMAGE!'s ANY-SERIES! payload are sketchy, in the sense that being offset
@@ -66,8 +75,68 @@
 // viewing the image as a 1-dimensional series.  This is not likely to make
 // a lot of sense.
 
-inline static REBYTE *VAL_IMAGE_AT(const RELVAL *v)
-  { return SER_DATA_RAW(VAL_SERIES(v)) + (VAL_INDEX(v) * 4); }
+#define VAL_IMAGE_POS(v) \
+    VAL_INDEX(VAL_IMAGE_BIN(v))
 
-#define VAL_IMAGE_LEN_AT(v) \
-    VAL_LEN_AT(v)
+inline static REBYTE *VAL_IMAGE_AT(const REBCEL *v) {
+    return VAL_IMAGE_AT_HEAD(v, VAL_IMAGE_POS(v));
+}
+
+inline static REBCNT VAL_IMAGE_LEN_HEAD(const REBCEL *v) {
+    return VAL_IMAGE_HIGH(v) * VAL_IMAGE_WIDE(v);
+}
+
+inline static REBCNT VAL_IMAGE_LEN_AT(const REBCEL *v) {
+    if (VAL_IMAGE_POS(v) >= VAL_IMAGE_LEN_HEAD(v))
+        return 0;  // avoid negative position
+    return VAL_IMAGE_LEN_HEAD(v) - VAL_IMAGE_POS(v);
+}
+
+inline static REBVAL *Init_Image(
+    RELVAL *out,
+    REBSER *bin,
+    REBCNT wide,
+    REBCNT high
+){
+    assert(GET_SERIES_FLAG(bin, MANAGED));
+
+    REBARR *a = Make_Arr_Core(3, NODE_FLAG_MANAGED);
+    Init_Binary(ARR_AT(a, IDX_IMGDATA_BINARY), bin);
+    Init_Integer(ARR_AT(a, IDX_IMGDATA_WIDTH), wide);
+    Init_Integer(ARR_AT(a, IDX_IMGDATA_HEIGHT), high);
+    TERM_ARRAY_LEN(a, 3);
+
+    RESET_CELL(out, REB_IMAGE);
+    PAYLOAD(Image, out).details = a;
+
+    assert(VAL_IMAGE_POS(out) == 0);  // !!! sketchy concept, is in BINARY!
+
+    return KNOWN(out);
+}
+
+
+inline static void RESET_IMAGE(REBYTE *p, REBCNT num_pixels) {
+    REBYTE *start = p;
+    REBYTE *stop = start + (num_pixels * 4);
+    while (start < stop) {
+        *start++ = 0; // red
+        *start++ = 0; // green
+        *start++ = 0; // blue
+        *start++ = 0xff; // opaque alpha, R=G=B as 0 means black pixel
+    }
+}
+
+// Creates WxH image, black pixels, all opaque.
+//
+inline static REBVAL *Init_Image_Black_Opaque(RELVAL *out, REBCNT w, REBCNT h)
+{
+    REBSIZ size = (w * h) * 4;  // RGBA pixels, 4 bytes each
+    REBBIN *bin = Make_Binary(size);
+    SET_SERIES_LEN(bin, size);
+    TERM_SERIES(bin);
+    MANAGE_SERIES(bin);
+
+    RESET_IMAGE(SER_DATA_RAW(bin), (w * h)); // length in 'pixels'
+
+    return Init_Image(out, bin, w, h);
+}
