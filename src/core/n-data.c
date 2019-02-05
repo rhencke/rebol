@@ -101,14 +101,7 @@ REBNATIVE(as_pair)
 {
     INCLUDE_PARAMS_OF_AS_PAIR;
 
-    REBVAL *x = ARG(x);
-    REBVAL *y = ARG(y);
-
-    return Init_Pair(
-        D_OUT,
-        IS_INTEGER(x) ? VAL_INT64(x) : VAL_DECIMAL(x),
-        IS_INTEGER(y) ? VAL_INT64(y) : VAL_DECIMAL(y)
-    );
+    return Init_Pair(D_OUT, ARG(x), ARG(y));
 }
 
 

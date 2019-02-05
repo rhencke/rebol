@@ -1440,7 +1440,7 @@ static void Locate_Token_May_Push_Mold(
         if (HAS_LEX_FLAG(flags, LEX_SPECIAL_PERIOD)) {
             // 1.2 1.2.3 1,200.3 1.200,3 1.E-2
             if (Skip_To_Byte(cp, ss->end, 'x')) {
-                ss->token = TOKEN_TIME;
+                ss->token = TOKEN_PAIR;
                 return;
             }
             cp = Skip_To_Byte(cp, ss->end, '.');

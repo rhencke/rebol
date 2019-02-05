@@ -43,22 +43,67 @@ inline static REBVAL *PAIRING_KEY(REBVAL *paired) {
 }
 
 
-#define VAL_PAIR(v) \
+#define VAL_PAIRING(v) \
     (PAYLOAD(Pair, (v)).pairing)
 
 #define VAL_PAIR_X(v) \
-    VAL_DECIMAL(PAIRING_KEY(VAL_PAIR(v)))
+    PAIRING_KEY(VAL_PAIRING(v))
 
 #define VAL_PAIR_Y(v) \
-    VAL_DECIMAL(VAL_PAIR(v))
+    VAL_PAIRING(v)
 
-#define VAL_PAIR_X_INT(v) \
-    ROUND_TO_INT(VAL_PAIR_X(v))
+inline static REBDEC VAL_PAIR_X_DEC(const REBCEL *v) {
+    if (IS_INTEGER(VAL_PAIR_X(v)))
+        return cast(REBDEC, VAL_INT64(VAL_PAIR_X(v)));
+    return VAL_DECIMAL(VAL_PAIR_X(v));
+}
 
-#define VAL_PAIR_Y_INT(v) \
-    ROUND_TO_INT(VAL_PAIR_Y(v))
+inline static REBDEC VAL_PAIR_Y_DEC(const REBCEL *v) {
+    if (IS_INTEGER(VAL_PAIR_Y(v)))
+        return cast(REBDEC, VAL_INT64(VAL_PAIR_Y(v)));
+    return VAL_DECIMAL(VAL_PAIR_Y(v));
+}
 
-inline static REBVAL *Init_Pair(RELVAL *out, float x, float y) {
+inline static REBI64 VAL_PAIR_X_INT(const REBCEL *v) {
+    if (IS_INTEGER(VAL_PAIR_X(v)))
+        return VAL_INT64(VAL_PAIR_X(v));
+    return ROUND_TO_INT(VAL_DECIMAL(VAL_PAIR_X(v)));
+}
+
+inline static REBDEC VAL_PAIR_Y_INT(const REBCEL *v) {
+    if (IS_INTEGER(VAL_PAIR_Y(v)))
+        return VAL_INT64(VAL_PAIR_Y(v));
+    return ROUND_TO_INT(VAL_DECIMAL(VAL_PAIR_Y(v)));
+}
+
+inline static REBVAL *Init_Pair(
+    RELVAL *out,
+    const RELVAL *x,
+    const RELVAL *y
+){
+    assert(ANY_NUMBER(x));
+    assert(ANY_NUMBER(y));
+
+    RESET_CELL(out, REB_PAIR);
+    REBVAL *pairing  = Alloc_Pairing();
+    Move_Value(PAIRING_KEY(pairing), KNOWN(x));
+    Move_Value(pairing, KNOWN(y));
+    Manage_Pairing(pairing);
+    PAYLOAD(Pair, out).pairing = pairing;
+    return KNOWN(out);
+}
+
+inline static REBVAL *Init_Pair_Int(RELVAL *out, REBI64 x, REBI64 y) {
+    RESET_CELL(out, REB_PAIR);
+    REBVAL *pairing  = Alloc_Pairing();
+    Init_Integer(PAIRING_KEY(pairing), x);
+    Init_Integer(pairing, y);
+    Manage_Pairing(pairing);
+    PAYLOAD(Pair, out).pairing = pairing;
+    return KNOWN(out);
+}
+
+inline static REBVAL *Init_Pair_Dec(RELVAL *out, REBDEC x, REBDEC y) {
     RESET_CELL(out, REB_PAIR);
     REBVAL *pairing  = Alloc_Pairing();
     Init_Decimal(PAIRING_KEY(pairing), x);
@@ -75,7 +120,7 @@ inline static REBVAL *Init_Zeroed_Hack(RELVAL *out, enum Reb_Kind kind) {
     // it the `zero?` of that type.  Review uses.
     //
     if (kind == REB_PAIR) {
-        Init_Pair(out, 0, 0); // !!! inefficient, performs allocation, review
+        Init_Pair_Int(out, 0, 0);
     }
     else {
         RESET_CELL(out, kind);

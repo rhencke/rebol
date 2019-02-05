@@ -15,9 +15,26 @@
 ; maximum
 (pair? 2147483647x2147483647)
 
-(2147483648x2147483648 = negate -2147483648x-2147483648)
+; !!! This test depends on having more precision in the pair scanner than
+; atoi() does for integers.  r3-alpha only used atof(), so it was showing a
+; floating point pair as if it were an integer.  Review making arbitrary
+; decimal scans work--though this is a low priority.
+;
+; (2147483648x2147483648 = negate -2147483648x-2147483648)
+; (2147483648x2147483648 = subtract 0x0 -2147483648x-2147483648)
 
 [#1476
-    (3.0 == pick 3x4 'x)
-    (4.0 == pick 3x4 'y)
+    (3 == pick 3x4 'x)
+    (4 == pick 3x4 'y)
 ]
+
+[
+    (1.5 = pick 1.5x3.2 'x)
+    (3.2 = pick 1.5x3.2 'y)
+]
+
+; Ren-C's generic dispatcher runs whatever you asked to do on the pair to
+; the pairwise components
+
+(1.5x2.3 + 2.5x3.3 = 4.0x5.6)
+(1.5x2.3 + 1 = 2.5x3.3)

@@ -41,8 +41,8 @@ REBINT CT_Pair(const REBCEL *a, const REBCEL *b, REBINT mode)
 
     if (0 == VAL_INT64(b)) { // for negative? and positive?
         if (mode == -1)
-            return (VAL_PAIR_X(a) >= 0 || VAL_PAIR_Y(a) >= 0); // not LT
-        return (VAL_PAIR_X(a) > 0 && VAL_PAIR_Y(a) > 0); // NOT LTE
+            return (VAL_PAIR_X_DEC(a) >= 0 || VAL_PAIR_Y_DEC(a) >= 0); // not LT
+        return (VAL_PAIR_X_DEC(a) > 0 && VAL_PAIR_Y_DEC(a) > 0); // NOT LTE
     }
     return -1;
 }
@@ -72,36 +72,30 @@ REB_R MAKE_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         return out;
     }
 
-    REBDEC x;
-    REBDEC y;
+    const RELVAL *x;
+    const RELVAL *y;
 
-    if (IS_INTEGER(arg)) {
-        x = VAL_INT32(arg);
-        y = VAL_INT32(arg);
+    if (ANY_NUMBER(arg)) {
+        x = arg;
+        y = arg;
     }
-    else if (IS_DECIMAL(arg)) {
-        x = VAL_DECIMAL(arg);
-        y = VAL_DECIMAL(arg);
-    }
-    else if (IS_BLOCK(arg) && VAL_LEN_AT(arg) == 2) {
+    else if (IS_BLOCK(arg)) {
         RELVAL *item = VAL_ARRAY_AT(arg);
 
-        if (IS_INTEGER(item))
-            x = cast(REBDEC, VAL_INT64(item));
-        else if (IS_DECIMAL(item))
-            x = cast(REBDEC, VAL_DECIMAL(item));
+        if (ANY_NUMBER(item))
+            x = item;
         else
             goto bad_make;
 
-        ++item;
-        if (IS_END(item))
+        if (IS_END(++item))
             goto bad_make;
 
-        if (IS_INTEGER(item))
-            y = cast(REBDEC, VAL_INT64(item));
-        else if (IS_DECIMAL(item))
-            y = cast(REBDEC, VAL_DECIMAL(item));
+        if (ANY_NUMBER(item))
+            y = item;
         else
+            goto bad_make;
+
+        if (not IS_END(++item))
             goto bad_make;
     }
     else
@@ -109,7 +103,8 @@ REB_R MAKE_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
     return Init_Pair(out, x, y);
 
-  bad_make:
+  bad_make:;
+
     fail (Error_Bad_Make(REB_PAIR, arg));
 }
 
@@ -132,8 +127,8 @@ REBINT Cmp_Pair(const REBCEL *t1, const REBCEL *t2)
 {
     REBDEC diff;
 
-    if ((diff = VAL_PAIR_Y(t1) - VAL_PAIR_Y(t2)) == 0)
-        diff = VAL_PAIR_X(t1) - VAL_PAIR_X(t2);
+    if ((diff = VAL_PAIR_Y_DEC(t1) - VAL_PAIR_Y_DEC(t2)) == 0)
+        diff = VAL_PAIR_X_DEC(t1) - VAL_PAIR_X_DEC(t2);
     return (diff > 0.0) ? 1 : ((diff < 0.0) ? -1 : 0);
 }
 
@@ -141,40 +136,24 @@ REBINT Cmp_Pair(const REBCEL *t1, const REBCEL *t2)
 //
 //  Min_Max_Pair: C
 //
+// Note: compares on the basis of decimal value, but preserves the DECIMAL!
+// or INTEGER! state of the element it kept.  This may or may not be useful.
+//
 void Min_Max_Pair(REBVAL *out, const REBVAL *a, const REBVAL *b, bool maxed)
 {
-    // !!! This used to use REBXYF (a structure containing "X" and "Y" as
-    // floats).  It's not clear why floats would be preferred here, and
-    // also not clear what the types should be if they were mixed (INTEGER!
-    // vs. DECIMAL! for the X or Y).  REBXYF is now a structure only used
-    // in GOB! so it is taken out of mention here.
-
-    float ax;
-    float ay;
-    if (IS_PAIR(a)) {
-        ax = VAL_PAIR_X(a);
-        ay = VAL_PAIR_Y(a);
-    }
-    else if (IS_INTEGER(a))
-        ax = ay = cast(REBDEC, VAL_INT64(a));
+    const REBVAL* x;
+    if (VAL_PAIR_X_DEC(a) > VAL_PAIR_X_DEC(b))
+        x = maxed ? VAL_PAIR_X(a) : VAL_PAIR_X(b);
     else
-        fail (a);
+        x = maxed ? VAL_PAIR_X(b) : VAL_PAIR_X(a);
 
-    float bx;
-    float by;
-    if (IS_PAIR(b)) {
-        bx = VAL_PAIR_X(b);
-        by = VAL_PAIR_Y(b);
-    }
-    else if (IS_INTEGER(b))
-        bx = by = cast(REBDEC, VAL_INT64(b));
+    const REBVAL* y;
+    if (VAL_PAIR_Y_DEC(a) > VAL_PAIR_Y_DEC(b))
+        y = maxed ? VAL_PAIR_Y(a) : VAL_PAIR_Y(b);
     else
-        fail (b);
+        y = maxed ? VAL_PAIR_Y(b) : VAL_PAIR_Y(a);
 
-    if (maxed)
-        Init_Pair(out, MAX(ax, bx), MAX(ay, by));
-    else
-        Init_Pair(out, MIN(ax, bx), MIN(ay, by));
+    Init_Pair(out, x, y);
 }
 
 
@@ -187,7 +166,6 @@ REB_R PD_Pair(
     const REBVAL *opt_setval
 ){
     REBINT n = 0;
-    REBDEC dec;
 
     if (IS_WORD(picker)) {
         if (VAL_WORD_SYM(picker) == SYM_X)
@@ -205,23 +183,28 @@ REB_R PD_Pair(
     else
         return R_UNHANDLED;
 
-    if (opt_setval == NULL) {
-        dec = (n == 1 ? VAL_PAIR_X(pvs->out) : VAL_PAIR_Y(pvs->out));
-        Init_Decimal(pvs->out, dec);
+    if (not opt_setval) {
+        if (n == 1)
+            Move_Value(pvs->out, VAL_PAIR_X(pvs->out));
+        else
+            Move_Value(pvs->out, VAL_PAIR_Y(pvs->out));
         return pvs->out;
     }
 
-    if (IS_INTEGER(opt_setval))
-        dec = cast(REBDEC, VAL_INT64(opt_setval));
-    else if (IS_DECIMAL(opt_setval))
-        dec = VAL_DECIMAL(opt_setval);
-    else
+    // !!! PAIR! is now generic, so it could theoretically store any type.
+    // This was done to avoid creating new numeric representations in the
+    // core (e.g. 32-bit integers or lower precision floats) just so they
+    // could both fit in a cell.  But while it's technically possible, no
+    // rendering formats for other-valued pairs has been proposed.  So only
+    // integers and decimals are accepted for now.
+    //
+    if (not IS_INTEGER(opt_setval) and not IS_DECIMAL(opt_setval))
         return R_UNHANDLED;
 
     if (n == 1)
-        VAL_PAIR_X(pvs->out) = dec;
+        Move_Value(VAL_PAIR_X(pvs->out), opt_setval);
     else
-        VAL_PAIR_Y(pvs->out) = dec;
+        Move_Value(VAL_PAIR_Y(pvs->out), opt_setval);
 
     // Using R_IMMEDIATE means that although we've updated pvs->out, we'll
     // leave it to the path dispatch to figure out if that can be written back
@@ -236,160 +219,74 @@ REB_R PD_Pair(
 }
 
 
-static void Get_Math_Arg_For_Pair(
-    REBDEC *x_out,
-    REBDEC *y_out,
-    REBVAL *arg,
-    REBVAL *verb
-){
-    switch (VAL_TYPE(arg)) {
-    case REB_PAIR:
-        *x_out = VAL_PAIR_X(arg);
-        *y_out = VAL_PAIR_Y(arg);
-        break;
-
-    case REB_INTEGER:
-        *x_out = *y_out = cast(REBDEC, VAL_INT64(arg));
-        break;
-
-    case REB_DECIMAL:
-    case REB_PERCENT:
-        *x_out = *y_out = cast(REBDEC, VAL_DECIMAL(arg));
-        break;
-
-    default:
-        fail (Error_Math_Args(REB_PAIR, verb));
-    }
-}
-
-
 //
 //  MF_Pair: C
 //
 void MF_Pair(REB_MOLD *mo, const REBCEL *v, bool form)
 {
-    UNUSED(form); // currently no distinction between MOLD and FORM
+    Mold_Or_Form_Value(mo, VAL_PAIR_X(v), form);
 
-    REBYTE buf[60];
-    REBINT len = Emit_Decimal(
-        buf,
-        VAL_PAIR_X(v),
-        DEC_MOLD_MINIMAL,
-        '.', // use dot as opposed to comma in pair rendering of decimals
-        mo->digits / 2
-    );
-    Append_Unencoded_Len(mo->series, s_cast(buf), len);
     Append_Utf8_Codepoint(mo->series, 'x');
-    len = Emit_Decimal(
-        buf,
-        VAL_PAIR_Y(v),
-        DEC_MOLD_MINIMAL,
-        '.', // use dot as opposed to comma in pair rendering of decimals
-        mo->digits / 2
-    );
-    Append_Unencoded_Len(mo->series, s_cast(buf), len);
+
+    Mold_Or_Form_Value(mo, VAL_PAIR_Y(v), form);
 }
 
 
 //
 //  REBTYPE: C
 //
+// !!! R3-Alpha turned all the PAIR! operations from integer to decimal, but
+// they had floating point precision (otherwise you couldn't fit a full cell
+// for two values into a single cell).  This meant they were neither INTEGER!
+// nor DECIMAL!.  Ren-C stepped away from this idea of introducing a new
+// numeric type and instead created a more compact "pairing" that could fit
+// in a single series node and hold two arbitrary values.
+//
+// With the exception of operations that are specifically pair-aware (e.g.
+// REVERSE swapping X and Y), this chains to retrigger the action onto the
+// pair elements and then return a pair made of that.  This makes PAIR! have
+// whatever promotion of integers to decimals the rest of the language has.
+//
 REBTYPE(Pair)
 {
-    REBVAL *val = D_ARG(1);
-
-    REBDEC x1 = VAL_PAIR_X(val);
-    REBDEC y1 = VAL_PAIR_Y(val);
-
-    REBDEC x2;
-    REBDEC y2;
+    REBVAL *v = D_ARG(1);
 
     switch (VAL_WORD_SYM(verb)) {
+      case SYM_REVERSE:
+        return Init_Pair(D_OUT, VAL_PAIR_Y(v), VAL_PAIR_X(v));
 
-    case SYM_COPY:
-        return Init_Pair(D_OUT, x1, y1);
-
-    case SYM_ADD:
-        Get_Math_Arg_For_Pair(&x2, &y2, D_ARG(2), verb);
-        return Init_Pair(D_OUT, x1 + x2, y1 + y2);
-
-    case SYM_SUBTRACT:
-        Get_Math_Arg_For_Pair(&x2, &y2, D_ARG(2), verb);
-        return Init_Pair(D_OUT, x1 - y2, y1 - y2);
-
-    case SYM_MULTIPLY:
-        Get_Math_Arg_For_Pair(&x2, &y2, D_ARG(2), verb);
-        return Init_Pair(D_OUT, x1 * x2, y1 * y2);
-
-    case SYM_DIVIDE:
-        Get_Math_Arg_For_Pair(&x2, &y2, D_ARG(2), verb);
-        if (x2 == 0 or y2 == 0)
-            fail (Error_Zero_Divide_Raw());
-        return Init_Pair(D_OUT, x1 / x2, y1 / y2);
-
-    case SYM_REMAINDER:
-        Get_Math_Arg_For_Pair(&x2, &y2, D_ARG(2), verb);
-        if (x2 == 0 or y2 == 0)
-            fail (Error_Zero_Divide_Raw());
-        return Init_Pair(D_OUT, fmod(x1, x2), fmod(y1, y2));
-
-    case SYM_NEGATE:
-        return Init_Pair(D_OUT, -x1, -y1);
-
-    case SYM_ABSOLUTE:
-        return Init_Pair(D_OUT, x1 < 0 ? -x1 : x1, y1 < 0 ? -y1 : y1);
-
-    case SYM_ROUND: {
-        INCLUDE_PARAMS_OF_ROUND;
-
-        UNUSED(PAR(value));
-
-        REBFLGS flags = (
-            (REF(to) ? RF_TO : 0)
-            | (REF(even) ? RF_EVEN : 0)
-            | (REF(down) ? RF_DOWN : 0)
-            | (REF(half_down) ? RF_HALF_DOWN : 0)
-            | (REF(floor) ? RF_FLOOR : 0)
-            | (REF(ceiling) ? RF_CEILING : 0)
-            | (REF(half_ceiling) ? RF_HALF_CEILING : 0)
-        );
-
-        if (REF(to))
-            return Init_Pair(
-                D_OUT,
-                Round_Dec(x1, flags, Dec64(ARG(scale))),
-                Round_Dec(y1, flags, Dec64(ARG(scale)))
-            );
-
-        return Init_Pair(
-            D_OUT,
-            Round_Dec(x1, flags | RF_TO, 1.0L),
-            Round_Dec(y1, flags | RF_TO, 1.0L)
-        ); }
-
-    case SYM_REVERSE:
-        return Init_Pair(D_OUT, y1, x1);
-
-    case SYM_RANDOM: {
-        INCLUDE_PARAMS_OF_RANDOM;
-
-        UNUSED(PAR(value));
-
-        if (REF(only))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(seed))
-            fail (Error_Bad_Refines_Raw());
-
-        return Init_Pair(
-            D_OUT,
-            Random_Range(cast(REBINT, x1), REF(secure)),
-            Random_Range(cast(REBINT, y1), REF(secure))
-        ); }
-
-    default:
+      default:
         break;
     }
 
-    fail (Error_Illegal_Action(REB_PAIR, verb));
-}
+    // !!! The only way we can generically guarantee the ability to retrigger
+    // an action multiple times without it ruining its arguments is to copy
+    // the FRAME!.  Technically we don't need two copies, we could reuse
+    // this frame...but then the retriggering would have to be done with a
+    // mechanical trick vs. the standard DO, because the frame thinks it is
+    // already running...and the check for that would be subverted.
 
+    REBVAL *frame = Init_Frame(D_OUT, Context_For_Frame_May_Manage(frame_));
+
+    REBVAL *x1 = VAL_PAIR_X(v);
+    REBVAL *y1 = VAL_PAIR_Y(v);
+    REBVAL *x2 = IS_PAIR(D_ARG(2)) ? VAL_PAIR_X(D_ARG(2)) : nullptr;
+    REBVAL *y2 = IS_PAIR(D_ARG(2)) ? VAL_PAIR_Y(D_ARG(2)) : nullptr;
+
+    Move_Value(D_ARG(1), x1);
+    if (x2)
+        Move_Value(D_ARG(2), x2);  // use extracted arg x instead of pair arg
+    REBVAL *x_frame = rebRun("copy", frame, rebEND);
+
+    Move_Value(D_ARG(1), y1);
+    if (y2)
+        Move_Value(D_ARG(2), y2);  // use extracted arg y instead of pair arg
+    REBVAL *y_frame = rebRun("copy", frame, rebEND);
+
+    return rebRun(
+        "make pair! reduce", rebU("[",
+            "do", rebR(x_frame),
+            "do", rebR(y_frame),
+        "]", rebEND),
+    rebEND);
+}

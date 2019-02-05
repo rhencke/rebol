@@ -240,8 +240,8 @@ uint32_t Hash_Value(const RELVAL *v)
         break;
 
       case REB_PAIR:
-        hash = Hash_Value(VAL_PAIR(cell));
-        hash ^= Hash_Value(PAIRING_KEY(VAL_PAIR(cell)));
+        hash = Hash_Value(VAL_PAIR_X(cell));
+        hash ^= Hash_Value(VAL_PAIR_Y(cell));
         break;
 
       case REB_TUPLE:

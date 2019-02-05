@@ -119,8 +119,8 @@ REBINT Cmp_Gob(const REBCEL *g1, const REBCEL *g2)
 static bool Did_Set_XYF(RELVAL *xyf, const REBVAL *val)
 {
     if (IS_PAIR(val)) {
-        VAL_XYF_X(xyf) = VAL_PAIR_X(val);
-        VAL_XYF_Y(xyf) = VAL_PAIR_Y(val);
+        VAL_XYF_X(xyf) = VAL_PAIR_X_DEC(val);
+        VAL_XYF_Y(xyf) = VAL_PAIR_Y_DEC(val);
     }
     else if (IS_INTEGER(val)) {
         VAL_XYF_X(xyf) = VAL_XYF_Y(xyf) = cast(REBD32, VAL_INT64(val));
@@ -370,8 +370,13 @@ static bool Did_Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
       case SYM_IMAGE:
         CLR_GOB_OPAQUE(gob);
         if (IS_IMAGE(val)) {
-            GOB_W(gob) = cast(REBD32, VAL_IMAGE_WIDE(val));
-            GOB_H(gob) = cast(REBD32, VAL_IMAGE_HIGH(val));
+            REBVAL *size = rebRun("pick", val, "'size", rebEND);
+            int32_t w = rebUnboxInteger("pick", size, "'x", rebEND);
+            int32_t h = rebUnboxInteger("pick", size, "'y", rebEND);
+            rebRelease(size);
+
+            GOB_W(gob) = cast(REBD32, w);
+            GOB_H(gob) = cast(REBD32, h);
             SET_GOB_TYPE(gob, GOBT_IMAGE);
         }
         else if (IS_BLANK(val))
@@ -515,10 +520,10 @@ static REBVAL *Get_GOB_Var(RELVAL *out, REBGOB *gob, const REBVAL *word)
 {
     switch (VAL_WORD_SYM(word)) {
       case SYM_OFFSET:
-        return Init_Pair(out, GOB_X(gob), GOB_Y(gob));
+        return Init_Pair_Dec(out, GOB_X(gob), GOB_Y(gob));
 
       case SYM_SIZE:
-        return Init_Pair(out, GOB_W(gob), GOB_H(gob));
+        return Init_Pair_Dec(out, GOB_W(gob), GOB_H(gob));
 
       case SYM_IMAGE:
         if (GOB_TYPE(gob) == GOBT_IMAGE) {
@@ -643,8 +648,8 @@ static REBARR *Gob_To_Array(REBGOB *gob)
         vals[n] = Init_Blank(Alloc_Tail_Array(arr));
     }
 
-    Init_Pair(vals[0], GOB_X(gob), GOB_Y(gob));
-    Init_Pair(vals[1], GOB_W(gob), GOB_H(gob));
+    Init_Pair_Dec(vals[0], GOB_X(gob), GOB_Y(gob));
+    Init_Pair_Dec(vals[1], GOB_W(gob), GOB_H(gob));
     Init_Integer(vals[2], GOB_ALPHA(gob));
 
     if (!GOB_TYPE(gob)) return arr;
@@ -773,8 +778,8 @@ REBNATIVE(map_gob_offset)
     UNUSED(REF(reverse));
 
     REBGOB *gob = VAL_GOB(ARG(gob));
-    REBD32 xo = VAL_PAIR_X(ARG(xy));
-    REBD32 yo = VAL_PAIR_Y(ARG(xy));
+    REBD32 xo = VAL_PAIR_X_DEC(ARG(xy));
+    REBD32 yo = VAL_PAIR_Y_DEC(ARG(xy));
 
     if (REF(reverse)) {
         REBINT max_depth = 1000; // avoid infinite loops
@@ -789,14 +794,14 @@ REBNATIVE(map_gob_offset)
         }
     }
     else {
-        xo = VAL_PAIR_X(ARG(xy));
-        yo = VAL_PAIR_Y(ARG(xy));
+        xo = VAL_PAIR_X_DEC(ARG(xy));
+        yo = VAL_PAIR_Y_DEC(ARG(xy));
         gob = Map_Gob_Inner(gob, &xo, &yo);
     }
 
     REBARR *arr = Make_Arr(2);
     Init_Gob(Alloc_Tail_Array(arr), gob);
-    Init_Pair(Alloc_Tail_Array(arr), xo, yo);
+    Init_Pair_Dec(Alloc_Tail_Array(arr), xo, yo);
 
     return Init_Block(D_OUT, arr);
 }
@@ -823,8 +828,8 @@ void Extend_Gob_Core(REBGOB *gob, const REBVAL *arg) {
         Set_GOB_Vars(gob, VAL_ARRAY_AT(arg), VAL_SPECIFIER(arg));
     }
     else if (IS_PAIR(arg)) {
-        GOB_X(gob) = VAL_PAIR_X(arg);
-        GOB_Y(gob) = VAL_PAIR_Y(arg);
+        GOB_X(gob) = VAL_PAIR_X_DEC(arg);
+        GOB_Y(gob) = VAL_PAIR_Y_DEC(arg);
     }
     else
         fail (Error_Bad_Make(REB_GOB, arg));

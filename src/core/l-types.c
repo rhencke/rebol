@@ -481,10 +481,13 @@ bool Scan_Hex2(REBUNI *out, const void *p, bool unicode)
 //
 const REBYTE *Scan_Dec_Buf(
     REBYTE *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
+    bool *is_integral,
     const REBYTE *cp,
     REBCNT len // max size of buffer
 ) {
     assert(len >= MAX_NUM_LEN);
+
+    *is_integral = true;
 
     REBYTE *bp = out;
     REBYTE *be = bp + len - 1;
@@ -504,8 +507,10 @@ const REBYTE *Scan_Dec_Buf(
             ++cp;
     }
 
-    if (*cp == ',' || *cp == '.')
+    if (*cp == ',' || *cp == '.') {
+        *is_integral = false;
         cp++;
+    }
 
     *bp++ = '.';
     if (bp >= be)
@@ -1121,7 +1126,8 @@ const REBYTE *Scan_Pair(
 
     REBYTE buf[MAX_NUM_LEN + 4];
 
-    const REBYTE *ep = Scan_Dec_Buf(&buf[0], cp, MAX_NUM_LEN);
+    bool is_integral;
+    const REBYTE *ep = Scan_Dec_Buf(&buf[0], &is_integral, cp, MAX_NUM_LEN);
     if (ep == NULL)
         return_NULL;
     if (*ep != 'x' && *ep != 'X')
@@ -1129,20 +1135,25 @@ const REBYTE *Scan_Pair(
 
     REBVAL *pairing = Alloc_Pairing();
 
-    RESET_CELL(PAIRING_KEY(pairing), REB_DECIMAL);
-    VAL_DECIMAL(PAIRING_KEY(pairing)) // X is in the key
-        = cast(float, atof(cast(char*, &buf[0]))); //n;
+    // X is in the key pairing cell
+    if (is_integral)
+        Init_Integer(PAIRING_KEY(pairing), atoi(cast(char*, &buf[0])));
+    else
+        Init_Decimal(PAIRING_KEY(pairing), atof(cast(char*, &buf[0])));
 
     ep++;
 
-    const REBYTE *xp = Scan_Dec_Buf(&buf[0], ep, MAX_NUM_LEN);
+    const REBYTE *xp = Scan_Dec_Buf(&buf[0], &is_integral, ep, MAX_NUM_LEN);
     if (!xp) {
         Free_Pairing(pairing);
         return_NULL;
     }
 
-    RESET_CELL(pairing, REB_DECIMAL); // Y is in the non-key pairing cell
-    VAL_DECIMAL(pairing) = cast(float, atof(cast(char*, &buf[0]))); //n;
+    // Y is in the non-key pairing cell
+    if (is_integral)
+        Init_Integer(pairing, atoi(cast(char*, &buf[0])));
+    else
+        Init_Decimal(pairing, atof(cast(char*, &buf[0])));
 
     if (len > cast(REBCNT, xp - cp)) {
         Free_Pairing(pairing);

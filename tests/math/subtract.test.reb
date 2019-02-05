@@ -197,7 +197,6 @@
 (0x0 = subtract -1x-1 -1x-1)
 (-1x-1 = subtract -1x-1 0x0)
 (-2x-2 = subtract -1x-1 1x1)
-(2147483648x2147483648 = subtract 0x0 -2147483648x-2147483648)
 (1x1 = subtract 0x0 -1x-1)
 (0x0 = subtract 0x0 0x0)
 (-1x-1 = subtract 0x0 1x1)

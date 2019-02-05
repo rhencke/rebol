@@ -1064,7 +1064,7 @@ REBTYPE(Image)
             return Init_Logic(D_OUT, index >= tail);
 
         case SYM_XY:
-            return Init_Pair(
+            return Init_Pair_Int(
                 D_OUT,
                 index % VAL_IMAGE_WIDE(value),
                 index / VAL_IMAGE_WIDE(value)
@@ -1289,7 +1289,7 @@ void Pick_Image(REBVAL *out, const REBVAL *value, const REBVAL *picker)
     if (IS_WORD(picker)) {
         switch (VAL_WORD_SYM(picker)) {
         case SYM_SIZE:
-            Init_Pair(
+            Init_Pair_Int(
                 out,
                 VAL_IMAGE_WIDE(value),
                 VAL_IMAGE_HIGH(value)
@@ -1342,7 +1342,7 @@ void Poke_Image_Fail_If_Read_Only(
     if (IS_WORD(picker)) {
         switch (VAL_WORD_SYM(picker)) {
         case SYM_SIZE:
-            if (!IS_PAIR(poke) || !VAL_PAIR_X(poke))
+            if (!IS_PAIR(poke) || !VAL_PAIR_X_DEC(poke))
                 fail (poke);
 
             VAL_IMAGE_WIDE(value) = VAL_PAIR_X_INT(poke);
