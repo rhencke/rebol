@@ -226,8 +226,15 @@ REBINT CT_Context(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 // For now just support ACTION! (or path/word to specify an action)
 //
-REB_R MAKE_Frame(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Frame(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
+
     // MAKE FRAME! on a VARARGS! supports the userspace authoring of ACTION!s
     // like MATCH.  However, MATCH is kept as a native for performance--as
     // many usages will not be variadic, and the ones that are do not need
@@ -304,17 +311,23 @@ REB_R TO_Frame(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  MAKE_Context: C
 //
-REB_R MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Context(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     // Other context kinds (FRAME!, ERROR!, PORT!) have their own hooks.
     //
     assert(kind == REB_OBJECT or kind == REB_MODULE);
+
+    REBCTX *parent = opt_parent ? VAL_CONTEXT(opt_parent) : nullptr;
 
     if (IS_BLOCK(arg)) {
         REBCTX *ctx = Make_Selfish_Context_Detect_Managed(
             REB_OBJECT,
             VAL_ARRAY_AT(arg),
-            nullptr // no parent
+            parent
         );
         Init_Any_Context(out, kind, ctx); // GC guards it
 
@@ -342,9 +355,9 @@ REB_R MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         // get "completely fake SELF" out of index slot [0]
         //
         REBCTX *context = Make_Selfish_Context_Detect_Managed(
-            kind, // type
-            END_NODE, // values to scan for toplevel set-words (empty)
-            NULL // parent
+            kind,
+            END_NODE,  // values to scan for toplevel set-words (empty)
+            parent
         );
 
         // !!! Allocation when SELF is not the responsibility of MAKE
@@ -359,6 +372,9 @@ REB_R MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
         return Init_Any_Context(out, kind, context);
     }
+
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     // make object! map!
     if (IS_MAP(arg)) {
@@ -860,102 +876,36 @@ REBTYPE(Context)
     fail (Error_Illegal_Action(VAL_TYPE(value), verb));
 }
 
-// !!! A likely misguided attempt to unify MAKE syntax with construction
-// syntax, and disallow MAKE to take its first argument as a class to make
-// a derivation from, produced an attempt to put that in a separate native
-// (e.g. CONSTRUCT).  This native doesn't have the dispatch advantage of
-// the MAKE_HOOK, and construction syntax and MAKE are no longer heading to
-// be parallel.  This will likely be reverted, allowing this inclusion of
-// GOB dispatch to be deleted.
-//
-#include "reb-gob.h"
 
 //
 //  construct: native [
 //
 //  "Creates an ANY-CONTEXT! instance"
 //
-//      spec [datatype! block! any-context!]
-//          "Datatype to create, specification, or parent/prototype context"
-//      body [block! any-context! blank!]
-//          "keys and values defining instance contents (bindings modified)"
-//      /only
-//          "Values are kept as-is"
+//      return: [<opt> any-context!]
+//      spec [<blank> block!]
+//          "Object specification block (bindings modified)"
+//      /only "Values are kept as-is"
+//      /with "Use a prototype object"
+//      prototype "parent/prototype context"
+//          [any-context!]
 //  ]
 //
 REBNATIVE(construct)
 //
-// CONSTRUCT in Ren-C is an effective replacement for what MAKE ANY-OBJECT!
-// was able to do in Rebol2 and R3-Alpha.  It takes a spec that can be an
-// ANY-CONTEXT! datatype, or it can be a parent ANY-CONTEXT!, or a block that
-// represents a "spec".
-//
 // !!! This assumes you want a SELF defined.  The entire concept of SELF
-// needs heavy review, but at minimum this needs an override to match the
-// `<with> return` or `<with> local` for functions.
+// needs heavy review.
 //
-// !!! This mutates the bindings of the body block passed in, should it
+// !!! This mutates the bindings of the spec block passed in, should it
 // be making a copy instead (at least by default, perhaps with performance
 // junkies saying `construct/rebind` or something like that?
+//
+// !!! /ONLY should be done with a "predicate", e.g. `construct .quote [...]`
 {
     INCLUDE_PARAMS_OF_CONSTRUCT;
 
     REBVAL *spec = ARG(spec);
-    REBVAL *body = ARG(body);
-    REBCTX *parent = NULL;
-
-    enum Reb_Kind target;
-    REBCTX *context;
-
-    if (IS_GOB(spec)) {
-        if (not IS_BLOCK(body))
-            fail (Error_Bad_Make(REB_GOB, body));
-
-        // !!! Compatibility for `MAKE gob [...]` or `MAKE gob NxN` from
-        // R3-Alpha GUI.  Start by copying the gob (minus pane and parent),
-        // then apply delta to its properties from arg.  Doesn't save memory,
-        // or keep any parent linkage--could be done in user code as a copy
-        // and then apply the difference.
-        //
-        REBGOB *gob = Copy_Array_Shallow(VAL_GOB(spec), SPECIFIED);
-        Init_Blank(ARR_AT(gob, IDX_GOB_PANE));
-        GOB_PARENT(gob) = nullptr;
-        Extend_Gob_Core(gob, body);
-        return Init_Gob(D_OUT, gob);
-    }
-    else if (IS_EVENT(spec)) {
-        //
-        // !!! As with GOB!, the 2-argument form of MAKE-ing an event is just
-        // a shorthand for copy-and-apply.  Could be user code.
-        //
-        if (!IS_BLOCK(body))
-            fail (Error_Bad_Make(REB_EVENT, body));
-
-        Move_Value(D_OUT, spec); // !!! very "shallow" clone of the event
-        Set_Event_Vars(
-            D_OUT,
-            VAL_ARRAY_AT(body),
-            VAL_SPECIFIER(body)
-        );
-        return D_OUT;
-    }
-    else if (ANY_CONTEXT(spec)) {
-        parent = VAL_CONTEXT(spec);
-        target = VAL_TYPE(spec);
-    }
-    else if (IS_DATATYPE(spec)) {
-        //
-        // Should this be supported, or just assume OBJECT! ?  There are
-        // problems trying to create a FRAME! without a function (for
-        // instance), and making an ERROR! from scratch is currently dangerous
-        // as well though you can derive them.
-        //
-        fail ("DATATYPE! not supported for SPEC of CONSTRUCT");
-    }
-    else {
-        assert(IS_BLOCK(spec));
-        target = REB_OBJECT;
-    }
+    REBCTX *parent = REF(with) ? VAL_CONTEXT(ARG(prototype)) : nullptr;
 
     // This parallels the code originally in CONSTRUCT.  Run it if the /ONLY
     // refinement was passed in.
@@ -965,68 +915,34 @@ REBNATIVE(construct)
             D_OUT,
             Construct_Context_Managed(
                 REB_OBJECT,
-                VAL_ARRAY_AT(body),
-                VAL_SPECIFIER(body),
+                VAL_ARRAY_AT(spec),
+                VAL_SPECIFIER(spec),
                 parent
             )
         );
         return D_OUT;
     }
 
-    // This code came from REBTYPE(Context) for implementing MAKE OBJECT!.
-    // Now that MAKE ANY-CONTEXT! has been pulled back, it no longer does
-    // any evaluation or creates SELF fields.  It also obeys the rule that
-    // the first argument is an exemplar of the type to create only, bringing
-    // uniformity to MAKE.
+    // Scan the object for top-level set words in order to make an
+    // appropriately sized context.
     //
-    if (
-        (target == REB_OBJECT or target == REB_MODULE)
-        and (IS_BLOCK(body) or IS_BLANK(body))
-    ){
-        // First we scan the object for top-level set words in
-        // order to make an appropriately sized context.  Then
-        // we put it into an object in D_OUT to GC protect it.
-        //
-        context = Make_Selfish_Context_Detect_Managed(
-            target, // type
-            // scan for toplevel set-words
-            IS_BLANK(body)
-                ? cast(const RELVAL*, END_NODE) // gcc/g++ 2.95 needs (bug)
-                : VAL_ARRAY_AT(body),
-            parent
-        );
-        Init_Object(D_OUT, context);
+    REBCTX *context = Make_Selfish_Context_Detect_Managed(
+        parent ? CTX_TYPE(parent) : REB_OBJECT,  // !!! Presume object?
+        VAL_ARRAY_AT(spec),
+        parent
+    );
+    Init_Object(D_OUT, context);  // GC protects context
 
-        if (!IS_BLANK(body)) {
-            //
-            // !!! This binds the actual body data, not a copy of it.  See
-            // Virtual_Bind_Deep_To_New_Context() for future directions.
-            //
-            Bind_Values_Deep(VAL_ARRAY_AT(body), context);
+    // !!! This binds the actual body data, not a copy of it.  See
+    // Virtual_Bind_Deep_To_New_Context() for future directions.
+    //
+    Bind_Values_Deep(VAL_ARRAY_AT(spec), context);
 
-            DECLARE_LOCAL (temp);
-            if (Do_Any_Array_At_Throws(temp, body)) {
-                Move_Value(D_OUT, temp);
-                return R_THROWN; // evaluation result ignored unless thrown
-            }
-        }
-
-        return D_OUT;
+    DECLARE_LOCAL (dummy);
+    if (Do_Any_Array_At_Throws(dummy, spec)) {
+        Move_Value(D_OUT, dummy);
+        return R_THROWN;  // evaluation result ignored unless thrown
     }
 
-    // "multiple inheritance" case when both spec and body are objects.
-    //
-    // !!! As with most R3-Alpha concepts, this needs review.
-    //
-    if ((target == REB_OBJECT) && parent && IS_OBJECT(body)) {
-        //
-        // !!! Again, the presumption that the result of a merge is to
-        // be selfish should not be hardcoded in the C, but part of
-        // the generator choice by the person doing the derivation.
-        //
-        context = Merge_Contexts_Selfish_Managed(parent, VAL_CONTEXT(body));
-        return Init_Object(D_OUT, context);
-    }
-
-    fail ("Unsupported CONSTRUCT arguments");
+    return D_OUT;
 }

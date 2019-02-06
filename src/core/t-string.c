@@ -404,7 +404,15 @@ static REBSER *make_binary(const REBVAL *arg, bool make)
 //
 //  MAKE_String: C
 //
-REB_R MAKE_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *def) {
+REB_R MAKE_String(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL* opt_parent,
+    const REBVAL *def
+){
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
+
     REBSER *ser; // goto would cross initialization
 
     if (IS_INTEGER(def)) {

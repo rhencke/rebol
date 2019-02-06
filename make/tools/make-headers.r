@@ -19,7 +19,7 @@ do %common.r
 do %common-emitter.r
 do %common-parsers.r
 do %native-emitters.r ; for emit-include-params-macro
-file-base: has load %file-base.r
+file-base: make object! load %file-base.r
 
 tools-dir: system/options/current-path
 output-dir: system/options/path/prep

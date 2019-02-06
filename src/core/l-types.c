@@ -49,10 +49,15 @@
 //
 //  MAKE_Fail: C
 //
-REB_R MAKE_Fail(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Fail(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     UNUSED(out);
     UNUSED(kind);
+    UNUSED(opt_parent);
     UNUSED(arg);
 
     fail ("Datatype does not have a MAKE handler registered");
@@ -66,9 +71,14 @@ REB_R MAKE_Fail(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 // aren't ready yet as a general concept, this hook is overwritten in the
 // dispatch table when the extension loads.
 //
-REB_R MAKE_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Unhooked(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     UNUSED(out);
+    UNUSED(opt_parent);
     UNUSED(arg);
 
     const REBVAL *type = Datatype_From_Kind(kind);
@@ -84,61 +94,34 @@ REB_R MAKE_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //  {Constructs or allocates the specified datatype.}
 //
 //      return: [<opt> any-value!]
-//          {Constructed value, or NULL if BLANK! input}
+//          "Constructed value, or null if BLANK! input"
 //      type [<blank> any-value!]
-//          {The datatype -or- an examplar value of the type to construct}
+//          {The datatype or parent value to construct from}
 //      def [<blank> any-value!]
 //          {Definition or size of the new value (binding may be modified)}
 //  ]
 //
 REBNATIVE(make)
-//
-// !!! AT THE MOMENT THIS ROUTINE HAS A USERMODE SHIM IN %MEZZ-LEGACY.R
-// So if you make changes here and don't see them, that's why.  The idea
-// behind MAKE is being rethought, because at one time it was trying to be
-// compatible with "construction syntax" and disallow evaluations.  However,
-// that is now being rethought of as being in TO and allowing MAKE to
-// do evaluations.  Work in progress.
 {
     INCLUDE_PARAMS_OF_MAKE;
 
     REBVAL *type = ARG(type);
     REBVAL *arg = ARG(def);
 
+    REBVAL *opt_parent;
     enum Reb_Kind kind;
-    if (IS_DATATYPE(type))
+    if (IS_DATATYPE(type)) {
         kind = VAL_TYPE_KIND(type);
-    else
+        opt_parent = nullptr;
+    }
+    else {
         kind = VAL_TYPE(type);
-
-#if !defined(NDEBUG)
-    if (IS_GOB(type)) {
-        //
-        // !!! It appears that GOBs had some kind of inheritance mechanism, by
-        // which you would write:
-        //
-        //     gob1: make gob! [...]
-        //     gob2: make gob1 [...]
-        //
-        // The new plan is that MAKE operates on a definition spec, and that
-        // this type slot is always a value or exemplar.  So if the feature
-        // is needed, it should be something like:
-        //
-        //     gob1: make gob! [...]
-        //     gob2: make gob! [gob1 ...]
-        //
-        // Or perhaps not use make at all, but some other operation.
-        //
-        assert(false);
+        opt_parent = type;
     }
-    else if (IS_EVENT(type)) {
-        assert(false); // ^-- same for events (?)
-    }
-#endif
 
     MAKE_HOOK hook = Make_Hooks[kind];
 
-    REB_R r = hook(D_OUT, kind, arg); // might throw, fail...
+    REB_R r = hook(D_OUT, kind, opt_parent, arg);  // might throw, fail...
     if (r == R_THROWN)
         return r;
     if (r == nullptr or VAL_TYPE(r) != kind)

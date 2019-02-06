@@ -158,7 +158,7 @@ do*: function [
 
         ; Make the new script object
         original-script: system/script  ; and save old one
-        system/script: construct system/standard/script [
+        system/script: make system/standard/script [
             title: try select hdr 'title
             header: hdr
             parent: :original-script

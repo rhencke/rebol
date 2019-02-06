@@ -800,7 +800,7 @@ comment [
         die "Bad embedded boot data (not a BLOCK! or a BINARY!)"
     ]) and [
         ;boot-print ["executing embedded script:" mold code]
-        system/script: construct system/standard/script [
+        system/script: make system/standard/script [
             title: select first code 'title
             header: first code
             parent: _

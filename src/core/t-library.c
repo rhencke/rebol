@@ -46,10 +46,15 @@ REBINT CT_Library(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 //  MAKE_Library: C
 //
-REB_R MAKE_Library(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Library(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_LIBRARY);
-    UNUSED(kind);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     if (!IS_FILE(arg))
         fail (Error_Unexpected_Type(REB_FILE, VAL_TYPE(arg)));
@@ -75,7 +80,7 @@ REB_R MAKE_Library(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REB_R TO_Library(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    return MAKE_Library(out, kind, arg);
+    return MAKE_Library(out, kind, nullptr, arg);
 }
 
 

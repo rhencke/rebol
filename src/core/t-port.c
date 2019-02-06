@@ -47,10 +47,15 @@ REBINT CT_Port(const REBCEL *a, const REBCEL *b, REBINT mode)
 // Create a new port. This is done by calling the MAKE_PORT
 // function stored in the system/intrinsic object.
 //
-REB_R MAKE_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Port(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_PORT);
-    UNUSED(kind);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     const bool fully = true; // error if not all arguments consumed
 

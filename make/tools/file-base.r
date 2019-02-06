@@ -149,7 +149,6 @@ core: [
     t-decimal.c
     t-event.c
     t-function.c
-    t-gob.c
     t-integer.c
     t-library.c
     t-logic.c

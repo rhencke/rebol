@@ -244,7 +244,7 @@ do-request: func [
 ] [
     spec: port/spec
     info: port/state/info
-    spec/headers: body-of construct has [
+    spec/headers: body-of make make object! [
         Accept: "*/*"
         Accept-Charset: "utf-8"
         Host: either not find [80 443] spec/port-id [
@@ -316,7 +316,7 @@ check-response: function [port] [
         assert [binary? d1]
         d1: scan-net-header d1
 
-        info/headers: headers: construct/only http-response-headers d1
+        info/headers: headers: construct/with/only d1 http-response-headers
         info/name: to file! any [spec/path %/]
         if headers/content-length [
             info/size: (headers/content-length:
@@ -530,7 +530,7 @@ do-redirect: func [
             fail ["Unknown scheme:" new-uri/scheme]
         ]
     ]
-    new-uri: construct/only port/scheme/spec new-uri
+    new-uri: construct/with/only new-uri port/scheme/spec
     if not find [http https] new-uri/scheme [
         state/error: make-http-error {Redirect to a protocol different from HTTP or HTTPS not supported}
         return state/awake make event! [type: 'error port: port]
@@ -589,7 +589,7 @@ check-data: function [
                             |
                         copy trailer to crlf2bin to end
                     ] then [
-                        trailer: has/only trailer
+                        trailer: construct/only trailer
                         append headers body-of trailer
                         state/state: 'ready
                         res: state/awake make event! [
@@ -650,7 +650,7 @@ sys/make-scheme [
     name: 'http
     title: "HyperText Transport Protocol v1.1"
 
-    spec: construct system/standard/port-spec-net [
+    spec: make system/standard/port-spec-net [
         path: %/
         method: 'get
         headers: []
@@ -660,7 +660,7 @@ sys/make-scheme [
         follow: 'redirect
     ]
 
-    info: construct system/standard/file-info [
+    info: make system/standard/file-info [
         response-line:
         response-parsed:
         headers: _
@@ -736,12 +736,12 @@ sys/make-scheme [
             if not port/spec/host [
                 fail make-http-error "Missing host address"
             ]
-            port/state: has [
+            port/state: make object! [
                 state: 'inited
                 connection: _
                 error: _
                 close?: no
-                info: construct port/scheme/info [type: 'file]
+                info: make port/scheme/info [type: 'file]
                 awake: ensure [action! blank!] :port/awake
             ]
             port/state/connection: conn: make port! compose [
@@ -810,7 +810,7 @@ sys/make-scheme [
 sys/make-scheme/with [
     name: 'https
     title: "Secure HyperText Transport Protocol v1.1"
-    spec: construct spec [
+    spec: make spec [
         port-id: 443
     ]
 ] 'http

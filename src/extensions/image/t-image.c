@@ -237,8 +237,15 @@ void Copy_Image_Value(REBVAL *out, const REBVAL *arg, REBINT len)
 //
 //  MAKE_Image: C
 //
-REB_R MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Image(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
+
     if (IS_IMAGE(arg)) {
         //
         // make image! img

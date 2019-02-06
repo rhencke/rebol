@@ -22,7 +22,7 @@ build:    1
 platform: _
 commit: _
 
-product: _ ;-- assigned by startup of the host ('core, 'view, 'ren-garden...)
+product: _  ; assigned by startup of the host ('core, 'view, 'ren-garden...)
 
 license: {Copyright 2012 REBOL Technologies
 REBOL is a trademark of REBOL Technologies
@@ -30,13 +30,7 @@ Licensed under the Apache License, Version 2.0.
 See: http://www.apache.org/licenses/LICENSE-2.0
 }
 
-; !!! HAS is defined later, so this uses CONSTRUCT [] [body] instead.
-; MAKE OBJECT! is not used because that is too low-level (no evaluation or
-; collection of fields).  Reconsider if base-funcs should be loaded before
-; the system object here, or if it should be able to work with just the
-; low level MAKE OBJECT! and not use things like `x: y: z: none` etc.
-
-catalog: construct [] [
+catalog: make object! [
     ;
     ; These catalogs are filled in by Init_System_Object()
     ;
@@ -46,7 +40,7 @@ catalog: construct [] [
     errors: _
 ]
 
-contexts: construct [] [
+contexts: make object! [
     root:
     sys:
     lib:
@@ -54,10 +48,10 @@ contexts: construct [] [
         _
 ]
 
-state: construct [] [
+state: make object! [
     ; Mutable system state variables
     note: "contains protected hidden fields"
-    policies: construct [] [ ; Security policies
+    policies: make object! [  ; Security policies
         file:    ; file access
         net:     ; network access
         eval:    ; evaluation limit
@@ -77,12 +71,12 @@ state: construct [] [
 modules: mutable []
 extensions: mutable []
 
-codecs: make object! [[][]]
+codecs: make object! []
 
-schemes: make object! [[][]]
+schemes: make object! []
 
-ports: construct [] [
-    wait-list: mutable [] ; List of ports to add to 'wait
+ports: make object! [
+    wait-list: mutable []  ; List of ports to add to 'wait
     pump: mutable []
     input:          ; Port for user input.
     output:         ; Port for user output
@@ -91,7 +85,7 @@ ports: construct [] [
 ;   serial: _       ; serial device name block
 ]
 
-locale: construct [] [
+locale: make object! [
     language:   ; Human language locale
     language*: _
     library: _ ;make object! [modules: utilities: https://raw.githubusercontent.com/r3n/renclib/master/usermodules.reb]
@@ -106,12 +100,12 @@ locale: construct [] [
     ]
 ]
 
-set in locale 'library construct [][
+set in locale 'library make object! [
     modules: https://raw.githubusercontent.com/r3n/renclib/master/usermodules.reb
     utilities: https://raw.githubusercontent.com/r3n/renclib/master/userutils.reb
 ]
 
-options: construct [] [  ; Options supplied to REBOL during startup
+options: make object! [  ; Options supplied to REBOL during startup
     bin: _          ; Path to directory where Rebol executable binary lives
     boot: _         ; Path of executable, ie. system/options/bin/r3-exe
     home: _         ; Path of home directory
@@ -151,7 +145,7 @@ options: construct [] [  ; Options supplied to REBOL during startup
     unlocked-source: false
 ]
 
-script: construct [] [
+script: make object! [
     title:          ; Title string of script
     header:         ; Script header as evaluated
     parent:         ; Script that loaded the current one
@@ -160,7 +154,7 @@ script: construct [] [
         _
 ]
 
-standard: construct [] [
+standard: make object! [
     ; FUNC implements a native-optimized variant of an action generator.
     ; This is the body template that it provides as the code *equivalent* of
     ; what it is doing (via a more specialized/internal method).  Though
@@ -204,7 +198,7 @@ standard: construct [] [
     ; the archetypal context has to be created "by hand" for natives to use,
     ; with this archetype used by the REDESCRIBE Mezzanine.
     ;
-    action-meta: construct [] [
+    action-meta: make object! [
         description:
         return-type:
         return-note:
@@ -219,21 +213,21 @@ standard: construct [] [
     ; HELP just follows the link (`specializee`, `adaptee`) and gets
     ; descriptions there.
 
-    specialized-meta: construct [] [
+    specialized-meta: make object! [
         description:
         specializee:
         specializee-name:
             _
     ]
 
-    adapted-meta: construct [] [
+    adapted-meta: make object! [
         description:
         adaptee:
         adaptee-name:
             _
     ]
 
-    enclosed-meta: construct [] [
+    enclosed-meta: make object! [
         description:
         inner:
         inner-name:
@@ -242,7 +236,7 @@ standard: construct [] [
             _
     ]
 
-    chained-meta: construct [] [
+    chained-meta: make object! [
         description:
         chainees:
         chainee-names:
@@ -255,7 +249,7 @@ standard: construct [] [
     ; error does not require a keylist expansion...and also so that fields
     ; like FILE and LINE would not conflict with parameters.
     ;
-    error: construct [] [
+    error: make object! [
         type: _
         id: _
         message: _ ; a BLOCK! template with arg substitution or just a STRING!
@@ -268,7 +262,7 @@ standard: construct [] [
         ; necessary (errors with no arguments will just have a message)
     ]
 
-    script: construct [] [
+    script: make object! [
         title:
         header:
         parent:
@@ -277,7 +271,7 @@ standard: construct [] [
             _
     ]
 
-    header: construct [] [
+    header: make object! [
         title: {Untitled}
         name:
         type:
@@ -294,7 +288,7 @@ standard: construct [] [
             _
     ]
 
-    scheme: construct [] [
+    scheme: make object! [
         name:       ; word of http, ftp, sound, etc.
         title:      ; user-friendly title for the scheme
         spec:       ; custom spec for scheme (if needed)
@@ -306,7 +300,7 @@ standard: construct [] [
             _
     ]
 
-    port: construct [] [ ; Port specification object
+    port: make object! [ ; Port specification object
         spec:       ; published specification of the port
         scheme:     ; scheme object used for this port
         actor:      ; port action handler (script driven)
@@ -327,7 +321,7 @@ standard: construct [] [
             _
     ]
 
-    port-spec-head: construct [] [
+    port-spec-head: make object! [
         title:      ; user-friendly title for port
         scheme:     ; reference to scheme that defines this port
         ref:        ; reference path or url (for errors)
@@ -335,7 +329,7 @@ standard: construct [] [
            _            ; (extended here)
     ]
 
-    port-spec-net: construct port-spec-head [
+    port-spec-net: make port-spec-head [
         host: _
         port-id: 80
 
@@ -346,7 +340,7 @@ standard: construct [] [
         local-id: _
     ]
 
-    port-spec-serial: construct port-spec-head [
+    port-spec-serial: make port-spec-head [
         speed: 115200
         data-size: 8
         parity: _
@@ -354,11 +348,11 @@ standard: construct [] [
         flow-control: _ ;not supported on all systems
     ]
 
-    port-spec-signal: construct port-spec-head [
+    port-spec-signal: make port-spec-head [
         mask: [all]
     ]
 
-    file-info: construct [] [
+    file-info: make object! [
         name:
         size:
         date:
@@ -366,7 +360,7 @@ standard: construct [] [
             _
     ]
 
-    net-info: construct [] [
+    net-info: make object! [
         local-ip:
         local-port:
         remote-ip:
@@ -374,7 +368,7 @@ standard: construct [] [
             _
     ]
 
-    stats: construct [] [ ; port stats
+    stats: make object! [ ; port stats
         timer:      ; timer (nanos)
         evals:      ; evaluations
         eval-actions:
@@ -398,7 +392,7 @@ standard: construct [] [
     ; left is the name, but an object is synthesized on SPEC OF requests just
     ; as a placeholder to remember the idea.
     ;
-    type-spec: construct [] [
+    type-spec: make object! [
         title: _
     ]
 
@@ -407,7 +401,7 @@ standard: construct [] [
     para: _  ; mezz-graphics.h
 ]
 
-view: construct [] [
+view: make object! [
     screen-gob: _
     handler: _
     event-port: _
@@ -556,7 +550,7 @@ view: construct [] [
 ;       user-data:
 ;       awake:
 
-;   port-flags: construct [] [
+;   port-flags: make object! [
 ;       direct:
 ;       pass-thru:
 ;       open-append:
@@ -564,7 +558,7 @@ view: construct [] [
 ;           _
 ;   ]
 
-;   email: construct [] [ ; Email header object
+;   email: make object! [ ; Email header object
 ;       To:
 ;       CC:
 ;       BCC:
@@ -583,15 +577,15 @@ view: construct [] [
 ;           _
 ;   ]
 
-user: construct [] [
+user: make object! [
    name:           ; User's name
    home:           ; The HOME environment variable
    words: _
-   identity: construct [][email: smtp: pop3: esmtp-user: esmtp-pass: fqdn: _]
+   identity: make object! [email: smtp: pop3: esmtp-user: esmtp-pass: fqdn: _]
    identities: mutable []
 ]
 
-;network: construct [] [
+;network: make object! [
 ;   host: ""        ; Host name of the user's computer
 ;   host-address: 0.0.0.0 ; Host computer's TCP-IP address
 ;   trace: _
@@ -602,7 +596,7 @@ console: _         ;; console (repl) object created in host-start (os/host-start
 ; Below is original console construct (unused and comment-out in r3/ren-c)
 ; Left here for reference (for future development)
 ;
-;console: construct [] [
+;console: make object! [
 ;   hide-types: _    ; types not to print
 ;   history: _       ; Log of user inputs
 ;   keys: _          ; Keymap for special key
@@ -620,7 +614,7 @@ console: _         ;; console (repl) object created in host-start (os/host-start
 ;           date-month-num: false   ; True if months are displayed as numbers; False for names
 ;           time-sep: #":"  ; The character used as the time separator
 
-cgi: construct [] [ ; CGI environment variables
+cgi: make object! [ ; CGI environment variables
        server-software:
        server-name:
        gateway-interface:
@@ -646,5 +640,5 @@ cgi: construct [] [ ; CGI environment variables
 ;   help: _         ; True if the --help flags was specified
 ;   halt: _         ; halt after script
 
-;-- Current expectation is that evaluation ends with BLANK!
+; Boot process does a sanity check that this evaluation ends with BLANK!
 _

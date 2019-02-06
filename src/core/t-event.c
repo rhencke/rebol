@@ -36,7 +36,6 @@
 #include "reb-evtypes.h"
 #include "reb-event.h"
 
-#include "reb-gob.h"
 
 //
 //  CT_Event: C
@@ -116,8 +115,15 @@ static bool Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val)
     case SYM_WINDOW:
     case SYM_GOB:
         if (IS_GOB(val)) {
+            //
+            // !!! EVENT! needs to allocate a pairing to store a GOB! value,
+            // because the implementation of GOB! is opaque to it.  This
+            // is probably fine because events generally probably don't
+            // want to try to store everything in one cell.  TBD.
+            //
             VAL_EVENT_MODEL(event) = EVM_GUI;
-            mutable_VAL_EVENT_SER(event) = cast(REBSER*, VAL_GOB(val));
+            TRASH_POINTER_IF_DEBUG(mutable_VAL_EVENT_SER(event));
+            /* mutable_VAL_EVENT_SER(event) = cast(REBSER*, VAL_GOB(val)); */
             break;
         }
         return false;
@@ -278,8 +284,10 @@ static REBVAL *Get_Event_Var(RELVAL *out, const REBCEL *v, REBSTR *name)
     case SYM_WINDOW:
     case SYM_GOB: {
         if (IS_EVENT_MODEL(v, EVM_GUI)) {
-            if (VAL_EVENT_SER(v))
-                return Init_Gob(out, cast(REBGOB*, VAL_EVENT_SER(v)));
+            if (VAL_EVENT_SER(v)) {
+                return nullptr;  // should be returning contained GOB!
+                /* return Init_Gob(out, cast(REBGOB*, VAL_EVENT_SER(v))); */
+            }
         }
         return Init_Blank(out); }
 
@@ -366,19 +374,29 @@ static REBVAL *Get_Event_Var(RELVAL *out, const REBCEL *v, REBSTR *name)
 //
 //  MAKE_Event: C
 //
-REB_R MAKE_Event(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R MAKE_Event(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_EVENT);
     UNUSED(kind);
+
+    if (opt_parent) {  // faster shorthand for COPY and EXTEND
+        if (not IS_BLOCK(arg))
+            fail (Error_Bad_Make(REB_EVENT, arg));
+
+        Move_Value(out, opt_parent);  // !!! "shallow" clone of the event
+        Set_Event_Vars(out, VAL_ARRAY_AT(arg), VAL_SPECIFIER(arg));
+        return out;
+    }
 
     if (not IS_BLOCK(arg))
         fail (Error_Unexpected_Type(REB_EVENT, VAL_TYPE(arg)));
 
     RESET_CELL(out, REB_EVENT);
-    Set_Event_Vars(
-        out,
-        VAL_ARRAY_AT(arg),
-        VAL_SPECIFIER(arg)
-    );
+    Set_Event_Vars(out, VAL_ARRAY_AT(arg), VAL_SPECIFIER(arg));
     return out;
 }
 

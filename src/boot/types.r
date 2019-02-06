@@ -454,7 +454,7 @@ typeset     "set of datatypes"
 ; things likely to become user-defined types or extensions
 
 gob         "graphical object"
-            gob         +       +       +       []
+            ?           ?       ?       ?       []
 
 event       "user interface event (efficiently sized)"
             event       +       +       +       []

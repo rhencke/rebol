@@ -219,7 +219,7 @@ eval func [
         tester: typechecker (get bind (as word! type-name) set-word)
         set set-word :tester
 
-        set-meta :tester construct system/standard/action-meta [
+        set-meta :tester make system/standard/action-meta [
             description: spaced [{Returns TRUE if the value is} an type-name]
             return-type: [logic!]
         ]

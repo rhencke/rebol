@@ -32,7 +32,7 @@
 )
 ; Form recursive object...
 (
-    o: object [a: 1 r: _] o/r: o
+    o: construct [a: 1 r: _] o/r: o
     (unspaced ["<" form o  ">"]) = "<a: 1^/r: make object! [...]>"
 )
 ; detab...

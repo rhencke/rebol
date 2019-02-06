@@ -1575,7 +1575,7 @@ tls-awake: function [
 sys/make-scheme [
     name: 'tls
     title: "TLS protocol v1.0"
-    spec: construct system/standard/port-spec-net []
+    spec: make system/standard/port-spec-net []
     actor: [
         read: func [
             port [port!]

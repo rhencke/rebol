@@ -51,7 +51,7 @@ save: function [
     method: default [_]
     header-data: default [_]
 
-    ;-- Special datatypes use codecs directly (e.g. PNG image file):
+    ; Special datatypes use codecs directly (e.g. PNG image file):
     all [
         not header ; User wants to save value as script, not data file
         match [file! url!] where
@@ -62,30 +62,30 @@ save: function [
         return write where encode type :value
     ]
 
-    ;-- Compressed scripts and script lengths require a header:
+    ; Compressed scripts and script lengths require a header:
     any [length method] then [
         header: true
         header-data: default [[]]
     ]
 
-    ;-- Handle the header object:
+    ; Handle the header object:
     if header-data [
 
-        ;-- #[true] indicates the header is the first value in the block
+        ; #[true] indicates the header is the first value in the block
         if header-data = true [
             header-data: first ensure block! value
-            value: my next ;-- do not use TAKE (leave header in position)
+            value: my next  ; do not use TAKE (leave header in position)
         ]
 
-        ;; Make it an object if it's not already
-        ;;
+        ; Make it an object if it's not already
+        ;
         header-data: if object? :header-data [
-            trim :header-data ;; clean out words set to blank
+            trim :header-data  ; clean out words set to blank
         ] else [
-            has/only :header-data ;; does not use STANDARD/HEADER
+            construct/only :header-data  ; does not use STANDARD/HEADER
         ]
 
-        if compress [ ; Make the header option match
+        if compress [  ; Make the header option match
             case [
                 not method [
                     remove find to-value select header-data 'options 'compress
@@ -134,7 +134,7 @@ save: function [
         ]
 
         method = 'script [
-            data: mold64 data ; File content is encoded as base-64
+            data: mold64 data  ; File content is encoded as base-64
         ]
 
         not binary? data [

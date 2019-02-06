@@ -414,8 +414,15 @@ static void Append_Map(
 //
 //  MAKE_Map: C
 //
-REB_R MAKE_Map(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Map(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
+
     if (ANY_NUMBER(arg)) {
         return Init_Map(out, Make_Map(Int32s(arg, 0)));
     }

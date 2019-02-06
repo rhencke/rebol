@@ -301,3 +301,15 @@ inline static REBVAL *Init_Gob(RELVAL *out, REBGOB *g) {
     VAL_GOB_INDEX(out) = 0;
     return KNOWN(out);
 }
+
+
+// !!! These hooks allow the REB_GOB cell type to dispatch to code in the
+// GOB! extension if it is loaded.
+//
+extern REBINT CT_Gob(const REBCEL *a, const REBCEL *b, REBINT mode);
+extern REB_R MAKE_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *opt_parent, const REBVAL *arg);
+extern REB_R TO_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);
+extern void MF_Gob(REB_MOLD *mo, const REBCEL *v, bool form);
+extern REBTYPE(Gob);
+extern REB_R PD_Gob(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval);
+

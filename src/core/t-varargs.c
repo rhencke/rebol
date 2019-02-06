@@ -345,10 +345,15 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
 //
 //  MAKE_Varargs: C
 //
-REB_R MAKE_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Varargs(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_VARARGS);
-    UNUSED(kind);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     // With MAKE VARARGS! on an ANY-ARRAY!, the array is the backing store
     // (shared) that the varargs interface cannot affect, but changes to

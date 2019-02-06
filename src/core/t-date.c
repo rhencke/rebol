@@ -445,9 +445,15 @@ REBINT Cmp_Date(const REBCEL *d1, const REBCEL *d2)
 //
 //  MAKE_Date: C
 //
-REB_R MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R MAKE_Date(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_DATE);
-    UNUSED(kind);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     if (IS_DATE(arg))
         return Move_Value(out, arg);
@@ -553,7 +559,7 @@ REB_R MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 //  TO_Date: C
 //
 REB_R TO_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
-    return MAKE_Date(out, kind, arg);
+    return MAKE_Date(out, kind, nullptr, arg);
 }
 
 

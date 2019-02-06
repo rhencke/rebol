@@ -85,10 +85,15 @@ REBINT CT_Money(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 //  MAKE_Money: C
 //
-REB_R MAKE_Money(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Money(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_MONEY);
-    UNUSED(kind);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     switch (VAL_TYPE(arg)) {
       case REB_INTEGER:
@@ -132,7 +137,7 @@ REB_R MAKE_Money(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REB_R TO_Money(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    return MAKE_Money(out, kind, arg);
+    return MAKE_Money(out, kind, nullptr, arg);
 }
 
 

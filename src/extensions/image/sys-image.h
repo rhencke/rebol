@@ -133,7 +133,7 @@ inline static REBVAL *Init_Image_Black_Opaque(RELVAL *out, REBCNT w, REBCNT h)
 // IMAGE! extension if it is loaded.
 //
 extern REBINT CT_Image(const REBCEL *a, const REBCEL *b, REBINT mode);
-extern REB_R MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);
+extern REB_R MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *opt_parent, const REBVAL *arg);
 extern REB_R TO_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);
 extern void MF_Image(REB_MOLD *mo, const REBCEL *v, bool form);
 extern REBTYPE(Image);

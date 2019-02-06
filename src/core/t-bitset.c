@@ -104,10 +104,15 @@ void MF_Bitset(REB_MOLD *mo, const REBCEL *v, bool form)
 //
 //  MAKE_Bitset: C
 //
-REB_R MAKE_Bitset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Bitset(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_BITSET);
-    UNUSED(kind);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     REBINT len = Find_Max_Bit(arg);
 
@@ -140,7 +145,7 @@ REB_R MAKE_Bitset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REB_R TO_Bitset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    return MAKE_Bitset(out, kind, arg);
+    return MAKE_Bitset(out, kind, nullptr, arg);
 }
 
 

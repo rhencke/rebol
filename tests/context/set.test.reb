@@ -13,8 +13,8 @@
     a = 2
     blank? :b
 )
-(x: has [a: 1] all [error? trap [set x reduce [()]] x/a = 1])
-(x: has [a: 1 b: 2] all [error? trap [set x reduce [3 ()]] x/a = 1])
+(x: make object! [a: 1] all [error? trap [set x reduce [()]] x/a = 1])
+(x: make object! [a: 1 b: 2] all [error? trap [set x reduce [3 ()]] x/a = 1])
 ; set [:get-word] [word]
 (a: 1 b: _ set [b] [a] b = 'a)
 

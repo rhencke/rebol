@@ -67,7 +67,15 @@ REBINT CT_Array(const REBCEL *a, const REBCEL *b, REBINT mode)
 //     MAKE_Get_Path
 //     MAKE_Lit_Path
 //
-REB_R MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R MAKE_Array(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
+
     if (IS_INTEGER(arg) or IS_DECIMAL(arg)) {
         //
         // `make block! 10` => creates array with certain initial capacity

@@ -59,14 +59,20 @@ REBINT CT_Quoted(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 //  MAKE_Quoted: C
 //
-// MAKE is allowed, but can be done also with UNEVAL (which may also be LIT).
+// !!! This can be done with QUOTE (currently EVAL) which has the ability
+// to take a refinement of how deep.  Having a MAKE variant may be good or
+// may not be good; if it were to do a level more than 1 it would need to
+// take a BLOCK! with an INTEGER! and the value.  :-/
 //
-// !!! Consider making the others a specialization of MAKE QUOTED! (though it
-// would be slightly slower that way.)
-//
-REB_R MAKE_Quoted(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R MAKE_Quoted(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_QUOTED);
-    UNUSED(kind);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     return Quotify(Move_Value(out, arg), 1);
 }

@@ -37,7 +37,7 @@ hmac-sha256: function [
 rsa-make-key: func [
     {Creates a key object for RSA algorithm.}
 ][
-    has [
+    make object! [
         n:          ;modulus
         e:          ;public exponent
         d:          ;private exponent
@@ -58,7 +58,7 @@ dh-make-key: func [
 ;       size [integer!] \"Key length\"
 ;       generator [integer!] \"Generator number\"
 ][
-    has [
+    make object! [
         priv-key:   ;private key
         pub-key:    ;public key
         g:          ;generator

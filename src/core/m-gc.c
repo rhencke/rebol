@@ -534,9 +534,13 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         Queue_Mark_Array_Deep(PAYLOAD(Image, v).details);
         break;
 
-      case REB_VECTOR:
-        Mark_Rebser_Only(VAL_SERIES(v));
-        break;
+      case REB_VECTOR: {
+        REBVAL *paired = PAYLOAD(Vector, v).paired;
+        assert(IS_BINARY(paired));
+        Mark_Rebser_Only(VAL_BINARY(paired));
+        assert(KIND_BYTE(PAIRING_KEY(paired)) == REB_V_SIGN_INTEGRAL_WIDE);
+        paired->header.bits |= NODE_FLAG_MARKED;  // read back as REBYTE: safe
+        break; }
 
       case REB_LOGIC:
       case REB_INTEGER:
@@ -555,7 +559,9 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         // if unmarked...so it can stealthily participate in the marking
         // process, as long as the bit is cleared at the end.
         //
-        REBSER *paired = cast(REBSER*, PAYLOAD(Pair, v).paired);
+        REBVAL *paired = PAYLOAD(Pair, v).paired;
+        // !!! Currently only stores INTEGER! and DECIMAL!, don't need to
+        // mark, but if they become arbitrary precision they would need to be
         paired->header.bits |= NODE_FLAG_MARKED;  // read back as REBYTE: safe
         break; }
 
@@ -739,7 +745,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         //
         break;
 
-      case REB_V_SIGN_INTEGRAL_BITS:
+      case REB_V_SIGN_INTEGRAL_WIDE:
         //
         // Similar to the above.  Since it has no GC behavior and the caller
         // knows where these cells are (stealing space in an array) there is

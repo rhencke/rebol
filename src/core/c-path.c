@@ -931,7 +931,15 @@ void MF_Path(REB_MOLD *mo, const REBCEL *v, bool form)
 // is in line with the most popular historical interpretation of MAKE, for
 // MAKE OBJECT!--which evaluates the object body block.
 //
-REB_R MAKE_Path(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R MAKE_Path(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
+
     if (not IS_BLOCK(arg))
         fail (Error_Bad_Make(kind, arg)); // "make path! 0" has no meaning
 

@@ -686,128 +686,6 @@ static REBARR *Gob_To_Array(REBGOB *gob)
 
 
 //
-//  Map_Gob_Inner: C
-//
-// Map a higher level gob coordinate to a lower level.
-// Returns GOB and sets new offset pair.
-//
-static REBGOB *Map_Gob_Inner(REBGOB *gob, REBD32 *xo, REBD32 *yo)
-{
-    REBINT max_depth = 1000; // avoid infinite loops
-
-    REBD32 x = 0;
-    REBD32 y = 0;
-
-    while (GOB_PANE(gob) && (max_depth-- > 0)) {
-        REBINT len = GOB_LEN(gob);
-
-        REBVAL *item = GOB_HEAD(gob) + len - 1;
-
-        REBINT n;
-        for (n = 0; n < len; ++n, --item) {
-            REBGOB *child = VAL_GOB(item);
-            if (
-                (*xo >= x + GOB_X(child)) &&
-                (*xo <  x + GOB_X(child) + GOB_W(child)) &&
-                (*yo >= y + GOB_Y(child)) &&
-                (*yo <  y + GOB_Y(child) + GOB_H(child))
-            ){
-                x += GOB_X(child);
-                y += GOB_Y(child);
-                gob = child;
-                break;
-            }
-        }
-        if (n >= len)
-            break; // not found
-    }
-
-    *xo -= x;
-    *yo -= y;
-
-    return gob;
-}
-
-
-//
-//  map-event: native [
-//
-//  {Returns event with inner-most graphical object and coordinate.}
-//
-//      event [event!]
-//  ]
-//
-REBNATIVE(map_event)
-{
-    INCLUDE_PARAMS_OF_MAP_EVENT;
-
-    REBVAL *val = ARG(event);
-    REBGOB *gob = cast(REBGOB*, VAL_EVENT_SER(val));
-
-    if (gob and (VAL_EVENT_FLAGS(val) & EVF_HAS_XY)) {
-        REBD32 x = VAL_EVENT_X(val);
-        REBD32 y = VAL_EVENT_Y(val);
-        mutable_VAL_EVENT_SER(val) = cast(REBSER*, Map_Gob_Inner(gob, &x, &y));
-        SET_EVENT_XY(val, ROUND_TO_INT(x), ROUND_TO_INT(x));
-    }
-
-    RETURN (ARG(event));
-}
-
-
-//
-//  map-gob-offset: native [
-//
-//  {Translate gob and offset to deepest gob and offset in it}
-//
-//      return: [block!]
-//          "[GOB! PAIR!] 2-element block"
-//      gob [gob!]
-//          "Starting object"
-//      xy [pair!]
-//          "Staring offset"
-//      /reverse
-//          "Translate from deeper gob to top gob."
-//  ]
-//
-REBNATIVE(map_gob_offset)
-{
-    INCLUDE_PARAMS_OF_MAP_GOB_OFFSET;
-    UNUSED(ARG(gob));
-    UNUSED(ARG(xy));
-    UNUSED(REF(reverse));
-
-    REBGOB *gob = VAL_GOB(ARG(gob));
-    REBD32 xo = VAL_PAIR_X_DEC(ARG(xy));
-    REBD32 yo = VAL_PAIR_Y_DEC(ARG(xy));
-
-    if (REF(reverse)) {
-        REBINT max_depth = 1000; // avoid infinite loops
-        while (
-            GOB_PARENT(gob)
-            && (max_depth-- > 0)
-            && !GET_GOB_FLAG(gob, GOBF_WINDOW)
-        ){
-            xo += GOB_X(gob);
-            yo += GOB_Y(gob);
-            gob = GOB_PARENT(gob);
-        }
-    }
-    else {
-        xo = VAL_PAIR_X_DEC(ARG(xy));
-        yo = VAL_PAIR_Y_DEC(ARG(xy));
-        gob = Map_Gob_Inner(gob, &xo, &yo);
-    }
-
-    REBARR *arr = Make_Arr(2);
-    Init_Gob(Alloc_Tail_Array(arr), gob);
-    Init_Pair_Dec(Alloc_Tail_Array(arr), xo, yo);
-
-    return Init_Block(D_OUT, arr);
-}
-
-
-//
 //  Extend_Gob_Core: C
 //
 // !!! R3-Alpha's MAKE has been unified with construction syntax, which has
@@ -839,8 +717,12 @@ void Extend_Gob_Core(REBGOB *gob, const REBVAL *arg) {
 //
 //  MAKE_Gob: C
 //
-REB_R MAKE_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Gob(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_GOB);
     UNUSED(kind);
 
@@ -851,8 +733,27 @@ REB_R MAKE_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         return Init_Gob(out, gob);
     }
 
-    // !!! See notes in Extend_Gob_Core; previously a parent was allowed
-    // here, but completely overwritten with a GOB! argument.
+    if (opt_parent) {
+        assert(IS_GOB(opt_parent));  // current invariant for MAKE dispatch
+        
+        if (not IS_BLOCK(arg))
+            fail (Error_Bad_Make(REB_GOB, arg));
+
+        // !!! Compatibility for `MAKE gob [...]` or `MAKE gob NxN` from
+        // R3-Alpha GUI.  Start by copying the gob (minus pane and parent),
+        // then apply delta to its properties from arg.  Doesn't save memory,
+        // or keep any parent linkage--could be done in user code as a copy
+        // and then apply the difference.
+        //
+        REBGOB *gob = Copy_Array_Shallow(VAL_GOB(opt_parent), SPECIFIED);
+        Init_Blank(ARR_AT(gob, IDX_GOB_PANE));
+        GOB_PARENT(gob) = nullptr;
+        Extend_Gob_Core(gob, arg);
+        return Init_Gob(out, gob);
+    }
+
+    // !!! Previously a parent was allowed here, but completely overwritten
+    // if a GOB! argument were provided.
     //
     REBGOB *gob = Copy_Array_Shallow(VAL_GOB(arg), SPECIFIED);
     Init_Blank(GOB_PANE_VALUE(gob));

@@ -49,10 +49,15 @@ REBINT CT_Tuple(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 //  MAKE_Tuple: C
 //
-REB_R MAKE_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Tuple(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_TUPLE);
-    UNUSED(kind);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     if (IS_TUPLE(arg))
         return Move_Value(out, arg);
@@ -151,7 +156,7 @@ REB_R MAKE_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REB_R TO_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    return MAKE_Tuple(out, kind, arg);
+    return MAKE_Tuple(out, kind, nullptr, arg);
 }
 
 

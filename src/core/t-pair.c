@@ -51,10 +51,15 @@ REBINT CT_Pair(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 //  MAKE_Pair: C
 //
-REB_R MAKE_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Pair(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_PAIR);
-    UNUSED(kind);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     if (IS_PAIR(arg))
         return Move_Value(out, arg);
@@ -114,7 +119,7 @@ REB_R MAKE_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REB_R TO_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    return MAKE_Pair(out, kind, arg);
+    return MAKE_Pair(out, kind, nullptr, arg);
 }
 
 

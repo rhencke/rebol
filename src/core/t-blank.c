@@ -99,8 +99,15 @@ REB_R PD_Blank(
 // MAKE is disallowed, with the general rule that a blank in will give
 // a null out... for e.g. `make object! try select data spec else [...]`
 //
-REB_R MAKE_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R MAKE_Unit(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     UNUSED(out);
+    UNUSED(opt_parent);
+
     fail (Error_Bad_Make(kind, arg));
 }
 

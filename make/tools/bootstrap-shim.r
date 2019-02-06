@@ -138,3 +138,6 @@ join-of: func [] [
         https://forum.rebol.info/t/its-time-to-join-together/1030
     ]
 ]
+
+; https://forum.rebol.info/t/has-hasnt-worked-rethink-construct/1058
+has: null

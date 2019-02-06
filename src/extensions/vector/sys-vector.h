@@ -49,8 +49,8 @@
 
 inline static bool VAL_VECTOR_INTEGRAL(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_VECTOR);
-    REBVAL *sib = VAL_VECTOR_SIGN_INTEGRAL_WIDE(v);
-    if (PAYLOAD(Custom, sib).second.b != 0)
+    REBVAL *siw = VAL_VECTOR_SIGN_INTEGRAL_WIDE(v);
+    if (PAYLOAD(Custom, siw).second.b != 0)
         return true;
 
     assert(VAL_VECTOR_SIGN(v));
@@ -82,8 +82,8 @@ inline static REBCNT VAL_VECTOR_LEN_AT(const REBCEL *v) {
 inline static REBVAL *Init_Vector(
     RELVAL *out,
     REBBIN *bin,
-    bool integral,
     bool sign,
+    bool integral,
     REBYTE bitsize
 ){
     RESET_CELL(out, REB_VECTOR);
@@ -93,11 +93,11 @@ inline static REBVAL *Init_Vector(
     Init_Binary(paired, bin);
     assert(SER_LEN(bin) % (bitsize / 8) == 0);
 
-    REBVAL *sib = RESET_CELL(PAIRING_KEY(paired), REB_V_SIGN_INTEGRAL_BITS);
+    REBVAL *siw = RESET_CELL(PAIRING_KEY(paired), REB_V_SIGN_INTEGRAL_WIDE);
     assert(bitsize == 8 or bitsize == 16 or bitsize == 32 or bitsize == 64);
-    EXTRA(Custom, sib).i32 = bitsize / 8;  // e.g. VAL_VECTOR_WIDE()
-    PAYLOAD(Custom, sib).first.b = sign;
-    PAYLOAD(Custom, sib).second.b = integral;
+    PAYLOAD(Custom, siw).first.b = sign;
+    PAYLOAD(Custom, siw).second.b = integral;
+    EXTRA(Custom, siw).i32 = bitsize / 8;  // e.g. VAL_VECTOR_WIDE()
 
     Manage_Pairing(paired);
     PAYLOAD(Vector, out).paired = paired;
@@ -109,7 +109,7 @@ inline static REBVAL *Init_Vector(
 // VECTOR! extension if it is loaded.
 //
 extern REBINT CT_Vector(const REBCEL *a, const REBCEL *b, REBINT mode);
-extern REB_R MAKE_Vector(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);
+extern REB_R MAKE_Vector(REBVAL *out, enum Reb_Kind kind, const REBVAL *opt_parent, const REBVAL *arg);
 extern REB_R TO_Vector(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);
 extern void MF_Vector(REB_MOLD *mo, const REBCEL *v, bool form);
 extern REBTYPE(Vector);

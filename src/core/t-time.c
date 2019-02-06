@@ -222,10 +222,15 @@ REBINT CT_Time(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 //  MAKE_Time: C
 //
-REB_R MAKE_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Time(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_TIME);
-    UNUSED(kind);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     switch (VAL_TYPE(arg)) {
     case REB_TIME: // just copy it (?)
@@ -334,7 +339,7 @@ REB_R MAKE_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REB_R TO_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    return MAKE_Time(out, kind, arg);
+    return MAKE_Time(out, kind, nullptr, arg);
 }
 
 

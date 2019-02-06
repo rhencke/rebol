@@ -2137,7 +2137,12 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 PUSH_GC_GUARD(cell);
 
                 PUSH_GC_GUARD(array);
-                const REBVAL *r = hook(cell, kind, KNOWN(ARR_AT(array, 1)));
+                const REBVAL *r = hook(
+                    cell,
+                    kind,
+                    nullptr,
+                    KNOWN(ARR_AT(array, 1))
+                );
                 if (r == R_THROWN) { // !!! good argument for not using MAKE
                     assert(false);
                     fail ("MAKE during construction syntax threw--illegal");

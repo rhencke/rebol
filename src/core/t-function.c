@@ -69,10 +69,19 @@ REBINT CT_Action(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 //     [[spec] [body]]
 //
-REB_R MAKE_Action(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+// !!! This has a potential to redesign as a single block, see concept:
+//
+// https://forum.rebol.info/t/1002
+//
+REB_R MAKE_Action(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_ACTION);
-    UNUSED(kind);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     if (
         not IS_BLOCK(arg)

@@ -213,7 +213,12 @@ typedef REBVAL *REB_R;
 //=//// DISPATCHERS ///////////////////////////////////////////////////////=//
 //
 typedef REBINT (*COMPARE_HOOK)(const REBCEL *a, const REBCEL *b, REBINT s);
-typedef REB_R (*MAKE_HOOK)(REBVAL*, enum Reb_Kind, const REBVAL*);
+typedef REB_R (*MAKE_HOOK)(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *def
+);
 typedef REB_R (*TO_HOOK)(REBVAL*, enum Reb_Kind, const REBVAL*);
 
 

@@ -33,7 +33,7 @@ config: config-system try get 'args/OS_ID
 output-dir: system/options/path/prep
 mkdir/deep output-dir/include
 
-file-base: has load %../../make/tools/file-base.r
+file-base: make object! load %../../make/tools/file-base.r
 
 ; Collect OS-specific host files:
 if not (

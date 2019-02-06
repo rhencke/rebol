@@ -516,12 +516,16 @@ void Set_Location_Of_Error(
 // exactly what is changing.
 //
 REB_R MAKE_Error(
-    REBVAL *out, // output location **MUST BE GC SAFE**!
+    REBVAL *out,  // output location **MUST BE GC SAFE**!
     enum Reb_Kind kind,
+    const REBVAL *opt_parent,
     const REBVAL *arg
 ){
     assert(kind == REB_ERROR);
     UNUSED(kind);
+
+    if (opt_parent)  // !!! Should probably be able to work!
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     // Frame from the error object template defined in %sysobj.r
     //
@@ -684,7 +688,7 @@ REB_R MAKE_Error(
 //
 REB_R TO_Error(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    return MAKE_Error(out, kind, arg);
+    return MAKE_Error(out, kind, nullptr, arg);
 }
 
 
@@ -1347,6 +1351,16 @@ REBCTX *Error_Bad_Return_Type(REBFRM *f, enum Reb_Kind kind) {
 REBCTX *Error_Bad_Make(enum Reb_Kind type, const REBVAL *spec)
 {
     return Error_Bad_Make_Arg_Raw(Datatype_From_Kind(type), spec);
+}
+
+
+//
+//  Error_Bad_Make_Parent: C
+//
+REBCTX *Error_Bad_Make_Parent(enum Reb_Kind type, const REBVAL *parent)
+{
+    assert(parent != nullptr);
+    fail (Error_Bad_Make_Parent_Raw(Datatype_From_Kind(type), parent));
 }
 
 

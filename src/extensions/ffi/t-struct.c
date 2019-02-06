@@ -1071,9 +1071,15 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
 //         ...
 //     ]
 //
-REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R MAKE_Struct(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_STRUCT);
-    UNUSED(kind);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     if (not IS_BLOCK(arg))
         fail (arg);

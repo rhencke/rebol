@@ -141,8 +141,16 @@ REBVAL *Init_Decimal_Bits(RELVAL *out, const REBYTE *bp)
 //
 //  MAKE_Decimal: C
 //
-REB_R MAKE_Decimal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Decimal(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
+    assert(kind == REB_DECIMAL or kind == REB_PERCENT);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
+
     REBDEC d;
 
     switch (VAL_TYPE(arg)) {
@@ -253,7 +261,7 @@ bad_make:
 //
 REB_R TO_Decimal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    return MAKE_Decimal(out, kind, arg);
+    return MAKE_Decimal(out, kind, nullptr, arg);
 }
 
 

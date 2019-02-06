@@ -104,7 +104,7 @@ host-code: load-files [
 ;
 append host-code [:host-start]
 
-file-base: has load %../../make/tools/file-base.r
+file-base: make object! load %../../make/tools/file-base.r
 
 ; copied from make-boot.r
 host-protocols: make block! 2

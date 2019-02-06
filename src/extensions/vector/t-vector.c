@@ -462,7 +462,7 @@ bool Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
     SET_SERIES_LEN(bin, num_bytes);
     TERM_SERIES(bin);
 
-    Init_Vector(out, bin, integral, sign, bitsize);
+    Init_Vector(out, bin, sign, integral, bitsize);
     UNUSED(index);  // !!! Not currently used, may (?) be added later
 
     if (iblk != NULL)
@@ -488,8 +488,15 @@ REB_R TO_Vector(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  MAKE_Vector: C
 //
-REB_R MAKE_Vector(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Vector(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
+
     if (IS_INTEGER(arg) or IS_DECIMAL(arg)) {  // e.g. `make vector! 100`
         REBINT len = Int32s(arg, 0);
         if (len < 0)
@@ -502,9 +509,9 @@ REB_R MAKE_Vector(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         SET_SERIES_LEN(bin, num_bytes);
         TERM_SERIES(bin);
 
-        const bool integral = true;
         const bool sign = true;
-        return Init_Vector(out, bin, integral, sign, bitsize);
+        const bool integral = true;
+        return Init_Vector(out, bin, sign, integral, bitsize);
     }
 
     return TO_Vector(out, kind, arg);

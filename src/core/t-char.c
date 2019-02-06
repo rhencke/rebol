@@ -55,10 +55,15 @@ REBINT CT_Char(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 //  MAKE_Char: C
 //
-REB_R MAKE_Char(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Char(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
     assert(kind == REB_CHAR);
-    UNUSED(kind);
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     switch(VAL_TYPE(arg)) {
     case REB_CHAR:
@@ -111,7 +116,7 @@ REB_R MAKE_Char(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REB_R TO_Char(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    return MAKE_Char(out, kind, arg);
+    return MAKE_Char(out, kind, nullptr, arg);
 }
 
 

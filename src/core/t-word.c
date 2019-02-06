@@ -71,8 +71,15 @@ REBINT CT_Word(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 //  MAKE_Word: C
 //
-REB_R MAKE_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
-{
+REB_R MAKE_Word(
+    REBVAL *out,
+    enum Reb_Kind kind,
+    const REBVAL *opt_parent,
+    const REBVAL *arg
+){
+    if (opt_parent)
+        fail (Error_Bad_Make_Parent(kind, opt_parent));
+
     if (ANY_WORD(arg)) {
         //
         // !!! This only reset the type, not header bits...as it used to be
@@ -152,10 +159,10 @@ REB_R TO_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
         DECLARE_LOCAL (solo);
         Derelativize(solo, non_blank, VAL_SPECIFIER(arg));
-        return MAKE_Word(out, kind, solo);
+        return MAKE_Word(out, kind, nullptr, solo);
     }
 
-    return MAKE_Word(out, kind, arg);
+    return MAKE_Word(out, kind, nullptr, arg);
 }
 
 

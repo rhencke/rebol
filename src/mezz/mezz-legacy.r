@@ -17,17 +17,15 @@ REBOL [
 ]
 
 
-; CONSTRUCT (arity 2) and HAS (arity 1) have arisen as the OBJECT!-making
-; routines, parallel to FUNCTION (arity 2) and DOES (arity 1).  By not being
-; nouns like CONTEXT and OBJECT, they free up those words for other usages.
-; For legacy support, both CONTEXT and OBJECT are just defined to be HAS.
+; CONSTRUCT is a "verb-ish" word slated to replace the "noun-ish" CONTEXT:
+;
+; http://forum.rebol.info/t/has-hasnt-worked-rethink-construct/1058
 ;
 ; Note: Historically OBJECT was essentially a synonym for CONTEXT with the
 ; ability to tolerate a spec of `[a:]` by transforming it to `[a: none].
-; The tolerance of ending with a set-word has been added to CONSTRUCT+HAS
-; so this distinction is no longer required.
+; Ren-C hasn't decided yet, but will likely support `construct [a: b: c:]`
 ;
-context: object: :has
+context: specialize 'make [type: object!]
 
 
 quote: func [] [
@@ -35,7 +33,8 @@ quote: func [] [
         "LIT (or LITERAL) has replaced QUOTE.  QUOTE is currently not"
         "defined to make it easier to find cases and fix them.  It will"
         "ultimately be re-introduced as a way to add quote levels to an"
-        "evaluated argument (e.g. x: 10 | quote x => '10)"
+        "evaluated argument (e.g. x: 10 | quote x => '10).  For today,"
+        "use UNEVAL for that purpose."
     ]
 ]
 
@@ -165,21 +164,6 @@ rejoin: function [
         form first values
     ]
     append result next values
-]
-
-; In Ren-C, MAKE for OBJECT! does not use the "type" slot for parent
-; objects.  You have to use the arity-2 CONSTRUCT to get that behavior.
-; Also, MAKE OBJECT! does not do evaluation--it is a raw creation,
-; and requires a format of a spec block and a body block.
-;
-; Because of the commonality of the alternate interpretation of MAKE, this
-; bridges until further notice.
-;
-make: enclose 'lib/make func [f] [
-    if object? :f/type [
-        return construct :f/type :f/def
-    ]
-    do f
 ]
 
 

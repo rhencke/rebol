@@ -170,7 +170,9 @@ load-header: function [
         return 'no-header
     ]
 
-    if not attempt [hdr: construct/only system/standard/header :hdr] [
+    trap [
+        hdr: construct/with/only :hdr system/standard/header
+    ] then [
         return 'bad-header
     ]
 
@@ -249,7 +251,11 @@ load-header: function [
 ]
 
 
-no-all: construct [all] [all: _]
+; !!! This is an idiom that should be done with something like <unbound>
+; (For bootstrap, don't use anything too tricky so older Ren-C can load this)
+;
+no-all: make object! [all: _]
+set* lit no-all/all: void
 protect 'no-all/all
 
 load: function [

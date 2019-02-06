@@ -240,7 +240,7 @@ function: func [
     ;; dump [{before} statics new-spec exclusions]
 
     if statics [
-        statics: has statics
+        statics: make object! statics
         bind new-body statics
     ]
 
@@ -270,7 +270,7 @@ function: func [
 ;
 dig-action-meta-fields: function [value [action!]] [
     meta: meta-of :value else [
-        return construct system/standard/action-meta [
+        return make system/standard/action-meta [
             description: _
             return-type: _
             return-note: _
@@ -295,7 +295,7 @@ dig-action-meta-fields: function [value [action!]] [
         return child
     ]
 
-    return construct system/standard/action-meta [
+    return make system/standard/action-meta [
         description: try ensure [<opt> text!] any [
             select meta 'description
             copy try select fields 'description
@@ -760,18 +760,6 @@ once-bar: func [
 ]
 
 
-; Shorthand helper for CONSTRUCT (similar to DOES for FUNCTION).
-;
-has: func [
-    "Defines an object with just a body...no spec and no parent."
-    body [block!]
-        "Object words and values (bindings modified)"
-    /only
-        "Values are kept as-is"
-][
-    construct/(try if only [/only]) [] body
-]
-
 method: enfix func [
     {FUNCTION variant that creates an ACTION! implicitly bound in a context}
 
@@ -835,7 +823,7 @@ module: func [
     ;
     if block? :spec [
         unbind/deep spec
-        spec: try attempt [construct/only system/standard/header :spec]
+        spec: try attempt [construct/with/only :spec system/standard/header]
     ]
 
     ; Historically, the Name: and Type: fields would tolerate either LIT-WORD!
