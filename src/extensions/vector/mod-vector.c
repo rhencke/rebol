@@ -1,6 +1,6 @@
 //
-//  File: %mod-image.c
-//  Summary: "IMAGE! extension main C file"
+//  File: %mod-vector.c
+//  Summary: "VECTOR! extension main C file"
 //  Section: Extension
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
@@ -27,38 +27,38 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// See notes in %src/extensions/image/README.md
+// See notes in %src/extensions/vector/README.md
 
 #include "sys-core.h"
 
-#include "tmp-mod-image.h"
+#include "tmp-mod-vector.h"
 
-#include "sys-image.h"
+#include "sys-vector.h"
 
 
 //
-//  register-image-hooks: native [
+//  register-vector-hooks: native [
 //
-//  {Make the IMAGE! datatype work with GENERIC actions, comparison ops, etc}
+//  {Make the VECTOR! datatype work with GENERIC actions, comparison ops, etc}
 //
 //      return: [void!]
 //  ]
 //
-REBNATIVE(register_image_hooks)
+REBNATIVE(register_vector_hooks)
 {
-    IMAGE_INCLUDE_PARAMS_OF_REGISTER_IMAGE_HOOKS;
+    VECTOR_INCLUDE_PARAMS_OF_REGISTER_VECTOR_HOOKS;
 
     // !!! See notes on Hook_Datatype for this poor-man's substitute for a
     // coherent design of an extensible object system (as per Lisp's CLOS)
     //
     Hook_Datatype(
-        REB_IMAGE,
-        &T_Image,
-        &PD_Image,
-        &CT_Image,
-        &MAKE_Image,
-        &TO_Image,
-        &MF_Image
+        REB_VECTOR,
+        &T_Vector,
+        &PD_Vector,
+        &CT_Vector,
+        &MAKE_Vector,
+        &TO_Vector,
+        &MF_Vector
     );
 
     return Init_Void(D_OUT);
@@ -66,18 +66,18 @@ REBNATIVE(register_image_hooks)
 
 
 //
-//  unregister-image-hooks: native [
+//  unregister-vector-hooks: native [
 //
-//  {Remove behaviors for IMAGE! added by REGISTER-IMAGE-HOOKS}
+//  {Remove behaviors for VECTOR! added by REGISTER-VECTOR-HOOKS}
 //
 //      return: [void!]
 //  ]
 //
-REBNATIVE(unregister_image_hooks)
+REBNATIVE(unregister_vector_hooks)
 {
-    IMAGE_INCLUDE_PARAMS_OF_UNREGISTER_IMAGE_HOOKS;
+    VECTOR_INCLUDE_PARAMS_OF_UNREGISTER_VECTOR_HOOKS;
 
-    Unhook_Datatype(REB_IMAGE);
+    Unhook_Datatype(REB_VECTOR);
 
     return Init_Void(D_OUT);
 }

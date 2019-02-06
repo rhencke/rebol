@@ -44,7 +44,7 @@ inline static REBVAL *PAIRING_KEY(REBVAL *paired) {
 
 
 #define VAL_PAIRING(v) \
-    (PAYLOAD(Pair, (v)).pairing)
+    (PAYLOAD(Pair, (v)).paired)
 
 #define VAL_PAIR_X(v) \
     PAIRING_KEY(VAL_PAIRING(v))
@@ -85,31 +85,31 @@ inline static REBVAL *Init_Pair(
     assert(ANY_NUMBER(y));
 
     RESET_CELL(out, REB_PAIR);
-    REBVAL *pairing  = Alloc_Pairing();
-    Move_Value(PAIRING_KEY(pairing), KNOWN(x));
-    Move_Value(pairing, KNOWN(y));
-    Manage_Pairing(pairing);
-    PAYLOAD(Pair, out).pairing = pairing;
+    REBVAL *p = Alloc_Pairing();
+    Move_Value(PAIRING_KEY(p), KNOWN(x));
+    Move_Value(p, KNOWN(y));
+    Manage_Pairing(p);
+    PAYLOAD(Pair, out).paired = p;
     return KNOWN(out);
 }
 
 inline static REBVAL *Init_Pair_Int(RELVAL *out, REBI64 x, REBI64 y) {
     RESET_CELL(out, REB_PAIR);
-    REBVAL *pairing  = Alloc_Pairing();
-    Init_Integer(PAIRING_KEY(pairing), x);
-    Init_Integer(pairing, y);
-    Manage_Pairing(pairing);
-    PAYLOAD(Pair, out).pairing = pairing;
+    REBVAL *p = Alloc_Pairing();
+    Init_Integer(PAIRING_KEY(p), x);
+    Init_Integer(p, y);
+    Manage_Pairing(p);
+    PAYLOAD(Pair, out).paired = p;
     return KNOWN(out);
 }
 
 inline static REBVAL *Init_Pair_Dec(RELVAL *out, REBDEC x, REBDEC y) {
     RESET_CELL(out, REB_PAIR);
-    REBVAL *pairing  = Alloc_Pairing();
-    Init_Decimal(PAIRING_KEY(pairing), x);
-    Init_Decimal(pairing, y);
-    Manage_Pairing(pairing);
-    PAYLOAD(Pair, out).pairing = pairing;
+    REBVAL *p = Alloc_Pairing();
+    Init_Decimal(PAIRING_KEY(p), x);
+    Init_Decimal(p, y);
+    Manage_Pairing(p);
+    PAYLOAD(Pair, out).paired = p;
     return KNOWN(out);
 }
 

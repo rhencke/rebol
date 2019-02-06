@@ -370,7 +370,9 @@ union Reb_Custom {  // needed to beat strict aliasing, used in payload
     void *p;
     uintptr_t u;
     intptr_t i;
+    int_fast32_t i32;
     REBD32 f;  // 32-bit float, typically just `float`, needs own union member
+    bool b;  // "wasteful" to just use for one flag, but fast to read/write
 };
 
 union Reb_Bytes_Extra {
@@ -488,7 +490,7 @@ struct Reb_Time_Payload {  // see %sys-time.h
 
 struct Reb_Pair_Payload  // see %sys-pair.h
 {
-    REBVAL *pairing;  // 2 values packed in a series node, see Alloc_Pairing()
+    REBVAL *paired;  // 2 values packed in a series node, see Alloc_Pairing()
 };
 
 struct Reb_Handle_Payload {  // see %sys-handle.h
@@ -511,6 +513,11 @@ struct Reb_Image_Payload  // !!! want to move to custom/extension
     // !!! Note: position in R3-Alpha was an index, not a pair.  It has been
     // subsumed into the BINARY! element of the image, but might should be
     // a separate PAIR! here if positional images are a good idea.
+};
+
+struct Reb_Vector_Payload  // !!! want to move to custom/extension
+{
+    REBVAL *paired;  // Cell for BINARY! and cell for properties
 };
 
 struct Reb_Custom_Payload  // generic, for adding payloads after-the-fact
@@ -557,7 +564,8 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     struct Reb_Handle_Payload Handle;
     struct Reb_Library_Payload Library;
 
-    struct Reb_Image_Payload Image;  // !!! Temporary (targeting custom type)
+    struct Reb_Vector_Payload Vector;  // !!! Temporary (will use custom type)
+    struct Reb_Image_Payload Image;  // !!! Temporary (will use custom type)
     struct Reb_Partial_Payload Partial;  // internal (see REB_X_PARTIAL)
 
     struct Reb_Custom_Payload Custom;

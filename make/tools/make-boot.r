@@ -395,20 +395,21 @@ e-types/emit {
 
         PSEUDOTYPE_SIX,
         REB_P_RETURN = PSEUDOTYPE_SIX,
-        REB_TS_QUOTED_WORD = PSEUDOTYPE_SIX, /* !!! temp compatibility */
+        REB_TS_QUOTED_WORD = PSEUDOTYPE_SIX,  /* !!! temp compatibility */
 
         PSEUDOTYPE_SEVEN,
-        REB_TS_QUOTED_PATH = PSEUDOTYPE_SEVEN, /* !!! temp compatibility */
-        REB_G_XYF = PSEUDOTYPE_SEVEN, /* used by GOB, compact 2xfloat */
+        REB_TS_QUOTED_PATH = PSEUDOTYPE_SEVEN,  /* !!! temp compatibility */
+        REB_G_XYF = PSEUDOTYPE_SEVEN,  /* used by GOB, compact 2xfloat */
 
         PSEUDOTYPE_EIGHT,
         REB_TS_SKIN_EXPANDED = PSEUDOTYPE_EIGHT,
+        REB_V_SIGN_INTEGRAL_BITS = PSEUDOTYPE_EIGHT,  /* used by VECTOR! */
 
         PSEUDOTYPE_NINE,
         REB_TS_DEQUOTE_REQUOTE = PSEUDOTYPE_NINE,
 
         PSEUDOTYPE_TEN,
-        REB_TS_REFINEMENT = PSEUDOTYPE_TEN, /* !!! temp (?) compatibility */
+        REB_TS_REFINEMENT = PSEUDOTYPE_TEN,  /* !!! temp (?) compatibility */
 
         REB_MAX_PLUS_MAX
     };

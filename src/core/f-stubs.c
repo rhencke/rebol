@@ -284,7 +284,7 @@ REBINT Get_System_Int(REBCNT i1, REBCNT i2, REBINT default_int)
 // Common function.
 //
 REBVAL *Init_Any_Series_At_Core(
-    RELVAL *out, // allows RELVAL slot as input, but will be filled w/REBVAL
+    RELVAL *out,
     enum Reb_Kind type,
     REBSER *s,
     REBCNT index,
@@ -293,22 +293,16 @@ REBVAL *Init_Any_Series_At_Core(
     assert(ANY_SERIES_KIND(type));
     ENSURE_SERIES_MANAGED(s);
 
-    if (type != REB_VECTOR) {
-        // Code in various places seemed to have different opinions of
-        // whether a BINARY needed to be zero terminated.  It doesn't
-        // make a lot of sense to zero terminate a binary unless it
-        // simplifies the code assumptions somehow--it's in the class
-        // "ANY_BINSTR()" so that suggests perhaps it has a bit more
-        // obligation to conform.  Also, the original Make_Binary comment
-        // from the open source release read:
-        //
-        //     Make a binary string series. For byte, C, and UTF8 strings.
-        //     Add 1 extra for terminator.
-        //
-        // Until that is consciously overturned, check the REB_BINARY too
-
-        ASSERT_SERIES_TERM(s); // doesn't apply to image/vector
-    }
+    // Note: a R3-Alpha Make_Binary() comment said:
+    //
+    //     Make a binary string series. For byte, C, and UTF8 strings.
+    //     Add 1 extra for terminator.
+    //
+    // One advantage of making all binaries terminate in 0 is that it means
+    // that if they were valid UTF-8, they could be aliased as Rebol strings,
+    // which are zero terminated.  For now, it's the rule.
+    //
+    ASSERT_SERIES_TERM(s);
 
     RESET_CELL(out, type);
     PAYLOAD(Series, out).rebser = s;

@@ -419,9 +419,6 @@ REBINT Cmp_Value(const RELVAL *sval, const RELVAL *tval, bool is_case)
       case REB_BINARY:
         return Compare_Binary_Vals(s, t);
 
-      case REB_VECTOR:
-        return Compare_Vector(s, t);
-
       case REB_DATATYPE:
         return VAL_TYPE_KIND(s) - VAL_TYPE_KIND(t);
 
@@ -442,6 +439,10 @@ REBINT Cmp_Value(const RELVAL *sval, const RELVAL *tval, bool is_case)
 
       case REB_LIBRARY:
         return VAL_LIBRARY(s) - VAL_LIBRARY(t);
+
+      case REB_VECTOR:
+        fail ("Temporary disablement of comparison of VECTOR!");
+        /* return Compare_Vector(s, t); */
 
       case REB_IMAGE:
         fail ("Temporary disablement of comparison of IMAGE!");

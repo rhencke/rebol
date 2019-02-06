@@ -555,8 +555,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         // if unmarked...so it can stealthily participate in the marking
         // process, as long as the bit is cleared at the end.
         //
-        REBSER *pairing = cast(REBSER*, PAYLOAD(Pair, v).pairing);
-        pairing->header.bits |= NODE_FLAG_MARKED; // read via REBSER
+        REBSER *paired = cast(REBSER*, PAYLOAD(Pair, v).paired);
+        paired->header.bits |= NODE_FLAG_MARKED;  // read back as REBYTE: safe
         break; }
 
       case REB_TUPLE:
@@ -736,6 +736,15 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         // It's to help pack all the data needed for the GOB! into one
         // allocation and still keep it under 8 cells in size, without
         // having to get involved with using HANDLE!.
+        //
+        break;
+
+      case REB_V_SIGN_INTEGRAL_BITS:
+        //
+        // Similar to the above.  Since it has no GC behavior and the caller
+        // knows where these cells are (stealing space in an array) there is
+        // no need for a unique type, but it may help in debugging if these
+        // values somehow escape their "details" arrays.
         //
         break;
 

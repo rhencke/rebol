@@ -1,18 +1,18 @@
 REBOL [
-    Title: "Image Extension"
-    Name: Image
+    Title: "Vector Extension"
+    Name: Vector 
     Type: Module
     Options: [isolate]
     Version: 1.0.0
     License: {Apache 2.0}
 
     Notes: {
-        See %extensions/image/README.md
+        See %extensions/vector/README.md
     }
 ]
 
-; !!! Should call UNREGISTER-IMAGE-HOOKS at some point (module finalizer?)
+; !!! Should call UNREGISTER-VECTOR-HOOKS at some point (module finalizer?)
 ;
-register-image-hooks
+register-vector-hooks
 
 sys/export []  ; current hacky mechanism is to put any exports here

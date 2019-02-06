@@ -1133,37 +1133,37 @@ const REBYTE *Scan_Pair(
     if (*ep != 'x' && *ep != 'X')
         return_NULL;
 
-    REBVAL *pairing = Alloc_Pairing();
+    REBVAL *paired = Alloc_Pairing();
 
     // X is in the key pairing cell
     if (is_integral)
-        Init_Integer(PAIRING_KEY(pairing), atoi(cast(char*, &buf[0])));
+        Init_Integer(PAIRING_KEY(paired), atoi(cast(char*, &buf[0])));
     else
-        Init_Decimal(PAIRING_KEY(pairing), atof(cast(char*, &buf[0])));
+        Init_Decimal(PAIRING_KEY(paired), atof(cast(char*, &buf[0])));
 
     ep++;
 
     const REBYTE *xp = Scan_Dec_Buf(&buf[0], &is_integral, ep, MAX_NUM_LEN);
     if (!xp) {
-        Free_Pairing(pairing);
+        Free_Pairing(paired);
         return_NULL;
     }
 
     // Y is in the non-key pairing cell
     if (is_integral)
-        Init_Integer(pairing, atoi(cast(char*, &buf[0])));
+        Init_Integer(paired, atoi(cast(char*, &buf[0])));
     else
-        Init_Decimal(pairing, atof(cast(char*, &buf[0])));
+        Init_Decimal(paired, atof(cast(char*, &buf[0])));
 
     if (len > cast(REBCNT, xp - cp)) {
-        Free_Pairing(pairing);
+        Free_Pairing(paired);
         return_NULL;
     }
 
-    Manage_Pairing(pairing);
+    Manage_Pairing(paired);
 
     RESET_CELL(out, REB_PAIR);
-    PAYLOAD(Pair, out).pairing = pairing;
+    PAYLOAD(Pair, out).paired = paired;
     return xp;
 }
 

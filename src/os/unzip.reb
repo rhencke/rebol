@@ -185,7 +185,7 @@ ctx-zip: context [
                 uncompressed-size
                 to-ishort length of name  ; filename length
                 #{0000}  ; extrafield length
-                name ; filename
+                name  ; filename
                 comment <extrafield>  ; not used
                 compressed-data
             ]

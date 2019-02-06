@@ -495,12 +495,6 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                     fail ("Loop enumeration of contexts must be 1 or 2 vars");
                 break; }
 
-              case REB_VECTOR:
-                Get_Vector_At(var, les->data_ser, les->data_idx);
-                if (++les->data_idx == les->data_len)
-                    more_data = false;
-                break;
-
               case REB_MAP: {
                 assert(les->data_idx % 2 == 0); // should be on key slot
 
