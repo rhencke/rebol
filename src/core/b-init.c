@@ -890,7 +890,7 @@ static void Init_Root_Vars(void)
 
     Prep_Non_Stack_Cell(&PG_R_Redo_Unchecked[0]);
     Prep_Non_Stack_Cell(&PG_R_Redo_Unchecked[1]);
-    RESET_CELL_EXTRA(
+    RESET_CELL_CORE(
         &PG_R_Redo_Unchecked[0],
         REB_R_REDO,
         CELL_FLAG_FALSEY // understood by Eval_Core_Throws() as "unchecked"
@@ -899,7 +899,7 @@ static void Init_Root_Vars(void)
 
     Prep_Non_Stack_Cell(&PG_R_Redo_Checked[0]);
     Prep_Non_Stack_Cell(&PG_R_Redo_Checked[1]);
-    RESET_CELL_EXTRA(
+    RESET_CELL_CORE(
         &PG_R_Redo_Checked[0],
         REB_R_REDO,
         0 // no CELL_FLAG_FALSEY is taken by Eval_Core_Throws() as "checked"

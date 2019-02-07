@@ -411,7 +411,7 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
 
 #ifdef DEBUG_TRACK_CELLS
     //
-    // RESET_CELL_EXTRA is a variant of RESET_VAL_HEADER_EXTRA that actually
+    // RESET_CELL_CORE is a variant of RESET_VAL_HEADER_EXTRA that actually
     // overwrites the payload with tracking information.  It should not be
     // used if the intent is to preserve the payload and extra.
     //
@@ -419,7 +419,7 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
     // even if you overwrite the Payload/Extra immediately afterward; it also
     // corrupts the data to help ensure all relevant fields are overwritten.)
     //
-    inline static REBVAL *RESET_CELL_EXTRA_Debug(
+    inline static REBVAL *RESET_CELL_CORE_Debug(
         RELVAL *out,
         enum Reb_Kind kind,
         uintptr_t extra,
@@ -436,15 +436,15 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
         return cast(REBVAL*, out);
     }
 
-    #define RESET_CELL_EXTRA(out,kind,extra) \
-        RESET_CELL_EXTRA_Debug((out), (kind), (extra), __FILE__, __LINE__)
+    #define RESET_CELL_CORE(out,kind,extra) \
+        RESET_CELL_CORE_Debug((out), (kind), (extra), __FILE__, __LINE__)
 #else
-    #define RESET_CELL_EXTRA(out,kind,extra) \
+    #define RESET_CELL_CORE(out,kind,extra) \
        RESET_VAL_HEADER_EXTRA((out), (kind), (extra))
 #endif
 
 #define RESET_CELL(out,kind) \
-    RESET_CELL_EXTRA((out), (kind), 0)
+    RESET_CELL_CORE((out), (kind), 0)
 
 
 // This is another case where the debug build doesn't inline functions, and

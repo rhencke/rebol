@@ -604,7 +604,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         SER(paramlist)->header.bits |= PARAMLIST_FLAG_HAS_RETURN;
 
     if (true) {
-        REBVAL *archetype = RESET_CELL_EXTRA(
+        REBVAL *archetype = RESET_CELL_CORE(
             ARR_HEAD(paramlist),
             REB_ACTION,
             header_bits

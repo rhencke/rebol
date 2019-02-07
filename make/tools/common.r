@@ -233,7 +233,7 @@ for-each-record: function [
             ]
         ]
 
-        set var has spec
+        set var make object! spec
         do body
     ]
 ]

@@ -58,7 +58,7 @@ inline static bool IS_TRUTHY(const RELVAL *v) {
     (not IS_TRUTHY(v))
 
 #define Init_Logic(out,b) \
-    RESET_CELL_EXTRA((out), REB_LOGIC, (b) ? 0 : CELL_FLAG_FALSEY)
+    RESET_CELL_CORE((out), REB_LOGIC, (b) ? 0 : CELL_FLAG_FALSEY)
 
 #define Init_True(out) \
     Init_Logic((out), true)
