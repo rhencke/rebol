@@ -32,7 +32,6 @@
 
 #include "sys-tuple.h"
 #include "reb-gob.h"
-#include "reb-event.h"
 
 const struct {
     REBSYM sym;
@@ -69,20 +68,25 @@ REBINT CT_Gob(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 //  Make_Gob: C
 //
-// Allocate a new GOB.
+// Creates a REBARR* which contains a compact representation of information
+// describing a GOB!.  Does not include the GOB's index, which is unique to
+// each GOB! value and lives in the cell's payload.
 //
 REBGOB *Make_Gob(void)
 {
     REBGOB *a = Make_Arr_Core(IDX_GOB_MAX, SERIES_FLAG_FIXED_SIZE);
 
-    LINK(a).parent = nullptr;
-    MISC(a).owner = nullptr;
+    SET_GOB_PARENT(a, nullptr);  // in LINK(), is a REBNOD*, GC must mark
+    SET_SERIES_INFO(a, LINK_IS_CUSTOM_NODE);
+
+    SET_GOB_OWNER(a, nullptr);  // in MISC(), is a REBNOD*, GC must mark
+    SET_SERIES_INFO(a, MISC_IS_CUSTOM_NODE);
 
     Init_Blank(ARR_AT(a, IDX_GOB_PANE));
     Init_Blank(ARR_AT(a, IDX_GOB_CONTENT));
     Init_Blank(ARR_AT(a, IDX_GOB_DATA));
 
-    Init_XYF(ARR_AT(a, IDX_GOB_OFFSET_AND_FLAGS), 100, 100); // !!! Why 100?
+    Init_XYF(ARR_AT(a, IDX_GOB_OFFSET_AND_FLAGS), 100, 100);  // !!! Why 100?
     GOB_FLAGS(a) = 0;
 
     Init_XYF(ARR_AT(a, IDX_GOB_SIZE_AND_ALPHA), 0, 0);
@@ -178,7 +182,7 @@ static void Detach_Gob(REBGOB *gob)
             assert(!"Detaching GOB from parent that didn't find it"); // !!! ?
     }
 
-    GOB_PARENT(gob) = nullptr;
+    SET_GOB_PARENT(gob, nullptr);
 }
 
 
@@ -269,7 +273,7 @@ static void Insert_Gobs(
             Move_Value(item, KNOWN(val));
             ++item;
 
-            GOB_PARENT(VAL_GOB(val)) = gob;
+            SET_GOB_PARENT(VAL_GOB(val), gob);
             SET_GOB_FLAG(VAL_GOB(val), GOBS_NEW);
         }
     }
@@ -289,7 +293,7 @@ static void Remove_Gobs(REBGOB *gob, REBCNT index, REBCNT len)
 
     REBCNT n;
     for (n = 0; n < len; ++n, ++item)
-        GOB_PARENT(VAL_GOB(item)) = 0;
+        SET_GOB_PARENT(VAL_GOB(item), nullptr);
 
     Remove_Series(SER(GOB_PANE(gob)), index, len);
 }
@@ -498,7 +502,7 @@ static bool Did_Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
 
       case SYM_OWNER:
         if (IS_GOB(val))
-            GOB_TMP_OWNER(gob) = VAL_GOB(val);
+            SET_GOB_OWNER(gob, VAL_GOB(val));
         else
             return false;
         break;
@@ -735,7 +739,7 @@ REB_R MAKE_Gob(
 
     if (opt_parent) {
         assert(IS_GOB(opt_parent));  // current invariant for MAKE dispatch
-        
+
         if (not IS_BLOCK(arg))
             fail (Error_Bad_Make(REB_GOB, arg));
 
@@ -747,7 +751,7 @@ REB_R MAKE_Gob(
         //
         REBGOB *gob = Copy_Array_Shallow(VAL_GOB(opt_parent), SPECIFIED);
         Init_Blank(ARR_AT(gob, IDX_GOB_PANE));
-        GOB_PARENT(gob) = nullptr;
+        SET_GOB_PARENT(gob, nullptr);
         Extend_Gob_Core(gob, arg);
         return Init_Gob(out, gob);
     }
@@ -757,7 +761,7 @@ REB_R MAKE_Gob(
     //
     REBGOB *gob = Copy_Array_Shallow(VAL_GOB(arg), SPECIFIED);
     Init_Blank(GOB_PANE_VALUE(gob));
-    GOB_PARENT(gob) = nullptr;
+    SET_GOB_PARENT(gob, nullptr);
     MANAGE_ARRAY(gob);
     return Init_Gob(out, gob);
 }
@@ -1078,7 +1082,7 @@ REBTYPE(Gob)
 
 set_index:
     RESET_CELL(D_OUT, REB_GOB);
-    mutable_VAL_GOB(D_OUT) = gob;
+    SET_VAL_GOB(D_OUT, gob);
     VAL_GOB_INDEX(D_OUT) = index;
     return D_OUT;
 }

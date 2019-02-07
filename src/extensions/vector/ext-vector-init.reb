@@ -1,6 +1,6 @@
 REBOL [
     Title: "Vector Extension"
-    Name: Vector 
+    Name: Vector
     Type: Module
     Options: [isolate]
     Version: 1.0.0

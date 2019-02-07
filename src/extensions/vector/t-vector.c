@@ -226,7 +226,7 @@ static void Set_Vector_At(const REBCEL *vec, REBCNT n, const RELVAL *set) {
 
     rebJumps(
         "FAIL [",
-            KNOWN(set), "{out of range for}", 
+            KNOWN(set), "{out of range for}",
                 "unspaced [", rebI(bitsize), "{-bit}]",
                 rebT(sign ? "signed" : "unsigned"),
                 "{VECTOR! type}"
@@ -389,11 +389,9 @@ bool Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
     if (not IS_WORD(item))
         return false;
     else {
-        if (SAME_SYM_NONZERO(VAL_WORD_SYM(item), SYM_FROM_KIND(REB_INTEGER)))
+        if (VAL_WORD_SYM(item) == SYM_INTEGER_X)  // e_X_clamation (INTEGER!)
             integral = true;
-        else if (
-            SAME_SYM_NONZERO(VAL_WORD_SYM(item), SYM_FROM_KIND(REB_DECIMAL))
-        ){
+        else if (VAL_WORD_SYM(item) == SYM_DECIMAL_X) {  // (DECIMAL!)
             integral = false;
             if (not sign)
                 return false;  // C doesn't have unsigned floating points
@@ -427,7 +425,7 @@ bool Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
         ++item;
     }
     else
-        len = 1; 
+        len = 1;
 
     const REBVAL *iblk;
     if (NOT_END(item) and (IS_BLOCK(item) or IS_BINARY(item))) {
@@ -572,7 +570,15 @@ void Poke_Vector_Fail_If_Read_Only(
     const REBVAL *picker,
     const REBVAL *poke
 ){
-    FAIL_IF_READ_ONLY_SERIES(value);
+    // Because the vector uses Alloc_Pairing() for its 2-cells-of value,
+    // it has to defer to the binary itself for locked status (also since it
+    // can co-opt a BINARY! as its backing store, it has to honor the
+    // protection status of the binary)
+    //
+    // !!! How does this tie into CONST-ness?  How should aggregate types
+    // handle their overall constness vs. that of their components?
+    //
+    FAIL_IF_READ_ONLY_SERIES(VAL_VECTOR_BINARY(value));
 
     REBINT n;
     if (IS_INTEGER(picker) or IS_DECIMAL(picker)) // #2312

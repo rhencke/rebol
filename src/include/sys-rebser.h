@@ -482,11 +482,6 @@ STATIC_ASSERT(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
 
 //=//// BITS 16-23 ARE SER_LEN() FOR NON-DYNAMIC SERIES ///////////////////=//
 
-// There is currently no usage of this byte for dynamic series, so it could
-// be used for something else there.  (Or a special value like 255 could be
-// used to indicate dynamic/non-dynamic series, which might speed up SER_LEN()
-// and other bit fiddling operations vs. SERIES_INFO_HAS_DYNAMIC).
-//
 // 255 indicates that this series has a dynamically allocated portion.  If it
 // is another value, then it's the length of content which is found directly
 // in the series node's embedded Reb_Series_Content.
@@ -586,15 +581,21 @@ STATIC_ASSERT(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
     FLAG_LEFT_BIT(28)
 
 
-//=//// SERIES_INFO_UNUSED_29 ///////////////////////////////////////////=//
+//=//// SERIES_INFO_LINK_IS_CUSTOM_NODE ///////////////////////////////////=//
 //
-#define SERIES_INFO_UNUSED_29 \
+// This indicates that a series's LINK() field is the `custom` node element,
+// and should be marked (if not null).
+//
+#define SERIES_INFO_LINK_IS_CUSTOM_NODE \
     FLAG_LEFT_BIT(29)
 
 
-//=//// SERIES_INFO_UNUSED_30 /////////////////////////////////////////////=//
+//=//// SERIES_INFO_MISC_IS_CUSTOM_NODE ///////////////////////////////////=//
 //
-#define SERIES_INFO_UNUSED_30 \
+// This indicates that a series's MISC() field is the `custom` node element,
+// and should be marked (if not null).
+//
+#define SERIES_INFO_MISC_IS_CUSTOM_NODE \
     FLAG_LEFT_BIT(30)
 
 
@@ -825,25 +826,6 @@ union Reb_Series_Link {
     //
     REBARR *reuse;
 
-    // for STRUCT, this is a "REBFLD" array.  It parallels an object's
-    // keylist, giving not only names of the fields in the structure but
-    // also the types and sizes.
-    //
-    // !!! The Atronix FFI has been gradually moved away from having its
-    // hooks directly into the low-level implemetation and the garbage
-    // collector.  With the conversion of REBFLD to a REBARR instead of
-    // a custom C type, it is one step closer to making STRUCT! a very
-    // OBJECT!-like type extension.  When there is a full story told on
-    // user-defined types, this should be excisable from the core.
-    //
-    REBFLD *schema;
-
-    // for GOB!, these are pointers to GOB REBARR structures.  It seems that
-    // SERIES_INFO_MARK_LINK and SERIES_INFO_MARK_MISC could probably be
-    // flags that generically handled this if there were a REBNOD *custom.
-
-    REBGOB *parent;
-
     // For LIBRARY!, the file descriptor.  This is set to NULL when the
     // library is not loaded.
     //
@@ -851,6 +833,15 @@ union Reb_Series_Link {
     // being in the Reb_Series node--but be handled via user defined types
     //
     void *fd;
+
+    // If a REBSER is used by a custom cell type, it can use the LINK()
+    // field how it likes.  But if it is a node and needs to be GC-marked,
+    // it has to tell the system with SERIES_INFO_LINK_IS_CUSTOM_NODE.
+    //
+    // Notable uses by extensions:
+    // * `parent` GOB of GOB! details 
+    //
+    union Reb_Custom custom;
 };
 
 
@@ -866,9 +857,11 @@ union Reb_Series_Misc {
     void *trash;
   #endif
 
-    // Ordinary source series store the line number here.  It perhaps could
-    // have some bits taken out of it, vs. being a full 32-bit integer on
-    // 32-bit platforms or 64-bit integer on 64-bit platforms.
+    // See ARRAY_FLAG_FILE_LINE.  Ordinary source series store the line number
+    // here.  It perhaps could have some bits taken out of it, vs. being a
+    // full 32-bit integer on 32-bit platforms or 64-bit integer on 64-bit
+    // platforms...or have some kind of "extended line" flag which interprets
+    // it as a dynamic allocation otherwise to get more bits.
     //
     REBLIN line;
 
@@ -919,6 +912,9 @@ union Reb_Series_Misc {
     // the forwarding entry.  Then the index of the forwarding entry is put
     // here.  At the end of the copy, all the ->misc fields are restored.
     //
+    // !!! This feature was in a development branch that has stalled, but the
+    // field is kept here to keep track of the idea.
+    //
     REBDSP forwarding;
 
     // native dispatcher code, see Reb_Function's body_holder
@@ -938,11 +934,18 @@ union Reb_Series_Misc {
     // to affect all values, it has to be stored somewhere that all
     // REBVALs would see a change--hence the field is in the series.
     //
+    // !!! This could be a SERIES_FLAG, e.g. BITSET_FLAG_IS_NEGATED
+    //
     bool negated;
 
-    // !!! Used for GOB!, should be part of a generic REBNOD* custom.
+    // If a REBSER is used by a custom cell type, it can use the MISC()
+    // field how it likes.  But if it is a node and needs to be GC-marked,
+    // it has to tell the system with SERIES_INFO_MISC_IS_CUSTOM_NODE.
     //
-    REBGOB *owner;
+    // Notable uses by extensions:
+    // * `owner` of GOB! node
+    //
+    union Reb_Custom custom;
 };
 
 
@@ -986,8 +989,10 @@ struct Reb_Series {
     //
     union Reb_Series_Content content;
 
-    // `info` is the information about the series which needs to be known
-    // even if it is not using a dynamic allocation.
+    // `info` consists of bits that could apply equally to any series, and
+    // that may need to be tested together as a group.  Make_Series_Core()
+    // calls presume all the info bits are initialized to zero, so any flag
+    // that controls the allocation should be a SERIES_FLAG_XXX instead.
     //
     // It is purposefully positioned in the structure directly after the
     // ->content field, because its second byte is '\0' when the series is
@@ -1010,6 +1015,9 @@ struct Reb_Series {
     //
     // Currently it is assumed no one needs the ->misc while forwarding is in
     // effect...but the MISC() macro checks that.  Don't access this directly.
+    //
+    // !!! The forwarding feature is on a branch that stalled, but the notes
+    // are kept here as a reminder of it--and why MISC() should be used.
     //
     union Reb_Series_Misc misc_private;
 

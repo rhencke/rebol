@@ -102,7 +102,7 @@ REBVAL *Append_Event(void)
 // Find the last event in the queue by the model
 // Check its type, if it matches, then return the event or NULL
 //
-REBVAL *Find_Last_Event(REBINT model, REBINT type)
+REBVAL *Find_Last_Event(REBINT model, uint32_t type)
 {
     REBVAL *port;
     RELVAL *value;
@@ -134,7 +134,7 @@ REBVAL *Find_Last_Event(REBINT model, REBINT type)
 //
 // Internal port handler for events.
 //
-static REB_R Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+REB_R Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
@@ -286,19 +286,4 @@ void Shutdown_Event_Scheme(void)
         free(req);
         req = NULL;
     }
-}
-
-
-//
-//  get-event-actor-handle: native [
-//
-//  {Retrieve handle to the native actor for events (system, event, callback)}
-//
-//      return: [handle!]
-//  ]
-//
-REBNATIVE(get_event_actor_handle)
-{
-    Make_Port_Actor_Handle(D_OUT, &Event_Actor);
-    return D_OUT;
 }

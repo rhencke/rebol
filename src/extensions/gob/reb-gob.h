@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -48,26 +48,27 @@
 // memory pool, when the END marker is taken into account.  To achieve this
 // goal, creative use is made of "pseudotype" REB_G_XYF cells--to allow the
 // packing of floats and flags into cells that don't participate in GC.  This
-// gives an approximation of "struct-like" compactness for that inert data.
+// gives an approximation of "struct-like" compactness for that inert data,
+// while still giving the GC the insight via normal sells into what to guard.
 //
 ////=// NOTES ////////////////////////////////////////////////////////////=//
 //
-// !!! Note: Currently there is some marking behavior that has to be managed
-// specially to recognize the REB_GOB type, and to mark the LINK() and MISC()
-// fields of the array.  The plan is to continue generalizing this (e.g. with
-// SERIES_INFO_MARK_LINK and SERIES_INFO_MARK_MISC that mark a generic
-// REBNOD* that extensions use).  But the main point has been achieved...that
-// there is no "gob memory pool" or special marking procedure in %m-gc.c
+// GOB EXTRA:
+//
+//     REBGOB *gob;  // GC knows to mark due to CELL_FLAG_EXTRA_IS_CUSTOM_NODE
 //
 // GOB PAYLOAD:
 //
-//     REBGOB *gob;
+//     uintptr_t unused;  // free slot for per-gob-value data
 //     REBCNT index;
 
 // On the GOB array's REBSER node itself:
 //
-//     LINK.parent is the "parent GOB or window ptr"
-//     MISC.owner is the "owner" (seemingly unused?)
+//     LINK.custom is the "parent GOB or window ptr"
+//     MISC.custom is the "owner" (seemingly unused?)
+//
+// The GC knows to mark these because of SERIES_INFO_LINK_IS_CUSTOM_NODE
+// and SERIES_INFO_MISC_IS_CUSTOM_NODE.
 //
 // The offset, size, old_offset and old_size cells are REB_G_XYF cells that
 // are GC-inert.  They use their payloads for x and y coordinates, but the
@@ -88,7 +89,7 @@ enum {
     IDX_GOB_MAX
 };
 
-STATIC_ASSERT(IDX_GOB_MAX <= 7); // ideally true--see notes at top of file
+STATIC_ASSERT(IDX_GOB_MAX <= 7);  // ideally true--see notes at top of file
 
 
 enum Reb_Gob_Flags {
@@ -96,30 +97,30 @@ enum Reb_Gob_Flags {
     // !!! These were "GOB state flags".  Despite there being only 3 of them,
     // they were previously in a different place than the "GOB flags".
     //
-    GOBS_OPEN = 1 << 0, // Window is open
-    GOBS_ACTIVE = 1 << 1, // Window is active
-    GOBS_NEW = 1 << 2, // Gob is new to pane (old-offset, old-size wrong)
+    GOBS_OPEN = 1 << 0,  // Window is open
+    GOBS_ACTIVE = 1 << 1,  // Window is active
+    GOBS_NEW = 1 << 2,  // Gob is new to pane (old-offset, old-size wrong)
 
     // These were just generically "GOB flags"
     //
-    GOBF_TOP = 1 << 3, // Top level (window or output image)
-    GOBF_WINDOW = 1 << 4, // Window (parent is OS window reference)
-    GOBF_OPAQUE = 1 << 5, // Has no alpha
-    GOBF_STATIC = 1 << 6, // Does not change
-    GOBF_HIDDEN = 1 << 7, // Is hidden (e.g. hidden window)
-    GOBF_RESIZE = 1 << 8, // Can be resized
-    GOBF_NO_TITLE = 1 << 9, // Has window title
-    GOBF_NO_BORDER = 1 << 10, // Has no window border
-    GOBF_DROPABLE = 1 << 11, // [sic] Let window receive drag and drop
-    GOBF_TRANSPARENT = 1 << 12, // Window is in transparent mode
-    GOBF_POPUP = 1 << 13, // Window is a popup (with owner window)
-    GOBF_MODAL = 1 << 14, // Modal event filtering
-    GOBF_ON_TOP = 1 << 15, // The window is always on top
-    GOBF_ACTIVE = 1 << 16, // Window is active
-    GOBF_MINIMIZE = 1 << 17, // Window is minimized
-    GOBF_MAXIMIZE = 1 << 18, // Window is maximized
-    GOBF_RESTORE = 1 << 19, // Window is restored
-    GOBF_FULLSCREEN = 1 << 20 // Window is fullscreen
+    GOBF_TOP = 1 << 3,  // Top level (window or output image)
+    GOBF_WINDOW = 1 << 4,  // Window (parent is OS window reference)
+    GOBF_OPAQUE = 1 << 5,  // Has no alpha
+    GOBF_STATIC = 1 << 6,  // Does not change
+    GOBF_HIDDEN = 1 << 7,  // Is hidden (e.g. hidden window)
+    GOBF_RESIZE = 1 << 8,  // Can be resized
+    GOBF_NO_TITLE = 1 << 9,  // Has window title
+    GOBF_NO_BORDER = 1 << 10,  // Has no window border
+    GOBF_DROPABLE = 1 << 11,  // [sic] Let window receive drag and drop
+    GOBF_TRANSPARENT = 1 << 12,  // Window is in transparent mode
+    GOBF_POPUP = 1 << 13,  // Window is a popup (with owner window)
+    GOBF_MODAL = 1 << 14,  // Modal event filtering
+    GOBF_ON_TOP = 1 << 15,  // The window is always on top
+    GOBF_ACTIVE = 1 << 16,  // Window is active
+    GOBF_MINIMIZE = 1 << 17,  // Window is minimized
+    GOBF_MAXIMIZE = 1 << 18,  // Window is maximized
+    GOBF_RESTORE = 1 << 19,  // Window is restored
+    GOBF_FULLSCREEN = 1 << 20  // Window is fullscreen
 };
 
 
@@ -150,8 +151,8 @@ enum Reb_Gob_Type {
 // left over for additional data.  This lets GOB!s use a "somewhat ordinary"
 // array (though these XYF types are internal).
 
-#define VAL_XYF_X(v)    PAYLOAD(Custom, (v)).first.f
-#define VAL_XYF_Y(v)    PAYLOAD(Custom, (v)).second.f
+#define VAL_XYF_X(v)    PAYLOAD(Custom, (v)).first.d32
+#define VAL_XYF_Y(v)    PAYLOAD(Custom, (v)).second.d32
 
 inline static REBVAL *Init_XYF(
     RELVAL *out,
@@ -164,7 +165,7 @@ inline static REBVAL *Init_XYF(
     return cast(REBVAL*, out);
 }
 
-typedef struct gob_window {             // Maps gob to window
+typedef struct gob_window {  // Maps gob to window
     REBGOB *gob;
     void* win;
     void* compositor;
@@ -233,13 +234,24 @@ inline static REBARR *GOB_PANE(REBGOB *g) {
     if (IS_BLANK(v))
         return nullptr;
 
-    assert(IS_BLOCK(v)); // only other legal thing that can be in pane cell
-    assert(VAL_INDEX(v) == 0); // pane array shouldn't have an index
+    assert(IS_BLOCK(v));  // only other legal thing that can be in pane cell
+    assert(VAL_INDEX(v) == 0);  // pane array shouldn't have an index
     return VAL_ARRAY(v);
 }
 
-#define GOB_PARENT(g)       LINK(g).parent
-#define GOB_TMP_OWNER(g)    MISC(g).owner  // !!! What's this TMP_XXX thing?
+#define GOB_PARENT(g) \
+    cast(REBGOB*, LINK(g).custom.node)
+
+inline static void SET_GOB_PARENT(REBGOB *g, REBGOB *parent) {
+    LINK(g).custom.node = NOD(parent);
+}
+
+#define GOB_OWNER(g) \
+    cast(REBGOB*, MISC(g).custom.node)  // unused?
+
+inline static void SET_GOB_OWNER(REBGOB *g, REBGOB *owner) {
+    MISC(g).custom.node = NOD(owner);
+}
 
 #define GOB_STRING(g)       SER_HEAD(GOB_CONTENT(g))
 #define GOB_LEN(g)          ARR_LEN(GOB_PANE(g))
@@ -259,27 +271,27 @@ inline static REBARR *GOB_PANE(REBGOB *g) {
 #define IS_GOB_STRING(g) (GOB_TYPE(g) == GOBT_STRING)
 #define IS_GOB_TEXT(g)   (GOB_TYPE(g) == GOBT_TEXT)
 
-extern REBGOB *Gob_Root; // Top level GOB (the screen)
+extern REBGOB *Gob_Root;  // Top level GOB (the screen)
 
 
 #if defined(NDEBUG) || !defined(CPLUSPLUS_11)
     #define VAL_GOB(v) \
-        cast(REBGOB*, PAYLOAD(Custom, (v)).first.p) // use w/a const REBVAL*
+        cast(REBGOB*, EXTRA(Custom, (v)).node)  // use w/a const REBVAL*
 
-    #define mutable_VAL_GOB(v) \
-        (*cast(REBGOB**, &PAYLOAD(Custom, (v)).first.p)) // non-const REBVAL*
+    #define SET_VAL_GOB(v,gob) \
+        (EXTRA(Custom, (v)).node = NOD(gob))  // non-const REBVAL*
 
     #define VAL_GOB_INDEX(v) \
         PAYLOAD(Custom, v).second.u
 #else
     inline static REBGOB* VAL_GOB(const REBCEL *v) {
         assert(CELL_KIND(v) == REB_GOB);
-        return cast(REBGOB*, PAYLOAD(Custom, v).first.p);
+        return cast(REBGOB*, EXTRA(Custom, v).node);
     }
 
-    inline static REBGOB* &mutable_VAL_GOB(REBCEL *v) {
+    inline static void SET_VAL_GOB(REBCEL *v, REBGOB *gob) {
         assert(CELL_KIND(v) == REB_GOB);
-        return *cast(REBGOB**, &PAYLOAD(Custom, v).first.p);
+        EXTRA(Custom, v).node = NOD(gob);
     }
 
     inline static uintptr_t const &VAL_GOB_INDEX(const REBCEL *v) {
@@ -296,8 +308,8 @@ extern REBGOB *Gob_Root; // Top level GOB (the screen)
 inline static REBVAL *Init_Gob(RELVAL *out, REBGOB *g) {
     assert(GET_SERIES_FLAG(g, MANAGED));
 
-    RESET_CELL(out, REB_GOB);
-    mutable_VAL_GOB(out) = g;
+    RESET_CELL_CORE(out, REB_GOB, CELL_FLAG_EXTRA_IS_CUSTOM_NODE);
+    SET_VAL_GOB(out, g);
     VAL_GOB_INDEX(out) = 0;
     return KNOWN(out);
 }
@@ -312,4 +324,3 @@ extern REB_R TO_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);
 extern void MF_Gob(REB_MOLD *mo, const REBCEL *v, bool form);
 extern REBTYPE(Gob);
 extern REB_R PD_Gob(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval);
-

@@ -46,10 +46,6 @@ REBINT Compare_Binary_Vals(const REBCEL *v1, const REBCEL *v2)
     if (CELL_KIND(v1) == REB_IMAGE)
         len *= 4;
 
-    // Image is not "byte size" (note multiplied by 4 above) but still calls
-    // binary compare...can't use VAL_BIN_AT as long as it does, because
-    // that asserts BYTE_SIZE().
-    //
     n = memcmp(
         SER_AT_RAW(SER_WIDE(VAL_SERIES(v1)), VAL_SERIES(v1), VAL_INDEX(v1)),
         SER_AT_RAW(SER_WIDE(VAL_SERIES(v2)), VAL_SERIES(v2), VAL_INDEX(v2)),

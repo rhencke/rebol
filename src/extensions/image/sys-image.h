@@ -28,23 +28,30 @@
 //
 // See %src/extensions/image/README.md
 //
+//=//// NOTES /////////////////////////////////////////////////////////////=//
+//
+// * The optimization of using the LINK() and MISC() fields of a BINARY! is
+//   not used in Ren-C's image, because that would preclude the use of a
+//   binary from another source who needed those fields for some other form
+//   of tracking.  (Imagine if vector used MISC() for its signed flag, and
+//   you tried to `make image! bytes of my-vector`, overwriting the flag
+//   with the image width.)  Instead, a singular array to hold the binary
+//   is made, and the put into it.  A `make image!` that did not use a
+//   foreign source could optimize this and consider it the binary owner, and
+//   be the same cost as R3-Alpha.
+//
 
-enum {
-    IDX_IMGDATA_BINARY,
-    IDX_IMGDATA_WIDTH,
-    IDX_IMGDATA_HEIGHT
-};
 
 inline static REBVAL *VAL_IMAGE_BIN(const REBCEL *v) {
     assert(REB_IMAGE == CELL_KIND(v));
-    return KNOWN(ARR_AT(PAYLOAD(Image, v).details, IDX_IMGDATA_BINARY));
+    return KNOWN(ARR_SINGLE(ARR(EXTRA(Custom, v).node)));
 }
 
-#define VAL_IMAGE_WIDE(v) \
-    VAL_INT64(ARR_AT(PAYLOAD(Image, v).details, IDX_IMGDATA_WIDTH))
+#define VAL_IMAGE_WIDTH(v) \
+    LINK(ARR(EXTRA(Custom, v).node)).custom.i
 
-#define VAL_IMAGE_HIGH(v) \
-    VAL_INT64(ARR_AT(PAYLOAD(Image, v).details, IDX_IMGDATA_HEIGHT))
+#define VAL_IMAGE_HEIGHT(v) \
+    MISC(ARR(EXTRA(Custom, v).node)).custom.i
 
 inline static REBYTE *VAL_IMAGE_HEAD(const REBCEL *v) {
     assert(REB_IMAGE == CELL_KIND(v));
@@ -70,7 +77,7 @@ inline static REBYTE *VAL_IMAGE_AT(const REBCEL *v) {
 }
 
 inline static REBCNT VAL_IMAGE_LEN_HEAD(const REBCEL *v) {
-    return VAL_IMAGE_HIGH(v) * VAL_IMAGE_WIDE(v);
+    return VAL_IMAGE_HEIGHT(v) * VAL_IMAGE_WIDTH(v);
 }
 
 inline static REBCNT VAL_IMAGE_LEN_AT(const REBCEL *v) {
@@ -82,34 +89,32 @@ inline static REBCNT VAL_IMAGE_LEN_AT(const REBCEL *v) {
 inline static REBVAL *Init_Image(
     RELVAL *out,
     REBSER *bin,
-    REBCNT wide,
-    REBCNT high
+    REBCNT width,
+    REBCNT height
 ){
     assert(GET_SERIES_FLAG(bin, MANAGED));
 
-    REBARR *a = Make_Arr_Core(3, NODE_FLAG_MANAGED);
-    Init_Binary(ARR_AT(a, IDX_IMGDATA_BINARY), bin);
-    Init_Integer(ARR_AT(a, IDX_IMGDATA_WIDTH), wide);
-    Init_Integer(ARR_AT(a, IDX_IMGDATA_HEIGHT), high);
-    TERM_ARRAY_LEN(a, 3);
+    REBARR *a = Alloc_Singular(NODE_FLAG_MANAGED);
+    Init_Binary(ARR_SINGLE(a), bin);
+    LINK(a).custom.i = width;  // see notes on why this isn't put on bin...
+    MISC(a).custom.i = height;  // (...it would corrupt shared series!)
 
-    RESET_CELL(out, REB_IMAGE);
-    PAYLOAD(Image, out).details = a;
+    RESET_CELL_CORE(out, REB_IMAGE, CELL_FLAG_EXTRA_IS_CUSTOM_NODE);
+    EXTRA(Custom, out).node = NOD(a);
 
     assert(VAL_IMAGE_POS(out) == 0);  // !!! sketchy concept, is in BINARY!
 
     return KNOWN(out);
 }
 
-
 inline static void RESET_IMAGE(REBYTE *p, REBCNT num_pixels) {
     REBYTE *start = p;
     REBYTE *stop = start + (num_pixels * 4);
     while (start < stop) {
-        *start++ = 0; // red
-        *start++ = 0; // green
-        *start++ = 0; // blue
-        *start++ = 0xff; // opaque alpha, R=G=B as 0 means black pixel
+        *start++ = 0;  // red
+        *start++ = 0;  // green
+        *start++ = 0;  // blue
+        *start++ = 0xff;  // opaque alpha, R=G=B as 0 means black pixel
     }
 }
 
@@ -123,7 +128,7 @@ inline static REBVAL *Init_Image_Black_Opaque(RELVAL *out, REBCNT w, REBCNT h)
     TERM_SERIES(bin);
     MANAGE_SERIES(bin);
 
-    RESET_IMAGE(SER_DATA_RAW(bin), (w * h)); // length in 'pixels'
+    RESET_IMAGE(SER_DATA_RAW(bin), (w * h));  // length in 'pixels'
 
     return Init_Image(out, bin, w, h);
 }

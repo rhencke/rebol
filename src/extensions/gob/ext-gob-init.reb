@@ -15,4 +15,14 @@ REBOL [
 ;
 register-gob-hooks
 
+sys/make-scheme [
+    title: "GUI Events"
+    name: 'event
+    actor: system/modules/event/get-event-actor-handle
+    awake: func [event] [
+        print ["Default GUI event/awake:" event/type]
+        true
+    ]
+]
+
 sys/export []  ; current hacky mechanism is to put any exports here

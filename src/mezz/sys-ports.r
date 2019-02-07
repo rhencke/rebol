@@ -227,61 +227,6 @@ init-schemes: func [
 
     system/schemes: make object! 10
 
-    make-scheme [
-        title: "System Port"
-        name: 'system
-        actor: get-event-actor-handle
-        awake: func [
-            sport "System port (State block holds events)"
-            ports "Port list (Copy of block passed to WAIT)"
-            /only
-            <local> event event-list n-event port waked
-        ][
-            waked: sport/data ; The wake list (pending awakes)
-
-            if only and [not block? ports] [
-                return blank ; short cut for a pause
-            ]
-
-            ; Process all events (even if no awake ports).
-            n-event: 0
-            event-list: sport/state
-            while [not empty? event-list][
-                if n-event > 8 [break] ; Do only 8 events at a time (to prevent polling lockout).
-                event: first event-list
-                port: event/port
-                either any [
-                    not only
-                    find ports port
-                ][
-                    remove event-list ;avoid event overflow caused by wake-up recursively calling into wait
-                    if wake-up port event [
-                        ; Add port to wake list:
-                        ;print ["==System-waked:" port/spec/ref]
-                        if not find waked port [append waked port]
-                    ]
-                    n-event: n-event + 1
-                ][
-                    event-list: next event-list
-                ]
-            ]
-
-            ; No wake ports (just a timer), return now.
-            if not block? ports [return blank]
-
-            ; Are any of the requested ports awake?
-            for-each port ports [
-                find waked port then [return true]
-            ]
-
-            false ; keep waiting
-        ]
-        init: func [port] [
-            ;;print ["Init" title]
-            port/data: copy [] ; The port wake list
-            return
-        ]
-    ]
 
     make-scheme [
         title: "File Access"
@@ -302,16 +247,6 @@ init-schemes: func [
         name: 'dir
         actor: get-dir-actor-handle
     ] 'file
-
-    make-scheme [
-        title: "GUI Events"
-        name: 'event
-        actor: get-event-actor-handle
-        awake: func [event] [
-            print ["Default GUI event/awake:" event/type]
-            true
-        ]
-    ]
 
     make-scheme [
         title: "DNS Lookup"
@@ -366,8 +301,6 @@ init-schemes: func [
             return
         ]
     ]
-
-    system/ports/system:   open [scheme: 'system]
 
     init-schemes: 'done ; only once
 ]

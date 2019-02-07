@@ -1,10 +1,10 @@
 REBOL [
     System: "REBOL [R3] Language Interpreter and Run-time Environment"
     Title: "Make primary boot files"
-    File: %make-boot.r ;-- used by EMIT-HEADER to indicate emitting script
+    File: %make-boot.r  ; used by EMIT-HEADER to indicate emitting script
     Rights: {
         Copyright 2012 REBOL Technologies
-        Copyright 2012-2017 Rebol Open Source Contributors
+        Copyright 2012-2019 Rebol Open Source Contributors
         REBOL is a trademark of REBOL Technologies
     }
     License: {
@@ -46,9 +46,8 @@ if args/GIT_COMMIT = "unknown" [
     ]
 ]
 
-;-- SETUP --------------------------------------------------------------
+=== SETUP PATHS AND MAKE DIRECTORIES (IF NEEDED) ===
 
-;dir: %../core/temp/  ; temporary definition
 output-dir: system/options/path/prep
 inc: output-dir/include
 core: output-dir/core
@@ -57,34 +56,17 @@ mkdir/deep probe inc
 mkdir/deep probe boot
 mkdir/deep probe core
 
-version: load %version.r
-version/4: config/id/2
-version/5: config/id/3
-
-;-- Title string put into boot.h file checksum:
-Title:
-{REBOL
-Copyright 2012 REBOL Technologies
-REBOL is a trademark of REBOL Technologies
-Licensed under the Apache License, Version 2.0
+Title: {
+    REBOL
+    Copyright 2012 REBOL Technologies
+    Copyright 2012-2019 Rebol Open Source Contributors
+    REBOL is a trademark of REBOL Technologies
+    Licensed under the Apache License, Version 2.0
 }
 
-sections: [
-    boot-types
-    boot-words
-    boot-generics
-    boot-natives
-    boot-typespecs
-    boot-errors
-    boot-sysobj
-    boot-base
-    boot-sys
-    boot-mezz
-;   boot-script
-]
 
-; Args passed: platform, product
-;
+=== PROCESS COMMAND LINE ARGUMENTS ===
+
 ; !!! Heed /script/args so you could say e.g. `do/args %make-boot.r [0.3.01]`
 ; Note however that current leaning is that scripts called by the invoked
 ; process will not have access to the "outer" args, hence there will be only
@@ -120,11 +102,45 @@ build: context [features: [help-strings]]
 ;build: platform-data/builds/:product
 
 
-;----------------------------------------------------------------------------
+=== MAKE VERSION INFORMATION AVAILABLE TO CORE C CODE ===
+
+e-version: make-emitter "Version Information" inc/tmp-version.h
+
+version: load %version.r
+version/4: config/id/2
+version/5: config/id/3
+
+e-version/emit {
+    /*
+     * VERSION INFORMATION
+     *
+     * !!! While using 5 byte-sized integers to denote a Rebol version might
+     * not be ideal, it's a standard that's been around a long time.
+     */
+
+    #define REBOL_VER $<version/1>
+    #define REBOL_REV $<version/2>
+    #define REBOL_UPD $<version/3>
+    #define REBOL_SYS $<version/4>
+    #define REBOL_VAR $<version/5>
+}
+e-version/emit newline
+e-version/write-emitted
+
+
+=== SET UP COLLECTION OF SYMBOL NUMBERS ===
+
+; !!! The symbol strategy in Ren-C is expected to move to using a fixed table
+; of words that commit to their identity, as opposed to picking on each build.
+; Concept would be to fit every common word that would be used in Rebol to
+; the low 65535 indices, while allowing numbers beyond that to be claimed
+; over time...so they could still be used in C switch() statements (but might
+; have to be stored and managed in a less efficient way)
 ;
-; %tmp-symbols.h - Symbol Numbers
-;
-;----------------------------------------------------------------------------
+; For now, the symbols are gathered from the various phases, and can change
+; as things are added or removed.  Hence C code using SYM_XXX must be
+; recompiled with changes to the core.  These symbols aren't in libRebol,
+; however, so it only affects clients of the core API for now.
 
 e-symbols: make-emitter "Symbol Numbers" inc/tmp-symbols.h
 
@@ -153,8 +169,8 @@ add-sym: function [
     return null
 ]
 
-; Several different sections add to the symbol constants, types are first...
 
+=== PROCESS %TYPES.R TABLE ===
 
 type-table: load %types.r
 
@@ -211,7 +227,6 @@ mold-hooks: collect [
         keep cscape/with {MF_${Hookname T 'Mold} /* $<T/Name> */} [t]
     ]
 ]
-
 
 e-dispatch/emit {
     #include "sys-core.h"
@@ -302,12 +317,7 @@ e-dispatch/emit {
 e-dispatch/write-emitted
 
 
-
-;----------------------------------------------------------------------------
-;
-; %reb-types.h - Datatype Definitions
-;
-;----------------------------------------------------------------------------
+=== DATATYPE DEFINITIONS ===
 
 e-types: make-emitter "Datatype Definitions" inc/tmp-kinds.h
 
@@ -322,10 +332,6 @@ rebs: collect [
         keep cscape/with {REB_${T/NAME} = $<n>} [n t]
         n: n + 1
     ]
-]
-
-for-each-record t type-table [
-    
 ]
 
 e-types/emit {
@@ -350,10 +356,10 @@ e-types/emit {
      * can make based on knowing a value is only in the range of the enum.
      */
     enum Reb_Kind {
-        REB_0 = 0, /* reserved for internal purposes */
-        REB_0_END = REB_0, /* ...most commonly array termination cells... */
-        REB_TS_ENDABLE = REB_0, /* bit set in typesets for endability */
-        REB_P_DETECT = REB_0, /* detect paramclass from vararg */
+        REB_0 = 0,  /* reserved for internal purposes */
+        REB_0_END = REB_0,  /* ...most commonly array termination cells... */
+        REB_TS_ENDABLE = REB_0,  /* bit set in typesets for endability */
+        REB_P_DETECT = REB_0,  /* detect paramclass from vararg */
 
         /*** REAL TYPES ***/
 
@@ -375,7 +381,7 @@ e-types/emit {
         REB_TS_SKIPPABLE = PSEUDOTYPE_TWO,
         REB_X_PARTIAL_SAW_NULL_ARG = PSEUDOTYPE_TWO,
       #if defined(DEBUG_TRASH_MEMORY)
-        REB_T_TRASH = PSEUDOTYPE_TWO, /* identify trash in debug build */
+        REB_T_TRASH = PSEUDOTYPE_TWO,  /* identify trash in debug build */
       #endif
 
         PSEUDOTYPE_THREE,
@@ -455,10 +461,10 @@ e-types/emit newline
 boot-types: copy []
 n: 1
 for-each-record t type-table [
-    if t/name != 'quoted [ ; see IS_QUOTED(), handled specially
+    if t/name != 'quoted [  ; see IS_QUOTED(), handled specially
         e-types/emit 't {
             #define IS_${T/NAME}(v) \
-                (KIND_BYTE(v) == REB_${T/NAME}) /* $<n> */
+                (KIND_BYTE(v) == REB_${T/NAME})  /* $<n> */
         }
         e-types/emit newline
     ]
@@ -512,41 +518,15 @@ for-each [ts types] typeset-sets [
     ]
     e-types/emit [flagits ts] {
         #define TS_${TS} ($<Delimit "|" Flagits>)
-    } ;-- !!! TS_ANY_XXX is wordy, considering TS_XXX denotes a typeset
+    }  ; !!! TS_ANY_XXX is wordy, considering TS_XXX denotes a typeset
 ]
 
 e-types/write-emitted
 
 
-;----------------------------------------------------------------------------
-;
-; %tmp-version.h - Version Information
-;
-;----------------------------------------------------------------------------
+=== SYMBOLS FOR WORDS.R ===
 
-e-version: make-emitter "Version Information" inc/tmp-version.h
-
-
-e-version/emit {
-    /*
-    ** VERSION INFORMATION
-    **
-    ** !!! While using 5 byte-sized integers to denote a Rebol version might
-    ** not be ideal, it's a standard that's been around a long time.
-    */
-
-    #define REBOL_VER $<version/1>
-    #define REBOL_REV $<version/2>
-    #define REBOL_UPD $<version/3>
-    #define REBOL_SYS $<version/4>
-    #define REBOL_VAR $<version/5>
-}
-e-version/emit newline
-e-version/write-emitted
-
-
-
-;-- Add SYM_XXX constants for the words in %words.r
+; Add SYM_XXX constants for the words in %words.r
 
 wordlist: load %words.r
 replace wordlist '*port-modes* load %modes.r
@@ -555,8 +535,10 @@ for-each word wordlist [
 ]
 
 
-;-- Add SYM_XXX constants for generics (e.g. SYM_APPEND, etc.)
-;-- This allows C switch() statements to process them efficiently
+=== "VERB" SYMBOLS FOR GENERICS ===
+
+; This adds SYM_XXX constants for generics (e.g. SYM_APPEND, etc.), which
+; allows C switch() statements to process them efficiently
 
 first-generic-sym: sym-n
 
@@ -570,12 +552,7 @@ for-each item boot-generics [
 ]
 
 
-
-;----------------------------------------------------------------------------
-;
-; Sysobj.h - System Object Selectors
-;
-;----------------------------------------------------------------------------
+=== SYSTEM OBJECT SELECTORS ===
 
 e-sysobj: make-emitter "System Object" inc/tmp-sysobj.h
 
@@ -655,48 +632,29 @@ make-obj-defs e-sysobj ob/view "VIEW" 4
 e-sysobj/write-emitted
 
 
-;----------------------------------------------------------------------------
-;
-; Event Types
-;
-;----------------------------------------------------------------------------
+=== EVENT TYPES ===
 
-e-event: make-emitter "Event Types" inc/reb-evtypes.h
+; R3-Alpha made specific C enumerated types out of the event types and keys.
+; Ren-C takes a broader view of "symbol IDs" as fixed numbers that can be
+; expanded as new IDs are agreed upon (a bit like adding an emoji to unicode,
+; I'd suppose) :-)  Hence plain symbol IDs are used for the event-types and
+; event keys.  EVENT! can then see if its symbol ID fits into a uint16_t,
+; and use a more compact representation for that event if so.
 
 evts: collect [
     for-each field ob/view/event-types [
-        keep cscape/with {EVT_${FIELD}} 'field
+        add-sym/exists field  ; may exist (e.g. CLOSE is a GENERIC)
     ]
 ]
 
 evks: collect [
     for-each field ob/view/event-keys [
-        keep cscape/with {EVK_${FIELD}} 'field
+        add-sym/exists field  ; may exist (e.g. DELETE is a key and a GENERIC)
     ]
 ]
 
-e-event/emit {
-    enum event_types {
-        $[Evts],
-        EVT_MAX
-    };
 
-    enum event_keys {
-        $[Evks],
-        EVK_MAX
-    };
-}
-
-e-event/write-emitted
-
-
-;----------------------------------------------------------------------------
-;
-; Error Constants
-;
-;----------------------------------------------------------------------------
-
-;-- Error Structure ----------------------------------------------------------
+=== ERROR STRUCTURE AND CONSTANTS ===
 
 e-errfuncs: make-emitter "Error structure and functions" inc/tmp-error-funcs.h
 
@@ -741,20 +699,20 @@ for-each [sw-cat list] boot-errors [
     cat: to word! ensure set-word! sw-cat
     ensure block! list
 
-    add-sym to word! cat ;-- category might incidentally exist as SYM_XXX
+    add-sym to word! cat  ; category might incidentally exist as SYM_XXX
 
     for-each [sw-id t-message] list [
         id: to word! ensure set-word! sw-id
         message: t-message
 
-        ;-- Add a SYM_XXX constant for the error's ID word
-
+        ; Add a SYM_XXX constant for the error's ID word
+        ;
         if first-error-sym < (add-sym/exists id else [0]) [
             fail ["Duplicate error ID found:" id]
         ]
 
         arity: 0
-        if block? message [ ;-- can have N GET-WORD! substitution slots
+        if block? message [  ; can have N GET-WORD! substitution slots
             parse message [any [get-word! (arity: arity + 1) | skip] end]
         ] else [
             ensure text! message ;-- textual message, no arguments
@@ -768,7 +726,7 @@ for-each [sw-cat list] boot-errors [
         ]
 
         if arity = 0 [
-            params: ["void"] ;-- In C, f(void) has a distinct meaning from f()
+            params: ["void"]  ; In C, f(void) has a distinct meaning from f()
             args: ["rebEND"]
         ] else [
             params: collect [
@@ -792,14 +750,10 @@ for-each [sw-cat list] boot-errors [
 
 e-errfuncs/write-emitted
 
-;----------------------------------------------------------------------------
-;
-; Load Boot Mezzanine Functions - Base, Sys, and Plus
-;
-;----------------------------------------------------------------------------
 
-;-- Add other MEZZ functions:
-mezz-files: load %../mezz/boot-files.r ; base lib, sys, mezz
+=== LOAD BOOT MEZZANINE FUNCTIONS ===
+
+mezz-files: load %../mezz/boot-files.r  ; base, sys, mezz
 
 for-each section [boot-base boot-sys boot-mezz] [
     set section make block! 200
@@ -844,20 +798,29 @@ make-obj-defs/selfless e-sysctx sctx "SYS_CTX" 1
 e-sysctx/write-emitted
 
 
-;----------------------------------------------------------------------------
-;
-; TMP-BOOT-BLOCK.R and TMP-BOOT-BLOCK.C
-;
+=== MAKE BOOT BLOCK! ===
+
 ; Create the aggregated Rebol file of all the Rebol-formatted data that is
 ; used in bootstrap.  This includes everything from a list of WORD!s that
 ; are built-in as symbols, to the sys and mezzanine functions.
 ;
 ; %tmp-boot-block.c is just a C file containing a literal constant of the
 ; compressed representation of %tmp-boot-block.r
-;
-;----------------------------------------------------------------------------
 
 e-bootblock: make-emitter "Natives and Bootstrap" core/tmp-boot-block.c
+
+sections: [
+    boot-types
+    boot-words
+    boot-generics
+    boot-natives
+    boot-typespecs
+    boot-errors
+    boot-sysobj
+    boot-base
+    boot-sys
+    boot-mezz
+]
 
 boot-natives: load boot/tmp-natives.r
 
@@ -883,8 +846,7 @@ e-bootblock/emit {
     };
 }
 
-
-;-- Build typespecs block (in same order as datatypes table):
+; Build typespecs block (in same order as datatypes table)
 
 boot-typespecs: collect [
     for-each-record t type-table [
@@ -892,7 +854,7 @@ boot-typespecs: collect [
     ]
 ]
 
-;-- Create main code section (compressed):
+; Create main code section (compressed)
 
 write-if-changed boot/tmp-boot-block.r mold reduce sections
 data: to-binary mold/flat reduce sections
@@ -916,11 +878,7 @@ e-bootblock/emit {
 e-bootblock/write-emitted
 
 
-;----------------------------------------------------------------------------
-;
-; Boot.h - Boot header file
-;
-;----------------------------------------------------------------------------
+=== BOOT HEADER FILE ===
 
 e-boot: make-emitter "Bootstrap Structure and Root Module" inc/tmp-boot.h
 
@@ -959,7 +917,7 @@ e-boot/emit {
     /*
      * A canon ACTION! REBVAL of the native, accessible by native's index #
      */
-    EXTERN_C REBVAL Natives[]; /* size is Num_Natives */
+    EXTERN_C REBVAL Natives[];  /* size is Num_Natives */
 
     enum Native_Indices {
         $(Nids),
@@ -970,14 +928,10 @@ e-boot/emit {
     } BOOT_BLK;
 }
 
-;-------------------
-
 e-boot/write-emitted
 
 
-;-----------------------------------------------------------------------------
-; EMIT SYMBOLS
-;-----------------------------------------------------------------------------
+=== EMIT SYMBOLS ===
 
 e-symbols/emit {
     /*

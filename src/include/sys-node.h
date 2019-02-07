@@ -41,30 +41,28 @@
 
 #else
 
-    template <typename T>
-    inline static REBNOD *NOD(T *p) {
+    template <typename P>
+    inline static REBNOD *NOD(P p) {
         constexpr bool derived =
-            std::is_same<T, REBVAL>::value
-            or std::is_same<T, REBSER>::value
-            or std::is_same<T, REBSTR>::value
-            or std::is_same<T, REBARR>::value
-            or std::is_same<T, REBCTX>::value
-            or std::is_same<T, REBACT>::value
-            or std::is_same<T, REBMAP>::value
-            or std::is_same<T, REBFRM>::value;
+            std::is_same<P, nullptr_t>::value  // here to avoid check below
+            or std::is_same<P, REBVAL*>::value
+            or std::is_same<P, REBSER*>::value
+            or std::is_same<P, REBSTR*>::value
+            or std::is_same<P, REBARR*>::value
+            or std::is_same<P, REBCTX*>::value
+            or std::is_same<P, REBACT*>::value
+            or std::is_same<P, REBMAP*>::value
+            or std::is_same<P, REBFRM*>::value;
 
-        constexpr bool base = std::is_same<T, void>::value;
+        constexpr bool base = std::is_same<P, void*>::value;
 
         static_assert(
             derived or base,
             "NOD() works on void/REBVAL/REBSER/REBSTR/REBARR/REBCTX/REBACT" \
-               "/REBMAP/REBFRM"
+               "/REBMAP/REBFRM or nullptr"
         );
 
-        if (not p) { // !!! include a static check for nullptr/0?
-            assert(!"Use cast(REBNOD*, x) and not NOD(x) on null pointers");
-        }
-        else if (base)
+        if (base)  // NOD(nullptr) won't be tested here
             assert(
                 (reinterpret_cast<REBNOD*>(p)->header.bits & (
                     NODE_FLAG_NODE | NODE_FLAG_FREE
@@ -128,19 +126,22 @@ inline static void *Make_Node(REBCNT pool_id)
 // have NODE_FLAG_FREE...which will identify the node as not in use to anyone
 // who enumerates the nodes in the pool (such as the garbage collector).
 //
-inline static void Free_Node(REBCNT pool_id, void *p)
+inline static void Free_Node(REBCNT pool_id, REBNOD *node)
 {
   #ifdef DEBUG_MONITOR_SERIES
     if (
         pool_id == SER_POOL
-        and GET_SERIES_INFO(cast(REBSER*, p), MONITOR_DEBUG)
+        and not (node->header.bits & NODE_FLAG_CELL)
+        and GET_SERIES_INFO(SER(node), MONITOR_DEBUG)
     ){
-        printf("Freeing series %p on tick #%d\n", p, cast(int, TG_Tick));
+        printf(
+            "Freeing series %p on tick #%d\n",
+            cast(void*, node),
+            cast(int, TG_Tick)
+        );
         fflush(stdout);
     }
   #endif
-
-    REBNOD *node = NOD(p);
 
     mutable_FIRST_BYTE(node->header) = FREED_SERIES_BYTE;
 

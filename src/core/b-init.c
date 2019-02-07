@@ -1645,7 +1645,6 @@ void Shutdown_Core(void)
     Shutdown_Mold();
     Shutdown_Collector();
     Shutdown_Raw_Print();
-    Shutdown_Event_Scheme();
     Shutdown_CRC();
     Shutdown_String();
     Shutdown_Scanner();

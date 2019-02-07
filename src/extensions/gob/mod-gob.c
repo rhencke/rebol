@@ -35,7 +35,6 @@
 #include "tmp-mod-gob.h"
 
 #include "reb-gob.h"
-#include "reb-event.h"
 
 //
 //  register-gob-hooks: native [
@@ -177,30 +176,4 @@ REBNATIVE(map_gob_offset)
     Init_Pair_Dec(Alloc_Tail_Array(arr), xo, yo);
 
     return Init_Block(D_OUT, arr);
-}
-
-
-//
-//  map-event: native [
-//
-//  {Returns event with inner-most graphical object and coordinate.}
-//
-//      event [event!]
-//  ]
-//
-REBNATIVE(map_event)
-{
-    GOB_INCLUDE_PARAMS_OF_MAP_EVENT;
-
-    REBVAL *val = ARG(event);
-    REBGOB *gob = cast(REBGOB*, VAL_EVENT_SER(val));
-
-    if (gob and (VAL_EVENT_FLAGS(val) & EVF_HAS_XY)) {
-        REBD32 x = VAL_EVENT_X(val);
-        REBD32 y = VAL_EVENT_Y(val);
-        mutable_VAL_EVENT_SER(val) = cast(REBSER*, Map_Gob_Inner(gob, &x, &y));
-        SET_EVENT_XY(val, ROUND_TO_INT(x), ROUND_TO_INT(x));
-    }
-
-    RETURN (ARG(event));
 }

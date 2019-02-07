@@ -20,20 +20,23 @@ extensions: make map! [
     ; default.  (Review the general policy for default inclusions.)
     ; Clipboard is only implemented in Windows at the moment.
 
-    BMP + 
+    BMP +
     Clipboard -
     Console +
     Crypt + 
-    Debugger + 
+    Debugger +
+    Event +
     FFI -
-    GIF + 
+    GIF +
+    Gob +
     JavaScript -
-    JPG + 
-    Locale + 
+    JPG +
+    Locale +
     ODBC -
-    PNG + 
-    Process + 
-    UUID + 
+    PNG +
+    Process +
+    UUID +
+    Vector +
     View +
     ZeroMQ -
 ]

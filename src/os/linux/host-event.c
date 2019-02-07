@@ -66,45 +66,45 @@ static REBGOB *resize_events[MAX_WINDOWS];
 
 // Virtual key conversion table, sorted by first column.
 static const REBCNT keysym_to_event[] = {
-    /* 0xff09 */    XK_Tab,         EVK_NONE,   //EVK_NONE means it is passed 'as-is'
-    /* 0xff50 */    XK_Home,        EVK_HOME,
-    /* 0xff51 */    XK_Left,        EVK_LEFT,
-    /* 0xff52 */    XK_Up,          EVK_UP,
-    /* 0xff53 */    XK_Right,       EVK_RIGHT,
-    /* 0xff54 */    XK_Down,        EVK_DOWN,
-    /* 0xff55 */    XK_Page_Up,     EVK_PAGE_UP,
-    /* 0xff56 */    XK_Page_Down,   EVK_PAGE_DOWN,
-    /* 0xff57 */    XK_End,         EVK_END,
-    /* 0xff63 */    XK_Insert,      EVK_INSERT,
+    /* 0xff09 */    XK_Tab,         SYM_NONE,   // means it is passed 'as-is'
+    /* 0xff50 */    XK_Home,        SYM_HOME,
+    /* 0xff51 */    XK_Left,        SYM_LEFT,
+    /* 0xff52 */    XK_Up,          SYM_UP,
+    /* 0xff53 */    XK_Right,       SYM_RIGHT,
+    /* 0xff54 */    XK_Down,        SYM_DOWN,
+    /* 0xff55 */    XK_Page_Up,     SYM_PAGE_UP,
+    /* 0xff56 */    XK_Page_Down,   SYM_PAGE_DOWN,
+    /* 0xff57 */    XK_End,         SYM_END,
+    /* 0xff63 */    XK_Insert,      SYM_INSERT,
 
-    /* 0xff91 */    XK_KP_F1,       EVK_F1,
-    /* 0xff92 */    XK_KP_F2,       EVK_F2,
-    /* 0xff93 */    XK_KP_F3,       EVK_F3,
-    /* 0xff94 */    XK_KP_F4,       EVK_F4,
-    /* 0xff95 */    XK_KP_Home,     EVK_HOME,
-    /* 0xff96 */    XK_KP_Left,     EVK_LEFT,
-    /* 0xff97 */    XK_KP_Up,       EVK_UP,
-    /* 0xff98 */    XK_KP_Right,    EVK_RIGHT,
-    /* 0xff99 */    XK_KP_Down,     EVK_DOWN,
-    /* 0xff9a */    XK_KP_Page_Up,  EVK_PAGE_UP,
-    /* 0xff9b */    XK_KP_Page_Down, EVK_PAGE_DOWN,
-    /* 0xff9c */    XK_KP_End,      EVK_END,
-    /* 0xff9e */    XK_KP_Insert,   EVK_INSERT,
-    /* 0xff9f */    XK_KP_Delete,   EVK_DELETE,
+    /* 0xff91 */    XK_KP_F1,       SYM_F1,
+    /* 0xff92 */    XK_KP_F2,       SYM_F2,
+    /* 0xff93 */    XK_KP_F3,       SYM_F3,
+    /* 0xff94 */    XK_KP_F4,       SYM_F4,
+    /* 0xff95 */    XK_KP_Home,     SYM_HOME,
+    /* 0xff96 */    XK_KP_Left,     SYM_LEFT,
+    /* 0xff97 */    XK_KP_Up,       SYM_UP,
+    /* 0xff98 */    XK_KP_Right,    SYM_RIGHT,
+    /* 0xff99 */    XK_KP_Down,     SYM_DOWN,
+    /* 0xff9a */    XK_KP_Page_Up,  SYM_PAGE_UP,
+    /* 0xff9b */    XK_KP_Page_Down, SYM_PAGE_DOWN,
+    /* 0xff9c */    XK_KP_End,      SYM_END,
+    /* 0xff9e */    XK_KP_Insert,   SYM_INSERT,
+    /* 0xff9f */    XK_KP_Delete,   SYM_DELETE,
 
-    /* 0xffbe */    XK_F1,          EVK_F1,
-    /* 0xffbf */    XK_F2,          EVK_F2,
-    /* 0xffc0 */    XK_F3,          EVK_F3,
-    /* 0xffc1 */    XK_F4,          EVK_F4,
-    /* 0xffc2 */    XK_F5,          EVK_F5,
-    /* 0xffc3 */    XK_F6,          EVK_F6,
-    /* 0xffc4 */    XK_F7,          EVK_F7,
-    /* 0xffc5 */    XK_F8,          EVK_F8,
-    /* 0xffc6 */    XK_F9,          EVK_F9,
-    /* 0xffc7 */    XK_F10,         EVK_F10,
-    /* 0xffc8 */    XK_F11,         EVK_F11,
-    /* 0xffc9 */    XK_F12,         EVK_F12,
-    /* 0xffff */    XK_Delete,      EVK_DELETE,
+    /* 0xffbe */    XK_F1,          SYM_F1,
+    /* 0xffbf */    XK_F2,          SYM_F2,
+    /* 0xffc0 */    XK_F3,          SYM_F3,
+    /* 0xffc1 */    XK_F4,          SYM_F4,
+    /* 0xffc2 */    XK_F5,          SYM_F5,
+    /* 0xffc3 */    XK_F6,          SYM_F6,
+    /* 0xffc4 */    XK_F7,          SYM_F7,
+    /* 0xffc5 */    XK_F8,          SYM_F8,
+    /* 0xffc6 */    XK_F9,          SYM_F9,
+    /* 0xffc7 */    XK_F10,         SYM_F10,
+    /* 0xffc8 */    XK_F11,         SYM_F11,
+    /* 0xffc9 */    XK_F12,         SYM_F12,
+    /* 0xffff */    XK_Delete,      SYM_DELETE,
                     0x0,            0
 
 };
@@ -114,21 +114,21 @@ static const REBCNT keysym_to_event_fallback[] = {
                     0x0,            0
 };
 
-static void Add_Event_XY(REBGOB *gob, REBINT id, REBINT xy, REBINT flags)
+static void Add_Event_XY(REBGOB *gob, uint16_t id, REBINT xy, uint_8_t flags)
 {
-    REBVAL *e = Append_Event(); // sets signal, null if no room in series
-    if (e) {
-        RESET_CELL(e, REB_EVENT);
-        PAYLOAD(Event, e).model = EVM_GUI;
-        EXTRA(Event, e).eventee.ser = gob;
-        PAYLOAD(Event, e).type = id;
-        PAYLOAD(Event, e).flags = cast(u8, flags | EVF_HAS_XY);
-        PAYLOAD(Event, e).win = 0;
-        PAYLOAD(Event, e).data = xy;
-    }
+    REBVAL *e = Append_Event();  // sets signal, null if no room in series
+    if (not e)
+        return;
+
+    RESET_CELL_CORE(e, REB_EVENT, CELL_FLAG_EXTRA_IS_CUSTOM_NODE);
+    mutable_VAL_EVENT_SER(e) = gob;
+    mutable_VAL_EVENT_MODEL(e) = EVM_GUI;
+    mutable_VAL_EVENT_TYPE(e) = id;
+    mutable_VAL_EVENT_FLAGS(e) = flags);
+    PAYLOAD(Event, e).data = xy;
 }
 
-static void Update_Event_XY(REBGOB *gob, REBINT id, REBINT xy, REBINT flags)
+static void Update_Event_XY(REBGOB *gob, uint16_t id, REBINT xy, uint8_t flags)
 {
     // !!! This used to use a RL_API for event updating which said:
     //
@@ -142,27 +142,32 @@ static void Update_Event_XY(REBGOB *gob, REBINT id, REBINT xy, REBINT flags)
     // The return result was not heeded here.
     //
     REBVAL *e = Find_Last_Event(EVM_GUI, id);
-    if (e) {
-        EXTRA(Event, e).eventee = evt->eventee;
-        PAYLOAD(Event, e).model = EVM_GUI;
-        PAYLOAD(Event, e).type = id;
-        PAYLOAD(Event, e).flags = cast(u8, flags | EVF_HAS_XY);
-        PAYLOAD(Event, e).win = NULL;
-        PAYLOAD(Event, e).data = xy;
+    if (not e)
+        return;
+
+    assert(VAL_TYPE(e) == REB_EVENT);
+    assert(GET_CELL_FLAG(e, EXTRA_IS_CUSTOM_NODE));
+
+    EXTRA(Event, e).eventee = evt->eventee;
+    mutable_VAL_EVENT_MODEL(e) = EVM_GUI;
+    mutable_VAL_EVENT_TYPE(e) = id;
+    mutable_VAL_EVENT_FLAGS(e) = flags;
+    mutable_VAL_EVENT_X(e) = x;
+    PAYLOAD(Event, e).data = xy;
     }
 }
 
-static void Add_Event_Key(REBGOB *gob, REBINT id, REBINT key, REBINT flags)
+static void Add_Event_Key(REBGOB *gob, uint16_t id, uint16_t key, REBINT flags)
 {
     REBVAL *e = Append_Event(); // sets signal, null if no room in series
     if (e) {
-        RESET_CELL(e, REB_EVENT);
+        RESET_CELL_CORE(e, REB_EVENT, CELL_FLAG_EXTRA_IS_CUSTOM_NODE);
         PAYLOAD(Event, e).model = EVM_GUI;
         EXTRA(Event, e).eventee.ser = gob;
         PAYLOAD(Event, e).type = id;
         PAYLOAD(Event, e).flags = flags;
         PAYLOAD(Event, e).win = 0;
-        PAYLOAD(Event, e).data = key;
+        PAYLOAD(Event, e).data.u = key;
     }
 }
 
@@ -336,22 +341,30 @@ static void handle_button(XEvent *ev, REBGOB *gob)
             flags |= 1 << EVF_DOUBLE;
             //printf("Button %d double clicked\n", ev->xbutton.button);
         }
+
         switch (ev->xbutton.button){
-            case BUTTON_LEFT:
-                id = (ev->type == ButtonPress)? EVT_DOWN: EVT_UP;
-                break;
-            case BUTTON_MIDDLE:
-                id = (ev->type == ButtonPress)? EVT_AUX_DOWN: EVT_AUX_UP;
-                break;
-            case BUTTON_RIGHT:
-                id = (ev->type == ButtonPress)? EVT_ALT_DOWN: EVT_ALT_UP;
-                break;
+          case BUTTON_LEFT:
+            id = (ev->type == ButtonPress) ? SYM_DOWN: SYM_UP;
+            break;
+
+          case BUTTON_MIDDLE:
+            id = (ev->type == ButtonPress) ? SYM_AUX_DOWN : SYM_AUX_UP;
+            break;
+
+          case BUTTON_RIGHT:
+            id = (ev->type == ButtonPress) ? SYM_ALT_DOWN : SYM_ALT_UP;
+            break;
         }
         Add_Event_XY(gob, id, xyd, flags);
-    } else {
+    }
+    else {
         if (ev->type == ButtonRelease) {
-            evt = RL_Find_Event(EVM_GUI,
-                                ev->xbutton.state & ControlMask? EVT_SCROLL_PAGE: EVT_SCROLL_LINE);
+            evt = RL_Find_Event(
+                EVM_GUI,
+                (ev->xbutton.state & ControlMask)
+                    ? SYM_SCROLL_PAGE
+                    : SYM_SCROLL_LINE
+            );
             uint32_t data = 0;
             uint32_t *pdata = NULL;
             int16_t tmp = 0;
@@ -362,15 +375,20 @@ static void handle_button(XEvent *ev, REBGOB *gob)
             }
             int mw_num_lines = 3;
 
-            if (ev->xbutton.button == BUTTON_SCROLL_UP
-                || ev->xbutton.button == BUTTON_SCROLL_DOWN) {
+            if (
+                ev->xbutton.button == BUTTON_SCROLL_UP
+                or ev->xbutton.button == BUTTON_SCROLL_DOWN
+            ){
                 tmp = *pdata >> 16;
-            } else if (ev->xbutton.button == BUTTON_SCROLL_LEFT
-                       || ev->xbutton.button == BUTTON_SCROLL_RIGHT) {
-                tmp = *pdata & 0xFFFF;
-            } else {
-                return;
             }
+            else if (
+                ev->xbutton.button == BUTTON_SCROLL_LEFT
+                or ev->xbutton.button == BUTTON_SCROLL_RIGHT
+            ){
+                tmp = *pdata & 0xFFFF;
+            }
+            else
+                return;
 
             if (ev->xbutton.button == BUTTON_SCROLL_UP
                 || ev->xbutton.button == BUTTON_SCROLL_RIGHT) {
@@ -400,9 +418,14 @@ static void handle_button(XEvent *ev, REBGOB *gob)
             }
 
             if (evt == NULL) {
-                Add_Event_XY(gob,
-                             ev->xbutton.state & ControlMask? EVT_SCROLL_PAGE: EVT_SCROLL_LINE,
-                             data, 0);
+                Add_Event_XY(
+                    gob,
+                    (ev->xbutton.state & ControlMask)
+                        ? SYM_SCROLL_PAGE
+                        : SYM_SCROLL_LINE,
+                    data,
+                    0
+                );
             }
         }
     }
@@ -430,14 +453,12 @@ static void handle_client_message(XEvent *ev)
                                          "_NET_WM_PING",
                                          False);
     REBGOB *gob = NULL;
-    if (XA_DELETE_WINDOW
-        && XA_DELETE_WINDOW == ev->xclient.data.l[0]) {
+    if (XA_DELETE_WINDOW and XA_DELETE_WINDOW == ev->xclient.data.l[0]) {
         gob = Find_Gob_By_Window(ev->xclient.window);
-        if (gob != NULL){
-            Add_Event_XY(gob, EVT_CLOSE, 0, 0);
-        }
-    } else if (XA_PING
-               && XA_PING == ev->xclient.data.l[0]) {
+        if (gob != NULL)
+            Add_Event_XY(gob, SYM_CLOSE, 0, 0);
+    }
+    else if (XA_PING and XA_PING == ev->xclient.data.l[0]) {
         //printf("Ping from window manager\n");
         ev->xclient.window = DefaultRootWindow(global_x_info->display);
         XSendEvent(global_x_info->display,
@@ -568,7 +589,7 @@ static void handle_selection_notify(XEvent *ev)
 static void handle_configure_notify(XEvent *ev, REBGOB *gob)
 {
     XConfigureEvent xce = ev->xconfigure;
-    REBINT xyd = 0;
+
     /* translate x,y to its gob_parent coordinates */
     int x = xce.x, y = xce.y;
     /*
@@ -601,16 +622,22 @@ static void handle_configure_notify(XEvent *ev, REBGOB *gob)
             //printf("XTranslateCoordinates returns %d, pos: %dx%d\n", status, x, y);
         }
     }
-    if (ROUND_TO_INT(gob->offset.x) != x
-        || ROUND_TO_INT(gob->offset.y) != y){
+    if (ROUND_TO_INT(gob->offset.x) != x or ROUND_TO_INT(gob->offset.y) != y){
         /*
-           printf("%s, %s, %d: EVT_OFFSET (%dx%d) is sent\n", __FILE__, __func__, __LINE__,
+           printf("%s, %s, %d: SYM_OFFSET (%dx%d) is sent\n", __FILE__, __func__, __LINE__,
            ROUND_TO_INT(x), ROUND_TO_INT(y));
            */
         gob->offset.x = ROUND_TO_INT(PHYS_COORD_X(x));
         gob->offset.y = ROUND_TO_INT(PHYS_COORD_X(y));
-        xyd = (ROUND_TO_INT(gob->offset.x)) + (ROUND_TO_INT(gob->offset.y) << 16);
-        Update_Event_XY(gob, EVT_OFFSET, xyd, 0);
+
+        Update_Event_XY(
+            gob,
+            SYM_OFFSET,
+            ROUND_TO_INT(gob->offset.x),
+            ROUND_TO_INT(gob->offset.y),
+            EVF_MASK_NONE
+        );
+
         /* avoid a XMoveWindow call from OS_Update_Window */
         GOB_XO(gob) = GOB_LOG_X(gob);
         GOB_YO(gob) = GOB_LOG_Y(gob);
@@ -623,11 +650,13 @@ static void handle_configure_notify(XEvent *ev, REBGOB *gob)
     }
     gob->size.x = ROUND_TO_INT(PHYS_COORD_X(hw->old_width = xce.width));
     gob->size.y = ROUND_TO_INT(PHYS_COORD_Y(hw->old_height = xce.height));
-    xyd = (ROUND_TO_INT((gob->size.x))) + (ROUND_TO_INT(gob->size.y) << 16);
-    if (GOB_WO_INT(gob) != GOB_LOG_W_INT(gob)
-        || GOB_HO_INT(gob) != GOB_LOG_H_INT(gob)) {
+
+    if (
+        GOB_WO_INT(gob) != GOB_LOG_W_INT(gob)
+        or GOB_HO_INT(gob) != GOB_LOG_H_INT(gob)
+    ){
         //printf("Resize for gob: %x to %dx%d\n", gob, GOB_LOG_W_INT(gob), GOB_LOG_H_INT(gob));
-        //printf("%s, %s, %d: EVT_RESIZE is sent: %x\n", __FILE__, __func__, __LINE__, xyd);
+        //printf("%s, %s, %d: SYM_RESIZE is sent: %x\n", __FILE__, __func__, __LINE__, xyd);
         int i = 0;
         for(i = 0; i < MAX_WINDOWS; i ++){
             if (resize_events[i] == NULL){
@@ -641,7 +670,12 @@ static void handle_configure_notify(XEvent *ev, REBGOB *gob)
             if (resize_events[i] == gob)
                 break;
         }
-        Update_Event_XY(gob, EVT_RESIZE, xyd, 0);
+        Update_Event_XY(
+            gob,
+            SYM_RESIZE,
+            ROUND_TO_INT(gob->size.x),
+            ROUND_TO_INT(gob->size.y)
+        );
     }
 }
 
@@ -658,7 +692,7 @@ static void handle_key(XEvent *ev, REBGOB *gob)
 
     for (i = 0; keysym_to_event[i] && keysym > keysym_to_event[i]; i += 2);
     if (keysym == keysym_to_event[i]) {
-        if (keysym_to_event[i + 1] == EVK_NONE) {
+        if (keysym_to_event[i + 1] == SYM_NONE) {
             key = key_string[0]; /* pass-thru */
         } else {
             key = keysym_to_event[i + 1] << 16;
@@ -679,23 +713,28 @@ static void handle_key(XEvent *ev, REBGOB *gob)
     }
 
     if (key > 0){
-        Add_Event_Key(gob,
-                      ev->type == KeyPress? EVT_KEY : EVT_KEY_UP,
-                      key, flags);
+        Add_Event_Key(
+            gob,
+            (ev->type == KeyPress) ? SYM_KEY : SYM_KEY_UP,
+            key,
+            flags
+        );
 
         /*
            RL_Print ("Key event %s with key %x (flags: %x) is sent\n",
-           ev->type == KeyPress? "EVT_KEY" : "EVT_KEY_UP",
+           ev->type == KeyPress? "SYM_KEY" : "SYM_KEY_UP",
            key,
            flags);
            */
     } else {
         for (i = 0; keysym_to_event_fallback[i] && keysym > keysym_to_event_fallback[i]; i += 2);
         if (keysym == keysym_to_event_fallback[i] && keysym_to_event_fallback[i + 1] > 0) {
-            Add_Event_Key(gob,
-                          ev->type == KeyPress? EVT_KEY : EVT_KEY_UP,
-                          keysym_to_event_fallback[i + 1], flags);
-
+            Add_Event_Key(
+                gob,
+                ev->type == KeyPress ? SYM_KEY : SYM_KEY_UP,
+                keysym_to_event_fallback[i + 1],
+                flags
+            );
         }
     }
 }
@@ -766,6 +805,7 @@ void Dispatch_Event(XEvent *ev)
         }
         X_Finish_Resizing();
     }
+
     switch (ev->type) {
         case CreateNotify:
             /*
@@ -794,40 +834,49 @@ void Dispatch_Event(XEvent *ev)
             //printf("mouse motion\n");
             gob = Find_Gob_By_Window(ev->xmotion.window);
             if (gob != NULL){
-                REBINT xyd = (ROUND_TO_INT(PHYS_COORD_X(ev->xmotion.x))) + (ROUND_TO_INT(PHYS_COORD_Y(ev->xmotion.y)) << 16);
-                Update_Event_XY(gob, EVT_MOVE, xyd, 0);
+                Update_Event_XY(
+                    gob,
+                    SYM_MOVE,
+                    ROUND_TO_INT(PHYS_COORD_X(ev->xmotion.x),
+                    ROUND_TO_INT(PHYS_COORD_Y(ev->xmotion.y),
+                    EVF_MASK_NONE
+                );
             }
             break;
+
         case KeyPress:
         case KeyRelease:
             gob = Find_Gob_By_Window(ev->xkey.window);
             if(gob != NULL)
                 handle_key(ev, gob);
-
             break;
+
         case ResizeRequest:
             //RL_Print ("request to resize to %dx%d", ev->xresizerequest.width, ev->xresizerequest.height);
             break;
+
         case FocusIn:
             if (ev->xfocus.mode != NotifyWhileGrabbed) {
                 //RL_Print ("FocusIn, type = %d, window = %x\n", ev->xfocus.type, ev->xfocus.window);
                 gob = Find_Gob_By_Window(ev->xfocus.window);
                 if (gob && !GET_GOB_FLAG(gob, GOBS_ACTIVE)) {
                     SET_GOB_FLAG(gob, GOBS_ACTIVE);
-                    Add_Event_XY(gob, EVT_ACTIVE, 0, 0);
+                    Add_Event_XY(gob, SYM_ACTIVE, 0, 0);
                 }
             }
             break;
+
         case FocusOut:
             if (ev->xfocus.mode != NotifyWhileGrabbed) {
                 //RL_Print ("FocusOut, type = %d, window = %x\n", ev->xfocus.type, ev->xfocus.window);
                 gob = Find_Gob_By_Window(ev->xfocus.window);
                 if (gob && GET_GOB_FLAG(gob, GOBS_ACTIVE)) {
                     CLR_GOB_FLAG(gob, GOBS_ACTIVE);
-                    Add_Event_XY(gob, EVT_INACTIVE, 0, 0);
+                    Add_Event_XY(gob, SYM_INACTIVE, 0, 0);
                 }
             }
             break;
+
         case DestroyNotify:
             //RL_Print ("destroyed %x\n", ev->xdestroywindow.window);
             gob = Find_Gob_By_Window(ev->xdestroywindow.window);
@@ -841,30 +890,36 @@ void Dispatch_Event(XEvent *ev)
                 Free_Window(gob);
             }
             break;
+
         case ClientMessage:
             //printf("closed\n");
             handle_client_message(ev);
             break;
+
         case PropertyNotify:
             /* check if it's fullscreen */
             gob = Find_Gob_By_Window(ev->xproperty.window); /*this event could come after window is free'ed */
             if (gob != NULL)
                 handle_property_notify(ev, gob);
             break;
+
         case ConfigureNotify:
             gob = Find_Gob_By_Window(ev->xconfigure.window);
             if (gob != NULL) {
                 handle_configure_notify(ev, gob);
             }
             break;
+
         case SelectionRequest:
             //printf("SelectionRequest\n");
             handle_selection_request(ev);
             break;
+
         case SelectionNotify:
             //printf("SelectionNotify\n");
             handle_selection_notify(ev);
             break;
+
         case SelectionClear:
             if (global_x_info->selection.data != NULL) {
                 rebFree(global_x_info->selection.data);
@@ -872,6 +927,7 @@ void Dispatch_Event(XEvent *ev)
                 global_x_info->selection.data_length = 0;
             }
             break;
+
         case MapNotify:
             //printf("Window %x is mapped\n", ev->xmap.window);
             {
@@ -881,6 +937,7 @@ void Dispatch_Event(XEvent *ev)
                 }
             }
             break;
+
         case ReparentNotify:
             //printf("Window %x is reparented to %x\n", ev->xreparent.window, ev->xreparent.parent);
             {
@@ -890,6 +947,7 @@ void Dispatch_Event(XEvent *ev)
                 }
             }
             break;
+
         default:
             //printf("default event type: %d\n", ev->type);
             break;

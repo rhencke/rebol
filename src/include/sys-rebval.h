@@ -207,9 +207,15 @@
     FLAG_LEFT_BIT(20)
 
 
-//=//// CELL_FLAG_UNUSED_21 ///////////////////////////////////////////////=//
+//=//// CELL_FLAG_EXTRA_IS_CUSTOM_NODE ////////////////////////////////////=//
 //
-#define CELL_FLAG_UNUSED_21 \
+// This flag is used on cells to indicate that their EXTRA() field should
+// be marked as a node by the GC.  It is used by GOB! and STRUCT! to indicate
+// that their "details" REBARR* need to be marked, without needing to hook
+// the garbage collector in a more invasive way.  Some EVENT! use this when
+// they wish to refer to a series, but others can use it as a raw data.
+//
+#define CELL_FLAG_EXTRA_IS_CUSTOM_NODE \
     FLAG_LEFT_BIT(21)
 
 
@@ -313,7 +319,7 @@ inline static union Reb_Header Endlike_Header(uintptr_t bits) {
 
 #define CELL_MASK_COPY \
     ~(CELL_MASK_PERSIST | NODE_FLAG_MARKED | CELL_FLAG_PROTECTED \
-        | CELL_FLAG_ENFIXED | CELL_FLAG_UNEVALUATED | CELL_FLAG_UNUSED_21)
+        | CELL_FLAG_ENFIXED | CELL_FLAG_UNEVALUATED)
 
 
 //=//// CELL's `EXTRA` FIELD DEFINITION ///////////////////////////////////=//
@@ -371,8 +377,14 @@ union Reb_Custom {  // needed to beat strict aliasing, used in payload
     uintptr_t u;
     intptr_t i;
     int_fast32_t i32;
-    REBD32 f;  // 32-bit float, typically just `float`, needs own union member
-    bool b;  // "wasteful" to just use for one flag, but fast to read/write
+    REBD32 d32;  // 32-bit float not in C standard, typically just `float`
+    bool flag;  // "wasteful" to just use for one flag, but fast to read/write
+
+    // Note: do *not* add more subtypes (e.g. `REBSER* ser` or `REBARR* arr`)
+    // The GC is only marking one field in the union, so that's the only
+    // field that should be active.
+    //
+    REBNOD *node;  // if in EXTRA(), must set CELL_FLAG_EXTRA_IS_CUSTOM_NODE
 };
 
 union Reb_Bytes_Extra {
@@ -506,20 +518,6 @@ struct Reb_Library_Payload  // see %sys-library.h
     REBARR *singular;  // File discriptor in LINK.fd, meta in MISC.meta 
 };
 
-struct Reb_Image_Payload  // !!! want to move to custom/extension 
-{
-    REBARR *details;  // 3 element array: width, height, RGBA bin
-
-    // !!! Note: position in R3-Alpha was an index, not a pair.  It has been
-    // subsumed into the BINARY! element of the image, but might should be
-    // a separate PAIR! here if positional images are a good idea.
-};
-
-struct Reb_Vector_Payload  // !!! want to move to custom/extension
-{
-    REBVAL *paired;  // Cell for BINARY! and cell for properties
-};
-
 struct Reb_Custom_Payload  // generic, for adding payloads after-the-fact
 {
     union Reb_Custom first;
@@ -564,8 +562,6 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     struct Reb_Handle_Payload Handle;
     struct Reb_Library_Payload Library;
 
-    struct Reb_Vector_Payload Vector;  // !!! Temporary (will use custom type)
-    struct Reb_Image_Payload Image;  // !!! Temporary (will use custom type)
     struct Reb_Partial_Payload Partial;  // internal (see REB_X_PARTIAL)
 
     struct Reb_Custom_Payload Custom;

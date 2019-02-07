@@ -385,9 +385,6 @@ REBINT Cmp_Value(const RELVAL *sval, const RELVAL *tval, bool is_case)
       case REB_PAIR:
         return Cmp_Pair(s, t);
 
-      case REB_EVENT:
-        return Cmp_Event(s, t);
-
       case REB_TUPLE:
         return Cmp_Tuple(s, t);
 
@@ -451,6 +448,10 @@ REBINT Cmp_Value(const RELVAL *sval, const RELVAL *tval, bool is_case)
       case REB_STRUCT:
         fail ("Temporary disablement of comparison of STRUCT!");
         /* return Cmp_Struct(s, t); */
+
+      case REB_EVENT:
+        fail ("Temporary disablement of comparison of EVENT!");
+        /* return Cmp_Event(s, t); */
 
       case REB_BLANK:
       case REB_MAX_NULLED: // !!! should nulls be allowed at this level?

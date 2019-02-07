@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -27,14 +27,35 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Events are kept compact in order to fit into normal 128 bit
-// values cells. This provides high performance for high frequency
-// events and also good memory efficiency using standard series.
+// See %src/extensions/event/README.md
 //
 
 #include "sys-core.h"
-#include "reb-evtypes.h"
 #include "reb-event.h"
+
+
+//
+//  Cmp_Event: C
+//
+// Given two events, compare them.
+//
+// !!! Like much of the comprarison code in R3-Alpha, this isn't very good.
+// It doesn't check key codes, doesn't check if EVF_HAS_XY but still compares
+// the x and y coordinates anyway...
+//
+REBINT Cmp_Event(const REBCEL *t1, const REBCEL *t2)
+{
+    REBINT  diff;
+
+    if (
+           (diff = VAL_EVENT_MODEL(t1) - VAL_EVENT_MODEL(t2))
+        || (diff = VAL_EVENT_TYPE(t1) - VAL_EVENT_TYPE(t2))
+        || (diff = VAL_EVENT_X(t1) - VAL_EVENT_X(t2))
+        || (diff = VAL_EVENT_Y(t1) - VAL_EVENT_Y(t2))
+    ) return diff;
+
+    return 0;
+}
 
 
 //
@@ -47,24 +68,6 @@ REBINT CT_Event(const REBCEL *a, const REBCEL *b, REBINT mode)
     return -1;
 }
 
-
-//
-//  Cmp_Event: C
-//
-// Given two events, compare them.
-//
-REBINT Cmp_Event(const REBCEL *t1, const REBCEL *t2)
-{
-    REBINT  diff;
-
-    if (
-           (diff = VAL_EVENT_MODEL(t1) - VAL_EVENT_MODEL(t2))
-        || (diff = VAL_EVENT_TYPE(t1) - VAL_EVENT_TYPE(t2))
-        || (diff = VAL_EVENT_XY(t1) - VAL_EVENT_XY(t2))
-    ) return diff;
-
-    return 0;
-}
 
 
 //
@@ -81,91 +84,86 @@ static bool Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val)
         if (not IS_WORD(val) and not IS_QUOTED_WORD(val))
             return false;
 
-        REBSTR *canon = VAL_WORD_CANON(VAL_UNESCAPED(val));
+        REBSYM type_sym = VAL_WORD_SYM(val);
 
         RELVAL *typelist = Get_System(SYS_VIEW, VIEW_EVENT_TYPES);
         assert(IS_BLOCK(typelist));
+        UNUSED(typelist);  // We now support a wider range of words...
 
-        RELVAL *item = VAL_ARRAY_HEAD(typelist);
-        REBINT n;
-        for (n = 0; NOT_END(item); ++item, ++n) {
-            if (IS_WORD(item) and VAL_WORD_CANON(item) == canon) {
-                VAL_EVENT_TYPE(event) = n;
-                return true;
-            }
-        }
-        fail (val); }
+        if (type_sym == SYM_0)  // !!! ...but for now, only symbols
+            fail ("EVENT! only takes types that are compile-time symbols");
 
-    case SYM_PORT:
+        SET_VAL_EVENT_TYPE(event, type_sym);
+        return true; }
+
+      case SYM_PORT:
         if (IS_PORT(val)) {
-            VAL_EVENT_MODEL(event) = EVM_PORT;
-            mutable_VAL_EVENT_SER(event) = SER(CTX_VARLIST(VAL_CONTEXT(val)));
+            mutable_VAL_EVENT_MODEL(event) = EVM_PORT;
+            SET_VAL_EVENT_NODE(event, CTX_VARLIST(VAL_CONTEXT(val)));
         }
         else if (IS_OBJECT(val)) {
-            VAL_EVENT_MODEL(event) = EVM_OBJECT;
-            mutable_VAL_EVENT_SER(event) = SER(CTX_VARLIST(VAL_CONTEXT(val)));
+            mutable_VAL_EVENT_MODEL(event) = EVM_OBJECT;
+            SET_VAL_EVENT_NODE(event, CTX_VARLIST(VAL_CONTEXT(val)));
         }
         else if (IS_BLANK(val)) {
-            VAL_EVENT_MODEL(event) = EVM_GUI;
+            mutable_VAL_EVENT_MODEL(event) = EVM_GUI;
+            SET_VAL_EVENT_NODE(event, nullptr);
         }
         else
             return false;
         break;
 
-    case SYM_WINDOW:
-    case SYM_GOB:
-        if (IS_GOB(val)) {
-            //
-            // !!! EVENT! needs to allocate a pairing to store a GOB! value,
-            // because the implementation of GOB! is opaque to it.  This
-            // is probably fine because events generally probably don't
-            // want to try to store everything in one cell.  TBD.
-            //
-            VAL_EVENT_MODEL(event) = EVM_GUI;
-            TRASH_POINTER_IF_DEBUG(mutable_VAL_EVENT_SER(event));
-            /* mutable_VAL_EVENT_SER(event) = cast(REBSER*, VAL_GOB(val)); */
+      case SYM_WINDOW:
+      case SYM_GOB:
+        if (IS_GOB(val)) {  // optimized to extract just the GOB's node
+            mutable_VAL_EVENT_MODEL(event) = EVM_GUI;
+            SET_VAL_EVENT_NODE(event, VAL_GOB(val)); 
             break;
         }
         return false;
 
-    case SYM_OFFSET:
-        if (IS_PAIR(val)) {
-            SET_EVENT_XY(
-                event,
-                Float_Int16(VAL_PAIR_X_DEC(val)),
-                Float_Int16(VAL_PAIR_Y_DEC(val))
-            );
+      case SYM_OFFSET:
+        if (IS_NULLED(val)) {  // use null to unset the coordinates
+            mutable_VAL_EVENT_FLAGS(event) &= ~EVF_HAS_XY;
+          #if !defined(NDEBUG)
+            SET_VAL_EVENT_X(event, 1020);
+            SET_VAL_EVENT_Y(event, 304);
+          #endif
+            return true;
         }
-        else
-            return false;
-        break;
 
-    case SYM_KEY:
-        //VAL_EVENT_TYPE(event) != EVT_KEY && VAL_EVENT_TYPE(value) != EVT_KEY_UP)
-        VAL_EVENT_MODEL(event) = EVM_GUI;
+        if (not IS_PAIR(val))  // historically seems to have only taken PAIR!
+            return false;
+
+        mutable_VAL_EVENT_FLAGS(event) |= EVF_HAS_XY;
+        SET_VAL_EVENT_X(event, VAL_PAIR_X_INT(val));
+        SET_VAL_EVENT_Y(event, VAL_PAIR_Y_INT(val));
+        return true;
+
+      case SYM_KEY:
+        mutable_VAL_EVENT_MODEL(event) = EVM_GUI;
         if (IS_CHAR(val)) {
-            VAL_EVENT_DATA(event) = VAL_CHAR(val);
+            SET_VAL_EVENT_KEYCODE(event, VAL_CHAR(val));
+            SET_VAL_EVENT_KEYSYM(event, SYM_NONE);
         }
         else if (IS_WORD(val) or IS_QUOTED_WORD(val)) {
-            REBSTR *canon = VAL_WORD_CANON(VAL_UNESCAPED(val));
-
             RELVAL *event_keys = Get_System(SYS_VIEW, VIEW_EVENT_KEYS);
             assert(IS_BLOCK(event_keys));
-            RELVAL *item = VAL_ARRAY_AT(event_keys);
-            REBINT n;
-            for (n = VAL_INDEX(item); NOT_END(item); ++n, ++item) {
-                if (IS_WORD(item) && VAL_WORD_CANON(item) == canon) {
-                    VAL_EVENT_DATA(event) = (n + 1) << 16;
-                    break;
-                }
-            }
-            return false;
+            UNUSED(event_keys);  // we can use any key name, but...
+
+            REBSYM sym = VAL_WORD_SYM(val);  // ...has to be symbol (for now)
+            if (sym == SYM_0)
+                fail ("EVENT! only takes keys that are compile-time symbols");
+
+            SET_VAL_EVENT_KEYSYM(event, sym);
+            SET_VAL_EVENT_KEYCODE(event, 0);  // should this be set?
+            return true;
         }
         else
             return false;
         break;
 
-    case SYM_CODE:
+      case SYM_CODE:
         if (IS_INTEGER(val)) {
             VAL_EVENT_DATA(event) = VAL_INT32(val);
         }
@@ -173,11 +171,12 @@ static bool Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val)
             return false;
         break;
 
-    case SYM_FLAGS: {
+      case SYM_FLAGS: {
         if (not IS_BLOCK(val))
             return false;
 
-        VAL_EVENT_FLAGS(event) &= ~(EVF_DOUBLE | EVF_CONTROL | EVF_SHIFT);
+        mutable_VAL_EVENT_FLAGS(event)
+            &= ~(EVF_DOUBLE | EVF_CONTROL | EVF_SHIFT);
 
         RELVAL *item;
         for (item = VAL_ARRAY_HEAD(val); NOT_END(item); ++item) {
@@ -186,15 +185,15 @@ static bool Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val)
 
             switch (VAL_WORD_SYM(item)) {
             case SYM_CONTROL:
-                VAL_EVENT_FLAGS(event) |= EVF_CONTROL;
+                mutable_VAL_EVENT_FLAGS(event) |= EVF_CONTROL;
                 break;
 
             case SYM_SHIFT:
-                VAL_EVENT_FLAGS(event) |= EVF_SHIFT;
+                mutable_VAL_EVENT_FLAGS(event) |= EVF_SHIFT;
                 break;
 
             case SYM_DOUBLE:
-                VAL_EVENT_FLAGS(event) |= EVF_DOUBLE;
+                mutable_VAL_EVENT_FLAGS(event) |= EVF_DOUBLE;
                 break;
 
             default:
@@ -203,7 +202,7 @@ static bool Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val)
         }
         break; }
 
-    default:
+      default:
         return false;
     }
 
@@ -247,75 +246,57 @@ void Set_Event_Vars(REBVAL *evt, RELVAL *blk, REBSPC *specifier)
 static REBVAL *Get_Event_Var(RELVAL *out, const REBCEL *v, REBSTR *name)
 {
     switch (STR_SYMBOL(name)) {
-    case SYM_TYPE: {
-        if (VAL_EVENT_TYPE(v) == 0)
-            return Init_Blank(out);
+      case SYM_TYPE: {
+        if (VAL_EVENT_TYPE(v) == SYM_NONE)  // !!! Should this ever happen?
+            return nullptr;
 
-        REBVAL *arg = Get_System(SYS_VIEW, VIEW_EVENT_TYPES);
-        if (IS_BLOCK(arg) && VAL_LEN_HEAD(arg) >= EVT_MAX) {
-            return Derelativize(
-                out,
-                VAL_ARRAY_AT_HEAD(arg, VAL_EVENT_TYPE(v)),
-                VAL_SPECIFIER(arg)
-            );
-        }
-        return Init_Blank(out); }
+        REBSYM typesym = VAL_EVENT_TYPE(v);
+        return Init_Word(out, Canon(typesym)); }
 
-    case SYM_PORT: {
-        if (IS_EVENT_MODEL(v, EVM_GUI)) // "most events are for the GUI"
+      case SYM_PORT: {
+        if (VAL_EVENT_MODEL(v) == EVM_GUI)  // "most events are for the GUI"
             return Move_Value(out, Get_System(SYS_VIEW, VIEW_EVENT_PORT));
 
-        if (IS_EVENT_MODEL(v, EVM_PORT))
-            return Init_Port(out, CTX(VAL_EVENT_SER(v)));
+        if (VAL_EVENT_MODEL(v) == EVM_PORT)
+            return Init_Port(out, CTX(VAL_EVENT_NODE(v)));
 
-        if (IS_EVENT_MODEL(v, EVM_OBJECT))
-            return Init_Object(out, CTX(VAL_EVENT_SER(v)));
+        if (VAL_EVENT_MODEL(v) == EVM_OBJECT)
+            return Init_Object(out, CTX(VAL_EVENT_NODE(v)));
 
-        if (IS_EVENT_MODEL(v, EVM_CALLBACK))
+        if (VAL_EVENT_MODEL(v) == EVM_CALLBACK)
             return Move_Value(out, Get_System(SYS_PORTS, PORTS_CALLBACK));
 
-        assert(IS_EVENT_MODEL(v, EVM_DEVICE)); // holds IO request w/PORT!
-        REBREQ *req = VAL_EVENT_REQ(v);
-        if (not req or not req->port_ctx)
-            return Init_Blank(out);
+        assert(VAL_EVENT_MODEL(v) == EVM_DEVICE);  // holds IO request w/PORT!
+        REBREQ *req = cast(REBREQ*, VAL_EVENT_NODE(v));
+        if (not req or not ReqPortCtx(req))
+            return nullptr;
 
         return Init_Port(out, CTX(req->port_ctx)); }
 
-    case SYM_WINDOW:
-    case SYM_GOB: {
-        if (IS_EVENT_MODEL(v, EVM_GUI)) {
-            if (VAL_EVENT_SER(v)) {
-                return nullptr;  // should be returning contained GOB!
-                /* return Init_Gob(out, cast(REBGOB*, VAL_EVENT_SER(v))); */
-            }
+      case SYM_WINDOW:
+      case SYM_GOB: {
+        if (VAL_EVENT_MODEL(v) == EVM_GUI) {
+            if (VAL_EVENT_NODE(v))
+                return Init_Gob(out, cast(REBGOB*, VAL_EVENT_NODE(v)));
         }
-        return Init_Blank(out); }
+        return nullptr; }
 
-    case SYM_OFFSET: {
-        if (VAL_EVENT_TYPE(v) == EVT_KEY || VAL_EVENT_TYPE(v) == EVT_KEY_UP)
-            return Init_Blank(out);
+      case SYM_OFFSET: {
+        if (not (VAL_EVENT_FLAGS(v) & EVF_HAS_XY))
+            return nullptr;
+
         return Init_Pair_Int(out, VAL_EVENT_X(v), VAL_EVENT_Y(v)); }
 
-    case SYM_KEY: {
-        if (VAL_EVENT_TYPE(v) != EVT_KEY && VAL_EVENT_TYPE(v) != EVT_KEY_UP)
-            return Init_Blank(out);
+      case SYM_KEY: {
+        if (VAL_EVENT_TYPE(v) != SYM_KEY and VAL_EVENT_TYPE(v) != SYM_KEY_UP)
+            return nullptr;
 
-        REBINT n = VAL_EVENT_DATA(v); // key-words in top 16, char in lower 16
-        if (n & 0xffff0000) {
-            REBVAL *arg = Get_System(SYS_VIEW, VIEW_EVENT_KEYS);
-            n = (n >> 16) - 1;
-            if (IS_BLOCK(arg) && n < cast(REBINT, VAL_LEN_HEAD(arg))) {
-                return Derelativize(
-                    out,
-                    VAL_ARRAY_AT_HEAD(arg, n),
-                    VAL_SPECIFIER(arg)
-                );
-            }
-            return Init_Blank(out);
-        }
-        return Init_Char(out, n); }
+        if (VAL_EVENT_KEYSYM(v) != SYM_0)
+            return Init_Word(out, Canon(VAL_EVENT_KEYSYM(v)));
 
-    case SYM_FLAGS:
+        return Init_Char(out, VAL_EVENT_KEYCODE(v)); }
+
+      case SYM_FLAGS:
         if (
             (VAL_EVENT_FLAGS(v) & (EVF_DOUBLE | EVF_CONTROL | EVF_SHIFT)) != 0
         ){
@@ -332,21 +313,20 @@ static REBVAL *Get_Event_Var(RELVAL *out, const REBCEL *v, REBSTR *name)
 
             return Init_Block(out, arr);
         }
-        return Init_Blank(out);
+        return nullptr;
 
-    case SYM_CODE: {
-        if (VAL_EVENT_TYPE(v) != EVT_KEY && VAL_EVENT_TYPE(v) != EVT_KEY_UP)
-            return Init_Blank(out);
-        REBINT n = VAL_EVENT_DATA(v); // key-words in top 16, char in lower 16
-        return Init_Integer(out, n); }
+      case SYM_CODE: {
+        if (VAL_EVENT_TYPE(v) != SYM_KEY and VAL_EVENT_TYPE(v) != SYM_KEY_UP)
+            return nullptr;
 
-    case SYM_DATA: {
-        // Event holds a file string:
-        if (VAL_EVENT_TYPE(v) != EVT_DROP_FILE)
-            return Init_Blank(out);
+        return Init_Integer(out, VAL_EVENT_KEYCODE(v)); }
+
+      case SYM_DATA: {  // Event holds a FILE!'s string
+        if (VAL_EVENT_TYPE(v) != SYM_DROP_FILE)
+            return nullptr;
 
         if (not (VAL_EVENT_FLAGS(v) & EVF_COPIED)) {
-            void *str = VAL_EVENT_SER(v);
+            void *str = VAL_EVENT_NODE(v);  // !!! can only store nodes!
 
             // !!! This modifies a const-marked values's bits, which
             // is generally a bad thing.  The reason it appears to be doing
@@ -357,16 +337,15 @@ static REBVAL *Get_Event_Var(RELVAL *out, const REBCEL *v, REBSTR *name)
             //
             REBVAL *writable = m_cast(REBVAL*, KNOWN(v));
 
-            mutable_VAL_EVENT_SER(writable)
-                = Copy_Bytes(cast(REBYTE*, str), -1);
-            VAL_EVENT_FLAGS(writable) |= EVF_COPIED;
+            SET_VAL_EVENT_NODE(writable, Copy_Bytes(cast(REBYTE*, str), -1));
+            mutable_VAL_EVENT_FLAGS(writable) |= EVF_COPIED;
 
             free(str);
         }
-        return Init_File(out, VAL_EVENT_SER(v)); }
+        return Init_File(out, SER(VAL_EVENT_NODE(v))); }
 
-    default:
-        return Init_Blank(out);
+      default:
+        return nullptr;
     }
 }
 
@@ -395,7 +374,12 @@ REB_R MAKE_Event(
     if (not IS_BLOCK(arg))
         fail (Error_Unexpected_Type(REB_EVENT, VAL_TYPE(arg)));
 
-    RESET_CELL(out, REB_EVENT);
+    RESET_CELL_CORE(out, REB_EVENT, CELL_FLAG_EXTRA_IS_CUSTOM_NODE);
+    SET_VAL_EVENT_NODE(out, nullptr);
+    SET_VAL_EVENT_TYPE(out, SYM_NONE);  // SYM_0 shouldn't be used
+    mutable_VAL_EVENT_FLAGS(out) = EVF_MASK_NONE;
+    mutable_VAL_EVENT_MODEL(out) = EVM_PORT;  // ?
+
     Set_Event_Vars(out, VAL_ARRAY_AT(arg), VAL_SPECIFIER(arg));
     return out;
 }
@@ -424,13 +408,9 @@ REB_R PD_Event(
 ){
     if (IS_WORD(picker)) {
         if (opt_setval == NULL) {
-            if (IS_BLANK(Get_Event_Var(
+            return Get_Event_Var(
                 pvs->out, pvs->out, VAL_WORD_CANON(picker)
-            ))){
-                return R_UNHANDLED;
-            }
-
-            return pvs->out;
+            );
         }
         else {
             if (!Set_Event_Var(pvs->out, picker, opt_setval))
@@ -475,8 +455,7 @@ void MF_Event(REB_MOLD *mo, const REBCEL *v, bool form)
     DECLARE_LOCAL (var); // declare outside loop (has init code)
 
     for (field = 0; fields[field] != SYM_0; field++) {
-        Get_Event_Var(var, v, Canon(fields[field]));
-        if (IS_BLANK(var))
+        if (not Get_Event_Var(var, v, Canon(fields[field])))
             continue;
 
         New_Indented_Line(mo);

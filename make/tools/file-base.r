@@ -121,7 +121,6 @@ core: [
     ; (P)orts
     p-dir.c
     p-dns.c
-    p-event.c
     p-file.c
     p-net.c
     p-serial.c
@@ -146,7 +145,6 @@ core: [
     t-datatype.c
     t-date.c
     t-decimal.c
-    t-event.c
     t-function.c
     t-integer.c
     t-library.c

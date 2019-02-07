@@ -91,9 +91,6 @@
 // moment, they still need the hook.
 //
 
-#include "reb-evtypes.h"
-static void Queue_Mark_Event_Deep(const REBCEL *value);
-
 static void Mark_Devices_Deep(void);
 
 
@@ -131,6 +128,9 @@ static inline void Unmark_Rebser(REBSER *rebser) {
 }
 
 
+static void Queue_Mark_Node_Deep(REBNOD *n);
+
+
 //
 //  Queue_Mark_Array_Subclass_Deep: C
 //
@@ -159,6 +159,11 @@ static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
     if (GET_SERIES_FLAG(a, MARKED))
         return; // may not be finished marking yet, but has been queued
 
+    if (GET_SERIES_INFO(a, LINK_IS_CUSTOM_NODE))
+        Queue_Mark_Node_Deep(LINK(a).custom.node);
+    if (GET_SERIES_INFO(a, MISC_IS_CUSTOM_NODE))
+        Queue_Mark_Node_Deep(MISC(a).custom.node);
+
     Mark_Rebser_Only(cast(REBSER*, a));
 
     // Add series to the end of the mark stack series.  The length must be
@@ -173,7 +178,7 @@ static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
     SET_SERIES_LEN(GC_Mark_Stack, SER_LEN(GC_Mark_Stack) + 1); // unterminated
 }
 
-inline static void Queue_Mark_Array_Deep(REBARR *a) { // plain array
+inline static void Queue_Mark_Array_Deep(REBARR *a) {  // plain/custom array
     assert(NOT_ARRAY_FLAG(a, IS_VARLIST));
     assert(NOT_ARRAY_FLAG(a, IS_PARAMLIST));
     assert(NOT_ARRAY_FLAG(a, IS_PAIRLIST));
@@ -181,10 +186,10 @@ inline static void Queue_Mark_Array_Deep(REBARR *a) { // plain array
     if (GET_ARRAY_FLAG(a, HAS_FILE_LINE))
         LINK(a).file->header.bits |= NODE_FLAG_MARKED;
 
-    Queue_Mark_Array_Subclass_Deep(a);
+    Queue_Mark_Array_Subclass_Deep(a);  // may mark LINK() and MISC()
 }
 
-inline static void Queue_Mark_Context_Deep(REBCTX *c) { // ARRAY_FLAG_IS_VARLIST
+inline static void Queue_Mark_Context_Deep(REBCTX *c) {
     REBARR *varlist = CTX_VARLIST(c);
     assert(
         GET_SERIES_INFO(varlist, INACCESSIBLE)
@@ -199,7 +204,7 @@ inline static void Queue_Mark_Context_Deep(REBCTX *c) { // ARRAY_FLAG_IS_VARLIST
     Queue_Mark_Array_Subclass_Deep(varlist); // see Propagate_All_GC_Marks()
 }
 
-inline static void Queue_Mark_Action_Deep(REBACT *a) { // ARRAY_FLAG_IS_PARAMLIST
+inline static void Queue_Mark_Action_Deep(REBACT *a) {
     REBARR *paramlist = ACT_PARAMLIST(a);
     assert(
         SERIES_MASK_ACTION == (SER(paramlist)->header.bits & (
@@ -213,7 +218,7 @@ inline static void Queue_Mark_Action_Deep(REBACT *a) { // ARRAY_FLAG_IS_PARAMLIS
     Queue_Mark_Array_Subclass_Deep(paramlist); // see Propagate_All_GC_Marks()
 }
 
-inline static void Queue_Mark_Map_Deep(REBMAP *m) { // ARRAY_FLAG_IS_PAIRLIST
+inline static void Queue_Mark_Map_Deep(REBMAP *m) {
     REBARR *pairlist = MAP_PAIRLIST(m);
     assert(
         ARRAY_FLAG_IS_PAIRLIST == (SER(pairlist)->header.bits & (
@@ -301,6 +306,70 @@ inline static void Queue_Mark_Value_Deep(const RELVAL *v)
     assert(KIND_BYTE_UNCHECKED(v) != REB_MAX_NULLED); // Unreadable blank ok
     Queue_Mark_Opt_End_Cell_Deep(v);
 }
+
+
+// Ren-C's PAIR! uses a special kind of REBSER that does no additional memory
+// allocation, but embeds two REBVALs in the REBSER itself.  A REBVAL has a
+// uintptr_t header at the beginning of its struct, just like a REBSER, and
+// the NODE_FLAG_MARKED bit is a 0 if unmarked...so it can stealthily
+// participate in the marking, as long as the bit is cleared at the end.
+
+// !!! Marking a pairing has the same recursive problems than an array does,
+// while not being an array.  So technically we should queue it, but we
+// don't have any real world examples of "deeply nested pairings", as they
+// are used only in optimized internal structures...the PAIR! datatype only
+// allows INTEGER! and DECIMAL! so you can't overflow the stack with it.
+//
+// Hence we cheat and don't actually queue, for now.
+//
+static void Queue_Mark_Pairing_Deep(REBVAL *paired)
+{
+  #if !defined(NDEBUG)
+    bool was_in_mark = in_mark;
+    in_mark = false;  // would assert about the recursion otherwise
+  #endif
+
+    Queue_Mark_Opt_Value_Deep(paired);
+    Queue_Mark_Opt_Value_Deep(PAIRING_KEY(paired));
+
+    // Caution note: We are writing this bit through the uint_fast32_t `bits`
+    // of a REBVAL* header pointer, but we visit the series pool with a
+    // REBSER*.  It would be unsafe to read it back via the `bits` field and
+    // expect it to work -except- we are reading as a byte, and byte access
+    // gets past strict aliasing.  Watch out for any non-byte accesses that
+    // try to work with this flag.  (Perhaps all MARKED access should go
+    // through a byte-oriented API, as with IS_END()?)
+    //
+    paired->header.bits |= NODE_FLAG_MARKED;
+
+  #if !defined(NDEBUG)
+    in_mark = was_in_mark;
+  #endif
+}
+
+
+// This is a generic mark routine, which can sense what type a node is and
+// automatically figure out how to mark it.  It takes into account if the
+// series was created by an extension and poked nodes into the `custom`
+// fields of LINK() and MISC(), which is the only way to "hook" the GC.
+//
+static void Queue_Mark_Node_Deep(REBNOD *n)
+{
+    if (not n)
+        return;  // nulls are allowed by generic marking
+
+    if (n->header.bits & NODE_FLAG_CELL) {  // e.g. a pairing
+        Queue_Mark_Pairing_Deep(VAL(n));
+        return;  // it's 2 cells, sizeof(REBSER), but no room for REBSER data
+    }
+    REBSER *s = SER(n);
+    if (IS_SER_ARRAY(s))
+        Queue_Mark_Array_Subclass_Deep(ARR(s));
+    else
+        Mark_Rebser_Only(s);
+}
+
+
 
 
 //
@@ -530,18 +599,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         }
         break; }
 
-      case REB_IMAGE:
-        Queue_Mark_Array_Deep(PAYLOAD(Image, v).details);
-        break;
-
-      case REB_VECTOR: {
-        REBVAL *paired = PAYLOAD(Vector, v).paired;
-        assert(IS_BINARY(paired));
-        Mark_Rebser_Only(VAL_BINARY(paired));
-        assert(KIND_BYTE(PAIRING_KEY(paired)) == REB_V_SIGN_INTEGRAL_WIDE);
-        paired->header.bits |= NODE_FLAG_MARKED;  // read back as REBYTE: safe
-        break; }
-
       case REB_LOGIC:
       case REB_INTEGER:
       case REB_DECIMAL:
@@ -551,18 +608,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         break;
 
       case REB_PAIR: {
-        //
-        // Ren-C's PAIR! uses a special kind of REBSER that does no additional
-        // memory allocation, but embeds two REBVALs in the REBSER itself.
-        // A REBVAL has a uintptr_t header at the beginning of its struct,
-        // just like a REBSER, and the NODE_FLAG_MARKED bit is a 0
-        // if unmarked...so it can stealthily participate in the marking
-        // process, as long as the bit is cleared at the end.
-        //
-        REBVAL *paired = PAYLOAD(Pair, v).paired;
-        // !!! Currently only stores INTEGER! and DECIMAL!, don't need to
-        // mark, but if they become arbitrary precision they would need to be
-        paired->header.bits |= NODE_FLAG_MARKED;  // read back as REBYTE: safe
+        REBVAL *p = PAYLOAD(Pair, v).paired;
+        Queue_Mark_Pairing_Deep(p);
         break; }
 
       case REB_TUPLE:
@@ -655,58 +702,73 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
 
         break; }
 
-      case REB_GOB: {
-        REBGOB *gob = cast(REBARR*, PAYLOAD(Custom, v).first.p);
-        Queue_Mark_Array_Deep(gob); // handles pane, content, data
+    //=//// CUSTOM EXTENSION TYPES ////////////////////////////////////////=//
 
-        REBGOB *parent = LINK(gob).parent;
-        if (parent)
-            Queue_Mark_Array_Deep(parent);
-
-        REBGOB *owner = MISC(gob).owner;
-        if (owner) // !!! Didn't seem to be used (?)
-            Queue_Mark_Array_Deep(owner);
+      case REB_IMAGE: {  // currently a 3-element array (could be a pairing)
+      #if !defined(NDEBUG)
+        assert(GET_CELL_FLAG(v, EXTRA_IS_CUSTOM_NODE));
+        REBARR *arr = ARR(EXTRA(Custom, v).node);
+        assert(ARR_LEN(arr) == 1);
+        assert(NOT_SERIES_INFO(arr, LINK_IS_CUSTOM_NODE));  // stores width
+        assert(NOT_SERIES_INFO(arr, MISC_IS_CUSTOM_NODE));  // stores hieght
+      #endif
+        Queue_Mark_Node_Deep(EXTRA(Custom, v).node);
         break; }
 
-      case REB_EVENT:
-        Queue_Mark_Event_Deep(v);
-        break;
+      case REB_VECTOR: {  // currently a pairing (BINARY! and an info cell)
+      #if !defined(NDEBUG)
+        assert(GET_CELL_FLAG(v, EXTRA_IS_CUSTOM_NODE));
+        REBVAL *p = VAL(EXTRA(Custom, v).node);
+        assert(IS_BINARY(p));
+        assert(KIND_BYTE(PAIRING_KEY(p)) == REB_V_SIGN_INTEGRAL_WIDE);
+      #endif
+        Queue_Mark_Node_Deep(EXTRA(Custom, v).node);
+        break; }
 
-      case REB_STRUCT: {
-        //
-        // !!! The ultimate goal for STRUCT! is that it be part of the FFI
-        // extension and fall into the category of a "user defined type".
-        // This essentially means it would be an opaque variant of a context.
-        // User-defined types aren't fully designed, so struct is achieved
-        // through a hacky set of hooks for now...but it does use arrays in
-        // a fairly conventional way that should translate to the user
-        // defined type system once it exists.
-        //
-        // The struct gets its GC'able identity and is passable by one
-        // pointer from the fact that it is a single-element array that
-        // contains the REBVAL of the struct itself.  (Because it is
-        // "singular" it is only a REBSER node--no data allocation.)
-        //
-        REBSTU *stu = cast(REBARR*, PAYLOAD(Custom, v).first.p);
-        Queue_Mark_Array_Deep(stu);
+      case REB_GOB: {  // 7-element REBARR
+      #if !defined(NDEBUG)
+        assert(GET_CELL_FLAG(v, EXTRA_IS_CUSTOM_NODE));
+        REBARR *gob = ARR(EXTRA(Custom, v).node);
+        assert(GET_SERIES_INFO(gob, LINK_IS_CUSTOM_NODE));
+        assert(GET_SERIES_INFO(gob, MISC_IS_CUSTOM_NODE));
+      #endif
+        Queue_Mark_Node_Deep(EXTRA(Custom, v).node);
+        break; }
 
-        // The schema is the hierarchical description of the struct.
-        //
-        REBFLD *schema = LINK(stu).schema;
-        Queue_Mark_Array_Deep(schema);
+      case REB_EVENT: {  // packed cell structure with one GC-able slot
+      #if !defined(NDEBUG)
+        assert(GET_CELL_FLAG(v, EXTRA_IS_CUSTOM_NODE));
+        REBNOD *n = EXTRA(Custom, v).node;  // REBGOB, DEVREQ, etc.
+        assert(n == nullptr or n->header.bits & NODE_FLAG_NODE);
+      #endif
+        Queue_Mark_Node_Deep(EXTRA(Custom, v).node);
 
-        // The data series needs to be marked.  It needs to be marked
-        // even for structs that aren't at the 0 offset--because their
-        // lifetime can be longer than the struct which they represent
-        // a "slice" out of.
-        //
-        // Note this may be a singular array handle, or it could be a BINARY!
-        //
-        REBSER *data = cast(REBSER*, PAYLOAD(Custom, v).second.p);
-        if (IS_SER_ARRAY(data))
-            Queue_Mark_Singular_Array(ARR(data));
-        else
-            Mark_Rebser_Only(data);
+        // REBREQ pretty much has to become a series node.  Work in progress.
+
+/*     if (IS_EVENT_MODEL(value, EVM_DEVICE)) {
+        // In the case of being an EVM_DEVICE event type, the port! will
+        // not be in VAL_EVENT_SER of the REBEVT structure.  It is held
+        // indirectly by the REBREQ ->req field of the event, which
+        // in turn possibly holds a singly linked list of other requests.
+        req = VAL_EVENT_REQ(value);
+
+        while (req) {
+            // Comment says void* ->port is "link back to REBOL port object"
+            if (req->port_ctx)
+                Queue_Mark_Context_Deep(CTX(req->port_ctx));
+            req = req->next;
+        }
+    }
+*/
+        break; }
+
+      case REB_STRUCT: {  // like an OBJECT!, but the "varlist" can be binary
+      #if !defined(NDEBUG)
+        assert(GET_CELL_FLAG(v, EXTRA_IS_CUSTOM_NODE));
+        REBSER *data = SER(EXTRA(Custom, v).node);
+        assert(BYTE_SIZE(data) or IS_SER_ARRAY(data));
+      #endif
+        Queue_Mark_Node_Deep(EXTRA(Custom, v).node);
         break; }
 
       case REB_LIBRARY: {
@@ -1457,7 +1519,7 @@ static REBCNT Sweep_Series(void)
                 //
                 if (s->header.bits & NODE_FLAG_CELL) {
                     assert(not (s->header.bits & NODE_FLAG_ROOT));
-                    Free_Node(SER_POOL, s); // Free_Pairing is for manuals
+                    Free_Node(SER_POOL, NOD(s));  // Free_Pairing for manuals
                 }
                 else
                     GC_Kill_Series(s);
@@ -1510,7 +1572,7 @@ static REBCNT Sweep_Series(void)
             if (v->header.bits & NODE_FLAG_MARKED)
                 v->header.bits &= ~NODE_FLAG_MARKED;
             else {
-                Free_Node(PAR_POOL, v); // Free_Pairing is for manuals
+                Free_Node(PAR_POOL, NOD(v));  // Free_Pairing is for manuals
                 ++count;
             }
         }
@@ -1874,71 +1936,6 @@ void Shutdown_GC(void)
 {
     Free_Unmanaged_Series(GC_Guarded);
     Free_Unmanaged_Series(GC_Mark_Stack);
-}
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// DEPRECATED HOOKS INTO THE CORE GARBAGE COLLECTOR
-//
-//=////////////////////////////////////////////////////////////////////////=//
-
-
-#include "reb-event.h" // !!! Events should not hook the GC :-/
-
-//
-//  Queue_Mark_Event_Deep: C
-//
-// 'Queue' refers to the fact that after calling this routine,
-// one will have to call Propagate_All_GC_Marks() to have the
-// deep transitive closure completely marked.
-//
-static void Queue_Mark_Event_Deep(const REBCEL *value)
-{
-    REBREQ *req;
-
-    if (
-        IS_EVENT_MODEL(value, EVM_PORT)
-        or IS_EVENT_MODEL(value, EVM_OBJECT)
-    ){
-        Queue_Mark_Context_Deep(CTX(VAL_EVENT_SER(value)));
-    }
-    else if (IS_EVENT_MODEL(value, EVM_GUI)) {
-        REBGOB *gob = cast(REBGOB*, VAL_EVENT_SER(value));
-        Queue_Mark_Array_Deep(gob);
-
-        REBGOB *parent = LINK(gob).parent;
-        if (parent)
-            Queue_Mark_Array_Deep(parent);
-
-        REBGOB *owner = MISC(gob).owner;
-        if (owner)
-            Queue_Mark_Array_Deep(owner);
-    }
-
-    // FIXME: This test is not in parallel to others.
-    if (
-        VAL_EVENT_TYPE(value) == EVT_DROP_FILE
-        and (VAL_EVENT_FLAGS(value) & EVF_COPIED)
-    ){
-        assert(false);
-        Queue_Mark_Array_Deep(ARR(VAL_EVENT_SER(value)));
-    }
-
-    if (IS_EVENT_MODEL(value, EVM_DEVICE)) {
-        // In the case of being an EVM_DEVICE event type, the port! will
-        // not be in VAL_EVENT_SER of the REBEVT structure.  It is held
-        // indirectly by the REBREQ ->req field of the event, which
-        // in turn possibly holds a singly linked list of other requests.
-        req = VAL_EVENT_REQ(value);
-
-        while (req) {
-            // Comment says void* ->port is "link back to REBOL port object"
-            if (req->port_ctx)
-                Queue_Mark_Context_Deep(CTX(req->port_ctx));
-            req = req->next;
-        }
-    }
 }
 
 

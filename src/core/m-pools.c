@@ -604,12 +604,11 @@ void Unmanage_Pairing(REBVAL *paired) {
 //
 void Free_Pairing(REBVAL *paired) {
     assert(NOT_CELL_FLAG(paired, MANAGED));
-    REBSER *s = cast(REBSER*, paired);
-    Free_Node(SER_POOL, s);
+    Free_Node(SER_POOL, NOD(paired));
 
   #if !defined(NDEBUG)
     #if defined(DEBUG_COUNT_TICKS)
-        s->tick = TG_Tick; // update to be tick on which node was freed
+        SER(NOD(paired))->tick = TG_Tick;  // tick where node was freed
     #endif
   #endif
 }
@@ -1133,7 +1132,7 @@ void GC_Kill_Series(REBSER *s)
     TRASH_POINTER_IF_DEBUG(MISC(s).trash);
     TRASH_POINTER_IF_DEBUG(LINK(s).trash);
 
-    Free_Node(SER_POOL, s);
+    Free_Node(SER_POOL, NOD(s));
 
     // GC may no longer be necessary:
     if (GC_Ballast > 0) CLR_SIGNAL(SIG_RECYCLE);

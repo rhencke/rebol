@@ -1339,31 +1339,23 @@ REB_R MAKE_Struct(
 // FINALIZE VALUE
 //
 
-    REBSTU *stu = Alloc_Singular(NODE_FLAG_MANAGED);
-
-    // Set it to blank so the Kill_Series can be called upon in case of error
-    // thrown before it is fully constructed.
-    //
-    Init_Blank(ARR_SINGLE(stu));
-
-    MANAGE_ARRAY(schema);
-    LINK(stu).schema = schema;
-
-    RESET_CELL(out, REB_STRUCT);
-    mutable_VAL_STRUCT(out) = stu;
+    REBSTU *stu
     if (raw_addr) {
-        mutable_VAL_STRUCT_DATA(out)
-            = make_ext_storage(
+        stu = make_ext_storage(
                 FLD_LEN_BYTES_TOTAL(schema), raw_size, raw_addr
             );
     }
     else {
         MANAGE_SERIES(data_bin);
-        mutable_VAL_STRUCT_DATA(out) = data_bin;
+        stu = mutable_VAL_STRUCT_DATA(out) = data_bin;
     }
-    VAL_STRUCT_OFFSET(out) = 0;
 
-    Move_Value(ARR_HEAD(stu), out);
+    MANAGE_ARRAY(schema);
+    LINK(stu).schema = schema;
+
+    RESET_CELL_CORE(out, REB_STRUCT, CELL_FLAG_EXTRA_IS_CUSTOM_NODE);
+    mutable_VAL_STRUCT(out) = stu;
+    VAL_STRUCT_OFFSET(out) = 0;
 
     return out;
 }

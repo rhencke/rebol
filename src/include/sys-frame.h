@@ -1282,7 +1282,7 @@ inline static void Drop_Action(REBFRM *f) {
             // This node could be reused vs. calling Make_Node() on the next
             // action invocation...but easier for the moment to let it go.
             //
-            Free_Node(SER_POOL, f->varlist);
+            Free_Node(SER_POOL, NOD(f->varlist));
             f->varlist = nullptr;
         }
     }

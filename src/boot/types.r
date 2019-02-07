@@ -457,7 +457,7 @@ gob         "graphical object"
             ?           ?       ?       ?       []
 
 event       "user interface event (efficiently sized)"
-            event       +       +       +       []
+            ?           ?       ?       ?       []
 
 handle      "arbitrary internal object or value"
             handle      -       -       +       []

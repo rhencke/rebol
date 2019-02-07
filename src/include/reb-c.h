@@ -504,7 +504,7 @@
         P pointer;
 
       public:
-        Never_Null () {}
+        Never_Null () : pointer () {}
         Never_Null (P& pointer) : pointer (pointer) {
             assert(pointer != nullptr);
         }
@@ -801,12 +801,6 @@
     #define FLAG_FOURTH_BYTE(b) \
         ((uintptr_t)(b) << (0 + (PLATFORM_BITS - 32)))
 
-    #define FLAG_FIRST_UINT16(u16) \
-        ((uintptr_t)(u16) << (16 + (PLATFORM_BITS - 32)))
-
-    #define FLAG_SECOND_UINT16(u16) \
-        ((uintptr_t)(u16) << (0 + (PLATFORM_BITS - 32)))
-
 #elif defined(ENDIAN_LITTLE) // Byte w/least significant bit first (e.g. x86)
 
     #define FLAG_LEFT_BIT(n) \
@@ -823,12 +817,6 @@
 
     #define FLAG_FOURTH_BYTE(b) \
         ((uintptr_t)(b) << 24)
-
-    #define FLAG_FIRST_UINT16(u16) \
-        ((uintptr_t)(u16))
-
-    #define FLAG_SECOND_UINT16(u16) \
-        ((uintptr_t)(u16) << 16)
 #else
     // !!! There are macro hacks which can actually make reasonable guesses
     // at endianness, and should possibly be used in the config if nothing is
@@ -867,17 +855,46 @@
 #define mutable_FOURTH_BYTE(flags) \
     ((unsigned char*)&(flags))[3]
 
+// There might not seem to be a good reason to keep the uint16_t variant in
+// any particular order.  But if you cast a uintptr_t (or otherwise) to byte
+// and then try to read it back as a uint16_t, compilers see through the
+// cast and complain about strict aliasing.  Building it out of bytes makes
+// these generic (so they work with uint_fast32_t, or uintptr_t, etc.) and
+// as long as there has to be an order, might as well be platform-independent.
+
+inline static uint16_t FIRST_UINT16_helper(const unsigned char *flags)
+  { return ((uint16_t)flags[0] << 8) | flags[1]; }
+
+inline static uint16_t SECOND_UINT16_helper(const unsigned char *flags)
+  { return ((uint16_t)flags[2] << 8) | flags[3]; }
+
 #define FIRST_UINT16(flags) \
-    ((const uint16_t*)&(flags))[0]
+    FIRST_UINT16_helper((const unsigned char*)&flags)
 
 #define SECOND_UINT16(flags) \
-    ((const uint16_t*)&(flags))[1]
+    SECOND_UINT16_helper((const unsigned char*)&flags)
 
-#define mutable_FIRST_UINT16(flags) \
-    ((uint16_t*)&(flags))[0]
+inline static void SET_FIRST_UINT16_helper(unsigned char *flags, uint16_t u) {
+    flags[0] = u / 256;
+    flags[1] = u % 256;
+}
 
-#define mutable_SECOND_UINT16(flags) \
-    ((uint16_t*)&(flags))[1]
+inline static void SET_SECOND_UINT16_helper(unsigned char *flags, uint16_t u) {
+    flags[2] = u / 256;
+    flags[3] = u % 256;
+}
+
+#define SET_FIRST_UINT16(flags,u) \
+    SET_FIRST_UINT16_helper((unsigned char*)&(flags), (u))
+
+#define SET_SECOND_UINT16(flags,u) \
+    SET_SECOND_UINT16_helper((unsigned char*)&(flags), (u))
+
+inline static uintptr_t FLAG_FIRST_UINT16(uint16_t u)
+  { return FLAG_FIRST_BYTE(u / 256) | FLAG_SECOND_BYTE(u % 256); }
+
+inline static uintptr_t FLAG_SECOND_UINT16(uint16_t u)
+  { return FLAG_THIRD_BYTE(u / 256) | FLAG_FOURTH_BYTE(u % 256); }
 
 
 // !!! SECOND_UINT32 should be defined on 64-bit platforms, for any enhanced

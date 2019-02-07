@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2014 Atronix Engineering, Inc.
-// Copyright 2014-2017 Rebol Open Source Contributors
+// Copyright 2014-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -26,7 +26,27 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-
+// Struct is a value type that is the the combination of a "schema" (field or
+// list of fields) along with a blob of binary data described by that schema.
+//
+// The general FFI direction is to move it so that it is "baked in" less,
+// and represents an instance of a generalized extension mechanism (like GOB!
+// should be).  On that path, a struct's internals are simplified to being
+// a content BINARY! with the LINK() in that binary series to the schema.
+//
+// Schemas are REBARR* arrays, which contains all the information about
+// the structure's layout, regardless of what offset it would find itself at
+// inside of a data blob.  This includes the total size, and arrays of
+// field definitions...essentially, the validated spec.  It also contains
+// a HANDLE! for the `ffi_type`, a structure that needs to be made that
+// coalesces the information the FFI has to know to interpret the binary.
+//
+///// NOTES ///////////////////////////////////////////////////////////////=//
+//
+// * See comments on ADDR-OF from the FFI about how the potential for memory
+//   instability of content pointers may not be a match for the needs of an
+//   FFI interface.
+//
 
 #include <ffi.h>
 
@@ -92,11 +112,7 @@ inline static ffi_type *Get_FFType_For_Sym(REBSYM sym) {
 }
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// FIELD (FLD) describing an FFI struct element
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// FFI STRUCT ELEMENT DESCRIPTOR (FLD) ///////////////////////////////=//
 //
 // A field is used by the FFI code to describe an element inside the layout
 // of a C `struct`, so that Rebol data can be proxied to and from C.  It
@@ -145,7 +161,7 @@ enum {
 };
 
 #define FLD_AT(a, n) \
-    SER_AT(REBVAL, SER(a), (n)) // locate index access
+    SER_AT(REBVAL, SER(a), (n))  // locate index access
 
 inline static REBSTR *FLD_NAME(REBFLD *f) {
     if (IS_BLANK(FLD_AT(f, IDX_FIELD_NAME)))
@@ -216,7 +232,7 @@ inline static ffi_type* SCHEMA_FFTYPE(const RELVAL *schema) {
     }
 
     // Avoid creating a "VOID" type in order to not give the illusion of
-    // void parameters being legal.  The BLANK! return type is handled
+    // void parameters being legal.  The VOID! return type is handled
     // exclusively by the return value, to prevent potential mixups.
     //
     assert(IS_WORD(schema));
@@ -227,55 +243,14 @@ inline static ffi_type* SCHEMA_FFTYPE(const RELVAL *schema) {
 #define VAL_STRUCT_LIMIT UINT32_MAX
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  STRUCT! (`struct Reb_Struct`)
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Struct is a value type that is the the combination of a "schema" (field or
-// list of fields) along with a blob of binary data described by that schema.
-//
-
-// The general FFI direction is to move it so that it is "baked in" less,
-// and represents an instance of a generalized extension mechanism (like GOB!
-// should be).  On that path, a struct's internals are simplified to being
-// just an array:
-//
-// [0] is a specification array which contains all the information about
-// the structure's layout, regardless of what offset it would find itself at
-// inside of a data blob.  This includes the total size, and arrays of
-// field definitions...essentially, the validated spec.  It also contains
-// a HANDLE! which contains the FFI-type.
-//
-// [1] is the content BINARY!.  The VAL_INDEX of the binary indicates the
-// offset within the struct.  See notes in ADDR-OF from the FFI about how
-// the potential for memory instability of content pointers may not be a
-// match for the needs of an FFI interface.
-//
-struct Reb_Structure_Payload {
-    REBARR *stu; // [0] is canon self value, ->misc.schema is schema
-    REBSER *data; // binary data series (may be shared with other structs)
-};
-
-struct Reb_Structure_Extra {
-    REBCNT struct_offset; // offset for struct in the possibly shared series
-};
-
-
-inline static REBVAL *STU_VALUE(REBSTU *stu) {
-    assert(ARR_LEN(stu) == 1);
-    return KNOWN(ARR_HEAD(stu));
-}
-
-#define STU_INACCESSIBLE(stu) \
-    VAL_STRUCT_INACCESSIBLE(STU_VALUE(stu))
-
 inline static REBFLD *STU_SCHEMA(REBSTU *stu) {
-    REBFLD *schema = LINK(stu).schema;
+    REBFLD *schema = cast(REBARR*, LINK(stu).custom);
     assert(FLD_IS_STRUCT(schema));
     return schema;
 }
+
+#define STU_OFFSET(stu) \
+    MISC(stu).custom.u32
 
 inline static REBARR *STU_FIELDLIST(REBSTU *stu) {
     return FLD_FIELDLIST(STU_SCHEMA(stu));
@@ -285,27 +260,20 @@ inline static REBCNT STU_SIZE(REBSTU *stu) {
     return FLD_WIDE(STU_SCHEMA(stu));
 }
 
-inline static REBCNT STU_OFFSET(REBSTU *stu) {
-    return VAL_STRUCT_OFFSET(STU_VALUE(stu));
-}
-
 #define STU_FFTYPE(stu) \
     FLD_FFTYPE(STU_SCHEMA(stu))
 
 #define VAL_STRUCT(v) \
-    cast(REBSTU*, PAYLOAD(Custom, (v)).first.p)
+    cast(REBSTU*, PAYLOAD(Extra, (v)).node)
 
 #define mutable_VAL_STRUCT(v) \
-    *cast(REBSTU**, &PAYLOAD(Custom, (v)).first.p)
+    *cast(REBSTU**, &PAYLOAD(Extra, (v)).node)
 
 #define VAL_STRUCT_DATA(v) \
-    cast(REBSER*, &PAYLOAD(Custom, (v)).second.p)
-
-#define mutable_VAL_STRUCT_DATA(v) \
-    *cast(REBSER**, &PAYLOAD(Custom, (v)).second.p)
+    cast(REBSER*, &PAYLOAD(Extra, (v)).node)
 
 #define VAL_STRUCT_OFFSET(v) \
-    EXTRA(Custom, (v)).u
+    STU_OFFSET(VAL_STRUCT(v))
 
 #define VAL_STRUCT_SCHEMA(v) \
     STU_SCHEMA(VAL_STRUCT(v))
@@ -331,23 +299,22 @@ inline static REBYTE *VAL_STRUCT_DATA_AT(const RELVAL *v) {
     return VAL_STRUCT_DATA_HEAD(v) + VAL_STRUCT_OFFSET(v);
 }
 
-inline static REBCNT VAL_STRUCT_DATA_LEN(const RELVAL *v) {
-    REBSER *data = VAL_STRUCT_DATA(v);
-    if (not IS_SER_ARRAY(data))
-        return BIN_LEN(data);
+
+inline static REBCNT STU_DATA_LEN(REBSTU *stu) {
+    if (not IS_SER_ARRAY(stu))
+        return BIN_LEN(stu);
 
     RELVAL *handle = ARR_HEAD(ARR(data));
     assert(VAL_HANDLE_LEN(handle) != 0);
     return VAL_HANDLE_LEN(handle);
 }
 
-inline static REBCNT STU_DATA_LEN(REBSTU *stu) {
-    return VAL_STRUCT_DATA_LEN(STU_VALUE(stu));
+inline static REBCNT VAL_STRUCT_DATA_LEN(const RELVAL *v) {
+    return STU_DATA_LEN(VAL_STRUCT(v));
 }
 
-inline static bool VAL_STRUCT_INACCESSIBLE(const RELVAL *v) {
-    REBSER *data = cast(REBSER*, PAYLOAD(Custom, v).second.p);
-    if (not IS_SER_ARRAY(data))
+inline static bool STU_INACCESSIBLE(REBSTU *stu) {
+    if (not IS_SER_ARRAY(stu))
         return false; // it's not "external", so never inaccessible
 
     RELVAL *handle = ARR_HEAD(ARR(data));

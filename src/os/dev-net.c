@@ -44,7 +44,6 @@
 #include "sys-tuple.h"
 
 #include "reb-net.h"
-#include "reb-evtypes.h"
 
 #if (0)
     #define WATCH1(s,a) printf(s, a)

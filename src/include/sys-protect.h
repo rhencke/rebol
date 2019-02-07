@@ -39,14 +39,18 @@
 //
 
 inline static void FAIL_IF_READ_ONLY_SERIES_CORE(
-    RELVAL *series,
+    RELVAL *any_series,
     REBSPC *specifier
 ){
-    REBSER *s = PAYLOAD(Series, series).rebser;
+    assert(
+        ANY_SERIES(any_series)
+        or VAL_TYPE(any_series) == REB_MAP  // !!! currently MAP! included
+    );
+    REBSER *s = PAYLOAD(Series, any_series).rebser;
     FAIL_IF_READ_ONLY_SER(s);
-    if (GET_CELL_FLAG(series, CONST)) {
+    if (GET_CELL_FLAG(any_series, CONST)) {
         DECLARE_LOCAL (specific);
-        Derelativize(specific, series, specifier);
+        Derelativize(specific, any_series, specifier);
         fail (Error_Const_Value_Raw(specific));
     }
 }

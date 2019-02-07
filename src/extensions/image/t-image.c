@@ -109,21 +109,21 @@ void Copy_Rect_Data(
         return;
 
     // Clip at edges:
-    if (dx + w > VAL_IMAGE_WIDE(dst))
-        w = VAL_IMAGE_WIDE(dst) - dx;
-    if (dy + h > VAL_IMAGE_HIGH(dst))
-        h = VAL_IMAGE_HIGH(dst) - dy;
+    if (dx + w > VAL_IMAGE_WIDTH(dst))
+        w = VAL_IMAGE_WIDTH(dst) - dx;
+    if (dy + h > VAL_IMAGE_HEIGHT(dst))
+        h = VAL_IMAGE_HEIGHT(dst) - dy;
 
     const REBYTE *sbits =
         VAL_IMAGE_HEAD(src)
-        + (sy * VAL_IMAGE_WIDE(src) + sx) * 4;
+        + (sy * VAL_IMAGE_WIDTH(src) + sx) * 4;
     REBYTE *dbits =
         VAL_IMAGE_HEAD(dst)
-        + (dy * VAL_IMAGE_WIDE(dst) + dx) * 4;
+        + (dy * VAL_IMAGE_WIDTH(dst) + dx) * 4;
     while (h--) {
         memcpy(dbits, sbits, w*4);
-        sbits += VAL_IMAGE_WIDE(src) * 4;
-        dbits += VAL_IMAGE_WIDE(dst) * 4;
+        sbits += VAL_IMAGE_WIDTH(src) * 4;
+        dbits += VAL_IMAGE_WIDTH(dst) * 4;
     }
 }
 
@@ -189,10 +189,10 @@ REBINT CT_Image(const REBCEL *a, const REBCEL *b, REBINT mode)
     if (mode < 0)
         return -1;
 
-    if (VAL_IMAGE_WIDE(a) != VAL_IMAGE_WIDE(a))
+    if (VAL_IMAGE_WIDTH(a) != VAL_IMAGE_WIDTH(a))
         return 0;
 
-    if (VAL_IMAGE_HIGH(b) != VAL_IMAGE_HIGH(b))
+    if (VAL_IMAGE_HEIGHT(b) != VAL_IMAGE_HEIGHT(b))
         return 0;
 
     // !!! There is an image "position" stored in the binary.  This is a
@@ -203,9 +203,14 @@ REBINT CT_Image(const REBCEL *a, const REBCEL *b, REBINT mode)
     //
     // https://github.com/rebol/rebol-issues/issues/801
     //
-    if (0 == Compare_Binary_Vals(VAL_IMAGE_BIN(a), VAL_IMAGE_BIN(b)))
-        return 1;
+    if (VAL_IMAGE_POS(a) != VAL_IMAGE_POS(b))
+        return 0;
 
+    assert(VAL_IMAGE_LEN_AT(a) == VAL_IMAGE_LEN_AT(b));
+
+    int cmp = memcmp(VAL_IMAGE_AT(a), VAL_IMAGE_AT(b), VAL_IMAGE_LEN_AT(a));
+    if (cmp == 0)
+        return 1;
     return 0;
 }
 
@@ -215,7 +220,7 @@ void Copy_Image_Value(REBVAL *out, const REBVAL *arg, REBINT len)
     len = MAX(len, 0); // no negatives
     len = MIN(len, cast(REBINT, VAL_IMAGE_LEN_AT(arg)));
 
-    REBINT w = VAL_IMAGE_WIDE(arg);
+    REBINT w = VAL_IMAGE_WIDTH(arg);
     w = MAX(w, 1);
 
     REBINT h;
@@ -384,8 +389,8 @@ REB_R TO_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 void Reset_Height(REBVAL *value)
 {
-    REBCNT w = VAL_IMAGE_WIDE(value);
-    VAL_IMAGE_HIGH(value) = w ? (VAL_LEN_HEAD(value) / w) : 0;
+    REBCNT w = VAL_IMAGE_WIDTH(value);
+    VAL_IMAGE_HEIGHT(value) = w ? (VAL_LEN_HEAD(value) / w) : 0;
 }
 
 
@@ -544,7 +549,7 @@ void Mold_Image_Data(const REBVAL *value, REB_MOLD *mold)
     REBCNT num_pixels = VAL_IMAGE_LEN_AT(value); // # from index to tail
     const REBYTE *rgba = VAL_IMAGE_AT(value);
 
-    Emit(mold, "IxI #{", VAL_IMAGE_WIDE(value), VAL_IMAGE_HIGH(value));
+    Emit(mold, "IxI #{", VAL_IMAGE_WIDTH(value), VAL_IMAGE_HEIGHT(value));
 
     // !!! Actually accurate?
     //
@@ -573,8 +578,8 @@ void Mold_Image_Data(const REBVAL *value, REB_MOLD *mold)
 //
 void Clear_Image(REBVAL *img)
 {
-    REBCNT w = VAL_IMAGE_WIDE(img);
-    REBCNT h = VAL_IMAGE_HIGH(img);
+    REBCNT w = VAL_IMAGE_WIDTH(img);
+    REBCNT h = VAL_IMAGE_HEIGHT(img);
     REBYTE *p = VAL_IMAGE_HEAD(img);
     memset(p, 0, w * h * 4);
 }
@@ -613,7 +618,7 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
     REBCNT n;
     REBYTE *ip;
 
-    REBINT w = VAL_IMAGE_WIDE(value);
+    REBINT w = VAL_IMAGE_WIDTH(value);
     if (w == 0)
         RETURN (value);
 
@@ -652,7 +657,7 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
             dup_x = MIN(dup_x, cast(REBINT, w) - x);  // clip dup width
             dup_y = MAX(dup_y, 0);
             if (sym != SYM_INSERT)
-                dup_y = MIN(dup_y, cast(REBINT, VAL_IMAGE_HIGH(value)) - y);
+                dup_y = MIN(dup_y, cast(REBINT, VAL_IMAGE_HEIGHT(value)) - y);
             else
                 dup = dup_y * w;
             if (dup_x == 0 or dup_y == 0)
@@ -682,13 +687,13 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
                 part = MAX(part, 0);
             }
             else if (IS_IMAGE(len)) {
-                if (VAL_IMAGE_WIDE(len) == 0)
+                if (VAL_IMAGE_WIDTH(len) == 0)
                     fail (len);
 
                 part_x = VAL_IMAGE_POS(len) - VAL_IMAGE_POS(arg);
-                part_y = part_x / VAL_IMAGE_WIDE(len);
+                part_y = part_x / VAL_IMAGE_WIDTH(len);
                 part_y = MAX(part_y, 1);
-                part_x = MIN(part_x, cast(REBINT, VAL_IMAGE_WIDE(arg)));
+                part_x = MIN(part_x, cast(REBINT, VAL_IMAGE_WIDTH(arg)));
                 goto len_compute;
             }
             else if (IS_PAIR(len)) {
@@ -701,7 +706,7 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
                 if (sym != SYM_INSERT)
                     part_y = MIN(
                         part_y,
-                        cast(REBINT, VAL_IMAGE_HIGH(value) - y)
+                        cast(REBINT, VAL_IMAGE_HEIGHT(value) - y)
                     );
                 else
                     part = part_y * w;
@@ -716,11 +721,11 @@ REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
     }
     else {
         if (IS_IMAGE(arg)) {  // Use image for /PART sizes
-            part_x = VAL_IMAGE_WIDE(arg);
-            part_y = VAL_IMAGE_HIGH(arg);
+            part_x = VAL_IMAGE_WIDTH(arg);
+            part_y = VAL_IMAGE_HEIGHT(arg);
             part_x = MIN(part_x, cast(REBINT, w) - x);  // clip part width
             if (sym != SYM_INSERT)
-                part_y = MIN(part_y, cast(REBINT, VAL_IMAGE_HIGH(value)) - y);
+                part_y = MIN(part_y, cast(REBINT, VAL_IMAGE_HEIGHT(value)) - y);
             else
                 part = part_y * w;
         }
@@ -906,7 +911,7 @@ bool Image_Has_Alpha(const REBVAL *v)
 {
     REBYTE *p = VAL_IMAGE_HEAD(v);
 
-    int i = VAL_IMAGE_WIDE(v) * VAL_IMAGE_HIGH(v);
+    int i = VAL_IMAGE_WIDTH(v) * VAL_IMAGE_HEIGHT(v);
     for(; i > 0; i--, p += 4) {
         if (p[3] != 0) // non-zero (e.g. non-transparent) alpha component
             return true;
@@ -923,7 +928,7 @@ static void Make_Complemented_Image(REBVAL *out, const REBVAL *v)
     REBYTE *img = VAL_IMAGE_AT(v);
     REBINT len = VAL_IMAGE_LEN_AT(v);
 
-    Init_Image_Black_Opaque(out, VAL_IMAGE_WIDE(v), VAL_IMAGE_HIGH(v));
+    Init_Image_Black_Opaque(out, VAL_IMAGE_WIDTH(v), VAL_IMAGE_HEIGHT(v));
 
     REBYTE *dp = VAL_IMAGE_HEAD(out);
     for (; len > 0; len --) {
@@ -1006,8 +1011,8 @@ REBTYPE(Image)
         case SYM_XY:
             return Init_Pair_Int(
                 D_OUT,
-                index % VAL_IMAGE_WIDE(value),
-                index / VAL_IMAGE_WIDE(value)
+                index % VAL_IMAGE_WIDTH(value),
+                index / VAL_IMAGE_WIDTH(value)
             );
 
         case SYM_INDEX:
@@ -1042,7 +1047,7 @@ REBTYPE(Image)
         if (IS_PAIR(arg)) {
             if (sym == SYM_AT)
                 sym = SYM_SKIP;
-            diff = (VAL_PAIR_Y_INT(arg) * VAL_IMAGE_WIDE(value))
+            diff = (VAL_PAIR_Y_INT(arg) * VAL_IMAGE_WIDTH(value))
                 + VAL_PAIR_X_INT(arg) + (sym == SYM_SKIP ? 0 : 1);
         } else
             diff = Get_Num_From_Arg(arg);
@@ -1095,7 +1100,7 @@ REBTYPE(Image)
                 len = VAL_INT32(val);
             }
             else if (IS_IMAGE(val)) {
-                if (!VAL_IMAGE_WIDE(val))
+                if (!VAL_IMAGE_WIDTH(val))
                     fail (val);
                 len = VAL_IMAGE_POS(val) - VAL_IMAGE_POS(value);
             }
@@ -1164,13 +1169,13 @@ REBTYPE(Image)
             h = MAX(h, 0);
             diff = MIN(VAL_LEN_HEAD(value), VAL_IMAGE_POS(value));
             diff = MAX(0, diff);
-            index = VAL_IMAGE_WIDE(value); // width
+            index = VAL_IMAGE_WIDTH(value); // width
             if (index) {
                 len = diff / index; // compute y offset
                 diff %= index; // compute x offset
             } else len = diff = 0; // avoid div zero
             w = MIN(w, index - diff); // img-width - x-pos
-            h = MIN(h, (int)(VAL_IMAGE_HIGH(value) - len)); // img-high - y-pos
+            h = MIN(h, (int)(VAL_IMAGE_HEIGHT(value) - len)); // img-high - y-pos
             Init_Image_Black_Opaque(D_OUT, w, h);
             Copy_Rect_Data(D_OUT, 0, 0, w, h, value, diff, len);
 //          VAL_IMAGE_TRANSP(D_OUT) = VAL_IMAGE_TRANSP(value);
@@ -1201,7 +1206,7 @@ inline static bool Adjust_Image_Pick_Index_Is_Valid(
     REBINT n;
     if (IS_PAIR(picker)) {
         n = (
-            (VAL_PAIR_Y_INT(picker) - 1) * VAL_IMAGE_WIDE(value)
+            (VAL_PAIR_Y_INT(picker) - 1) * VAL_IMAGE_WIDTH(value)
             + (VAL_PAIR_X_INT(picker) - 1)
         ) + 1;
     }
@@ -1246,8 +1251,8 @@ void Pick_Image(REBVAL *out, const REBVAL *value, const REBVAL *picker)
         case SYM_SIZE:
             Init_Pair_Int(
                 out,
-                VAL_IMAGE_WIDE(value),
-                VAL_IMAGE_HIGH(value)
+                VAL_IMAGE_WIDTH(value),
+                VAL_IMAGE_HEIGHT(value)
             );
             break;
 
@@ -1302,8 +1307,8 @@ void Poke_Image_Fail_If_Read_Only(
             if (!IS_PAIR(poke) || !VAL_PAIR_X_DEC(poke))
                 fail (poke);
 
-            VAL_IMAGE_WIDE(value) = VAL_PAIR_X_INT(poke);
-            VAL_IMAGE_HIGH(value) = MIN(
+            VAL_IMAGE_WIDTH(value) = VAL_PAIR_X_INT(poke);
+            VAL_IMAGE_HEIGHT(value) = MIN(
                 VAL_PAIR_Y_INT(poke),
                 cast(REBINT, VAL_LEN_HEAD(value) / VAL_PAIR_X_INT(poke))
             );

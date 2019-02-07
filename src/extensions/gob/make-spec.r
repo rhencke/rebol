@@ -14,3 +14,5 @@ ldflags: []
 libraries: []
 
 options: []
+
+requires: 'Event  ; uses SYS/MAKE-SCHEME with GET-EVENT-ACTOR-HANDLE (?)

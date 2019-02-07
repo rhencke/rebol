@@ -33,7 +33,6 @@
 #include "sys-tuple.h"
 
 #include "reb-net.h"
-#include "reb-evtypes.h"
 
 #define NET_BUF_SIZE 32*1024
 

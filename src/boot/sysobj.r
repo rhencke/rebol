@@ -405,9 +405,13 @@ view: make object! [
     screen-gob: _
     handler: _
     event-port: _
+
+    ; !!! The event-types list used to be fixed and built into a separate
+    ; enum.  Now it is done with Rebol symbols.  Hence, these get uint16_t
+    ; identifiers.  However, symbol numbers are hypothesized to be expandable
+    ; via a pre-published dictionary of strings, committed to as a registry.
+    ;
     event-types: [
-        ; Event types. Order dependent for C and REBOL.
-        ; Due to fixed C constants, this list cannot be reordered after release!
         ignore          ; ignore event (0)
         interrupt       ; user interrupt
         device          ; misc device request
@@ -447,7 +451,7 @@ view: make object! [
         aux-down
         aux-up
         key
-        key-up ; Move above when version changes!!!
+        key-up
 
         scroll-line
         scroll-page
@@ -459,9 +463,8 @@ view: make object! [
         ;
         error
     ]
+
     event-keys: [
-        ; Event types. Order dependent for C and REBOL.
-        ; Due to fixed C constants, this list cannot be reordered after release!
         page-up
         page-down
         end

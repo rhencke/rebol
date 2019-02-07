@@ -29,7 +29,6 @@
 //
 
 #include "sys-core.h"
-#include "reb-evtypes.h"
 
 #define MAX_SERIAL_DEV_PATH 128
 

@@ -176,10 +176,10 @@ inline static REBARR *Alloc_Instruction(enum Reb_Api_Opcode opcode) {
     return ARR(s);
 }
 
-inline static void Free_Instruction(REBARR *instruction) {
-    assert(IS_SER_ARRAY(SER(instruction)));
-    TRASH_CELL_IF_DEBUG(ARR_SINGLE(instruction));
-    Free_Node(SER_POOL, instruction);
+inline static void Free_Instruction(REBARR *a) {
+    assert(IS_SER_ARRAY(SER(a)));
+    TRASH_CELL_IF_DEBUG(ARR_SINGLE(a));
+    Free_Node(SER_POOL, NOD(a));
 }
 
 
