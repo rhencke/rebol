@@ -284,12 +284,6 @@ init-schemes: func [
     ]
 
     make-scheme [
-        title: "Console Access"
-        name: 'console
-        actor: get-console-actor-handle
-    ]
-
-    make-scheme [
         title: "File Access"
         name: 'file
         actor: get-file-actor-handle
@@ -374,7 +368,6 @@ init-schemes: func [
     ]
 
     system/ports/system:   open [scheme: 'system]
-    system/ports/input:    open [scheme: 'console]
 
     init-schemes: 'done ; only once
 ]

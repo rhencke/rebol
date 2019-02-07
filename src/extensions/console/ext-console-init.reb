@@ -48,6 +48,15 @@ REBOL [
      }
 ]
 
+sys/make-scheme [
+    title: "Console Access"
+    name: 'console
+    actor: get-console-actor-handle
+]
+
+system/ports/input: open [scheme: 'console]
+
+
 boot-print: redescribe [
     "Prints during boot when not quiet."
 ](

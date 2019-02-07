@@ -36,7 +36,7 @@
 //
 //  Console_Actor: C
 //
-static REB_R Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+REB_R Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBCTX *ctx = VAL_CONTEXT(port);
     REBREQ *req = Ensure_Port_State(port, RDI_STDIO);
@@ -114,19 +114,4 @@ static REB_R Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
     }
 
     fail (Error_Illegal_Action(REB_PORT, verb));
-}
-
-
-//
-//  get-console-actor-handle: native [
-//
-//  {Retrieve handle to the native actor for console}
-//
-//      return: [handle!]
-//  ]
-//
-REBNATIVE(get_console_actor_handle)
-{
-    Make_Port_Actor_Handle(D_OUT, &Console_Actor);
-    return D_OUT;
 }

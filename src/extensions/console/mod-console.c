@@ -42,6 +42,23 @@
 #include "tmp-mod-console.h"
 
 
+extern REB_R Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb);
+
+//
+//  get-console-actor-handle: native [
+//
+//  {Retrieve handle to the native actor for console}
+//
+//      return: [handle!]
+//  ]
+//
+REBNATIVE(get_console_actor_handle)
+{
+    Make_Port_Actor_Handle(D_OUT, &Console_Actor);
+    return D_OUT;
+}
+
+
 // Assume that Ctrl-C is enabled in a console application by default.
 // (Technically it may be set to be ignored by a parent process or context,
 // in which case conventional wisdom is that we should not be enabling it

@@ -119,7 +119,6 @@ core: [
     n-textcodecs.c ; !!! should be moved to extensions
 
     ; (P)orts
-    p-console.c
     p-dir.c
     p-dns.c
     p-event.c
