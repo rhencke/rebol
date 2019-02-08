@@ -58,12 +58,11 @@ inline static bool Do_At_Mutability_Throws(
     Do_At_Mutability_Throws((out), (array), (index), (specifier), false)
 
 
-inline static bool Do_Any_Array_At_Throws(
+inline static bool Eval_Any_Array_At_Core_Throws(
     REBVAL *out,
-    const REBVAL *any_array // Note: can be same pointer as `out`
+    const RELVAL *any_array,  // Note: legal to have any_array = out
+    REBSPC *specifier
 ){
-    assert(out != any_array); // Was legal at one time, but no longer
-
     // If the user said something like `do mutable load %data.reb`, then the
     // value carries along with it a disablement of inheriting constness...
     // even if the frame has it set.
@@ -71,11 +70,11 @@ inline static bool Do_Any_Array_At_Throws(
     bool mutability = GET_CELL_FLAG(any_array, EXPLICITLY_MUTABLE);
 
     return THROWN_FLAG == Eval_Array_At_Core(
-        Init_Void(out),
+        out,
         nullptr, // opt_first (null indicates nothing, not nulled cell)
         VAL_ARRAY(any_array),
         VAL_INDEX(any_array),
-        VAL_SPECIFIER(any_array),
+        specifier,
         (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
             | EVAL_FLAG_TO_END
             | (mutability ? 0 : (
@@ -84,6 +83,19 @@ inline static bool Do_Any_Array_At_Throws(
             ))
             // ^-- Even if you are using a DO MUTABLE, in deeper levels
             // evaluating a const value flips the constification back on.
+    );
+}
+
+inline static bool Do_Any_Array_At_Throws(
+    REBVAL *out,
+    const REBVAL *any_array
+){
+    assert(out != any_array);  // no longer legal (Init_Void() would corrupt)
+
+    return Eval_Any_Array_At_Core_Throws(
+        Init_Void(out),
+        any_array,
+        VAL_SPECIFIER(any_array)
     );
 }
 

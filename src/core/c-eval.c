@@ -1989,64 +1989,16 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GROUP: {
-        *next_gotten = nullptr; // arbitrary code changes fetched variables
+        *next_gotten = nullptr;  // arbitrary code changes fetched variables
 
-        // Since v may be f->spare, extract properties to reuse it.
-        //
-        REBARR *array = VAL_ARRAY(v);  // array of the GROUP!
-        REBCNT index = VAL_INDEX(v);  // index may not be @ head
         REBSPC *derived = Derive_Specifier(*specifier, v);
+        if (Eval_Any_Array_At_Core_Throws(f->out, v, derived))
+            goto return_thrown;
 
-        if (IS_END(f->out)) {
-            //
-            // No need for a temporary cell...we know we're starting from an
-            // END cell so determining if the GROUP! is invisible is easy.
-            //
-            REBIXO indexor = Eval_Array_At_Core(
-                f->out,
-                nullptr, // opt_first (null means nothing, not nulled cell)
-                array,
-                index,
-                derived,
-                (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-                    | EVAL_FLAG_TO_END
-                    | (f->flags.bits & EVAL_FLAG_CONST)
-                    | (v->header.bits & EVAL_FLAG_CONST)
-            );
-            if (indexor == THROWN_FLAG)
-                goto return_thrown;
-            if (GET_CELL_FLAG(f->out, OUT_MARKED_STALE))
-                goto finished;
-            f->out->header.bits &= ~CELL_FLAG_UNEVALUATED;  // (1) "evaluates"
-        }
-        else {
-            // Not as lucky... we might have something like (1 + 2 elide "Hi")
-            // that would show up as having the stale bit.
-            //
-            REBIXO indexor = Eval_Array_At_Core(
-                SET_END(spare),
-                nullptr,  // opt_first (null means nothing, not nulled cell)
-                array,
-                index,
-                derived,
-                (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-                    | EVAL_FLAG_TO_END
-                    | (f->flags.bits & EVAL_FLAG_CONST)
-                    | (v->header.bits & EVAL_FLAG_CONST)
-            );
-            if (indexor == THROWN_FLAG) {
-                Move_Value(f->out, spare);
-                goto return_thrown;
-            }
-            if (IS_END(spare)) {
-                kind.byte = KIND_BYTE(*next);
-                if (kind.byte == REB_0_END)
-                    goto finished;
-                goto do_next; // quickly process next item, no infix test
-            }
+        if (GET_CELL_FLAG(f->out, OUT_MARKED_STALE))  // invisible group
+            break;
 
-            Move_Value(f->out, spare);  // no CELL_FLAG_UNEVALUATED
-        }
+        f->out->header.bits &= ~CELL_FLAG_UNEVALUATED;  // `(1)` evaluates
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//

@@ -62,7 +62,7 @@ REBNATIVE(eval)
 
     REBFLGS flags = EVAL_MASK_DEFAULT;
     if (Reevaluate_In_Subframe_Throws(
-        SET_END(D_OUT),  // !!! What about invisibles?
+        Init_Void(D_OUT),  // `eval lit (comment "this gives void vs. error")`
         frame_,
         ARG(value),
         flags

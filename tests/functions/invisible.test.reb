@@ -271,3 +271,14 @@
 (304 = (1000 + 20 ** (
     foo <baz> (bar)
 ) 300 + 4))
+
+
+; It's likely more useful for EVAL to give VOID! than error if asked to
+; evaluate something that turns out to be invisible.
+;
+(void? eval lit (comment "void is better than failing here"))
+(
+    x: <before>
+    void? eval :elide x: <after>
+    x = <after>
+)
