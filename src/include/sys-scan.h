@@ -296,7 +296,6 @@ typedef struct rebol_scan_state {
     bool newline_pending;
 
     REBFLGS opts;
-    enum Reb_Token token;
 } SCAN_STATE;
 
 #define ANY_CR_LF_END(c) ((c) == '\0' or (c) == CR or (c) == LF)
