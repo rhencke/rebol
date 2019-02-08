@@ -738,28 +738,10 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
       case REB_EVENT: {  // packed cell structure with one GC-able slot
       #if !defined(NDEBUG)
         assert(GET_CELL_FLAG(v, EXTRA_IS_CUSTOM_NODE));
-        REBNOD *n = EXTRA(Custom, v).node;  // REBGOB, DEVREQ, etc.
+        REBNOD *n = EXTRA(Custom, v).node;  // REBGOB*, REBREQ*, etc.
         assert(n == nullptr or n->header.bits & NODE_FLAG_NODE);
       #endif
         Queue_Mark_Node_Deep(EXTRA(Custom, v).node);
-
-        // REBREQ pretty much has to become a series node.  Work in progress.
-
-/*     if (IS_EVENT_MODEL(value, EVM_DEVICE)) {
-        // In the case of being an EVM_DEVICE event type, the port! will
-        // not be in VAL_EVENT_SER of the REBEVT structure.  It is held
-        // indirectly by the REBREQ ->req field of the event, which
-        // in turn possibly holds a singly linked list of other requests.
-        req = VAL_EVENT_REQ(value);
-
-        while (req) {
-            // Comment says void* ->port is "link back to REBOL port object"
-            if (req->port_ctx)
-                Queue_Mark_Context_Deep(CTX(req->port_ctx));
-            req = req->next;
-        }
-    }
-*/
         break; }
 
       case REB_STRUCT: {  // like an OBJECT!, but the "varlist" can be binary
@@ -1953,14 +1935,17 @@ static void Mark_Devices_Deep(void)
 
     int d;
     for (d = 0; d != RDI_MAX; d++) {
-        REBREQ *req;
         REBDEV *dev = devices[d];
         if (!dev)
             continue;
 
-        for (req = dev->pending; req; req = req->next)
-            if (req->port_ctx)
-                Queue_Mark_Context_Deep(CTX(req->port_ctx));
+        // This used to walk the ->next field of the REBREQ explicitly, and
+        // mark the port pointers internal to the REBREQ.  Following the
+        // links and marking the contexts is now done automatically, because
+        // REBREQ is a REBSER node and has those fields in LINK()/MISC() with
+        // SERIES_INFO_LINK_IS_CUSTOM_NODE/SERIES_INFO_MISC_IS_CUSTOM_NODE
+        //
+        Queue_Mark_Node_Deep(NOD(dev->pending));
     }
 
     Propagate_All_GC_Marks();

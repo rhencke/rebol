@@ -68,20 +68,6 @@ enum {
 #define EVF_MASK_NONE 0
 
 
-// Event port data model
-//
-// !!! This should be able to be inferred from the "eventee" REBNOD
-
-enum {
-    EVM_DEVICE,     // I/O request holds the port pointer
-    EVM_PORT,       // event holds port pointer
-    EVM_OBJECT,     // event holds object context pointer
-    EVM_GUI,        // GUI event uses system/view/event/port
-    EVM_CALLBACK,   // Callback event uses system/ports/callback port
-    EVM_MAX
-};
-
-
 #define VAL_EVENT_TYPE(v) \
     cast(const REBSYM, FIRST_UINT16(PAYLOAD(Custom, (v)).first.u))
 
@@ -95,8 +81,31 @@ inline static void SET_VAL_EVENT_TYPE(REBVAL *v, REBSYM sym) {
 #define mutable_VAL_EVENT_FLAGS(v) \
     mutable_THIRD_BYTE(PAYLOAD(Custom, (v)).first.u)
 
-// !!! The "event model" should likely come from the node that the event
-// is holding on to, vs. be a distinct byte.
+
+//=//// EVENT NODE and "EVENT MODEL" //////////////////////////////////////=//
+//
+// Much of the single-cell event's space is used for flags, but it can store
+// one pointer's worth of "eventee" data indicating the object that the event
+// was for--the PORT!, GOB!, "REBREQ" Rebol Request, etc.
+//
+// (Note: R3-Alpha also had something called a "callback" which pointed the
+// event to the "system/ports/callback port", but there seemed to be no uses.)
+//
+// In order to keep the core GC agnostic about events, if the pointer's slot
+// is to something that needs to participate in GC behavior, it must be a
+// REBNOD* and the cell must be marked with CELL_FLAG_EXTRA_IS_CUSTOM_NODE.
+// Hence in order to properly mark the ports inside a REBREQ, the REBREQ has
+// to be a Rebol Node with the port visible.  This change was made.
+//
+
+enum {
+    EVM_DEVICE,     // I/O request holds the rebreq pointer (which holds port)
+    EVM_PORT,       // event holds port pointer
+    EVM_OBJECT,     // event holds object context pointer
+    EVM_GUI,        // GUI event uses system/view/event/port
+    EVM_CALLBACK,   // Callback event uses system/ports/callback port
+    EVM_MAX
+};
 
 #define VAL_EVENT_MODEL(v) \
     FOURTH_BYTE(PAYLOAD(Custom, (v)).first.u)

@@ -48,12 +48,13 @@
 **
 ***********************************************************************/
 
-static bool Seek_File_64(struct devreq_file *file)
+static bool Seek_File_64(REBREQ *req)
 {
     // Performs seek and updates index value.
 
-    REBREQ *req = AS_REBREQ(file);
-    HANDLE h = req->requestee.handle;
+    struct devreq_file *file = ReqFile(req);
+
+    HANDLE h = Req(req)->requestee.handle;
     DWORD result;
     LONG highint;
 
@@ -126,10 +127,10 @@ static bool Seek_File_64(struct devreq_file *file)
 // Store permissions? Ownership? Groups? Or, require that
 // to be part of a separate request?
 //
-static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
+static int Read_Directory(REBREQ *dir_req, REBREQ *file_req)
 {
-    REBREQ *dir_req = AS_REBREQ(dir);
-    REBREQ *file_req = AS_REBREQ(file);
+    struct rebol_devreq *dir = Req(dir_req);
+    struct rebol_devreq *file = Req(file_req);
 
     // !!! This old code from R3-Alpha triggered a warning on info not
     // necessarily being initialized.  Rather than try and fix it, this just
@@ -142,12 +143,12 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
 
     WCHAR *cp = NULL;
 
-    HANDLE h = dir_req->requestee.handle;
+    HANDLE h = dir->requestee.handle;
     if (h == NULL) {
         // Read first file entry:
 
         WCHAR *dir_wide = rebSpellW(
-            "file-to-local/full/wild", dir->path,
+            "file-to-local/full/wild", ReqFile(dir_req)->path,
             rebEND
         );
         h = FindFirstFile(dir_wide, &info);
@@ -157,8 +158,8 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
             rebFail_OS (GetLastError());
 
         got_info = true;
-        dir_req->requestee.handle = h;
-        dir_req->flags &= ~RRF_DONE;
+        dir->requestee.handle = h;
+        dir->flags &= ~RRF_DONE;
         cp = info.cFileName;
     }
 
@@ -171,12 +172,12 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
         if (not FindNextFile(h, &info)) {
             DWORD last_error_cache = GetLastError();
             FindClose(h);
-            dir_req->requestee.handle = NULL;
+            dir->requestee.handle = NULL;
 
             if (last_error_cache != ERROR_NO_MORE_FILES)
                 rebFail_OS (last_error_cache);
 
-            dir_req->flags |= RRF_DONE; // no more file_reqs
+            dir->flags |= RRF_DONE; // no more file_reqs
             return DR_DONE;
         }
         got_info = true;
@@ -191,14 +192,14 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
         );
     }
 
-    file_req->modes = 0;
+    file->modes = 0;
     if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-        file_req->modes |= RFM_DIR;
+        file->modes |= RFM_DIR;
 
-    file->path = rebRun(
+    ReqFile(file_req)->path = rebRun(
         "apply 'local-to-file [",
             "path:", rebR(rebTextW(info.cFileName)),
-            "dir:", rebL(file_req->modes & RFM_DIR),
+            "dir:", rebL(file->modes & RFM_DIR),
         "]", rebEND
     );
 
@@ -206,9 +207,9 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     // trigger a GC and there is nothing proxying the RebReq's data.
     // Long term, this file should have *been* the return result.
     //
-    rebUnmanage(m_cast(REBVAL*, file->path));
+    rebUnmanage(m_cast(REBVAL*, ReqFile(file_req)->path));
 
-    file->size =
+    ReqFile(file_req)->size =
         (cast(int64_t, info.nFileSizeHigh) << 32) + info.nFileSizeLow;
 
     return DR_DONE;
@@ -230,13 +231,14 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
 //
 // !! Confirm that /seek /append works properly.
 //
-DEVICE_CMD Open_File(REBREQ *req)
+DEVICE_CMD Open_File(REBREQ *file)
 {
+    struct rebol_devreq *req = Req(file);
+
     DWORD attrib = FILE_ATTRIBUTE_NORMAL;
     DWORD access = 0;
     DWORD create = 0;
     BY_HANDLE_FILE_INFORMATION info;
-    struct devreq_file *file = DEVREQ_FILE(req);
 
     // Set the access, creation, and attribute for file creation:
     if (req->modes & RFM_READ) {
@@ -268,7 +270,7 @@ DEVICE_CMD Open_File(REBREQ *req)
 
     WCHAR *path_wide = rebSpellW(
         "apply 'file-to-local [",
-            "path:", file->path,
+            "path:", ReqFile(file)->path,
             "wild:", rebL(req->modes & RFM_DIR),
             "full: true",
         "]", rebEND
@@ -304,10 +306,10 @@ DEVICE_CMD Open_File(REBREQ *req)
     // Fetch req size (if fails, then size is assumed zero)
     //
     if (GetFileInformationByHandle(h, &info)) {
-        file->size =
+        ReqFile(file)->size =
             (cast(int64_t, info.nFileSizeHigh) << 32) + info.nFileSizeLow;
-        file->time.l = info.ftLastWriteTime.dwLowDateTime;
-        file->time.h = info.ftLastWriteTime.dwHighDateTime;
+        ReqFile(file)->time.l = info.ftLastWriteTime.dwLowDateTime;
+        ReqFile(file)->time.h = info.ftLastWriteTime.dwHighDateTime;
     }
 
     req->requestee.handle = h;
@@ -323,9 +325,9 @@ DEVICE_CMD Open_File(REBREQ *req)
 //
 DEVICE_CMD Close_File(REBREQ *file)
 {
-    if (file->requestee.handle) {
-        CloseHandle(file->requestee.handle);
-        file->requestee.handle = 0;
+    if (Req(file)->requestee.handle) {
+        CloseHandle(Req(file)->requestee.handle);
+        Req(file)->requestee.handle = 0;
     }
     return DR_DONE;
 }
@@ -334,13 +336,13 @@ DEVICE_CMD Close_File(REBREQ *file)
 //
 //  Read_File: C
 //
-DEVICE_CMD Read_File(REBREQ *req)
+DEVICE_CMD Read_File(REBREQ *file)
 {
-    struct devreq_file *file = DEVREQ_FILE(req);
+    struct rebol_devreq *req = Req(file);
     if (req->modes & RFM_DIR)
         return Read_Directory(
             file,
-            cast(struct devreq_file*, req->common.data)
+            cast(REBREQ*, req->common.data)
         );
 
     assert(req->requestee.handle != 0);
@@ -363,7 +365,7 @@ DEVICE_CMD Read_File(REBREQ *req)
         rebFail_OS (GetLastError());
     }
 
-    file->index += req->actual;
+    ReqFile(file)->index += req->actual;
     return DR_DONE;
 }
 
@@ -373,9 +375,9 @@ DEVICE_CMD Read_File(REBREQ *req)
 //
 // Bug?: update file->size value after write !?
 //
-DEVICE_CMD Write_File(REBREQ *req)
+DEVICE_CMD Write_File(REBREQ *file)
 {
-    struct devreq_file *file = DEVREQ_FILE(req);
+    struct rebol_devreq *req = Req(file);
 
     assert(req->requestee.handle != NULL);
 
@@ -463,7 +465,7 @@ DEVICE_CMD Write_File(REBREQ *req)
         // ...else the file size really is 0xffffffff
     }
 
-    file->size =
+    ReqFile(file)->size =
         (cast(int64_t, size_high) << 32) + cast(int64_t, size_low);
 
     return DR_DONE;
@@ -478,17 +480,20 @@ DEVICE_CMD Write_File(REBREQ *req)
 //
 // Note: time is in local format and must be converted
 //
-DEVICE_CMD Query_File(REBREQ *req)
+DEVICE_CMD Query_File(REBREQ *file)
 {
+    struct rebol_devreq *req = Req(file);
+
     WIN32_FILE_ATTRIBUTE_DATA info;
-    struct devreq_file *file = DEVREQ_FILE(req);
 
     // Windows seems to tolerate a trailing slash for directories, hence
     // `/no-tail-slash` is not necessary here for FILE-TO-LOCAL.  If that were
     // used, it would mean `%/` would turn into an empty string, that would
     // cause GetFileAttributesEx() to error, vs. backslash (which works)
     //
-    WCHAR *path_wide = rebSpellW("file-to-local/full", file->path, rebEND);
+    WCHAR *path_wide = rebSpellW(
+        "file-to-local/full", ReqFile(file)->path,
+    rebEND);
 
     BOOL success = GetFileAttributesEx(
         path_wide, GetFileExInfoStandard, &info
@@ -504,11 +509,11 @@ DEVICE_CMD Query_File(REBREQ *req)
     else
         req->modes &= ~RFM_DIR;
 
-    file->size =
+    ReqFile(file)->size =
         (cast(int64_t, info.nFileSizeHigh) << 32)
             + cast(int64_t, info.nFileSizeLow);
-    file->time.l = info.ftLastWriteTime.dwLowDateTime;
-    file->time.h = info.ftLastWriteTime.dwHighDateTime;
+    ReqFile(file)->time.l = info.ftLastWriteTime.dwLowDateTime;
+    ReqFile(file)->time.h = info.ftLastWriteTime.dwHighDateTime;
     return DR_DONE;
 }
 
@@ -516,15 +521,15 @@ DEVICE_CMD Query_File(REBREQ *req)
 //
 //  Create_File: C
 //
-DEVICE_CMD Create_File(REBREQ *req)
+DEVICE_CMD Create_File(REBREQ *file)
 {
-    struct devreq_file *file = DEVREQ_FILE(req);
+    struct rebol_devreq *req = Req(file);
 
     if (not (req->modes & RFM_DIR))
-        return Open_File(req);
+        return Open_File(file);
 
     WCHAR *path_wide = rebSpellW(
-        "file-to-local/full/no-tail-slash", file->path,
+        "file-to-local/full/no-tail-slash", ReqFile(file)->path,
         rebEND
     );
 
@@ -549,12 +554,12 @@ DEVICE_CMD Create_File(REBREQ *req)
 //
 // Note: Dirs must be empty to succeed
 //
-DEVICE_CMD Delete_File(REBREQ *req)
+DEVICE_CMD Delete_File(REBREQ *file)
 {
-    struct devreq_file *file = DEVREQ_FILE(req);
+    struct rebol_devreq *req = Req(file);
 
     WCHAR *path_wide = rebSpellW(
-        "file-to-local/full", file->path,
+        "file-to-local/full", ReqFile(file)->path,
         rebEND // leave tail slash on for directory removal
     );
 
@@ -579,14 +584,14 @@ DEVICE_CMD Delete_File(REBREQ *req)
 // Rename a file or directory.
 // Note: cannot rename across file volumes.
 //
-DEVICE_CMD Rename_File(REBREQ *req)
+DEVICE_CMD Rename_File(REBREQ *file)
 {
-    struct devreq_file *file = DEVREQ_FILE(req);
+    struct rebol_devreq *req = Req(file);
 
     REBVAL *to = cast(REBVAL*, req->common.data); // !!! hack!
 
     WCHAR *from_wide = rebSpellW(
-        "file-to-local/full/no-tail-slash", file->path,
+        "file-to-local/full/no-tail-slash", ReqFile(file)->path,
         rebEND
     );
     WCHAR *to_wide = rebSpellW(

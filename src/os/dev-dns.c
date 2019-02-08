@@ -49,7 +49,7 @@ extern DEVICE_CMD Quit_Net(REBREQ *);
 //
 DEVICE_CMD Open_DNS(REBREQ *sock)
 {
-    sock->flags |= RRF_OPEN;
+    Req(sock)->flags |= RRF_OPEN;
     return DR_DONE;
 }
 
@@ -59,14 +59,15 @@ DEVICE_CMD Open_DNS(REBREQ *sock)
 //
 // Note: valid even if not open.
 //
-DEVICE_CMD Close_DNS(REBREQ *req)
+DEVICE_CMD Close_DNS(REBREQ *sock)
 {
-    // Terminate a pending request:
-    struct devreq_net *sock = DEVREQ_NET(req);
+    struct rebol_devreq *req = Req(sock);
 
-    if (sock->host_info)
-        rebFree(sock->host_info);
-    sock->host_info = 0;
+    // Terminate a pending request:
+    if (ReqNet(sock)->host_info)
+        rebFree(ReqNet(sock)->host_info);
+    ReqNet(sock)->host_info = nullptr;
+
     req->requestee.handle = 0;
     req->flags &= ~RRF_OPEN;
     return DR_DONE; // Removes it from device's pending list (if needed)
@@ -87,19 +88,19 @@ DEVICE_CMD Close_DNS(REBREQ *req)
 // !!! R3-Alpha was written to use the old non-reentrant form in POSIX, but
 // glibc2 implements _r versions.
 //
-DEVICE_CMD Read_DNS(REBREQ *req)
+DEVICE_CMD Read_DNS(REBREQ *sock)
 {
-    struct devreq_net *sock = DEVREQ_NET(req);
+    struct rebol_devreq *req = Req(sock);
     char *host = rebAllocN(char, MAXGETHOSTSTRUCT);
 
     HOSTENT *he;
     if (req->modes & RST_REVERSE) {
         // 93.184.216.34 => example.com
         he = gethostbyaddr(
-            cast(char*, &sock->remote_ip), 4, AF_INET
+            cast(char*, &ReqNet(sock)->remote_ip), 4, AF_INET
         );
         if (he != NULL) {
-            sock->host_info = host; //???
+            ReqNet(sock)->host_info = host; //???
             req->common.data = b_cast(he->h_name);
             req->flags |= RRF_DONE;
             return DR_DONE;
@@ -109,15 +110,15 @@ DEVICE_CMD Read_DNS(REBREQ *req)
         // example.com => 93.184.216.34
         he = gethostbyname(s_cast(req->common.data));
         if (he != NULL) {
-            sock->host_info = host; // ?? who deallocs?
-            memcpy(&sock->remote_ip, *he->h_addr_list, 4); //he->h_length);
+            ReqNet(sock)->host_info = host; // ?? who deallocs?
+            memcpy(&ReqNet(sock)->remote_ip, *he->h_addr_list, 4); //he->h_length);
             req->flags |= RRF_DONE;
             return DR_DONE;
         }
     }
 
     rebFree(host);
-    sock->host_info = NULL;
+    ReqNet(sock)->host_info = NULL;
 
     switch (h_errno) {
     case HOST_NOT_FOUND: // The specified host is unknown

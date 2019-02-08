@@ -89,8 +89,10 @@ static REB_R Transport_Actor(
     // Initialize the IO request
     //
     REBREQ *sock = Ensure_Port_State(port, RDI_NET);
+    struct rebol_devreq *req = Req(sock);
+
     if (proto == TRANSPORT_UDP)
-        sock->modes |= RST_UDP;
+        req->modes |= RST_UDP;
 
     REBCTX *ctx = VAL_CONTEXT(port);
     REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
@@ -102,7 +104,7 @@ static REB_R Transport_Actor(
 
     // Actions for an unopened socket:
 
-    if (not (sock->flags & RRF_OPEN)) {
+    if (not (req->flags & RRF_OPEN)) {
 
         switch (VAL_WORD_SYM(verb)) { // Ordered by frequency
 
@@ -134,15 +136,15 @@ static REB_R Transport_Actor(
             //
             REBVAL *local_id = Obj_Value(spec, STD_PORT_SPEC_NET_LOCAL_ID);
             if (IS_BLANK(local_id))
-                DEVREQ_NET(sock)->local_port = 0; // let the system pick
+                ReqNet(sock)->local_port = 0; // let the system pick
             else if (IS_INTEGER(local_id))
-                DEVREQ_NET(sock)->local_port = VAL_INT32(local_id);
+                ReqNet(sock)->local_port = VAL_INT32(local_id);
             else
                 fail ("local-id field of PORT! spec must be BLANK!/INTEGER!");
 
             OS_DO_DEVICE_SYNC(sock, RDC_OPEN);
 
-            sock->flags |= RRF_OPEN;
+            req->flags |= RRF_OPEN;
 
             // Lookup host name (an extra TCP device step):
             if (IS_TEXT(arg)) {
@@ -153,8 +155,8 @@ static REB_R Transport_Actor(
                 );
                 PUSH_GC_GUARD(temp);
 
-                sock->common.data = BIN_AT(temp, offset);
-                DEVREQ_NET(sock)->remote_port =
+                req->common.data = BIN_AT(temp, offset);
+                ReqNet(sock)->remote_port =
                     IS_INTEGER(port_id) ? VAL_INT32(port_id) : 80;
 
                 // Note: sets remote_ip field
@@ -170,14 +172,14 @@ static REB_R Transport_Actor(
                 RETURN (port);
             }
             else if (IS_TUPLE(arg)) { // Host IP specified:
-                DEVREQ_NET(sock)->remote_port =
+                ReqNet(sock)->remote_port =
                     IS_INTEGER(port_id) ? VAL_INT32(port_id) : 80;
-                memcpy(&(DEVREQ_NET(sock)->remote_ip), VAL_TUPLE(arg), 4);
+                memcpy(&(ReqNet(sock)->remote_ip), VAL_TUPLE(arg), 4);
                 goto open_socket_actions;
             }
             else if (IS_BLANK(arg)) { // No host, must be a LISTEN socket:
-                sock->modes |= RST_LISTEN;
-                DEVREQ_NET(sock)->local_port =
+                req->modes |= RST_LISTEN;
+                ReqNet(sock)->local_port =
                     IS_INTEGER(port_id) ? VAL_INT32(port_id) : 8000;
 
                 // When a client connection gets accepted, a port gets added
@@ -229,7 +231,7 @@ static REB_R Transport_Actor(
             //
             return Init_Logic(
                 D_OUT,
-                (sock->state & (RSM_CONNECT | RSM_BIND)) != 0
+                (req->state & (RSM_CONNECT | RSM_BIND)) != 0
             );
 
         default:
@@ -244,15 +246,15 @@ static REB_R Transport_Actor(
         // This is normally called by the WAKE-UP function.
         //
         REBVAL *port_data = CTX_VAR(ctx, STD_PORT_DATA);
-        if (sock->command == RDC_READ) {
+        if (req->command == RDC_READ) {
             if (ANY_BINSTR(port_data)) {
                 SET_SERIES_LEN(
                     VAL_SERIES(port_data),
-                    VAL_LEN_HEAD(port_data) + sock->actual
+                    VAL_LEN_HEAD(port_data) + req->actual
                 );
             }
         }
-        else if (sock->command == RDC_WRITE) {
+        else if (req->command == RDC_WRITE) {
             Init_Blank(port_data); // Write is done.
         }
         return Init_Void(D_OUT); }
@@ -276,8 +278,8 @@ static REB_R Transport_Actor(
         // Read data into a buffer, expanding the buffer if needed.
         // If no length is given, program must stop it at some point.
         if (
-            not (sock->modes & RST_UDP)
-            and not (sock->state & RSM_CONNECT)
+            not (req->modes & RST_UDP)
+            and not (req->state & RSM_CONNECT)
         ){
             fail (Error_On_Port(SYM_NOT_CONNECTED, port, -15));
         }
@@ -298,9 +300,9 @@ static REB_R Transport_Actor(
                 Extend_Series(buffer, NET_BUF_SIZE);
         }
 
-        sock->length = SER_AVAIL(buffer);
-        sock->common.data = BIN_TAIL(buffer); // write at tail
-        sock->actual = 0; // actual for THIS read (not for total)
+        req->length = SER_AVAIL(buffer);
+        req->common.data = BIN_TAIL(buffer); // write at tail
+        req->actual = 0; // actual for THIS read (not for total)
 
         REBVAL *result = OS_DO_DEVICE(sock, RDC_READ);
         if (result == NULL) {
@@ -344,8 +346,8 @@ static REB_R Transport_Actor(
         // The lower level write code continues until done.
 
         if (
-            not (sock->modes & RST_UDP)
-            and not (sock->state & RSM_CONNECT)
+            not (req->modes & RST_UDP)
+            and not (req->state & RSM_CONNECT)
         ){
             fail (Error_On_Port(SYM_NOT_CONNECTED, port, -15));
         }
@@ -365,8 +367,8 @@ static REB_R Transport_Actor(
         REBSER *temp;
         if (IS_BINARY(data)) {
             temp = NULL;
-            sock->common.data = VAL_BIN_AT(data);
-            sock->length = len;
+            req->common.data = VAL_BIN_AT(data);
+            req->length = len;
 
             Move_Value(CTX_VAR(ctx, STD_PORT_DATA), data); // keep it GC safe
         }
@@ -387,13 +389,13 @@ static REB_R Transport_Actor(
                 data,
                 len
             );
-            sock->common.data = BIN_AT(temp, offset);
-            sock->length = size;
+            req->common.data = BIN_AT(temp, offset);
+            req->length = size;
 
             PUSH_GC_GUARD(temp);
         }
 
-        sock->actual = 0;
+        req->actual = 0;
 
         REBVAL *result = OS_DO_DEVICE(sock, RDC_WRITE);
 
@@ -420,7 +422,7 @@ static REB_R Transport_Actor(
         INCLUDE_PARAMS_OF_TAKE_P;
         UNUSED(PAR(series));
 
-        if (not (sock->modes & RST_LISTEN) or (sock->modes & RST_UDP))
+        if (not (req->modes & RST_LISTEN) or (req->modes & RST_UDP))
             fail ("TAKE is only available on TCP LISTEN ports");
 
         UNUSED(REF(part)); // non-null limit accounts for
@@ -446,14 +448,14 @@ static REB_R Transport_Actor(
         // Get specific information - the scheme's info object.
         // Special notation allows just getting part of the info.
         //
-        Query_Net(D_OUT, port, DEVREQ_NET(sock));
+        Query_Net(D_OUT, port, ReqNet(sock));
         return D_OUT; }
 
     case SYM_CLOSE: {
-        if (sock->flags & RRF_OPEN) {
+        if (req->flags & RRF_OPEN) {
             OS_DO_DEVICE_SYNC(sock, RDC_CLOSE);
 
-            sock->flags &= ~RRF_OPEN;
+            req->flags &= ~RRF_OPEN;
         }
         RETURN (port); }
 
@@ -573,13 +575,15 @@ REBNATIVE(set_udp_multicast)
 
     REBREQ *sock = Ensure_Port_State(ARG(port), RDI_NET);
 
-    sock->common.data = cast(REBYTE*, frame_);
+    struct rebol_devreq *req = Req(sock);
 
-    // sock->command is going to just be RDC_MODIFY, so all there is to go
+    req->common.data = cast(REBYTE*, frame_);
+
+    // req->command is going to just be RDC_MODIFY, so all there is to go
     // by is the data and flags.  Since RFC3171 specifies IPv4 multicast
     // address space...how about that?
     //
-    sock->flags = 3171;
+    req->flags = 3171;
 
     UNUSED(ARG(group));
     UNUSED(ARG(member));
@@ -607,14 +611,15 @@ REBNATIVE(set_udp_ttl)
     INCLUDE_PARAMS_OF_SET_UDP_TTL;
 
     REBREQ *sock = Ensure_Port_State(ARG(port), RDI_NET);
+    struct rebol_devreq *req = Req(sock);
 
-    sock->common.data = cast(REBYTE*, frame_);
+    req->common.data = cast(REBYTE*, frame_);
 
-    // sock->command is going to just be RDC_MODIFY, so all there is to go
+    // req->command is going to just be RDC_MODIFY, so all there is to go
     // by is the data and flags.  Since RFC2365 specifies IPv4 multicast
     // administrative boundaries...how about that?
     //
-    sock->flags = 2365;
+    req->flags = 2365;
 
     UNUSED(ARG(ttl));
 

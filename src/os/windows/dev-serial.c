@@ -77,16 +77,16 @@ const int speeds[] = {
 // serial.path = the /dev name for the serial port
 // serial.baud = speed (baudrate)
 //
-DEVICE_CMD Open_Serial(REBREQ *req)
+DEVICE_CMD Open_Serial(REBREQ *serial)
 {
-    struct devreq_serial *serial = DEVREQ_SERIAL(req);
+    struct rebol_devreq *req = Req(serial);
 
     // req->special.serial.path should be prefixed with "\\.\" to allow for
     // higher com port numbers
     //
     WCHAR fullpath[MAX_SERIAL_DEV_PATH] = L"\\\\.\\";
 
-    assert(serial->path != NULL);
+    assert(ReqSerial(serial)->path != NULL);
 
     // Concatenate the "spelling" of the serial port request by asking it
     // to be placed at the end of the buffer.
@@ -95,7 +95,7 @@ DEVICE_CMD Open_Serial(REBREQ *req)
     REBCNT chars_appended = rebSpellIntoW(
         &fullpath[wcslen(fullpath)],
         buf_left, // space, minus terminator
-        serial->path
+        ReqSerial(serial)->path
     );
     if (chars_appended > buf_left)
         rebJumps(
@@ -124,7 +124,7 @@ DEVICE_CMD Open_Serial(REBREQ *req)
         rebFail_OS (GetLastError());
     }
 
-    int speed = serial->baud;
+    int speed = ReqSerial(serial)->baud;
 
     REBINT n;
     for (n = 0; speeds[n]; n += 2) {
@@ -137,13 +137,13 @@ DEVICE_CMD Open_Serial(REBREQ *req)
     if (speeds[n] == 0) // invalid, use default
         dcbSerialParams.BaudRate = CBR_115200;
 
-    dcbSerialParams.ByteSize = serial->data_bits;
-    if (serial->stop_bits == 1)
+    dcbSerialParams.ByteSize = ReqSerial(serial)->data_bits;
+    if (ReqSerial(serial)->stop_bits == 1)
         dcbSerialParams.StopBits = ONESTOPBIT;
     else
         dcbSerialParams.StopBits = TWOSTOPBITS;
 
-    switch (serial->parity) {
+    switch (ReqSerial(serial)->parity) {
     case SERIAL_PARITY_ODD:
         dcbSerialParams.Parity = ODDPARITY;
         break;
@@ -198,8 +198,10 @@ DEVICE_CMD Open_Serial(REBREQ *req)
 //
 //  Close_Serial: C
 //
-DEVICE_CMD Close_Serial(REBREQ *req)
+DEVICE_CMD Close_Serial(REBREQ *serial)
 {
+    struct rebol_devreq *req = Req(serial);
+
     if (req->requestee.handle != NULL) {
         //
         // !!! Should we free req->special.serial.prior_attr termios struct?
@@ -214,8 +216,10 @@ DEVICE_CMD Close_Serial(REBREQ *req)
 //
 //  Read_Serial: C
 //
-DEVICE_CMD Read_Serial(REBREQ *req)
+DEVICE_CMD Read_Serial(REBREQ *serial)
 {
+    struct rebol_devreq *req = Req(serial);
+
     assert(req->requestee.handle != NULL);
 
     //printf("reading %d bytes\n", req->length);
@@ -235,7 +239,7 @@ DEVICE_CMD Read_Serial(REBREQ *req)
     rebElide(
         "insert system/ports/system make event!", rebU("[",
             "type: 'read",
-            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+            "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(serial))),
         "]", rebEND),
     rebEND);
 
@@ -250,8 +254,10 @@ DEVICE_CMD Read_Serial(REBREQ *req)
 //
 //  Write_Serial: C
 //
-DEVICE_CMD Write_Serial(REBREQ *req)
+DEVICE_CMD Write_Serial(REBREQ *serial)
 {
+    struct rebol_devreq *req = Req(serial);
+
     DWORD len = req->length - req->actual;
 
     assert(req->requestee.handle != NULL);
@@ -276,7 +282,7 @@ DEVICE_CMD Write_Serial(REBREQ *req)
         rebElide(
             "insert system/ports/system make event!", rebU("[",
                 "type: 'wrote",
-                "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+                "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(serial))),
             "]", rebEND),
         rebEND);
 

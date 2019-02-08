@@ -173,7 +173,7 @@ bool OS_Set_Current_Dir(const REBVAL *path)
 // Convert file.time to REBOL date/time format.
 // Time zone is UTC.
 //
-REBVAL *OS_File_Time(struct devreq_file *file)
+REBVAL *OS_File_Time(REBREQ *file)
 {
     SYSTEMTIME stime;
     TIME_ZONE_INFORMATION tzone;
@@ -181,7 +181,7 @@ REBVAL *OS_File_Time(struct devreq_file *file)
     if (TIME_ZONE_ID_DAYLIGHT == GetTimeZoneInformation(&tzone))
         tzone.Bias += tzone.DaylightBias;
 
-    FileTimeToSystemTime(cast(FILETIME *, &file->time), &stime);
+    FileTimeToSystemTime(cast(FILETIME *, &ReqFile(file)->time), &stime);
     return Convert_Date(-tzone.Bias, &stime);
 }
 

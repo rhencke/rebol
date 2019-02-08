@@ -73,7 +73,7 @@ void Shutdown_StdIO(void)
     // !!! There is no OS_FREE_DEVREQ.  Should there be?  Should this
     // include an OS_ABORT_DEVICE?
     //
-    free(Req_SIO);
+    Free_Req(Req_SIO);
 }
 
 
@@ -88,9 +88,9 @@ void Print_OS_Line(void)
 
     static REBYTE newline[] = "\n";
 
-    Req_SIO->common.data = newline;
-    Req_SIO->length = 1;
-    Req_SIO->actual = 0;
+    Req(Req_SIO)->common.data = newline;
+    Req(Req_SIO)->length = 1;
+    Req(Req_SIO)->actual = 0;
 
     REBVAL *result = OS_DO_DEVICE(Req_SIO, RDC_WRITE);
     assert(result != NULL);
@@ -108,13 +108,15 @@ void Print_OS_Line(void)
 //
 void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
 {
-    Req_SIO->flags |= RRF_FLUSH;
-    if (opts & OPT_ENC_RAW)
-        Req_SIO->modes &= ~RFM_TEXT;
-    else
-        Req_SIO->modes |= RFM_TEXT;
+    struct rebol_devreq *req = Req(Req_SIO);
 
-    Req_SIO->actual = 0;
+    req->flags |= RRF_FLUSH;
+    if (opts & OPT_ENC_RAW)
+        req->modes &= ~RFM_TEXT;
+    else
+        req->modes |= RFM_TEXT;
+
+    req->actual = 0;
 
     DECLARE_LOCAL (temp);
     SET_END(temp);
@@ -128,7 +130,7 @@ void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
     //
     // There may well be a better way to go about this.
     //
-    Req_SIO->common.data = m_cast(REBYTE*, utf8); // !!! promises to not write
+    req->common.data = m_cast(REBYTE*, utf8); // !!! promises to not write
     while (size > 0) {
         if (Do_Signals_Throws(temp))
             fail (Error_No_Catch_For_Throw(temp));
@@ -138,25 +140,25 @@ void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
         // !!! Req_SIO->length is actually the "size", e.g. number of bytes.
         //
         if (size <= 1024)
-            Req_SIO->length = size;
+            req->length = size;
         else if (not (opts & OPT_ENC_RAW))
-            Req_SIO->length = 1024;
+            req->length = 1024;
         else {
             // Correct for UTF-8 batching so we don't span an encoded
             // character, back off until we hit a valid leading character.
             // Start by scanning 4 bytes back since that's the longest valid
             // UTF-8 encoded character.
             //
-            Req_SIO->length = 1020;
-            while ((Req_SIO->common.data[Req_SIO->length] & 0xC0) == 0x80)
-                ++Req_SIO->length;
-            assert(Req_SIO->length <= 1024);
+            req->length = 1020;
+            while ((req->common.data[req->length] & 0xC0) == 0x80)
+                ++req->length;
+            assert(req->length <= 1024);
         }
 
         OS_DO_DEVICE_SYNC(Req_SIO, RDC_WRITE);
 
-        Req_SIO->common.data += Req_SIO->length;
-        size -= Req_SIO->length;
+        req->common.data += req->length;
+        size -= req->length;
     }
 }
 

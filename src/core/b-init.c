@@ -1322,8 +1322,6 @@ void Startup_Core(void)
     CLEAR(Reb_Opts, sizeof(REB_OPTS));
     Saved_State = NULL;
 
-    Startup_StdIO();
-
     Assert_Basics();
     PG_Boot_Time = OS_DELTA_TIME(0);
 
@@ -1335,6 +1333,8 @@ void Startup_Core(void)
 
     Startup_Pools(0);          // Memory allocator
     Startup_GC();
+
+    Startup_StdIO();
 
 //==//////////////////////////////////////////////////////////////////////==//
 //

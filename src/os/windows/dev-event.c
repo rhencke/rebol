@@ -144,7 +144,7 @@ DEVICE_CMD Init_Events(REBREQ *dr)
 DEVICE_CMD Query_Events(REBREQ *req)
 {
     // Set timer (we assume this is very fast):
-    Timer_Id = SetTimer(0, Timer_Id, req->length, 0);
+    Timer_Id = SetTimer(0, Timer_Id, Req(req)->length, 0);
 
     // Wait for message or the timer:
     //
@@ -200,4 +200,4 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] = {
     Query_Events,
 };
 
-DEFINE_DEV(Dev_Event, "OS Events", 1, Dev_Cmds, RDC_MAX, sizeof(REBREQ));
+DEFINE_DEV(Dev_Event, "OS Events", 1, Dev_Cmds, RDC_MAX, sizeof(struct rebol_devreq));

@@ -41,7 +41,9 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
-    REBREQ *sock = Ensure_Port_State(port, RDI_DNS);
+    REBREQ *req = Ensure_Port_State(port, RDI_DNS);
+    struct rebol_devreq *sock = Req(req);
+
     sock->timeout = 4000; // where does this go? !!!
 
     REBCTX *ctx = VAL_CONTEXT(port);
@@ -86,7 +88,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         UNUSED(PAR(lines)); // handled in dispatcher
 
         if (not (sock->flags & RRF_OPEN))
-            OS_DO_DEVICE_SYNC(sock, RDC_OPEN);
+            OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
         arg = Obj_Value(spec, STD_PORT_SPEC_NET_HOST);
 
@@ -96,7 +98,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         //
         if (IS_TUPLE(arg)) {
             sock->modes |= RST_REVERSE;
-            memcpy(&(DEVREQ_NET(sock)->remote_ip), VAL_TUPLE(arg), 4);
+            memcpy(&(ReqNet(req)->remote_ip), VAL_TUPLE(arg), 4);
         }
         else if (IS_TEXT(arg)) {
             REBSIZ offset;
@@ -108,7 +110,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             DECLARE_LOCAL (tmp);
             if (Scan_Tuple(tmp, BIN_AT(temp, offset), size) != NULL) {
                 sock->modes |= RST_REVERSE;
-                memcpy(&(DEVREQ_NET(sock)->remote_ip), VAL_TUPLE(tmp), 4);
+                memcpy(&(ReqNet(req)->remote_ip), VAL_TUPLE(tmp), 4);
             }
             else // lookup string's IP address
                 sock->common.data = VAL_BIN_HEAD(arg);
@@ -116,7 +118,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         else
             fail (Error_On_Port(SYM_INVALID_SPEC, port, -10));
 
-        OS_DO_DEVICE_SYNC(sock, RDC_READ);
+        OS_DO_DEVICE_SYNC(req, RDC_READ);
 
         len = 1;
         goto pick; }
@@ -132,7 +134,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         assert(sock->flags & RRF_DONE); // R3-Alpha async DNS removed
 
-        if (DEVREQ_NET(sock)->host_info == NULL) // HOST_NOT_FOUND, NO_ADDRESS
+        if (ReqNet(req)->host_info == NULL) // HOST_NOT_FOUND, NO_ADDRESS
             return Init_Blank(D_OUT);
 
         if (sock->modes & RST_REVERSE) {
@@ -142,10 +144,10 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             );
         }
         else
-            Init_Tuple(D_OUT, cast(REBYTE*, &DEVREQ_NET(sock)->remote_ip), 4);
+            Init_Tuple(D_OUT, cast(REBYTE*, &ReqNet(req)->remote_ip), 4);
 
 
-        OS_DO_DEVICE_SYNC(sock, RDC_CLOSE);
+        OS_DO_DEVICE_SYNC(req, RDC_CLOSE);
         return D_OUT; }
 
     case SYM_OPEN: {
@@ -165,11 +167,11 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             fail (Error_Bad_Refines_Raw());
         }
 
-        OS_DO_DEVICE_SYNC(sock, RDC_OPEN);
+        OS_DO_DEVICE_SYNC(req, RDC_OPEN);
         RETURN (port); }
 
     case SYM_CLOSE: {
-        OS_DO_DEVICE_SYNC(sock, RDC_CLOSE);
+        OS_DO_DEVICE_SYNC(req, RDC_CLOSE);
         RETURN (port); }
 
     case SYM_ON_WAKE_UP:

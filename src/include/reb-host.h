@@ -48,8 +48,6 @@
 
 #include "reb-c.h" // API should only require <stdbool.h> and <stdint.h>
 
-struct rebol_devreq;
-typedef struct rebol_devreq REBREQ;
 #include "reb-device.h"
 
 

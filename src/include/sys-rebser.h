@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -839,7 +839,8 @@ union Reb_Series_Link {
     // it has to tell the system with SERIES_INFO_LINK_IS_CUSTOM_NODE.
     //
     // Notable uses by extensions:
-    // * `parent` GOB of GOB! details 
+    // 1. `parent` GOB of GOB! details
+    // 2. `next_req` REBREQ* of a REBREQ
     //
     union Reb_Custom custom;
 };
@@ -943,7 +944,8 @@ union Reb_Series_Misc {
     // it has to tell the system with SERIES_INFO_MISC_IS_CUSTOM_NODE.
     //
     // Notable uses by extensions:
-    // * `owner` of GOB! node
+    // 1. `owner` of GOB! node
+    // 2. `port_ctx` of REBREQ ("link back to REBOL PORT! object")
     //
     union Reb_Custom custom;
 };

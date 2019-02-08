@@ -59,8 +59,6 @@
 
 #include "reb-event.h"
 
-REBREQ *req;        //!!! move this global
-
 #define EVENTS_LIMIT 0xFFFF //64k
 #define EVENTS_CHUNK 128
 
@@ -229,32 +227,34 @@ REB_R Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             fail (Error_Bad_Refines_Raw());
         }
 
-        if (req == NULL) { //!!!
-            req = OS_MAKE_DEVREQ(RDI_EVENT);
-            req->flags |= RRF_OPEN;
-            REBVAL *result = OS_DO_DEVICE(req, RDC_CONNECT);
-            if (result == NULL) {
-                //
-                // comment said "stays queued", hence seems pending happens
-            }
-            else {
-                if (rebDid("error?", result, rebEND))
-                    rebJumps("FAIL", result, rebEND);
+        REBREQ *req = OS_MAKE_DEVREQ(RDI_EVENT);
 
-                assert(false); // !!! can this happen?
-                rebRelease(result); // ignore result
-            }
+        Req(req)->flags |= RRF_OPEN;
+        REBVAL *result = OS_DO_DEVICE(req, RDC_CONNECT);
+
+        if (result == NULL) {
+            //
+            // comment said "stays queued", hence seems pending happens
+            // the request was taken by the device layer, don't try to free
         }
+        else {
+            Free_Req(req);  // synchronous completion, we must free
+
+            if (rebDid("error?", result, rebEND))
+                rebJumps("FAIL", result, rebEND);
+
+            assert(false); // !!! can this happen?
+            rebRelease(result); // ignore result
+        }
+
         RETURN (port); }
 
     case SYM_CLOSE: {
-        OS_ABORT_DEVICE(req);
+        REBREQ *req = OS_MAKE_DEVREQ(RDI_EVENT);
 
         OS_DO_DEVICE_SYNC(req, RDC_CLOSE);
 
-        // free req!!!
-        req->flags &= ~RRF_OPEN;
-        req = NULL;
+        Free_Req(req);
         RETURN (port); }
 
     case SYM_FIND:
@@ -273,7 +273,6 @@ REB_R Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 //
 void Startup_Event_Scheme(void)
 {
-    req = 0; // move to port struct
 }
 
 
@@ -282,8 +281,4 @@ void Startup_Event_Scheme(void)
 //
 void Shutdown_Event_Scheme(void)
 {
-    if (req) {
-        free(req);
-        req = NULL;
-    }
 }

@@ -123,34 +123,36 @@ static int Is_Dir(const char *path_utf8, const char *name_utf8)
 }
 
 
-static bool Seek_File_64(struct devreq_file *file)
+static bool Seek_File_64(REBREQ *file)
 {
     // Performs seek and updates index value. TRUE on success.
 
-    REBREQ *req = AS_REBREQ(file);
+    struct rebol_devreq *req = Req(file);
 
     int h = req->requestee.id;
     int64_t result;
 
-    if (file->index == -1) {
+    if (ReqFile(file)->index == -1) {
         // Append:
         result = lseek(h, 0, SEEK_END);
     }
     else {
-        result = lseek(h, file->index, SEEK_SET);
+        result = lseek(h, ReqFile(file)->index, SEEK_SET);
     }
 
     if (result < 0)
         return false; // errno should still be good for caller to use
 
-    file->index = result;
+    ReqFile(file)->index = result;
 
     return true;
 }
 
 
-static int Get_File_Info(struct devreq_file *file)
+static int Get_File_Info(REBREQ *file)
 {
+    struct rebol_devreq *req = Req(file);
+
     // The original implementation here used /no-trailing-slash for the
     // FILE-TO-LOCAL, which meant that %/ would turn into an empty string.
     // It would appear that for directories, trailing slashes are acceptable
@@ -159,27 +161,27 @@ static int Get_File_Info(struct devreq_file *file)
     //
     // https://superuser.com/questions/240743/
     //
-    char *path_utf8 = rebSpell("file-to-local/full", file->path, rebEND);
+    char *path_utf8 = rebSpell(
+        "file-to-local/full", ReqFile(file)->path,
+    rebEND);
 
     struct stat info;
     int stat_result = stat(path_utf8, &info);
 
     rebFree(path_utf8);
 
-    REBREQ *req = AS_REBREQ(file);
-
     if (stat_result != 0)
         rebFail_OS (errno);
 
     if (S_ISDIR(info.st_mode)) {
         req->modes |= RFM_DIR;
-        file->size = 0; // in order to be consistent on all systems
+        ReqFile(file)->size = 0;  // "to be consistent on all systems" ?
     }
     else {
         req->modes &= ~RFM_DIR;
-        file->size = info.st_size;
+        ReqFile(file)->size = info.st_size;
     }
-    file->time.l = cast(long, info.st_mtime);
+    ReqFile(file)->time.l = cast(long, info.st_mtime);
 
     return DR_DONE;
 }
@@ -229,14 +231,14 @@ static int Get_File_Info(struct devreq_file *file)
 // Store permissions? Ownership? Groups? Or, require that
 // to be part of a separate request?
 //
-static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
+static int Read_Directory(REBREQ *dir, REBREQ *file)
 {
-    REBREQ *dir_req = AS_REBREQ(dir);
-    REBREQ *file_req = AS_REBREQ(file);
+    struct rebol_devreq *dir_req = Req(dir);
+    struct rebol_devreq *file_req = Req(file);
 
     // Note: /WILD append of * is not necessary on POSIX
     //
-    char *dir_utf8 = rebSpell("file-to-local", dir->path, rebEND);
+    char *dir_utf8 = rebSpell("file-to-local", ReqFile(dir)->path, rebEND);
 
     // If no dir handle, open the dir:
     //
@@ -303,7 +305,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     if (Is_Dir(dir_utf8, file_utf8))
         file_req->modes |= RFM_DIR;
 
-    file->path = rebRun(
+    ReqFile(file)->path = rebRun(
         "apply 'local-to-file [",
             "path:", rebT(file_utf8),
             "dir:", rebL(file_req->modes & RFM_DIR),
@@ -314,7 +316,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     // trigger a GC and there is nothing proxying the RebReq's data.
     // Long term, this file should have *been* the return result.
     //
-    rebUnmanage(m_cast(REBVAL*, file->path));
+    rebUnmanage(m_cast(REBVAL*, ReqFile(file)->path));
 
     rebFree(dir_utf8);
 
@@ -338,13 +340,13 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
 // 3.    REBOL clears necessary fields of file structure before
 //     calling (e.g. error and size fields).
 //
-DEVICE_CMD Open_File(REBREQ *req)
+DEVICE_CMD Open_File(REBREQ *file)
 {
-    struct devreq_file *file = DEVREQ_FILE(req);
+    struct rebol_devreq *req = Req(file);
 
     // "Posix file names should be compatible with REBOL file paths"
 
-    assert(file->path != NULL);
+    assert(ReqFile(file)->path != NULL);
 
     int modes = O_BINARY | ((req->modes & RFM_READ) ? O_RDONLY : O_RDWR);
 
@@ -371,7 +373,7 @@ DEVICE_CMD Open_File(REBREQ *req)
 
     char *path_utf8 = rebSpell(
         "apply 'file-to-local [",
-            "path:", file->path,
+            "path:", ReqFile(file)->path,
             "wild:", rebL(req->modes & RFM_DIR),  // !!! necessary?
             "full: true"
         "]", rebEND
@@ -396,8 +398,8 @@ DEVICE_CMD Open_File(REBREQ *req)
 
     // Fetch file size (if fails, then size is assumed zero):
     if (fstat(h, &info) == 0) {
-        file->size = info.st_size;
-        file->time.l = cast(long, info.st_mtime);
+        ReqFile(file)->size = info.st_size;
+        ReqFile(file)->time.l = cast(long, info.st_mtime);
     }
 
     req->requestee.id = h;
@@ -411,8 +413,10 @@ DEVICE_CMD Open_File(REBREQ *req)
 //
 // Closes a previously opened file.
 //
-DEVICE_CMD Close_File(REBREQ *req)
+DEVICE_CMD Close_File(REBREQ *file)
 {
+    struct rebol_devreq *req = Req(file);
+
     if (req->requestee.id) {
         close(req->requestee.id);
         req->requestee.id = 0;
@@ -424,14 +428,14 @@ DEVICE_CMD Close_File(REBREQ *req)
 //
 //  Read_File: C
 //
-DEVICE_CMD Read_File(REBREQ *req)
+DEVICE_CMD Read_File(REBREQ *file)
 {
-    struct devreq_file *file = DEVREQ_FILE(req);
+    struct rebol_devreq *req = Req(file);
 
     if (req->modes & RFM_DIR) {
         return Read_Directory(
             file,
-            cast(struct devreq_file*, req->common.data)
+            cast(REBREQ*, req->common.data)
         );
     }
 
@@ -453,7 +457,7 @@ DEVICE_CMD Read_File(REBREQ *req)
         rebFail_OS (errno);
 
     req->actual = bytes;
-    file->index += req->actual;
+    ReqFile(file)->index += req->actual;
     return DR_DONE;
 }
 
@@ -463,9 +467,9 @@ DEVICE_CMD Read_File(REBREQ *req)
 //
 // Bug?: update file->size value after write !?
 //
-DEVICE_CMD Write_File(REBREQ *req)
+DEVICE_CMD Write_File(REBREQ *file)
 {
-    struct devreq_file *file = DEVREQ_FILE(req);
+    struct rebol_devreq *req = Req(file);
 
     assert(req->requestee.id != 0);
 
@@ -480,7 +484,7 @@ DEVICE_CMD Write_File(REBREQ *req)
             rebFail_OS (errno);
 
         if (req->modes & RFM_TRUNCATE)
-            if (ftruncate(req->requestee.id, file->index) != 0)
+            if (ftruncate(req->requestee.id, ReqFile(file)->index) != 0)
                 rebFail_OS (errno);
     }
 
@@ -505,21 +509,21 @@ DEVICE_CMD Write_File(REBREQ *req)
 //
 DEVICE_CMD Query_File(REBREQ *req)
 {
-    return Get_File_Info(DEVREQ_FILE(req));
+    return Get_File_Info(req);
 }
 
 
 //
 //  Create_File: C
 //
-DEVICE_CMD Create_File(REBREQ *req)
+DEVICE_CMD Create_File(REBREQ *file)
 {
-    struct devreq_file *file = DEVREQ_FILE(req);
+    struct rebol_devreq *req = Req(file);
     if (not (req->modes & RFM_DIR))
-        return Open_File(req);
+        return Open_File(file);
 
     char *path_utf8 = rebSpell(
-        "file-to-local/full/no-tail-slash", file->path,
+        "file-to-local/full/no-tail-slash", ReqFile(file)->path,
         rebEND
     );
 
@@ -542,12 +546,12 @@ DEVICE_CMD Create_File(REBREQ *req)
 //
 // Note: Dirs must be empty to succeed
 //
-DEVICE_CMD Delete_File(REBREQ *req)
+DEVICE_CMD Delete_File(REBREQ *file)
 {
-    struct devreq_file *file = DEVREQ_FILE(req);
+    struct rebol_devreq *req = Req(file);
 
     char *path_utf8 = rebSpell(
-        "file-to-local/full", file->path,
+        "file-to-local/full", ReqFile(file)->path,
         rebEND // leave tail slash on for directory removal
     );
 
@@ -572,14 +576,14 @@ DEVICE_CMD Delete_File(REBREQ *req)
 // Rename a file or directory.
 // Note: cannot rename across file volumes.
 //
-DEVICE_CMD Rename_File(REBREQ *req)
+DEVICE_CMD Rename_File(REBREQ *file)
 {
-    struct devreq_file *file = DEVREQ_FILE(req);
+    struct rebol_devreq *req = Req(file);
 
     REBVAL *to = cast(REBVAL*, req->common.data); // !!! hack!
 
     char *from_utf8 = rebSpell(
-        "file-to-local/full/no-tail-slash", file->path,
+        "file-to-local/full/no-tail-slash", ReqFile(file)->path,
         rebEND
     );
     char *to_utf8 = rebSpell(

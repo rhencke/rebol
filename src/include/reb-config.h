@@ -434,32 +434,31 @@ Special internal defines used by RT, not Host-Kit developers:
     #define DEBUG_BINDING_NAME_MATCH
   #endif
 
-    // Cast checks in SER(), NOD(), ARR() are expensive--they make sure that
-    // when you have a void pointer and cast it to a REBSER, that the header
-    // actually is for a REBSER (etc.)  Disable this by default unless you are
-    // using address sanitizer, where you expect your executable to be slow.
-    //
-    #ifdef __SANITIZE_ADDRESS__
-        #define DEBUG_CHECK_CASTS
-
-        // Both Valgrind and Address Sanitizer can provide the call stack at
-        // the moment of allocation when a freed pointer is used.  This is
-        // exploited by Touch_Series() to use a bogus allocation to help
-        // mark series origins that can later be used by `panic()`.  However,
-        // the feature is a waste if you're not using such tools.
-        //
-        // If you plan to use Valgrind with this, you'll have to set it
-        // explicitly...only Address Sanitizer can be detected here.
-        //
-        #define DEBUG_SERIES_ORIGINS
-    #endif
-
     // !!! Due to the massive change of UTF8-Everywhere, it motivates some
     // particularly strong checks.
     //
     #define DEBUG_UTF8_EVERYWHERE
 #endif
 
+// Cast checks in SER(), NOD(), ARR() are expensive--they make sure that
+// when you have a void pointer and cast it to a REBSER, that the header
+// actually is for a REBSER (etc.)  Disable this by default unless you are
+// using address sanitizer, where you expect your executable to be slow.
+//
+#ifdef __SANITIZE_ADDRESS__
+    #define DEBUG_CHECK_CASTS
+
+    // Both Valgrind and Address Sanitizer can provide the call stack at
+    // the moment of allocation when a freed pointer is used.  This is
+    // exploited by Touch_Series() to use a bogus allocation to help
+    // mark series origins that can later be used by `panic()`.  However,
+    // the feature is a waste if you're not using such tools.
+    //
+    // If you plan to use Valgrind with this, you'll have to set it
+    // explicitly...only Address Sanitizer can be detected here.
+    //
+    #define DEBUG_SERIES_ORIGINS
+#endif
 
 #ifdef DEBUG_MEMORY_ALIGN
     #if !defined(DEBUG_CELL_WRITABILITY)

@@ -107,24 +107,24 @@ static int Poll_Default(REBDEV *dev)
     REBREQ **prior = &dev->pending;
     REBREQ *req;
     for (req = *prior; req; req = *prior) {
-        assert(req->command < RDC_MAX);
+        assert(Req(req)->command < RDC_MAX);
 
         // Call command again:
 
-        req->flags &= ~RRF_ACTIVE;
-        int result = dev->commands[req->command](req);
+        Req(req)->flags &= ~RRF_ACTIVE;
+        int result = dev->commands[Req(req)->command](req);
 
         if (result == DR_DONE) { // if done, remove from pending list
-            *prior = req->next;
-            req->next = 0;
-            req->flags &= ~RRF_PENDING;
+            *prior = NextReq(req);
+            NextReq(req) = nullptr;
+            Req(req)->flags &= ~RRF_PENDING;
             change = true;
         }
         else {
             assert(result == DR_PEND);
 
-            prior = &req->next;
-            if (req->flags & RRF_ACTIVE)
+            prior = &NextReq(req);
+            if (Req(req)->flags & RRF_ACTIVE)
                 change = true;
         }
     }
@@ -146,13 +146,14 @@ void Attach_Request(REBREQ **node, REBREQ *req)
     // See if its there, and get last req:
     for (r = *node; r; r = *node) {
         if (r == req) return; // already in list
-        node = &r->next;
+        node = &NextReq(r);
     }
 
     // Link the new request to end:
     *node = req;
-    req->next = 0;
-    req->flags |= RRF_PENDING;
+    Ensure_Req_Managed(req);
+    NextReq(req) = nullptr;
+    Req(req)->flags |= RRF_PENDING;
 }
 
 
@@ -168,12 +169,12 @@ void Detach_Request(REBREQ **node, REBREQ *req)
 
     for (r = *node; r; r = *node) {
         if (r == req) {
-            *node = req->next;
-            req->next = 0;
-            req->flags |= RRF_PENDING;
+            *node = NextReq(req);
+            NextReq(req) = nullptr;
+            Req(req)->flags |= RRF_PENDING;
             return;
         }
-        node = &r->next;
+        node = &NextReq(r);
     }
 }
 
@@ -184,9 +185,9 @@ void Detach_Request(REBREQ **node, REBREQ *req)
 // raised during the device code.
 //
 static REBVAL *Dangerous_Command(REBREQ *req) {
-    REBDEV *dev = Devices[req->device];
+    REBDEV *dev = Devices[Req(req)->device];
 
-    int result = (dev->commands[req->command])(req);
+    int result = (dev->commands[Req(req)->command])(req);
     return rebInteger(result);
 }
 
@@ -203,12 +204,12 @@ static REBVAL *Dangerous_Command(REBREQ *req) {
 //
 REBVAL *OS_Do_Device(REBREQ *req, int command)
 {
-    req->command = command;
+    Req(req)->command = command;
 
-    if (req->device >= RDI_MAX)
+    if (Req(req)->device >= RDI_MAX)
         rebJumps("FAIL {Rebol Device Number Too Large}", rebEND);
 
-    REBDEV *dev = Devices[req->device];
+    REBDEV *dev = Devices[Req(req)->device];
     if (dev == NULL)
         rebJumps("FAIL {Rebol Device Not Found}", rebEND);
 
@@ -225,8 +226,8 @@ REBVAL *OS_Do_Device(REBREQ *req, int command)
     }
 
     if (
-        req->command > dev->max_command
-        || dev->commands[req->command] == NULL
+        Req(req)->command > dev->max_command
+        || dev->commands[Req(req)->command] == NULL
     ){
         rebJumps("FAIL {Invalid Command for Rebol Device}", rebEND);
     }
@@ -238,8 +239,8 @@ REBVAL *OS_Do_Device(REBREQ *req, int command)
     // the meantime just don't try and push trapping of errors if there's
     // not at least one Rebol state pushed.
     //
-    if (req->device == RDI_STDIO && req->command == RDC_OPEN) {
-        int result = (dev->commands[req->command])(req);
+    if (Req(req)->device == RDI_STDIO && Req(req)->command == RDC_OPEN) {
+        int result = (dev->commands[Req(req)->command])(req);
         assert(result == DR_DONE);
         UNUSED(result);
         return NULL;
@@ -315,16 +316,7 @@ void OS_Do_Device_Sync(REBREQ *req, int command)
 //
 REBREQ *OS_Make_Devreq(int device)
 {
-    assert(device < RDI_MAX);
-
-    REBDEV *dev = Devices[device];
-    assert(dev != NULL);
-
-    REBREQ *req = cast(REBREQ*, malloc(dev->req_size));
-    memset(req, 0, dev->req_size);
-    req->device = device;
-
-    return req;
+    return cast(REBREQ*, rebMake_Rebreq(device));
 }
 
 
@@ -335,7 +327,7 @@ REBREQ *OS_Make_Devreq(int device)
 //
 int OS_Abort_Device(REBREQ *req)
 {
-    REBDEV *dev = Devices[req->device];
+    REBDEV *dev = Devices[Req(req)->device];
     assert(dev != NULL);
 
     Detach_Request(&dev->pending, req);
@@ -426,33 +418,40 @@ int OS_Wait(unsigned int millisec, unsigned int res)
 
     int64_t base = OS_DELTA_TIME(0); // start timing
 
-    // Comment said "Setup for timing: OK: QUERY below does not store it"
+    // !!! The request is created here due to a comment that said "setup for
+    // timing" and said it was okay to stack allocate it because "QUERY
+    // below does not store it".  Having eliminated stack-allocated REBREQ,
+    // it's not clear if it makes sense to allocate it here vs. below.
     //
-    REBREQ req;
-    memset(&req, 0, sizeof(REBREQ));
-    req.device = RDI_EVENT;
+    REBREQ *req = OS_Make_Devreq(RDI_EVENT);
 
     OS_REAP_PROCESS(-1, NULL, 0);
 
     // Let any pending device I/O have a chance to run:
     //
-    if (OS_Poll_Devices())
+    if (OS_Poll_Devices()) {
+        Free_Req(req);
         return -1;
+    }
 
     // Nothing, so wait for period of time
 
     unsigned int delta = OS_DELTA_TIME(base) / 1000 + res;
-    if (delta >= millisec)
+    if (delta >= millisec) {
+        Free_Req(req);
         return 0;
+    }
 
     millisec -= delta; // account for time lost above
-    req.length = millisec;
+    Req(req)->length = millisec;
 
     // printf("Wait: %d ms\n", millisec);
 
     // Comment said "wait for timer or other event"
     //
-    OS_DO_DEVICE_SYNC(&req, RDC_QUERY);
+    OS_DO_DEVICE_SYNC(req, RDC_QUERY);
+
+    Free_Req(req);
 
     return 1;  // layer above should check delta again
 }

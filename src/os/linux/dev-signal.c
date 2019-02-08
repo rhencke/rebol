@@ -42,24 +42,24 @@
 //
 //  Open_Signal: C
 //
-DEVICE_CMD Open_Signal(REBREQ *req)
+DEVICE_CMD Open_Signal(REBREQ *signal)
 {
-    struct devreq_posix_signal *signal = DEVREQ_POSIX_SIGNAL(req);
+    struct rebol_devreq *req = Req(signal);
 
-#ifdef CHECK_MASK_OVERLAP //doesn't work yet
+  #ifdef CHECK_MASK_OVERLAP //doesn't work yet
     sigset_t mask;
     if (sigprocmask(SIG_BLOCK, NULL, &mask) < 0)
         rebFail_OS (errno);
 
     sigset_t overlap;
-    if (sigandset(&overlap, &mask, &signal->mask) < 0)
+    if (sigandset(&overlap, &mask, &ReqPosixSignal(signal)->mask) < 0)
         rebFail_OS (errno);
 
     if (!sigisemptyset(&overlap))
         rebFail_OS (EBUSY);
-#endif
+  #endif
 
-    if (sigprocmask(SIG_BLOCK, &signal->mask, NULL) < 0)
+    if (sigprocmask(SIG_BLOCK, &ReqPosixSignal(signal)->mask, NULL) < 0)
         rebFail_OS (errno);
 
     req->flags |= RRF_OPEN;
@@ -67,7 +67,7 @@ DEVICE_CMD Open_Signal(REBREQ *req)
     rebElide(
         "insert system/ports/system make event!", rebU("[",
             "type: 'open",
-            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+            "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(signal))),
         "]", rebEND),
     rebEND);
 
@@ -78,10 +78,10 @@ DEVICE_CMD Open_Signal(REBREQ *req)
 //
 //  Close_Signal: C
 //
-DEVICE_CMD Close_Signal(REBREQ *req)
+DEVICE_CMD Close_Signal(REBREQ *signal)
 {
-    struct devreq_posix_signal *signal = DEVREQ_POSIX_SIGNAL(req);
-    if (sigprocmask(SIG_UNBLOCK, &signal->mask, NULL) < 0)
+    struct rebol_devreq *req = Req(signal);
+    if (sigprocmask(SIG_UNBLOCK, &ReqPosixSignal(signal)->mask, NULL) < 0)
         rebFail_OS (errno);
 
     req->flags &= ~RRF_OPEN;
@@ -92,17 +92,18 @@ DEVICE_CMD Close_Signal(REBREQ *req)
 //
 //  Read_Signal: C
 //
-DEVICE_CMD Read_Signal(REBREQ *req)
+DEVICE_CMD Read_Signal(REBREQ *signal)
 {
+    struct rebol_devreq *req = Req(signal);
+
     struct timespec timeout = {0, 0};
     unsigned int i = 0;
 
-    struct devreq_posix_signal *signal = DEVREQ_POSIX_SIGNAL(req);
     errno = 0;
 
     for (i = 0; i < req->length; i ++) {
         int result = sigtimedwait(
-            &signal->mask,
+            &ReqPosixSignal(signal)->mask,
             &(cast(siginfo_t*, req->common.data)[i]),
             &timeout
         );
@@ -123,7 +124,7 @@ DEVICE_CMD Read_Signal(REBREQ *req)
     rebElide(
         "insert system/ports/system make event!", rebU("[",
             "type: 'read",
-            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+            "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(signal))),
         "]", rebEND),
     rebEND);
 
@@ -148,4 +149,4 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] =
     0,
 };
 
-DEFINE_DEV(Dev_Signal, "Signal", 1, Dev_Cmds, RDC_MAX, sizeof(REBREQ));
+DEFINE_DEV(Dev_Signal, "Signal", 1, Dev_Cmds, RDC_MAX, sizeof(struct rebol_devreq));

@@ -49,29 +49,27 @@ REBREQ *Ensure_Port_State(REBVAL *port, REBCNT device)
 
     REBDEV *dev = Devices[device];
     if (not dev)
-        return NULL;
+        return nullptr;
 
     REBCTX *ctx = VAL_CONTEXT(port);
     REBVAL *state = CTX_VAR(ctx, STD_PORT_STATE);
-    REBCNT req_size = dev->req_size;
 
-    if (!IS_BINARY(state)) {
-        assert(IS_BLANK(state));
-        REBSER *data = Make_Binary(req_size);
-        CLEAR(BIN_HEAD(data), req_size);
-        TERM_BIN_LEN(data, req_size);
+    REBREQ *req;
 
-        REBREQ *req = cast(REBREQ*, BIN_HEAD(data));
-        req->port_ctx = ctx;
-        req->device = device;
-        Init_Binary(state, data);
+    if (IS_BINARY(state)) {
+        assert(VAL_INDEX(state) == 0);  // should always be at head
+        assert(VAL_LEN_HEAD(state) == dev->req_size);  // should be right size
+        req = VAL_BINARY(state);
     }
     else {
-        assert(VAL_INDEX(state) == 0); // should always be at head
-        assert(VAL_LEN_HEAD(state) == req_size); // should be right size
+        assert(IS_BLANK(state));
+        req = OS_MAKE_DEVREQ(device);
+        ReqPortCtx(req) = ctx;  // Guarded: SERIES_INFO_MISC_IS_CUSTOM_NODE
+
+        Init_Binary(state, SER(req));
     }
 
-    return cast(REBREQ*, VAL_BIN_HEAD(state));
+    return req;
 }
 
 
@@ -83,14 +81,12 @@ REBREQ *Ensure_Port_State(REBVAL *port, REBCNT device)
 //
 bool Pending_Port(REBVAL *port)
 {
-    REBVAL *state;
-    REBREQ *req;
-
     if (IS_PORT(port)) {
-        state = CTX_VAR(VAL_CONTEXT(port), STD_PORT_STATE);
+        REBVAL *state = CTX_VAR(VAL_CONTEXT(port), STD_PORT_STATE);
+
         if (IS_BINARY(state)) {
-            req = cast(REBREQ*, VAL_BIN_HEAD(state));
-            if (not (req->flags & RRF_PENDING))
+            REBREQ *req = VAL_BINARY(state);
+            if (not (Req(req)->flags & RRF_PENDING))
                 return false;
         }
     }
@@ -529,10 +525,10 @@ void Secure_Port(
 
     // Check policy integer:
     // Mask is [xxxx wwww rrrr] - each holds the action
-    if (req->modes & RFM_READ)
+    if (Req(req)->modes & RFM_READ)
         Trap_Security(flags[POL_READ], STR_CANON(kind), name);
 
-    if (req->modes & RFM_WRITE)
+    if (Req(req)->modes & RFM_WRITE)
         Trap_Security(flags[POL_WRITE], STR_CANON(kind), name);
 }
 

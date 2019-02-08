@@ -84,16 +84,16 @@ static void Set_Addr(struct sockaddr_in *sa, long ip, int port)
     sa->sin_port = htons((unsigned short)port);
 }
 
-static void Get_Local_IP(struct devreq_net *sock)
+static void Get_Local_IP(REBREQ *sock)
 {
     // Get the local IP address and port number.
     // This code should be fast and never fail.
     struct sockaddr_in sa;
     socklen_t len = sizeof(sa);
 
-    getsockname(AS_REBREQ(sock)->requestee.socket, cast(struct sockaddr *, &sa), &len);
-    sock->local_ip = sa.sin_addr.s_addr; //htonl(ip); NOTE: REBOL stays in network byte order
-    sock->local_port = ntohs(sa.sin_port);
+    getsockname(Req(sock)->requestee.socket, cast(struct sockaddr *, &sa), &len);
+    ReqNet(sock)->local_ip = sa.sin_addr.s_addr; //htonl(ip); NOTE: REBOL stays in network byte order
+    ReqNet(sock)->local_port = ntohs(sa.sin_port);
 }
 
 static bool Set_Sock_Options(SOCKET sock)
@@ -154,12 +154,14 @@ DEVICE_CMD Init_Net(REBREQ *dr)
 //
 DEVICE_CMD Quit_Net(REBREQ *dr)
 {
-    REBDEV *dev = (REBDEV*)dr; // just to keep compiler happy
-#ifdef TO_WINDOWS
-    if (dev->flags & RDF_INIT)
+    UNUSED(dr);
+
+  #ifdef TO_WINDOWS
+    if (Devices[RDI_NET]->flags & RDF_INIT)
         WSACleanup();
-#endif
-    dev->flags &= ~RDF_INIT;
+  #endif
+
+    Devices[RDI_NET]->flags &= ~RDF_INIT;
     return DR_DONE;
 }
 
@@ -181,8 +183,10 @@ DEVICE_CMD Quit_Net(REBREQ *dr)
 // After usage:
 //     Close_Socket() - to free OS allocations
 //
-DEVICE_CMD Open_Socket(REBREQ *sock)
+DEVICE_CMD Open_Socket(REBREQ *req)
 {
+    struct rebol_devreq *sock = Req(req);
+
     sock->state = 0;  // clear all flags
 
     int type;
@@ -210,7 +214,7 @@ DEVICE_CMD Open_Socket(REBREQ *sock)
     if (!Set_Sock_Options(sock->requestee.socket))
         rebFail_OS (GET_ERROR);
 
-    if (DEVREQ_NET(sock)->local_port != 0) {
+    if (ReqNet(req)->local_port != 0) {
         //
         // !!! This modification was made to support a UDP application which
         // wanted to listen on a UDP port, as well as make packets appear to
@@ -241,17 +245,17 @@ DEVICE_CMD Open_Socket(REBREQ *sock)
 // Returns 0 on success.
 // On failure, error code is OS local.
 //
-DEVICE_CMD Close_Socket(REBREQ *req)
+DEVICE_CMD Close_Socket(REBREQ *sock)
 {
-    struct devreq_net *sock = DEVREQ_NET(req);
+    struct rebol_devreq *req = Req(sock);
 
     if (req->state & RSM_OPEN) {
 
         req->state = 0;  // clear: RSM_OPEN, RSM_CONNECT
 
         // If DNS pending, abort it:
-        if (sock->host_info) {  // indicates DNS phase active
-            rebFree(sock->host_info);
+        if (ReqNet(sock)->host_info) {  // indicates DNS phase active
+            rebFree(ReqNet(sock)->host_info);
             req->requestee.socket = req->length; // Restore TCP socket (see Lookup)
         }
 
@@ -272,10 +276,11 @@ DEVICE_CMD Close_Socket(REBREQ *req)
 // Note we use the sock->requestee.handle for the DNS handle. During use,
 // we store the TCP socket in the length field.
 //
-DEVICE_CMD Lookup_Socket(REBREQ *req)
+DEVICE_CMD Lookup_Socket(REBREQ *sock)
 {
-    struct devreq_net *sock = DEVREQ_NET(req);
-    sock->host_info = NULL; // no allocated data
+    struct rebol_devreq *req = Req(sock);
+
+    ReqNet(sock)->host_info = NULL; // no allocated data
 
     // !!! R3-Alpha would use asynchronous DNS API on Windows, but that API
     // was not supported by IPv6, and developers are encouraged to use normal
@@ -285,13 +290,13 @@ DEVICE_CMD Lookup_Socket(REBREQ *req)
     if (host == NULL)
         rebFail_OS (GET_ERROR);
 
-    memcpy(&sock->remote_ip, *host->h_addr_list, 4); //he->h_length);
+    memcpy(&ReqNet(sock)->remote_ip, *host->h_addr_list, 4); //he->h_length);
     req->flags &= ~RRF_DONE;
 
     rebElide(
         "insert system/ports/system make event!", rebU("[",
             "type: 'lookup",
-            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+            "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
         "]", rebEND),
     rebEND);
 
@@ -317,11 +322,11 @@ DEVICE_CMD Lookup_Socket(REBREQ *req)
 // Before usage:
 //     Open_Socket() -- to allocate the socket
 //
-DEVICE_CMD Connect_Socket(REBREQ *req)
+DEVICE_CMD Connect_Socket(REBREQ *sock)
 {
     int result;
     struct sockaddr_in sa;
-    struct devreq_net *sock = DEVREQ_NET(req);
+    struct rebol_devreq *req = Req(sock);
 
     if (req->state & RSM_CONNECT)
         return DR_DONE; // already connected
@@ -333,21 +338,21 @@ DEVICE_CMD Connect_Socket(REBREQ *req)
         rebElide(
             "insert system/ports/system make event!", rebU("[",
                 "type: 'connect",
-                "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+                "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
             "]", rebEND),
         rebEND);
 
         if (req->modes & RST_LISTEN)
-            return Listen_Socket(req);
+            return Listen_Socket(sock);
 
         Get_Local_IP(sock); // would overwrite local_port for listen
         return DR_DONE;
     }
 
     if (req->modes & RST_LISTEN)
-        return Listen_Socket(req);
+        return Listen_Socket(sock);
 
-    Set_Addr(&sa, sock->remote_ip, sock->remote_port);
+    Set_Addr(&sa, ReqNet(sock)->remote_ip, ReqNet(sock)->remote_port);
     result = connect(
         req->requestee.socket, cast(struct sockaddr *, &sa), sizeof(sa)
     );
@@ -384,7 +389,7 @@ DEVICE_CMD Connect_Socket(REBREQ *req)
     rebElide(
         "insert system/ports/system make event!", rebU("[",
             "type: 'connect",
-            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+            "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
         "]", rebEND),
     rebEND);
 
@@ -415,8 +420,10 @@ DEVICE_CMD Connect_Socket(REBREQ *req)
 //
 // Note that the mode flag is cleared by the caller, not here.
 //
-DEVICE_CMD Transfer_Socket(REBREQ *req)
+DEVICE_CMD Transfer_Socket(REBREQ *sock)
 {
+    struct rebol_devreq *req = Req(sock);
+
     if (not (req->state & RSM_CONNECT) and not (req->modes & RST_UDP))
         rebJumps(
             "FAIL {RSM_CONNECT must be true in Transfer_Socket() unless UDP}",
@@ -425,8 +432,6 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
 
     struct sockaddr_in remote_addr;
     socklen_t addr_len = sizeof(remote_addr);
-
-    struct devreq_net *sock = DEVREQ_NET(req);
 
     int mode = (req->command == RDC_READ ? RSM_RECEIVE : RSM_SEND);
     req->state |= mode;
@@ -439,7 +444,11 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
 
     if (mode == RSM_SEND) {
         // If host is no longer connected:
-        Set_Addr(&remote_addr, sock->remote_ip, sock->remote_port);
+        Set_Addr(
+            &remote_addr,
+            ReqNet(sock)->remote_ip,
+            ReqNet(sock)->remote_port
+        );
         result = sendto(
             req->requestee.socket,
             s_cast(req->common.data), len,
@@ -455,7 +464,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
                 rebElide(
                     "insert system/ports/system make event!", rebU("[",
                         "type: 'wrote",
-                        "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+                        "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
                     "]", rebEND),
                 rebEND);
 
@@ -477,15 +486,15 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
 
         if (result > 0) {
             if (req->modes & RST_UDP) {
-                sock->remote_ip = remote_addr.sin_addr.s_addr;
-                sock->remote_port = ntohs(remote_addr.sin_port);
+                ReqNet(sock)->remote_ip = remote_addr.sin_addr.s_addr;
+                ReqNet(sock)->remote_port = ntohs(remote_addr.sin_port);
             }
             req->actual = result;
 
             rebElide(
                 "insert system/ports/system make event!", rebU("[",
                     "type: 'read",
-                    "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+                    "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
                 "]", rebEND),
             rebEND);
 
@@ -498,7 +507,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
             rebElide(
                 "insert system/ports/system make event!", rebU("[",
                     "type: 'close",
-                    "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+                    "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
                 "]", rebEND),
             rebEND);
 
@@ -527,16 +536,16 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
 //
 // Use this instead of Connect_Socket().
 //
-DEVICE_CMD Listen_Socket(REBREQ *req)
+DEVICE_CMD Listen_Socket(REBREQ *sock)
 {
-    struct devreq_net *sock = DEVREQ_NET(req);
+    struct rebol_devreq *req = Req(sock);
 
     int result;
 
     // Setup socket address range and port:
     //
     struct sockaddr_in sa;
-    Set_Addr(&sa, INADDR_ANY, sock->local_port);
+    Set_Addr(&sa, INADDR_ANY, ReqNet(sock)->local_port);
 
     // Allow listen socket reuse:
     //
@@ -584,18 +593,20 @@ DEVICE_CMD Listen_Socket(REBREQ *req)
 //
 DEVICE_CMD Modify_Socket(REBREQ *sock)
 {
-    assert(sock->command == RDC_MODIFY);
+    struct rebol_devreq *req = Req(sock);
 
-    REBFRM *frame_ = FRM(cast(void*, sock->common.data));
+    assert(req->command == RDC_MODIFY);
+
+    REBFRM *frame_ = FRM(cast(void*, req->common.data));
     int result = 0;
 
-    switch (sock->flags) {
+    switch (req->flags) {
     case 3171: {
         INCLUDE_PARAMS_OF_SET_UDP_MULTICAST;
 
         UNUSED(ARG(port)); // implicit from sock, which caller extracted
 
-        if (not (sock->modes & RST_UDP)) // !!! other checks?
+        if (not (req->modes & RST_UDP)) // !!! other checks?
             rebJumps("FAIL {SET-UDP-MULTICAST used on non-UDP port}", rebEND);
 
         struct ip_mreq mreq;
@@ -603,7 +614,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
         memcpy(&mreq.imr_interface.s_addr, VAL_TUPLE(ARG(member)), 4);
 
         result = setsockopt(
-            sock->requestee.socket,
+            req->requestee.socket,
             IPPROTO_IP,
             REF(drop) ? IP_DROP_MEMBERSHIP : IP_ADD_MEMBERSHIP,
             cast(char*, &mreq),
@@ -617,12 +628,12 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
 
         UNUSED(ARG(port)); // implicit from sock, which caller extracted
 
-        if (not (sock->modes & RST_UDP)) // !!! other checks?
+        if (not (req->modes & RST_UDP)) // !!! other checks?
             rebJumps("FAIL {SET-UDP-TTL used on non-UDP port}", rebEND);
 
         int ttl = VAL_INT32(ARG(ttl));
         result = setsockopt(
-            sock->requestee.socket,
+            req->requestee.socket,
             IPPROTO_IP,
             IP_TTL,
             cast(char*, &ttl),
@@ -657,8 +668,10 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
 //     Set local_port to desired port number.
 //     Listen_Socket();
 //
-DEVICE_CMD Accept_Socket(REBREQ *req)
+DEVICE_CMD Accept_Socket(REBREQ *sock)
 {
+    struct rebol_devreq *req = Req(sock);
+
     // !!! In order to make packets appear to originate from a specific UDP
     // point, a "two-ended" connection-like socket is created for UDP.  But
     // it cannot accept connections.  Without better knowledge of how to stay
@@ -671,7 +684,7 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
     if (req->modes & RST_UDP) {
             rebElide("insert system/ports/system make event!", rebU("[",
                 "type: 'accept",
-                "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+                "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
             "]", rebEND),
         rebEND);
 
@@ -697,33 +710,32 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
 
     // Create a new port using ACCEPT
 
-    REBCTX *listener = CTX(req->port_ctx);
+    REBCTX *listener = CTX(ReqPortCtx(sock));
     REBCTX *connection = Copy_Context_Shallow_Managed(listener);
     PUSH_GC_GUARD(connection);
 
     Init_Blank(CTX_VAR(connection, STD_PORT_DATA)); // just to be sure.
     Init_Blank(CTX_VAR(connection, STD_PORT_STATE)); // just to be sure.
 
-    struct devreq_net *sock = cast(
-        struct devreq_net*,
-        Ensure_Port_State(CTX_ARCHETYPE(connection), RDI_NET)
-    );
+    REBREQ *sock_new = Ensure_Port_State(CTX_ARCHETYPE(connection), RDI_NET);
 
-    memset(sock, '\0', sizeof(struct devreq_net));
-    sock->devreq.device = req->device;
-    AS_REBREQ(sock)->common.data = nullptr;
+    struct rebol_devreq *req_new = Req(sock_new);
 
-    AS_REBREQ(sock)->flags |= RRF_OPEN;
-    sock->devreq.state |= (RSM_OPEN | RSM_CONNECT);
+    memset(req_new, '\0', sizeof(struct devreq_net));  // !!! already zeroed?
+    req_new->device = req->device;  // !!! already set?
+    req_new->common.data = nullptr;
+
+    req_new->flags |= RRF_OPEN;
+    req_new->state |= (RSM_OPEN | RSM_CONNECT);
 
     // NOTE: REBOL stays in network byte order, no htonl(ip) needed
     //
-    sock->devreq.requestee.socket = fd;
-    sock->remote_ip = sa.sin_addr.s_addr;
-    sock->remote_port = ntohs(sa.sin_port);
-    Get_Local_IP(sock);
+    req_new->requestee.socket = fd;
+    ReqNet(sock_new)->remote_ip = sa.sin_addr.s_addr;
+    ReqNet(sock_new)->remote_port = ntohs(sa.sin_port);
+    Get_Local_IP(sock_new);
 
-    AS_REBREQ(sock)->port_ctx = connection;
+    ReqPortCtx(sock_new) = connection;
 
     rebElide(
         "append ensure block!", CTX_VAR(listener, STD_PORT_CONNECTIONS),

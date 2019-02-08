@@ -37,7 +37,7 @@
 #if !defined(DEBUG_CHECK_CASTS) || !defined(CPLUSPLUS_11)
 
     #define NOD(p) \
-        cast(REBNOD*, (p)) // NOD() just does a cast (maybe with added checks)
+        ((REBNOD*)p)  // Note: reinterpret_cast<> won't work w/nullptr (!)
 
 #else
 
@@ -64,14 +64,18 @@
 
         if (base)  // NOD(nullptr) won't be tested here
             assert(
-                (reinterpret_cast<REBNOD*>(p)->header.bits & (
+                (((REBNOD*)p)->header.bits & (
                     NODE_FLAG_NODE | NODE_FLAG_FREE
                 )) == (
                     NODE_FLAG_NODE
                 )
             );
 
-        return reinterpret_cast<REBNOD*>(p);
+        // !!! This uses a regular C cast because the `cast()` macro has not
+        // been written in such a way as to tolerate nullptr, and C++ will
+        // not reinterpret_cast<> a nullptr.  Review more elegant answers.
+        //
+        return (REBNOD*)p;
     }
 #endif
 

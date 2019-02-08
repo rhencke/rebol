@@ -201,14 +201,14 @@ int64_t OS_Delta_Time(int64_t base)
 // Convert file.time to REBOL date/time format.
 // Time zone is UTC.
 //
-REBVAL *OS_File_Time(struct devreq_file *file)
+REBVAL *OS_File_Time(REBREQ *file)
 {
-    if (sizeof(time_t) > sizeof(file->time.l)) {
-        int64_t t = file->time.l;
-        t |= cast(int64_t, file->time.h) << 32;
+    if (sizeof(time_t) > sizeof(ReqFile(file)->time.l)) {
+        int64_t t = ReqFile(file)->time.l;
+        t |= cast(int64_t, ReqFile(file)->time.h) << 32;
         return Convert_Date(cast(time_t*, &t), 0);
     }
 
-    return Convert_Date(cast(time_t *, &file->time.l), 0);
+    return Convert_Date(cast(time_t *, &ReqFile(file)->time.l), 0);
 }
 

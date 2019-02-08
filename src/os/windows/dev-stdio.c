@@ -79,11 +79,11 @@ DEVICE_CMD Quit_IO(REBREQ *dr)
 //
 //  Open_IO: C
 //
-DEVICE_CMD Open_IO(REBREQ *req)
+DEVICE_CMD Open_IO(REBREQ *io)
 {
-    REBDEV *dev;
+    struct rebol_devreq *req = Req(io);
 
-    dev = Devices[req->device];
+    REBDEV *dev = Devices[req->device];
 
     // Avoid opening the console twice (compare dev and req flags):
     if (dev->flags & RDF_OPEN) {
@@ -150,7 +150,7 @@ DEVICE_CMD Open_IO(REBREQ *req)
 //
 DEVICE_CMD Close_IO(REBREQ *req)
 {
-    REBDEV *dev = Devices[req->device];
+    REBDEV *dev = Devices[Req(req)->device];
 
     Close_Stdio();
 
@@ -169,8 +169,10 @@ DEVICE_CMD Close_IO(REBREQ *req)
 //
 // Returns the number of chars written.
 //
-DEVICE_CMD Write_IO(REBREQ *req)
+DEVICE_CMD Write_IO(REBREQ *io)
 {
+    struct rebol_devreq *req = Req(io);
+
     if (req->modes & RDM_NULL) {
         req->actual = req->length;
         return DR_DONE;
@@ -351,8 +353,10 @@ DEVICE_CMD Write_IO(REBREQ *req)
 //
 // Result is NOT terminated (the actual field has length.)
 //
-DEVICE_CMD Read_IO(REBREQ *req)
+DEVICE_CMD Read_IO(REBREQ *io)
 {
+    struct rebol_devreq *req = Req(io);
+
     assert(req->length >= 2); // abort is signaled with (ESC '\0')
 
     if (req->modes & RDM_NULL) {

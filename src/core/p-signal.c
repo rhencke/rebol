@@ -33,9 +33,10 @@
 #ifdef HAS_POSIX_SIGNAL
 #include <sys/signal.h>
 
-static void update(struct devreq_posix_signal *signal, REBINT len, REBVAL *arg)
+static void update(REBREQ *signal, REBINT len, REBVAL *arg)
 {
-    REBREQ *req = AS_REBREQ(signal);
+    struct rebol_devreq *req = Req(signal);
+
     const siginfo_t *sig = cast(siginfo_t *, req->common.data);
     int i = 0;
     const REBYTE signal_no[] = "signal-no";
@@ -148,8 +149,8 @@ static int sig_word_num(REBSTR *canon)
 //
 static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
-    REBREQ *req = Ensure_Port_State(port, RDI_SIGNAL);
-    struct devreq_posix_signal *signal = DEVREQ_POSIX_SIGNAL(req);
+    REBREQ *signal = Ensure_Port_State(port, RDI_SIGNAL);
+    struct rebol_devreq *req = Req(signal);
 
     REBCTX *ctx = VAL_CONTEXT(port);
     REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
@@ -178,7 +179,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             if (!IS_BLOCK(val))
                 fail (Error_Invalid_Spec_Raw(val));
 
-            sigemptyset(&signal->mask);
+            sigemptyset(&ReqPosixSignal(signal)->mask);
 
             RELVAL *item;
             for (item = VAL_ARRAY_AT_HEAD(val, 0); NOT_END(item); ++item) {
@@ -189,14 +190,14 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                     fail (Error_Invalid_Spec_Raw(sig));
 
                 if (VAL_WORD_SYM(sig) == SYM_ALL) {
-                    if (sigfillset(&signal->mask) < 0)
+                    if (sigfillset(&ReqPosixSignal(signal)->mask) < 0)
                         fail (Error_Invalid_Spec_Raw(sig));
                     break;
                 }
 
                 if (
                     sigaddset(
-                        &signal->mask,
+                        &ReqPosixSignal(signal)->mask,
                         sig_word_num(VAL_WORD_CANON(sig))
                     ) < 0
                 ){
@@ -204,7 +205,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                 }
             }
 
-            OS_DO_DEVICE_SYNC(req, RDC_OPEN);
+            OS_DO_DEVICE_SYNC(signal, RDC_OPEN);
 
             if (VAL_WORD_SYM(verb) == SYM_OPEN)
                 RETURN (port);
@@ -263,7 +264,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         REBSER *ser = Make_Binary(len * sizeof(siginfo_t));
         req->common.data = BIN_HEAD(ser);
 
-        OS_DO_DEVICE_SYNC(req, RDC_READ);
+        OS_DO_DEVICE_SYNC(signal, RDC_READ);
 
         arg = CTX_VAR(ctx, STD_PORT_DATA);
         if (!IS_BLOCK(arg))
@@ -281,7 +282,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         RETURN (port); }
 
     case SYM_CLOSE: {
-        OS_DO_DEVICE_SYNC(req, RDC_CLOSE);
+        OS_DO_DEVICE_SYNC(signal, RDC_CLOSE);
         RETURN (port); }
 
     case SYM_OPEN:

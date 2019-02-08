@@ -39,6 +39,7 @@
 REB_R Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBCTX *ctx = VAL_CONTEXT(port);
+
     REBREQ *req = Ensure_Port_State(port, RDI_STDIO);
 
     switch (VAL_WORD_SYM(verb)) {
@@ -52,7 +53,7 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         switch (property) {
         case SYM_OPEN_Q:
-            return Init_Logic(D_OUT, did (req->flags & RRF_OPEN));
+            return Init_Logic(D_OUT, did (Req(req)->flags & RRF_OPEN));
 
         default:
             break;
@@ -77,7 +78,7 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         UNUSED(PAR(lines)); // handled in dispatcher
 
         // If not open, open it:
-        if (not (req->flags & RRF_OPEN))
+        if (not (Req(req)->flags & RRF_OPEN))
             OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
         // If no buffer, create a buffer:
@@ -90,22 +91,24 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         SET_SERIES_LEN(ser, 0);
         TERM_SERIES(ser);
 
-        req->common.data = BIN_HEAD(ser);
-        req->length = SER_AVAIL(ser);
+        Req(req)->common.data = BIN_HEAD(ser);
+        Req(req)->length = SER_AVAIL(ser);
 
         OS_DO_DEVICE_SYNC(req, RDC_READ);
 
         // !!! Among many confusions in this file, it said "Another copy???"
         //
-        Init_Binary(D_OUT, Copy_Bytes(req->common.data, req->actual));
-        return D_OUT; }
+        return Init_Binary(
+            D_OUT,
+            Copy_Bytes(Req(req)->common.data, Req(req)->actual)
+        ); }
 
     case SYM_OPEN: {
-        req->flags |= RRF_OPEN;
+        Req(req)->flags |= RRF_OPEN;
         RETURN (port); }
 
     case SYM_CLOSE:
-        req->flags &= ~RRF_OPEN;
+        Req(req)->flags &= ~RRF_OPEN;
         //OS_DO_DEVICE(req, RDC_CLOSE);
         RETURN (port);
 

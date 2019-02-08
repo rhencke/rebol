@@ -43,8 +43,8 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
     if (path == NULL)
         fail (Error_Invalid_Spec_Raw(spec));
 
-    REBREQ *req = Ensure_Port_State(port, RDI_SERIAL);
-    struct devreq_serial *serial = DEVREQ_SERIAL(req);
+    REBREQ *serial = Ensure_Port_State(port, RDI_SERIAL);
+    struct rebol_devreq *req = Req(serial);
 
     // Actions for an unopened serial port:
     if (not (req->flags & RRF_OPEN)) {
@@ -76,13 +76,13 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                 fail (Error_Invalid_Port_Arg_Raw(serial_path));
             }
 
-            serial->path = serial_path;
+            ReqSerial(serial)->path = serial_path;
 
             REBVAL *speed = Obj_Value(spec, STD_PORT_SPEC_SERIAL_SPEED);
             if (not IS_INTEGER(speed))
                 fail (Error_Invalid_Port_Arg_Raw(speed));
 
-            serial->baud = VAL_INT32(speed);
+            ReqSerial(serial)->baud = VAL_INT32(speed);
 
             REBVAL *size = Obj_Value(spec, STD_PORT_SPEC_SERIAL_DATA_SIZE);
             if (not IS_INTEGER(size)
@@ -91,7 +91,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             ){
                 fail (Error_Invalid_Port_Arg_Raw(size));
             }
-            serial->data_bits = VAL_INT32(size);
+            ReqSerial(serial)->data_bits = VAL_INT32(size);
 
             REBVAL *stop = Obj_Value(spec, STD_PORT_SPEC_SERIAL_STOP_BITS);
             if (not IS_INTEGER(stop)
@@ -100,11 +100,11 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             ){
                 fail (Error_Invalid_Port_Arg_Raw(stop));
             }
-            serial->stop_bits = VAL_INT32(stop);
+            ReqSerial(serial)->stop_bits = VAL_INT32(stop);
 
             REBVAL *parity = Obj_Value(spec, STD_PORT_SPEC_SERIAL_PARITY);
             if (IS_BLANK(parity)) {
-                serial->parity = SERIAL_PARITY_NONE;
+                ReqSerial(serial)->parity = SERIAL_PARITY_NONE;
             }
             else {
                 if (!IS_WORD(parity))
@@ -112,11 +112,11 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
                 switch (VAL_WORD_SYM(parity)) {
                 case SYM_ODD:
-                    serial->parity = SERIAL_PARITY_ODD;
+                    ReqSerial(serial)->parity = SERIAL_PARITY_ODD;
                     break;
 
                 case SYM_EVEN:
-                    serial->parity = SERIAL_PARITY_EVEN;
+                    ReqSerial(serial)->parity = SERIAL_PARITY_EVEN;
                     break;
 
                 default:
@@ -126,7 +126,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
             REBVAL *flow = Obj_Value(spec, STD_PORT_SPEC_SERIAL_FLOW_CONTROL);
             if (IS_BLANK(flow)) {
-                serial->flow_control = SERIAL_FLOW_CONTROL_NONE;
+                ReqSerial(serial)->flow_control = SERIAL_FLOW_CONTROL_NONE;
             }
             else {
                 if (!IS_WORD(flow))
@@ -134,11 +134,11 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
                 switch (VAL_WORD_SYM(flow)) {
                 case SYM_HARDWARE:
-                    serial->flow_control = SERIAL_FLOW_CONTROL_HARDWARE;
+                    ReqSerial(serial)->flow_control = SERIAL_FLOW_CONTROL_HARDWARE;
                     break;
 
                 case SYM_SOFTWARE:
-                    serial->flow_control = SERIAL_FLOW_CONTROL_SOFTWARE;
+                    ReqSerial(serial)->flow_control = SERIAL_FLOW_CONTROL_SOFTWARE;
                     break;
 
                 default:
@@ -146,7 +146,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                 }
             }
 
-            OS_DO_DEVICE_SYNC(req, RDC_OPEN);
+            OS_DO_DEVICE_SYNC(serial, RDC_OPEN);
 
             req->flags |= RRF_OPEN;
             RETURN (port); }
@@ -215,7 +215,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         // "recv can happen immediately"
         //
-        OS_DO_DEVICE_SYNC(req, RDC_READ);
+        OS_DO_DEVICE_SYNC(serial, RDC_READ);
 
 #ifdef DEBUG_SERIAL
         for (len = 0; len < req->actual; len++) {
@@ -261,7 +261,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         // "send can happen immediately"
         //
-        OS_DO_DEVICE_SYNC(req, RDC_WRITE);
+        OS_DO_DEVICE_SYNC(serial, RDC_WRITE);
 
         RETURN (port); }
 
@@ -285,7 +285,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
     case SYM_CLOSE:
         if (req->flags & RRF_OPEN) {
-            OS_DO_DEVICE_SYNC(req, RDC_CLOSE);
+            OS_DO_DEVICE_SYNC(serial, RDC_CLOSE);
 
             req->flags &= ~RRF_OPEN;
         }

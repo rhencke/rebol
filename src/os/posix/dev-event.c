@@ -71,7 +71,7 @@ DEVICE_CMD Query_Events(REBREQ *req)
     int result;
 
     tv.tv_sec = 0;
-    tv.tv_usec = req->length * 1000;
+    tv.tv_usec = Req(req)->length * 1000;
     //printf("usec %d\n", tv.tv_usec);
 
     result = select(0, 0, 0, 0, &tv);
@@ -122,4 +122,4 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] = {
     Query_Events,
 };
 
-DEFINE_DEV(Dev_Event, "OS Events", 1, Dev_Cmds, RDC_MAX, sizeof(REBREQ));
+DEFINE_DEV(Dev_Event, "OS Events", 1, Dev_Cmds, RDC_MAX, sizeof(struct rebol_devreq));

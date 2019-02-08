@@ -38,26 +38,25 @@
 // Provide option to prepend dir path.
 // Provide option to use wildcards.
 //
-static REBARR *Read_Dir_May_Fail(struct devreq_file *dir)
+static REBARR *Read_Dir_May_Fail(REBREQ *dir)
 {
-    struct devreq_file file;
-    CLEARS(&file);
+    REBREQ *file = OS_MAKE_DEVREQ(RDI_FILE);
 
-    TRASH_POINTER_IF_DEBUG(file.path); // file is output (not input)
+    TRASH_POINTER_IF_DEBUG(ReqFile(file)->path); // is output (not input)
 
-    REBREQ *req = AS_REBREQ(dir);
+    struct rebol_devreq *req = Req(dir);
     req->modes |= RFM_DIR;
-    req->common.data = cast(REBYTE*, &file);
+    req->common.data = cast(REBYTE*, file);
 
     REBDSP dsp_orig = DSP;
 
     while (true) {
-        OS_DO_DEVICE_SYNC(req, RDC_READ);
+        OS_DO_DEVICE_SYNC(dir, RDC_READ);
 
         if (req->flags & RRF_DONE)
             break;
 
-        Move_Value(DS_PUSH(), file.path);
+        Move_Value(DS_PUSH(), ReqFile(file)->path);
 
         // Assume the file.devreq gets blown away on each loop, so there's
         // nowhere to free the file->path unless we do it here.
@@ -67,8 +66,10 @@ static REBARR *Read_Dir_May_Fail(struct devreq_file *dir)
         // "devreq" is can protect its own state, e.g. be a Rebol object,
         // so there'd not be any API handles to free here.
         //
-        rebRelease(m_cast(REBVAL*, file.path));
+        rebRelease(m_cast(REBVAL*, ReqFile(file)->path));
     }
+
+    Free_Req(file);
 
     // !!! This is some kind of error tolerance, review what it is for.
     //
@@ -77,20 +78,20 @@ static REBARR *Read_Dir_May_Fail(struct devreq_file *dir)
         and (
             NOT_FOUND != Find_Str_Char(
                 '*',
-                VAL_SERIES(dir->path),
+                VAL_SERIES(ReqFile(dir)->path),
                 0, // !!! "lowest return index?"
-                VAL_INDEX(dir->path), // first index to examine
-                SER_LEN(VAL_SERIES(dir->path)) + 1, // highest return + 1
+                VAL_INDEX(ReqFile(dir)->path), // first index to examine
+                SER_LEN(VAL_SERIES(ReqFile(dir)->path)) + 1, // highest return + 1
                 0, // skip
                 AM_FIND_CASE // not relevant
             )
             or
             NOT_FOUND != Find_Str_Char(
                 '?',
-                VAL_SERIES(dir->path),
+                VAL_SERIES(ReqFile(dir)->path),
                 0, // !!! "lowest return index?"
-                VAL_INDEX(dir->path), // first index to examine
-                SER_LEN(VAL_SERIES(dir->path)) + 1, // highest return + 1
+                VAL_INDEX(ReqFile(dir)->path), // first index to examine
+                SER_LEN(VAL_SERIES(ReqFile(dir)->path)) + 1, // highest return + 1
                 0, // skip
                 AM_FIND_CASE // not relevant
             )
@@ -114,18 +115,18 @@ static REBARR *Read_Dir_May_Fail(struct devreq_file *dir)
 // in the "device" code, during the File_To_Local translation.
 //
 static void Init_Dir_Path(
-    struct devreq_file *dir,
+    REBREQ *dir,
     const REBVAL *path,
     REBCNT policy
 ){
     UNUSED(policy);
 
-    REBREQ *req = AS_REBREQ(dir);
+    struct rebol_devreq *req = Req(dir);
     req->modes |= RFM_DIR;
 
-    Secure_Port(Canon(SYM_FILE), req, path /* , dir->path */);
+    Secure_Port(Canon(SYM_FILE), dir, path /* , dir->path */);
 
-    dir->path = path;
+    ReqFile(dir)->path = path;
 }
 
 
@@ -154,12 +155,6 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
     //const REBYTE *flags = Security_Policy(SYM_FILE, path);
 
-    // Get or setup internal state data:
-
-    struct devreq_file dir;
-    CLEARS(&dir);
-    dir.devreq.port_ctx = ctx;
-    dir.devreq.device = RDI_FILE;
 
     switch (VAL_WORD_SYM(verb)) {
 
@@ -199,8 +194,13 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         UNUSED(PAR(lines)); // handled in dispatcher
 
         if (not IS_BLOCK(state)) {     // !!! ignores /SKIP and /PART, for now
-            Init_Dir_Path(&dir, path, POL_READ);
-            Init_Block(D_OUT, Read_Dir_May_Fail(&dir));
+            REBREQ *dir = OS_MAKE_DEVREQ(RDI_FILE);
+            ReqPortCtx(dir) = ctx;
+
+            Init_Dir_Path(dir, path, POL_READ);
+            Init_Block(D_OUT, Read_Dir_May_Fail(dir));
+
+            Free_Req(dir);
         }
         else {
             // !!! This copies the strings in the block, shallowly.  What is
@@ -223,11 +223,18 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
     case SYM_CREATE: {
         if (IS_BLOCK(state))
             fail (Error_Already_Open_Raw(path));
-    create:
-        Init_Dir_Path(&dir, path, POL_WRITE); // Sets RFM_DIR too
 
-        REBVAL *result = OS_DO_DEVICE(&dir.devreq, RDC_CREATE);
+      create:;
+
+        REBREQ *dir = OS_MAKE_DEVREQ(RDI_FILE);
+        ReqPortCtx(dir) = ctx;
+
+        Init_Dir_Path(dir, path, POL_WRITE); // Sets RFM_DIR too
+
+        REBVAL *result = OS_DO_DEVICE(dir, RDC_CREATE);
         assert(result != NULL); // should be synchronous
+
+        Free_Req(dir);
 
         if (rebDid("error?", result, rebEND)) {
             rebRelease(result); // !!! throws away details
@@ -247,13 +254,18 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         if (IS_BLOCK(state))
             fail (Error_Already_Open_Raw(path));
 
-        Init_Dir_Path(&dir, path, POL_WRITE); // Sets RFM_DIR
+        REBREQ *dir = OS_MAKE_DEVREQ(RDI_FILE);
+        ReqPortCtx(dir) = ctx;
+
+        Init_Dir_Path(dir, path, POL_WRITE); // Sets RFM_DIR
 
         UNUSED(ARG(from)); // implicit
-        dir.devreq.common.data = cast(REBYTE*, ARG(to)); // !!! hack!
+        Req(dir)->common.data = cast(REBYTE*, ARG(to)); // !!! hack!
 
-        REBVAL *result = OS_DO_DEVICE(&dir.devreq, RDC_RENAME);
+        REBVAL *result = OS_DO_DEVICE(dir, RDC_RENAME);
         assert(result != NULL); // should be synchronous
+
+        Free_Req(dir);
 
         if (rebDid("error?", result, rebEND)) {
             rebRelease(result); // !!! throws away details
@@ -266,12 +278,17 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
     case SYM_DELETE: {
         Init_Blank(state);
 
-        Init_Dir_Path(&dir, path, POL_WRITE);
+        REBREQ *dir = OS_MAKE_DEVREQ(RDI_FILE);
+        ReqPortCtx(dir) = ctx;
+
+        Init_Dir_Path(dir, path, POL_WRITE);
 
         // !!! add *.r deletion
         // !!! add recursive delete (?)
-        REBVAL *result = OS_DO_DEVICE(&dir.devreq, RDC_DELETE);
+        REBVAL *result = OS_DO_DEVICE(dir, RDC_DELETE);
         assert(result != NULL); // should be synchronous
+
+        Free_Req(dir);
 
         if (rebDid("error?", result, rebEND)) {
             rebRelease(result); // !!! throws away details
@@ -303,8 +320,13 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         if (REF(new))
             goto create;
 
-        Init_Dir_Path(&dir, path, POL_READ);
-        Init_Block(state, Read_Dir_May_Fail(&dir));
+        REBREQ *dir = OS_MAKE_DEVREQ(RDI_FILE);
+        ReqPortCtx(dir) = ctx;
+
+        Init_Dir_Path(dir, path, POL_READ);
+        Init_Block(state, Read_Dir_May_Fail(dir));
+
+        Free_Req(dir);
         RETURN (port); }
 
     case SYM_CLOSE:
@@ -314,18 +336,23 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
     case SYM_QUERY: {
         Init_Blank(state);
 
-        Init_Dir_Path(&dir, path, POL_READ);
-        REBVAL *result = OS_DO_DEVICE(&dir.devreq, RDC_QUERY);
+        REBREQ *dir = OS_MAKE_DEVREQ(RDI_FILE);
+        ReqPortCtx(dir) = ctx;
+
+        Init_Dir_Path(dir, path, POL_READ);
+        REBVAL *result = OS_DO_DEVICE(dir, RDC_QUERY);
         assert(result != NULL); // should be synchronous
 
         if (rebDid("error?", result, rebEND)) {
+            Free_Req(dir);
             rebRelease(result); // !!! R3-Alpha threw out error, returns null
             return nullptr;
         }
 
         rebRelease(result); // ignore result
 
-        Query_File_Or_Dir(D_OUT, port, &dir);
+        Query_File_Or_Dir(D_OUT, port, dir);
+        Free_Req(dir);
         return D_OUT; }
 
     default:

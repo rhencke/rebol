@@ -120,15 +120,14 @@ static REB_R Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
-        if (!req) { //!!!
-            req = OS_MAKE_DEVREQ(RDI_EVENT);
-            req->flags |= RRF_OPEN;
 
-            OS_DO_DEVICE_SYNC(req, RDC_CONNECT);
+        REBREQ *req = OS_MAKE_DEVREQ(RDI_EVENT);
 
-            // "stays queued"
-            // !!! or stays queued means it's pending?
-        }
+        Req(req)->flags |= RRF_OPEN;
+
+        OS_DO_DEVICE_SYNC(req, RDC_CONNECT);
+
+        Free_Req(req);
         RETURN (port); }
 
     default:

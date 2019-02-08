@@ -161,7 +161,9 @@ typedef struct Reb_Node REBNOD;
 struct Reb_Series;
 typedef struct Reb_Series REBSER;
 
-typedef REBSER REBSTR;
+typedef REBSER REBBIN;  // generic binary series, e.g. for BINARY! (byte-size)
+
+typedef REBSER REBSTR;  // UTF-8 string series (byte-size, variable encoding)
 
 struct Reb_Array;
 typedef struct Reb_Array REBARR;
@@ -307,15 +309,6 @@ enum Reb_Api_Opcode {
     API_OPCODE_RELEASE
 };
 
-
-//=//// DEVICE REQUEST ////////////////////////////////////////////////////=//
-//
-// !!! The device and port model is being reviewed/excised.  However, for the
-// moment REBREQ appears in the prototypes of functions in the internal API.
-//
-struct rebol_devreq;
-typedef struct rebol_devreq REBREQ;
-struct devreq_file;
 
 //=//// REBVAL PAYLOAD CONTENTS ///////////////////////////////////////////=//
 //

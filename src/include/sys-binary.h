@@ -28,9 +28,6 @@
 //
 
 
-typedef REBSER REBBIN;  // currently just commentary
-
-
 // Is it a byte-sized series?
 //
 #define BYTE_SIZE(s) \

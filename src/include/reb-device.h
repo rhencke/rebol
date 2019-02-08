@@ -179,8 +179,6 @@ struct rebol_devreq {
 
     // Linkages:
     uint32_t device;        // device id (dev table)
-    REBREQ *next;           // linked list (pending or done lists)
-    void *port_ctx;         // link back to REBOL port object
     union {
         void *handle;       // OS object
         int socket;         // OS identifier
@@ -205,19 +203,29 @@ struct rebol_devreq {
     uint32_t actual;        // length actually transferred
 };
 
-#define AS_REBREQ(req) (&(req)->devreq)
+#define Req(req) \
+    cast(struct rebol_devreq*, rebReq(req))  // !!! Transitional hack
+
+#define NextReq(req) \
+    *cast(REBREQ**, rebAddrOfNextReq(req))  // !!! Transitional hack
+
+#define Ensure_Req_Managed(req) \
+    rebEnsure_Req_Managed(req)  // !!! Transitional hack
+
+#define Free_Req(req) \
+    rebFree_Req(req)  // !!! Transitional hack
+
+#define ReqPortCtx(req) \
+    *cast(void**, rebAddrOfReqPortCtx(req))  // !!! Transitional hack
 
 #ifdef HAS_POSIX_SIGNAL
-struct devreq_posix_signal {
-    struct rebol_devreq devreq;
-    sigset_t mask;      // signal mask
-};
+    struct devreq_posix_signal {
+        struct rebol_devreq devreq;
+        sigset_t mask;      // signal mask
+    };
 
-#if !defined(NDEBUG)
-#define DEVREQ_POSIX_SIGNAL(req) (assert(req->device == RDI_SIGNAL), cast(struct devreq_posix_signal*, req))
-#else
-#define DEVREQ_POSIX_SIGNAL(req) cast(struct devreq_posix_signal*, req)
-#endif
+    #define ReqPosixSignal(req) \
+        cast(struct devreq_posix_signal*, req)
 #endif
 
 // !!! Hack used for making a 64-bit value as a struct, which works in
@@ -263,17 +271,17 @@ struct devreq_serial {
     uint8_t flow_control;   // hardware or software
 };
 
-inline static struct devreq_file* DEVREQ_FILE(struct rebol_devreq *req) {
-    assert(req->device == RDI_FILE);
-    return cast(struct devreq_file*, req);
+inline static struct devreq_file* ReqFile(REBREQ *req) {
+    assert(Req(req)->device == RDI_FILE);
+    return cast(struct devreq_file*, Req(req));
 }
 
-inline static struct devreq_net *DEVREQ_NET(struct rebol_devreq *req) {
-    assert(req->device == RDI_NET || req->device == RDI_DNS);
-    return cast(struct devreq_net*, req);
+inline static struct devreq_net *ReqNet(REBREQ *req) {
+    assert(Req(req)->device == RDI_NET || Req(req)->device == RDI_DNS);
+    return cast(struct devreq_net*, Req(req));
 }
 
-inline static struct devreq_serial *DEVREQ_SERIAL(struct rebol_devreq *req) {
-    assert(req->device == RDI_SERIAL);
-    return cast(struct devreq_serial*, req);
+inline static struct devreq_serial *ReqSerial(REBREQ *req) {
+    assert(Req(req)->device == RDI_SERIAL);
+    return cast(struct devreq_serial*, Req(req));
 }

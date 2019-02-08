@@ -90,7 +90,7 @@ static REBINT Set_Serial_Settings(int ttyfd, REBREQ *req)
 {
     REBINT n;
     struct termios attr;
-    struct devreq_serial *serial = DEVREQ_SERIAL(req);
+    struct devreq_serial *serial = ReqSerial(req);
     REBINT speed = serial->baud;
     CLEARS(&attr);
 #ifdef DEBUG_SERIAL
@@ -200,7 +200,7 @@ static REBINT Set_Serial_Settings(int ttyfd, REBREQ *req)
 //
 DEVICE_CMD Open_Serial(REBREQ *req)
 {
-    struct devreq_serial *serial = DEVREQ_SERIAL(req);
+    struct devreq_serial *serial = ReqSerial(req);
 
     assert(serial->path != NULL);
 
@@ -231,7 +231,7 @@ DEVICE_CMD Open_Serial(REBREQ *req)
         rebFail_OS (errno_cache);
     }
 
-    req->requestee.id = h;
+    Req(req)->requestee.id = h;
     return DR_DONE;
 }
 
@@ -239,15 +239,15 @@ DEVICE_CMD Open_Serial(REBREQ *req)
 //
 //  Close_Serial: C
 //
-DEVICE_CMD Close_Serial(REBREQ *req)
+DEVICE_CMD Close_Serial(REBREQ *serial)
 {
-    struct devreq_serial *serial = DEVREQ_SERIAL(req);
+    struct rebol_devreq *req = Req(serial);
     if (req->requestee.id) {
         // !!! should we free serial->prior_attr termios struct?
         tcsetattr(
             req->requestee.id,
             TCSANOW,
-            cast(struct termios*, serial->prior_attr)
+            cast(struct termios*, ReqSerial(serial)->prior_attr)
         );
         close(req->requestee.id);
         req->requestee.id = 0;
@@ -259,8 +259,10 @@ DEVICE_CMD Close_Serial(REBREQ *req)
 //
 //  Read_Serial: C
 //
-DEVICE_CMD Read_Serial(REBREQ *req)
+DEVICE_CMD Read_Serial(REBREQ *serial)
 {
+    struct rebol_devreq *req = Req(serial);
+
     assert(req->requestee.id != 0);
 
     ssize_t result = read(req->requestee.id, req->common.data, req->length);
@@ -280,7 +282,7 @@ DEVICE_CMD Read_Serial(REBREQ *req)
     rebElide(
         "insert system/ports/system make event!", rebU("[",
             "type: 'read",
-            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+            "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(serial))),
         "]", rebEND),
     rebEND);
 
@@ -291,8 +293,10 @@ DEVICE_CMD Read_Serial(REBREQ *req)
 //
 //  Write_Serial: C
 //
-DEVICE_CMD Write_Serial(REBREQ *req)
+DEVICE_CMD Write_Serial(REBREQ *serial)
 {
+    struct rebol_devreq *req = Req(serial);
+
     size_t len = req->length - req->actual;
 
     assert(req->requestee.id != 0);
@@ -319,7 +323,7 @@ DEVICE_CMD Write_Serial(REBREQ *req)
         rebElide(
             "insert system/ports/system make event!", rebU("[",
                 "type: 'wrote",
-                "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+                "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(serial))),
             "]", rebEND),
         rebEND);
 
