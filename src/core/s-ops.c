@@ -409,7 +409,7 @@ REBARR *Split_Lines(const REBVAL *str)
     REBCHR(const *) up = start;
 
     if (i == len)
-        return Make_Arr(0);
+        return Make_Array(0);
 
     REBUNI c;
     up = NEXT_CHR(&c, up);

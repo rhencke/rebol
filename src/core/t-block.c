@@ -80,7 +80,7 @@ REB_R MAKE_Array(
         //
         // `make block! 10` => creates array with certain initial capacity
         //
-        return Init_Any_Array(out, kind, Make_Arr(Int32s(arg, 0)));
+        return Init_Any_Array(out, kind, Make_Array(Int32s(arg, 0)));
     }
     else if (IS_TEXT(arg)) {
         //
@@ -824,7 +824,7 @@ REBTYPE(Array)
         if (REF(part)) {
             len = Part_Len_May_Modify_Index(array, ARG(limit));
             if (len == 0)
-                return Init_Block(D_OUT, Make_Arr(0)); // new empty block
+                return Init_Block(D_OUT, Make_Array(0)); // new empty block
         }
         else
             len = 1;
@@ -838,7 +838,7 @@ REBTYPE(Array)
             if (not REF(part))
                 return nullptr;
 
-            return Init_Block(D_OUT, Make_Arr(0)); // new empty block
+            return Init_Block(D_OUT, Make_Array(0)); // new empty block
         }
 
         if (REF(part))
@@ -1179,7 +1179,7 @@ REBNATIVE(blockify)
     if (IS_BLOCK(v))
         RETURN (v);
 
-    REBARR *a = Make_Arr_Core(
+    REBARR *a = Make_Array_Core(
         1,
         NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE
     );
@@ -1212,7 +1212,7 @@ REBNATIVE(groupify)
     if (IS_GROUP(v))
         RETURN (v);
 
-    REBARR *a = Make_Arr_Core(
+    REBARR *a = Make_Array_Core(
         1,
         NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE
     );
@@ -1243,7 +1243,7 @@ REBNATIVE(enblock)
 
     REBVAL *v = ARG(value);
 
-    REBARR *a = Make_Arr_Core(
+    REBARR *a = Make_Array_Core(
         1,
         NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE
     );
@@ -1274,7 +1274,7 @@ REBNATIVE(engroup)
 
     REBVAL *v = ARG(value);
 
-    REBARR *a = Make_Arr_Core(
+    REBARR *a = Make_Array_Core(
         1,
         NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE
     );

@@ -1797,7 +1797,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
                 // Handle the simple `/` case
 
-                REBARR *a = Make_Arr(2);
+                REBARR *a = Make_Array(2);
                 Init_Blank(ARR_AT(a, 0));
                 Init_Blank(ARR_AT(a, 1));
                 TERM_ARRAY_LEN(a, 2);
@@ -2201,7 +2201,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 // done by cutting out the allowance of escaping levels as
                 // meaning for the kind byte.  Not a priority.
                 //
-                REBARR *a = Make_Arr_Core(2, NODE_FLAG_MANAGED);
+                REBARR *a = Make_Array_Core(2, NODE_FLAG_MANAGED);
                 MISC(a).line = ss->line;
                 LINK(a).file = ss->file;
                 SET_ARRAY_FLAG(a, HAS_FILE_LINE);

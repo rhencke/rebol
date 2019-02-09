@@ -159,7 +159,7 @@ ldflags: compose [
         ; are.  This is ideally done with a JSON file that is generated via
         ; analysis of the code to see which routines cannot call the
         ; emscripten_sleep_with_yield() function.  Currently anything that
-        ; runs the evaluator can, but low-level routines like Make_Ser()
+        ; runs the evaluator can, but low-level routines like Make_Series()
         ; could be on the list.
         ;
         ;{-s EMTERPRETIFY_BLACKLIST="['_malloc']"}

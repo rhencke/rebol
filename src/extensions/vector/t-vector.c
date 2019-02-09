@@ -276,7 +276,7 @@ REBARR *Vector_To_Array(const REBVAL *vect)
     if (len <= 0)
         fail (vect);
 
-    REBARR *arr = Make_Arr(len);
+    REBARR *arr = Make_Array(len);
     RELVAL *dest = ARR_HEAD(arr);
     REBCNT n;
     for (n = VAL_INDEX(vect); n < VAL_LEN_HEAD(vect); ++n, ++dest)

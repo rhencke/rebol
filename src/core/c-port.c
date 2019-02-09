@@ -140,7 +140,7 @@ REBINT Awake_System(REBARR *ports, bool only)
         // If we're using /ONLY, we need path AWAKE/ONLY to call.  (Ren-C's
         // va_list API does not support positionally-provided refinements.)
         //
-        REBARR *a = Make_Arr(2);
+        REBARR *a = Make_Array(2);
         Append_Value(a, awake);
         Init_Word(Alloc_Tail_Array(a), Canon(SYM_ONLY));
 
@@ -315,7 +315,7 @@ void Sieve_Ports(REBARR *ports)
 //
 bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
 {
-    REBARR *code_arr = Make_Arr(FRM_NUM_ARGS(f)); // max, e.g. no refines
+    REBARR *code_arr = Make_Array(FRM_NUM_ARGS(f)); // max, e.g. no refines
     RELVAL *code = ARR_HEAD(code_arr);
 
     // !!! For the moment, if refinements are needed we generate a PATH! with

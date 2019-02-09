@@ -55,7 +55,7 @@ static bool Params_Of_Hook(
     }
 
     if (not s->arr) { // if first step on second pass, make the array
-        s->arr = Make_Arr(s->num_visible);
+        s->arr = Make_Array(s->num_visible);
         s->dest = ARR_HEAD(s->arr);
     }
 
@@ -101,7 +101,7 @@ REBARR *Make_Action_Parameters_Arr(REBACT *act)
     For_Each_Unspecialized_Param(act, &Params_Of_Hook, &s);
 
     if (not s.arr)
-        return Make_Arr(1); // no unspecialized parameters, empty array
+        return Make_Array(1); // no unspecialized parameters, empty array
 
     TERM_ARRAY_LEN(s.arr, s.num_visible);
     ASSERT_ARRAY(s.arr);
@@ -122,7 +122,7 @@ static bool Typesets_Of_Hook(
     }
 
     if (not s->arr) { // if first step on second pass, make the array
-        s->arr = Make_Arr(s->num_visible);
+        s->arr = Make_Array(s->num_visible);
         s->dest = ARR_HEAD(s->arr);
     }
 
@@ -154,7 +154,7 @@ REBARR *Make_Action_Typesets_Arr(REBACT *act)
     For_Each_Unspecialized_Param(act, &Typesets_Of_Hook, &s);
 
     if (not s.arr)
-        return Make_Arr(1); // no unspecialized parameters, empty array
+        return Make_Array(1); // no unspecialized parameters, empty array
 
     TERM_ARRAY_LEN(s.arr, s.num_visible);
     ASSERT_ARRAY(s.arr);
@@ -594,7 +594,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     // Must make the function "paramlist" even if "empty", for identity.
     //
-    REBARR *paramlist = Make_Arr_Core(num_slots, SERIES_MASK_ACTION);
+    REBARR *paramlist = Make_Array_Core(num_slots, SERIES_MASK_ACTION);
 
     // Note: not a valid ACTION! paramlist yet, don't use SET_ACTION_FLAG()
     //
@@ -704,7 +704,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // Only make `parameter-types` if there were blocks in the spec
     //
     if (has_types) {
-        REBARR *types_varlist = Make_Arr_Core(
+        REBARR *types_varlist = Make_Array_Core(
             num_slots,
             SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED
         );
@@ -764,7 +764,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // Only make `parameter-notes` if there were strings (besides description)
     //
     if (has_notes) {
-        REBARR *notes_varlist = Make_Arr_Core(
+        REBARR *notes_varlist = Make_Array_Core(
             num_slots,
             SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED
         );
@@ -892,7 +892,7 @@ REBACT *Make_Action(
     // the dispatcher understands it to be, by contract.  Terminate it
     // at the given length implicitly.
 
-    REBARR *details = Make_Arr_Core(details_capacity, NODE_FLAG_MANAGED);
+    REBARR *details = Make_Array_Core(details_capacity, NODE_FLAG_MANAGED);
     TERM_ARRAY_LEN(details, details_capacity);
 
     PAYLOAD(Action, rootparam).details = details;
@@ -1229,7 +1229,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
 
         // Reusing EMPTY_ARRAY won't allow adding ARRAY_HAS_FILE_LINE bits
         //
-        copy = Make_Arr_Core(1, NODE_FLAG_MANAGED);
+        copy = Make_Array_Core(1, NODE_FLAG_MANAGED);
     }
     else {  // body not empty, pick dispatcher based on output disposition
 

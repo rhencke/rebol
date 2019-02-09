@@ -1011,7 +1011,7 @@ REB_R TO_Path(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         // !!! This is slated to be able to fit into a single cell, with no
         // array allocation.
         //
-        REBARR *a = Make_Arr(2);
+        REBARR *a = Make_Array(2);
         Init_Blank(ARR_AT(a, 0));
         Move_Value(ARR_AT(a, 1), arg);
         TERM_ARRAY_LEN(a, 2);

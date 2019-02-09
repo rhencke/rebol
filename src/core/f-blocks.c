@@ -48,11 +48,11 @@ REBARR *Copy_Array_At_Extra_Shallow(
     REBCNT len = ARR_LEN(original);
 
     if (index > len)
-        return Make_Arr_For_Copy(extra, flags, original);
+        return Make_Array_For_Copy(extra, flags, original);
 
     len -= index;
 
-    REBARR *copy = Make_Arr_For_Copy(len + extra, flags, original);
+    REBARR *copy = Make_Array_For_Copy(len + extra, flags, original);
 
     RELVAL *src = ARR_AT(original, index);
     RELVAL *dest = ARR_HEAD(copy);
@@ -81,12 +81,12 @@ REBARR *Copy_Array_At_Max_Shallow(
     const REBFLGS flags = 0;
 
     if (index > ARR_LEN(original))
-        return Make_Arr_For_Copy(0, flags, original);
+        return Make_Array_For_Copy(0, flags, original);
 
     if (index + max > ARR_LEN(original))
         max = ARR_LEN(original) - index;
 
-    REBARR *copy = Make_Arr_For_Copy(max, flags, original);
+    REBARR *copy = Make_Array_For_Copy(max, flags, original);
 
     REBCNT count = 0;
     const RELVAL *src = ARR_AT(original, index);
@@ -113,7 +113,7 @@ REBARR *Copy_Values_Len_Extra_Shallow_Core(
     REBCNT extra,
     REBFLGS flags
 ){
-    REBARR *a = Make_Arr_Core(len + extra, flags);
+    REBARR *a = Make_Array_Core(len + extra, flags);
 
     REBCNT count = 0;
     const RELVAL *src = head;
@@ -252,7 +252,7 @@ static REBARR *Copy_Array_Core_Managed_Inner_Loop(
 
     // Currently we start by making a shallow copy and then adjust it
 
-    REBARR *copy = Make_Arr_For_Copy(len + extra, flags, original);
+    REBARR *copy = Make_Array_For_Copy(len + extra, flags, original);
 
     RELVAL *src = ARR_AT(original, index);
     RELVAL *dest = ARR_HEAD(copy);
@@ -293,7 +293,7 @@ REBARR *Copy_Array_Core_Managed(
         index = tail;
 
     if (index > ARR_LEN(original)) // !!! should this be asserted?
-        return Make_Arr_Core(extra, flags | NODE_FLAG_MANAGED);
+        return Make_Array_Core(extra, flags | NODE_FLAG_MANAGED);
 
     return Copy_Array_Core_Managed_Inner_Loop(
         original,
@@ -331,7 +331,7 @@ REBARR *Copy_Rerelativized_Array_Deep_Managed(
 ){
     const REBFLGS flags = NODE_FLAG_MANAGED;
 
-    REBARR *copy = Make_Arr_For_Copy(ARR_LEN(original), flags, original);
+    REBARR *copy = Make_Array_For_Copy(ARR_LEN(original), flags, original);
     RELVAL *src = ARR_HEAD(original);
     RELVAL *dest = ARR_HEAD(copy);
 

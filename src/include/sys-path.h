@@ -198,7 +198,7 @@ inline static REBVAL *Refinify(REBVAL *v) {
     //
     assert(CELL_KIND(VAL_UNESCAPED(v)) != REB_PATH);
 
-    REBARR *a = Make_Arr(2);
+    REBARR *a = Make_Array(2);
     Init_Blank(Alloc_Tail_Array(a));
     Move_Value(Alloc_Tail_Array(a), v);
     return Init_Path(v, a);

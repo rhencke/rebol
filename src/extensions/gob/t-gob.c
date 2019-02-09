@@ -74,7 +74,7 @@ REBINT CT_Gob(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 REBGOB *Make_Gob(void)
 {
-    REBGOB *a = Make_Arr_Core(IDX_GOB_MAX, SERIES_FLAG_FIXED_SIZE);
+    REBGOB *a = Make_Array_Core(IDX_GOB_MAX, SERIES_FLAG_FIXED_SIZE);
 
     SET_GOB_PARENT(a, nullptr);  // in LINK(), is a REBNOD*, GC must mark
     SET_SERIES_INFO(a, LINK_IS_CUSTOM_NODE);
@@ -242,7 +242,7 @@ static void Insert_Gobs(
     REBARR *pane = GOB_PANE(gob);
 
     if (not pane) {
-        pane = Make_Arr_Core(count + 1, NODE_FLAG_MANAGED);
+        pane = Make_Array_Core(count + 1, NODE_FLAG_MANAGED);
         TERM_ARRAY_LEN(pane, count);
         index = 0;
     }
@@ -304,7 +304,7 @@ static void Remove_Gobs(REBGOB *gob, REBCNT index, REBCNT len)
 //
 static REBARR *Gob_Flags_To_Array(REBGOB *gob)
 {
-    REBARR *a = Make_Arr(3);
+    REBARR *a = Make_Array(3);
 
     REBINT i;
     for (i = 0; Gob_Flag_Words[i].sym != SYM_0; ++i) {
@@ -574,7 +574,7 @@ static REBVAL *Get_GOB_Var(RELVAL *out, REBGOB *gob, const REBVAL *word)
       case SYM_PANE: {
         REBARR *pane = GOB_PANE(gob);
         if (not pane)
-            return Init_Block(out, Make_Arr(0));
+            return Init_Block(out, Make_Array(0));
 
         return Init_Block(out, Copy_Array_Shallow(pane, SPECIFIED)); }
 
@@ -642,7 +642,7 @@ static void Set_GOB_Vars(REBGOB *gob, const RELVAL *blk, REBSPC *specifier)
 //
 static REBARR *Gob_To_Array(REBGOB *gob)
 {
-    REBARR *arr = Make_Arr(10);
+    REBARR *arr = Make_Array(10);
     REBSYM words[] = {SYM_OFFSET, SYM_SIZE, SYM_ALPHA, SYM_0};
     REBVAL *vals[6];
 

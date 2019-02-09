@@ -42,7 +42,7 @@ void Startup_Data_Stack(REBCNT size)
     // that indices into the data stack can be unsigned (no need for -1 to
     // mean empty, because 0 can)
     //
-    DS_Array = Make_Arr_Core(1, ARRAY_FLAG_NULLEDS_LEGAL);
+    DS_Array = Make_Array_Core(1, ARRAY_FLAG_NULLEDS_LEGAL);
     Init_Unreadable_Blank(ARR_HEAD(DS_Array));
     SET_CELL_FLAG(ARR_HEAD(DS_Array), PROTECTED);
 
@@ -106,7 +106,7 @@ void Startup_Frame_Stack(void)
 
     // It's too early to be using Make_Paramlist_Managed_May_Fail()
     //
-    REBARR *paramlist = Make_Arr_Core(
+    REBARR *paramlist = Make_Array_Core(
         1,
         NODE_FLAG_MANAGED | SERIES_MASK_ACTION
     );

@@ -161,7 +161,7 @@ void RL_rebEnterApi_internal(void) {
 //
 void *RL_rebMalloc(size_t size)
 {
-    REBSER *s = Make_Ser_Core(
+    REBSER *s = Make_Series_Core(
         ALIGN_SIZE // stores REBSER* (must be at least big enough for void*)
             + size // for the actual data capacity (may be 0...see notes)
             + 1, // for termination (even BINARY! has this, review necessity)

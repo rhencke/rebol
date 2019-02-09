@@ -529,7 +529,7 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
 {
     assert(NOT_SERIES_INFO(original, INACCESSIBLE));
 
-    REBARR *varlist = Make_Arr_For_Copy(
+    REBARR *varlist = Make_Array_For_Copy(
         CTX_LEN(original) + 1,
         SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED,
         nullptr // original_array, N/A because LINK()/MISC() used otherwise

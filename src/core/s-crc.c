@@ -404,7 +404,7 @@ REBSER *Make_Hash_Sequence(REBCNT len)
         fail (Error_Size_Limit_Raw(temp));
     }
 
-    REBSER *ser = Make_Ser(n + 1, sizeof(REBCNT));
+    REBSER *ser = Make_Series(n + 1, sizeof(REBCNT));
     Clear_Series(ser);
     SET_SERIES_LEN(ser, n);
 

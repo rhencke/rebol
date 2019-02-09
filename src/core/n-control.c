@@ -1272,7 +1272,7 @@ REBNATIVE(default)
                 has_groups = true;
         }
         if (has_groups) {
-            REBARR *composed = Make_Arr(VAL_LEN_AT(target));
+            REBARR *composed = Make_Array(VAL_LEN_AT(target));
             RELVAL *dest = ARR_HEAD(composed);
             item = VAL_ARRAY_AT(target);
             REBSPC *specifier = VAL_SPECIFIER(target);
@@ -1441,7 +1441,7 @@ REBNATIVE(catch)
   was_caught:
 
     if (REF(name) or REF(any)) {
-        REBARR *a = Make_Arr(2);
+        REBARR *a = Make_Array(2);
 
         Move_Value(ARR_AT(a, 0), label); // throw name
         CATCH_THROWN(ARR_AT(a, 1), D_OUT); // thrown value--may be null!

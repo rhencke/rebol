@@ -461,7 +461,7 @@ REBNATIVE(resume)
     // breakpoint hook, once it knows that non-local jumps to above the break
     // level (throws, returns, fails) actually intended to be "resuming".
 
-    REBARR *instruction = Make_Arr(RESUME_INST_MAX);
+    REBARR *instruction = Make_Array(RESUME_INST_MAX);
 
     if (REF(with)) {
         Init_False(ARR_AT(instruction, RESUME_INST_MODE)); // don't DO

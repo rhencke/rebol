@@ -42,7 +42,7 @@
 //
 REBSER *Make_Binary(REBCNT capacity)
 {
-    REBSER *bin = Make_Ser(capacity + 1, sizeof(REBYTE));
+    REBSER *bin = Make_Series(capacity + 1, sizeof(REBYTE));
     TERM_SEQUENCE(bin);
     return bin;
 }
@@ -56,7 +56,7 @@ REBSER *Make_Binary(REBCNT capacity)
 //
 REBSER *Make_Unicode(REBCNT capacity)
 {
-    REBSER *ser = Make_Ser(capacity + 1, sizeof(REBUNI));
+    REBSER *ser = Make_Series(capacity + 1, sizeof(REBUNI));
     TERM_SEQUENCE(ser);
     return ser;
 }

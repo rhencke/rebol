@@ -180,7 +180,7 @@ static void Schema_From_Block_May_Fail(
 // aligned; it is the caller's responsibility to ensure this".
 //
 // We assume the store's data pointer will have suitable alignment for any
-// type (currently Make_Ser() is expected to match malloc() in this way).
+// type (currently Make_Series() is expected to match malloc() in this way).
 // This will round the offset positions to an alignment appropriate for the
 // type size given.
 //
@@ -517,7 +517,7 @@ static void ffi_to_rebol(
 
         REBSTU *stu = Alloc_Singular(NODE_FLAG_MANAGED);
 
-        REBSER *data = Make_Ser_Core(
+        REBSER *data = Make_Series_Core(
             FLD_WIDE(top), // !!! what about FLD_LEN_BYTES_TOTAL ?
             sizeof(REBYTE),
             NODE_FLAG_MANAGED
@@ -690,7 +690,7 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
     // base of the series.  Hence the offsets must be mutated into pointers
     // at the last minute before the FFI call.
     //
-    REBSER *store = Make_Ser(1, sizeof(REBYTE));
+    REBSER *store = Make_Series(1, sizeof(REBYTE));
 
     void *ret_offset;
     if (!IS_BLANK(RIN_RET_SCHEMA(rin))) {
@@ -713,7 +713,7 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
     if (num_args == 0)
         arg_offsets = NULL; // don't waste time with the alloc + free
     else
-        arg_offsets = Make_Ser(num_args, sizeof(void*));
+        arg_offsets = Make_Series(num_args, sizeof(void*));
 
     // First gather the fixed parameters from the frame.  They are known to
     // be of correct general types (they were checked by Eval_Core for the call)
@@ -906,7 +906,7 @@ static void callback_dispatcher_core(struct Reb_Callback_Invocation *inv)
     // item in that array will be the callback function value, and then
     // the arguments will be the remaining values.
     //
-    REBARR *code = Make_Arr(1 + inv->cif->nargs);
+    REBARR *code = Make_Array(1 + inv->cif->nargs);
     RELVAL *elem = ARR_HEAD(code);
     Init_Action_Unbound(elem, RIN_CALLBACK_ACTION(inv->rin));
     ++elem;
@@ -1028,7 +1028,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     // !!! Should the spec analysis be allowed to do evaluation? (it does)
     //
     const REBCNT capacity_guess = 8; // !!! Magic number...why 8? (can grow)
-    REBARR *args_schemas = Make_Arr(capacity_guess);
+    REBARR *args_schemas = Make_Array(capacity_guess);
     MANAGE_ARRAY(args_schemas);
     PUSH_GC_GUARD(args_schemas);
 

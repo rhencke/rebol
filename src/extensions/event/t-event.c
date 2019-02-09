@@ -300,7 +300,7 @@ static REBVAL *Get_Event_Var(RELVAL *out, const REBCEL *v, REBSTR *name)
         if (
             (VAL_EVENT_FLAGS(v) & (EVF_DOUBLE | EVF_CONTROL | EVF_SHIFT)) != 0
         ){
-            REBARR *arr = Make_Arr(3);
+            REBARR *arr = Make_Array(3);
 
             if (VAL_EVENT_FLAGS(v) & EVF_DOUBLE)
                 Init_Word(Alloc_Tail_Array(arr), Canon(SYM_DOUBLE));

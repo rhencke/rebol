@@ -261,7 +261,7 @@ REBNATIVE(typechecker)
 
     REBVAL *type = ARG(type);
 
-    REBARR *paramlist = Make_Arr_Core(
+    REBARR *paramlist = Make_Array_Core(
         2,
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED
     );
@@ -1188,7 +1188,7 @@ REBNATIVE(n_shot)
 
     REBI64 n = VAL_INT64(ARG(n));
 
-    REBARR *paramlist = Make_Arr_Core(
+    REBARR *paramlist = Make_Array_Core(
         2,
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED
     );

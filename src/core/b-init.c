@@ -244,7 +244,7 @@ static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
     if (VAL_WORD_SYM(word) != SYM_QUOTED_X)
         panic (word); // First type should be QUOTED!
 
-    REBARR *catalog = Make_Arr(REB_MAX - 1);
+    REBARR *catalog = Make_Array(REB_MAX - 1);
 
     REBINT n;
     for (n = 1; NOT_END(word); word++, n++) {
@@ -696,7 +696,7 @@ static REBARR *Startup_Natives(const REBVAL *boot_natives)
     //
     Bind_Values_Deep(item, Lib_Context);
 
-    REBARR *catalog = Make_Arr(Num_Natives);
+    REBARR *catalog = Make_Array(Num_Natives);
 
     REBCNT n = 0;
     REBVAL *generic_word = nullptr; // gives clear error if GENERIC not found
@@ -817,7 +817,7 @@ static void Startup_End_Node(void)
 //
 static void Startup_Empty_Array(void)
 {
-    PG_Empty_Array = Make_Arr_Core(0, NODE_FLAG_MANAGED);
+    PG_Empty_Array = Make_Array_Core(0, NODE_FLAG_MANAGED);
     SET_SERIES_INFO(PG_Empty_Array, FROZEN);
 }
 

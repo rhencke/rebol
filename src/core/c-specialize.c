@@ -128,7 +128,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     REBACT *act = VAL_ACTION(action);
 
     REBCNT num_slots = ACT_NUM_PARAMS(act) + 1;
-    REBARR *varlist = Make_Arr_Core(
+    REBARR *varlist = Make_Array_Core(
         num_slots, // includes +1 for the CTX_ARCHETYPE() at [0]
         SERIES_MASK_CONTEXT
     );
@@ -309,7 +309,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     TERM_ARRAY_LEN(varlist, num_slots);
     MISC(varlist).meta = NULL; // GC sees this, we must initialize
 
-    // !!! Can't currently pass SERIES_FLAG_STACK_LIFETIME into Make_Arr_Core(),
+    // !!! Can't currently pass SERIES_FLAG_STACK_LIFETIME into Make_Array_Core(),
     // because TERM_ARRAY_LEN won't let it set stack array lengths.
     //
     if (prep & CELL_FLAG_STACK_LIFETIME)
@@ -1432,7 +1432,7 @@ REBNATIVE(does)
     REBVAL *specializee = ARG(specializee);
 
     if (IS_BLOCK(specializee)) {
-        REBARR *paramlist = Make_Arr_Core(
+        REBARR *paramlist = Make_Array_Core(
             1, // archetype only...DOES always makes action with no arguments
             SERIES_MASK_ACTION
         );
@@ -1515,7 +1515,7 @@ REBNATIVE(does)
     REBACT *unspecialized = ACT(CTX_KEYLIST(exemplar));
 
     REBCNT num_slots = ACT_NUM_PARAMS(unspecialized) + 1;
-    REBARR *paramlist = Make_Arr_Core(num_slots, SERIES_MASK_ACTION);
+    REBARR *paramlist = Make_Array_Core(num_slots, SERIES_MASK_ACTION);
 
     RELVAL *archetype = RESET_CELL(ARR_HEAD(paramlist), REB_ACTION);
     PAYLOAD(Action, archetype).paramlist = paramlist;
