@@ -389,15 +389,14 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
     // args, as they were evaluated the first time around.  This will also
     // prevent application of the const bit to the arguments at this level.
     //
-    REBIXO indexor = Eval_Array_At_Core(
+    REBIXO indexor = Eval_Array_At_Mutable_Core(
         out,
         first, // path not in array, will be "virtual" first element
         code_arr,
         0, // index
         SPECIFIED, // reusing existing REBVAL arguments, no relative values
-        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+        EVAL_MASK_DEFAULT
             | EVAL_FLAG_NO_RESIDUE // raise an error if all args not consume
-            | (f->flags.bits & EVAL_FLAG_CONST)
     );
 
     return indexor == THROWN_FLAG;

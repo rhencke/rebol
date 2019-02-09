@@ -297,6 +297,15 @@ inline static void Finalize_Arg(REBFRM *f) {
         return;
     }
 
+    // If we're not just typechecking, apply constness if requested.
+    //
+    // !!! Should explicit mutability override, so people can say things like
+    // `foo: func [...] mutable [...]` ?  This seems bad, because the contract
+    // of the function hasn't been "tweaked", e.g. with reskinning.
+    //
+    if (f->special != f->arg and TYPE_CHECK(f->param, REB_TS_CONST))
+        SET_CELL_FLAG(f->arg, CONST);
+
     // If the <dequote> tag was used on an argument, we want to remove the
     // quotes (and queue them to be added back in if the return was marked
     // with <requote>).
@@ -491,10 +500,8 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     //
     CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
-    REBFLGS flags =
-        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-        | (f->flags.bits & EVAL_FLAG_CONST)
-        | (f->flags.bits & EVAL_FLAG_FULFILLING_ARG); // if f was, we are
+    REBFLGS flags = EVAL_MASK_DEFAULT
+            | (f->flags.bits & EVAL_FLAG_FULFILLING_ARG);  // if f was, we are
 
     Init_Void(f->out); // `1 x: comment "hi"` shouldn't set x to 1!
 
@@ -1426,9 +1433,8 @@ bool Eval_Core_Throws(REBFRM * const f)
    //=//// REGULAR ARG-OR-REFINEMENT-ARG (consumes 1 EVALUATE's worth) ////=//
 
               case REB_P_NORMAL: {
-                REBFLGS flags = (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-                    | EVAL_FLAG_FULFILLING_ARG
-                    | (f->flags.bits & EVAL_FLAG_CONST);
+                REBFLGS flags = EVAL_MASK_DEFAULT
+                    | EVAL_FLAG_FULFILLING_ARG;
 
                 if (Eval_Step_In_Subframe_Throws(SET_END(f->arg), f, flags)) {
                     Move_Value(f->out, f->arg);
@@ -1991,12 +1997,18 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_GROUP: {
         *next_gotten = nullptr;  // arbitrary code changes fetched variables
 
-        REBSPC *derived = Derive_Specifier(*specifier, v);
-        if (Eval_Any_Array_At_Core_Throws(f->out, v, derived))
+        REBIXO indexor = Eval_Any_Array_At_Core(
+            f->out,  // anything in f->out will be left as-is if invisible
+            v,
+            *specifier,
+            EVAL_MASK_DEFAULT | EVAL_FLAG_TO_END
+        );
+        if (indexor == THROWN_FLAG)
             goto return_thrown;
+        assert(indexor == END_FLAG);
 
         if (GET_CELL_FLAG(f->out, OUT_MARKED_STALE))  // invisible group
-            break;
+            break;  // ...we might be leaving an END in f->out by doing this
 
         f->out->header.bits &= ~CELL_FLAG_UNEVALUATED;  // `(1)` evaluates
         break; }
@@ -2178,7 +2190,7 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_GET_GROUP: {
         *next_gotten = nullptr; // arbitrary code changes fetched variables
 
-        if (Do_At_Throws(spare, VAL_ARRAY(v), VAL_INDEX(v), *specifier)) {
+        if (Do_Any_Array_At_Core_Throws(spare, v, *specifier)) {
             Move_Value(f->out, spare);
             goto return_thrown;
         }
@@ -2223,7 +2235,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         *next_gotten = nullptr; // arbitrary code changes fetched variables
 
-        if (Do_At_Throws(spare, VAL_ARRAY(v), VAL_INDEX(v), *specifier)) {
+        if (Do_Any_Array_At_Core_Throws(spare, v, *specifier)) {
             Move_Value(f->out, spare);
             goto return_thrown;
         }
@@ -2387,19 +2399,22 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_STRUCT:
       case REB_LIBRARY:
 
-      inert:; // SEE ALSO: Literal_Next_In_Frame()...similar behavior
+      inert:;  // SEE ALSO: Literal_Next_In_Frame()...similar behavior
 
         Derelativize(f->out, v, *specifier);
-        SET_CELL_FLAG(f->out, UNEVALUATED); // CELL_FLAG_INERT ??
+        SET_CELL_FLAG(f->out, UNEVALUATED);  // CELL_FLAG_INERT ??
 
-        // `rebRun("append", "[]", "10");` should error, passing on the const
-        // of the va_arg frame.  That is a case of a block with neutral bits
-        // (no const, no mutable), so the constness brought by the execution
-        // via DO-ing it should win.  But `rebRun("append", block, "10");`
-        // needs to get the mutability bits of that block, more like as if
-        // you had the plain Rebol code `append block 10`.
+        // `rebRun("loop 2 [append", "[]", "10]");` should error, passing on
+        // the const of the loop's body frame to apply to the block.  But the
+        // block itself has neutral bits (no const, no mutable).  So the
+        // constness the loop brings should win.
         //
-        f->out->header.bits |= (f->flags.bits & EVAL_FLAG_CONST);
+        // However, `rebRun("loop 2 [append", block, "10]");` needs to get
+        // the mutability bits of that block variable...more like as if you
+        // had the plain Rebol code `append block 10`.
+        //
+        if (not GET_CELL_FLAG(v, EXPLICITLY_MUTABLE))
+            f->out->header.bits |= (f->feed->flags.bits & FEED_FLAG_CONST);
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//

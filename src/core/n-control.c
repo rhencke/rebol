@@ -610,7 +610,7 @@ REBNATIVE(match)
         f->arg = f->rootvar + 1;
         f->special = f->arg;
 
-        f->flags.bits = (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+        f->flags.bits = EVAL_MASK_DEFAULT
             | EVAL_FLAG_FULLY_SPECIALIZED
             | EVAL_FLAG_PROCESS_ACTION;
 
@@ -959,12 +959,7 @@ REBNATIVE(case)
         // Can't use Do_Branch(), *v is unevaluated RELVAL...simulate it
 
         if (IS_GROUP(*v)) {
-            if (Do_At_Throws(
-                D_SPARE,
-                VAL_ARRAY(*v),
-                VAL_INDEX(*v),
-                *specifier
-            )){
+            if (Do_Any_Array_At_Core_Throws(D_SPARE, *v, *specifier)) {
                 Move_Value(D_OUT, D_SPARE);
                 goto threw;
             }
@@ -975,14 +970,8 @@ REBNATIVE(case)
             Unquotify(Derelativize(D_OUT, *v, *specifier), 1);
         }
         else if (IS_BLOCK(*v)) {
-            if (Do_At_Throws(
-                D_OUT,
-                VAL_ARRAY(*v),
-                VAL_INDEX(*v),
-                *specifier
-            )){
+            if (Do_Any_Array_At_Core_Throws(D_OUT, *v, *specifier))
                 goto threw;
-            }
         }
         else if (IS_ACTION(*v)) {
             DECLARE_LOCAL (temp);
@@ -1163,14 +1152,8 @@ REBNATIVE(switch)
                 goto reached_end;
 
             if (IS_BLOCK(*v)) {  // *v is RELVAL, can't Do_Branch
-                if (Do_At_Throws(
-                    D_OUT,
-                    VAL_ARRAY(*v),
-                    VAL_INDEX(*v),
-                    *specifier
-                )){
+                if (Do_Any_Array_At_Core_Throws(D_OUT, *v, *specifier))
                     goto threw;
-                }
                 break;
             }
 
@@ -1303,19 +1286,13 @@ REBNATIVE(default)
                     // edge case...not going to address it yet, as perhaps
                     // GET-WORD! in paths aren't good anyway.
                     //
-                    REBSPC *derived = Derive_Specifier(specifier, item);
-                    REBIXO indexor = Eval_Array_At_Core(
-                        Init_Void(D_OUT),
-                        nullptr,
-                        VAL_ARRAY(item),
-                        VAL_INDEX(item),
-                        derived,
-                        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-                            | EVAL_FLAG_TO_END
-                            | (frame_->flags.bits & EVAL_FLAG_CONST)
-                    );
-                    if (indexor == THROWN_FLAG)
+                    if (Do_Any_Array_At_Core_Throws(
+                        D_OUT,
+                        item,
+                        specifier
+                    )){
                         return R_THROWN;
+                    }
                     Move_Value(dest, D_OUT);
                 }
             }

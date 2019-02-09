@@ -128,12 +128,8 @@ bool Next_Path_Throws(REBPVS *pvs)
         if (GET_EVAL_FLAG(pvs, NO_PATH_GROUPS))
             fail ("GROUP! in PATH! used with GET or SET (use REDUCE/EVAL)");
 
-        if (Do_At_Throws(
-            PVS_PICKER(pvs),
-            VAL_ARRAY(*v),
-            VAL_INDEX(*v),
-            Derive_Specifier(*specifier, *v)
-        )){
+        REBSPC *derived = Derive_Specifier(*specifier, *v);
+        if (Do_Any_Array_At_Core_Throws(PVS_PICKER(pvs), *v, derived)) {
             Move_Value(pvs->out, PVS_PICKER(pvs));
             return true; // thrown
         }
@@ -408,14 +404,9 @@ bool Eval_Path_Throws_Core(
         if (GET_EVAL_FLAG(pvs, NO_PATH_GROUPS))
             fail ("GROUP! in PATH! used with GET or SET (use REDUCE/EVAL)");
 
-        if (Do_At_Throws(
-            pvs->out,
-            VAL_ARRAY(*v),
-            VAL_INDEX(*v),
-            Derive_Specifier(specifier, *v)
-        )){
+        REBSPC *derived = Derive_Specifier(specifier, *v);
+        if (Do_Any_Array_At_Core_Throws(pvs->out, *v, derived))
             goto return_thrown;
-        }
     }
     else {
         pvs->u.ref.cell = nullptr; // nowhere to R_IMMEDIATE write back to

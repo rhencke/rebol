@@ -726,7 +726,7 @@ ext-console-impl: function [
     emit #unskin-if-halt ;-- Ctrl-C during dialect hook is a problem
     emit [
         comment {not all users may want CONST result, review configurability}
-        const as group! system/console/dialect-hook ((<*> code))
+        as group! system/console/dialect-hook ((<*> code))
     ]
     return group! ;-- a group RESULT should come back to HOST-CONSOLE
 ]

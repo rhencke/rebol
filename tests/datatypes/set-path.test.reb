@@ -31,14 +31,14 @@
 ; set-path evaluation order
 (
     a: 1x2
-    a/x: (a: mutable [x 4] 3)
+    a/x: (a: [x 4] 3)
     any [
         a == 3x2
         a == [x 3]
     ]
 )
 [#64 (
-    blk: mutable [1]
+    blk: [1]
     i: 1
     blk/:i: 2
     blk = [2]

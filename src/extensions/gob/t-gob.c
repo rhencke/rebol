@@ -1044,8 +1044,8 @@ REBTYPE(Gob)
         //
         REBVAL *pane = KNOWN(ARR_AT(gob, IDX_GOB_PANE));
         return rebRun(
-            "apply :take* [", // !!! v-- shouldn't need mutable, working on it
-                "series: mutable at", pane, rebI(index + 1),
+            "apply :take* [",
+                "series: at", pane, rebI(index + 1),
                 "part:", ARG(part),
                 "limit:", ARG(limit),
                 "deep:", ARG(deep),

@@ -2,7 +2,7 @@
 
 (
     s: apply :append [
-        series: mutable [a b c]
+        series: [a b c]
         value: [d e]
         dup: true
         count: 2

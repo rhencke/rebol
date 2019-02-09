@@ -181,6 +181,9 @@ bool Add_Typeset_Bits_Core(
             else if (0 == Compare_String_Vals(item, Root_Requote_Tag, true)) {
                 TYPE_SET(typeset, REB_TS_DEQUOTE_REQUOTE);
             }
+            else if (0 == Compare_String_Vals(item, Root_Const_Tag, true)) {
+                TYPE_SET(typeset, REB_TS_CONST);
+            }
         }
         else if (IS_DATATYPE(item)) {
             if (num_quotes == 0)

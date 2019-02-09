@@ -1212,14 +1212,8 @@ REB_R Block_Dispatcher(REBFRM *f)
 
     assert(IS_RELATIVE(block));
 
-    if (Do_At_Throws(
-        f->out,
-        VAL_ARRAY(block),
-        VAL_INDEX(block),
-        SPC(f->varlist)
-    )){
+    if (Do_Any_Array_At_Core_Throws(f->out, block, SPC(f->varlist)))
         return R_THROWN;
-    }
 
     return f->out;
 }

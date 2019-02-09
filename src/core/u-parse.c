@@ -472,7 +472,7 @@ REB_R Process_Group_For_Parse(
 
     // Evaluator should optimize execution of a GROUP! with only one element.
     //
-    if (Do_At_Throws(cell, VAL_ARRAY(group), VAL_INDEX(group), derived))
+    if (Do_Any_Array_At_Core_Throws(cell, group, derived))
         return R_THROWN;
 
     // !!! The input is not locked from modification by agents other than the
@@ -1237,11 +1237,9 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
     else {
         // Evaluate next expression from the *input* series (not the rules)
         //
-        indexor = Eval_Array_At_Core(
+        indexor = Eval_Any_Array_At_Core(
             P_CELL,
-            nullptr, // opt_first (null indicates nothing)
-            ARR(P_INPUT),
-            P_POS,
+            P_INPUT_VALUE,
             P_INPUT_SPECIFIER,
             EVAL_MASK_DEFAULT
         );
@@ -2391,10 +2389,9 @@ REBNATIVE(subparse)
                     // a normal setting procedure.
                     //
                     if (IS_SET_GROUP(set_or_copy_word)) {
-                        if (Do_At_Throws(
+                        if (Do_Any_Array_At_Core_Throws(
                             P_CELL,
-                            VAL_ARRAY(set_or_copy_word),
-                            VAL_INDEX(set_or_copy_word),
+                            set_or_copy_word,
                             P_RULE_SPECIFIER
                         )){
                             Move_Value(P_OUT, P_CELL);
@@ -2477,12 +2474,11 @@ REBNATIVE(subparse)
                             P_RULE_SPECIFIER,
                             rule
                         );
-                        if (Do_At_Throws(
+                        if (Do_Any_Array_At_Core_Throws(
                             evaluated,
-                            VAL_ARRAY(rule),
-                            VAL_INDEX(rule),
+                            rule,
                             derived
-                        )) {
+                        )){
                             Move_Value(P_OUT, evaluated);
                             return R_THROWN;
                         }

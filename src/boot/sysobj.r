@@ -68,16 +68,16 @@ state: make object! [
     last-error: _ ; used by WHY?
 ]
 
-modules: mutable []
-extensions: mutable []
+modules: []
+extensions: []
 
 codecs: make object! []
 
 schemes: make object! []
 
 ports: make object! [
-    wait-list: mutable []  ; List of ports to add to 'wait
-    pump: mutable []
+    wait-list: []   ; List of ports to add to 'wait
+    pump: []
     input:          ; Port for user input.
     output:         ; Port for user output
     system:         ; Port for system events
@@ -111,7 +111,7 @@ options: make object! [  ; Options supplied to REBOL during startup
     home: _         ; Path of home directory
     resources: _    ; users resources directory (for %user.r, skins, modules etc)
     suppress: _     ; block of user --suppress items, eg [%rebol.r %user.r %console-skin.reb]
-    loaded: mutable [] ; block with full paths to loaded start-up scripts
+    loaded: []      ; block with full paths to loaded start-up scripts
     path: _         ; Where script was started or the startup dir
 
     current-path: _ ; Current URL! or FILE! path to use for relative lookups
@@ -585,7 +585,7 @@ user: make object! [
    home:           ; The HOME environment variable
    words: _
    identity: make object! [email: smtp: pop3: esmtp-user: esmtp-pass: fqdn: _]
-   identities: mutable []
+   identities: []
 ]
 
 ;network: make object! [
@@ -635,7 +635,7 @@ cgi: make object! [ ; CGI environment variables
        remote-ident:
        Content-Type:           ; cap'd for email header
        content-length: _
-       other-headers: mutable []
+       other-headers: []
 ]
 ;   browser-type: 0
 

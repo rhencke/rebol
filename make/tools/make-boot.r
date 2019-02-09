@@ -417,6 +417,9 @@ e-types/emit {
         PSEUDOTYPE_TEN,
         REB_TS_REFINEMENT = PSEUDOTYPE_TEN,  /* !!! temp (?) compatibility */
 
+        PSEUDOTYPE_ELEVEN,
+        REB_TS_CONST = PSEUDOTYPE_ELEVEN,
+
         REB_MAX_PLUS_MAX
     };
 

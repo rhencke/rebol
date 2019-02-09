@@ -45,7 +45,7 @@
 //      spec "Help string (opt) followed by arg words (and opt type + string)"
 //          [block!]
 //      body "Code implementing the function--use RETURN to yield a result"
-//          [block!]
+//          [<const> block!]
 //  ]
 //
 REBNATIVE(func)

@@ -70,11 +70,10 @@
 // args to functions are evaluated (vs. quoted), and lookahead is enabled.
 //
 #if defined(NDEBUG)
-    #define EVAL_MASK_DEFAULT \
-        EVAL_FLAG_CONST
+    #define EVAL_MASK_DEFAULT 0
 #else
     #define EVAL_MASK_DEFAULT \
-        (EVAL_FLAG_CONST | EVAL_FLAG_DEFAULT_DEBUG)
+        (EVAL_FLAG_DEFAULT_DEBUG)
 #endif
 
 
@@ -269,22 +268,10 @@ STATIC_ASSERT(EVAL_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 #define EVAL_FLAG_PATH_HARD_QUOTE       EVAL_FLAG_21
 
 
-//=//// EVAL_FLAG_CONST ///////////////////////////////////////////////////=//
+//=//// EVAL_FLAG_22 //////////////////////////////////////////////////////=//
 //
-// The user is able to flip the constness flag explicitly with the CONST and
-// MUTABLE functions explicitly.  However, if a frame has EVAL_FLAG_CONST,
-// the system imposes it's own constness as part of the "wave of evaluation"
-// it does.  While this wave starts out initially with frames demanding const
-// marking, if it ever gets flipped (as with DO/MUTABLE) it will have to
-// encounter an explicit CONST marking on a value before getting flipped back.
-//
-// (This behavior is designed to permit switching into a "mode" that is
-// compatible with Rebol2/Red behavior, where "source code" is not read-only
-// by default.)
-//
-#define EVAL_FLAG_CONST \
+#define EVAL_FLAG_22 \
     FLAG_LEFT_BIT(22)
-STATIC_ASSERT(EVAL_FLAG_CONST == CELL_FLAG_CONST);
 
 
 //=//// EVAL_FLAG_ERROR_ON_DEFERRED_ENFIX /////////////////////////////////=//
@@ -428,8 +415,7 @@ STATIC_ASSERT(EVAL_FLAG_CONST == CELL_FLAG_CONST);
     // It may be advantageous to have some bits set to true by default instead
     // of false, so all evaluations should describe their settings relative
     // to EVAL_MASK_DEFAULT, and purposefully mask out any truthy flags that
-    // apply by default they don't want (e.g. EVAL_FLAG_CONST, which is included
-    // to err on the side of caution).  The default mask includes this flag
+    // apply by default they don't want.  The default mask includes this flag
     // just so the evaluator can make sure EVAL_MASK_DEFAULT was used.
     //
     #define EVAL_FLAG_DEFAULT_DEBUG \
@@ -700,6 +686,20 @@ struct Reb_Feed {
 //
 #define FEED_FLAG_UNEVALUATIVE \
     FLAG_LEFT_BIT(4)
+
+
+// The user is able to flip the constness flag explicitly with the CONST and
+// MUTABLE functions explicitly.  However, if a feed has FEED_FLAG_CONST,
+// the system imposes it's own constness as part of the "wave of evaluation"
+// it does.  While this wave starts out initially with frames demanding const
+// marking, if it ever gets flipped, it will have to encounter an explicit
+// CONST marking on a value before getting flipped back.
+//
+// (This behavior is designed to permit switching into a "mode" that is
+//
+#define FEED_FLAG_CONST \
+    FLAG_LEFT_BIT(22)
+STATIC_ASSERT(FEED_FLAG_CONST == CELL_FLAG_CONST);
 
 
 #if !defined __cplusplus

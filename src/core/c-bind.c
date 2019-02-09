@@ -463,6 +463,7 @@ void Virtual_Bind_Deep_To_New_Context(
         // the same, because it's truncated before the index.  You cannot
         // go BACK on it before the index.
         //
+        bool in_const = GET_CELL_FLAG(body_in_out, CONST);
         Init_Block(
             body_in_out,
             Copy_Array_Core_Managed(
@@ -475,6 +476,9 @@ void Virtual_Bind_Deep_To_New_Context(
                 TS_ARRAY | TS_PATH // types to copy deeply
             )
         );
+
+        if (in_const)  // preserve CONST-ness of the original body
+            Constify(body_in_out);
     }
     else {
         // Just leave body_in_out as it is, and make the context

@@ -7,5 +7,5 @@
     equal? head of blk1 head of blk2
 )
 [#9
-    (equal? "tr" change/part mutable "str" "" 1)
+    (equal? "tr" change/part "str" "" 1)
 ]

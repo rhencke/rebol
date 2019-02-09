@@ -943,16 +943,9 @@ static void Parse_Field_Type_May_Fail(
         // make struct! [a: [int32 [2]] [0 0]]
         //
         DECLARE_LOCAL (ret);
-        if (Do_At_Throws(
-            ret,
-            VAL_ARRAY(val),
-            VAL_INDEX(val),
-            VAL_SPECIFIER(spec)
-        )) {
-            // !!! Does not check for thrown cases...what should this
-            // do in case of THROW, BREAK, QUIT?
+        REBSPC *derived = Derive_Specifier(val, VAL_SPECIFIER(spec));
+        if (Do_Any_Array_At_Core_Throws(ret, val, derived))
             fail (Error_No_Catch_For_Throw(ret));
-        }
 
         if (!IS_INTEGER(ret))
             fail (Error_Unexpected_Type(REB_INTEGER, VAL_TYPE(val)));
@@ -1227,7 +1220,7 @@ REB_R MAKE_Struct(
                 // FFI structures to be used by the C...so that would be more
                 // worthwhile an investment if improvement was a priority.
                 //
-                eval_idx = Eval_Array_At_Core(
+                eval_idx = Eval_Array_At_Mutable_Core(
                     init,
                     nullptr, // opt_first (null indicates nothing)
                     VAL_ARRAY(arg),

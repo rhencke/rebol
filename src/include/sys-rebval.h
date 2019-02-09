@@ -227,7 +227,7 @@
 // const view on a mutable value with CONST.
 //
 #define CELL_FLAG_CONST \
-    FLAG_LEFT_BIT(22) // NOTE: Must be SAME BIT as EVAL_FLAG_CONST
+    FLAG_LEFT_BIT(22)  // NOTE: Must be SAME BIT as FEED_FLAG_CONST
 
 
 //=//// CELL_FLAG_EXPLICITLY_MUTABLE //////////////////////////////////////=//

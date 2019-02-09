@@ -13,67 +13,60 @@
     ]
 )(
     sum: 0
+    loop 5 code: [
+        ()
+        append code/1 sum: sum + 1
+    ]
+    did all [
+        sum = 5
+        code/1 = '(1 2 3 4 5)
+    ]
+)(
+    sum: 0
     e: trap [
-        loop 5 code: [
+        loop 5 code: const [
             ()
-            append code/1 [sum: sum + 1]
+            append code/1 sum: sum + 1
         ]
     ]
     e/id = 'const-value
 )(
     sum: 0
-    loop 5 code: [
+    loop 5 code: const [
         ()
-        append mutable code/1 [sum: sum + 1]
+        append mutable code/1 sum: sum + 1
     ]
-    sum = 10
+    did all [
+        sum = 5
+        code/1 = '(1 2 3 4 5)
+    ]
 )
 
 
-; ACTION! definitions which occur inside a DO/MUTABLE will cause mutability to
-; be activated when they are invoked, whether they are invoked from a frame
-; with mutable or immutable conventions.  This enables Rebol2-style functions
-; to be called from const-styled Ren-C without breaking their internal rules.
+; While a value fetched from a WORD! during evaluation isn't subject to the
+; wave of constness that a loop or function body puts on a frame, if you
+; do a COMPOSE then it looks the same from the evaluator's point of view.
+; Hence, if you want to modify composed-in blocks, use explicit mutability.
 (
-    foo: function [] [b: [1 2 3] clear b]
-    e: trap [foo]
-    e/id = 'const-value
+    [<legal> <legal>] = do compose [loop 2 [append mutable [] <legal>]]
 )(
-    do mutable [foo: function [] [b: [1 2 3] clear b]]
-    [] = foo
-)(
-    foo: do mutable [function [] [b: [1 2 3] clear b]]
-    [] = foo
-)(
-    [] = do mutable [
-        foo: function [] [b: [1 2 3] clear b]
-        foo
-    ]
-)(
-    do mutable [foo: function [b] [clear b]]
-    e: trap [foo [1 2 3]] ;; const value passed in doesn't get mutable
-    e/id = 'const-value
-)(
-    do mutable [foo: function [b] [clear b]]
-    [] = do mutable [foo [1 2 3]] ;; okay if passed from mutable section
-)
-
-
-(
-    [<succeed>] = do mutable compose [append [] <succeed>]
-)(
-    block: [] ;; originates from outside mutable
+    block: []
     e: trap [
-        do mutable compose [append ((block)) <fail>]
+        do compose/deep [loop 2 [append ((block)) <fail>]]
     ]
     e/id = 'const-value
+)(
+    block: mutable []
+    do compose/deep [loop 2 [append ((block)) <legal>]]
+    block = [<legal> <legal>]
 )
 
-;; A shallow COPY of a literal value that the evaluator has made const will
-;; only make the outermost level mutable...referenced series will be const
-;; if they weren't copied (and weren't mutable explicitly)
+
+; A shallow COPY of a literal value that the evaluator has made const will
+; only make the outermost level mutable...referenced series will be const
+; if they weren't copied (and weren't mutable explicitly)
 (
-    data: copy [a [b [c]]]
+    loop 1 [data: copy [a [b [c]]]]
     append data <success>
     e2: trap [append data/2 <fail>]
     e22: trap [append data/2/2 <fail>]
@@ -83,24 +76,69 @@
         e22/id = 'const-value
     ]
 )(
-    data: copy/deep [a [b [c]]]
+    loop 1 [data: copy/deep [a [b [c]]]]
     append data <success>
     append data/2 <success>
     append data/2/2 <success>
     data = [a [b [c <success>] <success>] <success>]
 )(
-    sub: [b [c]]
-    data: copy compose [a ((mutable sub))]
+    loop 1 [sub: copy/deep [b [c]]]
+    data: copy compose [a ((sub))]
     append data <success>
     append data/2 <success>
     append data/2/2 <success>
     data = [a [b [c <success>] <success>] <success>]
 )
 
-;; https://github.com/metaeducation/ren-c/issues/633
-;;
+; https://github.com/metaeducation/ren-c/issues/633
 (
     e: trap [repeat x 1 [append foo: [] x]]
     e/id = 'const-value
 )
-([1] = repeat x 1 [append foo: mutable [] x])
+
+
+; Functions mark their body CONST by default
+[
+    (did symbol-to-string: function [s] [
+       switch s [
+           '+ ["plus"]
+           '- ["minus"]
+       ]
+    ])
+
+    (
+        p: symbol-to-string '+
+        e: trap [insert p "double-" append p "-good"]
+        e/id = 'const-value
+    )
+
+    (
+        p: symbol-to-string '+
+        p: mutable p
+        insert p "you-" append p "-asked-for-it"
+        "you-plus-asked-for-it" = symbol-to-string '+
+    )
+]
+
+
+; Reskinning capabilities can remove the <const> default
+(
+    func-r2: reskinned [body [block!]] adapt :func []
+    aggregator: func-r2 [x] [data: [] append data x]
+    did all [
+        [10] = aggregator 10
+        [10 20] = aggregator 20
+    ]
+)
+
+
+; COMPOSE should splice with awareness of const/mutability
+(
+    e: trap [loop 2 compose [append (([1 2 3])) <bad>]]
+    e/id = 'const-value
+)(
+    block: loop 2 compose [append ((mutable [1 2 3])) <legal>]
+    block = [1 2 3 <legal> <legal>]
+)
+
+

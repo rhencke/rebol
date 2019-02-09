@@ -1,5 +1,5 @@
 ; functions/series/clear.r
-([] = clear mutable [])
+([] = clear [])
 ([] = clear copy [1])
 (
     block: at copy [1 2 3 4] 3

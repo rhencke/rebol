@@ -1191,17 +1191,17 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
 //
 REBACT *Make_Interpreted_Action_May_Fail(
     const REBVAL *spec,
-    const REBVAL *code,
-    REBFLGS mkf_flags // MKF_RETURN, etc.
+    const REBVAL *body,
+    REBFLGS mkf_flags  // MKF_RETURN, etc.
 ) {
-    assert(IS_BLOCK(spec) and IS_BLOCK(code));
+    assert(IS_BLOCK(spec) and IS_BLOCK(body));
 
     REBACT *a = Make_Action(
         Make_Paramlist_Managed_May_Fail(spec, mkf_flags),
-        &Null_Dispatcher, // will be overwritten if non-[] body
-        nullptr, // no underlying action (use paramlist)
-        nullptr, // no specialization exemplar (or inherited exemplar)
-        1 // details array capacity
+        &Null_Dispatcher,  // will be overwritten if non-[] body
+        nullptr,  // no underlying action (use paramlist)
+        nullptr,  // no specialization exemplar (or inherited exemplar)
+        1  // details array capacity
     );
 
     // We look at the *actual* function flags; e.g. the person may have used
@@ -1209,7 +1209,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
     // which overrides it, so the value won't have PARAMLIST_HAS_RETURN.
 
     REBARR *copy;
-    if (VAL_ARRAY_LEN_AT(code) == 0) { // optimize empty body case
+    if (VAL_ARRAY_LEN_AT(body) == 0) {  // optimize empty body case
 
         if (GET_ACTION_FLAG(a, IS_INVISIBLE)) {
             ACT_DISPATCHER(a) = &Commenter_Dispatcher;
@@ -1220,8 +1220,8 @@ REBACT *Make_Interpreted_Action_May_Fail(
         else if (GET_ACTION_FLAG(a, HAS_RETURN)) {
             REBVAL *typeset = ACT_PARAM(a, ACT_NUM_PARAMS(a));
             assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
-            if (not TYPE_CHECK(typeset, REB_MAX_NULLED)) // what do [] returns
-                ACT_DISPATCHER(a) = &Returner_Dispatcher; // error when run
+            if (not TYPE_CHECK(typeset, REB_MAX_NULLED))  // `do []` returns
+                ACT_DISPATCHER(a) = &Returner_Dispatcher;  // error when run
         }
         else {
             // Keep the Null_Dispatcher passed in above
@@ -1231,7 +1231,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
         //
         copy = Make_Arr_Core(1, NODE_FLAG_MANAGED);
     }
-    else { // body not empty, pick dispatcher based on output disposition
+    else {  // body not empty, pick dispatcher based on output disposition
 
         if (GET_ACTION_FLAG(a, IS_INVISIBLE))
             ACT_DISPATCHER(a) = &Elider_Dispatcher; // no f->out mutation
@@ -1243,16 +1243,16 @@ REBACT *Make_Interpreted_Action_May_Fail(
             ACT_DISPATCHER(a) = &Unchecked_Dispatcher; // unchecked f->out
 
         copy = Copy_And_Bind_Relative_Deep_Managed(
-            code, // new copy has locals bound relatively to the new action
+            body,  // new copy has locals bound relatively to the new action
             ACT_PARAMLIST(a),
             TS_WORD
         );
     }
 
-    RELVAL *body = RESET_CELL(ARR_HEAD(ACT_DETAILS(a)), REB_BLOCK);
-    INIT_VAL_ARRAY(body, copy);
-    VAL_INDEX(body) = 0;
-    INIT_BINDING(body, a); // Record that block is relative to a function
+    RELVAL *rebound = RESET_CELL(ARR_HEAD(ACT_DETAILS(a)), REB_BLOCK);
+    INIT_VAL_ARRAY(rebound, copy);
+    VAL_INDEX(rebound) = 0;
+    INIT_BINDING(rebound, a);  // Record that block is relative to a function
 
     // Favor the spec first, then the body, for file and line information.
     //
@@ -1261,9 +1261,9 @@ REBACT *Make_Interpreted_Action_May_Fail(
         MISC(copy).line = MISC(VAL_ARRAY(spec)).line;
         SET_ARRAY_FLAG(copy, HAS_FILE_LINE);
     }
-    else if (GET_ARRAY_FLAG(VAL_ARRAY(code), HAS_FILE_LINE)) {
-        LINK(copy).file = LINK(VAL_ARRAY(code)).file;
-        MISC(copy).line = MISC(VAL_ARRAY(code)).line;
+    else if (GET_ARRAY_FLAG(VAL_ARRAY(body), HAS_FILE_LINE)) {
+        LINK(copy).file = LINK(VAL_ARRAY(body)).file;
+        MISC(copy).line = MISC(VAL_ARRAY(body)).line;
         SET_ARRAY_FLAG(copy, HAS_FILE_LINE);
     }
     else {
@@ -1294,8 +1294,8 @@ REBACT *Make_Interpreted_Action_May_Fail(
     // means compatibility would be with the behavior of R3-Alpha CLOSURE,
     // not with FUNCTION.
     //
-    if (FS_TOP->flags.bits & EVAL_FLAG_CONST)
-        SET_CELL_FLAG(body, CONST); // Inherit_Const() needs REBVAL*
+    if (GET_CELL_FLAG(body, CONST))
+        SET_CELL_FLAG(rebound, CONST);  // Inherit_Const() would need REBVAL*
 
     return a;
 }
@@ -1351,7 +1351,7 @@ REB_R Generic_Dispatcher(REBFRM *f)
 
     enum Reb_Kind kind = VAL_TYPE(FRM_ARG(f, 1));
     GENERIC_HOOK hook = Generic_Hooks[kind];
-    return hook(f, verb); // note: QUOTED! will re-dispatch to Generic_Hooks
+    return hook(f, verb);  // note: QUOTED! will re-dispatch to Generic_Hooks
 }
 
 
@@ -1435,30 +1435,22 @@ REB_R Typeset_Checker_Dispatcher(REBFRM *f)
 }
 
 
-// Common behavior shared by dispatchers which execute on blocks of code.
+// Common behavior shared by dispatchers which execute on BLOCK!s of code.
 //
-inline static bool Interpreted_Dispatch_Throws(REBVAL *out, REBFRM *f)
-{
+inline static bool Interpreted_Dispatch_Throws(
+    REBVAL *out,  // Note: Elider_Dispatcher() doesn't have `out = f->out`
+    REBFRM *f
+){
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
-    RELVAL *body = ARR_HEAD(details);
+    RELVAL *body = ARR_HEAD(details);  // usually CONST (doesn't have to be)
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
-    // Whether the action body executes mutably is independent of the parent
-    // frame's mutability disposition (possible exception: const functions?)
-    // It depends on the mutability captured at the time of the action's
-    // creation.  This enables things like calling a module based on Rebol2
-    // expectations from modern Ren-C code.
+    // The function body contains relativized words, that point to the
+    // paramlist but do not have an instance of an action to line them up
+    // with.  We use the frame (identified by varlist) as the "specifier".
     //
-    bool mutability = NOT_CELL_FLAG(body, CONST);
-    return Do_At_Mutability_Throws(
-        out, // Note that elider_Dispatcher() does not overwrite f->out
-        VAL_ARRAY(body),
-        0,
-        SPC(f->varlist),
-        mutability
-    );
+    return Do_Any_Array_At_Core_Throws(out, body, SPC(f->varlist));
 }
-
 
 
 //
@@ -1481,7 +1473,7 @@ REB_R Unchecked_Dispatcher(REBFRM *f)
 //
 REB_R Voider_Dispatcher(REBFRM *f)
 {
-    if (Interpreted_Dispatch_Throws(f->out, f)) // action body is a BLOCK!
+    if (Interpreted_Dispatch_Throws(f->out, f))  // action body is a BLOCK!
         return R_THROWN;
     return Init_Void(f->out);
 }
@@ -1522,7 +1514,7 @@ REB_R Returner_Dispatcher(REBFRM *f)
 //
 REB_R Elider_Dispatcher(REBFRM *f)
 {
-    REBVAL * const discarded = FRM_SPARE(f);  // cell available during dispatch
+    REBVAL * const discarded = FRM_SPARE(f);  // spare usable during dispatch
 
     if (Interpreted_Dispatch_Throws(discarded, f)) {
         //
@@ -1622,14 +1614,7 @@ REB_R Adapter_Dispatcher(REBFRM *f)
 
     REBVAL * const discarded = FRM_SPARE(f);
 
-    bool mutability = NOT_CELL_FLAG(prelude, CONST);
-    if (Do_At_Mutability_Throws(
-        discarded,
-        VAL_ARRAY(prelude),
-        VAL_INDEX(prelude),
-        SPC(f->varlist),
-        mutability
-    )){
+    if (Do_Any_Array_At_Core_Throws(discarded, prelude, SPC(f->varlist))) {
         Move_Value(f->out, discarded);
         return R_THROWN;
     }
@@ -1637,7 +1622,7 @@ REB_R Adapter_Dispatcher(REBFRM *f)
     FRM_PHASE(f) = VAL_ACTION(adaptee);
     FRM_BINDING(f) = VAL_BINDING(adaptee);
 
-    return R_REDO_CHECKED; // the redo will use the updated phase/binding
+    return R_REDO_CHECKED;  // the redo will use the updated phase & binding
 }
 
 
@@ -1651,9 +1636,9 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     assert(ARR_LEN(details) == 2);
 
-    REBVAL *inner = KNOWN(ARR_AT(details, 0)); // same args as f
+    REBVAL *inner = KNOWN(ARR_AT(details, 0));  // same args as f
     assert(IS_ACTION(inner));
-    REBVAL *outer = KNOWN(ARR_AT(details, 1)); // takes 1 arg (a FRAME!)
+    REBVAL *outer = KNOWN(ARR_AT(details, 1));  // takes 1 arg (a FRAME!)
     assert(IS_ACTION(outer));
 
     assert(GET_SERIES_FLAG(f->varlist, STACK_LIFETIME));
@@ -1667,7 +1652,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     LINK(c).keysource = NOD(VAL_ACTION(inner));
     CLEAR_SERIES_FLAG(c, STACK_LIFETIME);
 
-    assert(GET_SERIES_INFO(f->varlist, INACCESSIBLE)); // look dead
+    assert(GET_SERIES_INFO(f->varlist, INACCESSIBLE));  // look dead
 
     // f->varlist may or may not have wound up being managed.  It was not
     // allocated through the usual mechanisms, so if unmanaged it's not in
@@ -1728,7 +1713,7 @@ REB_R Chainer_Dispatcher(REBFRM *f)
     FRM_PHASE(f) = VAL_ACTION(chained);
     FRM_BINDING(f) = VAL_BINDING(chained);
 
-    return R_REDO_UNCHECKED; // signatures should match
+    return R_REDO_UNCHECKED;  // signatures should match
 }
 
 
@@ -1761,13 +1746,13 @@ bool Get_If_Word_Or_Path_Throws(
         REBSPC *derived = Derive_Specifier(specifier, v);
         if (Eval_Path_Throws_Core(
             out,
-            opt_name_out, // requesting says we run functions (not GET-PATH!)
+            opt_name_out,  // requesting says we run functions (not GET-PATH!)
             VAL_ARRAY(v),
             VAL_INDEX(v),
             derived,
-            NULL, // `setval`: null means don't treat as SET-PATH!
+            NULL,  // `setval`: null means don't treat as SET-PATH!
             EVAL_MASK_DEFAULT | (push_refinements
-                ? EVAL_FLAG_PUSH_PATH_REFINES // pushed in reverse order
+                ? EVAL_FLAG_PUSH_PATH_REFINES  // pushed in reverse order
                 : 0)
         )){
             return true;

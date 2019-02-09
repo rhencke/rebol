@@ -1606,10 +1606,10 @@ static REBINT Scan_Head(SCAN_STATE *ss)
         case ';':
         semicolon:
             goto skipline;
-        
+
           case 0:
             return 0;
-        
+
         default:  // everything else...
             if (not ANY_CR_LF_END(*cp))
                 rebol = bracket = nullptr;

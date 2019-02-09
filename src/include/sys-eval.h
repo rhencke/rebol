@@ -178,7 +178,7 @@ inline static bool Reevaluate_In_Subframe_Throws(
 // Most common case of evaluator invocation in Rebol: the data lives in an
 // array series.
 //
-inline static REBIXO Eval_Array_At_Core(
+inline static REBIXO Eval_Array_At_Mutable_Core(  // no FEED_FLAG_CONST
     REBVAL *out, // must be initialized, marked stale if empty / all invisible
     const RELVAL *opt_first, // non-array element to kick off execution with
     REBARR *array,
@@ -209,10 +209,10 @@ inline static REBIXO Eval_Array_At_Core(
     if (threw)
         return THROWN_FLAG;
 
-    assert(
-        not (flags & EVAL_FLAG_TO_END)
-        or f->feed->index == ARR_LEN(array) + 1
-    );
+    if (f->feed->index == ARR_LEN(array) + 1)
+        return END_FLAG;
+
+    assert(not (flags & EVAL_FLAG_TO_END));
     return f->feed->index;
 }
 
@@ -320,12 +320,18 @@ inline static void Reify_Va_To_Array_In_Frame(
 // Returns THROWN_FLAG, END_FLAG, or VA_LIST_FLAG
 //
 inline static REBIXO Eval_Va_Core(
-    REBVAL *out, // must be initialized, marked stale if empty / all invisible
+    REBVAL *out,  // must be initialized, marked stale if empty / all invisible
     const void *opt_first,
     va_list *vaptr,
-    REBFLGS flags
+    REBFLGS flags  // EVAL_FLAG_XXX (not FEED_FLAG_XXX)
 ){
-    DECLARE_VA_FEED (feed, opt_first, vaptr, FEED_MASK_DEFAULT);
+    DECLARE_VA_FEED (
+        feed,
+        opt_first,
+        vaptr,
+        FEED_MASK_DEFAULT  // !!! Should top frame flags be heeded?
+            | (FS_TOP->feed->flags.bits & FEED_FLAG_CONST)
+    );
     DECLARE_FRAME (f, feed, flags);
 
     if (IS_END(f->feed->value))
@@ -339,8 +345,8 @@ inline static REBIXO Eval_Va_Core(
         return THROWN_FLAG;
 
     if (
-        (flags & EVAL_FLAG_TO_END) // not just an EVALUATE, but a full DO
-        or GET_CELL_FLAG(f->out, OUT_MARKED_STALE) // just ELIDEs and COMMENTs
+        (flags & EVAL_FLAG_TO_END)  // not just an EVALUATE, but a full DO
+        or GET_CELL_FLAG(f->out, OUT_MARKED_STALE)  // just ELIDEs/COMMENTs
     ){
         assert(IS_END(f->feed->value));
         return END_FLAG;
@@ -355,30 +361,43 @@ inline static REBIXO Eval_Va_Core(
 
 inline static bool Eval_Value_Core_Throws(
     REBVAL *out,
-    const RELVAL *value, // e.g. a BLOCK! here would just evaluate to itself!
+    const RELVAL *value,  // e.g. a BLOCK! here would just evaluate to itself!
     REBSPC *specifier
 ){
     if (ANY_INERT(value)) {
         Derelativize(out, value, specifier);
-        return false; // fast things that don't need frames (should inline)
+        return false;  // fast things that don't need frames (should inline)
     }
 
-    REBIXO indexor = Eval_Array_At_Core(
-        SET_END(out), // start with END to detect no actual eval product
-        value, // put the value as the opt_first element
-        EMPTY_ARRAY,
-        0, // start index (it's an empty array, there's no added processing)
+    // We need the const bits on this value to apply, so have to use a low
+    // level call.
+
+    SET_END(out);  // start with END to detect no actual eval product
+
+    struct Reb_Feed feed_struct;  // opt_first so can't use DECLARE_ARRAY_FEED
+    struct Reb_Feed *feed = &feed_struct;
+    Prep_Array_Feed(
+        feed,
+        value,  // opt_first--in this case, the only value in the feed...
+        EMPTY_ARRAY,  // ...because we're using the empty array after that
+        0,  // ...at index 0
         specifier,
-        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-            | EVAL_FLAG_TO_END
-            | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
-            | (value->header.bits & EVAL_FLAG_CONST)
+        FEED_MASK_DEFAULT | (value->header.bits & FEED_FLAG_CONST)
     );
+
+    DECLARE_FRAME (f, feed, EVAL_MASK_DEFAULT | EVAL_FLAG_TO_END);
+
+    Push_Frame(out, f);
+    bool threw = (*PG_Eval_Throws)(f);
+    Drop_Frame(f);
+
+    if (threw)
+        return true;
 
     if (IS_END(out))
         fail ("Eval_Value_Core_Throws() empty or just COMMENTs/ELIDEs/BAR!s");
 
-    return indexor == THROWN_FLAG;
+    return false;
 }
 
 #define Eval_Value_Throws(out,value) \

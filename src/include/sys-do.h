@@ -35,54 +35,61 @@
 //
 
 
-inline static bool Do_At_Mutability_Throws(
+inline static bool Do_At_Mutable_Throws(  // no way to pass in FEED_FLAG_CONST
     REBVAL *out,
     REBARR *array,
     REBCNT index,
-    REBSPC *specifier,
-    bool mutability
+    REBSPC *specifier
 ){
-    return THROWN_FLAG == Eval_Array_At_Core(
+    return THROWN_FLAG == Eval_Array_At_Mutable_Core(
         Init_Void(out),
-        nullptr, // opt_first (null indicates nothing, not nulled cell)
+        nullptr,  // opt_first (null indicates nothing, not nulled cell)
         array,
         index,
         specifier,
-        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-            | EVAL_FLAG_TO_END
-            | (mutability ? 0 : (FS_TOP->flags.bits & EVAL_FLAG_CONST))
+        EVAL_MASK_DEFAULT | EVAL_FLAG_TO_END
     );
 }
 
-#define Do_At_Throws(out,array,index,specifier) \
-    Do_At_Mutability_Throws((out), (array), (index), (specifier), false)
 
-
-inline static bool Eval_Any_Array_At_Core_Throws(
+inline static REBIXO Eval_Any_Array_At_Core(
     REBVAL *out,
     const RELVAL *any_array,  // Note: legal to have any_array = out
+    REBSPC *specifier,
+    REBFLGS flags
+){
+    DECLARE_FEED_AT_CORE (feed, any_array, specifier);
+
+    if (IS_END(feed->value))
+        return END_FLAG;
+
+    DECLARE_FRAME (f, feed, flags);
+
+    Push_Frame(out, f);
+    bool threw = (*PG_Eval_Throws)(f);
+    Drop_Frame(f);
+
+    if (threw)
+        return THROWN_FLAG;
+
+    if (f->feed->index == VAL_LEN_HEAD(any_array) + 1)
+        return END_FLAG;
+
+    assert(not (flags & EVAL_FLAG_TO_END));
+    return f->feed->index;
+}
+
+inline static bool Do_Any_Array_At_Core_Throws(
+    REBVAL *out,
+    const RELVAL *any_array,
     REBSPC *specifier
 ){
-    // If the user said something like `do mutable load %data.reb`, then the
-    // value carries along with it a disablement of inheriting constness...
-    // even if the frame has it set.
-    //
-    bool mutability = GET_CELL_FLAG(any_array, EXPLICITLY_MUTABLE);
-
-    return THROWN_FLAG == Eval_Array_At_Core(
-        out,
-        nullptr, // opt_first (null indicates nothing, not nulled cell)
-        VAL_ARRAY(any_array),
-        VAL_INDEX(any_array),
+    assert(out != any_array);  // no longer legal (Init_Void() would corrupt)
+    return THROWN_FLAG == Eval_Any_Array_At_Core(
+        Init_Void(out),
+        any_array,
         specifier,
-        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-            | EVAL_FLAG_TO_END
-            | (mutability ? 0 : (
-                (FS_TOP->flags.bits & EVAL_FLAG_CONST)
-                | (any_array->header.bits & EVAL_FLAG_CONST)
-            ))
-            // ^-- Even if you are using a DO MUTABLE, in deeper levels
-            // evaluating a const value flips the constification back on.
+        EVAL_MASK_DEFAULT | EVAL_FLAG_TO_END
     );
 }
 
@@ -90,10 +97,8 @@ inline static bool Do_Any_Array_At_Throws(
     REBVAL *out,
     const REBVAL *any_array
 ){
-    assert(out != any_array);  // no longer legal (Init_Void() would corrupt)
-
-    return Eval_Any_Array_At_Core_Throws(
-        Init_Void(out),
+    return Do_Any_Array_At_Core_Throws(
+        out,
         any_array,
         VAL_SPECIFIER(any_array)
     );
@@ -103,7 +108,7 @@ inline static bool Do_Any_Array_At_Throws(
 inline static bool Do_Va_Throws(
     REBVAL *out,
     const void *opt_first,
-    va_list *vaptr // va_end() will be called on success, fail, throw, etc.
+    va_list *vaptr  // va_end() handled by Eval_Va_Core on success/fail/throw
 ){
     return THROWN_FLAG == Eval_Va_Core(
         Init_Void(out),
@@ -111,7 +116,6 @@ inline static bool Do_Va_Throws(
         vaptr,
         EVAL_MASK_DEFAULT
             | EVAL_FLAG_TO_END
-            | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
     );
 }
 
@@ -129,18 +133,16 @@ inline static bool Run_Throws(
     bool fully,
     const void *p,  // last param before ... mentioned in va_start()
     ...
-) {
+){
     va_list va;
     va_start(va, p);
 
     REBIXO indexor = Eval_Va_Core(
-        SET_END(out), // start at END to detect error if no eval product
-        p, // opt_first
-        &va, // va_end() handled by Eval_Va_Core on success, fail, throw, etc.
-        (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+        SET_END(out),  // start at END to detect error if no eval product
+        p,  // opt_first
+        &va,  // va_end() handled by Eval_Va_Core on success/fail/throw
+        EVAL_MASK_DEFAULT
             | (fully ? EVAL_FLAG_NO_RESIDUE : 0)
-            | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
-            | EVAL_FLAG_BLAME_PARENT
     );
 
     if (IS_END(out))

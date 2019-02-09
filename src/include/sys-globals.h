@@ -124,6 +124,7 @@ PVAR REBVAL *Root_Local_Tag; // marks beginning of a list of "pure locals"
 PVAR REBVAL *Root_Skip_Tag; // marks a hard quote as "skippable" if wrong type
 PVAR REBVAL *Root_Dequote_Tag; // remove quotes before typecheck
 PVAR REBVAL *Root_Requote_Tag; // add quotes that were dequoted back to return
+PVAR REBVAL *Root_Const_Tag; // pass a CONST version of the input argument
 
 PVAR REBVAL *Root_Empty_Text; // read-only ""
 PVAR REBVAL *Root_Empty_Binary; // read-only #{}

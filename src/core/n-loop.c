@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -211,13 +211,13 @@ static REB_R Loop_Series_Common(
 //
 static REB_R Loop_Integer_Common(
     REBVAL *out,
-    REBVAL *var, // Must not be movable from context expansion, see #2274
+    REBVAL *var,  // Must not be movable from context expansion, see #2274
     const REBVAL *body,
     REBI64 start,
     REBI64 end,
     REBI64 bump
 ){
-    Init_Blank(out); // result if body never runs
+    Init_Blank(out);  // result if body never runs
 
     // A value cell exposed to the user is used to hold the state.  This means
     // if they change `var` during the loop, it affects the iteration.  Hence
@@ -244,9 +244,9 @@ static REB_R Loop_Integer_Common(
     // FOR loop.  (R3-Alpha used the sign of the bump, which meant it did not
     // have a clear plan for what to do with 0.)
     //
-    const bool counting_up = (start < end); // equal checked above
+    const bool counting_up = (start < end);  // equal checked above
     if ((counting_up and bump <= 0) or (not counting_up and bump >= 0))
-        return nullptr; // avoid infinite loops
+        return nullptr;  // avoid infinite loops
 
     while (counting_up ? *state <= end : *state >= end) {
         if (Do_Branch_Throws(out, body)) {
@@ -256,7 +256,7 @@ static REB_R Loop_Integer_Common(
             if (broke)
                 return nullptr;
         }
-        Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
+        Voidify_If_Nulled_Or_Blank(out);  // null->BREAK, blank->empty
 
         if (not IS_INTEGER(var))
             fail (Error_Invalid_Type(VAL_TYPE(var)));
@@ -274,7 +274,7 @@ static REB_R Loop_Integer_Common(
 //
 static REB_R Loop_Number_Common(
     REBVAL *out,
-    REBVAL *var, // Must not be movable from context expansion, see #2274
+    REBVAL *var,  // Must not be movable from context expansion, see #2274
     const REBVAL *body,
     REBVAL *start,
     REBVAL *end,
@@ -323,14 +323,14 @@ static REB_R Loop_Number_Common(
             if (broke)
                 return nullptr;
         }
-        return Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
+        return Voidify_If_Nulled_Or_Blank(out);  // null->BREAK, blank->empty
     }
 
     // As per #1993, see notes in Loop_Integer_Common()
     //
     const bool counting_up = (s < e); // equal checked above
     if ((counting_up and b <= 0) or (not counting_up and b >= 0))
-        return Init_Blank(out); // avoid infinite loop, blank means never ran
+        return Init_Blank(out);  // avoid infinite loop, blank means never ran
 
     while (counting_up ? *state <= e : *state >= e) {
         if (Do_Branch_Throws(out, body)) {
@@ -340,7 +340,7 @@ static REB_R Loop_Number_Common(
             if (broke)
                 return nullptr;
         }
-        Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
+        Voidify_If_Nulled_Or_Blank(out);  // null->BREAK, blank->empty
 
         if (not IS_DECIMAL(var))
             fail (Error_Invalid_Type(VAL_TYPE(var)));
@@ -377,14 +377,14 @@ REBVAL *Real_Var_From_Pseudo(REBVAL *pseudo_var) {
 
 
 struct Loop_Each_State {
-    REBVAL *out; // where to write the output data (must be GC safe)
-    const REBVAL *body; // body to run on each loop iteration
-    LOOP_MODE mode; // FOR-EACH, MAP-EACH, EVERY
-    REBCTX *pseudo_vars_ctx; // vars made by Virtual_Bind_To_New_Context()
-    REBVAL *data; // the data argument passed in
-    REBSER *data_ser; // series data being enumerated (if applicable)
-    REBCNT data_idx; // index into the data for filling current variable
-    REBCNT data_len; // length of the data
+    REBVAL *out;  // where to write the output data (must be GC safe)
+    const REBVAL *body;  // body to run on each loop iteration
+    LOOP_MODE mode;  // FOR-EACH, MAP-EACH, EVERY
+    REBCTX *pseudo_vars_ctx;  // vars made by Virtual_Bind_To_New_Context()
+    REBVAL *data;  // the data argument passed in
+    REBSER *data_ser;  // series data being enumerated (if applicable)
+    REBCNT data_idx;  // index into the data for filling current variable
+    REBCNT data_len;  // length of the data
 };
 
 // Isolation of central logic for FOR-EACH, MAP-EACH, and EVERY so that it
@@ -397,7 +397,7 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
 
     bool more_data = true;
     bool broke = false;
-    bool no_falseys = true; // not "all_truthy" because body *may* not run
+    bool no_falseys = true;  // not "all_truthy" because body *may* not run
 
     do {
         // Sub-loop: set variables.  This is a loop because blocks with
@@ -445,7 +445,7 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                 Derelativize(
                     var,
                     ARR_AT(ARR(les->data_ser), les->data_idx),
-                    SPECIFIED // array generated via data stack, all specific
+                    SPECIFIED  // array generated via data stack, all specific
                 );
                 if (++les->data_idx == les->data_len)
                     more_data = false;
@@ -459,7 +459,7 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                 REBVAL *key;
                 REBVAL *val;
                 REBCNT bind_index;
-                while (true) { // find next non-hidden key (if any)
+                while (true) {  // find next non-hidden key (if any)
                     key = VAL_CONTEXT_KEY(les->data, les->data_idx);
                     val = VAL_CONTEXT_VAR(les->data, les->data_idx);
                     bind_index = les->data_idx;
@@ -471,7 +471,7 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                         goto finished;
                 }
 
-                Init_Any_Word_Bound( // key is typeset, user wants word
+                Init_Any_Word_Bound(  // key is typeset, user wants word
                     var,
                     REB_WORD,
                     VAL_PARAM_SPELLING(key),
@@ -496,11 +496,11 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                 break; }
 
               case REB_MAP: {
-                assert(les->data_idx % 2 == 0); // should be on key slot
+                assert(les->data_idx % 2 == 0);  // should be on key slot
 
                 REBVAL *key;
                 REBVAL *val;
-                while (true) { // pass over the unused map slots
+                while (true) {  // pass over the unused map slots
                     key = KNOWN(ARR_AT(ARR(les->data_ser), les->data_idx));
                     ++les->data_idx;
                     val = KNOWN(ARR_AT(ARR(les->data_ser), les->data_idx));
@@ -555,7 +555,7 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                     rebRelease(generated);
                 }
                 else {
-                    more_data = false; // any remaining vars must be unset
+                    more_data = false;  // any remaining vars must be unset
                     if (pseudo_var == CTX_VARS_HEAD(les->pseudo_vars_ctx)) {
                         //
                         // If we don't have at least *some* of the variables
@@ -574,7 +574,7 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
 
         if (Do_Branch_Throws(les->out, les->body)) {
             if (not Catching_Break_Or_Continue(les->out, &broke))
-                return R_THROWN; // non-loop-related throw
+                return R_THROWN;  // non-loop-related throw
 
             if (broke) {
                 Init_Nulled(les->out);
@@ -584,7 +584,7 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
 
         switch (les->mode) {
           case LOOP_FOR_EACH:
-            Voidify_If_Nulled_Or_Blank(les->out); // null->BREAK, blank->empty
+            Voidify_If_Nulled_Or_Blank(les->out);  // null=BREAK, blank=empty
             break;
 
           case LOOP_EVERY:
@@ -593,9 +593,9 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
 
           case LOOP_MAP_EACH:
             if (IS_NULLED(les->out))
-                Init_Void(les->out); // nulled is used to signal breaking only
+                Init_Void(les->out);  // nulled used to signal breaking only
             else
-                Move_Value(DS_PUSH(), les->out); // non nulls added to result
+                Move_Value(DS_PUSH(), les->out);  // non nulls added to result
             break;
         }
     } while (more_data and not broke);
@@ -624,9 +624,9 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
 //
 static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 {
-    INCLUDE_PARAMS_OF_FOR_EACH; // MAP-EACH & EVERY must have same interface
+    INCLUDE_PARAMS_OF_FOR_EACH;  // MAP-EACH & EVERY must have same interface
 
-    Init_Blank(D_OUT); // result if body never runs (MAP-EACH gives [])
+    Init_Blank(D_OUT);  // result if body never runs (MAP-EACH gives [])
 
     struct Loop_Each_State les;
     les.mode = mode;
@@ -635,11 +635,11 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
     les.body = ARG(body);
 
     Virtual_Bind_Deep_To_New_Context(
-        ARG(body), // may be updated, will still be GC safe
+        ARG(body),  // may be updated, will still be GC safe
         &les.pseudo_vars_ctx,
         ARG(vars)
     );
-    Init_Object(ARG(vars), les.pseudo_vars_ctx); // keep GC safe
+    Init_Object(ARG(vars), les.pseudo_vars_ctx);  // keep GC safe
 
     // Currently the data stack is only used by MAP-EACH to accumulate results
     // but it's faster to just save it than test the loop mode.
@@ -706,9 +706,9 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         if (took_hold)
             SET_SERIES_INFO(les.data_ser, HOLD);
 
-        les.data_len = SER_LEN(les.data_ser); // HOLD so length can't change
+        les.data_len = SER_LEN(les.data_ser);  // HOLD so length can't change
         if (les.data_idx >= les.data_len) {
-            assert(IS_BLANK(D_OUT)); // result if loop body never runs
+            assert(IS_BLANK(D_OUT));  // result if loop body never runs
             r = nullptr;
             goto cleanup;
         }
@@ -723,15 +723,15 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 
   cleanup:;
 
-    if (took_hold) // release read-only lock
+    if (took_hold)  // release read-only lock
         CLEAR_SERIES_INFO(les.data_ser, HOLD);
 
     if (IS_DATATYPE(les.data))
-        Free_Unmanaged_Array(ARR(les.data_ser)); // temp array of instances
+        Free_Unmanaged_Array(ARR(les.data_ser));  // temp array of instances
 
     //=//// NOW FINISH UP /////////////////////////////////////////////////=//
 
-    if (r == R_THROWN) { // generic THROW/RETURN/QUIT (not BREAK/CONTINUE)
+    if (r == R_THROWN) {  // generic THROW/RETURN/QUIT (not BREAK/CONTINUE)
         if (mode == LOOP_MAP_EACH)
             DS_DROP_TO(dsp_orig);
         return R_THROWN;
@@ -768,7 +768,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         return D_OUT;
 
       case LOOP_MAP_EACH:
-        if (IS_NULLED(D_OUT)) { // e.g. there was a BREAK...*must* return null
+        if (IS_NULLED(D_OUT)) {  // e.g. there was a BREAK. *must* return null
             DS_DROP_TO(dsp_orig);
             return nullptr;
         }
@@ -780,7 +780,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         return Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
     }
 
-    DEAD_END; // all branches handled in enum switch
+    DEAD_END;  // all branches handled in enum switch
 }
 
 
@@ -798,7 +798,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 //          "Ending value"
 //      bump [any-number!]
 //          "Amount to skip each time"
-//      body [block! action!]
+//      body [<const> block! action!]
 //          "Code to evaluate"
 //  ]
 //
@@ -808,13 +808,13 @@ REBNATIVE(for)
 
     REBCTX *context;
     Virtual_Bind_Deep_To_New_Context(
-        ARG(body), // may be updated, will still be GC safe
+        ARG(body),  // may be updated, will still be GC safe
         &context,
         ARG(word)
     );
-    Init_Object(ARG(word), context); // keep GC safe
+    Init_Object(ARG(word), context);  // keep GC safe
 
-    REBVAL *var = CTX_VAR(context, 1); // not movable, see #2274
+    REBVAL *var = CTX_VAR(context, 1);  // not movable, see #2274
 
     if (
         IS_INTEGER(ARG(start))
@@ -876,7 +876,7 @@ REBNATIVE(for)
 //      skip "Number of positions to skip each time"
 //          [<blank> integer!]
 //      body "Code to evaluate each time"
-//          [block! action!]
+//          [<const> block! action!]
 //  ]
 //
 REBNATIVE(for_skip)
@@ -885,23 +885,23 @@ REBNATIVE(for_skip)
 
     REBVAL *series = ARG(series);
 
-    Init_Blank(D_OUT); // result if body never runs, like `while [null] [...]`
+    Init_Blank(D_OUT);  // result if body never runs, `while [null] [...]`
 
     REBINT skip = Int32(ARG(skip));
     if (skip == 0) {
         //
         // !!! https://forum.rebol.info/t/infinite-loops-vs-errors/936
         //
-        return D_OUT; // blank is loop protocol if body never ran
+        return D_OUT;  // blank is loop protocol if body never ran
     }
 
     REBCTX *context;
     Virtual_Bind_Deep_To_New_Context(
-        ARG(body), // may be updated, will still be GC safe
+        ARG(body),  // may be updated, will still be GC safe
         &context,
         ARG(word)
     );
-    Init_Object(ARG(word), context); // keep GC safe
+    Init_Object(ARG(word), context);  // keep GC safe
 
     REBVAL *pseudo_var = CTX_VAR(context, 1); // not movable, see #2274
     REBVAL *var = Real_Var_From_Pseudo(pseudo_var);
@@ -913,15 +913,15 @@ REBNATIVE(for_skip)
         VAL_INDEX(var) = VAL_LEN_HEAD(var) + skip;
 
     while (true) {
-        REBINT len = VAL_LEN_HEAD(var); // VAL_LEN_HEAD() always >= 0
-        REBINT index = VAL_INDEX(var); // (may have been set to < 0 below)
+        REBINT len = VAL_LEN_HEAD(var);  // VAL_LEN_HEAD() always >= 0
+        REBINT index = VAL_INDEX(var);  // (may have been set to < 0 below)
 
         if (index < 0)
             break;
         if (index >= len) {
             if (skip >= 0)
                 break;
-            index = len + skip; // negative
+            index = len + skip;  // negative
             if (index < 0)
                 break;
             VAL_INDEX(var) = index;
@@ -934,7 +934,7 @@ REBNATIVE(for_skip)
             if (broke)
                 return nullptr;
         }
-        Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->empty
+        Voidify_If_Nulled_Or_Blank(D_OUT);  // null->BREAK, blank->empty
 
         // Modifications to var are allowed, to another ANY-SERIES! value.
         //
@@ -985,8 +985,8 @@ REBNATIVE(stop)
     return Init_Thrown_With_Label(
         D_OUT,
         IS_ENDISH_NULLED(ARG(value))
-            ? VOID_VALUE // `if true [stop]`
-            : ARG(value), // `if true [stop 5]`, etc.
+            ? VOID_VALUE  // `if true [stop]`
+            : ARG(value),  // `if true [stop 5]`, etc.
         NAT_VALUE(stop)
     );
 }
@@ -999,7 +999,7 @@ REBNATIVE(stop)
 //
 //      return: [<opt> any-value!]
 //          {Null if BREAK, or non-null value passed to STOP}
-//      body [block! action!]
+//      body [<const> block! action!]
 //          "Block or action to evaluate each time"
 //  ]
 //
@@ -1020,7 +1020,7 @@ REBNATIVE(cycle)
                     // constructs, with a BREAK variant that returns a value.
                     //
                     CATCH_THROWN(D_OUT, D_OUT);
-                    return D_OUT; // special case: null allowed (like break)
+                    return D_OUT;  // special case: null allowed (like break)
                 }
 
                 return R_THROWN;
@@ -1048,7 +1048,7 @@ REBNATIVE(cycle)
 //          [<blank> any-series! any-context! map! any-path!
 //           datatype! action!] ;-- experimental
 //      body "Block to evaluate each time"
-//          [block! action!]
+//          [<const> block! action!]
 //  ]
 //
 REBNATIVE(for_each)
@@ -1068,7 +1068,7 @@ REBNATIVE(for_each)
 //          "Word or block of words to set each time (local)"
 //      data [<blank> any-series! any-context! map! datatype! action!]
 //          "The series to traverse"
-//      body [block! action!]
+//      body [<const> block! action!]
 //          "Block to evaluate each time"
 //  ]
 //
@@ -1098,7 +1098,7 @@ struct Remove_Each_State {
     REBVAL *out;
     REBVAL *data;
     REBSER *series;
-    bool broke; // e.g. a BREAK ran
+    bool broke;  // e.g. a BREAK ran
     const REBVAL *body;
     REBCTX *context;
     REBCNT start;
@@ -1119,7 +1119,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
 
     REBCNT count = 0;
     if (ANY_ARRAY(res->data)) {
-        if (res->broke) { // cleanup markers, don't do removals
+        if (res->broke) {  // cleanup markers, don't do removals
             RELVAL *temp = VAL_ARRAY_AT(res->data);
             for (; NOT_END(temp); ++temp) {
                 if (GET_CELL_FLAG(temp, MARKED_REMOVE))
@@ -1154,7 +1154,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
                 TERM_ARRAY_LEN(VAL_ARRAY(res->data), len);
                 return count;
             }
-            Blit_Cell(dest, src); // same array--rare place we can do this
+            Blit_Cell(dest, src);  // same array--rare place we can do this
         }
 
         // If we get here, there were no removals, and length is unchanged.
@@ -1193,7 +1193,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         //
         Swap_Series_Content(popped, VAL_SERIES(res->data));
 
-        Free_Unmanaged_Series(popped); // now frees incoming series's data
+        Free_Unmanaged_Series(popped);  // now frees incoming series's data
     }
     else {
         assert(ANY_STRING(res->data));
@@ -1225,7 +1225,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         //
         Swap_Series_Content(popped, VAL_SERIES(res->data));
 
-        Free_Unmanaged_Series(popped); // now frees incoming series's data
+        Free_Unmanaged_Series(popped);  // now frees incoming series's data
     }
 
     return count;
@@ -1243,13 +1243,13 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
     //
     SET_SERIES_INFO(res->series, HOLD);
 
-    REBCNT index = res->start; // declare here, avoid longjmp clobber warnings
+    REBCNT index = res->start;  // up here to avoid longjmp clobber warnings
 
-    REBCNT len = SER_LEN(res->series); // temp read-only, this won't change
+    REBCNT len = SER_LEN(res->series);  // temp read-only, this won't change
     while (index < len) {
         assert(res->start == index);
 
-        REBVAL *var = CTX_VAR(res->context, 1); // not movable, see #2274
+        REBVAL *var = CTX_VAR(res->context, 1);  // not movable, see #2274
         for (; NOT_END(var); ++var) {
             if (index == len) {
                 //
@@ -1259,7 +1259,7 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
                 //     remove-each [x y] data [...]
                 //
                 Init_Nulled(var);
-                continue; // the `for` loop setting variables
+                continue;  // the `for` loop setting variables
             }
 
             if (ANY_ARRAY(res->data))
@@ -1279,7 +1279,7 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
 
         if (Do_Branch_Throws(res->out, res->body)) {
             if (not Catching_Break_Or_Continue(res->out, &res->broke))
-                return R_THROWN; // we'll bubble it up, but will also finalize
+                return R_THROWN;  // we bubble it up, but will also finalize
 
             if (res->broke) {
                 //
@@ -1294,12 +1294,12 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
             }
         }
         if (IS_VOID(res->out))
-            fail (Error_Void_Conditional_Raw()); // neither true nor false
+            fail (Error_Void_Conditional_Raw());  // neither true nor false
 
         if (ANY_ARRAY(res->data)) {
             if (IS_NULLED(res->out) or IS_FALSEY(res->out)) {
                 res->start = index;
-                continue; // keep requested, don't mark for culling
+                continue;  // keep requested, don't mark for culling
             }
 
             do {
@@ -1314,7 +1314,7 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
         else {
             if (not IS_NULLED(res->out) and IS_TRUTHY(res->out)) {
                 res->start = index;
-                continue; // remove requested, don't save to buffer
+                continue;  // remove requested, don't save to buffer
             }
 
             do {
@@ -1336,11 +1336,9 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
         }
     }
 
-    // We get here on normal completion
-    // THROW and BREAK will return above
+    // We get here on normal completion (THROW and BREAK will return above)
 
     assert(not res->broke and res->start == len);
-
     return nullptr;
 }
 
@@ -1356,7 +1354,7 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
 //          "Word or block of words to set each time (local)"
 //      data [<blank> any-series!]
 //          "The series to traverse (modified)" ; should BLANK! opt-out?
-//      body [block! action!]
+//      body [<const> block! action!]
 //          "Block to evaluate (return TRUE to remove)"
 //  ]
 //
@@ -1399,11 +1397,11 @@ REBNATIVE(remove_each)
     // the REMOVE-EACH, as `res` is not ready yet.
     //
     Virtual_Bind_Deep_To_New_Context(
-        ARG(body), // may be updated, will still be GC safe
+        ARG(body),  // may be updated, will still be GC safe
         &res.context,
         ARG(vars)
     );
-    Init_Object(ARG(vars), res.context); // keep GC safe
+    Init_Object(ARG(vars), res.context);  // keep GC safe
     res.body = ARG(body);
 
     res.start = VAL_INDEX(res.data);
@@ -1443,7 +1441,7 @@ REBNATIVE(remove_each)
 
     res.out = D_OUT;
 
-    res.broke = false; // will be set to true if there is a BREAK
+    res.broke = false;  // will be set to true if there is a BREAK
 
     REB_R r = rebRescue(cast(REBDNG*, &Remove_Each_Core), &res);
 
@@ -1478,7 +1476,7 @@ REBNATIVE(remove_each)
 //          "Word or block of words to set each time (local)"
 //      data [<blank> any-series! any-path! action!]
 //          "The series to traverse"
-//      body [block!]
+//      body [<const> block!]
 //          "Block to evaluate each time"
 //  ]
 //
@@ -1497,7 +1495,7 @@ REBNATIVE(map_each)
 //          {Last body result, or null if BREAK}
 //      count [<blank> any-number! logic!]
 //          "Repetitions (true loops infinitely, false doesn't run)"
-//      body [block! action!]
+//      body [<const> block! action!]
 //          "Block to evaluate or action to run."
 //  ]
 //
@@ -1505,10 +1503,10 @@ REBNATIVE(loop)
 {
     INCLUDE_PARAMS_OF_LOOP;
 
-    Init_Blank(D_OUT); // result if body never runs, like `while [null] [...]`
+    Init_Blank(D_OUT);  // result if body never runs, `while [null] [...]`
 
     if (IS_FALSEY(ARG(count))) {
-        assert(IS_LOGIC(ARG(count))); // is false...opposite of infinite loop
+        assert(IS_LOGIC(ARG(count)));  // is false (opposite of infinite loop)
         return D_OUT;
     }
 
@@ -1519,8 +1517,9 @@ REBNATIVE(loop)
 
         // Run forever, and as a micro-optimization don't handle specially
         // in the loop, just seed with a very large integer.  In the off
-        // chance that is exhaust it, jump here to re-seed and loop again.
-    restart:
+        // chance that we exhaust it, jump here to re-seed and loop again.
+        //
+      restart:
         count = INT64_MAX;
     }
     else
@@ -1534,11 +1533,11 @@ REBNATIVE(loop)
             if (broke)
                 return nullptr;
         }
-        Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->empty
+        Voidify_If_Nulled_Or_Blank(D_OUT);  // null->BREAK, blank->empty
     }
 
     if (IS_LOGIC(ARG(count)))
-        goto restart; // "infinite" loop exhausted MAX_I64 steps (rare case)
+        goto restart;  // "infinite" loop exhausted MAX_I64 steps (rare case)
 
     return D_OUT;
 }
@@ -1555,7 +1554,7 @@ REBNATIVE(loop)
 //          "Word to set each time"
 //      value [<blank> any-number! any-series!]
 //          "Maximum number or series to traverse"
-//      body [block!]
+//      body [<const> block!]
 //          "Block to evaluate each time"
 //  ]
 //
@@ -1574,19 +1573,19 @@ REBNATIVE(repeat)
         &context,
         ARG(word)
     );
-    Init_Object(ARG(word), context); // keep GC safe
+    Init_Object(ARG(word), context);  // keep GC safe
 
     assert(CTX_LEN(context) == 1);
 
-    REBVAL *var = CTX_VAR(context, 1); // not movable, see #2274
+    REBVAL *var = CTX_VAR(context, 1);  // not movable, see #2274
     if (ANY_SERIES(value))
         return Loop_Series_Common(
             D_OUT, var, ARG(body), value, VAL_LEN_HEAD(value) - 1, 1
         );
 
     REBI64 n = VAL_INT64(value);
-    if (n < 1) // Loop_Integer from 1 to 0 with bump of 1 is infinite
-        return Init_Blank(D_OUT); // blank if loop condition never runs
+    if (n < 1)  // Loop_Integer from 1 to 0 with bump of 1 is infinite
+        return Init_Blank(D_OUT);  // blank if loop condition never runs
 
     return Loop_Integer_Common(
         D_OUT, var, ARG(body), 1, VAL_INT64(value), 1
@@ -1601,7 +1600,7 @@ REBNATIVE(repeat)
 //
 //      return: [<opt> any-value!]
 //          {Last body result, or null if a BREAK occurred}
-//      body [block! action!]
+//      body [<const> block! action!]
 //  ]
 //
 REBNATIVE(until)
@@ -1625,8 +1624,8 @@ REBNATIVE(until)
             // continue to run the loop.
         }
 
-        if (IS_TRUTHY(D_OUT)) // will fail on voids (neither true nor false)
-            return D_OUT; // body evaluated conditionally true, return value
+        if (IS_TRUTHY(D_OUT))  // will fail on voids (neither true nor false)
+            return D_OUT;  // body evaluated conditionally true, return value
 
     } while (true);
 }
@@ -1639,8 +1638,8 @@ REBNATIVE(until)
 //
 //      return: [<opt> any-value!]
 //          "Last body result, or null if BREAK"
-//      condition [block! action!]
-//      body [block! action!]
+//      condition [<const> block! action!]
+//      body [<const> block! action!]
 //  ]
 //
 REBNATIVE(while)
@@ -1652,11 +1651,11 @@ REBNATIVE(while)
     do {
         if (Do_Branch_Throws(D_SPARE, ARG(condition))) {
             Move_Value(D_OUT, D_SPARE);
-            return R_THROWN; // don't see BREAK/CONTINUE in the *condition*
+            return R_THROWN;  // don't see BREAK/CONTINUE in the *condition*
         }
 
-        if (IS_FALSEY(D_SPARE)) // will error if void (neither true nor false)
-            return D_OUT; // condition was false, so return last body result
+        if (IS_FALSEY(D_SPARE))  // will error if void, neither true nor false
+            return D_OUT;  // condition was false, so return last body result
 
         if (Do_Branch_With_Throws(D_OUT, ARG(body), D_SPARE)) {
             bool broke;
@@ -1667,7 +1666,7 @@ REBNATIVE(while)
                 return Init_Nulled(D_OUT);
         }
 
-        Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->never ran
+        Voidify_If_Nulled_Or_Blank(D_OUT);  // null->BREAK, blank->never ran
 
     } while (true);
 }

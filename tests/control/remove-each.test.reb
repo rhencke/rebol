@@ -1,10 +1,10 @@
 ; functions/control/remove-each.r
 (
-    remove-each i s: mutable [1 2] [true]
+    remove-each i s: [1 2] [true]
     empty? s
 )
 (
-    remove-each i s: mutable [1 2] [false]
+    remove-each i s: [1 2] [false]
     [1 2] = s
 )
 

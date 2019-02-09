@@ -153,23 +153,12 @@ REBNATIVE(shove)
         Move_Value(shovee, D_OUT);
     }
     else if (IS_GROUP(*v)) {
-        REBIXO indexor = Eval_Array_At_Core(
-            D_OUT, // can't eval directly into arg slot
-            nullptr, // opt_first (null means nothing, not nulled cell)
-            VAL_ARRAY(*v),
-            VAL_INDEX(*v),
-            Derive_Specifier(*specifier, *v),
-            (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-                | EVAL_FLAG_TO_END
-                | (f->flags.bits & EVAL_FLAG_CONST)
-                | ((*v)->header.bits & EVAL_FLAG_CONST)
-        );
-        if (indexor == THROWN_FLAG)
+        if (Do_Any_Array_At_Core_Throws(D_OUT, *v, *specifier))
             return R_THROWN;
-        if (IS_END(D_OUT)) // !!! need SHOVE frame for type error
+        if (IS_END(D_OUT))  // !!! need SHOVE frame for type error
             fail ("GROUP! passed to SHOVE did not evaluate to content");
 
-        Move_Value(shovee, D_OUT);
+        Move_Value(shovee, D_OUT);  // Note: can't eval directly into arg slot
     }
     else
         Move_Value(shovee, KNOWN(*v));
@@ -407,14 +396,9 @@ REBNATIVE(do)
         // data is stolen from the copy.  This allows for efficient reuse of
         // the context's memory in the cases where a copy isn't needed.
 
-        bool mutability = GET_CELL_FLAG(source, EXPLICITLY_MUTABLE);
-        REBFLGS flags = (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
+        REBFLGS flags = EVAL_MASK_DEFAULT
             | EVAL_FLAG_FULLY_SPECIALIZED
-            | EVAL_FLAG_PROCESS_ACTION
-            | (mutability ? 0 : (
-                (FS_TOP->flags.bits & EVAL_FLAG_CONST)
-                | (source->header.bits & EVAL_FLAG_CONST)
-            ));
+            | EVAL_FLAG_PROCESS_ACTION;
 
         DECLARE_END_FRAME (f, flags);
 
@@ -468,10 +452,10 @@ REBNATIVE(do)
 //
 //      return: [<opt> block! group! varargs!]
 //      source [
-//          blank! ;-- useful for `do try ...` scenarios when no match
-//          block! ;-- source code in block form
-//          group! ;-- same as block (or should it have some other nuance?)
-//          varargs! ;-- simulates as if frame! or block! is being executed
+//          <blank>  ; useful for `do try ...` scenarios when no match
+//          block!  ; source code in block form
+//          group!  ; same as block (or should it have some other nuance?)
+//          varargs!  ; simulates as if frame! or block! is being executed
 //      ]
 //      /set "Store result in a variable (assuming something was evaluated)"
 //      var [any-word!]
@@ -482,46 +466,46 @@ REBNATIVE(evaluate)
 {
     INCLUDE_PARAMS_OF_EVALUATE;
 
-    REBVAL *source = ARG(source); // may be only GC reference, don't lose it!
+    REBVAL *source = ARG(source);  // may be only GC reference, don't lose it!
   #if !defined(NDEBUG)
     SET_CELL_FLAG(ARG(source), PROTECTED);
   #endif
 
     switch (VAL_TYPE(source)) {
-    case REB_BLANK:
-        return nullptr; // "blank in, null out" convention
-
-    case REB_BLOCK:
-    case REB_GROUP: {
-        DECLARE_LOCAL (temp);
-        REBIXO indexor = Eval_Array_At_Core(
-            SET_END(temp), // use END to distinguish residual non-values
-            nullptr, // opt_head
-            VAL_ARRAY(source),
-            VAL_INDEX(source),
-            VAL_SPECIFIER(source),
-            EVAL_MASK_DEFAULT
+      case REB_BLOCK:
+      case REB_GROUP: {
+        REBIXO indexor = Eval_Any_Array_At_Core(
+            SET_END(D_SPARE),  // use END to distinguish residual non-values
+            source,
+            SPECIFIED,
+            EVAL_MASK_DEFAULT  // no EVAL_FLAG_TO_END...one step
         );
 
         if (indexor == THROWN_FLAG) {
-            Move_Value(D_OUT, temp);
+            Move_Value(D_OUT, D_SPARE);
             return R_THROWN;
         }
 
-        if (indexor == END_FLAG or IS_END(temp))
-            return nullptr; // no disruption of output result
+        if (IS_END(D_SPARE)) {
+            assert(indexor == END_FLAG);
+            return nullptr;  // no disruption of output result
+        }
 
-        assert(NOT_CELL_FLAG(temp, UNEVALUATED));
+        assert(NOT_CELL_FLAG(D_SPARE, UNEVALUATED));
 
         if (REF(set))
-            Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), temp);
+            Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), D_SPARE);
 
         Move_Value(D_OUT, source);
-        VAL_INDEX(D_OUT) = cast(REBCNT, indexor) - 1; // was one past
+
+        if (indexor == END_FLAG)
+            VAL_INDEX(D_OUT) = VAL_LEN_HEAD(source);
+        else
+            VAL_INDEX(D_OUT) = cast(REBCNT, indexor) - 1;  // was one past
         assert(VAL_INDEX(D_OUT) <= VAL_LEN_HEAD(source));
         return D_OUT; }
 
-    case REB_VARARGS: {
+      case REB_VARARGS: {
         REBVAL *position;
         if (Is_Block_Style_Varargs(&position, source)) {
             //
@@ -532,14 +516,11 @@ REBNATIVE(evaluate)
             // array during execution, there will be problems if it is TAKE'n
             // or DO'd while this operation is in progress.
             //
-            DECLARE_LOCAL (temp);
-            REBIXO indexor = Eval_Array_At_Core(
-                SET_END(temp),
-                nullptr, // opt_head (interpreted as nothing, not nulled cell)
-                VAL_ARRAY(position),
-                VAL_INDEX(position),
-                VAL_SPECIFIER(source),
-                EVAL_MASK_DEFAULT
+            REBIXO indexor = Eval_Any_Array_At_Core(
+                SET_END(D_SPARE),
+                position,
+                SPECIFIED,
+                EVAL_MASK_DEFAULT  // no EVAL_FLAG_TO_END
             );
 
             if (indexor == THROWN_FLAG) {
@@ -550,18 +531,19 @@ REBNATIVE(evaluate)
                 // having BLANK! mean "thrown" may evolve into a convention.
                 //
                 Init_Unreadable_Blank(position);
+                Move_Value(D_OUT, D_SPARE);
                 return R_THROWN;
             }
 
-            if (indexor == END_FLAG or IS_END(temp)) {
-                SET_END(position); // convention for shared data at end point
+            if (indexor == END_FLAG or IS_END(D_SPARE)) {
+                SET_END(position);  // convention for shared data at end point
                 return nullptr;
             }
 
             if (REF(set))
-                Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), source);
+                Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), D_SPARE);
 
-            RETURN (source); // original VARARGS! will have updated position
+            RETURN (source);  // original VARARGS! will have updated position
         }
 
         REBFRM *f;
@@ -570,25 +552,26 @@ REBNATIVE(evaluate)
 
         // By definition, we are in the middle of a function call in the frame
         // the varargs came from.  It's still on the stack, and we don't want
-        // to disrupt its state.  Use a subframe.
+        // to disrupt its state (beyond advancing its feed).  Use a subframe.
 
-        REBFLGS flags = EVAL_MASK_DEFAULT;
         if (IS_END(f->feed->value))
             return nullptr;
 
-        DECLARE_LOCAL (temp);
-        if (Eval_Step_In_Subframe_Throws(SET_END(temp), f, flags))
-            RETURN (temp);
+        REBFLGS flags = EVAL_MASK_DEFAULT;
+        if (Eval_Step_In_Subframe_Throws(SET_END(D_SPARE), f, flags)) {
+            Move_Value(D_OUT, D_SPARE);
+            return R_THROWN;
+        }
 
-        if (IS_END(temp))
+        if (IS_END(D_SPARE))  // remainder was just comments and invisibles
             return nullptr;
 
         if (REF(set))
-            Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), temp);
+            Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), D_SPARE);
 
-        RETURN (source); } // original VARARGS! will have an updated position
+        RETURN (source); }  // original VARARGS! will have an updated position
 
-    default:
+      default:
         panic (source);
     }
 }

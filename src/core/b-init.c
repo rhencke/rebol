@@ -179,7 +179,7 @@ static void Startup_Base(REBARR *boot_base)
     Bind_Values_Deep(head, Lib_Context);
 
     DECLARE_LOCAL (result);
-    if (Do_At_Throws(result, boot_base, 0, SPECIFIED))
+    if (Do_At_Mutable_Throws(result, boot_base, 0, SPECIFIED))
         panic (result);
 
     if (not IS_BLANK(result))
@@ -214,7 +214,7 @@ static void Startup_Sys(REBARR *boot_sys) {
     Bind_Values_Deep(head, Sys_Context);
 
     DECLARE_LOCAL (result);
-    if (Do_At_Throws(result, boot_sys, 0, SPECIFIED))
+    if (Do_At_Mutable_Throws(result, boot_sys, 0, SPECIFIED))
         panic (result);
 
     if (not IS_BLANK(result))
@@ -475,6 +475,7 @@ static void Init_Action_Spec_Tags(void)
     Root_Skip_Tag = Make_Locked_Tag("skip");
     Root_Dequote_Tag = Make_Locked_Tag("dequote");
     Root_Requote_Tag = Make_Locked_Tag("requote");
+    Root_Const_Tag = Make_Locked_Tag("const");
 }
 
 static void Shutdown_Action_Spec_Tags(void)
@@ -489,6 +490,7 @@ static void Shutdown_Action_Spec_Tags(void)
     rebRelease(Root_Skip_Tag);
     rebRelease(Root_Dequote_Tag);
     rebRelease(Root_Requote_Tag);
+    rebRelease(Root_Const_Tag);
 }
 
 

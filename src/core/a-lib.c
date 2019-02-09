@@ -1561,7 +1561,7 @@ void RL_rebPromise_callback(intptr_t promise_id)
     SET_SERIES_FLAG(arr, MANAGED);
 
     REBVAL *result = Alloc_Value();
-    if (THROWN_FLAG == Eval_Array_At_Core(
+    if (THROWN_FLAG == Eval_Array_At_Mutable_Core(
         Init_Void(result),
         nullptr, // opt_first (null indicates nothing, not nulled cell)
         arr,

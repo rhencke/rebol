@@ -919,7 +919,7 @@ static void callback_dispatcher_core(struct Reb_Callback_Invocation *inv)
     MANAGE_ARRAY(code); // DO requires managed arrays (guarded while running)
 
     DECLARE_LOCAL (result);
-    if (Do_At_Throws(result, code, 0, SPECIFIED))
+    if (Do_At_Mutable_Throws(result, code, 0, SPECIFIED))
         fail (Error_No_Catch_For_Throw(result)); // caller will panic()
 
     if (inv->cif->rtype->type == FFI_TYPE_VOID)

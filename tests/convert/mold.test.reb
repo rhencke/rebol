@@ -7,7 +7,7 @@
 )]
 ; cyclic paren
 (
-    a: mutable first [()]
+    a: first [()]
     insert/only a a
     text? mold a
 )

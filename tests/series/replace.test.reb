@@ -9,16 +9,16 @@
 
 ; REPLACE
 
-([1 2 8 4 5] = replace mutable [1 2 3 4 5] 3 8)
-([1 2 8 9 4 5] = replace mutable [1 2 3 4 5] 3 [8 9])
-([1 2 8 9 5] = replace mutable [1 2 3 4 5] [3 4] [8 9])
-([1 2 8 5] = replace mutable [1 2 3 4 5] [3 4] 8)
-([1 2 a 5] = replace mutable [1 2 3 4 5] [3 4] 'a)
-([a g c d] = replace mutable [a b c d] 'b 'g)
-(#{006400} = replace mutable #{000100} #{01} 100)
-(%file.ext = replace mutable %file.sub.ext ".sub." #".")
-("abra-abra" = replace mutable "abracadabra" "cad" #"-")
-("abra-c-adabra" = replace mutable "abracadabra" #"c" "-c-")
+([1 2 8 4 5] = replace [1 2 3 4 5] 3 8)
+([1 2 8 9 4 5] = replace [1 2 3 4 5] 3 [8 9])
+([1 2 8 9 5] = replace [1 2 3 4 5] [3 4] [8 9])
+([1 2 8 5] = replace [1 2 3 4 5] [3 4] 8)
+([1 2 a 5] = replace [1 2 3 4 5] [3 4] 'a)
+([a g c d] = replace [a b c d] 'b 'g)
+(#{006400} = replace #{000100} #{01} 100)
+(%file.ext = replace %file.sub.ext ".sub." #".")
+("abra-abra" = replace "abracadabra" "cad" #"-")
+("abra-c-adabra" = replace "abracadabra" #"c" "-c-")
 
 ; Red has a bizarre behavior for this which is in their tests:
 ; https://github.com/red/red/blob/12ad56be0fc474f7738c0ef891725e49f9738010/tests/source/units/replace-test.red#L24
@@ -32,26 +32,26 @@
 
 ; REPLACE/ALL
 
-([1 4 3 4 5] = replace/all mutable [1 2 3 2 5] 2 4)
-([1 4 5 3 4 5] = replace/all mutable [1 2 3 2] 2 [4 5])
-([1 8 9 8 9] = replace/all mutable [1 2 3 2 3] [2 3] [8 9])
-([1 8 8] = replace/all mutable [1 2 3 2 3] [2 3] 8)
-(#{640164} = replace/all mutable #{000100} #{00} #{64})
-(%file.sub.ext = replace/all mutable %file!sub!ext #"!" #".")
-(<tag body end> = replace/all mutable <tag_body_end> "_" " ")
+([1 4 3 4 5] = replace/all [1 2 3 2 5] 2 4)
+([1 4 5 3 4 5] = replace/all [1 2 3 2] 2 [4 5])
+([1 8 9 8 9] = replace/all [1 2 3 2 3] [2 3] [8 9])
+([1 8 8] = replace/all [1 2 3 2 3] [2 3] 8)
+(#{640164} = replace/all #{000100} #{00} #{64})
+(%file.sub.ext = replace/all %file!sub!ext #"!" #".")
+(<tag body end> = replace/all <tag_body_end> "_" " ")
 
 ; REPLACE/CASE
 
-("axbAab" = replace/case mutable "aAbAab" "A" "x")
-("axbxab" = replace/case/all mutable "aAbAab" "A" "x")
-("axbAab" = replace/case mutable "aAbAab" ["A"] does ["x"])
-("axbxab" = replace/case/all mutable "aAbAab" ["A"] does ["x"])
-(%file.txt = replace/case mutable %file.TXT.txt %.TXT "")
-(%file.txt = replace/case/all mutable %file.TXT.txt.TXT %.TXT "")
-(<tag xyXx> = replace/case mutable <tag xXXx> "X" "y")
-(<tag xyyx> = replace/case/all mutable <tag xXXx> "X" "y")
-(["a" "B" "x"] = replace/case/all mutable ["a" "B" "a" "b"] ["a" "b"] "x")
-((lit (x A x)) = replace/case/all mutable lit (a A a) 'a 'x)
+("axbAab" = replace/case "aAbAab" "A" "x")
+("axbxab" = replace/case/all "aAbAab" "A" "x")
+("axbAab" = replace/case "aAbAab" ["A"] does ["x"])
+("axbxab" = replace/case/all "aAbAab" ["A"] does ["x"])
+(%file.txt = replace/case %file.TXT.txt %.TXT "")
+(%file.txt = replace/case/all %file.TXT.txt.TXT %.TXT "")
+(<tag xyXx> = replace/case <tag xXXx> "X" "y")
+(<tag xyyx> = replace/case/all <tag xXXx> "X" "y")
+(["a" "B" "x"] = replace/case/all ["a" "B" "a" "b"] ["a" "b"] "x")
+((lit (x A x)) = replace/case/all lit (a A a) 'a 'x)
 
 ;((make hash! [x a b [a B]]) = replace/case make hash! [a B a b [a B]] [a B] 'x)
 

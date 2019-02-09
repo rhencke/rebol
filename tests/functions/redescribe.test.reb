@@ -71,7 +71,7 @@
 
 (
     append-lit: reskinned [#change :value] :append
-    [a b c d] = append-lit mutable [a b c] d
+    [a b c d] = append-lit [a b c] d
 )
 
 ; Ordinarily, when you ADAPT or ENCLOSE a function, the frame filling that is

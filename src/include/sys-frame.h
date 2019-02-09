@@ -856,10 +856,11 @@ inline static void Literal_Next_In_Frame(REBVAL *dest, REBFRM *f) {
     SET_CELL_FLAG(dest, UNEVALUATED);
 
     // SEE ALSO: The `inert:` branch in %c-eval.c, which is similar.  We
-    // want `append '(a b c) 'd` to be an error, which means the quoting
-    // has to get the const flag if intended.
+    // want `loop 2 [append '(a b c) 'd]` to be an error, which means the
+    // quoting has to get the const flag from the frame if intended.
     //
-    dest->header.bits |= (f->flags.bits & EVAL_FLAG_CONST);
+    if (not GET_CELL_FLAG(f->feed->value, EXPLICITLY_MUTABLE))
+        dest->header.bits |= (f->feed->flags.bits & FEED_FLAG_CONST);
 
     Fetch_Next_Forget_Lookback(f);
 }
@@ -1044,27 +1045,47 @@ inline static void Prep_Va_Feed(
 //
 #define DECLARE_VA_FEED(name,opt_first,vaptr,flags) \
     struct Reb_Feed name##struct; \
-    Prep_Va_Feed(&name##struct, opt_first, vaptr, flags); \
+    Prep_Va_Feed(&name##struct, (opt_first), (vaptr), (flags)); \
     struct Reb_Feed *name = &name##struct
 
 inline static void Prep_Any_Array_Feed(
     struct Reb_Feed *feed,
-    const REBVAL *any_array,
-    REBFLGS flags
+    const RELVAL *any_array,
+    REBSPC *specifier,
+    REBFLGS parent_flags  // only reads FEED_FLAG_CONST out of this
 ){
+    // Note that `CELL_FLAG_CONST == FEED_FLAG_CONST`
+    //
+    REBFLGS flags;
+    if (GET_CELL_FLAG(any_array, EXPLICITLY_MUTABLE))
+        flags = FEED_MASK_DEFAULT;  // override const from parent frame
+    else
+        flags = FEED_MASK_DEFAULT
+            | (parent_flags & FEED_FLAG_CONST)  // inherit
+            | (any_array->header.bits & CELL_FLAG_CONST);  // heed
+
     Prep_Array_Feed(
         feed,
-        nullptr,
+        nullptr,  // opt_first = nullptr, don't inject arbitrary 1st element
         VAL_ARRAY(any_array),
         VAL_INDEX(any_array),
-        VAL_SPECIFIER(any_array),
+        Derive_Specifier(specifier, any_array),
         flags
     );
 }
 
 #define DECLARE_FEED_AT(name,any_array) \
     struct Reb_Feed name##struct; \
-    Prep_Any_Array_Feed(&name##struct, (any_array), FEED_MASK_DEFAULT); \
+    Prep_Any_Array_Feed(&name##struct, \
+        (any_array), SPECIFIED, FS_TOP->feed->flags.bits \
+    ); \
+    struct Reb_Feed *name = &name##struct
+
+#define DECLARE_FEED_AT_CORE(name,any_array,specifier) \
+    struct Reb_Feed name##struct; \
+    Prep_Any_Array_Feed(&name##struct, \
+        (any_array), (specifier), FS_TOP->feed->flags.bits \
+    ); \
     struct Reb_Feed *name = &name##struct
 
 inline static void Prep_Frame_Core(

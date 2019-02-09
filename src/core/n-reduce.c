@@ -178,24 +178,16 @@ REB_R Compose_To_Stack_Core(
 
     bool changed = false;
 
-    DECLARE_ARRAY_FEED (feed,
-        VAL_ARRAY(any_array),
-        VAL_INDEX(any_array),
-        specifier
-    );
+    DECLARE_FEED_AT_CORE (feed, any_array, specifier);
 
-    REBFLGS flags = (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-            | (FS_TOP->flags.bits & EVAL_FLAG_CONST)
-            | (any_array->header.bits & EVAL_FLAG_CONST);
-
-    DECLARE_FRAME (f, feed, flags);
+    DECLARE_FRAME (f, feed, EVAL_MASK_DEFAULT);
     SHORTHAND (v, f->feed->value, NEVERNULL(const RELVAL*));
 
     Push_Frame(nullptr, f);
 
     for (; NOT_END(*v); Fetch_Next_Forget_Lookback(f)) {
         const REBCEL *cell = VAL_UNESCAPED(*v);
-        enum Reb_Kind kind = CELL_KIND(cell); // notice `\\(...)`
+        enum Reb_Kind kind = CELL_KIND(cell); // notice `''(...)`
 
         if (not ANY_ARRAY_OR_PATH_KIND(kind)) { // won't substitute/recurse
             Derelativize(DS_PUSH(), *v, specifier); // keep newline flag
@@ -215,7 +207,7 @@ REB_R Compose_To_Stack_Core(
             // find compositions inside it if /DEEP and it's an array
         }
         else if (quotes == 0) {
-            if (Is_Doubled_Group(*v)) { // non-spliced compose, if match
+            if (Is_Doubled_Group(*v)) {  // non-spliced compose, if match
                 RELVAL *inner = VAL_ARRAY_AT(*v);
                 if (Match_For_Compose(inner, label)) {
                     splice = false;
@@ -223,14 +215,14 @@ REB_R Compose_To_Stack_Core(
                     match_specifier = Derive_Specifier(specifier, inner);
                 }
             }
-            else { // plain compose, if match
+            else {  // plain compose, if match
                 if (Match_For_Compose(*v, label)) {
                     match = *v;
                     match_specifier = specifier;
                 }
             }
         }
-        else { // all escaped groups just lose one level of their escaping
+        else {  // all escaped groups just lose one level of their escaping
             Derelativize(DS_PUSH(), *v, specifier);
             Unquotify(DS_TOP, 1);
             changed = true;
@@ -238,29 +230,38 @@ REB_R Compose_To_Stack_Core(
         }
 
         if (match) {
-            //
-            // We want to skip over any label, so if <*> is the label and
-            // a match like (<*> 1 + 2) was found, we want the evaluator
-            // to only see (1 + 2).
-            //
-            REBCNT index = VAL_INDEX(match) + (IS_NULLED(label) ? 0 : 1);
+            DECLARE_FEED_AT_CORE (subfeed, match, match_specifier);
 
-            REBIXO indexor = Eval_Array_At_Core(
-                Init_Nulled(out), // want empty () to vanish as a NULL would
-                nullptr, // no opt_first
-                VAL_ARRAY(match),
-                index,
-                match_specifier,
-                (EVAL_MASK_DEFAULT & ~EVAL_FLAG_CONST)
-                    | EVAL_FLAG_TO_END
-                    | (f->flags.bits & EVAL_FLAG_CONST)
-                    | (match->header.bits & EVAL_FLAG_CONST)
-            );
+            Init_Nulled(out);  // want empty () to vanish as a null would
 
-            if (indexor == THROWN_FLAG) {
-                DS_DROP_TO(dsp_orig);
-                Abort_Frame(f);
-                return R_THROWN;
+            // We're using a low-level call because we want to do something
+            // weird and skip over any label.  So if <*> is the label and a
+            // match like (<*> 1 + 2) was found, we want the evaluator to
+            // only see (1 + 2).
+            //
+            if (not IS_NULLED(label))
+                Fetch_Next_In_Feed(subfeed, false);
+
+            if (IS_END(subfeed->value))
+                assert(not IS_NULLED(label));  // ...else, how'd it match?
+            else {
+                DECLARE_FRAME (
+                    sub,
+                    subfeed,
+                    EVAL_MASK_DEFAULT | EVAL_FLAG_TO_END
+                );
+
+                Push_Frame(out, sub);
+                bool threw = (*PG_Eval_Throws)(sub);
+                Drop_Frame(sub);
+
+                if (threw) {
+                    DS_DROP_TO(dsp_orig);
+                    Abort_Frame(f);
+                    return R_THROWN;
+                }
+
+                assert(sub->feed->index == VAL_LEN_HEAD(match) + 1);
             }
 
             if (IS_NULLED(out)) {
@@ -293,13 +294,13 @@ REB_R Compose_To_Stack_Core(
                 // compose [(1 + 2) inserts as-is] => [3 inserts as-is]
                 // compose/only [([a b c]) unmerged] => [[a b c] unmerged]
 
-                Move_Value(DS_PUSH(), out); // Not legal to eval to stack direct!
+                Move_Value(DS_PUSH(), out);  // can't eval to stack directly!
                 if (GET_CELL_FLAG(*v, NEWLINE_BEFORE))
                     SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
             }
 
           #ifdef DEBUG_UNREADABLE_BLANKS
-            Init_Unreadable_Blank(out); // shouldn't leak temp eval to caller
+            Init_Unreadable_Blank(out);  // shouldn't leak temp eval to caller
           #endif
 
             changed = true;
@@ -310,15 +311,15 @@ REB_R Compose_To_Stack_Core(
             REBDSP dsp_deep = DSP;
             REB_R r = Compose_To_Stack_Core(
                 out,
-                cast(const RELVAL*, cell), // real array w/no backslashes
+                cast(const RELVAL*, cell),  // unescaped array (w/no QUOTEs)
                 specifier,
                 label,
-                true, // deep (guaranteed true if we get here)
+                true,  // deep (guaranteed true if we get here)
                 only
             );
 
             if (r == R_THROWN) {
-                DS_DROP_TO(dsp_orig); // drop to outer DSP (@ function start)
+                DS_DROP_TO(dsp_orig);  // drop to outer DSP (@ function start)
                 Abort_Frame(f);
                 return R_THROWN;
             }
@@ -342,10 +343,10 @@ REB_R Compose_To_Stack_Core(
             Init_Any_Array(
                 DS_PUSH(),
                 kind,
-                popped // can't push and pop in same step, need this variable!
+                popped  // can't push and pop in same step, need this variable
             );
 
-            Quotify(DS_TOP, quotes); // put back backslashes
+            Quotify(DS_TOP, quotes);  // put back QUOTEs
 
             if (GET_CELL_FLAG(*v, NEWLINE_BEFORE))
                 SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
@@ -353,13 +354,13 @@ REB_R Compose_To_Stack_Core(
             changed = true;
         }
         else {
-            // compose [[(1 + 2)] (3 + 4)] => [[(1 + 2)] 7] ;-- non-deep
+            // compose [[(1 + 2)] (3 + 4)] => [[(1 + 2)] 7]  ; non-deep
             //
-            Derelativize(DS_PUSH(), *v, specifier); // keep newline flag
+            Derelativize(DS_PUSH(), *v, specifier);  // keep newline flag
         }
     }
 
-    Drop_Frame_Unbalanced(f); // Drop_Frame() asserts on stack accumulation
+    Drop_Frame_Unbalanced(f);  // Drop_Frame() asserts on stack accumulation
     return changed ? nullptr : R_UNHANDLED;
 }
 

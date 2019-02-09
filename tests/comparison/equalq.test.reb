@@ -139,7 +139,7 @@
 ; Reflexivity for past-tail blocks
 ; Error in R2.
 (
-    a-value: tail of mutable [1]
+    a-value: tail of [1]
     clear head of a-value
     equal? a-value a-value
 )

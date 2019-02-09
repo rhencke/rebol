@@ -136,7 +136,7 @@
 
 ((lit '''[a b c]) == copy lit '''[a b c])
 
-((lit '(1 2 3 <four>)) == append mutable ''(1 2 3) <four>)
+((lit '(1 2 3 <four>)) == append ''(1 2 3) <four>)
 
 
 ;; Routines could be adapted to do all kinds of interesting things

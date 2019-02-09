@@ -102,7 +102,7 @@
         // done.  Coercion to a plain integer will not be allowed unless both
         // have been tested for.
         //
-        uintptr_t bits;
+        REBCNT bits;
 
     public:
         // Make sure you can't assign or compare from NOT_FOUND or UNKNOWN
@@ -128,12 +128,14 @@
             assert(bits != ((REBCNT)-1)); // not with REBIXO!
         }
 
+        explicit operator bool() const = delete;  // no `if (indexor) {...}`
+
         void operator=(REBCNT rhs) {
             assert(rhs != ((REBCNT)-1)); // not with REBIXO!
             bits = rhs;
         }
         bool operator==(REBIXO const &rhs) const { return bits == rhs.bits; }
-        bool operator!=(REBIXO const &rhs) const { return !((*this) == rhs); }
+        bool operator!=(REBIXO const &rhs) const { return !(*this == rhs); }
 
         // Basic check: whenever one tries to get an actual REBCNT out of
         // an indexor, it is asserted not to be a magic value.  Called by
@@ -224,6 +226,6 @@
     // to the C build, so their binary code works together.
     //
     static_assert(
-        sizeof(REBIXO) == sizeof(uintptr_t), "invalid REBIXO size"
+        sizeof(REBIXO) == sizeof(REBCNT), "invalid REBIXO size"
     );
 #endif

@@ -722,7 +722,7 @@ lambda: function [
 ][
     make action! compose [
         ((blockify :args))
-        ((if block? first body [take body] else [make block! body]))
+        ((const if block? first body [take body] else [make block! body]))
     ]
 ]
 
@@ -1132,7 +1132,7 @@ read-lines: function [
     ]
 
     f: function compose [
-        <static> buffer (to group! [mutable make binary! 4096])
+        <static> buffer (to group! [make binary! 4096])
         <static> port (groupify src)
     ] compose/deep [
         data: _

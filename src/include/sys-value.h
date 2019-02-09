@@ -938,7 +938,7 @@ inline static REBVAL *Inherit_Const(REBVAL *out, const RELVAL *influencer) {
 #define Trust_Const(value) \
     (value) // just a marking to say the const is accounted for already
 
-inline static REBVAL *Const(REBVAL *v) {
+inline static REBVAL *Constify(REBVAL *v) {
     SET_CELL_FLAG(v, CONST);
     return v;
 }
