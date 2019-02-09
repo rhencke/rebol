@@ -43,6 +43,21 @@
 )
 
 
+; DO should be neutral...if the value it gets in is const, it should run that
+; as const...it shouldn't be inheriting a "wave of constness" otherwise.
+(
+    e: trap [loop 2 [do [append d: [] <item>]]]
+    e/id = 'const-value
+)(
+    block: [append d: [] <item>]
+    [<item> <item>] = loop 2 [do block]
+)(
+    block: [append d: [] <item>]
+    e: trap [loop 2 [do const block]]
+    e/id = 'const-value
+)
+
+
 ; While a value fetched from a WORD! during evaluation isn't subject to the
 ; wave of constness that a loop or function body puts on a frame, if you
 ; do a COMPOSE then it looks the same from the evaluator's point of view.

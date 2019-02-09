@@ -271,9 +271,22 @@ REBNATIVE(do)
 {
     INCLUDE_PARAMS_OF_DO;
 
-    REBVAL *source = ARG(source); // may be only GC reference, don't lose it!
+    REBVAL *source = ARG(source);
+
+    // If `source` is not const, tweak it to be explicitly mutable--because
+    // otherwise, it would wind up inheriting the FEED_MASK_CONST of our
+    // currently executing frame.  That's no good for `loop 2 [do block]`,
+    // because we want whatever constness is on block...
+    //
+    // (Note we *can't* tweak values that are RELVAL in source.  So we either
+    // bias to having to do this or Do_XXX() versions explode into passing
+    // mutability parameters all over the place.  This is better.)
+    //
+    if (NOT_CELL_FLAG(source, CONST))
+        SET_CELL_FLAG(source, EXPLICITLY_MUTABLE);
+
   #if !defined(NDEBUG)
-    SET_CELL_FLAG(ARG(source), PROTECTED);
+    SET_CELL_FLAG(ARG(source), PROTECTED);  // maybe only GC reference, keep!
   #endif
 
     switch (VAL_TYPE(source)) {
