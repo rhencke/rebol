@@ -1294,15 +1294,19 @@ unsigned char *RL_rebBytes(
 
     if (ANY_WORD(series) or ANY_STRING(series)) {
         *size_out = rebSpellInto(nullptr, 0, series);
-        REBYTE *result = rebAllocN(REBYTE, (*size_out + 1));
-        rebSpell(result, *size_out, series);
-        return result;
+        char *result = rebAllocN(char, (*size_out + 1));
+        size_t check = rebSpellInto(result, *size_out, series);
+        assert(check == *size_out);
+        UNUSED(check);
+        return cast(unsigned char*, result);
     }
 
     if (IS_BINARY(series)) {
         *size_out = rebBytesInto(nullptr, 0, series);
-        REBYTE *result = rebAllocN(REBYTE, (*size_out + 1));
-        rebBytesInto(result, *size_out, series);
+        unsigned char *result = rebAllocN(REBYTE, (*size_out + 1));
+        size_t check = rebBytesInto(result, *size_out, series);
+        assert(check == *size_out);
+        UNUSED(check);
         return result;
     }
 
