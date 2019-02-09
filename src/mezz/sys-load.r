@@ -3,7 +3,7 @@ REBOL [
     Title: "REBOL 3 Boot Sys: Load, Import, Modules"
     Rights: {
         Copyright 2012 REBOL Technologies
-        Copyright 2012-2017 Rebol Open Source Contributors
+        Copyright 2012-2019 Rebol Open Source Contributors
         REBOL is a trademark of REBOL Technologies
     }
     License: {
@@ -41,10 +41,10 @@ REBOL [
 
 
 bind-lib: func [
-    "Bind only the top words of the block to the lib context (mezzanine load)."
+    {Bind only the top words of the block to the lib context (mezzanine load)}
     block [block!]
 ][
-    bind/only/set block lib ; Note: not bind/new !
+    bind/only/set block lib  ; Note: not BIND/NEW !
     bind block lib
     block
 ]
@@ -73,10 +73,13 @@ mixin?: func [
     return: [logic!]
     mod [module! object!] "Module or spec header"
 ][
-    ; Note: Unnamed modules DO NOT default to being mixins.
+    ; Note: Unnamed modules DO NOT default to being mixins
+
     if module? mod [mod: meta-of mod]  ; Get the header object
-    did all [
+
+    return did all [
         find select mod 'options 'private
+
         ; If there are no exports, there's no difference
         block? select mod 'exports
         not empty? select mod 'exports
@@ -116,7 +119,7 @@ load-header: function [
     ; rest of the binary data, which can contain anything you like. This can
     ; support multiple scripts in the same binary data, multi-scripts.
     ;
-    ; If not /only and the script is embedded in a block and not compressed
+    ; If not /ONLY and the script is embedded in a block and not compressed
     ; then the body text will be a decoded block instead of binary, to avoid
     ; the overhead of decoding the body twice.
     ;
@@ -124,26 +127,21 @@ load-header: function [
     ;    no-header
     ;    bad-header
     ;    bad-compress
-    ;
-    end: _ ;-- locals are now unset by default, added after that change
 
     if binary? source [
-        ;
-        ; Used to "assert this was UTF-8", which was a weak check.
-        ; If it's not UTF-8 the decoding will find that out.
-        ;
-        tmp: source
+        tmp: source  ; if it's not UTF-8, the decoding will provide the error
     ]
 
     if text? source [tmp: to binary! source]
 
-    data: script? tmp else [ ; no script header found
+    if not (data: script? tmp) [  ; !!! Review: SCRIPT? doesn't return LOGIC!
+        ; no script header found
         return either required ['no-header] [
             reduce [
-                _ ;-- no header object
-                tmp ;-- body text
-                1 ;-- line number
-                tail of tmp ;-- end of script
+                _  ; no header object
+                tmp  ; body text
+                1  ; line number
+                tail of tmp  ; end of script
             ]
         ]
     ]
@@ -154,20 +152,19 @@ load-header: function [
     ; of the transcoding so far, to sync line numbering across transcodes.
 
     ; get 'rebol keyword
-    ;
+
     keyrest: transcode/only data
     line: line of keyrest
     set [key: rest:] keyrest
 
     ; get header block
-    ;
+
     hdrrest: transcode/next/relax/line rest line
     line: line of hdrrest
     set [hdr: rest:] hdrrest
 
     if not block? :hdr [
-        ; header block is incomplete
-        return 'no-header
+        return 'no-header  ; header block is incomplete
     ]
 
     trap [
@@ -185,7 +182,7 @@ load-header: function [
     ]
 
     if 13 = rest/1 [rest: next rest] ; skip CR
-    if 10 = rest/1 [rest: next rest | line: me + 1] ; skip LF
+    if 10 = rest/1 [rest: next rest | line: me + 1]  ; skip LF
 
     if integer? tmp: select hdr 'length [
         end: skip rest tmp
@@ -193,8 +190,7 @@ load-header: function [
 
     end: default [tail of data]
 
-    if only [
-        ; decompress not done
+    if only [  ; when it's /ONLY, decompression is not performed
         return reduce [hdr rest end]
     ]
 
@@ -220,7 +216,7 @@ load-header: function [
                 ] else [
                     return 'bad-compress
                 ]
-            ] ; else assumed not compressed
+            ]  ; else assumed not compressed
         ]
     ] else [
         ; block-embedded script, only script compression, ignore hdr/length
@@ -228,11 +224,9 @@ load-header: function [
         ; decode embedded script
         rest: skip first set [data: end:] transcode/next data 2
 
-        case [
-            find hdr/options 'compress [ ; script encoded only
-                rest: attempt [gunzip first rest] else [
-                    return 'bad-compress
-                ]
+        if find hdr/options 'compress [  ; script encoded only
+            rest: attempt [gunzip first rest] else [
+                return 'bad-compress
             ]
         ]
     ]
@@ -268,29 +262,31 @@ load: function [
     /type "Override default file-type"
     ftype "E.g. rebol, text, markup, jpeg... (by default, auto-detected)"
         [word!]
-    <in> no-all ;-- temporary fake of <unbind> option
+    <in> no-all  ; !!! temporary fake of <unbind> option
 ][
-    self: binding of 'return ;-- so you can say SELF/ALL
+    self: binding of 'return  ; so you can say SELF/ALL
 
-    ; NOTES:
-    ; Note that code/data can be embedded in other datatypes, including
+    ; Note that code or data can be embedded in other datatypes, including
     ; not just text, but any binary data, including images, etc. The type
     ; argument can be used to control how the raw source is converted.
-    ; Pass a /type of blank or 'unbound if you want embedded code or data.
+    ; Pass a /TYPE of blank or 'UNBOUND if you want embedded code or data.
+    ;
     ; Scripts are normally bound to the user context, but no binding will
-    ; happen for a module or if the /type is 'unbound. This allows the result
+    ; happen for a module or if the /TYPE is 'UNBOUND.  This allows the result
     ; to be handled properly by DO (keeping it out of user context.)
-    ; Extensions will still be loaded properly if /type is 'unbound.
+    ; Extensions will still be loaded properly if type is unbound.
+    ;
     ; Note that IMPORT has its own loader, and does not use LOAD directly.
-    ; /type with anything other than 'extension disables extension loading.
+    ; /TYPE with anything other than 'EXTENSION disables extension loading.
 
     if header and 'self/all [
         fail "Cannot use /ALL and /HEADER refinements together"
     ]
 
-    ;-- A BLOCK! means load multiple sources, calls LOAD recursively for each
     if block? source [
-        a: self/all ;-- !!! Some bad interaction requires this, review
+        ; A BLOCK! means multiple sources, calls LOAD recursively for each
+
+        a: self/all  ; !!! Some bad interaction requires this, review
         return map-each s source [
             apply 'load [
                 source: s
@@ -301,17 +297,18 @@ load: function [
         ]
     ]
 
-    ;-- What type of file? Decode it too:
+    ; Detect file type, and decode the data
+
     if match [file! url!] source [
         file: source
         line: 1
-        ftype: default [file-type? source else ['rebol]] ; !!! rebol default?
+        ftype: default [file-type? source else ['rebol]]  ; !!! rebol default?
 
         if ftype = 'extension [
             if not file? source [
                 fail ["Can only load extensions from FILE!, not" source]
             ]
-            return ensure module! load-extension source ;-- DO embedded script
+            return ensure module! load-extension source  ; DO embedded script
         ]
 
         data: read source
@@ -351,10 +348,11 @@ load: function [
     ensure [text! binary!] data
 
     if block? data [
-        return data ;-- !!! Things break if you don't pass through; review
+        return data  ; !!! Things break if you don't pass through; review
     ]
 
-    ;-- Try to load the header, handle error:
+    ; Try to load the header, handle error
+
     if not self/all [
         set [hdr: data: line:] either object? data [
             fail "Code has not been updated for LOAD-EXT-MODULE"
@@ -369,21 +367,23 @@ load: function [
     ensure [object! blank!] hdr: default [_]
     ensure [binary! block! text!] data
 
-    ;-- Convert code to block, insert header if requested:
+    ; Convert code to block, insert header if requested
+
     if not block? data [
         if text? data [
-            data: to binary! data ;-- !!! inefficient, might be UTF8
+            data: to binary! data  ; !!! inefficient, might be UTF8
         ]
         assert [binary? data]
         data: transcode/file/line data (opt file) (opt line)
-        take/last data ;-- !!! always the residual, a #{}... why?
+        take/last data  ; !!! always the residual, a #{}... why?
     ]
 
     if header [
         insert data hdr
     ]
 
-    ;-- Bind code to user context:
+    ; Bind code to user context
+
     none [
         'unbound = ftype
         'module = select hdr 'type
@@ -392,7 +392,8 @@ load: function [
         data: intern data
     ]
 
-    ;-- If appropriate and possible, return singular data value:
+    ; If appropriate and possible, return singular data value
+
     any [
         self/all
         header
@@ -416,29 +417,30 @@ do-needs: function [
     /no-user "Don't export to the user context (mixins returned)"
     /block "Return all the imported modules in a block, instead"
 ][
-    ; NOTES:
     ; This is a low-level function and its use and return values reflect that.
+    ;
     ; In user mode, the mixins are applied by IMPORT, so they don't need to
-    ; be returned. In /no-user mode the mixins are collected into an object
+    ; be returned. In /NO-USER mode the mixins are collected into an object
     ; and returned, if the object isn't empty. This object can then be passed
-    ; to MAKE module! to be applied there. The /block option returns a block
-    ; of all the modules imported, not any mixins - this is for when IMPORT
-    ; is called with a Needs block.
+    ; to MAKE module! to be applied there.
+    ;
+    ; The /BLOCK option returns a block of all the modules imported, not any
+    ; mixins.  This is for when IMPORT is called with a `Needs: [...]` block.
 
-    if object? needs [ ;-- header object
-        needs: select needs 'needs ; (protected)
+    if object? needs [  ; header object
+        needs: select needs 'needs  ; (protected)
     ]
 
     switch type of needs [
-        blank! [return blank] ;-- may have come from SELECT, not just arg
+        blank! [return blank]  ; may have come from SELECT, not just arg
 
-        tuple! [ ;-- simple version number check for interpreter itself
+        tuple! [  ; simple version number check for interpreter itself
             case [
                 needs > system/version [
                     cause-error 'syntax 'needs reduce ['core needs]
                 ]
 
-                3 >= length of needs [ ; no platform id
+                3 >= length of needs [  ; no platform id
                     blank
                 ]
 
@@ -454,10 +456,11 @@ do-needs: function [
             if empty? needs [return blank]
         ]
     ] else [
-        needs: reduce [needs] ;-- If it's an inline value, put it in a block
+        needs: reduce [needs]  ; If it's an inline value, put it in a block
     ]
 
     ; Parse the needs dialect [source <version>]
+
     mods: make block! length of needs
     name: vers: hash: _
     parse ensure block! needs [
@@ -479,7 +482,7 @@ do-needs: function [
     ; Don't bother if returning all the modules in a block, or if in user mode.
     ;
     if no-user and [not block] [
-        mixins: make object! 0 ;-- Minimal length since it may persist later
+        mixins: make object! 0  ; Minimal length since it may persist later
     ]
 
     ; Import the modules:
@@ -488,12 +491,12 @@ do-needs: function [
         mod: apply 'import [
             module: name
 
-            version: true
-            set* lit ver: opt vers
+            version: true  ; !!! automatic from VERS?
+            ver: opt vers
 
-            set* lit no-share: no-share
-            set* lit no-lib: no-lib
-            set* lit no-user: no-user
+            no-share: no-share
+            no-lib: no-lib
+            no-user: no-user
         ]
 
         ; Collect any mixins into the object (if we are doing that)
@@ -504,8 +507,8 @@ do-needs: function [
     ]
 
     return try case [
-        block [mods] ; /block refinement asks for block of modules
-        not empty? to-value :mixins [mixins] ; else if any mixins, return them
+        block [mods]  ; /BLOCK refinement asks for block of modules
+        not empty? to-value :mixins [mixins]  ; if any mixins, return them
     ]
 ]
 
@@ -546,14 +549,14 @@ load-module: function [
     ; Returns blank if source is word and no module of that name is loaded.
     ; Returns blank if source is file/url and read or load-extension fails.
 
-    if import [delay: _] ; /import overrides /delay
+    if import [delay: _]  ; /import overrides /delay
 
     ; Process the source, based on its type
 
     switch type of source [
         word! [ ; loading the preloaded
             if as_LOAD_MODULE [
-                cause-error 'script 'bad-refine /as ; no renaming
+                cause-error 'script 'bad-refine /as  ; no renaming
             ]
 
             ; Return blank if no module of that name found
@@ -595,7 +598,7 @@ load-module: function [
                     fail "Use LOAD or LOAD-EXTENSION to load an extension"
                 ]
             ] else [
-                cause-error 'access 'no-script source ; needs better error
+                cause-error 'access 'no-script source  ; !!! need better error
             ]
         ]
 
@@ -608,7 +611,7 @@ load-module: function [
                 ]
 
                 all [
-                    ; not /version, same as top module of that name
+                    ; not /VERSION, same as top module of that name
                     not version
                     same? mod select system/modules pick tmp 0
                 ] then [
@@ -672,13 +675,15 @@ load-module: function [
     ; module/block mod used later for override testing
 
     ; Get and process the header
+
     if unset? 'hdr [
         ; Only happens for string, binary or non-extension file/url source
+
         set [hdr: code: line:] load-header/required data
         case [
             word? hdr [cause-error 'syntax hdr source]
             import [
-                ; /import overrides 'delay option
+                ; /IMPORT overrides 'delay option
             ]
             not delay [delay: did find hdr/options 'delay]
         ]
@@ -696,18 +701,22 @@ load-module: function [
         hdr/options: append any [hdr/options make block! 1] 'isolate
     ]
 
-    ; Unify hdr/name and /as name
+    ; Unify hdr/name and /AS name
     if set? 'name [
-        hdr/name: name  ; rename /as name
+        hdr/name: name  ; rename /AS name
     ] else [
         name: :hdr/name
     ]
 
-    if (not no-lib) and [not word? :name] [ ; requires name for full import
-        ; Unnamed module can't be imported to lib, so /no-lib here
-        no-lib: true  ; Still not /no-lib in IMPORT
+    if (not no-lib) and [not word? :name] [
+        ;
+        ; Requires name for full import
+        ; Unnamed module can't be imported to lib, so /NO-LIB here
+
+        no-lib: true  ; Still not /NO-LIB in IMPORT
 
         ; But make it a mixin and it will be imported directly later
+
         if not find hdr/options 'private [
             hdr/options: append any [hdr/options make block! 1] 'private
         ]
@@ -717,12 +726,12 @@ load-module: function [
     ]
 
     ; See if it's there already, or there is something more recent
+
     all [
-        ; set to false later if existing module is used
-        override?: not no-lib
+        override?: not no-lib  ; set to false later if existing module is used
         set [name0: mod0:] pos: try find/skip system/modules name 2
-    ] then [
-        ; Get existing module's info
+    ]
+    then [  ; Get existing module's info
 
         if module? :mod0 [hdr0: meta-of mod0] ; final header
         if block? :mod0 [hdr0: first mod0] ; cached preparsed header
@@ -737,12 +746,12 @@ load-module: function [
         ; Compare it to the module we want to load
         case [
             same? mod mod0 [
-                override?: not any [delay module? mod] ; here already
+                override?: not any [delay module? mod]  ; here already
             ]
 
             module? mod0 [
                 ; premade module
-                pos: _  ; just override, don't replace
+                pos: _   ; just override, don't replace
                 if ver0 >= modver [
                     ; it's at least as new, use it instead
                     mod: mod0 | hdr: hdr0 | code: _
@@ -752,17 +761,18 @@ load-module: function [
             ]
 
             ; else is delayed module
-            ver0 > modver [ ; and it's newer, use it instead
+
+            ver0 > modver [  ; and it's newer, use it instead
                 mod: _ set [hdr code] mod0
                 modver: ver0
-                ext: all [(object? code) code] ; delayed extension
+                ext: all [(object? code) code]  ; delayed extension
                 override?: not delay  ; stays delayed if /delay
             ]
         ]
     ]
 
     if not module? mod [
-        mod: _ ; don't need/want the block reference now
+        mod: _   ; don't need/want the block reference now
     ]
 
     if version and [ver > modver] [
@@ -772,16 +782,16 @@ load-module: function [
     ; If no further processing is needed, shortcut return
     if (not override?) and [mod or 'delay] [return reduce [name mod]]
 
-    ; If /delay, save the intermediate form
+    ; If /DELAY, save the intermediate form
     if delay [
         mod: reduce [hdr either object? ext [ext] [code]]
     ]
 
-    ; Else not /delay, make the module if needed
+    ; Else not /DELAY, make the module if needed
     if not mod [
         ; not prebuilt or delayed, make a module
 
-        if find hdr/options 'isolate [no-share: true] ; in case of delay
+        if find hdr/options 'isolate [no-share: true]  ; in case of delay
 
         if object? code [ ; delayed extension
             fail "Code has not been updated for LOAD-EXT-MODULE"
@@ -816,7 +826,7 @@ load-module: function [
 
     if (not no-lib) and 'override? [
         if pos [
-            pos/2: mod ; replace delayed module
+            pos/2: mod  ; replace delayed module
         ] else [
             append system/modules reduce [name mod]
         ]
@@ -826,7 +836,7 @@ load-module: function [
             not mixin? hdr
             block? select hdr 'exports
         ] then [
-            resolve/extend/only lib mod hdr/exports ; no-op if empty
+            resolve/extend/only lib mod hdr/exports  ; no-op if empty
         ]
     ]
 
@@ -838,7 +848,7 @@ load-module: function [
 ]
 
 
-; See also: sys/make-module*, sys/load-module, sys/do-needs
+; See also: SYS/MAKE-MODULE*, SYS/LOAD-MODULE, SYS/DO-NEEDS
 ;
 import: function [
     {Imports a module; locate, load, make, and setup its bindings.}
@@ -868,7 +878,7 @@ import: function [
         ]
     ]
 
-    ; If it's a needs dialect block, call DO-NEEDS/block:
+    ; If it's a needs dialect block, call DO-NEEDS with /BLOCK:
     ;
     ; Note: IMPORT block! returns a block of all the modules imported.
     ;
@@ -889,7 +899,7 @@ import: function [
         ver: :ver
         no-share: no-share
         no-lib: no-lib
-        import: true ;-- !!! original code always passed /IMPORT, should it?
+        import: true  ; !!! original code always passed /IMPORT, should it?
     ]
 
     case [
@@ -932,18 +942,19 @@ import: function [
 
     ; Do any imports to the user context that are necessary.
     ; The lib imports were handled earlier by LOAD-MODULE.
+
     case [
         any [
             no-user
             not block? exports: select hdr: meta-of mod 'exports
             empty? exports
         ][
-            ; Do nothing if /no-user or no exports.
+            ; Do nothing if /NO-USER or no exports.
         ]
 
         any [
             no-lib
-            find select hdr 'options 'private ; /no-lib causes private
+            find select hdr 'options 'private  ; /NO-LIB causes private
         ][
             ; It's a private module (mixin)
             ; we must add *all* of its exports to user
@@ -951,7 +962,7 @@ import: function [
             resolve/extend/only system/contexts/user mod exports
         ]
 
-        ; Unless /no-lib its exports are in lib already
+        ; Unless /NO-LIB its exports are in lib already
         ; ...so just import what we need.
         ;
         not no-lib [
