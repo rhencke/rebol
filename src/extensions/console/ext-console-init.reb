@@ -4,7 +4,7 @@ REBOL [
     Name: console
     Type: Module
 
-    Options: [isolate] ;-- !!! said [extension delay], what for?
+    Options: []  ; !!! If ISOLATE, wouldn't see LIB/PRINT changes, etc.
 
     Rights: {
         Copyright 2016-2018 Rebol Open Source Contributors
@@ -97,7 +97,7 @@ console!: make object! [
     info: {(i)}  ; was `to-text #{e29398}` for "(i)" symbol, caused problems
     greeting: _
 
-    print-prompt: func [return: <void>] [
+    print-prompt: method [return: <void>] [
         ;
         ; !!! Previously the HOST-CONSOLE hook explicitly took an (optional)
         ; FRAME! where a debug session was focused and a stack depth integer,
@@ -131,7 +131,7 @@ console!: make object! [
         write-stdout space
     ]
 
-    print-result: function [return: <void> v [<opt> any-value!]]  [
+    print-result: method [return: <void> v [<opt> any-value!]]  [
         set* (lit last-result:) :v
         case [
             null? :v [
@@ -175,25 +175,25 @@ console!: make object! [
         ]
     ]
 
-    print-warning:  func [s] [print [warning reduce s]]
-    print-error:    func [e [error!]] [
+    print-warning:  method [s] [print [warning reduce s]]
+    print-error:    method [e [error!]] [
         if :e/file = 'tmp-boot.r [
             e/file: e/line: _  ; errors in console showed this, junk
         ]
         print [e]
     ]
 
-    print-halted: func [] [
+    print-halted: method [] [
         print "[interrupted by Ctrl-C or HALT instruction]"
     ]
 
-    print-info:     func [s] [print [info reduce s]]
-    print-greeting: func []  [boot-print greeting]
-    print-gap:      func []  [print newline]
+    print-info:     method [s] [print [info reduce s]]
+    print-greeting: method []  [boot-print greeting]
+    print-gap:      method []  [print newline]
 
     ;; BEHAVIOR (can be overridden)
 
-    input-hook: func [
+    input-hook: method [
         {Receives line input, parse/transform, send back to CONSOLE eval}
 
         return: "null if canceled, otherwise processed text line input"
@@ -202,7 +202,7 @@ console!: make object! [
         input
     ]
 
-    dialect-hook: func [
+    dialect-hook: method [
         {Receives code block, parse/transform, send back to CONSOLE eval}
         b [block!]
     ][
@@ -233,21 +233,19 @@ console!: make object! [
 
         list-shortcuts: [print system/console/shortcuts]
         changes: [
-            say-browser
             browse (join-all [
                 https://github.com/metaeducation/ren-c/blob/master/CHANGES.md#
                 join-all ["" system/version/1 system/version/2 system/version/3]
             ])
         ]
         topics: [
-            say-browser
             browse https://r3n.github.io/topics/
         ]
     ]
 
     ;; HELPERS (could be overridden!)
 
-    add-shortcut: func [
+    add-shortcut: method [
         {Add/Change console shortcut}
         return: <void>
         name [any-word!] "Shortcut name"
@@ -367,7 +365,7 @@ ext-console-impl: function [
     prior "BLOCK! or GROUP! that last invocation of HOST-CONSOLE requested"
         [blank! block! group!]
     result "Quoted result from evaluating PRIOR, or non-quoted error"
-        [quoted! error!]
+        [blank! quoted! error!]
     resumable "Is the RESUME function allowed to exit this console"
         [logic!]
 ][
@@ -463,7 +461,7 @@ ext-console-impl: function [
         ; something like that) then whoever broke into the REPL takes
         ; care of that.
         ;
-        assert [unset? 'result]
+        assert [blank? :result]
         if (unset? 'system/console) or [not system/console] [
             emit [start-console]
         ]
@@ -744,7 +742,6 @@ why: function [
     ]
 
     if error? err [
-        say-browser
         err: lowercase unspaced [err/type #"-" err/id]
         browse join http://www.rebol.com/r3/docs/errors/ [err ".html"]
     ] else [

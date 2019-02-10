@@ -307,8 +307,10 @@ REBNATIVE(console)
         UNUSED(ARG(provocation));
         goto provoked;
     }
-    else
+    else {
         code = rebBlank();
+        result = rebBlank();
+    }
 
     while (true) {
        assert(not halting_enabled);  // not while HOST-CONSOLE is on the stack
@@ -326,7 +328,7 @@ REBNATIVE(console)
             "entrap [",
                 "ext-console-impl",  // action! that takes 2 args, run it
                 code,  // group! or block! executed prior (or blank!)
-                result,  // prior result quoted, or error/null
+                result,  // prior result quoted, or error (or blank!)
                 rebL(REF(resumable)),
             "]", rebEND
         );

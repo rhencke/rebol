@@ -564,16 +564,9 @@ pending: does [
 ]
 
 
-say-browser: does [
-    comment "temp function"
-    print "Opening web browser..."
-]
-
-
 bugs: func [return: <void>] [
     "View bug database."
 ][
-    say-browser
     browse https://github.com/metaeducation/ren-c/issues
 ]
 
@@ -582,7 +575,6 @@ chat: func [
     "Open REBOL/ren-c developers chat forum"
     return: <void>
 ][
-    say-browser
     browse http://chat.stackoverflow.com/rooms/291/rebol
 ]
 

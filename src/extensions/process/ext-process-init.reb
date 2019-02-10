@@ -17,6 +17,8 @@ browse*: function [
     return: <void>
     location [<blank> url! file!]
 ][
+    print "Opening web browser..."
+
     ; Note that GET-OS-BROWSERS uses the Windows registry convention of having
     ; %1 be what needs to be substituted.  This may not be ideal, it was just
     ; easy to do rather than have to add processing on the C side.  Review.
@@ -28,10 +30,10 @@ browse*: function [
             location
         ]
         trap [
-            call/shell command ; don't use /WAIT
+            call/shell command  ; don't use /WAIT
             return
         ] then [
-            ;-- Just keep trying
+            ; Just keep trying
         ]
     ]
     fail "Could not open web browser"
