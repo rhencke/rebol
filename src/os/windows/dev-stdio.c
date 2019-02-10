@@ -187,77 +187,31 @@ DEVICE_CMD Write_IO(REBREQ *io)
             // Writing UTF-8 text.  Currently no actual check is done to make
             // sure that it's valid UTF-8, even invalid bytes would be written
             // but this could be changed.
-            //
-            // !!! Historically, Rebol on Windows would "enline" strings
-            // as UTF-8 in order to turn LF to CR LF.  This was done in the
-            // Prin_OS_String function.  However, the current idea is to
-            // make the core more agnostic and just pass UTF-8 data here.
-            //
-            // (Note: If we were using <stdio.h>, then opening a file in
-            // "text mode" with fopen()...as opposed to binary...would
-            // take care of this translation.  But we don't link against
-            // those functions, and WriteFile is too low level to do this
-            // translation.  Do it one line at a time.)
-            //
-            unsigned int start = 0;
-            unsigned int end = 0;
-
-            while (true) {
-                while (end < req->length && req->common.data[end] != '\n')
-                    ++end;
-                DWORD total_bytes;
-
-                if (start != end) {
-                    BOOL ok = WriteFile(
-                        Std_Out,
-                        req->common.data + start,
-                        end - start,
-                        &total_bytes,
-                        0
-                    );
-                    if (not ok)
-                        rebFail_OS (GetLastError());
-                    UNUSED(total_bytes);
-                }
-
-                if (req->common.data[end] == '\0')
-                    break;
-
-                assert(req->common.data[end] == '\n');
-                BOOL ok = WriteFile(
-                    Std_Out,
-                    "\r\n",
-                    2,
-                    &total_bytes,
-                    0
-                );
-                if (not ok)
-                    rebFail_OS (GetLastError());
-                UNUSED(total_bytes);
-
-                ++end;
-                start = end;
-            }
         }
-        else {
-            // No LF => CR LF translation, e.g. write of a BINARY!.  Also
-            // means no validity check for UTF-8...illegal byte sequences are
-            // guaranteed to be allowed.
-            //
-            DWORD total_bytes;
-            BOOL ok = WriteFile(
-                Std_Out,
-                req->common.data,
-                req->length,
-                &total_bytes,
-                0
-            );
-            if (not ok)
-                rebFail_OS (GetLastError());
-            UNUSED(total_bytes);
-        }
+
+        // !!! Historically, Rebol on Windows automatically "enlined" strings
+        // on write to turn LF to CR LF.  This was done in Prin_OS_String().
+        // However, the current idea is to be more prescriptive and not
+        // support this without a special codec.  In lieu of a more efficient
+        // codec method, those wishing to get CR LF will need to manually
+        // enline, or ADAPT their WRITE to do this automatically.
+        //
+        // Note that redirection on Windows does not use UTF-16 typically.
+        // Even CMD.EXE requires a /U switch to do so.
+
+        DWORD total_bytes;
+        BOOL ok = WriteFile(
+            Std_Out,
+            req->common.data,
+            req->length,
+            &total_bytes,
+            0
+        );
+        if (not ok)
+            rebFail_OS (GetLastError());
+        UNUSED(total_bytes);
     }
-    else {
+    else {  // not redirected, so being sent to the console
         if (req->modes & RFM_TEXT) {
             //
             // Convert UTF-8 buffer to Win32 wide-char format for console.
