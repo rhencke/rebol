@@ -28,14 +28,23 @@
 //
 
 #ifdef TO_WINDOWS
-    #undef _WIN32_WINNT // https://forum.rebol.info/t/326/4
-    #define _WIN32_WINNT 0x0501 // Minimum API target: WinXP
+
+    #undef _WIN32_WINNT  // https://forum.rebol.info/t/326/4
+    #define _WIN32_WINNT 0x0501  // Minimum API target: WinXP
     #include <windows.h>
 
-    #undef IS_ERROR // %windows.h defines this, but so does %sys-core.h
+    #undef IS_ERROR  // %windows.h defines this, but so does %sys-core.h
+
+#elif defined(TO_EMSCRIPTEN)
+    //
+    // Nothing needed here yet...
+    //
 #else
-    #include <signal.h> // needed for SIGINT, SIGTERM, SIGHUP
+
+    #include <signal.h>  // needed for SIGINT, SIGTERM, SIGHUP
+
 #endif
+
 
 #include "sys-core.h"
 
@@ -59,36 +68,58 @@ REBNATIVE(get_console_actor_handle)
 }
 
 
-// Assume that Ctrl-C is enabled in a console application by default.
-// (Technically it may be set to be ignored by a parent process or context,
-// in which case conventional wisdom is that we should not be enabling it
-// ourselves.)
+//=//// USER-INTERRUPT/HALT HANDLING (Ctrl-C, Escape, etc.) ///////////////=//
 //
-bool ctrl_c_enabled = true;
-
-
-#ifdef TO_WINDOWS
-
+// There's clearly contention for what a user-interrupt key sequence should
+// be, given that "Ctrl-C" is copy in GUI applications.  Yet handling escape
+// is not necessarily possible on all platforms and situations.
 //
-// This is the callback passed to `SetConsoleCtrlHandler()`.
+// For console applications, we assume that the program starts with user
+// interrupting enabled by default...so we have to ask for it not to be when
+// it would be bad to have the Rebol stack interrupted--during startup, or
+// when in the "kernel" of the host console.
+//
+// (Note: If halting is done via Ctrl-C, technically it may be set to be
+// ignored by a parent process or context, in which case conventional wisdom
+// is that we should not be enabling it ourselves.  Review.)
+//
+
+bool halting_enabled = true;
+
+#if defined(TO_EMSCRIPTEN)  //=//// EMSCRIPTEN ///////////////////////////=//
+
+// !!! Review how an emscripten console extension should be hooking something
+// like a keyboard shortcut for breaking.  With the pthread model, there may
+// be shared memory for the GUI to be able to poke a value in that the running
+// code can see to perceive a halt.
+
+void Disable_Halting(void) {}
+void Enable_Halting(void) {}
+
+
+#elif defined(TO_WINDOWS)  //=//// WINDOWS ////////////////////////////////=//
+
+// Windows handling is fairly simplistic--this is the callback passed to
+// `SetConsoleCtrlHandler()`.  The most annoying thing about cancellation in
+// windows is the limited signaling possible in the terminal's readline.
 //
 BOOL WINAPI Handle_Break(DWORD dwCtrlType)
 {
     switch (dwCtrlType) {
-    case CTRL_C_EVENT:
-    case CTRL_BREAK_EVENT:
+      case CTRL_C_EVENT:
+      case CTRL_BREAK_EVENT:
         rebHalt();
-        return TRUE; // TRUE = "we handled it"
+        return TRUE;  // TRUE = "we handled it"
 
-    case CTRL_CLOSE_EVENT:
+      case CTRL_CLOSE_EVENT:
         //
         // !!! Theoretically the close event could confirm that the user
         // wants to exit, if there is possible unsaved state.  As a UI
         // premise this is probably less good than persisting the state
         // and bringing it back.
         //
-    case CTRL_LOGOFF_EVENT:
-    case CTRL_SHUTDOWN_EVENT:
+      case CTRL_LOGOFF_EVENT:
+      case CTRL_SHUTDOWN_EVENT:
         //
         // They pushed the close button, did a shutdown, etc.  Exit.
         //
@@ -96,8 +127,8 @@ BOOL WINAPI Handle_Break(DWORD dwCtrlType)
         //
         exit(100);
 
-    default:
-        return FALSE; // FALSE = "we didn't handle it"
+      default:
+        return FALSE;  // FALSE = "we didn't handle it"
     }
 }
 
@@ -109,27 +140,27 @@ BOOL WINAPI Handle_Nothing(DWORD dwCtrlType)
     return FALSE;
 }
 
-void Disable_Ctrl_C(void)
+void Disable_Halting(void)
 {
-    assert(ctrl_c_enabled);
+    assert(halting_enabled);
 
     SetConsoleCtrlHandler(Handle_Break, FALSE);
     SetConsoleCtrlHandler(Handle_Nothing, TRUE);
 
-    ctrl_c_enabled = false;
+    halting_enabled = false;
 }
 
-void Enable_Ctrl_C(void)
+void Enable_Halting(void)
 {
-    assert(not ctrl_c_enabled);
+    assert(not halting_enabled);
 
     SetConsoleCtrlHandler(Handle_Break, TRUE);
     SetConsoleCtrlHandler(Handle_Nothing, FALSE);
 
-    ctrl_c_enabled = true;
+    halting_enabled = true;
 }
 
-#else
+#else  //=//// POSIX, LINUX, MAC, etc. ////////////////////////////////////=//
 
 // SIGINT is the interrupt usually tied to "Ctrl-C".  Note that if you use
 // just `signal(SIGINT, Handle_Signal);` as R3-Alpha did, this means that
@@ -158,9 +189,9 @@ static void Handle_Signal(int sig)
 
 struct sigaction old_action;
 
-void Disable_Ctrl_C(void)
+void Disable_Halting(void)
 {
-    assert(ctrl_c_enabled);
+    assert(halting_enabled);
 
     sigaction(SIGINT, nullptr, &old_action); // fetch current handler
     if (old_action.sa_handler != SIG_IGN) {
@@ -171,12 +202,12 @@ void Disable_Ctrl_C(void)
         sigaction(SIGINT, &new_action, nullptr);
     }
 
-    ctrl_c_enabled = false;
+    halting_enabled = false;
 }
 
-void Enable_Ctrl_C(void)
+void Enable_Halting(void)
 {
-    assert(not ctrl_c_enabled);
+    assert(not halting_enabled);
 
     if (old_action.sa_handler != SIG_IGN) {
         struct sigaction new_action;
@@ -186,10 +217,10 @@ void Enable_Ctrl_C(void)
         sigaction(SIGINT, &new_action, nullptr);
     }
 
-    ctrl_c_enabled = true;
+    halting_enabled = true;
 }
 
-#endif
+#endif  //=///////////////////////////////////////////////////////////////=//
 
 
 
@@ -239,14 +270,15 @@ REBNATIVE(console)
 {
     CONSOLE_INCLUDE_PARAMS_OF_CONSOLE;
 
-    // We only enable Ctrl-C when user code is running...not when the
-    // HOST-CONSOLE function itself is, or during startup.  (Enabling it
-    // during startup would require a special "kill" mode that did not
-    // call rebHalt(), as basic startup cannot meaningfully be halted.)
+    // We only enable halting (e.g. Ctrl-C, or Escape, or whatever) when user
+    // code is running...not when the HOST-CONSOLE function itself is, or
+    // during startup.  (Enabling it during startup would require a special
+    // "kill" mode that did not call rebHalt(), as basic startup cannot
+    // meaningfully be halted--the system would be in an incomplete state.)
     //
-    bool was_ctrl_c_enabled = ctrl_c_enabled;
-    if (was_ctrl_c_enabled)
-        Disable_Ctrl_C();
+    bool was_halting_enabled = halting_enabled;
+    if (was_halting_enabled)
+        Disable_Halting();
 
     // The DO and APPLY hooks are used to implement things like tracing
     // or debugging.  If they were allowed to run during the host
@@ -267,11 +299,11 @@ REBNATIVE(console)
     REBINT Save_Trace_Depth = Trace_Depth;
 
     REBVAL *result = nullptr;
-    bool no_recover = false; // allow one try at HOST-CONSOLE internal error
+    bool no_recover = false;  // allow one try at HOST-CONSOLE internal error
 
     REBVAL *code;
     if (REF(provoke)) {
-        code = rebArg("provocation", rebEND); // fetch as an API handle
+        code = rebArg("provocation", rebEND);  // fetch as an API handle
         UNUSED(ARG(provocation));
         goto provoked;
     }
@@ -279,17 +311,17 @@ REBNATIVE(console)
         code = rebBlank();
 
     while (true) {
-       assert(not ctrl_c_enabled); // not while HOST-CONSOLE is on the stack
+       assert(not halting_enabled);  // not while HOST-CONSOLE is on the stack
 
-    recover:;
+      recover: ;  // Note: semicolon needed as next statement is declaration
 
         // This runs the HOST-CONSOLE, which returns *requests* to execute
-        // arbitrary code by way of its return results.  The TRAP and CATCH
-        // are thus here to intercept bugs *in HOST-CONSOLE itself*.  Any
-        // evaluations for the user (or on behalf of the console skin) are
-        // done in Run_Sandboxed_Group().
+        // arbitrary code by way of its return results.  The ENTRAP is thus
+        // here to intercept bugs *in HOST-CONSOLE itself*.  Any evaluations
+        // for the user (or on behalf of the console skin) are done in
+        // Run_Sandboxed_Group().
         //
-        REBVAL *trapped; // goto crosses initialization
+        REBVAL *trapped;  // Note: goto would cross initialization
         trapped = rebRun(
             "entrap [",
                 "ext-console-impl",  // action! that takes 2 args, run it
@@ -318,16 +350,17 @@ REBNATIVE(console)
 
             code = rebRun("[#host-console-error]", rebEND);
             result = trapped;
-            no_recover = true; // no second chances until user code runs
+            no_recover = true;  // no second chances until user code runs
             goto recover;
         }
 
-        code = rebRun("first", trapped, rebEND); // entrap []'s the output
+        code = rebRun("first", trapped, rebEND);  // entrap []'s the output
         rebRelease(trapped); // don't need the outer block any more
 
-      provoked:;
+      provoked:
+
         if (rebDid("integer?", code, rebEND))
-            break; // when HOST-CONSOLE returns INTEGER! it means an exit code
+            break;  // when HOST-CONSOLE returns INTEGER! it means exit code
 
         if (rebDid("path?", code, rebEND)) {
             assert(REF(resumable));
@@ -338,10 +371,10 @@ REBNATIVE(console)
         REBVAL *group;
 
         if (is_console_instruction) {
-            group = rebRun("as group!", code, rebEND); // to run w/o DO
+            group = rebRun("as group!", code, rebEND);  // to run without DO
         }
         else {
-            group = rebRun(code, rebEND); // can rebRelease w/o releasing code
+            group = rebRun(code, rebEND);  // rebRelease() w/o affecting code
 
             // If they made it to a user mode instruction, the console skin
             // must not be broken beyond all repair.  So re-enable recovery.
@@ -366,10 +399,10 @@ REBNATIVE(console)
         // decide whether to accept the cancellation or consider it an error
         // condition or a reason to fall back to the default skin).
         //
-        Enable_Ctrl_C();
+        Enable_Halting();
         result = rebRescue(cast(REBDNG*, &Run_Sandboxed_Group), group);
-        rebRelease(group); // Note: does not release `code`
-        Disable_Ctrl_C();
+        rebRelease(group);  // Note: does not release `code`
+        Disable_Halting();
 
         // If the custom DO and APPLY hooks were changed by the user code,
         // then save them...but restore the unhooked versions for the next
@@ -389,10 +422,10 @@ REBNATIVE(console)
 
     // Exit code is now an INTEGER! or a resume instruction PATH!
 
-    if (was_ctrl_c_enabled)
-        Enable_Ctrl_C();
+    if (was_halting_enabled)
+        Enable_Halting();
 
-    return code; // http://stackoverflow.com/q/1101957/
+    return code;  // http://stackoverflow.com/q/1101957/
 }
 
 

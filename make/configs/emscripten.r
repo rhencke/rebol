@@ -15,9 +15,13 @@ extensions: make map! [
     BMP -
     Clipboard -
     Crypt -
+    Console +
     Debugger -
+    Event -
     FFI -
     GIF -
+    Gob -
+    Image -
     JavaScript +
     JPG -
     Locale -
@@ -25,6 +29,7 @@ extensions: make map! [
     PNG -
     Process -
     UUID -
+    Vector -
     View -
     ZeroMQ -
 ]

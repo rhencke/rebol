@@ -363,7 +363,7 @@ ext-console-impl: function [
     {Rebol ACTION! that is called from C in a loop to implement the console}
 
     return: "Code submission for C caller to run in a sandbox, or exit status"
-        [block! group! integer! path!] ;-- Note: RETURN is hooked below!!!
+        [block! group! integer! path!]  ; Note: RETURN is hooked below!!!
     prior "BLOCK! or GROUP! that last invocation of HOST-CONSOLE requested"
         [blank! block! group!]
     result "Quoted result from evaluating PRIOR, or non-quoted error"
