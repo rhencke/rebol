@@ -761,7 +761,6 @@ mezz-files: load %../mezz/boot-files.r  ; base, sys, mezz
 for-each section [boot-base boot-sys boot-mezz] [
     set section make block! 200
     for-each file first mezz-files [
-        print [file]
         append get section load join %../mezz/ file
     ]
 
