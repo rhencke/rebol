@@ -67,6 +67,7 @@
 
 #include "reb-process.h"
 
+
 static inline bool Open_Pipe_Fails(int pipefd[2]) {
   #ifdef USE_PIPE2_NOT_PIPE
     //
@@ -114,7 +115,7 @@ static inline bool Set_Nonblocking_Fails(int fd) {
 
 
 //
-//  OS_Create_Process: C
+//  Call_Core: C
 //
 // flags:
 //     1: wait, is implied when I/O redirection is enabled
@@ -128,32 +129,159 @@ static inline bool Set_Nonblocking_Fails(int fd) {
 // POSIX previous simple version was just 'return system(call);'
 // This uses 'execvp' which is "POSIX.1 conforming, UNIX compatible"
 //
-int OS_Create_Process(
-    REBFRM *frame_,  // stopgap: allows access to CALL's ARG() and REF()
-    const char *call,
-    int argc,
-    const char* argv[],
-    bool flag_wait,  // distinct from REF(wait)
-    uint64_t *pid,
-    int *exit_code,
-    char *input,
-    uint32_t input_len,
-    char **output,
-    uint32_t *output_len,
-    char **err,
-    uint32_t *err_len
-){
+REB_R Call_Core(REBFRM *frame_) {
     PROCESS_INCLUDE_PARAMS_OF_CALL;
 
-    UNUSED(ARG(command));  // translated into call and argc/argv
-    UNUSED(REF(wait));  // flag_wait controls this
-    UNUSED(REF(input));
-    UNUSED(REF(output));
-    UNUSED(REF(error));
+    UNUSED(REF(console));  // !!! actually not paid attention to, why?
 
-    UNUSED(REF(console));  // actually not paid attention to
+    // SECURE was never actually done for R3-Alpha
+    //
+    Check_Security(Canon(SYM_CALL), POL_EXEC, ARG(command));
 
-    UNUSED(call);
+    // Make sure that if the output or error series are STRING! or BINARY!,
+    // they are not read-only, before we try appending to them.
+    //
+    if (IS_TEXT(ARG(out)) or IS_BINARY(ARG(out)))
+        FAIL_IF_READ_ONLY_SERIES(ARG(out));
+    if (IS_TEXT(ARG(err)) or IS_BINARY(ARG(err)))
+        FAIL_IF_READ_ONLY_SERIES(ARG(err));
+
+    char *inbuf;
+    size_t inbuf_size;
+
+    if (not REF(input)) {
+        inbuf = nullptr;
+        inbuf_size = 0;
+    }
+    else switch (VAL_TYPE(ARG(in))) {
+      case REB_BLANK:
+        inbuf = NULL;
+        inbuf_size = 0;
+        break;
+
+      case REB_TEXT: {
+        inbuf_size = rebSpellInto(nullptr, 0, ARG(in));
+        inbuf = rebAllocN(char, inbuf_size);
+        size_t check;
+        check = rebSpellInto(inbuf, inbuf_size, ARG(in));
+        UNUSED(check);
+        break; }
+
+      case REB_FILE: {
+        size_t size;
+        inbuf = s_cast(rebBytes(  // !!! why fileNAME size passed in???
+            &size,
+            "file-to-local", ARG(in),
+            rebEND
+        ));
+        inbuf_size = size;
+        break; }
+
+      case REB_BINARY: {
+        inbuf = s_cast(rebBytes(&inbuf_size, ARG(in), rebEND));
+        break; }
+
+      default:
+        panic(ARG(in));
+    }
+
+    bool flag_wait;
+    if (
+        REF(wait)
+        or (
+            IS_TEXT(ARG(in)) or IS_BINARY(ARG(in))
+            or IS_TEXT(ARG(out)) or IS_BINARY(ARG(out))
+            or IS_TEXT(ARG(err)) or IS_BINARY(ARG(err))
+        ) // I/O redirection implies /WAIT
+    ){
+        flag_wait = true;
+    }
+    else
+        flag_wait = false;
+
+    // We synthesize the argc and argv from the "command", and in the process
+    // we do dynamic allocations of argc strings through the API.  These need
+    // to be freed before we return.
+    //
+    char *cmd;
+    int argc;
+    const char **argv;
+
+    if (IS_TEXT(ARG(command))) {
+        // `call {foo bar}` => execute %"foo bar"
+
+        // !!! Interpreting string case as an invocation of %foo with argument
+        // "bar" has been requested and seems more suitable.  Question is
+        // whether it should go through the shell parsing to do so.
+
+        cmd = rebSpell(ARG(command), rebEND);
+
+        argc = 1;
+        argv = rebAllocN(const char*, (argc + 1));
+
+        // !!! Make two copies because it frees cmd and all the argv.  Review.
+        //
+        argv[0] = rebSpell(ARG(command), rebEND);
+        argv[1] = nullptr;
+    }
+    else if (IS_BLOCK(ARG(command))) {
+        // `call ["foo" "bar"]` => execute %foo with arg "bar"
+
+        cmd = nullptr;
+
+        REBVAL *block = ARG(command);
+        argc = VAL_LEN_AT(block);
+        if (argc == 0)
+            fail (Error_Too_Short_Raw());
+
+        argv = rebAllocN(const char*, (argc + 1));
+
+        int i;
+        for (i = 0; i < argc; i ++) {
+            RELVAL *param = VAL_ARRAY_AT_HEAD(block, i);
+            if (IS_TEXT(param)) {
+                argv[i] = rebSpell(KNOWN(param), rebEND);
+            }
+            else if (IS_FILE(param)) {
+                argv[i] = rebSpell("file-to-local", KNOWN(param), rebEND);
+            }
+            else
+                fail (Error_Bad_Value_Core(param, VAL_SPECIFIER(block)));
+        }
+        argv[argc] = nullptr;
+    }
+    else if (IS_FILE(ARG(command))) {
+        // `call %"foo bar"` => execute %"foo bar"
+
+        cmd = nullptr;
+
+        argc = 1;
+        argv = rebAllocN(const char*, (argc + 1));
+
+        argv[0] = rebSpell("file-to-local", ARG(command), rebEND);
+        argv[1] = nullptr;
+    }
+    else
+        fail (PAR(command));
+
+    REBU64 pid = 1020;  // Initialize with garbage to avoid compiler warning
+    int exit_code = 304;  // ...same...
+
+    // If a STRING! or BINARY! is used for the output or error, then that
+    // is treated as a request to append the results of the pipe to them.
+    //
+    // !!! At the moment this is done by having the OS-specific routine
+    // pass back a buffer it malloc()s and reallocates to be the size of the
+    // full data, which is then appended after the operation is finished.
+    // With CALL now an extension where all parts have access to the internal
+    // API, it could be added directly to the binary or string as it goes.
+
+    // These are initialized to avoid a "possibly uninitialized" warning.
+    //
+    char *outbuf = nullptr;
+    size_t outbuf_used = 0;
+    char *errbuf = nullptr;
+    size_t errbuf_used = 0;
 
     int status = 0;
     int ret = 0;
@@ -164,13 +292,9 @@ int OS_Create_Process(
     // an integer's worth of data in that case, but it may need a bigger
     // buffer if more interesting data needs to pass between them.
     //
-    char *info = NULL;
-    off_t info_size = 0;
-    uint32_t info_len = 0;
-
-    // suppress unused warnings but keep flags for future use
-    UNUSED(REF(info));
-    UNUSED(REF(console));
+    char *infobuf = nullptr;
+    size_t infobuf_capacity = 0;
+    size_t infobuf_used = 0;
 
     const unsigned int R = 0;
     const unsigned int W = 1;
@@ -199,14 +323,20 @@ int OS_Create_Process(
 
     pid_t fpid;  // gotos would cross initialization
     fpid = fork();
+
     if (fpid == 0) {
-        //
-        // This is the child branch of the fork.  In GDB if you want to debug
-        // the child you need to use `set follow-fork-mode child`:
+
+    //=//// CHILD BRANCH OF FORK() ////////////////////////////////////////=//
+
+        // In GDB if you want to debug the child you need to use:
+        // `set follow-fork-mode child`:
         //
         // http://stackoverflow.com/questions/15126925/
 
-        if (IS_TEXT(ARG(in)) or IS_BINARY(ARG(in))) {
+        if (not REF(input)) {
+            // inherit stdin from the parent
+        }
+        else if (IS_TEXT(ARG(in)) or IS_BINARY(ARG(in))) {
             close(stdin_pipe[W]);
             if (dup2(stdin_pipe[R], STDIN_FILENO) < 0)
                 goto child_error;
@@ -233,12 +363,13 @@ int OS_Create_Process(
                 goto child_error;
             close(fd);
         }
-        else {
-            assert(IS_NULLED(ARG(in)));
-            // inherit stdin from the parent
-        }
+        else
+            panic(ARG(in));
 
-        if (IS_TEXT(ARG(out)) or IS_BINARY(ARG(out))) {
+        if (not REF(output)) {
+            // inherit stdout from the parent
+        }
+        else if (IS_TEXT(ARG(out)) or IS_BINARY(ARG(out))) {
             close(stdout_pipe[R]);
             if (dup2(stdout_pipe[W], STDOUT_FILENO) < 0)
                 goto child_error;
@@ -265,12 +396,11 @@ int OS_Create_Process(
                 goto child_error;
             close(fd);
         }
-        else {
-            assert(IS_NULLED(ARG(out)));
-            // inherit stdout from the parent
-        }
 
-        if (IS_TEXT(ARG(err)) or IS_BINARY(ARG(err))) {
+        if (not REF(error)) {
+            // inherit stderr from the parent
+        }
+        else if (IS_TEXT(ARG(err)) or IS_BINARY(ARG(err))) {
             close(stderr_pipe[R]);
             if (dup2(stderr_pipe[W], STDERR_FILENO) < 0)
                 goto child_error;
@@ -296,10 +426,6 @@ int OS_Create_Process(
             if (dup2(fd, STDERR_FILENO) < 0)
                 goto child_error;
             close(fd);
-        }
-        else {
-            assert(IS_NULLED(ARG(err)));
-            // inherit stderr from the parent
         }
 
         close(info_pipe[R]);
@@ -365,32 +491,29 @@ int OS_Create_Process(
         exit(EXIT_FAILURE);  // get here only when exec fails
     }
     else if (fpid > 0) {
-        //
-        // This is the parent branch, so it may (or may not) wait on the
-        // child fork branch, based on /WAIT.  Even if you are not using
-        // /WAIT, it will use the info pipe to make sure the process did
-        // actually start.
-        //
+
+    //=//// PARENT BRANCH OF FORK() ///////////////////////////////////////=//
+
+        // The parent branch is the Rebol making the CALL.  It may or may not
+        // /WAIT on the child fork branch, based on /WAIT.  Even if you are
+        // not using /WAIT, it will use the info pipe to make sure the process
+        // did actually start.
+
         nfds_t nfds = 0;
         struct pollfd pfds[4];
         unsigned int i;
         ssize_t nbytes;
-        off_t input_size = 0;
-        off_t output_size = 0;
-        off_t err_size = 0;
-        int valid_nfds;
+        size_t inbuf_pos = 0;
+        size_t outbuf_capacity = 0;
+        size_t errbuf_capacity = 0;
 
         // Only put the input pipe in the consideration if we can write to
         // it and we have data to send to it.
 
-        if ((stdin_pipe[W] > 0) && (input_size = strlen(input)) > 0) {
+        if (stdin_pipe[W] > 0 and inbuf_size > 0) {
             /* printf("stdin_pipe[W]: %d\n", stdin_pipe[W]); */
             if (Set_Nonblocking_Fails(stdin_pipe[W]))
                 goto kill;
-
-            // the passed in input_len is in characters, not in bytes
-            //
-            input_len = 0;
 
             pfds[nfds].fd = stdin_pipe[W];
             pfds[nfds].events = POLLOUT;
@@ -404,10 +527,10 @@ int OS_Create_Process(
             if (Set_Nonblocking_Fails(stdout_pipe[R]))
                 goto kill;
 
-            output_size = BUF_SIZE_CHUNK;
+            outbuf_capacity = BUF_SIZE_CHUNK;
 
-            *output = cast(char*, malloc(output_size));
-            *output_len = 0;
+            outbuf = cast(char*, malloc(outbuf_capacity));
+            outbuf_used = 0;
 
             pfds[nfds].fd = stdout_pipe[R];
             pfds[nfds].events = POLLIN;
@@ -421,10 +544,10 @@ int OS_Create_Process(
             if (Set_Nonblocking_Fails(stderr_pipe[R]))
                 goto kill;
 
-            err_size = BUF_SIZE_CHUNK;
+            errbuf_capacity = BUF_SIZE_CHUNK;
 
-            *err = cast(char*, malloc(err_size));
-            *err_len = 0;
+            errbuf = cast(char*, malloc(errbuf_capacity));
+            errbuf_used = 0;
 
             pfds[nfds].fd = stderr_pipe[R];
             pfds[nfds].events = POLLIN;
@@ -442,15 +565,15 @@ int OS_Create_Process(
             pfds[nfds].events = POLLIN;
             nfds++;
 
-            info_size = 4;
+            infobuf_capacity = 4;
 
-            info = cast(char*, malloc(info_size));
+            infobuf = cast(char*, malloc(infobuf_capacity));
 
             close(info_pipe[W]);
             info_pipe[W] = -1;
         }
 
-        valid_nfds = nfds;
+        int valid_nfds = nfds;
         while (valid_nfds > 0) {
             pid_t xpid = waitpid(fpid, &status, WNOHANG);
             if (xpid == -1) {
@@ -458,42 +581,35 @@ int OS_Create_Process(
                 goto error;
             }
 
-            if (xpid == fpid) {
-                //
-                // try one more time to read any remainding output/err
-                //
+            if (xpid == fpid) {  // try once more to read remaining out/err
                 if (stdout_pipe[R] > 0) {
                     nbytes = read(
                         stdout_pipe[R],
-                        *output + *output_len,
-                        output_size - *output_len
+                        outbuf + outbuf_used,
+                        outbuf_capacity - outbuf_used
                     );
-
-                    if (nbytes > 0) {
-                        *output_len += nbytes;
-                    }
+                    if (nbytes > 0)
+                        outbuf_used += nbytes;
                 }
 
                 if (stderr_pipe[R] > 0) {
                     nbytes = read(
                         stderr_pipe[R],
-                        *err + *err_len,
-                        err_size - *err_len
+                        errbuf + errbuf_used,
+                        errbuf_capacity - errbuf_used
                     );
-                    if (nbytes > 0) {
-                        *err_len += nbytes;
-                    }
+                    if (nbytes > 0)
+                        errbuf_used += nbytes;
                 }
 
                 if (info_pipe[R] > 0) {
                     nbytes = read(
                         info_pipe[R],
-                        info + info_len,
-                        info_size - info_len
+                        infobuf + infobuf_used,
+                        infobuf_capacity - infobuf_used
                     );
-                    if (nbytes > 0) {
-                        info_len += nbytes;
-                    }
+                    if (nbytes > 0)
+                        infobuf_used += nbytes;
                 }
 
                 if (WIFSTOPPED(status)) {
@@ -521,7 +637,7 @@ int OS_Create_Process(
                 goto kill;
             }
 
-            for (i = 0; i < nfds && valid_nfds > 0; ++i) {
+            for (i = 0; i < nfds and valid_nfds > 0; ++i) {
                 /* printf("check: %d [%d/%d]\n", pfds[i].fd, i, nfds); */
 
                 if (pfds[i].revents & POLLERR) {
@@ -529,81 +645,106 @@ int OS_Create_Process(
 
                     close(pfds[i].fd);
                     pfds[i].fd = -1;
-                    valid_nfds --;
+                    --valid_nfds;
                 }
                 else if (pfds[i].revents & POLLOUT) {
                     /* printf("POLLOUT: %d [%d/%d]\n", pfds[i].fd, i, nfds); */
 
-                    nbytes = write(pfds[i].fd, input, input_size - input_len);
+                    nbytes = write(
+                        pfds[i].fd,
+                        inbuf + inbuf_pos,
+                        inbuf_size - inbuf_pos
+                    );
                     if (nbytes <= 0) {
                         ret = errno;
                         goto kill;
                     }
                     /* printf("POLLOUT: %d bytes\n", nbytes); */
-                    input_len += nbytes;
-                    if (cast(off_t, input_len) >= input_size) {
+                    inbuf_pos += nbytes;
+                    if (inbuf_pos >= inbuf_size) {
                         close(pfds[i].fd);
                         pfds[i].fd = -1;
-                        valid_nfds --;
+                        --valid_nfds;
                     }
                 }
                 else if (pfds[i].revents & POLLIN) {
                     /* printf("POLLIN: %d [%d/%d]\n", pfds[i].fd, i, nfds); */
-                    char **buffer = NULL;
-                    uint32_t *offset;
-                    ssize_t to_read = 0;
-                    off_t *size;
+
+                    char **buffer;
+                    size_t *used;
+                    size_t *capacity;
                     if (pfds[i].fd == stdout_pipe[R]) {
-                        buffer = output;
-                        offset = output_len;
-                        size = &output_size;
+                        buffer = &outbuf;
+                        used = &outbuf_used;
+                        capacity = &outbuf_capacity;
                     }
                     else if (pfds[i].fd == stderr_pipe[R]) {
-                        buffer = err;
-                        offset = err_len;
-                        size = &err_size;
+                        buffer = &errbuf;
+                        used = &errbuf_used;
+                        capacity = &errbuf_capacity;
                     }
                     else {
                         assert(pfds[i].fd == info_pipe[R]);
-                        buffer = &info;
-                        offset = &info_len;
-                        size = &info_size;
+                        buffer = &infobuf;
+                        used = &infobuf_used;
+                        capacity = &infobuf_capacity;
                     }
 
+                    ssize_t to_read = 0;
                     do {
-                        to_read = *size - *offset;
+                        to_read = *capacity - *used;
                         assert (to_read > 0);
                         /* printf("to read %d bytes\n", to_read); */
-                        nbytes = read(pfds[i].fd, *buffer + *offset, to_read);
+                        nbytes = read(pfds[i].fd, *buffer + *used, to_read);
 
                         // The man page of poll says about POLLIN:
                         //
-                        // POLLIN      Data other than high-priority data may be read without blocking.
-
-                        //    For STREAMS, this flag is set in revents even if the message is of _zero_ length. This flag shall be equivalent to POLLRDNORM | POLLRDBAND.
-                        // POLLHUP     A  device  has been disconnected, or a pipe or FIFO has been closed by the last process that had it open for writing. Once set, the hangup state of a FIFO shall persist until some process opens the FIFO for writing or until all read-only file descriptors for the FIFO  are  closed.  This  event  and POLLOUT  are  mutually-exclusive; a stream can never be writable if a hangup has occurred. However, this event and POLLIN, POLLRDNORM, POLLRDBAND, or POLLPRI are not mutually-exclusive. This flag is only valid in the revents bitmask; it shall be ignored in the events member.
-                        // So "nbytes = 0" could be a valid return with POLLIN, and not indicating the other end closed the pipe, which is indicated by POLLHUP
+                        // "Data other than high-priority data may be read
+                        //  without blocking.  For STREAMS, this flag is set
+                        //  in `revents` even if the message is of _zero_
+                        //  length.  This flag shall be equivalent to:
+                        //  `POLLRDNORM | POLLRDBAND`
+                        //
+                        // And about POLLHUP:
+                        //
+                        // "A device  has been disconnected, or a pipe or FIFO
+                        //  has been closed by the last process that had it
+                        //  open for writing.  Once set, the hangup state of a
+                        //  FIFO shall persist until some process opens the
+                        //  FIFO for writing or until all read-only file
+                        //  descriptors for the FIFO  are  closed.  This event
+                        //  and POLLOUT are mutually-exclusive; a stream can
+                        //  never be writable if a hangup has occurred.
+                        //  However, this event and POLLIN, POLLRDNORM,
+                        //  POLLRDBAND, or POLLPRI are not mutually-exclusive.
+                        //  This flag is only valid in the `revents` bitmask;
+                        //  it shall be ignored in the events member."
+                        //
+                        // So "nbytes = 0" could be a valid return with POLLIN,
+                        // and not indicating the other end closed the pipe,
+                        // which is indicated by POLLHUP.
+                        //
                         if (nbytes <= 0)
                             break;
 
                         /* printf("POLLIN: %d bytes\n", nbytes); */
 
-                        *offset += nbytes;
-                        assert(cast(off_t, *offset) <= *size);
+                        *used += nbytes;
+                        assert(*used <= *capacity);
 
-                        if (cast(off_t, *offset) == *size) {
+                        if (*used == *capacity) {
                             char *larger = cast(
                                 char*,
-                                malloc(*size + BUF_SIZE_CHUNK)
+                                malloc(*capacity + BUF_SIZE_CHUNK)
                             );
-                            if (larger == NULL)
+                            if (larger == nullptr)
                                 goto kill;
-                            memcpy(larger, *buffer, *size);
+                            memcpy(larger, *buffer, *capacity);
                             free(*buffer);
                             *buffer = larger;
-                            *size += BUF_SIZE_CHUNK;
+                            *capacity += BUF_SIZE_CHUNK;
                         }
-                        assert(cast(off_t, *offset) < *size);
+                        assert(*used < *capacity);
                     } while (nbytes == to_read);
                 }
                 else if (pfds[i].revents & POLLHUP) {
@@ -620,7 +761,7 @@ int OS_Create_Process(
             }
         }
 
-        if (valid_nfds == 0 && flag_wait) {
+        if (valid_nfds == 0 and flag_wait) {
             if (waitpid(fpid, &status, 0) < 0) {
                 ret = errno;
                 goto error;
@@ -647,42 +788,23 @@ int OS_Create_Process(
 
   cleanup:
 
-    // CALL only expects to have to free the output or error buffer if there
-    // was a non-zero number of bytes returned.  If there was no data, take
-    // care of it here.
-    //
-    // !!! This won't be done this way when this routine actually appends to
-    // the BINARY! or STRING! itself.
-
-    if (output and *output)
-        if (*output_len == 0) {  // buffer allocated but never used
-            free(*output);
-            *output = NULL;
-        }
-
-    if (err and *err)
-        if (*err_len == 0) {  // buffer allocated but never used
-            free(*err);
-            *err = NULL;
-        }
-
     if (info_pipe[R] > 0)
         close(info_pipe[R]);
 
     if (info_pipe[W] > 0)
         close(info_pipe[W]);
 
-    if (info_len == sizeof(int)) {
+    if (infobuf_used == sizeof(int)) {
         //
         // exec in child process failed, set to errno for reporting.
         //
-        ret = *cast(int*, info);
+        ret = *cast(int*, infobuf);
     }
     else if (WIFEXITED(status)) {
-        assert(info_len == 0);
+        assert(infobuf_used == 0);
 
-       *exit_code = WEXITSTATUS(status);
-       *pid = fpid;
+       exit_code = WEXITSTATUS(status);
+       pid = fpid;
     }
     else if (WIFSIGNALED(status)) {
         non_errno_ret = WTERMSIG(status);
@@ -693,16 +815,16 @@ int OS_Create_Process(
         // child is stopped
         //
         assert(false);
-        if (info)
-            free(info);
+        if (infobuf)
+            free(infobuf);
         rebJumps("fail {Child process is stopped}", rebEND);
     }
     else {
         non_errno_ret = -2048;  // !!! randomly picked
     }
 
-    if (info != NULL)
-        free(info);
+    if (infobuf != NULL)
+        free(infobuf);
 
   info_pipe_err:
 
@@ -745,5 +867,75 @@ int OS_Create_Process(
     else if (non_errno_ret < 0)
         rebJumps("fail {Unknown error happened in CALL}");
 
-    return ret;
+
+    // Call may not succeed if r != 0, but we still have to run cleanup
+    // before reporting any error...
+
+    assert(argc > 0);
+
+    int i;
+    for (i = 0; i != argc; ++i)
+        rebFree(m_cast(char*, argv[i]));
+
+    if (cmd != NULL)
+        rebFree(cmd);
+
+    rebFree(m_cast(char**, argv));
+
+    if (IS_TEXT(ARG(out))) {
+        if (outbuf_used > 0) {
+            REBVAL *output_val = rebSizedText(outbuf, outbuf_used);
+            rebElide("append", ARG(out), output_val, rebEND);
+            rebRelease(output_val);
+        }
+    }
+    else if (IS_BINARY(ARG(out))) {
+        if (outbuf_used > 0) {
+            Append_Unencoded_Len(VAL_SERIES(ARG(out)), outbuf, outbuf_used);
+        }
+    }
+    else
+        assert(outbuf == nullptr);
+    free(outbuf);  // legal if outbuf is nullptr
+
+    if (IS_TEXT(ARG(err))) {
+        if (errbuf_used > 0) {
+            REBVAL *error_val = rebSizedText(errbuf, errbuf_used);
+            rebElide("append", ARG(err), error_val, rebEND);
+            rebRelease(error_val);
+        }
+    } else if (IS_BINARY(ARG(err))) {
+        if (errbuf_used > 0) {
+            Append_Unencoded_Len(VAL_SERIES(ARG(err)), errbuf, errbuf_used);
+            free(errbuf);
+        }
+    }
+    free(errbuf);  // legal if errbuf is nullptr
+
+    if (inbuf != nullptr)
+        rebFree(inbuf);
+
+    if (ret != 0)
+        rebFail_OS (ret);
+
+    if (REF(info)) {
+        REBCTX *info = Alloc_Context(REB_OBJECT, 2);
+
+        Init_Integer(Append_Context(info, nullptr, Canon(SYM_ID)), pid);
+        if (REF(wait))
+            Init_Integer(
+                Append_Context(info, nullptr, Canon(SYM_EXIT_CODE)),
+                exit_code
+            );
+
+        return Init_Object(D_OUT, info);
+    }
+
+    // We may have waited even if they didn't ask us to explicitly, but
+    // we only return a process ID if /WAIT was not explicitly used
+    //
+    if (REF(wait))
+        return Init_Integer(D_OUT, exit_code);
+
+    return Init_Integer(D_OUT, pid);
 }
