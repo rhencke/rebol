@@ -72,6 +72,16 @@
     ARRAY_FLAG_24
 
 
+//=//// ARRAY_FLAG_SINGULAR_API_INSTRUCTION //////////////////////////////=//
+//
+// rebUNEVALUATIVE() a.k.a. rebU() will set its feed to unevaluative, so that
+// it knows not to splice values with a quote.  But then there's the matter
+// of the node itself.  We set it to unevaluative.
+//
+#define ARRAY_FLAG_SINGULAR_API_UNEVALUATIVE \
+    ARRAY_FLAG_25
+
+
 inline static bool Is_Action_Frame(REBFRM *f) {
     if (f->original != nullptr) {
         //

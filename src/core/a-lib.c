@@ -595,6 +595,7 @@ const void *RL_rebUNEVALUATIVE(const void *p, va_list *vaptr)
 
     REBARR *a = Singular_From_Cell(result);
     SET_ARRAY_FLAG(a, SINGULAR_API_RELEASE);
+    SET_ARRAY_FLAG(a, SINGULAR_API_UNEVALUATIVE);
     return a;
 }
 

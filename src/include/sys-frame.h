@@ -654,7 +654,10 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
             assert(GET_SERIES_FLAG(inst1, MANAGED));
 
             REBVAL *single = KNOWN(ARR_SINGLE(inst1));
-            if (GET_FEED_FLAG(feed, UNEVALUATIVE)) {
+            if (
+                GET_FEED_FLAG(feed, UNEVALUATIVE)
+                or GET_ARRAY_FLAG(inst1, SINGULAR_API_UNEVALUATIVE)
+            ){
                 //
                 // See notes above (duplicate code, fix!) about how if we
                 // aren't adding a quote, then we might like to use the
