@@ -1653,7 +1653,10 @@ for-each ext dynamic-extensions [
 
 top: make rebmake/entry-class [
     target: 'top ; phony target
-    depends: flatten reduce [app dynamic-libs]
+    depends: flatten reduce ??
+        either tmp: select user-config 'top
+        [either block? tmp [tmp] [reduce [tmp]]]
+        [[ app dynamic-libs ]]
 ]
 
 t-folders: make rebmake/entry-class [

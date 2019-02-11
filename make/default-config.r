@@ -92,3 +92,5 @@ libraries: _
 ldflags: _
 
 main: _
+
+top: _

@@ -1,5 +1,7 @@
 REBOL []
 
+top: 'library
+
 os-id: default [0.16.2]
 
 gcc-path: 

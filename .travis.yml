@@ -377,7 +377,6 @@ matrix:
         - OS_ID=0.16.2
         - DEBUG=none
         - OPTIMIZE=z
-        - TARGET=libr3.js
         - STANDARD=c
         - RIGOROUS=no
         - STATIC=no
