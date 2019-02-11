@@ -685,10 +685,21 @@ to-js-type: func [
     ]
 ]
 
+
+; Add special API objects only for JavaScript
+
+append api-objects make object! [
+    spec: _  ; Rebol metadata API comment
+    name: "rebPromise"
+    returns: "intptr_t"
+    paramlist: ["const void *" p "va_list *" vaptr]
+    proto: "intptr_t rebPromise(void *p, va_list *vaptr)"
+]
+
+
 map-each-api [
     if find [
         "rebStartup" ;-- no rebEnterApi, extra initialization in its wrapper
-        "rebPromise_callback" ;-- must be called as _RL_rebPromise_callback
         "rebEnterApi_internal" ;-- called as _RL_rebEnterApi_internal
     ] name [
         continue
@@ -767,6 +778,28 @@ map-each-api [
           ]
         ]
 
+        ; We may need to insert a REBPROMISE-HELPER call if this is trying to
+        ; implement rebPromise(), which is actually done through a call to
+        ; rebUnboxInteger() to get an ID which RETURN-CODE "promisifies".
+        ;
+        ; Note that C functions define their va_list addresses based on their
+        ; non-variadic arguments, so the first argument can't be variadic.
+        ; That's actually a benefit here--since we want to slip the promise
+        ; helper in.  We can do so without complicating the va_list builder.
+        ;
+        ; Note `va + 4` is where the first vararg is, must pass as *address*
+        ; Just put the address on the heap after the rebEND.  It will be the
+        ; second variadic argument if we're not passing rebPROMISE_HELPER as
+        ; the first arg, otherwise it will be the first variadic argument
+        ;
+        invoke-code: cscape/with either js-returns != <promise> [{
+            HEAP32[(va>>2) + (argc + 1)] = va + 4  // second vararg address
+            a = _RL_$<Name>(HEAP32[va>>2], va + 4 * (argc + 1))
+        }][{
+            HEAP32[(va>>2) + (argc + 1)] = va  // first vararg address
+            a = _RL_rebUnboxInteger(rebU(rebPROMISE_HELPER), va + 4 * (argc + 1))
+        }] api
+
         e-cwrap/emit cscape/with {
             $<Name> = function() {
                 $<Enter>
@@ -794,12 +827,8 @@ map-each-api [
 
                 HEAP32[(va>>2) + argc] = rebEND
 
-                // va + 4 is where the first vararg is, must pass as *address*
-                // Just put the address on the heap after the rebEND
-                //
-                HEAP32[(va>>2) + (argc + 1)] = va + 4
+                $<Invoke-Code>
 
-                a = _RL_$<Name>(HEAP32[va>>2], va + 4 * (argc + 1))
                 stackRestore(stack)
 
                 $<Return-Code>
@@ -843,17 +872,48 @@ e-cwrap/emit {
     rebStartup = function() {
         _RL_rebStartup()
 
-        /* rebEND is a 2-byte sequence that must live at some address */
+        /* rebEND is a 2-byte sequence that must live at some address
+         * it must be initialized before any variadic libRebol API will work
+         */
         rebEND = _malloc(2)
         setValue(rebEND, -127, 'i8')  /* 0x80 */
         setValue(rebEND + 1, 0, 'i8')  /* 0x00 */
+
+        /* There is currently no method to dynamically load extensions with
+         * libr3.js, so the only extensions you can load are those that are
+         * picked to be built-in while compiling the lib.  The "JavaScript
+         * extension" essential--it contains JS-NATIVE and JS-AWAITER.
+         *
+         * We initialize all the built in extensions here for the caller,
+         * even if they may not want them to be initialized yet.  This is
+         * necessary because we need the JavaScript extension to get the
+         * REBPROMISE_HELPER out of it.  So currently this initializes the
+         * extensions.
+         */
+        rebElide(
+            "for-each collation builtin-extensions",
+                "[load-extension collation]"
+        )
+
+        /* REBPROMISE_HELPER and REBPROMISE_CALLBACK are natives in the
+         * JavaScript extension that help with the implementation of
+         * rebPromise().  Cache them so they don't have to be looked up by
+         * name on each rebPromise() call.
+         */
+        if (!rebDid("match action! get 'rebpromise-helper"))
+            throw Error("REBPROMISE-HELPER action isn't set correctly");
+        rebPROMISE_HELPER = rebRun(":rebpromise-helper");
+
+        if (!rebDid("match action! get 'rebpromise-callback"))
+            throw Error("REBPROMISE-CALLBACK action isn't set correctly");
+        rebPROMISE_CALLBACK = rebRun(":rebpromise-callback");
     }
 
     /*
      * JS-NATIVE has a spec which is a Rebol block (like FUNC) but a body that
      * is a TEXT! of JavaScript code.  For efficiency, that text is made into
-     * a function one time (as opposed to EVAL'd each time).  The function is
-     * saved in this map, where the key is the heap pointer that identifies
+     * a function one time (as opposed to eval()'d each time).  The function
+     * is saved in this map, where the key is the heap pointer that identifies
      * the ACTION! (turned into an integer)
      */
 

@@ -16,3 +16,9 @@ REBOL [
 comment [
     {Rebol Support Routines for User Natives Would Go Here}
 ]
+
+; Currently all the necessary initialization for JavaScript extensions is in
+; the rebStartup() wrapper for the library.  But it's helpful to have a call
+; here at least so that one can know in the debugger if the extension ran.
+;
+init-javascript-extension
