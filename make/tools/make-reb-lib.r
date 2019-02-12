@@ -29,29 +29,26 @@ mkdir/deep output-dir
 ver: load %../../src/boot/version.r
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; PROCESS %a-lib.h TO PRODUCE A LIST OF DESCRIPTION OBJECTS FOR EACH API
-;;
-;; This leverages the prototype parser, which uses PARSE on C lexicals, and
-;; loads Rebol-structured data out of comments in the file.
-;;
-;; Currently only two files are searched for RL_API entries.  This makes it
-;; easier to track the order of the API routines and change them sparingly
-;; (such as by adding new routines to the end of the list, so as not to break
-;; binary compatibility with code built to the old ordered interface).
-;;
-;; !!! Having the C parser doesn't seem to buy us as much as it sounds, as
-;; this code has to parse out the types and parameter names.  Is there a way
-;; to hook it to get this information?
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+=== PROCESS %a-lib.h TO PRODUCE DESCRIPTION OBJECTS FOR EACH API ===
+
+; This leverages the prototype parser, which uses PARSE on C lexicals, and
+; loads Rebol-structured data out of comments in the file.
+;
+; Currently only %a-lib.c is searched for RL_API entries.  This makes it
+; easier to track the order of the API routines and change them sparingly
+; (such as by adding new routines to the end of the list, so as not to break
+; binary compatibility with code built to the old ordered interface).  The
+; point of needing that stability hasn't been reached yet, but will come.
+;
+; !!! Having the C parser doesn't seem to buy us as much as it sounds, as
+; this code has to parse out the types and parameter names.  Is there a way
+; to hook it to get this information?
 
 api-objects: make block! 50
 
 map-each-api: func [code [block!]] [
     map-each api api-objects compose/only [
-        do in api (code) ;-- want API variable available when code is running 
+        do in api (code)  ; want API variable visible to `code` while running 
     ]
 ]
 
@@ -78,7 +75,7 @@ emit-proto: func [return: <void> proto] [
     paramlist: collect [
         parse proto [
             copy returns to "RL_" "RL_" copy name to "(" skip
-            ["void)" | some [ ;-- C void, or at least one parameter expected
+            ["void)" | some [  ; C void, or at least one parameter expected
                 [copy param to "," skip | copy param to ")" to end] (
                     ;
                     ; Separate type from parameter name.  Step backwards from
@@ -90,14 +87,15 @@ emit-proto: func [return: <void> proto] [
                         #"a" - #"z"
                         #"0" - #"9"
                         #"_"
-                        ;-- #"." in variadics (but all va_list* in API defs)
+
+                        ; #"." in variadics (but all va_list* in API defs)
                     ]
                     pos: back tail param
                     while [find identifier-chars pos/1] [
                         pos: back pos
                     ]
-                    keep trim/tail copy/part param next pos ;-- TEXT! of type
-                    keep to word! next pos ;-- WORD! of the parameter name
+                    keep trim/tail copy/part param next pos  ; TEXT! of type
+                    keep to word! next pos  ; WORD! of the parameter name
                 )
             ]]
             end
@@ -106,7 +104,7 @@ emit-proto: func [return: <void> proto] [
         ]
     ]
 
-    if (to set-word! name) != header/1 [ ;-- e.g. `//  rebRun: RL_API`
+    if (to set-word! name) != header/1 [  ; e.g. `//  rebRun: RL_API`
         fail [
             "Name in comment header (" header/1 ") isn't C function name"
             "minus RL_ prefix to match" (name)
@@ -117,7 +115,7 @@ emit-proto: func [return: <void> proto] [
     ; https://github.com/rebol/rebol-issues/issues/2317
     ;
     append api-objects make object! compose/only [
-        spec: try match block! third header ;-- Rebol metadata API comment
+        spec: try match block! third header  ; Rebol metadata API comment
         name: (ensure text! name)
         returns: (ensure text! trim/tail returns)
         paramlist: (ensure block! paramlist)
@@ -136,19 +134,14 @@ process: func [file] [
 src-dir: %../../src/core/
 
 process src-dir/a-lib.c
-process src-dir/f-extension.c ; !!! is there a reason to process this file?
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; GENERATE LISTS USED TO BUILD REBOL.H
-;;
-;; For readability, the technique used is not to emit line-by-line, but to
-;; give a "big picture overview" of the header file.  It is substituted into
-;; like a conventional textual templating system.  So blocks are produced for
-;; long generated lists, and then spliced into slots in that "big picture"
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+=== GENERATE LISTS USED TO BUILD REBOL.H ===
+
+; For readability, the technique used is not to emit line-by-line, but to
+; give a "big picture overview" of the header file.  It is substituted into
+; like a conventional textual templating system.  So blocks are produced for
+; long generated lists, and then spliced into slots in that "big picture"
 
 extern-prototypes: map-each-api [
     cscape/with {EMSCRIPTEN_KEEPALIVE RL_API $<Proto>} api
@@ -193,7 +186,7 @@ for-each api api-objects [do in api [
 
     proxied-args: try delimit ", " map-each [type var] paramlist [
         if type = "va_list *" [
-            "&va" ;-- to produce vaptr
+            "&va"   ; to produce vaptr
         ] else [
             to text! var
         ]
@@ -254,11 +247,12 @@ c99-or-c++11-macros: map-each-api [
 ]
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; GENERATE REBOL.H
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+=== GENERATE REBOL.H ===
+
+; Rather than put too many comments here in the Rebol, err on the side of
+; putting comments in the header itself.  `/* use old C style comments */`
+; to help cue readers to knowing they're reading generated code and don't
+; edit, since the Rebol codebase at large uses `//`-style comments.
 
 e-lib: (make-emitter
     "Rebol External Library Interface" output-dir/rebol.h)
@@ -271,14 +265,14 @@ e-lib/emit {
      * since variadic macros don't work.  They will also need shims for
      * stdint.h and stdbool.h included.
      */
-    #include <stdlib.h> /* for size_t */
-    #include <stdarg.h> /* for va_list, va_start() in inline functions */
+    #include <stdlib.h>  /* for size_t */
+    #include <stdarg.h>  /* for va_list, va_start() in inline functions */
     #if !defined(_PSTDINT_H_INCLUDED) && !defined(REBOL_NO_STDINT)
-        #include <stdint.h> /* for uintptr_t, int64_t, etc. */
+        #include <stdint.h>  /* for uintptr_t, int64_t, etc. */
     #endif
     #if !defined(_PSTDBOOL_H_INCLUDED) && !defined(REBOL_NO_STDBOOL)
         #if !defined(__cplusplus)
-            #include <stdbool.h> /* for bool, true, false (if C99) */
+            #include <stdbool.h>  /* for bool, true, false (if C99) */
         #endif
     #endif
 
@@ -476,7 +470,7 @@ e-lib/emit {
 
         $[Struct-Call-Inlines]
 
-    #else /* ...calling Rebol as DLL, or code built into the EXE itself */
+    #else  /* ...calling Rebol as DLL, or code built into the EXE itself */
         /*
          * Extern prototypes for RL_XXX, don't call these functions directly.
          * They use vaptr instead of `...`, and may not do all the proper
@@ -491,7 +485,7 @@ e-lib/emit {
 
         $[Direct-Call-Inlines]
 
-    #endif /* !REB_EXT */
+    #endif  /* !REB_EXT */
 
     /*
      * C's variadic interface is very low-level, as a thin wrapper over the
@@ -526,7 +520,7 @@ e-lib/emit {
 
         $[C99-Or-C++11-Macros]
 
-    #else /* REBOL_EXPLICIT_END */
+    #else  /* REBOL_EXPLICIT_END */
 
         /*
          * !!! Some kind of C++ variadic trick using template recursion could
@@ -536,33 +530,25 @@ e-lib/emit {
 
         $[C89-Macros]
 
-    #endif /* REBOL_EXPLICIT_END */
+    #endif  /* REBOL_EXPLICIT_END */
 
 
-    /***********************************************************************
+    /*
+     * TYPE-SAFE rebMalloc() MACRO VARIANTS
      *
-     *  TYPE-SAFE rebMalloc() MACRO VARIANTS FOR C++ COMPATIBILITY
+     * rebMalloc() offers some advantages over hosts just using malloc():
      *
-     * Originally R3-Alpha's hostkit had special OS_ALLOC and OS_FREE hooks,
-     * to facilitate the core to free memory blocks allocated by the host
-     * (or vice-versa).  So they agreed on an allocator.  In Ren-C, all
-     * layers use REBVAL* for the purpose of exchanging such information--so
-     * this purpose is obsolete.
-     *
-     * Yet a new API construct called rebMalloc() offers some advantages over
-     * hosts just using malloc():
-     *
-     *     Memory can be retaken to act as a BINARY! series without another
+     *  1. Memory can be retaken to act as a BINARY! series without another
      *     allocation, via rebRepossess().
      *
-     *     Memory is freed automatically in the case of a failure in the
+     *  2. Memory is freed automatically in the case of a failure in the
      *     frame where the rebMalloc() occured.  This is especially useful
      *     when mixing C code involving allocations with rebRun(), etc.
      *
-     *     Memory gets counted in Rebol's knowledge of how much memory the
+     *  3. Memory gets counted in Rebol's knowledge of how much memory the
      *     system is using, for the purposes of triggering GC.
      *
-     *     Out-of-memory errors on allocation automatically trigger
+     *  4. Out-of-memory errors on allocation automatically trigger
      *     failure vs. needing special handling by returning NULL (which may
      *     or may not be desirable, depending on what you're doing)
      *
@@ -572,8 +558,7 @@ e-lib/emit {
      * Note: There currently is no rebUnmanage() equivalent for rebMalloc()
      * data, so it must either be rebRepossess()'d or rebFree()'d before its
      * frame ends.  This limitation will be addressed in the future.
-     *
-     **********************************************************************/
+     */
 
     #define rebAlloc(t) \
         cast(t *, rebMalloc(sizeof(t)))
@@ -588,11 +573,12 @@ e-lib/emit {
 e-lib/write-emitted
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; GENERATE TMP-REB-LIB-TABLE.INC
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+=== GENERATE TMP-REB-LIB-TABLE.INC ===
+
+; The form of the API which is exported as a table is declared as a struct,
+; but there has to be an instance of that struct filled with the actual
+; pointers to the RL_XXX C functions to be able to hand it to clients.  Only
+; one instance of this table should be linked into Rebol.
 
 e-table: (make-emitter
     "REBOL Interface Table Singleton" output-dir/tmp-reb-lib-table.inc)
@@ -610,13 +596,11 @@ e-table/emit {
 e-table/write-emitted
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; GENERATE REB-LIB.JS
-;;
-;; !!! What should this file be called?  rebol.js isn't a good fit.
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+=== GENERATE REB-LIB.JS ===
+
+; !!! What should this file be called?  rebol.js isn't a good fit, it is just
+; a component file that is built into the overall lib (which includes the
+; emscripten code to implement the interpreter)
 
 e-cwrap: (make-emitter
     "C-Wraps" output-dir/reb-lib.js
@@ -627,9 +611,9 @@ to-js-type: func [
     s [text!] "C type as string"
 ][
     case [
-        s = "va_list *" [<va_ptr>] ;-- special processing, only an argument
+        s = "va_list *" [<va_ptr>]  ; special processing, only an argument
 
-        s = "intptr_t" [<promise>] ;-- distinct handling for return vs. arg
+        s = "intptr_t" [<promise>]  ; distinct handling for return vs. arg
 
         ; APIs dealing with `char *` means UTF-8 bytes.  While C must memory
         ; manage such strings (at the moment), the JavaScript wrapping assumes
@@ -699,8 +683,8 @@ append api-objects make object! [
 
 map-each-api [
     if find [
-        "rebStartup" ;-- no rebEnterApi, extra initialization in its wrapper
-        "rebEnterApi_internal" ;-- called as _RL_rebEnterApi_internal
+        "rebStartup"  ; no rebEnterApi, extra initialization in its wrapper
+        "rebEnterApi_internal"  ; called as _RL_rebEnterApi_internal
     ] name [
         continue
     ]
@@ -711,7 +695,7 @@ map-each-api [
 
     js-param-types: try collect* [
         for-each [type var] paramlist [
-            if type = "intptr_t" [ ;-- e.g. <promise>
+            if type = "intptr_t" [  ; e.g. <promise>
                 keep "'number'"
                 continue
             ]
