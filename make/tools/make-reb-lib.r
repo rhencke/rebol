@@ -673,13 +673,30 @@ to-js-type: func [
 ; Add special API objects only for JavaScript
 
 append api-objects make object! [
-    spec: _  ; Rebol metadata API comment
+    spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
     name: "rebPromise"
     returns: "intptr_t"
     paramlist: ["const void *" p "va_list *" vaptr]
     proto: "intptr_t rebPromise(void *p, va_list *vaptr)"
 ]
 
+append api-objects make object! [
+    spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
+    name: "rebIdle_internal"  ; !!! see %mod-javascript.c
+    returns: "void"
+    paramlist: []
+    proto: "void rebIdle_internal(void)"
+]
+
+append api-objects make object! [
+    spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
+    name: "rebSignalAwaiter_internal"  ; !!! see %mod-javascript.c
+    returns: "void"
+    paramlist: ["intptr_t" frame_id]
+    proto: unspaced [
+        "void rebSignalAwaiter_internal(intptr_t frame_id)"
+    ]
+]
 
 map-each-api [
     if find [
@@ -762,28 +779,6 @@ map-each-api [
           ]
         ]
 
-        ; We may need to insert a REBPROMISE-HELPER call if this is trying to
-        ; implement rebPromise(), which is actually done through a call to
-        ; rebUnboxInteger() to get an ID which RETURN-CODE "promisifies".
-        ;
-        ; Note that C functions define their va_list addresses based on their
-        ; non-variadic arguments, so the first argument can't be variadic.
-        ; That's actually a benefit here--since we want to slip the promise
-        ; helper in.  We can do so without complicating the va_list builder.
-        ;
-        ; Note `va + 4` is where the first vararg is, must pass as *address*
-        ; Just put the address on the heap after the rebEND.  It will be the
-        ; second variadic argument if we're not passing rebPROMISE_HELPER as
-        ; the first arg, otherwise it will be the first variadic argument
-        ;
-        invoke-code: cscape/with either js-returns != <promise> [{
-            HEAP32[(va>>2) + (argc + 1)] = va + 4  // second vararg address
-            a = _RL_$<Name>(HEAP32[va>>2], va + 4 * (argc + 1))
-        }][{
-            HEAP32[(va>>2) + (argc + 1)] = va  // first vararg address
-            a = _RL_rebUnboxInteger(rebU(rebPROMISE_HELPER), va + 4 * (argc + 1))
-        }] api
-
         e-cwrap/emit cscape/with {
             $<Name> = function() {
                 $<Enter>
@@ -811,7 +806,12 @@ map-each-api [
 
                 HEAP32[(va>>2) + argc] = rebEND
 
-                $<Invoke-Code>
+                /* `va + 4` is where first vararg is, must pass as *address*.
+                 * Just put that address on the heap after the rebEND.
+                 */
+                HEAP32[(va>>2) + (argc + 1)] = va + 4
+
+                a = _RL_$<Name>(HEAP32[va>>2], va + 4 * (argc + 1))
 
                 stackRestore(stack)
 
@@ -862,35 +862,6 @@ e-cwrap/emit {
         rebEND = _malloc(2)
         setValue(rebEND, -127, 'i8')  /* 0x80 */
         setValue(rebEND + 1, 0, 'i8')  /* 0x00 */
-
-        /* There is currently no method to dynamically load extensions with
-         * libr3.js, so the only extensions you can load are those that are
-         * picked to be built-in while compiling the lib.  The "JavaScript
-         * extension" essential--it contains JS-NATIVE and JS-AWAITER.
-         *
-         * We initialize all the built in extensions here for the caller,
-         * even if they may not want them to be initialized yet.  This is
-         * necessary because we need the JavaScript extension to get the
-         * REBPROMISE_HELPER out of it.  So currently this initializes the
-         * extensions.
-         */
-        rebElide(
-            "for-each collation builtin-extensions",
-                "[load-extension collation]"
-        )
-
-        /* REBPROMISE_HELPER and REBPROMISE_CALLBACK are natives in the
-         * JavaScript extension that help with the implementation of
-         * rebPromise().  Cache them so they don't have to be looked up by
-         * name on each rebPromise() call.
-         */
-        if (!rebDid("match action! get 'rebpromise-helper"))
-            throw Error("REBPROMISE-HELPER action isn't set correctly");
-        rebPROMISE_HELPER = rebRun(":rebpromise-helper");
-
-        if (!rebDid("match action! get 'rebpromise-callback"))
-            throw Error("REBPROMISE-CALLBACK action isn't set correctly");
-        rebPROMISE_CALLBACK = rebRun(":rebpromise-callback");
     }
 
     /*
@@ -915,63 +886,94 @@ e-cwrap/emit {
         delete RL_JS_NATIVES[id]
     }
 
-    RL_Dispatch = function(id) {
+    RL_RunNative = function(id, frame_id) {
         if (!(id in RL_JS_NATIVES))
             throw Error("Can't dispatch " + id + " in JS_NATIVES table")
         var result = RL_JS_NATIVES[id]()
         if (result === undefined)  /* `return;` or `return undefined;` */
-            return rebVoid()  /* treat equivalent to VOID! value return */
+            result = rebVoid()  /* treat equivalent to VOID! value return */
         else if (result === null)  /* explicit result, e.g. `return null;` */
-            return 0
+            result = 0
         else if (Number.isInteger(result))
-            return result // treat as REBVAL* heap address (should be wrapped)
-        throw Error("JS-NATIVE must return null, undefined, or REBVAL*")
+            {}  /* treat as REBVAL* heap address (TBD: object wrap?) */
+        else
+            throw Error("JS-NATIVE must return null, undefined, or REBVAL*")
+
+        /* store the result for consistency with emterpreter's asynchronous
+         * need to save JS value across emterpreter_sleep_with_yield()
+         */
+        RL_JS_NATIVES[frame_id] = result
     }
 
-    RL_AsyncDispatch = function(id, atomic_addr) {
+    /* If using the emterpreter, the awaiter's resolve() is rather limited,
+     * as it can't call any libRebol APIs.  The workaround is to let it take
+     * a function and then let the awaiter call that function with RL_Await.
+     */
+    RL_RunNativeAwaiter = function(id, frame_id) {
         if (!(id in RL_JS_NATIVES))
             throw Error("Can't dispatch " + id + " in JS_NATIVES table")
 
-        var resolve = function(arg) {
-            if (arguments.length > 1)
-                throw Error("JS-AWAITER's resolve() can only take 1 argument")
+        var resolve_or_reject = function(arg, rej) {
+            /*
+             * !!! Should resolve make it easy by taking JS strings or other
+             * types that variadics might take?
+             */
             if (arg === undefined)  /* `resolve()`, `resolve(undefined)` */
                 {}  /* allow it */
             else if (arg === null)  /* explicitly, e.g. `resolve(null)` */
                 {}  /* allow it */
-            else if (typeof arg !== "function")
-                throw Error("JS-AWAITER's resolve() only takes a function")
-            RL_JS_NATIVES[atomic_addr] = arg
-            setValue(atomic_addr, 1, 'i8')
+            else if (typeof arg == "function")
+                {}  /* emterpreter can't make REBVAL* during sleep w/yield */
+            else if (typeof arg !== "number")
+                throw Error("bad type passed to awaiter resolve()")
+
+            RL_JS_NATIVES[frame_id] = arg  /* stow for RL_Await */
+            _RL_rebSignalAwaiter_internal(frame_id, rej)  /* 1 = reject */
+        }
+
+        var resolve = function(arg) {
+            if (arguments.length > 1)
+                throw Error("JS-AWAITER's resolve() takes 1 argument")
+            resolve_or_reject(arg, 0)
         }
 
         var reject = function(arg) {
-            throw Error("JS-AWAITER reject() not yet implemented")
+            if (arguments.length > 1)
+                throw Error("JS-AWAITER's reject() takes 1 argument")
+            resolve_or_reject(arg, 1)
         }
 
-        var result = RL_JS_NATIVES[id](resolve, reject)
-        if (result !== undefined)
+        var dummy = RL_JS_NATIVES[id](resolve, reject)
+        if (dummy !== undefined)
             throw Error("JS-AWAITER cannot return a value, use resolve()")
     }
 
-    RL_Await = function(atomic_addr) {
-        var fn = RL_JS_NATIVES[atomic_addr]
-        RL_Unregister(atomic_addr);
+    RL_GetNativeResult = function(frame_id) {
+        var result = RL_JS_NATIVES[frame_id]  /* resolution or rejection */
+        RL_Unregister(frame_id);
 
-        if (typeof fn == "function")
-            fn = fn()
-        if (fn === null)
+        if (typeof result == "function")  /* needed to empower emterpreter */
+            result = result()  /* ...had to wait to synthesize REBVAL */
+
+        if (result === null)
             return 0
-        if (fn === undefined)
+        if (result === undefined)
             return rebVoid()
-        return fn
+        return result
     }
 
-    RL_Resolve = function(id, rebval) {
+    RL_ResolvePromise = function(id, rebval) {
         if (!(id in RL_JS_NATIVES))
             throw Error("Can't dispatch " + id + " in JS_NATIVES table")
         RL_JS_NATIVES[id][0](rebval)
         RL_Unregister(id);
+    }
+
+    RL_RejectPromise = function(id, rebval) {
+        if (!(id in RL_JS_NATIVES))
+            throw Error("Can't dispatch " + id + " in JS_NATIVES table")
+        RL_JS_NATIVES[id][1](rebval)
+        RL_Unregister(id)
     }
 }
 e-cwrap/write-emitted

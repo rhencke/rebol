@@ -22,3 +22,7 @@ comment [
 ; here at least so that one can know in the debugger if the extension ran.
 ;
 init-javascript-extension
+
+js-awaiter: specialize 'js-native [awaiter: true]
+
+sys/export [js-awaiter]  ; !!! Hacky export scheme

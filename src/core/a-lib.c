@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2018 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -54,6 +54,10 @@
 //             item3, "| print {Close brace with content}]\n",
 //         rebEND
 //     );
+//
+// (The rebEND is needed by the variadic processing, but C99-based macros or
+// other language bindings can inject it automatically...only C89 has no way
+// to work around it.)
 //
 // While the approach is flexible, any token must appear fully inside its
 // UTF-8 string component.  So you can't--for instance--divide a scan up like

@@ -190,7 +190,16 @@ inline static REBVAL *DS_AT(REBDSP d) {
 //
 
 
-#if defined(OS_STACK_GROWS_UP)
+#if defined(TO_EMSCRIPTEN) && defined(USE_PTHREADS)
+
+    // !!! R3-Alpha's non-C-standard answer to stack overflows does not work
+    // when using pthreads, because the thread's stack is going to be a
+    // different point of reference to compare against for overflow.  Review.
+    //
+    #define C_STACK_OVERFLOWING(address_of_local_var) \
+        false
+
+#elif defined(OS_STACK_GROWS_UP)
 
     #define C_STACK_OVERFLOWING(address_of_local_var) \
         (cast(uintptr_t, (address_of_local_var)) >= TG_Stack_Limit)

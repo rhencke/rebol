@@ -324,7 +324,7 @@ matrix:
             - binutils-mingw-w64-x86-64
             - g++-mingw-w64-x86-64
             - mingw-w64
-        
+
     # Android5, debug, gcc
     #
     - os: linux
@@ -601,7 +601,7 @@ script:
 
     # Take a look at assert.h
     # - find /usr/include -name assert.h | xargs cat
-    
+
     # We have to set REBOL_TOOL explicitly to circumvent the automatic r3-make
     # filename inference, as we always use Linux "r3-make" (not "r3-make.exe")
     # even when doing windows builds, since this is a cross-compilation.
@@ -687,7 +687,7 @@ script:
           R3_EXIT_STATUS=0;
       fi
     - echo ${R3_EXIT_STATUS}
-    
+
     # Run basic testing with FFI, this is a linux-only script
     # !!! Temporarily disabled during build system renovation (12-6-2018)
     #- |
@@ -716,7 +716,7 @@ script:
     # Delete the obj and prep file directory so we don't upload those to S3
     #
     - rm -rf objs prep
-    
+
     - rm -f makefile*
     - rm -f Toolchain*
     - rm -f r3-make* #-f makes retval a success even when r3-make* doesn't exist
@@ -727,7 +727,7 @@ script:
     - rm -f CMakeLists.txt
     - rm -rf tcc
     - ls
-    
+
     # Name the executable based on the abbreviated commit, whether it is a
     # debug or release build, and if it was built using C++ or not.  Note that
     # the C++ debug builds have additional runtime checks in the debug
@@ -750,22 +750,39 @@ script:
     # This is because the deploy step is run for each OS and would
     # otherwise overwrite executables in the same location.
     #
+    # Note: [[-e]] tests for "existence"
+    #
     - mkdir ${OS_ID}
     - |
+      # Windows builds end in .exe
       if [[ -e "r3.exe" ]]; then
            mv r3.exe ${OS_ID}/${NEW_NAME}.exe;
       fi
+
+      # Most other platforms have no suffix
       if [[ -e "r3" ]]; then
            mv r3 ${OS_ID}/${NEW_NAME};
       fi
+
+      # All emscripten builds produce .js and .wasm
       if [[ -e "libr3.js" ]]; then
            mv libr3.js ${OS_ID}/lib${NEW_NAME}.js;
       fi
       if [[ -e "libr3.wasm" ]]; then
            mv libr3.wasm ${OS_ID}/lib${NEW_NAME}.wasm;
       fi
+
+      # Only emterpreted builds produce .bytecode
       if [[ -e "libr3.bytecode" ]]; then
            mv libr3.bytecode ${OS_ID}/lib${NEW_NAME}.bytecode;
+      fi
+
+      # Only pthreads builds produce .js.mem and .worker.js
+      if [[ -e "libr3.js.mem" ]]; then
+           mv libr3.js.mem ${OS_ID}/lib${NEW_NAME}.js.mem;
+      fi
+      if [[ -e "libr3.worker.js" ]]; then
+           mv libr3.worker.js ${OS_ID}/lib${NEW_NAME}.worker.js;
       fi
 
     # Return whether the build succeeded or not to Travis.  If this succeeded 

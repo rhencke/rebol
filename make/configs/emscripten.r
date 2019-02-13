@@ -37,20 +37,72 @@ extensions: make map! [
 ]
 
 
+; The inability to communicate synchronously between the worker and GUI in
+; JavaScript means that being deep in a C-based interpreter stack on the
+; worker cannot receive data from the GUI.  The "Emterpreter" works around
+; this limitation by running a JavaScript bytecode simulator...so even if
+; a JavaScript stack can't be paused, the bytecode interpreter can, long
+; enough to release the GUI thread it was running on to do let it do work.
+;
+; https://github.com/emscripten-core/emscripten/wiki/Emterpreter
+;
+; That's a slow and stopgap measure, which makes the build products twice as
+; large and much more than twice as slow.  It is supplanted entirely with a
+; superior approach based on WASM threads.  In this model, the GUI thread is
+; left free, while the code that's going to make demands runs on its own
+; thread...which can suspend and wait, using conventional atomics (mutexes,
+; wait conditions).
+;
+; There was some issue with WASM threading being disabled in 2018 due to
+; Spectre vulnerabilities in SharedArrayBuffer.  This seems to be mitigated,
+; and approaches are now focusing on assuming that the thread-based solution
+; will be available.  The emterpreter method is preserved as a fallback, but
+; should not be used without good reason--only basic features are implemented.
+;
+use-emterpreter: false
+
+
+; Making an actual debug build of the interpreter core is prohibitive for
+; emscripten in general usage--even on a developer machine.  This enables a
+; smaller set of options for getting better feedback about errors in an
+; emscripten build.
+;
+debug-javascript-extension: true
+
+
 ; emcc command-line options:
 ; https://kripken.github.io/emscripten-site/docs/tools_reference/emcc.html
 ; https://github.com/kripken/emscripten/blob/incoming/src/settings.js
 ;
 ; Note environment variable EMCC_DEBUG for diagnostic output
 
-cflags: reduce [
+cflags: compose [
+    ;
+    ; At time of writing, the shipping `emscripten.h` has an unconditional
+    ; inclusion of `stdio.h`.  So long as it does, DEBUG_STDIO_OK has to be
+    ; allowed.  A PR has been sent asking for stdio to be optional:
+    ;
+    ; https://github.com/emscripten-core/emscripten/pull/8089
+    ;
     {-DDEBUG_STDIO_OK}
-    {-DDEBUG_HAS_PROBE}
-    {-DDEBUG_COUNT_TICKS}
 
-    {-DTO_JAVASCRIPT} ;-- Guides %a-lib.c to add rebPromise() implementation
+    (if debug-javascript-extension [[
+        {-DDEBUG_JAVASCRIPT_EXTENSION}
 
-    ; {-s USE_PTHREADS=1} ;-- must be on compile -and- link to use pthreads
+        ; {-DDEBUG_STDIO_OK}  ; !!! see above
+        {-DDEBUG_HAS_PROBE}
+        {-DDEBUG_COUNT_TICKS}
+    ]])
+
+    (if use-emterpreter [[
+        {-DUSE_EMTERPRETER}  ; affects rebPromise() methodology
+    ]] else [[
+        ; Instruction to emcc (via -s) to include pthread functionalitys
+        {-s USE_PTHREADS=1}  ; must be in both cflags and ldflags if used
+
+        ; Instruction to compiler front end (via -D) to do a #define
+        {-DUSE_PTHREADS=1}  ; clearer than `#if !defined(USE_EMSCRIPTEN)`
+    ]])
 ]
 
 ldflags: compose [
@@ -66,10 +118,13 @@ ldflags: compose [
     ; requires that the initial `main()` be started from the GUI thread in
     ; order to do synchronous calls to the GUI.  So we use `web` for both.
     ;
-    {-s ENVIRONMENT='web'}
+    {-s ENVIRONMENT='web,worker'}
 
-    {-s ASSERTIONS=0}
-;    (unspaced [{-s 'ASSERTIONS=} either debug = 'none [0] [1] {'}])
+    (if debug-javascript-extension [
+        {-s ASSERTIONS=1}
+    ] else [
+        {-s ASSERTIONS=0}
+    ])
 
     (if false [[
         ; In theory, using the closure compiler will reduce the amount of
@@ -97,7 +152,7 @@ ldflags: compose [
 
     ; Minification usually tied to optimization, but can be set separately.
     ;
-    ;{--minify 0}
+    (if debug-javascript-extension [{--minify 0}])
 
     ; %reb-lib.js is produced by %make-reb-lib.js - It contains the wrapper
     ; code that proxies JavaScript calls to `rebElide(...)` etc. into calls
@@ -111,7 +166,7 @@ ldflags: compose [
     ; https://forum.rebol.info/t//555
     ;
     {-s DISABLE_EXCEPTION_CATCHING=1}
-    {-s DEMANGLE_SUPPORT=0} ;-- C++ build does all exports as C, not needed
+    {-s DEMANGLE_SUPPORT=0}  ; C++ build does all exports as C, not needed
 
     ; Currently the exported functions come from EMTERPRETER_KEEP_ALIVE
     ; annotations, but it would be preferable if a JSON file were produced
@@ -141,14 +196,7 @@ ldflags: compose [
     ;
     ;{-s ALLOW_MEMORY_GROWTH=0}
 
-    ; The inability to communicate synchronously between the worker and GUI
-    ; in JavaScript means that being deep in a C-based interpreter stack on
-    ; the worker cannot receive data from the GUI.  Some methods to get past
-    ; this appear to be on the horizon with SharedArrayBuffer, which has
-    ; spotty support in browsers and was disabled in all of them in 2018 due
-    ; to potential security flaws.
-    ;
-    (if true [[
+    (if use-emterpreter [[
         {-s EMTERPRETIFY=1}
         {-s EMTERPRETIFY_ASYNC=1}
         {-s EMTERPRETIFY_FILE="libr3.bytecode"}
@@ -171,8 +219,17 @@ ldflags: compose [
         ;
         ;{-s EMTERPRETIFY_BLACKLIST="['_malloc']"}
         ;{-s EMTERPRETIFY_WHITELIST=@emterpreter_whitelist.json}
+
+        {-s EMTERPRETIFY_BLACKLIST="['_RL_rebText', '_RL_rebSignalAwaiter_internal']"}
     ]] else [[
-        {-s USE_PTHREADS=1} ;-- must be on compile and link
+        {-s USE_PTHREADS=1}  ; must be in both cflags and ldflags if used
+
+        ; If you don't specify a thread pool size as a linker flag, the first
+        ; call to `pthread_create()` won't start running the thread, it will
+        ; have to yield first.  See "Special Considerations":
+        ; https://emscripten.org/docs/porting/pthreads.html
+        ;
+        {-s PTHREAD_POOL_SIZE=1}
     ]])
 
     ; When debugging in the emterpreter, stack frames all appear to have the
@@ -180,5 +237,5 @@ ldflags: compose [
     ; extra stack frame with the name of the function being called.  It runs
     ; slower, but makes the build process *A LOT* slower.
     ;
-    ;{--profiling-funcs} ;-- more minimal than `--profiling`, just the names
+    ;{--profiling-funcs}  ; more minimal than `--profiling`, just the names
 ]

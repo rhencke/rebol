@@ -1,13 +1,82 @@
+## JavaScript Extension
+
 The JavaScript extension is designed to be used with the "Emscripten" build
 of Ren-C, which can run in a web browser or with Node.js:
 
 http://kripken.github.io/emscripten-site/
 
 This extension is not required to use the JavaScript version of the libRebol
-API, if the only interest is calling Rebol evaluations from JavaScript.
-What it's for is the reverse direction--so that once Rebol code is running,
-that it can call *back into* JavaScript.
+API, if the only interest is calling Rebol evaluations from JavaScript.  What
+it's for is the reverse direction--so that once Rebol code is running, it can
+call *back into* JavaScript.
 
-The key way this is done is using "JavaScript natives".  A JavaScript native
-is a function whose spec is a Rebol block--much like other functions.  But
-the body is a string of JavaScript source.  
+The way this is done is using "JavaScript natives".  A JavaScript native is
+an ACTION! whose spec is a Rebol block--much like other functions.  But the
+body is a string of JavaScript source.
+
+Key to the extension's usefulness is integration with the idea of "Promises",
+which were a popular idiom that was ultimately added to the JavaScript
+language itself in the ES6 standard.
+
+### PROMISES AND SIMULATING SYNCHRONOUS BEHAVIORS
+
+Using Emscripten-compiled binaries, it's *relatively* "easy" to make an
+ACTION! whose spec is a Rebol block and whose body is a JavaScript text.
+This is because calling JS from emscripten C code can be done with the
+EM_ASM()/EM_ASM_() directives, for "inline JavaScript" (similar to "inline
+assembly" features of other compilers)
+
+https://emscripten.org/docs/porting/connecting_cpp_and_javascript/Interacting-with-code.html
+
+However, many of the cases of interacting with JavaScript wish to see a
+synchronous side-effect.  One hits these immediately with things like PRINT
+or INPUT...which one would like to interact with the DOM vs. being stuck only
+as `alert()` or `console.log()` calls.  A plain JS-NATIVE that runs EM_ASM()
+and then continues running more Rebol on the same thread would never yield
+that thread to the GUI.  
+
+The JS-AWAITER was introduced to deal with this problem, but the nuances are
+much more complex.  Still, JS-NATIVE is good for some quick things that do not
+need to do any UI interaction.
+
+### PTHREADs vs Emterpreter
+
+Implementing promises means the interpreter state must be able to suspend,
+ask for the information, and wait for an answer.  There are essentially only
+two ways to do this:
+
+1. Using Emscripten's `<pthread.h>` emulation.  This is based on using a mix
+of SharedArrayBuffer and web workers...so that the worker can retain its
+state on the stack while asking for work to be done on its behalf.  It can
+then use pthread_cond_wait() to wait for a signal from the GUI that the work
+is done.
+
+https://emscripten.org/docs/porting/pthreads.html
+
+2. Using the "emterpreter" feature of emscripten, which doesn't run WASM code
+directly--rather, it simulates it in a bytecode.  The bytecode interpreter can
+be suspended while retaining the state of the stack of the C program it is
+implementing.
+
+https://github.com/emscripten-core/emscripten/wiki/Emterpreter
+
+Empirically, approach #2 produces build products that are TWICE THE SIZE and
+executes about THIRTY TIMES SLOWER.  Unfortunately, some JavaScript systems
+have not yet caught up with pure WASM and shared memory--or require user
+intervention to enable it as a "special setting".  So for the moment, the
+extension can be built either way.
+
+Pthreads are default, but see %configs/emscripten.r for USING_EMTERPRETER.
+
+### Building
+
+To use this, build Rebol using `config=%configs/emscripten.r`.  Once the code
+is built, it must be loaded into a host (a web browser or node.js) which
+provides a JavaScript interpreter.  For a sample client that uses the build
+products, see ReplPad-JS:
+
+https://github.com/hostilefork/replpad-js/
+
+(Note: At time of writing, integration with Node.JS is untested--and would
+have to run the emterpreted build, as emscripten does not yet implement
+pthreads on Node.)
