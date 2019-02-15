@@ -89,7 +89,8 @@ console!: make object! [
     repl: true  ; used to identify this as a console! object
     is-loaded:  false  ; if true then this is a loaded (external) skin
     was-updated: false  ; if true then console! object found in loaded skin
-    last-result: _   ; last evaluated result (sent by HOST-CONSOLE)
+    last-result: <set-to-void>  ; last evaluated result (sent by HOST-CONSOLE)
+    set* 'last-result void  ; !!! '#[void] assignment, not in bootstrap
 
     === APPEARANCE (can be overridden) ===
 
@@ -134,7 +135,7 @@ console!: make object! [
         write-stdout space
     ]
 
-    print-result: method [return: <void> v [<opt> any-value!]]  [
+    print-result: method [return: <void> v [<opt> any-value!]] [
         set* (lit last-result:) :v
         case [
             null? :v [
@@ -225,6 +226,22 @@ console!: make object! [
             if focus-frame [
                 bind code focus-frame
             ]
+        ]
+
+        ; !!! This is an interesting experiment which puts the last-result
+        ; into the code stream, so you can say:
+        ;
+        ;     >> 1 + 2
+        ;     == 3
+        ;
+        ;     >> * 5
+        ;     == 15
+        ;
+        ; It can be overridden if people don't like it, but it seems rather
+        ; generally useful...especially wiith `-> x:` to save into a variable.
+        ;
+        if (not empty? b) and [not void? :last-result] [
+            insert b uneval :last-result
         ]
 
         b
@@ -644,7 +661,6 @@ ext-console-impl: function [
     result: unquote result
 
     if group? result [
-        if empty? result [return <prompt>]  ; user just hit enter, don't run
         return result  ; GROUP! signals we're running user-requested code
     ]
 
@@ -664,6 +680,7 @@ ext-console-impl: function [
         ; behavior), Ctrl-D on Windows (because ReadConsole() can't trap ESC),
         ; Ctrl-D on POSIX (just to be compatible with Windows).
         ;
+        emit [system/console/print-result void]
         return <prompt>
     ]
 

@@ -163,13 +163,13 @@ REBNATIVE(shove)
     else
         Move_Value(shovee, KNOWN(*v));
 
-    if (not IS_ACTION(shovee))
-        fail ("SHOVE's immediate right must evaluate to an ACTION!");
+    if (not IS_ACTION(shovee) and not ANY_SET_KIND(VAL_TYPE(shovee)))
+        fail ("SHOVE's immediate right must be ACTION! or SET-XXX! type");
 
     // Even if the function isn't enfix, say it is.  This permits things
     // like `5 + 5 -> subtract 7` to give 3.
     //
-    if (REF(enfix))
+    if (REF(enfix) and IS_ACTION(shovee))
         SET_CELL_FLAG(shovee, ENFIXED);  // so that `add 1 2 -> 3` is 7
     else
         Fetch_Next_Forget_Lookback(f);  // so that `10 -> = 5 + 5` is true
@@ -204,8 +204,11 @@ REBNATIVE(shove)
             fail ("Left hand side must be SET-WORD! or SET-PATH!");
     }
     else if (
-        NOT_ACTION_FLAG(VAL_ACTION(shovee), QUOTES_FIRST)
-        and GET_CELL_FLAG(left, UNEVALUATED)
+        GET_CELL_FLAG(left, UNEVALUATED)
+        and not (
+            IS_ACTION(shovee)
+            and GET_ACTION_FLAG(VAL_ACTION(shovee), QUOTES_FIRST)
+        )
     ){
         if (Eval_Value_Throws(D_OUT, left))
             return R_THROWN;

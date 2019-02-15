@@ -481,6 +481,14 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     SHORTHAND (next, f->feed->value, NEVERNULL(const RELVAL*));
     SHORTHAND (specifier, f->feed->specifier, REBSPC*);
 
+    if (GET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT))  { // e.g. `10 -> x:`
+        if (IS_VOID(f->out))  // some set-xxx! accept null, none take void
+            fail (Error_Need_Non_Void_Core(v, *specifier));
+
+        CLEAR_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
+        return false;
+    }
+
     if (IS_END(*next)) // `do [x:]`, `do [o/x:]`, etc. are illegal
         fail (Error_Need_Non_End_Core(v, *specifier));
 
@@ -514,7 +522,7 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
             return true;
     }
 
-    if (IS_VOID(f->out)) // some set operations accept null, none take void
+    if (IS_VOID(f->out))  // some set-xxx! accept null, none take void
         fail (Error_Need_Non_Void_Core(v, *specifier));
 
     return false;
