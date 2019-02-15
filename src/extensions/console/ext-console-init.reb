@@ -60,14 +60,14 @@ system/ports/input: open [scheme: 'console]
 boot-print: redescribe [
     "Prints during boot when not quiet."
 ](
-    ;; !!! Duplicates code in %host-start.r, where this isn't exported.
+    ; !!! Duplicates code in %host-start.r, where this isn't exported.
     enclose 'print func [f] [if not system/options/quiet [do f]]
 )
 
 loud-print: redescribe [
     "Prints during boot when verbose."
 ](
-    ;; !!! Duplicates code in %host-start.r, where this isn't exported.
+    ; !!! Duplicates code in %host-start.r, where this isn't exported.
     enclose 'print func [f] [if system/options/verbose [do f]]
 )
 
@@ -79,16 +79,19 @@ boot-welcome:
   CHANGES - What's different about this version}
 
 
-; Define console! object for skinning - stub for elsewhere?
+; Define base console! behaviors.  Custom console skins derive from this.
+;
+; If a console skin has an error while running, the error will be trapped and
+; the system will revert to using a copy of this base object.
 ;
 console!: make object! [
     name: _
-    repl: true      ;-- used to identify this as a console! object (quack!)
-    is-loaded:  false ;-- if true then this is a loaded (external) skin
-    was-updated: false ;-- if true then console! object found in loaded skin
-    last-result: _  ;-- last evaluated result (sent by HOST-CONSOLE)
+    repl: true  ; used to identify this as a console! object
+    is-loaded:  false  ; if true then this is a loaded (external) skin
+    was-updated: false  ; if true then console! object found in loaded skin
+    last-result: _   ; last evaluated result (sent by HOST-CONSOLE)
 
-    ;; APPEARANCE (can be overridden)
+    === APPEARANCE (can be overridden) ===
 
     prompt: {>>}
     result: {==}
@@ -168,15 +171,16 @@ console!: make object! [
             pos: molded: mold/limit :v 2048
             loop 20 [
                 pos: next (find pos newline else [break])
-            ] then [ ; e.g. didn't break
+            ] then [  ; e.g. didn't break
                 insert clear pos "..."
             ]
             print [result (molded)]
         ]
     ]
 
-    print-warning:  method [s] [print [warning reduce s]]
-    print-error:    method [e [error!]] [
+    print-warning: method [s] [print [warning reduce s]]
+
+    print-error: method [e [error!]] [
         if :e/file = 'tmp-boot.r [
             e/file: e/line: _  ; errors in console showed this, junk
         ]
@@ -187,11 +191,13 @@ console!: make object! [
         print "[interrupted by Ctrl-C or HALT instruction]"
     ]
 
-    print-info:     method [s] [print [info reduce s]]
-    print-greeting: method []  [boot-print greeting]
-    print-gap:      method []  [print newline]
+    print-info: method [s] [print [info reduce s]]
 
-    ;; BEHAVIOR (can be overridden)
+    print-greeting: method [] [boot-print greeting]
+
+    print-gap: method [] [print newline]
+
+    === BEHAVIOR (can be overridden) ===
 
     input-hook: method [
         {Receives line input, parse/transform, send back to CONSOLE eval}
@@ -233,17 +239,17 @@ console!: make object! [
 
         list-shortcuts: [print system/console/shortcuts]
         changes: [
-            browse (join-all [
-                https://github.com/metaeducation/ren-c/blob/master/CHANGES.md#
-                join-all ["" system/version/1 system/version/2 system/version/3]
-            ])
+            browse join https://github.com/metaeducation/ren-c/blob/master/ [
+                %CHANGES.md "#"
+                system/version/1 system/version/2 system/version/3
+            ]
         ]
         topics: [
             browse https://r3n.github.io/topics/
         ]
     ]
 
-    ;; HELPERS (could be overridden!)
+    === HELPERS (could be overridden!) ===
 
     add-shortcut: method [
         {Add/Change console shortcut}
@@ -261,10 +267,12 @@ start-console: function [
 
     return: <void>
     <static>
-        o (system/options) ;-- shorthand since options are often read/written
+        o (system/options)  ; shorthand since options are often read/written
 ][
-    ; Instantiate console! object into system/console for skinning.  This
-    ; object can be updated %console-skin.reb if in system/options/resources
+    === MAKE CONSOLE! INSTANCE FOR SKINNING ===
+
+    ; Instantiate console! object into system/console.  This is updated via
+    ; %console-skin.reb if in system/options/resources
 
     loud-print "Starting console..."
     loud-print newline
@@ -280,10 +288,10 @@ start-console: function [
         trap [
             new-skin: do load skin-file
 
-            ;; if loaded skin returns console! object then use as prototype
+            ; if loaded skin returns console! object then use as prototype
             all [
                 object? new-skin
-                select new-skin 'repl ;; quacks like REPL, it's a console!
+                select new-skin 'repl  ; quacks like REPL, it's a console!
             ] then [
                 proto-skin: new-skin
                 proto-skin/was-updated: true
@@ -295,7 +303,7 @@ start-console: function [
             append o/loaded skin-file
 
         ] then (lambda e [
-            skin-error: e       ;; show error later if --verbose
+            skin-error: e  ; show error later if `--verbose`
             proto-skin/name: "error"
         ])
     ]
@@ -304,9 +312,12 @@ start-console: function [
 
     system/console: proto-skin
 
-    ; Make the error hook store the error as the last one printed, so the
-    ; WHY command can access it.  Also inform people of the existence of
-    ; the WHY function on the first error delivery.
+    === HOOK FOR HELP ABOUT LAST ERROR ===
+
+    ; The WHY command lets the user get help about the last error printed.
+    ; To do so, it has to save the last error.  Adjust the error printing
+    ; hook to save the last error printed.  Also inform people of the
+    ; existence of the WHY function on the first error delivery.
     ;
     proto-skin/print-error: adapt :proto-skin/print-error [
         if not system/state/last-error [
@@ -316,12 +327,10 @@ start-console: function [
         system/state/last-error: e
     ]
 
-    ; banner time
-    ;
+    === PRINT BANNER ===
+
     if o/about [
-        ;-- print fancy boot banner
-        ;
-        boot-print make-banner boot-banner
+        boot-print make-banner boot-banner  ; the fancier banner
     ] else [
         boot-print [
             "Rebol 3 (Ren-C branch)"
@@ -332,7 +341,8 @@ start-console: function [
 
     boot-print boot-welcome
 
-    ; verbose console skinning messages
+    === VERBOSE CONSOLE SKINNING MESSAGES ===
+
     loud-print [newline {Console skinning:} newline]
     if skin-error [
         loud-print [
@@ -349,9 +359,7 @@ start-console: function [
                 {Skin does not exist}
             ]
             "-" skin-file
-            spaced [
-                "(CONSOLE" (if not proto-skin/was-updated [{not}]) "updated)"
-            ]
+            "(CONSOLE" if not proto-skin/was-updated [{not}] "updated)"
         ]
     ]
 ]
@@ -369,8 +377,12 @@ ext-console-impl: function [
     resumable "Is the RESUME function allowed to exit this console"
         [logic!]
 ][
-    ; We hook the RETURN function so that it actually returns an instruction
-    ; that the code can build up from multiple EMIT statements.
+    === HOOK RETURN FUNCTION TO GIVE EMITTED INSTRUCTION ===
+
+    ; The C caller can be given a BLOCK! representing an code the console is
+    ; executing on its own behalf, as part of its "skin".  Building these
+    ; blocks is made easier by collaboration between EMIT and a hooked version
+    ; of the underlying RETURN of this function.
 
     instruction: copy []
 
@@ -403,7 +415,7 @@ ext-console-impl: function [
         state "Describes the RESULT that the next call to HOST-CONSOLE gets"
             [integer! tag! group! datatype! path!]
         <with> instruction prior
-        <local> return-to-c (:return) ;-- capture HOST-CONSOLE's RETURN
+        <local> return-to-c (:return)  ; capture HOST-CONSOLE's RETURN
     ][
         switch state [
             <prompt> [
@@ -411,14 +423,14 @@ ext-console-impl: function [
                 emit [system/console/print-prompt]
                 emit [reduce [
                     try system/console/input-hook
-                ]] ;-- gather first line (or null), put in BLOCK!
+                ]]  ; gather first line (or null), put in BLOCK!
             ]
             <halt> [
                 emit [halt]
                 emit [fail {^-- Shouldn't get here, due to HALT}]
             ]
             <die> [
-                emit [quit/with 1] ;-- catch-all bash code for general errors
+                emit [quit/with 1]  ; bash exit code for any generic error
                 emit [fail {^-- Shouldn't get here, due to QUIT}]
             ]
             <bad> [
@@ -431,19 +443,19 @@ ext-console-impl: function [
         ]
 
         return-to-c switch type of state [
-            integer! [ ;-- just tells the calling C loop to exit() process
+            integer! [  ; just tells the calling C loop to exit() process
                 assert [empty? instruction]
                 state
             ]
-            datatype! [ ;-- type assertion, how to enforce this?
+            datatype! [  ; type assertion, how to enforce this?
                 emit spaced ["^-- Result should be" an state]
                 instruction
             ]
-            group! [ ;-- means "submit user code"
+            group! [  ; means "submit user code"
                 assert [empty? instruction]
                 state
             ]
-            path! [ ;-- means "resume instruction"
+            path! [  ; means "resume instruction"
                 assert [empty? instruction]
                 state
             ]
@@ -452,6 +464,8 @@ ext-console-impl: function [
             ]
         ]
     ]
+
+    === DO STARTUP HOOK IF THIS IS THE FIRST TIME THE CONSOLE HAS RUN ===
 
     if not prior [
         ;
@@ -468,8 +482,9 @@ ext-console-impl: function [
         return <prompt>
     ]
 
-    ; BLOCK! code execution represents an instruction sent by the console to
-    ; itself.  Some #directives may be at the head of these blocks.
+    === GATHER DIRECTIVES ===
+
+    ; #directives may be at the head of BLOCK!s the console ran for itself.
     ;
     directives: collect [
         if block? prior [
@@ -482,38 +497,34 @@ ext-console-impl: function [
         return <prompt>
     ]
 
-    ; QUIT handling (uncaught THROW/NAME with the name as the QUIT ACTION!)
-    ;
-    ; !!! R3-Alpha permitted arbitrary values for parameterized QUIT, which
-    ; would be what DO of a script would return.  But if not an integer,
-    ; they have to be mapped to an operating system exit status:
-    ;
+    === QUIT handling === 
+
     ; https://en.wikipedia.org/wiki/Exit_status
-    ;
+
     all [
         error? :result
         result/id = 'no-catch
-        :result/arg2 = :QUIT ;; name
+        :result/arg2 = :QUIT  ; throw's /NAME
     ] then [
         return switch type of :result/arg1 [
-            void! [0] ;-- plain QUIT, no /WITH, call that success
+            void! [0]  ; plain QUIT, no /WITH, call that success
 
-            logic! [either :result/arg1 [0] [1]] ;-- ay logic true is success
+            logic! [either :result/arg1 [0] [1]]  ; logic true is success
 
-            integer! [result/arg1] ;-- Note: may be too big for status range
+            integer! [result/arg1]  ; Note: may be too big for status range
 
-            error! [1] ;-- !!! integer error mapping deprecated
+            error! [1]  ; currently there's no default error-to-int mapping
 
-            default [1] ;-- generic error code
+            default [1]  ; generic error code
         ]
     ]
 
-    ; HALT handling (uncaught THROW/NAME with the name as the HALT ACTION!)
-    ;
+    === HALT handling (e.g. Ctrl-C or Escape) ===
+
     all [
         error? :result
         result/id = 'no-catch
-        :result/arg2 = :HALT ;; name
+        :result/arg2 = :HALT  ; throw's /NAME
     ] then [
         if find directives #quit-if-halt [
             return 128 + 2 ; standard cancellation exit status for bash
@@ -526,19 +537,25 @@ ext-console-impl: function [
             print "** UNSAFE HALT ENCOUNTERED IN CONSOLE SKIN"
             print "** REVERTING TO DEFAULT SKIN"
             system/console: make console! []
-            print mold prior ;-- Might help debug to see what was running
+            print mold prior  ; Might help debug to see what was running
         ]
         emit #unskin-if-halt
         emit [system/console/print-halted]
         return <prompt>
     ]
 
-    ; RESUME handling (uncaught THROW/NAME with the name as RESUME ACTION!)
-    ;
+    === RESUME handling ===
+    
+    ; !!! This is based on debugger work-in-progress.  A nested console that
+    ; has been invoked via a breakpoint the console will sandbox most errors
+    ; and throws.  But if it recognizes a special "resume instruction" being
+    ; thrown, it will consider its nested level to be done and yield that
+    ; result so the program can continue.
+
     all [
         error? :result
         result/id = 'no-catch
-        :result/arg2 = :RESUME ;; name
+        :result/arg2 = :RESUME  ; throw's /NAME
     ] then [
         assert [path? :result/arg1]
         if not resumable [
@@ -551,7 +568,7 @@ ext-console-impl: function [
         return :result/arg1
     ]
 
-    if error? :result [ ;-- all other errors
+    if error? :result [  ; all other errors
         ;
         ; Errors can occur during HOST-START, before the SYSTEM/CONSOLE has
         ; a chance to be initialized (it may *never* be initialized if the
@@ -600,7 +617,7 @@ ext-console-impl: function [
             ] then [
                 print "** REVERTING TO DEFAULT SKIN"
                 system/console: make console! []
-                print mold prior ;-- Might help debug to see what was running
+                print mold prior  ; Might help debug to see what was running
             ]
         ]
         return <prompt>
@@ -608,33 +625,38 @@ ext-console-impl: function [
 
     assert [quoted? :result]
 
-    if group? prior [ ;-- plain execution of user code
+    === HANDLE RESULT FROM EXECUTION OF CODE ON USER'S BEHALF ===
+
+    if group? prior [
         emit [system/console/print-result ((<*> result))]
         return <prompt>
     ]
 
-    ; If PRIOR is BLOCK!, this is a continuation the console sent to itself.
-    ; RESULT can be:
+    === HANDLE CONTINUATION THE CONSOLE SENT TO ITSELF ===
+
+    assert [block? prior]
+
+    ; `result` of console instruction can be:
     ;
     ; GROUP! - code to be run in a sandbox on behalf of the user
     ; BLOCK! - block of gathered input lines so far, need another one
     ;
-    assert [block? prior]
-
     result: unquote result
 
     if group? result [
-        if empty? result [return <prompt>] ;-- user just hit enter, don't run
-        return result ;-- GROUP! signals we're running user-requested code
+        if empty? result [return <prompt>]  ; user just hit enter, don't run
+        return result  ; GROUP! signals we're running user-requested code
     ]
 
     if not block? result [
         return <bad>
     ]
 
-    ;-- INPUT-HOOK ran, block of strings ready
+    === TRY ADDING LINE OF INPUT TO CODE REGENERATED FROM BLOCK ===
 
-    assert [not empty? result] ;-- should have at least one item
+    ; Note: INPUT-HOOK has already run once per line in this block
+
+    assert [not empty? result]  ; should have at least one item
 
     if blank? last result [
         ;
@@ -646,7 +668,6 @@ ext-console-impl: function [
     ]
 
     trap [
-        ;
         ; Note that LOAD/ALL makes BLOCK! even for a single item,
         ; e.g. `load/all "word"` => `[word]`
         ;
@@ -695,6 +716,8 @@ ext-console-impl: function [
         return <prompt>
     ])
 
+    === HANDLE CODE THAT HAS BEEN SUCCESSFULLY LOADED ===
+
     if shortcut: select system/console/shortcuts try first code [
         ;
         ; Shortcuts like `q => [quit]`, `d => [dump]`
@@ -721,12 +744,12 @@ ext-console-impl: function [
 
     ; Run the "dialect hook", which can transform the completed code block
     ;
-    emit #unskin-if-halt ;-- Ctrl-C during dialect hook is a problem
+    emit #unskin-if-halt  ; Ctrl-C during dialect hook is a problem
     emit [
         comment {not all users may want CONST result, review configurability}
         as group! system/console/dialect-hook ((<*> code))
     ]
-    return group! ;-- a group RESULT should come back to HOST-CONSOLE
+    return group!  ; a group RESULT should come back to HOST-CONSOLE
 ]
 
 
@@ -761,17 +784,17 @@ upgrade: function [
 ]
 
 
-; The ECHO routine has to collaborate specifically with the console, because
+; !!! This code is currently not working, but belongs here because the ECHO
+; function has to collaborate specifically with the console.  This is because
 ; it is often desirable to capture the input only, the output only, or both.
 ;
-; !!! The features that tie the echo specifically to the console would be
-; things like ECHO INPUT, e.g.:
+; The intent of this feature is described here (feel free to fix it!)
+;
+; https://github.com/metaeducation/ren-c/pull/445
+;
+; What ties echo specifically to the console would be things like ECHO INPUT:
 ;
 ; https://github.com/red/red/issues/2487
-;
-; They are not implemented yet, but ECHO is moved here to signify the known
-; issue that the CONSOLE must collaborate specifically with ECHO to achieve
-; this.
 ;
 echo: function [
     {Copies console I/O to a file.}
@@ -834,7 +857,7 @@ echo: function [
             func [value] [
                 logger value
                 logger newline
-                value ;-- hook still needs to return the original value
+                value  ; hook still needs to return the original value
             ]
         ]
     ]
@@ -864,7 +887,7 @@ echo: function [
                 'off [ensure-echo-off]
                 'reset [
                     delete form-target
-                    write/append form-target "" ;-- or just have it not exist?
+                    write/append form-target ""  ; or just have it not exist?
                 ]
             ] else [
                 word: to-uppercase word
@@ -911,8 +934,8 @@ append lib compose [ext-console-impl: (:ext-console-impl)]
 ;
 append lib compose [
     ;
-    ;-- These must be <with>'d to be exported, otherwise the ABOUT: in
-    ;-- the object key would be gathered as a local.
+    ; These must be <with>'d to be exported, otherwise the ABOUT: in
+    ; the object key would be gathered as a local.
     ;
     why: (ensure action! :why)
     echo: (ensure action! :echo)

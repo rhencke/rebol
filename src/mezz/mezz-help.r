@@ -191,7 +191,6 @@ help: function [
         issue! [
             ; HELP #TOPIC will browse r3n for the topic
 
-            say-browser
             browse join-all [https://r3n.github.io/topics/ as text! topic]
             print newline
             return

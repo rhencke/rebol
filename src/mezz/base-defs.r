@@ -120,13 +120,23 @@ nihil: enfix func [
 ][
 ]
 
-end: func [
+; Simple "divider-style" thing for remarks.  At a certain verbosity level,
+; it could dump those remarks out...perhaps based on how many == there are.
+; (This is a good reason for retaking ==, as that looks like a divider.)
+;
+===: func [:remarks [any-value! <...>]] [
+    until [
+        equal? '=== take remarks
+    ]
+]
+
+|||: func [
     {Inertly consumes all subsequent data, evaluating to previous result.}
 
     return: []
     :omit [any-value! <...>]
 ][
-    while [not tail? omit] [take omit]
+    until [null? take* omit]
 ]
 
 
