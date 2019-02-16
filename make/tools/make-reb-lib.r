@@ -606,6 +606,33 @@ e-cwrap: (make-emitter
     "C-Wraps" output-dir/reb-lib.js
 )
 
+e-cwrap/emit {
+    /* The C API uses names like rebRun().  This is because calls from the
+     * core do not go through a struct, but inline directly...also some of
+     * the helpers are macros.  However, Node.js does not permit libraries
+     * to export "globals" like this... you must say e.g.:
+     *
+     *     var reb = require('rebol')
+     *     let val = reb.Run("1 + 2")
+     *
+     * Having browser calls match what would be used in Node rather than
+     * trying to match C makes the most sense (also provides abbreviation by
+     * calling it `r.Run()`, if one wanted).  Additionally, module support
+     * in browsers is rolling out, although not fully mainstream yet.
+     */
+    var reb  /* local definition only if not using modules */
+
+    /* Could use ENVIRONMENT_IS_NODE here, but really the test should be for
+     * if the system supports modules (someone with an understanding of the
+     * state of browser modules should look at this).  Note `Module.exports`
+     * seems not to be defined, even in the node version.
+     */
+    if (typeof module !== 'undefined')
+        reb = module.exports  /* add to what you get with require('rebol') */
+    else
+        reb = {}  /* build a new dictionary to use reb.Xxx() if in browser */
+}
+
 to-js-type: func [
     return: [<opt> text! tag!]
     s [text!] "C type as string"
@@ -706,6 +733,11 @@ map-each-api [
         continue
     ]
 
+    no-reb-name: _
+    if not parse name ["reb" copy no-reb-name to end] [
+        fail ["API name must start with `reb`" name]
+    ]
+
     js-returns: (to-js-type returns) else [
         fail ["No JavaScript return mapping for type" returns]
     ]
@@ -753,7 +785,7 @@ map-each-api [
             ; if it is to be converted into a JavaScript string
             {
                 var js_str = UTF8ToString(a)
-                rebFree(a)
+                reb.Free(a)
                 return js_str
             }
           ]
@@ -766,7 +798,7 @@ map-each-api [
             ;
             {
                 return new Promise(function(resolve, reject) {
-                    RL_Register(a, [resolve, reject])
+                    reb.RegisterId_internal(a, [resolve, reject])
                 })
             }
           ]
@@ -780,7 +812,7 @@ map-each-api [
         ]
 
         e-cwrap/emit cscape/with {
-            $<Name> = function() {
+            reb.$<No-Reb-Name> = function() {
                 $<Enter>
                 var argc = arguments.length
                 var stack = stackSave()
@@ -804,10 +836,10 @@ map-each-api [
                     HEAP32[(va>>2) + i] = p
                 }
 
-                HEAP32[(va>>2) + argc] = rebEND
+                HEAP32[(va>>2) + argc] = reb.END
 
                 /* `va + 4` is where first vararg is, must pass as *address*.
-                 * Just put that address on the heap after the rebEND.
+                 * Just put that address on the heap after the reb.END.
                  */
                 HEAP32[(va>>2) + (argc + 1)] = va + 4
 
@@ -820,7 +852,7 @@ map-each-api [
         } api
     ] else [
         e-cwrap/emit cscape/with {
-            $<Name> = Module.cwrap(
+            reb.$<No-Reb-Name> = Module.cwrap(
                 'RL_$<Name>',
                 $<Js-Returns>, [
                     $(Js-Param-Types),
@@ -830,38 +862,38 @@ map-each-api [
     ]
 ]
 e-cwrap/emit {
-    rebR = rebRELEASING
+    reb.R = reb.RELEASING
 
-    rebEVAL = rebEVAL_internal
+    reb.EVAL = reb.EVAL_internal
 
-    rebU = rebUNEVALUATIVE
+    reb.U = reb.UNEVALUATIVE
 
-    /* !!! rebT()/rebI()/rebL() could be optimized entry points, but make them
-     * compositions for now, to ensure that it's possible for the user to
+    /* !!! reb.T()/reb.I()/reb.L() could be optimized entry points, but make
+     * them compositions for now, to ensure that it's possible for the user to
      * do the same tricks without resorting to editing libRebol's C code.
      */
 
-    rebT = function(utf8) {
-        return rebU(rebR(rebText(utf8)))  /* might rebTEXT() delayed-load? */
+    reb.T = function(utf8) {
+        return reb.U(reb.R(reb.Text(utf8)))  /* might reb.Text() delayload? */
     }
 
-    rebI = function(int64) {
-        return rebU(rebR(rebInteger(int64)))
+    reb.I = function(int64) {
+        return reb.U(reb.R(reb.Integer(int64)))
     }
 
-    rebL = function(flag) {
-        return rebU(rebR(rebLogic(flag)))
+    reb.L = function(flag) {
+        return reb.U(reb.R(reb.Logic(flag)))
     }
 
-    rebStartup = function() {
+    reb.Startup = function() {
         _RL_rebStartup()
 
-        /* rebEND is a 2-byte sequence that must live at some address
+        /* reb.END is a 2-byte sequence that must live at some address
          * it must be initialized before any variadic libRebol API will work
          */
-        rebEND = _malloc(2)
-        setValue(rebEND, -127, 'i8')  /* 0x80 */
-        setValue(rebEND + 1, 0, 'i8')  /* 0x00 */
+        reb.END = _malloc(2)
+        setValue(reb.END, -127, 'i8')  /* 0x80 */
+        setValue(reb.END + 1, 0, 'i8')  /* 0x00 */
     }
 
     /*
@@ -874,24 +906,24 @@ e-cwrap/emit {
 
     var RL_JS_NATIVES = {};
 
-    RL_Register = function(id, fn) {
+    reb.RegisterId_internal = function(id, fn) {
         if (id in RL_JS_NATIVES)
             throw Error("Already registered " + id + " in JS_NATIVES table")
         RL_JS_NATIVES[id] = fn
     }
 
-    RL_Unregister = function(id) {
+    reb.UnregisterId_internal = function(id) {
         if (!(id in RL_JS_NATIVES))
             throw Error("Can't delete " + id + " in JS_NATIVES table")
         delete RL_JS_NATIVES[id]
     }
 
-    RL_RunNative = function(id, frame_id) {
+    reb.RunNative_internal = function(id, frame_id) {
         if (!(id in RL_JS_NATIVES))
             throw Error("Can't dispatch " + id + " in JS_NATIVES table")
         var result = RL_JS_NATIVES[id]()
         if (result === undefined)  /* `return;` or `return undefined;` */
-            result = rebVoid()  /* treat equivalent to VOID! value return */
+            result = reb.Void()  /* treat equivalent to VOID! value return */
         else if (result === null)  /* explicit result, e.g. `return null;` */
             result = 0
         else if (Number.isInteger(result))
@@ -909,7 +941,7 @@ e-cwrap/emit {
      * as it can't call any libRebol APIs.  The workaround is to let it take
      * a function and then let the awaiter call that function with RL_Await.
      */
-    RL_RunNativeAwaiter = function(id, frame_id) {
+    reb.RunNativeAwaiter_internal = function(id, frame_id) {
         if (!(id in RL_JS_NATIVES))
             throw Error("Can't dispatch " + id + " in JS_NATIVES table")
 
@@ -948,9 +980,9 @@ e-cwrap/emit {
             throw Error("JS-AWAITER cannot return a value, use resolve()")
     }
 
-    RL_GetNativeResult = function(frame_id) {
+    reb.GetNativeResult_internal = function(frame_id) {
         var result = RL_JS_NATIVES[frame_id]  /* resolution or rejection */
-        RL_Unregister(frame_id);
+        reb.UnregisterId_internal(frame_id);
 
         if (typeof result == "function")  /* needed to empower emterpreter */
             result = result()  /* ...had to wait to synthesize REBVAL */
@@ -958,22 +990,59 @@ e-cwrap/emit {
         if (result === null)
             return 0
         if (result === undefined)
-            return rebVoid()
+            return reb.Void()
         return result
     }
 
-    RL_ResolvePromise = function(id, rebval) {
+    reb.ResolvePromise_internal = function(id, rebval) {
         if (!(id in RL_JS_NATIVES))
             throw Error("Can't dispatch " + id + " in JS_NATIVES table")
         RL_JS_NATIVES[id][0](rebval)
-        RL_Unregister(id);
+        reb.UnregisterId_internal(id);
     }
 
-    RL_RejectPromise = function(id, rebval) {
+    reb.RejectPromise_internal = function(id, rebval) {
         if (!(id in RL_JS_NATIVES))
             throw Error("Can't dispatch " + id + " in JS_NATIVES table")
         RL_JS_NATIVES[id][1](rebval)
-        RL_Unregister(id)
+        reb.UnregisterId_internal(id)
     }
 }
 e-cwrap/write-emitted
+
+
+=== GENERATE %NODE-PRELOAD.JS ===
+
+; While Node.JS has worker support and SharedArrayBuffer support, Emscripten
+; does not currently support ENVIRONMENT=node USE_PTHREADS=1:
+;
+; https://groups.google.com/d/msg/emscripten-discuss/NxpEjP0XYiA/xLPiXEaTBQAJ
+;
+; Hence if any simulated synchronousness is to be possible under node, one
+; must use the emterpreter (hopefully this is a temporary state of affairs).
+; In any case, the emterpreter bytecode file must be loaded, and it seems
+; that load has to happen in the `--pre-js` section:
+;
+; https://github.com/emscripten-core/emscripten/issues/4240
+;
+
+e-node-preload: (make-emitter
+    "Emterpreter Preload for Node.js" output-dir/node-preload.js
+)
+
+e-node-preload/emit {
+    var Module = {};
+    console.log("Yes we're getting a chance to preload...")
+    console.log(__dirname + '/libr3.bytecode')
+    var fs = require('fs');
+
+    /* We don't want the direct result, but want the ArrayBuffer
+     * Hence the .buffer (?)
+     */
+    Module.emterpreterFile =
+        fs.readFileSync(__dirname + '/libr3.bytecode').buffer
+
+    console.log(Module.emterpreterFile)
+}
+
+e-node-preload/write-emitted
