@@ -34,11 +34,11 @@
 //   was tried to avoid this--doing everything with helper natives.  This
 //   would use things like `reb.UnboxInteger("rebpromise-helper", ...)` and
 //   build a pure-JS reb.Promise() on top of that.  But in addition to the
-//   inefficiency intrinsic to such approaches, things like reb.Run() allocate
-//   stack for their va_list calling convention.  This disrupts the "sneaky
-//   exit and reentry" done by the emterpreter.  Long story short: adding
-//   raw WASM entry points like reb.Promise() here is more practical, and
-//   happens to be faster too.
+//   inefficiency intrinsic to such approaches, reb.UnboxInteger() has to
+//   allocate stack for the va_list calling convention.  This disrupts the
+//   "sneaky exit and reentry" done by the emterpreter.  All told, adding
+//   raw WASM entry points like RL_rebPromise_internal() is more practical,
+//   and happens to be faster too.
 //
 // * Return codes from pthread primitives that can only come from usage errors
 //   are not checked (e.g. `pthread_mutex_lock()`).  We only check ones from
