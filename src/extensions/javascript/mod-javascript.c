@@ -54,7 +54,6 @@
 
 #include <limits.h>  // for UINT_MAX
 
-#define EMSCRIPTEN_NO_STDIO_H  // !!! does nothing yet, see %emscripten.r
 #include <emscripten.h>
 
 #if defined(USE_EMTERPRETER) == defined(USE_PTHREADS)
@@ -69,9 +68,9 @@
 //=//// DEBUG_JAVASCRIPT_EXTENSION TOOLS //////////////////////////////////=//
 //
 // Ren-C has a very aggressive debug build.  Turning on all the debugging
-// means a prohibitive experience in emscripten is prohibitive--not just
-// in size and speed of the build products, but the compilation can wind up
-// taking a long time--or not succeeding at all).
+// means a prohibitive experience in emscripten--not just in size and speed of
+// the build products, but the compilation can wind up taking a long time--or
+// not succeeding at all).
 //
 // So most of the system is built with NDEBUG, and no debugging is built
 // in for the emscripten build.  The hope is that the core is tested elsewhere

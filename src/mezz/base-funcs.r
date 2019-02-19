@@ -473,8 +473,8 @@ so: enfix func [
         ]
     ]
     if tail? feed [return void]
-    feed: take feed
-    if (block? feed) and [semiquoted? 'feed] [
+    set* lit feed: take feed
+    if (block? :feed) and [semiquoted? 'feed] [
         fail "Don't use literal block as SO right hand side, use ([...])"
     ]
     return :feed

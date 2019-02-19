@@ -228,8 +228,7 @@ console!: make object! [
             ]
         ]
 
-        ; !!! This is an interesting experiment which puts the last-result
-        ; into the code stream, so you can say:
+        ; We put the last-result into the code stream, so you can say:
         ;
         ;     >> 1 + 2
         ;     == 3
@@ -237,8 +236,7 @@ console!: make object! [
         ;     >> * 5
         ;     == 15
         ;
-        ; It can be overridden if people don't like it, but it seems rather
-        ; generally useful...especially wiith `-> x:` to save into a variable.
+        ; https://forum.rebol.info/t/1071
         ;
         if (not empty? b) and [not void? :last-result] [
             insert b uneval :last-result
@@ -254,7 +252,7 @@ console!: make object! [
         dt: [delta-time]
         dp: [delta-profile]
 
-        list-shortcuts: [print system/console/shortcuts]
+        list-shortcuts: [print [system/console/shortcuts]]
         changes: [
             browse join https://github.com/metaeducation/ren-c/blob/master/ [
                 %CHANGES.md "#"
@@ -562,7 +560,7 @@ ext-console-impl: function [
     ]
 
     === RESUME handling ===
-    
+
     ; !!! This is based on debugger work-in-progress.  A nested console that
     ; has been invoked via a breakpoint the console will sandbox most errors
     ; and throws.  But if it recognizes a special "resume instruction" being
