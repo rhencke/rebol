@@ -224,8 +224,6 @@ os-windows: [
 ]
 
 os-posix: [
-    + generic/host-gob.c
-
     posix/host-readline.c
     posix/dev-stdio.c
     posix/dev-event.c
@@ -239,8 +237,6 @@ os-posix: [
 ]
 
 os-osx: [
-    + generic/host-gob.c
-
     ; OSX uses the POSIX file I/O for now
     posix/host-readline.c
     posix/dev-stdio.c
@@ -260,8 +256,6 @@ os-osx: [
 ; make.r requires an `os-(os-base)` entry here for each named target.
 ;
 os-linux: [
-    + generic/host-gob.c
-
     ; Linux uses the POSIX file I/O for now
     posix/host-readline.c
     posix/dev-stdio.c
@@ -288,9 +282,7 @@ os-linux: [
 ]
 
 ; cloned from os-linux TODO: check'n'fix !!
-os-android: [ 
-    + generic/host-gob.c
-
+os-android: [
     ; Android uses the POSIX file I/O for now
     posix/host-readline.c
     posix/dev-stdio.c
@@ -317,8 +309,6 @@ os-android: [
 ]
 
 os-emscripten: [
-    + generic/host-gob.c
-
     posix/host-readline.c
     posix/dev-stdio.c
     posix/dev-event.c
