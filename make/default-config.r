@@ -36,6 +36,7 @@ extensions: make map! [
     PNG +
     Process +
     UUID +
+    UTF +
     Vector +
     View +
     ZeroMQ -

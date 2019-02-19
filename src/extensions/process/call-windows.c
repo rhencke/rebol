@@ -221,7 +221,7 @@ REB_R Call_Core(REBFRM *frame_) {
 
     //=//// INPUT SOURCE SETUP ////////////////////////////////////////////=//
 
-    if (not REF(input)) {  // get stdin normally (usually from user console) 
+    if (not REF(input)) {  // get stdin normally (usually from user console)
         si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
     }
     else switch (VAL_TYPE(ARG(in))) {
@@ -410,7 +410,7 @@ REB_R Call_Core(REBFRM *frame_) {
         //
         // Do not pass /U for UCS-2, see notes at top of file.
         //
-        const WCHAR *sh = L"cmd.exe /C \"";  // Note: begin surround quotes 
+        const WCHAR *sh = L"cmd.exe /C \"";  // Note: begin surround quotes
 
         REBCNT len = wcslen(sh) + wcslen(call)
             + 1  // terminal quote mark

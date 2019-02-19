@@ -512,7 +512,7 @@ ext-console-impl: function [
         return <prompt>
     ]
 
-    === QUIT handling === 
+    === QUIT handling ===
 
     ; https://en.wikipedia.org/wiki/Exit_status
 

@@ -104,16 +104,16 @@
 )
 
 (
-    void = do [end]
+    void = do [|||]
 )
 (
-    3 = do [1 + 2 end 10 + 20 | 100 + 200]
+    3 = do [1 + 2 ||| 10 + 20 | 100 + 200]
 )
 (
-    ok? trap [eval (func [x [<end>]] []) end 1 2 3]
+    ok? trap [eval (func [x [<end>]] []) ||| 1 2 3]
 )
 (
-    error? trap [eval (func [x [<opt>]] []) end 1 2 3]
+    error? trap [eval (func [x [<opt>]] []) ||| 1 2 3]
 )
 
 (

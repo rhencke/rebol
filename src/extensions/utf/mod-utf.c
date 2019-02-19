@@ -1,7 +1,7 @@
 //
-//  File: %n-textcodec.c
-//  Summary: "Native text codecs"
-//  Section: natives
+//  File: %mod-utf.c
+//  Summary: "UTF-16 and UTF-32 Extension"
+//  Section: extension
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
 //
@@ -27,18 +27,15 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// R3-Alpha had an incomplete model for doing codecs, that required C coding
-// to implement...even though the input and output types to DO-CODEC were
-// Rebol values.  Under Ren-C these are done as plain ACTION!s, which can
-// be coded in either C as natives or Rebol.
+// See %src/extensions/utf/README.md
 //
-// A few incomplete text codecs were included in R3-Alpha, and have been
-// kept around for testing.  They were converted here into groups of native
-// functions, but should be further moved into an extension so they can be
-// optional in the build.
+// This is low-priority code that was moved into an extension, so that it
+// would not take up space in core builds.
 //
 
 #include "sys-core.h"
+
+#include "tmp-mod-utf.h"
 
 
 //
@@ -111,8 +108,10 @@ int Decode_UTF16_Negative_If_ASCII(
         // Combine bytes in big or little endian format
         //
         ch = *src;
-        if (!little_endian) ch <<= 8;
-        if (--len <= 0) break;
+        if (not little_endian)
+            ch <<= 8;
+        if (--len <= 0)
+            break;
         src++;
         ch |= little_endian ? (cast(uint32_t, *src) << 8) : *src;
 
@@ -143,7 +142,7 @@ int Decode_UTF16_Negative_If_ASCII(
 
 
 //
-//  identify-text?: native [
+//  export identify-text?: native [
 //
 //  {Codec for identifying BINARY! data for a .TXT file}
 //
@@ -153,7 +152,7 @@ int Decode_UTF16_Negative_If_ASCII(
 //
 REBNATIVE(identify_text_q)
 {
-    INCLUDE_PARAMS_OF_IDENTIFY_TEXT_Q;
+    UTF_INCLUDE_PARAMS_OF_IDENTIFY_TEXT_Q;
 
     UNUSED(ARG(data)); // see notes on decode-text
 
@@ -162,7 +161,7 @@ REBNATIVE(identify_text_q)
 
 
 //
-//  decode-text: native [
+//  export decode-text: native [
 //
 //  {Codec for decoding BINARY! data for a .TXT file}
 //
@@ -172,7 +171,7 @@ REBNATIVE(identify_text_q)
 //
 REBNATIVE(decode_text)
 {
-    INCLUDE_PARAMS_OF_DECODE_TEXT;
+    UTF_INCLUDE_PARAMS_OF_DECODE_TEXT;
 
     // !!! The original code for R3-Alpha would simply alias the incoming
     // binary as a string.  This is essentially a Latin1 interpretation.
@@ -190,7 +189,7 @@ REBNATIVE(decode_text)
 
 
 //
-//  encode-text: native [
+//  export encode-text: native [
 //
 //  {Codec for encoding a .TXT file}
 //
@@ -200,7 +199,7 @@ REBNATIVE(decode_text)
 //
 REBNATIVE(encode_text)
 {
-    INCLUDE_PARAMS_OF_ENCODE_TEXT;
+    UTF_INCLUDE_PARAMS_OF_ENCODE_TEXT;
 
     if (not VAL_BYTE_SIZE(ARG(string))) {
         //
@@ -234,19 +233,19 @@ static void Encode_Utf16_Core(
         // !!! TBD: handle large codepoints bigger than 0xffff, and encode
         // as UTF16.  (REBUNI is only 16 bits at time of writing)
 
-    #if defined(ENDIAN_LITTLE)
+      #if defined(ENDIAN_LITTLE)
         if (little_endian)
             up[i] = c;
         else
             up[i] = ((c & 0xff) << 8) | ((c & 0xff00) >> 8);
-    #elif defined(ENDIAN_BIG)
+      #elif defined(ENDIAN_BIG)
         if (little_endian)
             up[i] = ((c & 0xff) << 8) | ((c & 0xff00) >> 8);
         else
             up[i] = c;
-    #else
+      #else
         #error "Unsupported CPU endian"
-    #endif
+      #endif
     }
 
     up[i] = '\0'; // needs two bytes worth of NULL, not just one.
@@ -276,7 +275,7 @@ static void Decode_Utf16_Core(
 
 
 //
-//  identify-utf16le?: native [
+//  export identify-utf16le?: native [
 //
 //  {Codec for identifying BINARY! data for a little-endian UTF16 file}
 //
@@ -286,7 +285,7 @@ static void Decode_Utf16_Core(
 //
 REBNATIVE(identify_utf16le_q)
 {
-    INCLUDE_PARAMS_OF_IDENTIFY_UTF16LE_Q;
+    UTF_INCLUDE_PARAMS_OF_IDENTIFY_UTF16LE_Q;
 
     // R3-Alpha just said it matched if extension matched.  It could look for
     // a byte order mark by default, but perhaps that's the job of the more
@@ -300,7 +299,7 @@ REBNATIVE(identify_utf16le_q)
 
 
 //
-//  decode-utf16le: native [
+//  export decode-utf16le: native [
 //
 //  {Codec for decoding BINARY! data for a little-endian UTF16 file}
 //
@@ -310,7 +309,7 @@ REBNATIVE(identify_utf16le_q)
 //
 REBNATIVE(decode_utf16le)
 {
-    INCLUDE_PARAMS_OF_DECODE_UTF16LE;
+    UTF_INCLUDE_PARAMS_OF_DECODE_UTF16LE;
 
     REBYTE *data = VAL_BIN_AT(ARG(data));
     REBCNT len = VAL_LEN_AT(ARG(data));
@@ -333,7 +332,7 @@ REBNATIVE(decode_utf16le)
 
 
 //
-//  encode-utf16le: native [
+//  export encode-utf16le: native [
 //
 //  {Codec for encoding a little-endian UTF16 file}
 //
@@ -343,7 +342,7 @@ REBNATIVE(decode_utf16le)
 //
 REBNATIVE(encode_utf16le)
 {
-    INCLUDE_PARAMS_OF_ENCODE_UTF16LE;
+    UTF_INCLUDE_PARAMS_OF_ENCODE_UTF16LE;
 
     // !!! Should probably by default add a byte order mark, but given this
     // is weird "userspace" encoding it should be an option to the codec.
@@ -361,7 +360,7 @@ REBNATIVE(encode_utf16le)
 
 
 //
-//  identify-utf16be?: native [
+//  export identify-utf16be?: native [
 //
 //  {Codec for identifying BINARY! data for a big-endian UTF16 file}
 //
@@ -371,7 +370,7 @@ REBNATIVE(encode_utf16le)
 //
 REBNATIVE(identify_utf16be_q)
 {
-    INCLUDE_PARAMS_OF_IDENTIFY_UTF16BE_Q;
+    UTF_INCLUDE_PARAMS_OF_IDENTIFY_UTF16BE_Q;
 
     // R3-Alpha just said it matched if extension matched.  It could look for
     // a byte order mark by default, but perhaps that's the job of the more
@@ -385,7 +384,7 @@ REBNATIVE(identify_utf16be_q)
 
 
 //
-//  decode-utf16be: native [
+//  export decode-utf16be: native [
 //
 //  {Codec for decoding BINARY! data for a big-endian UTF16 file}
 //
@@ -395,7 +394,7 @@ REBNATIVE(identify_utf16be_q)
 //
 REBNATIVE(decode_utf16be)
 {
-    INCLUDE_PARAMS_OF_DECODE_UTF16BE;
+    UTF_INCLUDE_PARAMS_OF_DECODE_UTF16BE;
 
     REBYTE *data = VAL_BIN_AT(ARG(data));
     REBCNT len = VAL_LEN_AT(ARG(data));
@@ -418,7 +417,7 @@ REBNATIVE(decode_utf16be)
 
 
 //
-//  encode-utf16be: native [
+//  export encode-utf16be: native [
 //
 //  {Codec for encoding a big-endian UTF16 file}
 //
@@ -428,7 +427,7 @@ REBNATIVE(decode_utf16be)
 //
 REBNATIVE(encode_utf16be)
 {
-    INCLUDE_PARAMS_OF_ENCODE_UTF16BE;
+    UTF_INCLUDE_PARAMS_OF_ENCODE_UTF16BE;
 
     const bool little_endian = false;
 
