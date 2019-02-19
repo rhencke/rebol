@@ -125,7 +125,6 @@ core: [
     p-net.c
     p-serial.c
     p-signal.c
-;   p-timer.c ;--Marked as unimplemented
 
     ; (S)trings
     s-cases.c
@@ -178,7 +177,7 @@ core: [
         <no-constant-conditional>
 
         ; Zlib is an active project so it would be worth it to check to see
-        ; if minor patches for suverting Spectre mitigation would be taken.
+        ; if minor patches for subverting Spectre mitigation would be taken.
         ;
         <msc:/wd5045> ;-- https://stackoverflow.com/q/50399940
     ]
