@@ -239,7 +239,7 @@ console!: make object! [
         ; https://forum.rebol.info/t/1071
         ;
         if (not empty? b) and [not void? :last-result] [
-            insert b uneval :last-result
+            insert/only b uneval :last-result
         ]
 
         b
