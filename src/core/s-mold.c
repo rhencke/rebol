@@ -736,7 +736,24 @@ void Throttle_Mold(REB_MOLD *mo) {
         return;
 
     if (SER_LEN(mo->series) > mo->limit) {
-        SET_SERIES_LEN(mo->series, mo->limit - 3); // account for ellipsis
+        //
+        // Mold buffer is UTF-8...length limit is (currently) in characters,
+        // not bytes.  Have to back up the right number of bytes, but also
+        // adjust the character length appropriately.
+
+        REBINT overage = SER_LEN(mo->series) - mo->limit;
+        assert(mo->limit >= 3);
+        overage += 3;  // subtract out characters for ellipsis
+
+        REBCHR(*) tail = UNI_TAIL(mo->series);
+        REBUNI dummy;
+        REBCHR(*) cp = SKIP_CHR(&dummy, tail, -overage);
+
+        SET_UNI_LEN_USED(
+            mo->series,
+            SER_LEN(mo->series) - overage,
+            SER_USED(mo->series) - (tail - cp)
+        );
         Append_Ascii(mo->series, "..."); // adds a null at the tail
     }
 }
