@@ -278,7 +278,7 @@ REBCNT Find_Bin_In_Bin(
     REBSIZ size2,
     REBFLGS flags // AM_FIND_MATCH
 ){
-    assert(SER_LEN(series) > offset);
+    assert(SER_LEN(series) >= offset);
     assert((flags & ~AM_FIND_MATCH) == 0);  // no AM_FIND_CASE
 
     if (size2 == 0 || (size2 + offset) > SER_LEN(series))
@@ -751,7 +751,7 @@ REBCNT Find_In_Any_Sequence(
         return find_binary(
             len, series, index, end, pattern, flags, skip
         );
-    
+
     if (ANY_STRING(any_series))
         return find_string(
             len, series, index, end, pattern, flags, skip

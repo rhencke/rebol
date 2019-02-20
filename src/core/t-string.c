@@ -1238,7 +1238,7 @@ REBTYPE(String)
             assert(ANY_STRING(v));
 
             REBSIZ utf8_size;
-            const REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v); 
+            const REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v);
             Set_Random(Compute_CRC24(utf8, utf8_size));
             return Init_Void(D_OUT);
         }

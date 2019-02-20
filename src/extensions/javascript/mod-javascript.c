@@ -1019,7 +1019,7 @@ REBNATIVE(js_native_mainthread)
     else {
         Init_Text(
             ARR_AT(details, IDX_NATIVE_BODY),
-            Copy_String_At_Len(source, -1)  // might change
+            Copy_String_At(source)  // might change
         );
     }
 
@@ -1072,15 +1072,7 @@ REBNATIVE(js_native_mainthread)
     //
     Append_Ascii(mo->series, "function () {");
 
-    REBSIZ offset;
-    REBSIZ size;
-    REBSER *temp = Temp_UTF8_At_Managed(
-        &offset,
-        &size,
-        source,
-        VAL_LEN_AT(source)
-    );
-    Append_Utf8_Utf8(mo->series, cs_cast(BIN_AT(temp, offset)), size);
+    Append_String(mo->series, source, VAL_LEN_AT(source));
 
     Append_Ascii(mo->series, "}\n");  // end `function() {`
     Append_Ascii(mo->series, ");");  // end `reb.RegisterId_internal(`
@@ -1088,7 +1080,7 @@ REBNATIVE(js_native_mainthread)
     TERM_SERIES(mo->series);
 
     TRACE("Registering native_id %d", native_id);
-    emscripten_run_script(cs_cast(BIN_AT(mo->series, mo->start)));
+    emscripten_run_script(cs_cast(BIN_AT(mo->series, mo->offset)));
 
     Drop_Mold(mo);
 

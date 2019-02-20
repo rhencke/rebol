@@ -196,7 +196,7 @@ static REBVAL *Dangerous_Command(REBREQ *req) {
 // (DR_PEND) and negative numbers for errors.  As the device model is revamped
 // the concept is to return the actual result, NULL if pending, or an ERROR!.
 //
-REBVAL *OS_Do_Device(REBREQ *req, int command)
+REBVAL *OS_Do_Device(REBREQ *req, enum Reb_Device_Command command)
 {
     Req(req)->command = command;
 

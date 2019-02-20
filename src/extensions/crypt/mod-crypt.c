@@ -613,7 +613,7 @@ REBNATIVE(sha256)
     CRYPT_INCLUDE_PARAMS_OF_SHA256;
 
     REBSIZ size;
-    const REBYTE *bp = VAL_UTF8_AT(&size, ARG(data));
+    const REBYTE *bp = VAL_BYTES_AT(&size, ARG(data));
 
     SHA256_CTX ctx;
 

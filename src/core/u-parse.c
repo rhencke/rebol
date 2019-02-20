@@ -1015,7 +1015,7 @@ static REBIXO To_Thru_Non_Block_Rule(
         return SER_LEN(P_INPUT);
     }
 
-    if (ANY_ARRAY_KIND(kind)) {
+    if (IS_SER_ARRAY(P_INPUT)) {
         //
         // FOR ARRAY INPUT WITH NON-BLOCK RULES, USE Find_In_Array()
         //
@@ -1598,16 +1598,27 @@ REBNATIVE(subparse)
                             SET_END(P_OUT);  // restore invariant
                             goto next_alternate;  // backtrack collect, seek |
                         }
-                        P_POS = VAL_INT32(P_OUT);
+                        REBCNT pos_after = VAL_INT32(P_OUT);
                         SET_END(P_OUT);  // restore invariant
 
-                        assert(P_POS >= pos_before);  // 0 or more matches
+                        assert(pos_after >= pos_before);  // 0 or more matches
 
                         REBARR *target;
-                        if (P_POS == pos_before and not only) {
+                        if (pos_after == pos_before and not only) {
                             target = nullptr;
                         }
-                        if (not IS_SER_ARRAY(P_INPUT)) {  // TEXT!, etc.
+                        else if (ANY_STRING(P_INPUT_VALUE)) {
+                            target = nullptr;
+                            Init_Any_Series(
+                                Alloc_Tail_Array(P_COLLECTION),
+                                P_TYPE,
+                                Copy_String_At_Limit(
+                                    P_INPUT_VALUE,
+                                    pos_after - pos_before
+                                )
+                            );
+                        }
+                        else if (not IS_SER_ARRAY(P_INPUT)) {  // BINARY! (?)
                             target = nullptr;  // not an array, one item
                             Init_Any_Series(
                                 Alloc_Tail_Array(P_COLLECTION),
@@ -1615,13 +1626,13 @@ REBNATIVE(subparse)
                                 Copy_Sequence_At_Len(
                                     P_INPUT,
                                     pos_before,
-                                    P_POS - pos_before
+                                    pos_after - pos_before
                                 )
                             );
                         }
                         else if (only) {  // taken to mean "add as one block"
                             target = Make_Array_Core(
-                                P_POS - pos_before,
+                                pos_after - pos_before,
                                 NODE_FLAG_MANAGED
                             );
                             Init_Block(Alloc_Tail_Array(P_COLLECTION), target);
@@ -1631,13 +1642,15 @@ REBNATIVE(subparse)
 
                         if (target) {
                             REBCNT n;
-                            for (n = pos_before; n < P_POS; ++n)
+                            for (n = pos_before; n < pos_after; ++n)
                                 Derelativize(
                                     Alloc_Tail_Array(target),
                                     ARR_AT(ARR(P_INPUT), n),
                                     P_INPUT_SPECIFIER
                                 );
                         }
+
+                        P_POS = pos_after;  // continue from end of kept data
                     }
                     continue; }
 

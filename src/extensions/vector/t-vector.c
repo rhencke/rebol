@@ -745,12 +745,8 @@ void MF_Vector(REB_MOLD *mo, const REBCEL *v, bool form)
             Append_Codepoint(mo->series, ' ');
     }
 
-    if (len) {
-        //
-        // remove final space (overwritten with terminator)
-        //
-        TERM_BIN_LEN(mo->series, BIN_LEN(mo->series) - 1);
-    }
+    // !!! There was some handling here for trimming spaces, should be done
+    // another way for UTF-8 everywhere if it's important.
 
     if (not form) {
         if (len)

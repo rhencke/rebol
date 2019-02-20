@@ -168,6 +168,7 @@ static void Read_File_Port(
     struct rebol_devreq *req = Req(file);
 
     REBSER *ser = Make_Binary(len); // read result buffer
+    TERM_BIN_LEN(ser, len);
     Init_Binary(out, ser);
 
     // Do the read, check for errors:

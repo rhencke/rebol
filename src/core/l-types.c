@@ -1420,7 +1420,7 @@ REBNATIVE(scan_net_header)
             while (!ANY_CR_LF_END(*cp))
                 str = WRITE_CHR(str, *cp++);
         }
-        TERM_UNI_LEN_USED(string, len, cp - UNI_HEAD(string));
+        TERM_UNI_LEN_USED(string, len, str - UNI_HEAD(string));
         Init_Text(val, string);
     }
 

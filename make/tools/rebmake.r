@@ -710,9 +710,9 @@ ld: make linker-class [
                         unspaced ["-l" lib]
                     ]
                 ][
-                    unspaced [
-                        if find dep/flags 'static ["-static "]
-                        "-l" dep/output
+                    spaced [
+                        if find dep/flags 'static ["-static"]
+                        unspaced ["-l" dep/output]
                     ]
                 ]
             ]

@@ -443,54 +443,56 @@ void Form_Base16(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
 //
 // Base64 encode a range of arbitrary bytes into a byte-sized ASCII series.
 //
+// !!! Strongly parallels this code, may have originated from it:
+// http://web.mit.edu/freebsd/head/contrib/wpa/src/utils/base64.c
+//
 void Form_Base64(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
 {
-    if (len == 0)
-        return;
-
     // !!! This used to predict the length, accounting for hex digits, lines,
-    // and extra syntax ("slop factor"):
+    // and extra syntax ("slop factor") and preallocate size for that.  Now
+    // it appends one character at a time and relies upon the mold buffer's
+    // natural expansion.  Review if it needs the optimization.
+
+    REBSER *s = mo->series;
 
     REBINT loop = cast(int, len / 3) - 1;
-    if (4 * loop > 64 && brk)
-        Append_Codepoint(mo->series, LF);
+    if (brk and 4 * loop > 64)
+        Append_Codepoint(s, LF);
 
     REBINT x;
     for (x = 0; x <= 3 * loop; x += 3) {
-        Append_Codepoint(mo->series, Enbase64[src[x] >> 2]);
+        Append_Codepoint(s, Enbase64[src[x] >> 2]);
         Append_Codepoint(
-            mo->series,
+            s,
             Enbase64[((src[x] & 0x3) << 4) + (src[x + 1] >> 4)]
         );
         Append_Codepoint(
-            mo->series,
+            s,
             Enbase64[((src[x + 1] & 0xF) << 2) + (src[x + 2] >> 6)]
         );
-        Append_Codepoint(mo->series, Enbase64[(src[x + 2] % 0x40)]);
+        Append_Codepoint(s, Enbase64[(src[x + 2] % 0x40)]);
         if ((x + 3) % 48 == 0 && brk)
-            Append_Codepoint(mo->series, LF);
+            Append_Codepoint(s, LF);
     }
 
     if ((len % 3) != 0) {
-        Append_Codepoint(mo->series, Enbase64[src[x] >> 2]);
-        
-        if ((len - x) >= 1) {
-            Append_Codepoint(
-                mo->series,
-                Enbase64[
-                    ((src[x] & 0x3) << 4)
-                    + ((len - x) == 1 ? 0 : src[x + 1] >> 4)
-                ]
-            );
-        } else
-            Append_Codepoint(mo->series, '=');
+        Append_Codepoint(s, Enbase64[src[x] >> 2]);
 
-        if ((len - x) == 2)
-            Append_Codepoint(mo->series, Enbase64[(src[x + 1] & 0xF) << 2]);
-        else
-            Append_Codepoint(mo->series, '=');
+        if (len - x == 1) {
+            Append_Codepoint(s, Enbase64[((src[x] & 0x3) << 4)]);
+            Append_Codepoint(s, '=');
+        }
+        else {
+            Append_Codepoint(
+                s,
+                Enbase64[((src[x] & 0x3) << 4) | (src[x + 1] >> 4)]
+            );
+            Append_Codepoint(s, Enbase64[(src[x + 1] & 0xF) << 2]);
+        }
+
+        Append_Codepoint(s, '=');
     }
 
-    if (*BIN_LAST(mo->series) != LF && x > 49 && brk)
-        Append_Codepoint(mo->series, LF);
+    if (brk and x > 49 and *BIN_LAST(s) != LF)
+        Append_Codepoint(s, LF);
 }

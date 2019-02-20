@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2018 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -542,13 +542,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         }
         break; }
 
-      case REB_BITSET: {
-        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
-        REBBIN *bin = SER(VAL_NODE(v));
-        Mark_Rebser_Only(bin);
-        break; }
-
-      case REB_BINARY:
       case REB_TEXT:
       case REB_FILE:
       case REB_EMAIL:
@@ -556,19 +549,32 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
       case REB_TAG: {
         assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
         REBSER *s = SER(PAYLOAD(Any, v).first.node);
-
         assert(SER_WIDE(s) == sizeof(REBYTE));
-        assert(
-            kind == REB_BINARY
-            or GET_SERIES_FLAG(s, UTF8_NONWORD) // !!! temporary
-        );
-
-        if (GET_SERIES_INFO(s, INACCESSIBLE)) {
-            //
-            // !!! See notes above on REB_BLOCK/etc. RE: letting series die.
-            //
+        assert(GET_SERIES_FLAG(s, UTF8_NONWORD));  // !!! temporary
+        if (GET_SERIES_INFO(s, INACCESSIBLE))
+            Mark_Rebser_Only(s);  // TBD: clear out reference and GC `s`?
+        else {
+            ASSERT_SERIES_TERM(s);
             Mark_Rebser_Only(s);
         }
+        break; }
+
+      case REB_BINARY: {
+        REBBIN *s = SER(PAYLOAD(Any, v).first.node);
+        assert(SER_WIDE(s) == sizeof(REBYTE));
+        if (GET_SERIES_INFO(s, INACCESSIBLE))
+            Mark_Rebser_Only(s);  // TBD: clear out reference and GC `s`?
+        else {
+            ASSERT_SERIES_TERM(s);
+            Mark_Rebser_Only(s);
+        }
+        break; }
+
+      case REB_BITSET: {
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
+        REBSER *s = SER(PAYLOAD(Any, v).first.node);
+        if (GET_SERIES_INFO(s, INACCESSIBLE))
+            Mark_Rebser_Only(s);  // TBD: clear out reference and GC `s`?
         else
             Mark_Rebser_Only(s);
         break; }
@@ -1731,6 +1737,16 @@ REBCNT Recycle_Core(bool shutdown, REBSER *sweeplist)
         return 0;
     }
 #endif
+
+    // It is currently assumed that no recycle will happen while in a thrown
+    // state.  Debug calls that do evaluation (or even Recycle() directly)
+    // between the time a function has been called and the throw is handled
+    // can cause problems with this.
+    //
+    assert(IS_END(&TG_Thrown_Arg));
+  #if !defined(NDEBUG)
+    assert(IS_END(&TG_Thrown_Label_Debug));
+  #endif
 
     // If disabled by RECYCLE/OFF, exit now but set the pending flag.  (If
     // shutdown, ignore so recycling runs and can be checked for balance.)

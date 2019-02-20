@@ -289,7 +289,7 @@ void Append_String(REBSER *dst, const REBCEL *src, REBCNT limit)
 
     REBCNT len;
     REBSIZ size = VAL_SIZE_LIMIT_AT(&len, src, limit);
-    
+
     REBCNT tail = SER_USED(dst);
     Expand_Series(dst, tail, size); // series USED changes too
 

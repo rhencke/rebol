@@ -145,6 +145,7 @@ REBCNT find_binary(
         if (skip != 1)
             fail ("Search for BINARY! in BINARY! only supports /SKIP 1 ATM");
 
+        *len = VAL_LEN_AT(pattern);
         return Find_Bin_In_Bin(
             bin,
             start,
@@ -154,6 +155,7 @@ REBCNT find_binary(
         );
     }
     else if (IS_CHAR(pattern)) {
+        *len = 1;
         return Find_Char_In_Bin(
             VAL_CHAR(pattern),
             bin,
@@ -313,7 +315,7 @@ REB_R MAKE_Binary(
         //
         return Init_Binary(out, Make_Binary(Int32s(def, 0)));
     }
-    
+
     if (IS_BLOCK(def)) {
         //
         // The construction syntax for making binaries preloaded with an

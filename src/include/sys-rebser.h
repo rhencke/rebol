@@ -150,23 +150,6 @@
 #define SERIES_FLAG_DONT_RELOCATE SERIES_FLAG_FIXED_SIZE
 
 
-//=//// SERIES_FLAG_IS_UTF8_STRING ////////////////////////////////////////=//
-//
-// Indicates the series holds a UTF-8 encoded string.
-//
-// !!! Currently this is only used to store ANY-WORD! symbols, which are
-// read-only and cannot be indexed into, e.g. with `next 'foo`.  This is
-// because UTF-8 characters are encoded at variable sizes, and the series
-// indexing does not support that at this time.  However, it would be nice
-// if a way could be figured out to unify ANY-STRING! with ANY-WORD! somehow
-// in order to implement the "UTF-8 Everywhere" manifesto:
-//
-// http://utf8everywhere.org/
-//
-#define SERIES_FLAG_IS_UTF8_STRING \
-    FLAG_LEFT_BIT(10)
-
-
 //=//// SERIES_FLAG_POWER_OF_2 ////////////////////////////////////////////=//
 //
 // R3-Alpha would round some memory allocation requests up to a power of 2.
@@ -187,16 +170,7 @@
 // was not necessary there.
 //
 #define SERIES_FLAG_POWER_OF_2 \
-    FLAG_LEFT_BIT(11)
-
-
-//=//// SERIES_FLAG_UTF8_NONWORD //////////////////////////////////////////=//
-//
-// !!! Temporary flag to be used while a backing store for an ANY-STRING! is
-// separate from the SERIES_FLAG_UTF8_STRING.
-//
-#define SERIES_FLAG_UTF8_NONWORD \
-    FLAG_LEFT_BIT(12)
+    FLAG_LEFT_BIT(10)
 
 
 //=//// SERIES_FLAG_ALWAYS_DYNAMIC ////////////////////////////////////////=//
@@ -214,28 +188,52 @@
 // SERIES_FLAG_ALWAYS_DYNAMIC bit but no longer have an allocation.
 //
 #define SERIES_FLAG_ALWAYS_DYNAMIC \
+    FLAG_LEFT_BIT(11)
+
+
+//=//// SERIES_FLAG_IS_UTF8_STRING ////////////////////////////////////////=//
+//
+// Indicates the series holds a UTF-8 encoded string.
+//
+// !!! Currently this is only used to store ANY-WORD! symbols, which are
+// read-only and cannot be indexed into, e.g. with `next 'foo`.  This is
+// because UTF-8 characters are encoded at variable sizes, and the series
+// indexing does not support that at this time.  However, it would be nice
+// if a way could be figured out to unify ANY-STRING! with ANY-WORD! somehow
+// in order to implement the "UTF-8 Everywhere" manifesto:
+//
+// http://utf8everywhere.org/
+//
+#define SERIES_FLAG_IS_UTF8_STRING \
+    FLAG_LEFT_BIT(12)
+
+
+//=//// SERIES_FLAG_UTF8_NONWORD //////////////////////////////////////////=//
+//
+// !!! Temporary flag to be used while a backing store for an ANY-STRING! is
+// separate from the SERIES_FLAG_UTF8_STRING.
+//
+#define SERIES_FLAG_UTF8_NONWORD \
     FLAG_LEFT_BIT(13)
 
 
-// ^-- STOP GENERIC SERIES FLAGS AT FLAG_LEFT_BIT(15) --^
-//
+#define SERIES_FLAG_14 FLAG_LEFT_BIT(14)
+#define SERIES_FLAG_15 FLAG_LEFT_BIT(15)
+
+
+//=/////// ^-- STOP GENERIC SERIES FLAGS AT FLAG_LEFT_BIT(15) --^ /////////=//
+
+
 // If a series is not an array, then the rightmost 16 bits of the series flags
 // are used to store an arbitrary per-series-type 16 bit number.  Right now,
 // that's used by the string series to save their REBSYM id integer (if they
 // have one).
-//
-#ifdef CPLUSPLUS_11
-    static_assert(13 < 16, "SERIES_FLAG_XXX too high");
-#endif
-
-
 //
 // Because there are a lot of different array flags that one might want to
 // check, they are broken into a separate section.  However, note that if you
 // do not know a series is an array you can't check just for this...e.g.
 // an arbitrary REBSER tested for ARRAY_FLAG_IS_VARLIST might alias with a
 // UTF-8 symbol string whose symbol number uses that bit (!).
-//
 
 
 //=//// ARRAY_FLAG_HAS_FILE_LINE //////////////////////////////////////////=//
@@ -344,16 +342,12 @@ STATIC_ASSERT(ARRAY_FLAG_CONST_SHALLOW == CELL_FLAG_CONST);
 #define ARRAY_FLAG_31 FLAG_LEFT_BIT(31)
 
 
-// ^-- STOP ARRAY FLAGS AT FLAG_LEFT_BIT(31) --^
-//
+//=//////////// ^-- STOP ARRAY FLAGS AT FLAG_LEFT_BIT(31) --^ /////////////=//
+
 // Arrays can use all the way up to the 32-bit limit on the flags (since
 // they're not using the arbitrary 16-bit number the way that a REBSTR is for
 // storing the symbol).  64-bit machines have more space, but it shouldn't
 // be used for anything but optimizations.
-//
-#ifdef CPLUSPLUS_11
-    static_assert(31 < 32, "ARRAY_FLAG_XXX too high");
-#endif
 
 
 //=////////////////////////////////////////////////////////////////////////=//

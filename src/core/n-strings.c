@@ -829,7 +829,7 @@ REBNATIVE(enline)
 
     REBSER *ser = VAL_SERIES(val);
     REBCNT idx = VAL_INDEX(val);
-    
+
     REBCNT len;
     REBSIZ size = VAL_SIZE_LIMIT_AT(&len, val, UNKNOWN);
 

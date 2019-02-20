@@ -881,7 +881,9 @@ REB_R Call_Core(REBFRM *frame_) {
     }
     else if (IS_BINARY(ARG(out))) {
         if (outbuf_used > 0) {
-            Append_Ascii_Len(VAL_SERIES(ARG(out)), outbuf, outbuf_used);
+            REBVAL *output_val = rebSizedBinary(outbuf, outbuf_used);
+            rebElide("append", ARG(out), output_val, rebEND);
+            rebRelease(output_val);
         }
     }
     else
@@ -896,7 +898,9 @@ REB_R Call_Core(REBFRM *frame_) {
         }
     } else if (IS_BINARY(ARG(err))) {
         if (errbuf_used > 0) {
-            Append_Ascii_Len(VAL_SERIES(ARG(err)), errbuf, errbuf_used);
+            REBVAL *error_val = rebSizedBinary(errbuf, errbuf_used);
+            rebElide("append", ARG(err), error_val, rebEND);
+            rebRelease(error_val);
         }
     }
     rebFree(errbuf);  // legal if errbuf is nullptr

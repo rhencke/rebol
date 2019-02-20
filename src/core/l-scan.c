@@ -547,7 +547,7 @@ const REBYTE *Scan_Item_Push_Mold(
             //
             return nullptr;
         }
-        
+
         ++bp;
 
         Append_Codepoint(mo->series, c);
@@ -1608,10 +1608,15 @@ static REBARR *Scan_Child_Array(SCAN_STATE *ss, REBYTE mode_char);
 // If the source bytes are "1" then it will be the array [1]
 // If the source bytes are "[1]" then it will be the array [[1]]
 //
-// Variations like GET-PATH!, SET-PATH! or LIT-PATH! are not discerned in
-// the result here.  Instead, ordinary path scanning is done, followed by a
-// transformation (e.g. if the first element was a GET-WORD!, change it to
-// an ordinary WORD! and make it a GET-PATH!)  The caller does this.
+// BLOCK! and GROUP! use fairly ordinary recursions of this routine to make
+// arrays.  PATH! scanning is a bit trickier...it starts after an element was
+// scanned and is immediately followed by a `/`.  The stack pointer is marked
+// to include that previous element, and a recursive call to Scan_To_Stack()
+// collects elements so long as a `/` is seen between them.  When space is
+// reached, the element that was seen prior to the `/` is integrated into a
+// path to replace it in the scan of the array the path is in.  (e.g. if the
+// prior element was a GET-WORD!, the scan becomes a GET-PATH!...if the final
+// element is a SET-WORD!, the scan becomes a SET-PATH!)
 //
 // Return value is always nullptr, since output is sent to the data stack.
 // (It only has a return value because it may be called by rebRescue(), and
