@@ -368,17 +368,9 @@ REB_R TO_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_IMAGE);
     UNUSED(kind);
+    UNUSED(out);
 
-    if (IS_GOB(arg)) {
-        REBVAL *image = OS_GOB_TO_IMAGE(arg);
-        if (image == NULL)
-            fail (Error_Bad_Make(REB_IMAGE, arg)); // not GUI build...
-        Move_Value(out, image); // what are the GC semantics here?
-    }
-    else
-        fail (Error_Invalid_Type(VAL_TYPE(arg)));
-
-    return out;
+    fail (Error_Invalid_Type(VAL_TYPE(arg)));
 }
 
 
@@ -601,7 +593,7 @@ void Clear_Image(REBVAL *img)
 // reason.  (!)  The code is deprecated, but kept around and building for any
 // sufficiently motivated individual who wanted to review it.
 //
-REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
+REB_R Modify_Image(REBFRM *frame_, const REBVAL *verb)
 {
     INCLUDE_PARAMS_OF_CHANGE;  // currently must have same frame as CHANGE
 

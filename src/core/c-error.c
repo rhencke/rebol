@@ -1251,7 +1251,7 @@ REBCTX *Error_Protected_Key(REBVAL *key)
 //
 //  Error_Illegal_Action: C
 //
-REBCTX *Error_Illegal_Action(enum Reb_Kind type, REBVAL *verb)
+REBCTX *Error_Illegal_Action(enum Reb_Kind type, const REBVAL *verb)
 {
     assert(IS_WORD(verb));
     return Error_Cannot_Use_Raw(verb, Datatype_From_Kind(type));
@@ -1261,7 +1261,7 @@ REBCTX *Error_Illegal_Action(enum Reb_Kind type, REBVAL *verb)
 //
 //  Error_Math_Args: C
 //
-REBCTX *Error_Math_Args(enum Reb_Kind type, REBVAL *verb)
+REBCTX *Error_Math_Args(enum Reb_Kind type, const REBVAL *verb)
 {
     assert(IS_WORD(verb));
     return Error_Not_Related_Raw(verb, Datatype_From_Kind(type));

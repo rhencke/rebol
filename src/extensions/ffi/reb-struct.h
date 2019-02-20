@@ -474,7 +474,7 @@ extern void callback_dispatcher(
 );
 extern void cleanup_ffi_closure(const REBVAL *v);
 
-extern const REBVAL *T_Struct(REBFRM *frame_, REBVAL *verb);
+extern const REBVAL *T_Struct(REBFRM *frame_, const REBVAL *verb);
 extern const REBVAL *PD_Struct(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval);
 extern REBINT CT_Struct(const REBCEL *a, const REBCEL *b, REBINT mode);
 extern void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);

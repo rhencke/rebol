@@ -51,7 +51,7 @@
 #include "tmp-mod-console.h"
 
 
-extern REB_R Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb);
+extern REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb);
 
 //
 //  get-console-actor-handle: native [

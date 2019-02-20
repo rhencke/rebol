@@ -183,7 +183,7 @@ REBSER *Temp_UTF8_At_Managed(
 //
 // Only valid for BINARY data.
 //
-REBSER *Xandor_Binary(REBVAL *verb, REBVAL *value, REBVAL *arg)
+REBSER *Xandor_Binary(const REBVAL *verb, REBVAL *value, REBVAL *arg)
 {
     REBYTE *p0 = VAL_BIN_AT(value);
     REBYTE *p1 = VAL_BIN_AT(arg);

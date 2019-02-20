@@ -412,7 +412,7 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
 // NOTE: stack must already be setup correctly for action, and
 // the caller must cleanup the stack.
 //
-REB_R Do_Port_Action(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+REB_R Do_Port_Action(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 {
     FAIL_IF_BAD_PORT(port);
 

@@ -253,13 +253,13 @@ typedef REB_R (*REBNAT)(REBFRM *frame_);
 // Generic hooks: implementing a "verb" ACTION! for a particular
 // type (or class of types).
 //
-typedef REB_R (*GENERIC_HOOK)(REBFRM *frame_, REBVAL *verb);
+typedef REB_R (*GENERIC_HOOK)(REBFRM *frame_, const REBVAL *verb);
 #define REBTYPE(n) \
-    REB_R T_##n(REBFRM *frame_, REBVAL *verb)
+    REB_R T_##n(REBFRM *frame_, const REBVAL *verb)
 
 // Port hook: for implementing generic ACTION!s on a PORT! class
 //
-typedef REB_R (*PORT_HOOK)(REBFRM *frame_, REBVAL *port, REBVAL *verb);
+typedef REB_R (*PORT_HOOK)(REBFRM *frame_, REBVAL *port, const REBVAL *verb);
 
 // Path evaluator function
 //

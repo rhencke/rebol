@@ -37,7 +37,7 @@
 //
 //  DNS_Actor: C
 //
-static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 {
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 

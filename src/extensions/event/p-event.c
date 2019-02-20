@@ -132,7 +132,7 @@ REBVAL *Find_Last_Event(REBINT model, uint32_t type)
 //
 // Internal port handler for events.
 //
-REB_R Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+REB_R Event_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 {
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 

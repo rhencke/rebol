@@ -120,7 +120,7 @@ REB_R TO_Char(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 }
 
 
-static REBINT Math_Arg_For_Char(REBVAL *arg, REBVAL *verb)
+static REBINT Math_Arg_For_Char(REBVAL *arg, const REBVAL *verb)
 {
     switch (VAL_TYPE(arg)) {
     case REB_CHAR:

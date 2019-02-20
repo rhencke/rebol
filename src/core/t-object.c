@@ -688,7 +688,7 @@ void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
 //
 REB_R Context_Common_Action_Maybe_Unhandled(
     REBFRM *frame_,
-    REBVAL *verb
+    const REBVAL *verb
 ){
     REBVAL *value = D_ARG(1);
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;

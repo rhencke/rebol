@@ -50,7 +50,7 @@
 static REB_R Clipboard_Actor(
     REBFRM *frame_,
     REBVAL *port,
-    REBVAL *verb
+    const REBVAL *verb
 ){
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
