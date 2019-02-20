@@ -446,28 +446,18 @@ inline static void FAIL_IF_READ_ONLY_SER(REBSER *s) {
 #define PUSH_GC_GUARD(p) \
     Push_Guard_Node(NOD(p))
 
-#ifdef NDEBUG
-    inline static void Drop_Guard_Node(REBNOD *n) {
-        UNUSED(n);
-        GC_Guarded->content.dynamic.len--;
+inline static void DROP_GC_GUARD(void *p) {
+  #if defined(NDEBUG)
+    UNUSED(p);
+  #else
+    if (NOD(p) != *SER_LAST(REBNOD*, GC_Guarded)) {
+        printf("DROP_GC_GUARD() pointer that wasn't last PUSH_GC_GUARD()\n");
+        panic (p);  // should show current call stack AND where node allocated
     }
+  #endif
 
-    #define DROP_GC_GUARD(p) \
-        Drop_Guard_Node(NOD(p))
-#else
-    inline static void Drop_Guard_Node_Debug(
-        REBNOD *n,
-        const char *file,
-        int line
-    ){
-        if (n != *SER_LAST(REBNOD*, GC_Guarded))
-            panic_at (n, file, line);
-        GC_Guarded->content.dynamic.len--;
-    }
-
-    #define DROP_GC_GUARD(p) \
-        Drop_Guard_Node_Debug(NOD(p), __FILE__, __LINE__)
-#endif
+    --GC_Guarded->content.dynamic.len;
+}
 
 
 //=////////////////////////////////////////////////////////////////////////=//
