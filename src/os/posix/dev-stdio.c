@@ -30,16 +30,18 @@
 // opening a console window if necessary.
 //
 
-#include <stdio.h>
-#include <assert.h>
+// !!! Read_IO writes directly into a BINARY!, whose size it needs to keep up
+// to date (in order to have it properly terminated and please the GC).  At
+// the moment it does this with the internal API, though libRebol should
+// hopefully suffice in the future.  This is part of an ongoing effort to
+// make the device layer work more in the vocabulary of Rebol types.
+//
+#include "sys-core.h"
+
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "reb-host.h"
 
 // Temporary globals: (either move or remove?!)
 static int Std_Inp = STDIN_FILENO;
@@ -191,27 +193,35 @@ DEVICE_CMD Read_IO(REBREQ *io)
     long total = 0;
     int len = req->length;
 
+    // !!! While transitioning away from the R3-Alpha "abstract OS" model,
+    // this hook now receives a BINARY! in req->text which it is expected to
+    // fill with UTF-8 data, with req->length bytes.
+    //
+    assert(VAL_INDEX(req->common.binary) == 0);
+    assert(VAL_LEN_AT(req->common.binary) == 0);
+
+    REBSER *bin = VAL_BINARY(req->common.binary);
+    assert(SER_AVAIL(bin) >= req->length);
+
     if (req->modes & RDM_NULL) {
-        req->common.data[0] = 0;
+        TERM_BIN_LEN(bin, 0);
         return DR_DONE;
     }
 
     req->actual = 0;
 
     if (Std_Inp >= 0) {
-
-        // Perform a processed read or a raw read?
-#ifndef HAS_SMART_CONSOLE
+      #ifndef HAS_SMART_CONSOLE  // falls through to stdin if not a console
         if (Term_IO)
-            total = Read_Line(Term_IO, req->common.data, len);
+            total = Read_Line(Term_IO, BIN_HEAD(bin), len);
         else
-#endif
-            total = read(Std_Inp, req->common.data, len); /* will be restarted in case of signal */
+      #endif
+            total = read(Std_Inp, BIN_HEAD(bin), len);  // restarts on signal
 
         if (total < 0)
             rebFail_OS (errno);
 
-        req->actual = total;
+        TERM_BIN_LEN(bin, total);
     }
 
     return DR_DONE;

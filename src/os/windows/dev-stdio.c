@@ -30,21 +30,26 @@
 // opening a console window if necessary.
 //
 
-#include <stdio.h>
 #include <windows.h>
-#include <process.h>
-#include <assert.h>
+#undef IS_ERROR
 
-#include <fcntl.h>
-#include <io.h>
+// !!! Read_IO writes directly into a BINARY!, whose size it needs to keep up
+// to date (in order to have it properly terminated and please the GC).  At
+// the moment it does this with the internal API, though libRebol should
+// hopefully suffice in the future.  This is part of an ongoing effort to
+// make the device layer work more in the vocabulary of Rebol types.
+//
+#include "sys-core.h"
 
-#include "reb-host.h"
+static HANDLE Stdout_Handle = nullptr;
+static HANDLE Stdin_Handle = nullptr;
 
-#define BUF_SIZE (16 * 1024)    // MS restrictions apply
-
-static HANDLE Std_Out = NULL;
-static HANDLE Std_Inp = NULL;
-static WCHAR *Std_Buf = NULL; // Used for UTF-8 conversion of stdin/stdout.
+// While pipes and redirected files in Windows do raw bytes, the console
+// uses UTF-16.  The calling layer expects UTF-8 back, so the Windows API
+// for conversion is used.  The UTF-16 data must be held in a buffer.
+//
+#define WCHAR_BUF_CAPACITY (16 * 1024)
+static WCHAR *Wchar_Buf = nullptr;
 
 static BOOL Redir_Out = 0;
 static BOOL Redir_Inp = 0;
@@ -54,10 +59,9 @@ static BOOL Redir_Inp = 0;
 
 static void Close_Stdio(void)
 {
-    if (Std_Buf) {
-        free(Std_Buf);
-        Std_Buf = 0;
-        //FreeConsole();  // problem: causes a delay
+    if (Wchar_Buf) {
+        free(Wchar_Buf);
+        Wchar_Buf = nullptr;
     }
 }
 
@@ -70,7 +74,6 @@ DEVICE_CMD Quit_IO(REBREQ *dr)
     REBDEV *dev = (REBDEV*)dr; // just to keep compiler happy above
 
     Close_Stdio();
-    //if (dev->flags & RDF_OPEN)) FreeConsole();
     dev->flags &= ~RDF_OPEN;
     return DR_DONE;
 }
@@ -96,20 +99,24 @@ DEVICE_CMD Open_IO(REBREQ *io)
 
     if (not (req->modes & RDM_NULL)) {
         // Get the raw stdio handles:
-        Std_Out = GetStdHandle(STD_OUTPUT_HANDLE);
-        Std_Inp = GetStdHandle(STD_INPUT_HANDLE);
-        //Std_Err = GetStdHandle(STD_ERROR_HANDLE);
+        Stdout_Handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        Stdin_Handle = GetStdHandle(STD_INPUT_HANDLE);
+        //StdErr_Handle = GetStdHandle(STD_ERROR_HANDLE);
 
-        Redir_Out = (GetFileType(Std_Out) != FILE_TYPE_CHAR);
-        Redir_Inp = (GetFileType(Std_Inp) != FILE_TYPE_CHAR);
+        Redir_Out = (GetFileType(Stdout_Handle) != FILE_TYPE_CHAR);
+        Redir_Inp = (GetFileType(Stdin_Handle) != FILE_TYPE_CHAR);
 
-        if (!Redir_Inp || !Redir_Out) {
+        if (not Redir_Inp or not Redir_Out) {
+            //
             // If either input or output is not redirected, preallocate
             // a buffer for conversion from/to UTF-8.
-            Std_Buf = cast(WCHAR*, malloc(sizeof(WCHAR) * BUF_SIZE));
+            //
+            Wchar_Buf = cast(WCHAR*,
+                malloc(sizeof(WCHAR) * WCHAR_BUF_CAPACITY)
+            );
         }
 
-        if (!Redir_Inp) {
+        if (not Redir_Inp) {
             //
             // Windows offers its own "smart" line editor (with history
             // management, etc.) in the form of the Windows Terminal.  These
@@ -125,13 +132,13 @@ DEVICE_CMD Open_IO(REBREQ *io)
             // the console client--given development priorities.
             //
             SetConsoleMode(
-                Std_Inp,
+                Stdin_Handle,
                 ENABLE_LINE_INPUT
-                | ENABLE_PROCESSED_INPUT
-                | ENABLE_ECHO_INPUT
-                | 0x0080 // ENABLE_EXTENDED_FLAGS (need for quick edit/insert)
-                | 0x0040 // quick edit (not defined in VC6)
-                | 0x0020 // quick insert (not defined in VC6)
+                    | ENABLE_PROCESSED_INPUT
+                    | ENABLE_ECHO_INPUT
+                    | 0x0080  // ENABLE_EXTENDED_FLAGS (quick edit/insert)
+                    | 0x0040  // quick edit (not defined in VC6)
+                    | 0x0020  // quick insert (not defined in VC6)
             );
         }
     }
@@ -178,7 +185,7 @@ DEVICE_CMD Write_IO(REBREQ *io)
         return DR_DONE;
     }
 
-    if (Std_Out == NULL)
+    if (Stdout_Handle == nullptr)
         return DR_DONE;
 
     if (Redir_Out) {
@@ -201,7 +208,7 @@ DEVICE_CMD Write_IO(REBREQ *io)
 
         DWORD total_bytes;
         BOOL ok = WriteFile(
-            Std_Out,
+            Stdout_Handle,
             req->common.data,
             req->length,
             &total_bytes,
@@ -223,14 +230,14 @@ DEVICE_CMD Write_IO(REBREQ *io)
                 0,
                 s_cast(req->common.data),
                 req->length,
-                Std_Buf,
-                BUF_SIZE
+                Wchar_Buf,
+                WCHAR_BUF_CAPACITY
             );
             if (len > 0) { // no error
                 DWORD total_wide_chars;
                 BOOL ok = WriteConsoleW(
-                    Std_Out,
-                    Std_Buf,
+                    Stdout_Handle,
+                    Wchar_Buf,
                     len,
                     &total_wide_chars,
                     0
@@ -265,23 +272,27 @@ DEVICE_CMD Write_IO(REBREQ *io)
             // taken into account.
 
             CONSOLE_SCREEN_BUFFER_INFO csbi;
-            GetConsoleScreenBufferInfo(Std_Out, &csbi); // save color
+            GetConsoleScreenBufferInfo(Stdout_Handle, &csbi);  // save color
 
             SetConsoleTextAttribute(
-                Std_Out, BACKGROUND_GREEN | FOREGROUND_BLUE
+                Stdout_Handle,
+                BACKGROUND_GREEN | FOREGROUND_BLUE
             );
 
             WCHAR message[] = L"Binary Data Sent to Non-Redirected Console";
 
             DWORD total_wide_chars;
             BOOL ok = WriteConsoleW(
-                Std_Out,
+                Stdout_Handle,
                 message,
-                wcslen(message), // wants wide character count
+                wcslen(message),  // wants wide character count
                 &total_wide_chars,
                 0
             );
-            SetConsoleTextAttribute(Std_Out, csbi.wAttributes); // restore
+            SetConsoleTextAttribute(
+                Stdout_Handle,
+                csbi.wAttributes  // restore these attributes
+            );
 
             if (not ok)
                 rebFail_OS (GetLastError());
@@ -289,7 +300,7 @@ DEVICE_CMD Write_IO(REBREQ *io)
         }
     }
 
-    req->actual = req->length; // want byte count written, assume success
+    req->actual = req->length;  // want byte count written, assume success
 
     // !!! There was some code in R3-Alpha here which checked req->flags for
     // "RRF_FLUSH" and would flush, but it was commented out (?)
@@ -310,28 +321,41 @@ DEVICE_CMD Write_IO(REBREQ *io)
 DEVICE_CMD Read_IO(REBREQ *io)
 {
     struct rebol_devreq *req = Req(io);
+    assert(req->length >= 2);  // abort is signaled with (ESC '\0')
 
-    assert(req->length >= 2); // abort is signaled with (ESC '\0')
+    // !!! While transitioning away from the R3-Alpha "abstract OS" model,
+    // this hook now receives a BINARY! in req->text which it is expected to
+    // fill with UTF-8 data, with req->length bytes.
+    //
+    assert(VAL_INDEX(req->common.binary) == 0);
+    assert(VAL_LEN_AT(req->common.binary) == 0);
+
+    REBSER *bin = VAL_BINARY(req->common.binary);
+    assert(SER_AVAIL(bin) >= req->length);
 
     if (req->modes & RDM_NULL) {
-        req->common.data[0] = 0;
+        TERM_BIN_LEN(bin, 0);
         return DR_DONE;
     }
 
-    if (Std_Inp == NULL) {
-        req->actual = 0;
+    if (Stdin_Handle == nullptr) {
+        TERM_BIN_LEN(bin, 0);
         return DR_DONE;
     }
 
-    if (Redir_Inp) { // always UTF-8
-        DWORD len = MIN(req->length, BUF_SIZE);
-
+    if (Redir_Inp) {  // always UTF-8
         DWORD total;
-        BOOL ok = ReadFile(Std_Inp, req->common.data, len, &total, 0);
+        BOOL ok = ReadFile(
+            Stdin_Handle,
+            BIN_HEAD(bin),
+            req->length,
+            &total,
+            0
+        );
         if (not ok)
             rebFail_OS (GetLastError());
 
-        req->actual = total;
+        TERM_BIN_LEN(bin, total);
         return DR_DONE;
     }
 
@@ -376,25 +400,24 @@ DEVICE_CMD Read_IO(REBREQ *io)
     // abort script) is accepted as the price paid, to delegate the Unicode
     // aware cursoring/backspacing/line-editing to the OS.  Which also means
     // a smaller executable than trying to rewrite it oneself.
-    //
 
-#ifdef PRE_VISTA
+  #ifdef PRE_VISTA
     LPVOID pInputControl = NULL;
-#else
-    CONSOLE_READCONSOLE_CONTROL ctl; // Unavailable before Vista, e.g. Mingw32
+  #else
+    CONSOLE_READCONSOLE_CONTROL ctl;  // Unavailable pre-Vista, e.g. Mingw32
     PCONSOLE_READCONSOLE_CONTROL pInputControl = &ctl;
 
     ctl.nLength = sizeof(CONSOLE_READCONSOLE_CONTROL);
-    ctl.nInitialChars = 0; // when hit, empty buffer...no CR LF
-    ctl.dwCtrlWakeupMask = (1 << 4); // ^D (^C is implicit)
-    ctl.dwControlKeyState = 0; // no alt+shift modifiers (beyond ctrl)
-#endif
+    ctl.nInitialChars = 0;  // when hit, empty buffer...no CR LF
+    ctl.dwCtrlWakeupMask = (1 << 4);  // ^D (^C is implicit)
+    ctl.dwControlKeyState = 0;  // no alt+shift modifiers (beyond ctrl)
+  #endif
 
     DWORD total;
     BOOL ok = ReadConsoleW(
-        Std_Inp,
-        Std_Buf,
-        BUF_SIZE - 1,
+        Stdin_Handle,
+        Wchar_Buf,
+        WCHAR_BUF_CAPACITY - 1,
         &total,
         pInputControl
     );
@@ -406,8 +429,8 @@ DEVICE_CMD Read_IO(REBREQ *io)
     // encountered, we write a line to maintain the visual invariant.
     //
     WCHAR cr_lf_term[3];
-    cr_lf_term[0] = '\r'; // CR
-    cr_lf_term[1] = '\n'; // LF
+    cr_lf_term[0] = '\r';  // CR
+    cr_lf_term[1] = '\n';  // LF
     cr_lf_term[2] = '\0';
 
     if (total == 0) {
@@ -418,7 +441,7 @@ DEVICE_CMD Read_IO(REBREQ *io)
         //
         // Given that, write compensating line.  !!! Check error?
         //
-        WriteConsoleW(Std_Out, cr_lf_term, 2, NULL, 0);
+        WriteConsoleW(Stdout_Handle, cr_lf_term, 2, NULL, 0);
 
         // The Ctrl-C will be passed on to the SetConsoleCtrlHandler().
         // Regardless of what the Ctrl-C event does (it runs on its own thread
@@ -431,25 +454,23 @@ DEVICE_CMD Read_IO(REBREQ *io)
         // clients which can run with no cancellability (HOST-CONSOLE)
         // should trap it and figure out what to do with the non-ideal state.
         //
-        strcpy(s_cast(req->common.data), "");
-        req->actual = 0;
-
+        TERM_BIN_LEN(bin, 0);
         return DR_DONE;
     }
 
     DWORD i;
     for (i = 0; i < total; ++i) {
-        if (Std_Buf[i] == 4) {
+        if (Wchar_Buf[i] == 4) {
             //
             // A Ctrl-D poked in at any position means escape.  Return it
             // as a single-character null terminated string of escape.
             //
-            strcpy(s_cast(req->common.data), "\x1B"); // 0x1B = 27 (escape)
-            req->actual = 1;
+            *BIN_AT(bin, 0) = ESC;
+            TERM_BIN_LEN(bin, 0);
 
             // Write compensating line.  !!! Check error?
             //
-            WriteConsoleW(Std_Out, cr_lf_term, 2, NULL, 0);
+            WriteConsoleW(Stdout_Handle, cr_lf_term, 2, NULL, 0);
             return DR_DONE;
         }
     }
@@ -459,19 +480,19 @@ DEVICE_CMD Read_IO(REBREQ *io)
     //
     if (
         total >= 2
-        and Std_Buf[total - 2] == '\r' and Std_Buf[total - 1] == '\n'
+        and Wchar_Buf[total - 2] == '\r' and Wchar_Buf[total - 1] == '\n'
     ){
-        Std_Buf[total - 2] = '\n';
-        Std_Buf[total - 1] = '\0';
+        Wchar_Buf[total - 2] = '\n';
+        Wchar_Buf[total - 1] = '\0';
         --total;
     }
 
     DWORD encoded_len = WideCharToMultiByte(
         CP_UTF8,
         0,
-        Std_Buf,
+        Wchar_Buf,
         total,
-        s_cast(req->common.data),
+        s_cast(BIN_HEAD(bin)),
         req->length,
         0,
         0
@@ -485,7 +506,7 @@ DEVICE_CMD Read_IO(REBREQ *io)
     if (encoded_len == 0)
         rebFail_OS (GetLastError());
 
-    req->actual = encoded_len;
+    TERM_BIN_LEN(bin, encoded_len);
     return DR_DONE;
 }
 

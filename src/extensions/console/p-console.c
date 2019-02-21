@@ -27,11 +27,12 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
+// !!! R3's CONSOLE "actor" came with only a READ method and no WRITE.
+// Writing was done through Prin_OS_String() to the Dev_StdIO device without
+// going through a port.  SYSTEM/PORTS/INPUT was thus created from it.
+//
 
 #include "sys-core.h"
-
-
-#define OUT_BUF_SIZE 32*1024
 
 //
 //  Console_Actor: C
@@ -43,25 +44,22 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     REBREQ *req = Ensure_Port_State(port, RDI_STDIO);
 
     switch (VAL_WORD_SYM(verb)) {
-
-    case SYM_REFLECT: {
+      case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
-
         UNUSED(ARG(value)); // implied by `port`
-        REBSYM property = VAL_WORD_SYM(ARG(property));
-        assert(property != SYM_0);
 
+        REBSYM property = VAL_WORD_SYM(ARG(property));
         switch (property) {
-        case SYM_OPEN_Q:
+          case SYM_OPEN_Q:
             return Init_Logic(D_OUT, did (Req(req)->flags & RRF_OPEN));
 
-        default:
+          default:
             break;
         }
 
         break; }
 
-    case SYM_READ: {
+      case SYM_READ: {
         INCLUDE_PARAMS_OF_READ;
 
         UNUSED(PAR(source));
@@ -81,38 +79,40 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         if (not (Req(req)->flags & RRF_OPEN))
             OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
-        // If no buffer, create a buffer:
+        // !!! A fixed size buffer is used to gather console input.  This is
+        // re-used between READ requests.
         //
+        //https://github.com/rebol/rebol-issues/issues/2364
+        //
+        const REBCNT readbuf_size = 32 * 1024;
+
         REBVAL *data = CTX_VAR(ctx, STD_PORT_DATA);
         if (not IS_BINARY(data))
-            Init_Binary(data, Make_Binary(OUT_BUF_SIZE));
+            Init_Binary(data, Make_Binary(readbuf_size));
+        else {
+            assert(VAL_INDEX(data) == 0);
+            assert(VAL_LEN_AT(data) == 0);
+        }
 
-        REBSER *ser = VAL_SERIES(data);
-        SET_SERIES_LEN(ser, 0);
-        TERM_SERIES(ser);
-
-        Req(req)->common.data = BIN_HEAD(ser);
-        Req(req)->length = SER_AVAIL(ser);
+        Req(req)->common.binary = data;  // appends to tail (but it's empty)
+        Req(req)->length = readbuf_size;
 
         OS_DO_DEVICE_SYNC(req, RDC_READ);
 
-        // !!! Among many confusions in this file, it said "Another copy???"
+        // Give back a BINARY! which is as large as the portion of the buffer
+        // that was used, and clear the buffer for reuse.
         //
-        return Init_Binary(
-            D_OUT,
-            Copy_Bytes(Req(req)->common.data, Req(req)->actual)
-        ); }
+        return rebRun("copy", data, "elide clear", data, rebEND); }
 
-    case SYM_OPEN: {
+      case SYM_OPEN:
         Req(req)->flags |= RRF_OPEN;
-        RETURN (port); }
-
-    case SYM_CLOSE:
-        Req(req)->flags &= ~RRF_OPEN;
-        //OS_DO_DEVICE(req, RDC_CLOSE);
         RETURN (port);
 
-    default:
+      case SYM_CLOSE:
+        Req(req)->flags &= ~RRF_OPEN;
+        RETURN (port);
+
+      default:
         break;
     }
 

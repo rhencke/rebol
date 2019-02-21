@@ -469,7 +469,14 @@ post_process_output:
         UNUSED(PAR(seek));
         UNUSED(PAR(index));
 
-        assert(r == D_OUT);
+        if (r != D_OUT) {
+            if (Is_Api_Value(r)) {
+                Handle_Api_Dispatcher_Result(frame_, r);
+                r = D_OUT;
+            }
+            else
+                assert(!"Bad REB_R in READ workaround for /STRING /LINES");
+        }
 
         if ((REF(string) or REF(lines)) and not IS_TEXT(D_OUT)) {
             if (not IS_BINARY(D_OUT))

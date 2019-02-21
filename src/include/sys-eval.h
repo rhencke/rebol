@@ -418,6 +418,13 @@ inline static void Handle_Api_Dispatcher_Result(REBFRM *f, const REBVAL* r) {
     //
     assert(not Is_Evaluator_Throwing_Debug());
 
+    // NOTE: Evaluations are performed directly into API handles as the output
+    // slot of the evaluation.  Clearly you don't want to release the cell
+    // you're evaluating into, so checks against the frame's output cell
+    // should be done before calling this routine!
+    //
+    assert(r != f->out);
+
   #if !defined(NDEBUG)
     if (NOT_CELL_FLAG(r, ROOT)) {
         printf("dispatcher returned non-API value not in D_OUT\n");

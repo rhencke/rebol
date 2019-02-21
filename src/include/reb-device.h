@@ -195,9 +195,14 @@ struct rebol_devreq {
     int32_t timeout;        // request timeout
 //  int (*prewake)(void *); // callback before awake
 
-    // Common fields:
-    union {
-        unsigned char *data;       // data to transfer
+    // !!! Only one of these fields is active at a time, so what it really
+    // represents is a union.  Ultimately what this would evolve into would
+    // just be a REBVAL*, as this becomes a more Rebol-aware and usermode
+    // kind of concept.
+    //
+    struct {
+        unsigned char *data;
+        REBVAL *binary;  // !!! outlives the rebreq (on stack or in port_ctx)
     } common;
     uint32_t length;        // length to transfer
     uint32_t actual;        // length actually transferred

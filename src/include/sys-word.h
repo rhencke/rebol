@@ -29,16 +29,14 @@
 // The ANY-WORD! is the fundamental symbolic concept of Rebol.  It is
 // implemented as a REBSTR UTF-8 string (see %sys-string.h), and can act as
 // a variable when it is bound specifically to a context (see %sys-context.h)
-// or when bound relatively to a function (see %sys-function.h).
+// or when bound relatively to a function (see %sys-action.h).
 //
 // For routines that manage binding, see %sys-bind.h.
 //
 // !!! Today's words are different from ANY-STRING! values.  This is because
-// they are interned (only one copy of the string data for all instances),
-// read-only, use UTF-8 instead of a variable 1 or 2-bytes per character,
-// and permit binding.  Ren-C intends to pare away these differences, perhaps
-// even to the point of allowing mutable WORD!s and bindable STRING!s.  This
-// is at the idea stage, but is evolving.
+// they are interned (only one copy of the UTF-8 data for all instances).
+// Binding is allowed on them, while it is not on regular strings.  There are
+// open questions about whether the categories can (or should) be merged.
 //
 
 inline static bool IS_WORD_UNBOUND(const REBCEL *v) {
