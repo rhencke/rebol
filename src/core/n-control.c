@@ -393,17 +393,17 @@ bool Match_Core_Throws(
 //      'branch [block! action! quoted!]
 //  ]
 //
-REBNATIVE(else) // see `tweak :else #defer on` in %base-defs.r
+REBNATIVE(else)  // see `tweak :else #defer on` in %base-defs.r
 {
-    INCLUDE_PARAMS_OF_ELSE; // faster than EITHER-TEST specialized w/`VALUE?`
+    INCLUDE_PARAMS_OF_ELSE;  // faster than EITHER-TEST specialized w/`VALUE?`
 
-    if (not IS_NULLED(ARG(optional))) // Note: VOID!s are crucially non-NULL
+    if (not IS_NULLED(ARG(optional)))  // Note: VOID!s are crucially non-NULL
         RETURN (ARG(optional));
 
     if (Do_Branch_With_Throws(D_OUT, ARG(branch), NULLED_CELL))
         return R_THROWN;
 
-    return D_OUT; // don't voidify, allows chaining: `else [...] then [...]`
+    return D_OUT;  // don't voidify, allows chaining: `else [...] then [...]`
 }
 
 
@@ -420,17 +420,17 @@ REBNATIVE(else) // see `tweak :else #defer on` in %base-defs.r
 //          [block! action! quoted!]
 //  ]
 //
-REBNATIVE(then) // see `tweak :then #defer on` in %base-defs.r
+REBNATIVE(then)  // see `tweak :then #defer on` in %base-defs.r
 {
-    INCLUDE_PARAMS_OF_THEN; // faster than EITHER-TEST specialized w/`NULL?`
+    INCLUDE_PARAMS_OF_THEN;  // faster than EITHER-TEST specialized w/`NULL?`
 
-    if (IS_NULLED(ARG(optional))) // Note: VOID!s are crucially non-NULL
-        return nullptr; // left didn't run, so signal THEN didn't run either
+    if (IS_NULLED(ARG(optional)))  // Note: VOID!s are crucially non-NULL
+        return nullptr;  // left didn't run, so signal THEN didn't run either
 
     if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(optional)))
         return R_THROWN;
 
-    return Voidify_If_Nulled(D_OUT); // if left ran, make THEN signal it did
+    return D_OUT;  // don't voidify, allows chaining: `then [...] then [...]`
 }
 
 
@@ -447,17 +447,17 @@ REBNATIVE(then) // see `tweak :then #defer on` in %base-defs.r
 //          [block! action! quoted!]
 //  ]
 //
-REBNATIVE(also) // see `tweak :also #defer on` in %base-defs.r
+REBNATIVE(also)  // see `tweak :also #defer on` in %base-defs.r
 {
-    INCLUDE_PARAMS_OF_ALSO; // `then func [x] [(...) :x]` => `also [...]`
+    INCLUDE_PARAMS_OF_ALSO;  // `then func [x] [(...) :x]` => `also [...]`
 
-    if (IS_NULLED(ARG(optional))) // Note: VOID!s are crucially non-NULL
-        return nullptr;
+    if (IS_NULLED(ARG(optional)))  // Note: VOID!s are crucially non-NULL
+        return nullptr;  // telegraph original input, but don't run
 
     if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(optional)))
         return R_THROWN;
 
-    RETURN (ARG(optional)); // just passing thru the input
+    RETURN (ARG(optional));  // ran, but pass thru the original input
 }
 
 

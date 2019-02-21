@@ -1191,12 +1191,13 @@ generic-format: context [
             print "Binary contains no pre-existing encap data block"
         ]
 
-        opt while [0 != modulo (length of executable) 4096] [
+        (while [0 != modulo (length of executable) 4096] [
             append executable #{00}
             true
-        ] then [
+        ]) and [
             print [{Executable padded to} length of executable {bytes long.}]
-        ] else [
+            true
+        ] or [
             print {No padding of executable length required.}
         ]
 

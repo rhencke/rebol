@@ -210,7 +210,7 @@ rebsource: context [
                         opt 'enfix
                         ['native | ahead path! into ['native to end]]
                         to end
-                    ] then [
+                    ] also [
                         ;
                         ; It's a `some-name?: native [...]`, so we expect
                         ; `REBNATIVE(some_name_q)` to be correctly lined up
@@ -296,7 +296,7 @@ rebsource: context [
                 position: try find data #{0a}
                 1 < index of position
                 13 = first back position
-            ] then [
+            ] also [
                 line-ending: unspaced [CR LF]
                 alt-ending: LF
             ] else [

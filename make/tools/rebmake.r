@@ -439,12 +439,12 @@ gcc: make compiler-class [
             call/output reduce [path "--version"] version
             parse version [
                 {gcc (GCC)} space
-                copy major: some digit #"."
-                copy minor: some digit #"."
+                copy major: some digit "."
+                copy minor: some digit "."
                 copy macro: some digit
                 to end
             ] then [
-                version: reduce [ ;; !!!! It appears this is not used (?)
+                version: reduce [  ; !!! It appears this is not used (?)
                     to integer! major
                     to integer! minor
                     to integer! macro

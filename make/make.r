@@ -1394,7 +1394,7 @@ calculate-sequence: function [
                 )
                 break
             ]
-        ] then [ ;-- didn't BREAK, so no match found
+        ] then [  ; didn't BREAK, so no match found
             fail ["unrecoginized dependency" req "for" ext/name]
         ]
     ]

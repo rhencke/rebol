@@ -434,7 +434,7 @@ check-response: function [port] [
                         spec/method: 'get
                     ]]
                     in headers 'Location
-                ] then [
+                ] also [
                     res: do-redirect port headers/location headers
                 ] else [
                     (state/error: make-http-error/inf

@@ -239,7 +239,7 @@ for-each item file-base/core [
             2 <= length of item
             <no-make-header> = item/2
         ] then [
-            continue ; skip this file
+            continue  ; skip this file
         ]
 
         file: to file! first item
