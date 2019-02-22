@@ -91,6 +91,16 @@ static REB_R Transport_Actor(
     REBCTX *ctx = VAL_CONTEXT(port);
     REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
 
+    // If a transfer is in progress, the port_data is a BINARY!.  Its index
+    // represents how much of the transfer has finished.  The data starts
+    // as blank (from `make-port*`) and R3-Alpha would blank it after a
+    // transfer was finished.  For writes, R3-Alpha held a copy of the value
+    // being written...and text was allowed (even though it might be wide
+    // characters, a likely oversight from the addition of unicode).
+    //
+    REBVAL *port_data = CTX_VAR(ctx, STD_PORT_DATA);
+    assert(IS_BINARY(port_data) or IS_TEXT(port_data) or IS_BLANK(port_data));
+
     // sock->timeout = 4000; // where does this go? !!!
 
     // !!! Comment said "HOW TO PREVENT OVERWRITE DURING BUSY OPERATION!!!
@@ -214,10 +224,9 @@ static REB_R Transport_Actor(
 
         switch (property) {
         case SYM_LENGTH: {
-            REBVAL *port_data = CTX_VAR(ctx, STD_PORT_DATA);
             return Init_Integer(
                 D_OUT,
-                ANY_SERIES(port_data) ? VAL_LEN_HEAD(port_data) : 0
+                IS_BINARY(port_data) ? VAL_LEN_HEAD(port_data) : 0
             ); }
 
         case SYM_OPEN_Q:
@@ -240,18 +249,47 @@ static REB_R Transport_Actor(
         // Update the port object after a READ or WRITE operation.
         // This is normally called by the WAKE-UP function.
         //
-        REBVAL *port_data = CTX_VAR(ctx, STD_PORT_DATA);
         if (req->command == RDC_READ) {
-            if (ANY_BINSTR(port_data)) {
-                SET_SERIES_LEN(
-                    VAL_SERIES(port_data),
-                    VAL_LEN_HEAD(port_data) + req->actual
-                );
-            }
+            assert(IS_BINARY(port_data));  // transfer in progress
+            assert(req->common.binary == port_data);
+
+            // !!! R3-Alpha would take req->actual and advance the tail of
+            // the actual input binary here (the req only had byte access,
+            // and could not keep the BINARY! up to date).  Ren-C tries to
+            // operate with the binary in a valid state after every change.
+            //
+            ASSERT_SERIES_TERM(VAL_BINARY(port_data));
         }
         else if (req->command == RDC_WRITE) {
-            Init_Blank(port_data); // Write is done.
+            enum Reb_Kind kind = VAL_TYPE(port_data);
+            assert(kind == REB_BINARY or kind == REB_TEXT);
+            UNUSED(kind);
+
+            // !!! Still uses the convention of passing a byte pointer to
+            // the device layer, vs. a BINARY!.  Pointer is advanced on each
+            // section of write.  WROTE event happens only when all the data
+            // has been written.
+            //
+            REBSIZ size;
+            assert(
+                req->common.data ==
+                    VAL_BYTES_AT(&size, port_data) + req->length
+            );
+            UNUSED(size);
+
+            // !!! R3-Alpha said "write is done" here, and threw away the
+            // port data by blanking it.  But was it done?
+            //
+            Init_Blank(port_data);
         }
+        else
+            assert(
+                req->command == RDC_LOOKUP
+                or req->command == RDC_CONNECT
+                or req->command == RDC_CREATE
+                or req->command == RDC_CLOSE
+            );
+
         return Init_Void(D_OUT); }
 
     case SYM_READ: {
@@ -279,24 +317,31 @@ static REB_R Transport_Actor(
             fail (Error_On_Port(SYM_NOT_CONNECTED, port, -15));
         }
 
-        // Setup the read buffer (allocate a buffer if needed):
+        // Setup the read buffer (allocate a buffer if needed)
         //
-        REBVAL *port_data = CTX_VAR(ctx, STD_PORT_DATA);
-        REBSER *buffer;
-        if (not IS_TEXT(port_data) and not IS_BINARY(port_data)) {
+        REBBIN *buffer;
+        if (IS_BLANK(port_data)) {
             buffer = Make_Binary(NET_BUF_SIZE);
             Init_Binary(port_data, buffer);
         }
         else {
-            buffer = VAL_SERIES(port_data);
-            assert(BYTE_SIZE(buffer));
+            buffer = VAL_BINARY(port_data);
 
-            if (SER_AVAIL(buffer) < NET_BUF_SIZE/2)
+            // !!! Should the buffer be blanked between reads?  The previous
+            // assumption was that network reading would add to the tail of an
+            // existing binary, but the writing would blank the same port
+            // buffer between every write.
+            //
+            assert(VAL_INDEX(port_data) == 0);
+            assert(VAL_LEN_AT(port_data) == 0);
+
+            if (SER_AVAIL(buffer) < NET_BUF_SIZE / 2)
                 Extend_Series(buffer, NET_BUF_SIZE);
         }
 
         req->length = SER_AVAIL(buffer);
-        req->common.data = BIN_TAIL(buffer); // write at tail
+        TRASH_POINTER_IF_DEBUG(req->common.data);
+        req->common.binary = port_data; // write at tail
         req->actual = 0; // actual for THIS read (not for total)
 
         REBVAL *result = OS_DO_DEVICE(sock, RDC_READ);
@@ -313,11 +358,7 @@ static REB_R Transport_Actor(
             rebRelease(result); // ignore result
         }
 
-        // !!! Post-processing enforces READ as returning D_OUT at the moment;
-        // so you can't just `return port`.
-        //
-        Move_Value(D_OUT, port);
-        return D_OUT; }
+        RETURN (port); }
 
     case SYM_WRITE: {
         INCLUDE_PARAMS_OF_WRITE;
@@ -369,16 +410,13 @@ static REB_R Transport_Actor(
         // !!! Uses m_cast, but should not modify!
 
         assert(IS_BINARY(data) or IS_TEXT(data));
+        Move_Value(port_data, data);  // GC-safety (blanked out on UPDATE)
 
         REBSIZ size;
         req->common.data = m_cast(REBYTE*, VAL_BYTES_AT(&size, data));
         assert(len == size);
         UNUSED(size);
         req->length = len;
-
-        // keep it GC safe
-        //
-        Move_Value(CTX_VAR(VAL_CONTEXT(port), STD_PORT_DATA), data);
 
         req->actual = 0;
 
@@ -397,7 +435,6 @@ static REB_R Transport_Actor(
             rebRelease(result); // ignore result
         }
 
-        Init_Blank(CTX_VAR(ctx, STD_PORT_DATA));
         RETURN (port); }
 
     case SYM_TAKE_P: {

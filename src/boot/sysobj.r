@@ -316,8 +316,6 @@ standard: make object! [
         ; be a field only in those TCP listening ports...
         ;
         connections:
-
-;       stats:      ; stats on operation (optional)
             _
     ]
 

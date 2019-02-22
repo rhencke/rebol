@@ -219,12 +219,8 @@ REBVAL *OS_Do_Device(REBREQ *req, enum Reb_Device_Command command)
         }
     }
 
-    if (
-        Req(req)->command > dev->max_command
-        || dev->commands[Req(req)->command] == NULL
-    ){
+    if (dev->commands[Req(req)->command] == NULL)
         rebJumps("FAIL {Invalid Command for Rebol Device}", rebEND);
-    }
 
     // !!! Currently the StdIO port is initialized before Rebol's startup
     // code ever runs.  This is to allow debug messages to be printed during
@@ -295,7 +291,7 @@ REBVAL *OS_Do_Device(REBREQ *req, enum Reb_Device_Command command)
 // this is not particularly important...more important is that the API
 // handles and error mechanism works.
 //
-void OS_Do_Device_Sync(REBREQ *req, int command)
+void OS_Do_Device_Sync(REBREQ *req, enum Reb_Device_Command command)
 {
     REBVAL *result = OS_DO_DEVICE(req, command);
     assert(result != NULL); // should be synchronous

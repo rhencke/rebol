@@ -49,8 +49,7 @@ enum {
 };
 
 
-// REBOL Device Commands:
-enum {
+enum Reb_Device_Command {
     RDC_INIT,       // init device driver resources
     RDC_QUIT,       // cleanup device driver resources
 
@@ -69,9 +68,7 @@ enum {
     RDC_DELETE,     // delete unit target
     RDC_RENAME,
     RDC_LOOKUP,
-    RDC_MAX,
-
-    RDC_CUSTOM=32   // start of custom commands
+    RDC_MAX
 };
 
 // Device Request (Command) Return Codes:
@@ -177,12 +174,10 @@ struct rebol_devreq {
         void *handle;       // OS object
         int socket;         // OS identifier
         int id;
-    } requestee;            // !!! REVIEW: Not always "receiver"?  The name is
-                            // "bad" (?) but at least unique, making it easy
-                            // to change.  See also Reb_Event->eventee
+    } requestee;
 
-    // Command info:
-    uint32_t command;       // command code
+    enum Reb_Device_Command command;  // command code
+
     uint32_t modes;         // special modes, types or attributes
     uint16_t flags;         // request flags
     uint16_t state;         // device process flags
@@ -190,9 +185,9 @@ struct rebol_devreq {
 //  int (*prewake)(void *); // callback before awake
 
     // !!! Only one of these fields is active at a time, so what it really
-    // represents is a union.  Ultimately what this would evolve into would
-    // just be a REBVAL*, as this becomes a more Rebol-aware and usermode
-    // kind of concept.
+    // represents is a union.  A struct helps catch errors while it is being
+    // untangled.  Ultimately what this would evolve into would just be a
+    // REBVAL*, as this becomes a more Rebol-aware and "usermode" concept.
     //
     struct {
         unsigned char *data;

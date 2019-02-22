@@ -432,7 +432,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
 
     // Limit size of transfer
     //
-    long len = MIN(req->length - req->actual, MAX_TRANSFER);
+    size_t len = MIN(req->length - req->actual, MAX_TRANSFER);
 
     int result;
 
@@ -470,9 +470,15 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
         // if (result < 0) ...
     }
     else {
+        assert(VAL_INDEX(req->common.binary) == 0);
+        assert(VAL_LEN_AT(req->common.binary) == 0);
+
+        REBBIN *bin = VAL_BINARY(req->common.binary);
+        assert(SER_AVAIL(bin) >= len);
+
         result = recvfrom(
             req->requestee.socket,
-            s_cast(req->common.data), len,
+            s_cast(BIN_HEAD(bin)), len,
             0, // Flags
             cast(struct sockaddr*, &remote_addr), &addr_len
         );
@@ -483,7 +489,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
                 ReqNet(sock)->remote_ip = remote_addr.sin_addr.s_addr;
                 ReqNet(sock)->remote_port = ntohs(remote_addr.sin_port);
             }
-            req->actual = result;
+            TERM_BIN_LEN(bin, result);
 
             rebElide(
                 "insert system/ports/system make event! [",
@@ -495,7 +501,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
             return DR_DONE;
         }
         if (result == 0) {      // The socket gracefully closed.
-            req->actual = 0;
+            TERM_BIN_LEN(bin, 0);
             req->state &= ~RSM_CONNECT; // But, keep RRF_OPEN true
 
             rebElide(
