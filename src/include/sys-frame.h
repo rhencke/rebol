@@ -1431,10 +1431,10 @@ inline static void Drop_Action(REBFRM *f) {
         FRM_ARG(frame_, (p_##name))
 
     #define PAR(name) \
-        ACT_PARAM(FRM_PHASE(frame_), (p_##name)) /* a TYPESET! */
+        ACT_PARAM(FRM_PHASE(frame_), (p_##name))  // a REB_P_XXX pseudovalue
 
     #define REF(name) \
-        (not IS_BLANK(ARG(name))) /* should be faster than IS_FALSEY() */
+        (not IS_BLANK(ARG(name)))  // should be faster than IS_FALSEY()
 #else
     struct Native_Param {
         int num;

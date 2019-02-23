@@ -126,21 +126,9 @@
     FLAG_LEFT_BIT(16)
 
 
-//=//// CELL_FLAG_FALSEY //////////////////////////////////////////////////=//
+//=//// CELL_FLAG_17 //////////////////////////////////////////////////////=//
 //
-// This flag is used as a quick cache on NULL, BLANK! or LOGIC! false values.
-// These are the only three values that return true from the NOT native
-// (a.k.a. "conditionally false").  All other types return true from TO-LOGIC
-// or its synonym, "DID".
-//
-// (It is also placed on END cells and TRASH cells, to speed up the VAL_TYPE()
-// check for finding illegal types...by only checking falsey types.)
-//
-// Because of this cached bit, LOGIC! does not need to store any data in its
-// payload... its data of being true or false is already covered by this
-// header bit.
-//
-#define CELL_FLAG_FALSEY \
+#define CELL_FLAG_17 \
     FLAG_LEFT_BIT(17)
 
 
@@ -453,6 +441,8 @@ struct Reb_Quoted_Payload  // see %sys-quoted.h
     REBCNT depth;  // kept in payload so allocation shares across quote levels
 };
 
+struct Reb_Logic_Payload { bool flag; };  // see %sys-logic.h
+
 struct Reb_Character_Payload { REBUNI codepoint; };  // see %sys-char.h
 
 struct Reb_Integer_Payload { REBI64 i64; };  // see %sys-integer.h
@@ -555,6 +545,7 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     struct Reb_Any_Payload Any;
 
     struct Reb_Quoted_Payload Quoted;
+    struct Reb_Logic_Payload Logic;
     struct Reb_Character_Payload Character;
     struct Reb_Integer_Payload Integer;
     struct Reb_Decimal_Payload Decimal;

@@ -38,6 +38,11 @@
 #define TRUE_VALUE \
     c_cast(const REBVAL*, &PG_True_Value)
 
+inline static bool VAL_LOGIC(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_LOGIC);
+    return PAYLOAD(Logic, v).flag;
+}
+
 inline static bool IS_TRUTHY(const RELVAL *v) {
     if (KIND_BYTE(v) >= REB_64) {
         //
@@ -47,18 +52,23 @@ inline static bool IS_TRUTHY(const RELVAL *v) {
         //
         return true;
     }
-    if (GET_CELL_FLAG(v, FALSEY))
-        return false;
+    if (KIND_BYTE(v) < REB_LOGIC)
+        return true;
+    if (KIND_BYTE(v) == REB_LOGIC)
+        return VAL_LOGIC(v);
     if (IS_VOID(v))
         fail (Error_Void_Conditional_Raw());
-    return true;
+    return false;
 }
 
 #define IS_FALSEY(v) \
     (not IS_TRUTHY(v))
 
-#define Init_Logic(out,b) \
-    RESET_CELL((out), REB_LOGIC, (b) ? 0 : CELL_FLAG_FALSEY)
+inline static REBVAL *Init_Logic(RELVAL *out, bool flag) {
+    RESET_CELL(out, REB_LOGIC, CELL_MASK_NONE);
+    PAYLOAD(Logic, out).flag = flag;
+    return KNOWN(out);
+}
 
 #define Init_True(out) \
     Init_Logic((out), true)
@@ -84,8 +94,3 @@ inline static bool IS_CONDITIONAL_TRUE(const REBVAL *v) {
 
 #define IS_CONDITIONAL_FALSE(v) \
     (not IS_CONDITIONAL_TRUE(v))
-
-inline static bool VAL_LOGIC(const REBCEL *v) {
-    assert(CELL_KIND(v) == REB_LOGIC);
-    return NOT_CELL_FLAG(v, FALSEY);
-}

@@ -56,13 +56,13 @@
     c_cast(const REBVAL*, &PG_Blank_Value)
 
 #define Init_Blank(v) \
-    RESET_CELL((v), REB_BLANK, CELL_FLAG_FALSEY)
+    RESET_CELL((v), REB_BLANK, CELL_MASK_NONE)
 
 #ifdef DEBUG_UNREADABLE_BLANKS
     inline static REBVAL *Init_Unreadable_Blank_Debug(
         RELVAL *out, const char *file, int line
     ){
-        RESET_CELL_Debug(out, REB_BLANK, CELL_FLAG_FALSEY, file, line);
+        RESET_CELL_Debug(out, REB_BLANK, CELL_MASK_NONE, file, line);
         assert(out->extra.tick > 0);
         out->extra.tick = -out->extra.tick;
         return KNOWN(out);

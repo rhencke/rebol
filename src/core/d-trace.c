@@ -440,7 +440,7 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
     // this frame's label will still be running, not running under a new name)
     //
     if (KIND_BYTE(r) == REB_R_REDO) {
-        const bool checked = NOT_CELL_FLAG(r, FALSEY);
+        const bool checked = EXTRA(Any, r).flag;
         if (not checked)
             last_phase = false;
     }

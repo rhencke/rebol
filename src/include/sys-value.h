@@ -180,22 +180,27 @@
         const char *file,
         int line
     ){
-        // KIND_BYTE is called *a lot*, so that makes it a great place to do
-        // sanity checks in the debug build.  But a debug build will not
-        // inline this function, and makes *no* optimizations.  Using no
-        // stack space e.g. no locals) is ideal.  (If -Og "debug" optimization
-        // is used, that should actually be able to be fast, since it isn't
-        // needing to keep an actual local around to display.)
-
         if (
             (v->header.bits & (
                 NODE_FLAG_NODE
                 | NODE_FLAG_CELL
                 | NODE_FLAG_FREE
-                | CELL_FLAG_FALSEY // all the "bad" types are also falsey
             )) == (NODE_FLAG_CELL | NODE_FLAG_NODE)
         ){
-            return KIND_BYTE_UNCHECKED(v); // majority return here
+            // Unreadable blank is signified in the Extra by a negative tick
+            //
+            if (KIND_BYTE_UNCHECKED(v) == REB_BLANK) {
+                if (v->extra.tick < 0) {
+                    printf("KIND_BYTE() called on unreadable BLANK!\n");
+                  #ifdef DEBUG_COUNT_TICKS
+                    printf("Made on tick: %d\n", cast(int, -v->extra.tick));
+                  #endif
+                    panic_at (v, file, line);
+                }
+                return REB_BLANK;
+            }
+
+            return KIND_BYTE_UNCHECKED(v);  // majority return here
         }
 
         // Non-cells are allowed to signal REB_END; see Init_Endlike_Header.
@@ -207,8 +212,6 @@
             if (v->header.bits & NODE_FLAG_NODE)
                 return REB_0_END;
 
-        // Could be a LOGIC! false, blank, or NULL bit pattern in bad cell
-        //
         if (not (v->header.bits & NODE_FLAG_CELL)) {
             printf("KIND_BYTE() called on non-cell\n");
             panic_at (v, file, line);
@@ -217,20 +220,6 @@
             printf("KIND_BYTE() called on invalid cell--marked FREE\n");
             panic_at (v, file, line);
         }
-
-        // Unreadable blank is signified in the Extra by a negative tick
-        //
-        if (KIND_BYTE_UNCHECKED(v) == REB_BLANK) {
-            if (v->extra.tick < 0) {
-                printf("KIND_BYTE() called on unreadable BLANK!\n");
-              #ifdef DEBUG_COUNT_TICKS
-                printf("Was made on tick: %d\n", cast(int, -v->extra.tick));
-              #endif
-                panic_at (v, file, line);
-            }
-            return REB_BLANK;
-        }
-
         return KIND_BYTE_UNCHECKED(v);
     }
 
@@ -499,8 +488,7 @@ inline static RELVAL *Prep_Stack_Cell_Core(
     ALIGN_CHECK_CELL_EVIL_MACRO(c, file, line);
   #endif
   #ifdef DEBUG_TRASH_MEMORY
-    c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_T_TRASH)
-        | CELL_FLAG_FALSEY; // speeds up VAL_TYPE_Debug() check
+    c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_T_TRASH);
   #else
     c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_0);
   #endif
@@ -538,8 +526,7 @@ inline static RELVAL *Prep_Stack_Cell_Core(
         ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
         v->header.bits &= CELL_MASK_PERSIST;
-        v->header.bits |= FLAG_KIND_BYTE(REB_T_TRASH)
-            | CELL_FLAG_FALSEY; // speeds up VAL_TYPE_Debug() check
+        v->header.bits |= FLAG_KIND_BYTE(REB_T_TRASH);
 
         TRACK_CELL_IF_DEBUG(v, file, line);
         return v;
@@ -589,7 +576,6 @@ inline static RELVAL *Prep_Stack_Cell_Core(
         ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
         mutable_SECOND_BYTE(v->header) = REB_0_END; // release build behavior
-        v->header.bits |= CELL_FLAG_FALSEY; // speeds VAL_TYPE_Debug() check
 
         TRACK_CELL_IF_DEBUG(v, file, line);
         return cast(REBVAL*, v);
