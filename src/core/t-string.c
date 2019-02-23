@@ -715,7 +715,7 @@ REB_R PD_String(
 
     // Otherwise, POKE-ing
 
-    FAIL_IF_READ_ONLY_SERIES(pvs->out);
+    FAIL_IF_READ_ONLY(pvs->out);
 
     if (not IS_INTEGER(picker))
         return R_UNHANDLED;
@@ -1233,7 +1233,7 @@ REBTYPE(String)
                 VAL_INDEX(v) = 0;
             RETURN (v); // don't fail on read only if it would be a no-op
         }
-        FAIL_IF_READ_ONLY_SERIES(v);
+        FAIL_IF_READ_ONLY(v);
 
         REBFLGS flags = 0;
         if (REF(part))
@@ -1360,7 +1360,7 @@ REBTYPE(String)
     case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
 
-        FAIL_IF_READ_ONLY_SERIES(v);
+        FAIL_IF_READ_ONLY(v);
 
         UNUSED(PAR(series));
 
@@ -1417,7 +1417,7 @@ REBTYPE(String)
         return D_OUT; }
 
     case SYM_CLEAR: {
-        FAIL_IF_READ_ONLY_SERIES(v);
+        FAIL_IF_READ_ONLY(v);
 
         if (index < tail) {
             if (index == 0)
@@ -1503,7 +1503,7 @@ REBTYPE(String)
         if (not IS_BINARY(v))
             fail (v);
 
-        FAIL_IF_READ_ONLY_SERIES(v);
+        FAIL_IF_READ_ONLY(v);
 
         REBINT amount;
         if (IS_INTEGER(arg))
@@ -1560,19 +1560,19 @@ REBTYPE(String)
     //-- Special actions:
 
     case SYM_SWAP: {
-        FAIL_IF_READ_ONLY_SERIES(v);
+        FAIL_IF_READ_ONLY(v);
 
         if (VAL_TYPE(v) != VAL_TYPE(arg))
             fail (Error_Not_Same_Type_Raw());
 
-        FAIL_IF_READ_ONLY_SERIES(arg);
+        FAIL_IF_READ_ONLY(arg);
 
         if (index < tail && VAL_INDEX(arg) < VAL_LEN_HEAD(arg))
             swap_chars(v, arg);
         RETURN (v); }
 
     case SYM_REVERSE: {
-        FAIL_IF_READ_ONLY_SERIES(v);
+        FAIL_IF_READ_ONLY(v);
 
         REBINT len = Part_Len_May_Modify_Index(v, D_ARG(3));
         if (len > 0) {
@@ -1586,7 +1586,7 @@ REBTYPE(String)
     case SYM_SORT: {
         INCLUDE_PARAMS_OF_SORT;
 
-        FAIL_IF_READ_ONLY_SERIES(v);
+        FAIL_IF_READ_ONLY(v);
 
         UNUSED(PAR(series));
         UNUSED(REF(skip));
@@ -1648,7 +1648,7 @@ REBTYPE(String)
         if (ANY_STRING(v) and not Is_String_ASCII(v))
             fail ("UTF-8 Everywhere: String shuffle temporarily unavailable");
 
-        FAIL_IF_READ_ONLY_SERIES(v);
+        FAIL_IF_READ_ONLY(v);
 
         Shuffle_String(v, REF(secure));
         RETURN (v); }

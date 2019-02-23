@@ -284,8 +284,6 @@ void Set_Bit(REBSER *bset, REBCNT n, bool set)
 //
 bool Set_Bits(REBSER *bset, const REBVAL *val, bool set)
 {
-    FAIL_IF_READ_ONLY_SER(bset);
-
     if (IS_CHAR(val)) {
         Set_Bit(bset, VAL_CHAR(val), set);
         return true;
@@ -659,7 +657,7 @@ REBTYPE(Bitset)
         if (IS_NULLED_OR_BLANK(arg)) {
             RETURN (value); // don't fail on read only if it would be a no-op
         }
-        FAIL_IF_READ_ONLY_SERIES(value);
+        FAIL_IF_READ_ONLY(value);
 
         bool diff;
         if (BITS_NOT(VAL_SERIES(value)))
@@ -713,7 +711,7 @@ REBTYPE(Bitset)
         return D_OUT; }
 
     case SYM_CLEAR:
-        FAIL_IF_READ_ONLY_SERIES(value);
+        FAIL_IF_READ_ONLY(value);
         Clear_Series(VAL_SERIES(value));
         goto return_bitset;
 

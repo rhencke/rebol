@@ -181,7 +181,7 @@ REBNATIVE(new_line)
     bool mark = VAL_LOGIC(ARG(mark));
 
     REBVAL *pos = ARG(position);
-    FAIL_IF_READ_ONLY_ARRAY(pos);
+    FAIL_IF_READ_ONLY(pos);
 
     RELVAL *item = VAL_ARRAY_AT(pos);
 

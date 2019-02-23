@@ -334,7 +334,7 @@ void Pop_Stack_Values_Into(REBVAL *into, REBDSP dsp_start) {
     REBCNT len = DSP - dsp_start;
     REBVAL *values = KNOWN(ARR_AT(DS_Array, dsp_start + 1));
 
-    FAIL_IF_READ_ONLY_ARRAY(into);
+    FAIL_IF_READ_ONLY(into);
 
     VAL_INDEX(into) = Insert_Series(
         SER(VAL_ARRAY(into)),

@@ -142,9 +142,9 @@ REB_R Call_Core(REBFRM *frame_) {
     // they are not read-only, before we try appending to them.
     //
     if (IS_TEXT(ARG(out)) or IS_BINARY(ARG(out)))
-        FAIL_IF_READ_ONLY_SERIES(ARG(out));
+        FAIL_IF_READ_ONLY(ARG(out));
     if (IS_TEXT(ARG(err)) or IS_BINARY(ARG(err)))
-        FAIL_IF_READ_ONLY_SERIES(ARG(err));
+        FAIL_IF_READ_ONLY(ARG(err));
 
     char *inbuf;
     size_t inbuf_size;

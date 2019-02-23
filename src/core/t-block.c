@@ -676,7 +676,7 @@ REB_R PD_Array(
     }
 
     if (opt_setval)
-        FAIL_IF_READ_ONLY_SERIES(pvs->out);
+        FAIL_IF_READ_ONLY(pvs->out);
 
     pvs->u.ref.cell = VAL_ARRAY_AT_HEAD(pvs->out, n);
     pvs->u.ref.specifier = VAL_SPECIFIER(pvs->out);
@@ -818,7 +818,7 @@ REBTYPE(Array)
         if (REF(deep))
             fail (Error_Bad_Refines_Raw());
 
-        FAIL_IF_READ_ONLY_ARRAY(array);
+        FAIL_IF_READ_ONLY(array);
 
         REBCNT len;
         if (REF(part)) {
@@ -925,7 +925,7 @@ REBTYPE(Array)
                 VAL_INDEX(array) = 0;
             RETURN (array); // don't fail on read only if it would be a no-op
         }
-        FAIL_IF_READ_ONLY_ARRAY(array);
+        FAIL_IF_READ_ONLY(array);
 
         REBCNT index = VAL_INDEX(array);
 
@@ -954,7 +954,7 @@ REBTYPE(Array)
         return D_OUT; }
 
       case SYM_CLEAR: {
-        FAIL_IF_READ_ONLY_ARRAY(array);
+        FAIL_IF_READ_ONLY(array);
         REBCNT index = VAL_INDEX(array);
         if (index < VAL_LEN_HEAD(array)) {
             if (index == 0) Reset_Array(arr);
@@ -1016,8 +1016,8 @@ REBTYPE(Array)
         if (not ANY_ARRAY(arg))
             fail (arg);
 
-        FAIL_IF_READ_ONLY_ARRAY(array);
-        FAIL_IF_READ_ONLY_ARRAY(arg);
+        FAIL_IF_READ_ONLY(array);
+        FAIL_IF_READ_ONLY(arg);
 
         REBCNT index = VAL_INDEX(array);
 
@@ -1039,7 +1039,7 @@ REBTYPE(Array)
     }
 
     case SYM_REVERSE: {
-        FAIL_IF_READ_ONLY_ARRAY(array);
+        FAIL_IF_READ_ONLY(array);
 
         REBCNT len = Part_Len_May_Modify_Index(array, D_ARG(3));
         if (len == 0)
@@ -1097,7 +1097,7 @@ REBTYPE(Array)
         UNUSED(REF(skip)); // checks size as void
         UNUSED(REF(compare)); // checks comparator as void
 
-        FAIL_IF_READ_ONLY_ARRAY(array);
+        FAIL_IF_READ_ONLY(array);
 
         Sort_Block(
             array,
@@ -1140,7 +1140,7 @@ REBTYPE(Array)
 
         }
 
-        FAIL_IF_READ_ONLY_ARRAY(array);
+        FAIL_IF_READ_ONLY(array);
         Shuffle_Block(array, REF(secure));
         RETURN (array);
     }

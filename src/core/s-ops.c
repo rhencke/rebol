@@ -349,7 +349,7 @@ void Change_Case(REBVAL *out, REBVAL *val, REBVAL *part, bool upper)
 
     // String series:
 
-    FAIL_IF_READ_ONLY_SERIES(val);
+    FAIL_IF_READ_ONLY(val);
 
     REBCNT len = Part_Len_May_Modify_Index(val, part);
     REBCNT n = 0;

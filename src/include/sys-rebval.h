@@ -716,11 +716,9 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     #define VAL(p) \
         cast(RELVAL*, (p))
 #else
-    inline static REBVAL* VAL(void *p) {
-        return cast(REBVAL*, p);
-    }
+    inline static REBVAL* VAL(void *p)
+      { return cast(REBVAL*, p); }
 
-    inline static const REBVAL* VAL(const void *p) {
-        return cast(const REBVAL*, p);
-    }
+    inline static const REBVAL* VAL(const void *p)
+      { return cast(const REBVAL*, p); }
 #endif

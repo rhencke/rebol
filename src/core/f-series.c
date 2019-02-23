@@ -174,7 +174,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
             fail (Error_Bad_Refines_Raw());
         }
 
-        FAIL_IF_READ_ONLY_SERIES(value);
+        FAIL_IF_READ_ONLY(value);
 
         REBINT len;
         if (REF(part))

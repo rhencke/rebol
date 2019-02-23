@@ -38,25 +38,21 @@
 // to be mutable, so it could be checked at compile-time.
 //
 
-inline static void FAIL_IF_READ_ONLY_SERIES_CORE(
-    RELVAL *any_series,
-    REBSPC *specifier
-){
-    assert(
-        ANY_SERIES(any_series)
-        or VAL_TYPE(any_series) == REB_MAP  // !!! currently MAP! included
-    );
-    REBSER *s = SER(PAYLOAD(Any, any_series).first.node);
+inline static void FAIL_IF_READ_ONLY_CORE(RELVAL *v, REBSPC *specifier) {
+    assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
+    REBSER *s = SER(VAL_NODE(v));  // can be pairlist, varlist, etc.
+
     FAIL_IF_READ_ONLY_SER(s);
-    if (GET_CELL_FLAG(any_series, CONST)) {
+
+    if (GET_CELL_FLAG(v, CONST)) {
         DECLARE_LOCAL (specific);
-        Derelativize(specific, any_series, specifier);
+        Derelativize(specific, v, specifier);
         fail (Error_Const_Value_Raw(specific));
     }
 }
 
-#define FAIL_IF_READ_ONLY_SERIES(series) \
-    FAIL_IF_READ_ONLY_SERIES_CORE((series), SPECIFIED)
+#define FAIL_IF_READ_ONLY(v) \
+    FAIL_IF_READ_ONLY_CORE((v), SPECIFIED)
 
 
 
@@ -77,36 +73,3 @@ inline static void Deep_Freeze_Array(REBARR *a) {
 
 #define Is_Array_Shallow_Read_Only(a) \
     Is_Series_Read_Only(a)
-
-inline static void FAIL_IF_READ_ONLY_ARRAY_CORE(
-    RELVAL *array,
-    REBSPC *specifier
-){
-    assert(ANY_ARRAY(array));
-    FAIL_IF_READ_ONLY_SERIES_CORE(array, specifier);
-}
-
-#define FAIL_IF_READ_ONLY_ARRAY(array) \
-    FAIL_IF_READ_ONLY_ARRAY_CORE((array), SPECIFIED)
-
-
-inline static void FAIL_IF_READ_ONLY_CONTEXT(RELVAL *context) {
-    assert(ANY_CONTEXT(context));
-    REBNOD *varlist = PAYLOAD(Any, context).first.node;
-    FAIL_IF_READ_ONLY_SER(SER(varlist));
-
-    // !!! CONST is a work in progress, experimental, but would need handling
-    // here too...
-}
-
-
-inline static void FAIL_IF_READ_ONLY_VALUE(RELVAL *v) {
-    if (ANY_SERIES(v))
-        FAIL_IF_READ_ONLY_SERIES(v);
-    else if (ANY_CONTEXT(v))
-        FAIL_IF_READ_ONLY_CONTEXT(v);
-    else if (ANY_SCALAR(v) or IS_BLANK(v))
-        fail ("Scalars are immutable");
-    else if (ANY_PATH(v))
-        fail ("Paths are immutable");
-}

@@ -427,7 +427,7 @@ REB_R PD_Context(
         return R_UNHANDLED;
 
     if (opt_setval) {
-        FAIL_IF_READ_ONLY_CONTEXT(pvs->out);
+        FAIL_IF_READ_ONLY(pvs->out);
 
         if (GET_CELL_FLAG(CTX_VAR(c, n), PROTECTED))
             fail (Error_Protected_Word_Raw(picker));
@@ -821,7 +821,7 @@ REBTYPE(Context)
         if (IS_NULLED_OR_BLANK(arg))
             RETURN (value); // don't fail on read only if it would be a no-op
 
-        FAIL_IF_READ_ONLY_CONTEXT(value);
+        FAIL_IF_READ_ONLY(value);
         if (not IS_OBJECT(value) and not IS_MODULE(value))
             fail (Error_Illegal_Action(VAL_TYPE(value), verb));
         Append_To_Context(c, arg);
