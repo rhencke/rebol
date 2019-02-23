@@ -230,6 +230,8 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
     //
     uintptr_t saved_flags = f->flags.bits;
 
+    bool threw;
+
     while (true) {
 
         if (not (
@@ -258,7 +260,7 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
         REBNAT saved_dispatcher = PG_Dispatcher;
         PG_Dispatcher = &Traced_Dispatcher_Hook;
 
-        bool threw = Eval_Core_Throws(f);
+        threw = Eval_Core_Throws(f);
 
         PG_Dispatcher = saved_dispatcher;
 
@@ -268,7 +270,7 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
             // wanting only a EVALUATE, then the original intent was actually
             // just an EVALUATE.  Return the frame state as-is.
             //
-            return threw;
+            break;
         }
 
         if (threw or IS_END(*v)) {
@@ -280,7 +282,7 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
             // put back the EVAL_FLAG_TO_END.
             //
             SET_EVAL_FLAG(f, TO_END);
-            return threw;
+            break;
         }
 
         // keep looping (it was originally EVAL_FLAG_TO_END, which we are
@@ -288,6 +290,7 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
     }
 
     PG_Eval_Throws = &Traced_Eval_Hook_Throws;
+    return threw;
 }
 
 
