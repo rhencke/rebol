@@ -483,7 +483,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
       case REB_PATH:
       case REB_SET_PATH:
       case REB_GET_PATH: {
-        REBARR *a = ARR(PAYLOAD(Series, v).rebser);
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
+        REBARR *a = ARR(PAYLOAD(Any, v).first.node);
         assert(NOT_SERIES_INFO(a, INACCESSIBLE));
         Queue_Mark_Binding_Deep(v);
 
@@ -518,7 +519,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
       case REB_GET_BLOCK:
       case REB_SET_BLOCK:
       case REB_BLOCK: {
-        REBARR *a = ARR(PAYLOAD(Series, v).rebser);
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
+        REBARR *a = ARR(PAYLOAD(Any, v).first.node);
         if (GET_SERIES_INFO(a, INACCESSIBLE)) {
             //
             // !!! Review: preserving the identity of inaccessible array nodes
@@ -544,8 +546,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
       case REB_URL:
       case REB_TAG:
       case REB_BITSET: {
-        REBSER *s = PAYLOAD(Series, v).rebser;
-
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
+        REBSER *s = SER(PAYLOAD(Any, v).first.node);
         assert(SER_WIDE(s) <= sizeof(REBUNI));
         assert(not EXTRA(Binding, v).node); // for future use
 
@@ -644,7 +646,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
       case REB_ERROR:
       case REB_PORT: { // Note: VAL_CONTEXT() fails on SER_INFO_INACCESSIBLE
         REBCTX *context = CTX(PAYLOAD(Any, v).first.node);
-        assert(GET_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE));
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
         Queue_Mark_Context_Deep(context);
 
         // Currently the "binding" in a context is only used by FRAME! to
@@ -706,8 +708,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
     //=//// CUSTOM EXTENSION TYPES ////////////////////////////////////////=//
 
       case REB_IMAGE: {  // currently a 3-element array (could be a pairing)
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
       #if !defined(NDEBUG)
-        assert(GET_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE));
         REBARR *arr = ARR(PAYLOAD(Any, v).first.node);
         assert(ARR_LEN(arr) == 1);
         assert(NOT_SERIES_INFO(arr, LINK_IS_CUSTOM_NODE));  // stores width
@@ -717,8 +719,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         break; }
 
       case REB_VECTOR: {  // currently a pairing (BINARY! and an info cell)
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
       #if !defined(NDEBUG)
-        assert(GET_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE));
         REBVAL *p = VAL(PAYLOAD(Any, v).first.node);
         assert(IS_BINARY(p));
         assert(KIND_BYTE(PAIRING_KEY(p)) == REB_V_SIGN_INTEGRAL_WIDE);
@@ -727,8 +729,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         break; }
 
       case REB_GOB: {  // 7-element REBARR
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
       #if !defined(NDEBUG)
-        assert(GET_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE));
         REBARR *gob = ARR(PAYLOAD(Any, v).first.node);
         assert(GET_SERIES_INFO(gob, LINK_IS_CUSTOM_NODE));
         assert(GET_SERIES_INFO(gob, MISC_IS_CUSTOM_NODE));
@@ -737,8 +739,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         break; }
 
       case REB_EVENT: {  // packed cell structure with one GC-able slot
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
       #if !defined(NDEBUG)
-        assert(GET_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE));
         REBNOD *n = PAYLOAD(Any, v).first.node;  // REBGOB*, REBREQ*, etc.
         assert(n == nullptr or n->header.bits & NODE_FLAG_NODE);
       #endif
@@ -746,8 +748,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         break; }
 
       case REB_STRUCT: {  // like an OBJECT!, but the "varlist" can be binary
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
       #if !defined(NDEBUG)
-        assert(GET_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE));
         REBSER *data = SER(PAYLOAD(Any, v).first.node);
         assert(BYTE_SIZE(data) or IS_SER_ARRAY(data));
       #endif

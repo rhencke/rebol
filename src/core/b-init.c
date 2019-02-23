@@ -251,7 +251,7 @@ static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
         assert(n < REB_MAX);
 
         REBVAL *value = Append_Context(Lib_Context, KNOWN(word), NULL);
-        RESET_CELL(value, REB_DATATYPE);
+        RESET_CELL(value, REB_DATATYPE, CELL_MASK_NONE);
         VAL_TYPE_KIND(value) = cast(enum Reb_Kind, n);
         VAL_TYPE_SPEC(value) = VAL_ARRAY(ARR_AT(boot_typespecs, n - 1));
 
@@ -449,7 +449,7 @@ static void Add_Lib_Keys_Bootstrap_R3_Cant_Make(void)
 
 static REBVAL *Make_Locked_Tag(const char *utf8) { // helper
     REBVAL *t = rebText(utf8);
-    RESET_VAL_HEADER(t, REB_TAG);
+    mutable_KIND_BYTE(t) = REB_TAG;
 
     REBSER *locker = nullptr;
     Ensure_Value_Frozen(t, locker);
@@ -863,24 +863,24 @@ static void Init_Root_Vars(void)
     Init_Void(&PG_Void_Value);
 
     Prep_Non_Stack_Cell(&PG_R_Thrown);
-    RESET_CELL(&PG_R_Thrown, REB_R_THROWN);
+    RESET_CELL(&PG_R_Thrown, REB_R_THROWN, CELL_MASK_NONE);
 
     Prep_Non_Stack_Cell(&PG_R_Invisible);
-    RESET_CELL(&PG_R_Invisible, REB_R_INVISIBLE);
+    RESET_CELL(&PG_R_Invisible, REB_R_INVISIBLE, CELL_MASK_NONE);
 
     Prep_Non_Stack_Cell(&PG_R_Immediate);
-    RESET_CELL(&PG_R_Immediate, REB_R_IMMEDIATE);
+    RESET_CELL(&PG_R_Immediate, REB_R_IMMEDIATE, CELL_MASK_NONE);
 
     Prep_Non_Stack_Cell(&PG_R_Redo_Unchecked);
-    RESET_CELL(&PG_R_Redo_Unchecked, REB_R_REDO);
+    RESET_CELL(&PG_R_Redo_Unchecked, REB_R_REDO, CELL_MASK_NONE);
     EXTRA(Any, &PG_R_Redo_Unchecked).flag = false;  // "unchecked"
 
     Prep_Non_Stack_Cell(&PG_R_Redo_Checked);
-    RESET_CELL(&PG_R_Redo_Checked, REB_R_REDO);
+    RESET_CELL(&PG_R_Redo_Checked, REB_R_REDO, CELL_MASK_NONE);
     EXTRA(Any, &PG_R_Redo_Checked).flag = true;  // "checked"
 
     Prep_Non_Stack_Cell(&PG_R_Reference);
-    RESET_CELL(&PG_R_Reference, REB_R_REFERENCE);
+    RESET_CELL(&PG_R_Reference, REB_R_REFERENCE, CELL_MASK_NONE);
 
     REBSER *locker = nullptr;
 

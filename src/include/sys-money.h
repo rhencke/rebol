@@ -87,7 +87,7 @@ inline static deci VAL_MONEY_AMOUNT(const REBCEL *v) {
 }
 
 inline static REBVAL *Init_Money(RELVAL *out, deci amount) {
-    RESET_CELL(out, REB_MONEY);
+    RESET_CELL(out, REB_MONEY, CELL_MASK_NONE);
 
     EXTRA(Any, out).u = amount.m0;  // "significand, lowest part"
     PAYLOAD(Any, out).first.u = amount.m1;  // "significand, continuation"

@@ -604,7 +604,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         SER(paramlist)->header.bits |= PARAMLIST_FLAG_HAS_RETURN;
 
     if (true) {
-        REBVAL *archetype = RESET_CELL_CORE(
+        REBVAL *archetype = RESET_CELL(
             ARR_HEAD(paramlist),
             REB_ACTION,
             header_bits
@@ -711,11 +711,11 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         MISC(types_varlist).meta = NULL; // GC sees this, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(types_varlist), paramlist);
 
-        REBVAL *rootvar = RESET_CELL_CORE(
+        REBVAL *rootvar = RESET_CELL(
             ARR_HEAD(types_varlist),
             REB_FRAME,
-            CELL_FLAG_PAYLOAD_FIRST_IS_NODE
-                /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! TBD, implicit
+            CELL_FLAG_FIRST_IS_NODE
+                /* | CELL_FLAG_SECOND_IS_NODE */  // !!! TBD, implicit
         );
         INIT_VAL_CONTEXT_VARLIST(rootvar, types_varlist);  // "canon FRAME!"
         INIT_VAL_CONTEXT_PHASE(rootvar, ACT(paramlist));
@@ -776,11 +776,11 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         MISC(notes_varlist).meta = NULL; // GC sees this, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(notes_varlist), paramlist);
 
-        REBVAL *rootvar = RESET_CELL_CORE(
+        REBVAL *rootvar = RESET_CELL(
             ARR_HEAD(notes_varlist),
             REB_FRAME,
-            CELL_FLAG_PAYLOAD_FIRST_IS_NODE
-                /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! TBD, implicit
+            CELL_FLAG_FIRST_IS_NODE
+                /* | CELL_FLAG_SECOND_IS_NODE */  // !!! TBD, implicit
         );
         INIT_VAL_CONTEXT_VARLIST(rootvar, notes_varlist); // canon FRAME!
         INIT_VAL_CONTEXT_PHASE(rootvar, ACT(paramlist));
@@ -1023,11 +1023,11 @@ REBCTX *Make_Expired_Frame_Ctx_Managed(REBACT *a)
     SET_SERIES_INFO(varlist, INACCESSIBLE);
     MISC(varlist).meta = nullptr;
 
-    RELVAL *rootvar = RESET_CELL_CORE(
+    RELVAL *rootvar = RESET_CELL(
         ARR_SINGLE(varlist),
         REB_FRAME,
-        CELL_FLAG_PAYLOAD_FIRST_IS_NODE
-            /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! TBD, implicit
+        CELL_FLAG_FIRST_IS_NODE
+            /* | CELL_FLAG_SECOND_IS_NODE */  // !!! TBD, implicit
     );
     INIT_VAL_CONTEXT_VARLIST(rootvar, varlist);
     INIT_VAL_CONTEXT_PHASE(rootvar, a);
@@ -1128,17 +1128,19 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
             RELVAL *slot = ARR_AT(maybe_fake_body, real_body_index); // #BODY
             assert(IS_ISSUE(slot));
 
-            RESET_VAL_HEADER_CORE(slot, REB_GROUP, 0); // clear VAL_FLAG_LINE
-            INIT_VAL_ARRAY(slot, VAL_ARRAY(body));
+            // Note: clears VAL_FLAG_LINE
+            //
+            RESET_VAL_HEADER(slot, REB_GROUP, CELL_FLAG_FIRST_IS_NODE);
+            INIT_VAL_NODE(slot, VAL_ARRAY(body));
             VAL_INDEX(slot) = 0;
-            INIT_BINDING(slot, a); // relative binding
+            INIT_BINDING(slot, a);  // relative binding
         }
 
         // Cannot give user a relative value back, so make the relative
         // body specific to a fabricated expired frame.  See #2221
 
-        RESET_VAL_HEADER_CORE(out, REB_BLOCK, 0);
-        INIT_VAL_ARRAY(out, maybe_fake_body);
+        RESET_VAL_HEADER(out, REB_BLOCK, CELL_FLAG_FIRST_IS_NODE);
+        INIT_VAL_NODE(out, maybe_fake_body);
         VAL_INDEX(out) = 0;
         INIT_BINDING(out, Make_Expired_Frame_Ctx_Managed(a));
         return;
@@ -1264,8 +1266,12 @@ REBACT *Make_Interpreted_Action_May_Fail(
         );
     }
 
-    RELVAL *rebound = RESET_CELL(ARR_HEAD(ACT_DETAILS(a)), REB_BLOCK);
-    INIT_VAL_ARRAY(rebound, copy);
+    RELVAL *rebound = RESET_CELL(
+        ARR_HEAD(ACT_DETAILS(a)),
+        REB_BLOCK,
+        CELL_FLAG_FIRST_IS_NODE
+    );
+    INIT_VAL_NODE(rebound, copy);
     VAL_INDEX(rebound) = 0;
     INIT_BINDING(rebound, a);  // Record that block is relative to a function
 

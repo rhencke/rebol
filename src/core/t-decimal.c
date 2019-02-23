@@ -118,7 +118,7 @@ bool almost_equal(REBDEC a, REBDEC b, REBCNT max_diff) {
 //
 REBVAL *Init_Decimal_Bits(RELVAL *out, const REBYTE *bp)
 {
-    RESET_CELL(out, REB_DECIMAL);
+    RESET_CELL(out, REB_DECIMAL, CELL_MASK_NONE);
 
     REBYTE *dp = cast(REBYTE*, &VAL_DECIMAL(out));
 
@@ -197,7 +197,7 @@ REB_R MAKE_Decimal(
             fail (arg);
 
         Init_Decimal_Bits(out, VAL_BIN_AT(arg)); // makes REB_DECIMAL
-        RESET_VAL_HEADER(out, kind); // override type if REB_PERCENT
+        RESET_VAL_HEADER(out, kind, CELL_MASK_NONE); // resets if REB_PERCENT
         d = VAL_DECIMAL(out);
         break;
 
@@ -247,7 +247,7 @@ dont_divide_if_percent:
     if (!FINITE(d))
         fail (Error_Overflow_Raw());
 
-    RESET_CELL(out, kind);
+    RESET_CELL(out, kind, CELL_MASK_NONE);
     VAL_DECIMAL(out) = d;
     return out;
 
@@ -561,7 +561,7 @@ setDec:
     if (not FINITE(d1))
         fail (Error_Overflow_Raw());
 
-    RESET_CELL(D_OUT, type);
+    RESET_CELL(D_OUT, type, CELL_MASK_NONE);
     VAL_DECIMAL(D_OUT) = d1;
 
     return D_OUT;

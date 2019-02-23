@@ -69,6 +69,8 @@
 //
 
 
+#define CELL_MASK_NONE 0
+
 // The GET_CELL_FLAG()/etc. macros splice together CELL_FLAG_ with the text
 // you pass in (token pasting).  Since it does this, alias NODE_FLAG_XXX to
 // CELL_FLAG_XXX so they can be used with those macros.
@@ -204,7 +206,7 @@
     FLAG_LEFT_BIT(20)
 
 
-//=//// CELL_FLAG_PAYLOAD_FIRST_IS_NODE ////////////////////////////////////=//
+//=//// CELL_FLAG_FIRST_IS_NODE ///////////////////////////////////////////=//
 //
 // This flag is used on cells to indicate that their EXTRA() field should
 // be marked as a node by the GC.  It is used by GOB! and STRUCT! to indicate
@@ -212,7 +214,7 @@
 // the garbage collector in a more invasive way.  Some EVENT! use this when
 // they wish to refer to a series, but others can use it as a raw data.
 //
-#define CELL_FLAG_PAYLOAD_FIRST_IS_NODE \
+#define CELL_FLAG_FIRST_IS_NODE \
     FLAG_LEFT_BIT(21)
 
 
@@ -374,6 +376,7 @@ union Reb_Any {  // needed to beat strict aliasing, used in payload
     uintptr_t u;
     intptr_t i;
     int_fast32_t i32;
+    uint_fast32_t u32;
     REBD32 d32;  // 32-bit float not in C standard, typically just `float`
     bool flag;  // "wasteful" to just use for one flag, but fast to read/write
 
@@ -383,7 +386,7 @@ union Reb_Any {  // needed to beat strict aliasing, used in payload
     //
     // This is not legal to use in an EXTRA(), only the `PAYLOAD().first` slot
     // (and perhaps in the future, the payload second slot).  If you do use
-    // a node in the cell, be sure to set CELL_FLAG_PAYLOAD_FIRST_IS_NODE!
+    // a node in the cell, be sure to set CELL_FLAG_FIRST_IS_NODE!
     //
     REBNOD *node;
 };
@@ -467,12 +470,6 @@ struct Reb_Typeset_Payload  // see %sys-typeset.h
     REBU64 bits;  // One bit for each DATATYPE! (use with FLAGIT_KIND)
 };
 
-struct Reb_Series_Payload  // see %sys-series.h
-{
-    REBSER *rebser;  // vector-like-double-ended-queue of equal-sized items
-    REBCNT index;  // 0-based position (if it is 0, that means Rebol index 1)
-};
-
 struct Reb_Action_Payload  // see %sys-action.h
 {
     REBARR *paramlist;  // see MISC.meta, LINK.underlying in %sys-rebser.h
@@ -539,9 +536,9 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     // node (e.g. to exploit common checks for mutability) it has to do a
     // read through the same field that was assigned.  Hence, many types
     // whose payloads are nodes use the generic "Any" payload, which is
-    // two separate variant fields.  If CELL_FLAG_PAYLOAD_FIRST_IS_NODE is
-    // set, then if that is a series node it will be used to answer questions
-    // about mutability (beyond CONST, which the cell encodes itself)
+    // two separate variant fields.  If CELL_FLAG_FIRST_IS_NODE is set, then
+    // if that is a series node it will be used to answer questions about
+    // mutability (beyond CONST, which the cell encodes itself)
     //
     // ANY-WORD!  // see %sys-word.h
     //     REBSTR *spelling;  // word's non-canonized spelling, UTF-8 string
@@ -551,6 +548,10 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     //     REBARR *varlist;  // see MISC.meta, LINK.keysource in %sys-rebser.h
     //     REBACT *phase;  // only used by FRAME! contexts, see %sys-frame.h
     //
+    // ANY-SERIES!  // see %sys-series.h
+    //     REBSER *rebser;  // vector/double-ended-queue of equal-sized items
+    //     REBCNT index;  // 0-based position (e.g. 0 means Rebol index 1)
+    //
     struct Reb_Any_Payload Any;
 
     struct Reb_Quoted_Payload Quoted;
@@ -559,7 +560,6 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     struct Reb_Decimal_Payload Decimal;
     struct Reb_Datatype_Payload Datatype;
     struct Reb_Typeset_Payload Typeset;
-    struct Reb_Series_Payload Series;
     struct Reb_Action_Payload Action;
     struct Reb_Varargs_Payload Varargs;
     struct Reb_Time_Payload Time;

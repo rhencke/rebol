@@ -57,7 +57,7 @@
 #endif
 
 inline static REBVAL *Init_Integer(RELVAL *out, REBI64 i64) {
-    RESET_CELL(out, REB_INTEGER);
+    RESET_CELL(out, REB_INTEGER, CELL_MASK_NONE);
     PAYLOAD(Integer, out).i64 = i64;
     return cast(REBVAL*, out);
 }

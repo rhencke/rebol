@@ -463,12 +463,6 @@ inline static REBARR* Copy_Array_At_Extra_Deep_Flags_Managed(
     Root_Empty_Binary
 
 
-inline static void INIT_VAL_ARRAY(RELVAL *v, REBARR *a) {
-    INIT_BINDING(v, UNBOUND);
-    assert(GET_SERIES_FLAG(a, MANAGED));
-    PAYLOAD(Series, v).rebser = SER(a);
-}
-
 // These array operations take the index position into account.  The use
 // of the word AT with a missing index is a hint that the index is coming
 // from the VAL_INDEX() of the value itself.
@@ -484,14 +478,14 @@ inline static void INIT_VAL_ARRAY(RELVAL *v, REBARR *a) {
 //
 inline static REBARR *VAL_ARRAY(const REBCEL *v) {
     if (ANY_PATH_KIND(CELL_KIND(v)))
-        assert(PAYLOAD(Series, v).index == 0);
+        assert(VAL_INDEX_UNCHECKED(v) == 0);
     else
         assert(ANY_ARRAY_KIND(CELL_KIND(v)));
 
-    REBSER *s = PAYLOAD(Series, v).rebser;
-    if (GET_SERIES_INFO(s, INACCESSIBLE))
+    REBARR *a = ARR(PAYLOAD(Any, v).first.node);
+    if (GET_SERIES_INFO(a, INACCESSIBLE))
         fail (Error_Series_Data_Freed_Raw());
-    return ARR(s);
+    return ARR(a);
 }
 
 #define VAL_ARRAY_HEAD(v) \

@@ -114,10 +114,10 @@ enum {
     mutable_FOURTH_BYTE(EXTRA(Any, (v)).u)
 
 #define VAL_EVENT_NODE(v) \
-    PAYLOAD(Any, (v)).first.node
+    VAL_NODE(v)
 
 #define SET_VAL_EVENT_NODE(v,p) \
-    (PAYLOAD(Any, (v)).first.node = NOD(p))
+    INIT_VAL_NODE((v), (p))
 
 #define VAL_EVENT_DATA(v) \
     PAYLOAD(Any, (v)).second.u
@@ -202,7 +202,7 @@ extern void Shutdown_Event_Scheme(void);
 inline static REBVAL *Init_Gob(RELVAL *out, REBGOB *g) {
     assert(GET_SERIES_FLAG(g, MANAGED));
 
-    RESET_CELL(out, REB_GOB);
+    RESET_CELL(out, REB_GOB, CELL_FLAG_FIRST_IS_NODE);
     mutable_VAL_GOB(out) = g;
     VAL_GOB_INDEX(out) = 0;
     return KNOWN(out);

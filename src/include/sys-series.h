@@ -470,36 +470,33 @@ inline static REBSER *VAL_SERIES(const REBCEL *v) {
     assert(
         ANY_SERIES_KIND(CELL_KIND(v)) or ANY_PATH_KIND(CELL_KIND(v))
         or CELL_KIND(v) == REB_MAP
-    ); // !!! Note: there was a problem here once, with a gcc 5.4 -O2 bug
-    REBSER *s = PAYLOAD(Series, v).rebser;
+    );
+    REBSER *s = SER(PAYLOAD(Any, v).first.node);
     if (GET_SERIES_INFO(s, INACCESSIBLE))
         fail (Error_Series_Data_Freed_Raw());
     return s;
 }
 
-inline static void INIT_VAL_SERIES(RELVAL *v, REBSER *s) {
-    assert(not IS_SER_ARRAY(s));
-    ASSERT_SERIES_MANAGED(s);
-    PAYLOAD(Series, v).rebser = s;
-}
+#define VAL_INDEX_UNCHECKED(v) \
+    PAYLOAD(Any, (v)).second.u32
 
 #if defined(NDEBUG) || !defined(CPLUSPLUS_11)
     #define VAL_INDEX(v) \
-        PAYLOAD(Series, (v)).index
+        VAL_INDEX_UNCHECKED(v)
 #else
     // allows an assert, but also lvalue: `VAL_INDEX(v) = xxx`
     //
     inline static REBCNT & VAL_INDEX(REBCEL *v) { // C++ reference type
         assert(ANY_SERIES_KIND(CELL_KIND(v)) or ANY_PATH_KIND(CELL_KIND(v)));
-        return PAYLOAD(Series, v).index;
+        return VAL_INDEX_UNCHECKED(v);
     }
     inline static REBCNT VAL_INDEX(const REBCEL *v) {
         if (ANY_PATH_KIND(CELL_KIND(v))) {
-            assert(PAYLOAD(Series, v).index == 0);
+            assert(VAL_INDEX_UNCHECKED(v) == 0);
             return 0;
         }
         assert(ANY_SERIES_KIND(CELL_KIND(v)));
-        return PAYLOAD(Series, v).index;
+        return VAL_INDEX_UNCHECKED(v);
     }
 #endif
 

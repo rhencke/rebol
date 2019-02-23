@@ -46,10 +46,10 @@ REBVAL *Init_Any_Path_At_Core(
     assert(ANY_PATH_KIND(kind));
     ENSURE_SERIES_MANAGED(SER(a));
     ASSERT_SERIES_TERM(SER(a));
-    assert(index == 0); // !!! current rule
+    assert(index == 0);  // !!! current rule
 
-    RESET_CELL(out, kind);
-    PAYLOAD(Series, out).rebser = SER(a);
+    RESET_CELL(out, kind, CELL_FLAG_FIRST_IS_NODE);
+    INIT_VAL_NODE(out, a);
     VAL_INDEX(out) = index;
     INIT_BINDING(out, binding);
 
@@ -472,8 +472,8 @@ bool Eval_Path_Throws_Core(
             // mattered, we'd need to swap the whole cells).
             //
             REBSTR *temp = VAL_WORD_SPELLING(bottom);
-            INIT_WORD_SPELLING(bottom, VAL_WORD_SPELLING(top));
-            INIT_WORD_SPELLING(top, temp);
+            INIT_VAL_NODE(bottom, VAL_WORD_SPELLING(top));
+            INIT_VAL_NODE(top, temp);
 
             top--;
             bottom++;

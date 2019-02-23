@@ -292,7 +292,7 @@ REBTYPE(Money)
         if (REF(to)) {
             if (IS_DECIMAL(scale) or IS_PERCENT(scale)) {
                 REBDEC dec = deci_to_decimal(VAL_MONEY_AMOUNT(D_OUT));
-                RESET_CELL(D_OUT, VAL_TYPE(scale));
+                RESET_CELL(D_OUT, VAL_TYPE(scale), CELL_MASK_NONE);
                 VAL_DECIMAL(D_OUT) = dec;
                 return D_OUT;
             }
@@ -314,7 +314,7 @@ REBTYPE(Money)
         fail (Error_Illegal_Action(REB_MONEY, verb));
     }
 
-    RESET_VAL_HEADER(D_OUT, REB_MONEY);
+    RESET_VAL_HEADER(D_OUT, REB_MONEY, CELL_MASK_NONE);
     return D_OUT;
 }
 

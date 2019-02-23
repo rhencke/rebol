@@ -533,10 +533,10 @@ REBTYPE(Time)
             case SYM_DIVIDE:
                 if (secs2 == 0)
                     fail (Error_Zero_Divide_Raw());
-                //secs /= secs2;
-                RESET_CELL(D_OUT, REB_DECIMAL);
-                VAL_DECIMAL(D_OUT) = cast(REBDEC, secs) / cast(REBDEC, secs2);
-                return D_OUT;
+                return Init_Decimal(
+                    D_OUT,
+                    cast(REBDEC, secs) / cast(REBDEC, secs2)
+                );
 
             case SYM_REMAINDER:
                 if (secs2 == 0)
@@ -679,13 +679,13 @@ REBTYPE(Time)
                         Dec64(arg) * SEC_SEC
                     );
                     VAL_DECIMAL(arg) /= SEC_SEC;
-                    RESET_VAL_HEADER(arg, REB_DECIMAL);
+                    RESET_VAL_HEADER(arg, REB_DECIMAL, CELL_MASK_NONE);
                     Move_Value(D_OUT, ARG(scale));
                     return D_OUT;
                 }
                 else if (IS_INTEGER(arg)) {
                     VAL_INT64(arg) = Round_Int(secs, 1, Int32(arg) * SEC_SEC) / SEC_SEC;
-                    RESET_VAL_HEADER(arg, REB_INTEGER);
+                    RESET_VAL_HEADER(arg, REB_INTEGER, CELL_MASK_NONE);
                     Move_Value(D_OUT, ARG(scale));
                     return D_OUT;
                 }

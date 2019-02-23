@@ -321,7 +321,7 @@ inline static OPT_REBSYM VAL_KEY_SYM(const REBCEL *v) {
 
 inline static REBVAL *Init_Typeset(RELVAL *out, REBU64 bits)
 {
-    RESET_CELL(out, REB_TYPESET);
+    RESET_CELL(out, REB_TYPESET, CELL_MASK_NONE);
     VAL_TYPESET_BITS(out) = bits;
     return cast(REBVAL*, out);
 }
@@ -333,7 +333,7 @@ inline static REBVAL *Init_Param(
     REBSTR *spelling,
     REBU64 bits
 ){
-    RESET_CELL(out, pclass);
+    RESET_CELL(out, pclass, CELL_MASK_NONE);
     EXTRA(Key, out).spelling = spelling;
     VAL_TYPESET_BITS(out) = bits;
     assert(IS_PARAM(out));

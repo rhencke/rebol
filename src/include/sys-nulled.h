@@ -52,7 +52,7 @@
     (VAL_TYPE(v) == REB_MAX_NULLED)
 
 #define Init_Nulled(out) \
-    RESET_CELL_CORE((out), REB_MAX_NULLED, CELL_FLAG_FALSEY)
+    RESET_CELL((out), REB_MAX_NULLED, CELL_FLAG_FALSEY)
 
 // !!! A theory was that the "evaluated" flag would help a function that took
 // both <opt> and <end>, which are converted to nulls, distinguish what kind
@@ -60,7 +60,7 @@
 // here just to make a note of the concept, and tag it via the callsites.
 //
 #define Init_Endish_Nulled(out) \
-    RESET_CELL_CORE((out), REB_MAX_NULLED, \
+    RESET_CELL((out), REB_MAX_NULLED, \
         CELL_FLAG_FALSEY | CELL_FLAG_UNEVALUATED)
 
 inline static bool IS_ENDISH_NULLED(const RELVAL *v)

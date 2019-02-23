@@ -133,11 +133,11 @@ REBCTX *Make_Context_For_Action_Int_Partials(
         SERIES_MASK_CONTEXT
     );
 
-    REBVAL *rootvar = RESET_CELL_CORE(
+    REBVAL *rootvar = RESET_CELL(
         ARR_HEAD(varlist),
         REB_FRAME,
-        CELL_FLAG_PAYLOAD_FIRST_IS_NODE
-            /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! TBD, implicit
+        CELL_FLAG_FIRST_IS_NODE
+            /* | CELL_FLAG_SECOND_IS_NODE */  // !!! TBD, implicit
     );
     INIT_VAL_CONTEXT_VARLIST(rootvar, varlist);
     INIT_VAL_CONTEXT_PHASE(rootvar, VAL_ACTION(action));
@@ -513,7 +513,7 @@ bool Specialize_Action_Throws(
                 else
                     EXTRA(Partial, last_partial).next = refine;
 
-                RESET_CELL(refine, REB_X_PARTIAL);
+                RESET_CELL(refine, REB_X_PARTIAL, CELL_MASK_NONE);
                 PAYLOAD(Partial, refine).dsp = partial_dsp;
                 TRASH_POINTER_IF_DEBUG(EXTRA(Partial, refine).next);
 
@@ -633,7 +633,9 @@ bool Specialize_Action_Throws(
         else
             EXTRA(Partial, last_partial).next = refine;
 
-        RESET_CELL(refine, REB_X_PARTIAL_SAW_NULL_ARG); // this is a null arg
+        // This is a null argument
+
+        RESET_CELL(refine, REB_X_PARTIAL_SAW_NULL_ARG, CELL_MASK_NONE);
         PAYLOAD(Partial, refine).dsp = 0; // no ordered position on stack
         PAYLOAD(Partial, refine).signed_index
             = index - (arg - refine); // positive to indicate used
@@ -1208,7 +1210,7 @@ REB_R Block_Dispatcher(REBFRM *f)
         // Need to do a raw initialization of this block RELVAL because it is
         // relative to a function.  (Init_Block assumes all specific values.)
         //
-        INIT_VAL_ARRAY(block, body_array);
+        INIT_VAL_NODE(block, body_array);
         VAL_INDEX(block) = 0;
         INIT_BINDING(block, FRM_PHASE(f)); // relative binding
 
@@ -1442,7 +1444,11 @@ REBNATIVE(does)
             SERIES_MASK_ACTION
         );
 
-        REBVAL *archetype = RESET_CELL(Alloc_Tail_Array(paramlist), REB_ACTION);
+        REBVAL *archetype = RESET_CELL(
+            Alloc_Tail_Array(paramlist),
+            REB_ACTION,
+            CELL_FLAG_FIRST_IS_NODE
+        );
         PAYLOAD(Action, archetype).paramlist = paramlist;
         INIT_BINDING(archetype, UNBOUND);
         TERM_ARRAY_LEN(paramlist, 1);
@@ -1522,7 +1528,11 @@ REBNATIVE(does)
     REBCNT num_slots = ACT_NUM_PARAMS(unspecialized) + 1;
     REBARR *paramlist = Make_Array_Core(num_slots, SERIES_MASK_ACTION);
 
-    RELVAL *archetype = RESET_CELL(ARR_HEAD(paramlist), REB_ACTION);
+    RELVAL *archetype = RESET_CELL(
+        ARR_HEAD(paramlist),
+        REB_ACTION,
+        CELL_FLAG_FIRST_IS_NODE
+    );
     PAYLOAD(Action, archetype).paramlist = paramlist;
     INIT_BINDING(archetype, UNBOUND);
     TERM_ARRAY_LEN(paramlist, 1);

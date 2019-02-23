@@ -1213,8 +1213,8 @@ inline static void Push_Action(
             | NODE_FLAG_CELL
             | NODE_FLAG_STACK
             | CELL_FLAG_PROTECTED  // payload/binding tweaked, but not by user
-            | CELL_FLAG_PAYLOAD_FIRST_IS_NODE
-            /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! TBD: implicit
+            | CELL_FLAG_FIRST_IS_NODE
+            /* | CELL_FLAG_SECOND_IS_NODE */  // !!! TBD: implicit
             | FLAG_KIND_BYTE(REB_FRAME);
     TRACK_CELL_IF_DEBUG(f->rootvar, __FILE__, __LINE__);
     INIT_VAL_CONTEXT_VARLIST(f->rootvar, f->varlist);

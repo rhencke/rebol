@@ -65,7 +65,7 @@ REB_R MAKE_Library(
         fail (Error_Bad_Make(REB_LIBRARY, arg));
 
     REBARR *singular = Alloc_Singular(NODE_FLAG_MANAGED);
-    RESET_CELL(ARR_SINGLE(singular), REB_LIBRARY);
+    RESET_CELL(ARR_SINGLE(singular), REB_LIBRARY, CELL_MASK_NONE);
     PAYLOAD(Library, ARR_SINGLE(singular)).singular = singular;
 
     LINK(singular).fd = fd;

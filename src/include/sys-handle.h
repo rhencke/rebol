@@ -131,7 +131,7 @@ inline static REBVAL *Init_Handle_Simple(
     uintptr_t length
 ){
     assert(length != 0); // can't be 0 unless cfunc (see also malloc(0))
-    RESET_CELL(out, REB_HANDLE);
+    RESET_CELL(out, REB_HANDLE, CELL_MASK_NONE);
     EXTRA(Handle, out).singular = nullptr;
     PAYLOAD(Handle, out).data.pointer = pointer;
     PAYLOAD(Handle, out).length = length;
@@ -142,7 +142,7 @@ inline static REBVAL *Init_Handle_Cfunc(
     RELVAL *out,
     CFUNC *cfunc
 ){
-    RESET_CELL(out, REB_HANDLE);
+    RESET_CELL(out, REB_HANDLE, CELL_MASK_NONE);
     EXTRA(Handle, out).singular = nullptr;
     PAYLOAD(Handle, out).data.cfunc = cfunc;
     PAYLOAD(Handle, out).length = 0; // signals cfunc
@@ -173,7 +173,7 @@ inline static void Init_Handle_Managed_Common(
     // effectively update all instances...since the bits live in the shared
     // series component.
     //
-    RESET_CELL(out, REB_HANDLE);
+    RESET_CELL(out, REB_HANDLE, CELL_MASK_NONE);
     EXTRA(Handle, out).singular = singular;
     TRASH_POINTER_IF_DEBUG(PAYLOAD(Handle, out).data.pointer);
 }
@@ -188,10 +188,10 @@ inline static REBVAL *Init_Handle_Managed(
 
     // Leave the non-singular cfunc as trash; clients should not be using
     //
-    RESET_VAL_HEADER_CORE(out, REB_HANDLE, 0);
+    RESET_VAL_HEADER(out, REB_HANDLE, CELL_MASK_NONE);
 
     REBARR *a = EXTRA(Handle, out).singular;
-    RESET_VAL_HEADER(ARR_SINGLE(a), REB_HANDLE);
+    RESET_VAL_HEADER(ARR_SINGLE(a), REB_HANDLE, CELL_MASK_NONE);
     PAYLOAD(Handle, ARR_SINGLE(a)).data.pointer = pointer;
     return KNOWN(out);
 }
@@ -205,10 +205,10 @@ inline static REBVAL *Init_Handle_Managed_Cfunc(
 
     // Leave the non-singular cfunc as trash; clients should not be using
     //
-    RESET_VAL_HEADER(out, REB_HANDLE);
+    RESET_VAL_HEADER(out, REB_HANDLE, CELL_MASK_NONE);
     
     REBARR *a = EXTRA(Handle, out).singular;
-    RESET_VAL_HEADER(ARR_HEAD(a), REB_HANDLE);
+    RESET_VAL_HEADER(ARR_HEAD(a), REB_HANDLE, CELL_MASK_NONE);
     PAYLOAD(Handle, ARR_HEAD(a)).data.cfunc = cfunc;
     PAYLOAD(Handle, ARR_HEAD(a)).length = 0;
     return KNOWN(out);

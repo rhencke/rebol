@@ -1017,7 +1017,7 @@ REBNATIVE(free_q)
 
     // All freeable values put their freeable series in the payload's "first".
     //
-    if (NOT_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE))
+    if (NOT_CELL_FLAG(v, FIRST_IS_NODE))
         return Init_False(D_OUT);
 
     REBNOD *n = PAYLOAD(Any, v).first.node;

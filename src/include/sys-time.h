@@ -161,7 +161,7 @@ inline static REBI64 VAL_NANO(const REBCEL *v) {
     SEC_TIME(cast(REBI64, SECS_IN_DAY))
 
 inline static REBVAL *Init_Time_Nanoseconds(RELVAL *v, REBI64 nanoseconds) {
-    RESET_CELL(v, REB_TIME);
+    RESET_CELL(v, REB_TIME, CELL_MASK_NONE);
     PAYLOAD(Time, v).nanoseconds = nanoseconds;
     return cast(REBVAL*, v);
 }

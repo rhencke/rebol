@@ -159,7 +159,7 @@ inline static REBVAL *Init_XYF(
     REBD32 x,  // 32-bit floating point type, typically just `float`...
     REBD32 y   // there's no standard: https://stackoverflow.com/a/18705626/
 ){
-    RESET_CELL(out, REB_G_XYF);
+    RESET_CELL(out, REB_G_XYF, CELL_MASK_NONE);
     VAL_XYF_X(out) = x;
     VAL_XYF_Y(out) = y;
     return cast(REBVAL*, out);
@@ -276,22 +276,14 @@ extern REBGOB *Gob_Root;  // Top level GOB (the screen)
 
 #if defined(NDEBUG) || !defined(CPLUSPLUS_11)
     #define VAL_GOB(v) \
-        cast(REBGOB*, PAYLOAD(Any, (v)).first.node)  // use w/const REBVAL*
-
-    #define SET_VAL_GOB(v,gob) \
-        (PAYLOAD(Any, (v)).first.node = NOD(gob))  // non-const REBVAL*
+        cast(REBGOB*, VAL_NODE(v))  // use w/const REBVAL*
 
     #define VAL_GOB_INDEX(v) \
         PAYLOAD(Any, v).second.u
 #else
     inline static REBGOB* VAL_GOB(const REBCEL *v) {
         assert(CELL_KIND(v) == REB_GOB);
-        return cast(REBGOB*, PAYLOAD(Any, v).first.node);
-    }
-
-    inline static void SET_VAL_GOB(REBCEL *v, REBGOB *gob) {
-        assert(CELL_KIND(v) == REB_GOB);
-        PAYLOAD(Any, v).first.node = NOD(gob);
+        return cast(REBGOB*, VAL_NODE(v));
     }
 
     inline static uintptr_t const &VAL_GOB_INDEX(const REBCEL *v) {
@@ -308,8 +300,8 @@ extern REBGOB *Gob_Root;  // Top level GOB (the screen)
 inline static REBVAL *Init_Gob(RELVAL *out, REBGOB *g) {
     assert(GET_SERIES_FLAG(g, MANAGED));
 
-    RESET_CELL_CORE(out, REB_GOB, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
-    SET_VAL_GOB(out, g);
+    RESET_CELL(out, REB_GOB, CELL_FLAG_FIRST_IS_NODE);
+    INIT_VAL_NODE(out, g);
     VAL_GOB_INDEX(out) = 0;
     return KNOWN(out);
 }

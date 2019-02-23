@@ -373,7 +373,7 @@ REB_R MAKE_Varargs(
         else
             Move_Value(ARR_SINGLE(array1), arg);
 
-        RESET_CELL(out, REB_VARARGS);
+        RESET_CELL(out, REB_VARARGS, CELL_MASK_NONE);
         PAYLOAD(Varargs, out).phase = nullptr;
         UNUSED(PAYLOAD(Varargs, out).signed_param_index); // trashes in C++11
         INIT_BINDING(out, array1);

@@ -1883,7 +1883,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 goto syntax_error;
 
             if (bp[len - 1] == '%') {
-                RESET_VAL_HEADER(DS_TOP, REB_PERCENT);
+                RESET_VAL_HEADER(DS_TOP, REB_PERCENT, CELL_MASK_NONE);
                 VAL_DECIMAL(DS_TOP) /= 100.0;
             }
             break;
@@ -1928,7 +1928,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
           case TOKEN_CHAR:
             DS_PUSH();
-            RESET_VAL_HEADER(DS_TOP, REB_CHAR);
+            RESET_VAL_HEADER(DS_TOP, REB_CHAR, CELL_MASK_NONE);
             bp += 2;  // skip #", and subtract 1 from ep for "
             if (ep - 1 != Scan_UTF8_Char_Escapable(&VAL_CHAR(DS_TOP), bp))
                 goto syntax_error;
@@ -2244,18 +2244,31 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                     if (ss->begin and *ss->end == ':')
                       goto syntax_error;  // for instance `:a/b/c:`
 
-                    RESET_VAL_HEADER(DS_TOP, REB_GET_PATH);
+                    RESET_VAL_HEADER(
+                        DS_TOP,
+                        REB_GET_PATH,
+                        CELL_FLAG_FIRST_IS_NODE
+                    );
                     mutable_KIND_BYTE(head) = UNGETIFY_ANY_GET_KIND(kind_head);
                 }
                 else if (ss->begin and *ss->end == ':') {
-                    RESET_VAL_HEADER(DS_TOP, REB_SET_PATH);
+                    RESET_VAL_HEADER(
+                        DS_TOP,
+                        REB_SET_PATH,
+                        CELL_FLAG_FIRST_IS_NODE
+                    );
                     ss->begin = ++ss->end;
                 }
                 else
-                    RESET_VAL_HEADER(DS_TOP, REB_PATH);
+                    RESET_VAL_HEADER(
+                        DS_TOP,
+                        REB_PATH,
+                        CELL_FLAG_FIRST_IS_NODE
+                    );
 
-                INIT_VAL_ARRAY(DS_TOP, a);
+                INIT_VAL_NODE(DS_TOP, a);
                 VAL_INDEX(DS_TOP) = 0;
+                INIT_BINDING(DS_TOP, UNBOUND);
             }
 
             token = TOKEN_PATH;  // for error message !!! unused?

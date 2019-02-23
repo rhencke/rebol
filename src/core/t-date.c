@@ -541,7 +541,7 @@ REB_R MAKE_Date(
 
         Normalize_Time(&secs, &day);
 
-        RESET_CELL(out, REB_DATE);
+        RESET_CELL(out, REB_DATE, CELL_MASK_NONE);
         VAL_DATE(out) = Normalize_Date(day, month, year, tz);
         PAYLOAD(Time, out).nanoseconds = secs;
 
@@ -631,7 +631,7 @@ void Pick_Or_Poke_Date(
             else {
                 Move_Value(opt_out, v); // want v's adjusted VAL_NANO()
                 Adjust_Date_Zone(opt_out, false);
-                RESET_VAL_HEADER(opt_out, REB_TIME); // clears date flags
+                RESET_VAL_HEADER(opt_out, REB_TIME, CELL_MASK_NONE);
             }
             break;
 
@@ -896,7 +896,7 @@ REBTYPE(Date)
 
     REBSYM sym = VAL_WORD_SYM(verb);
 
-    RESET_CELL(D_OUT, REB_DATE); // so we can set flags on it
+    RESET_CELL(D_OUT, REB_DATE, CELL_MASK_NONE);
 
     REBYMD date = VAL_DATE(val);
     REBCNT day = VAL_DAY(val) - 1;
@@ -1081,7 +1081,7 @@ REBNATIVE(make_date_ymdsnz)
 {
     INCLUDE_PARAMS_OF_MAKE_DATE_YMDSNZ;
 
-    RESET_CELL(D_OUT, REB_DATE);
+    RESET_CELL(D_OUT, REB_DATE, CELL_MASK_NONE);
     VAL_YEAR(D_OUT) = VAL_INT32(ARG(year));
     VAL_MONTH(D_OUT) = VAL_INT32(ARG(month));
     VAL_DAY(D_OUT) = VAL_INT32(ARG(day));

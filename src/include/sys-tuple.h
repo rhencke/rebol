@@ -78,7 +78,7 @@ inline static REBVAL *Init_Tuple(
     const REBYTE *data,
     REBCNT len
 ){
-    RESET_CELL(out, REB_TUPLE);
+    RESET_CELL(out, REB_TUPLE, CELL_MASK_NONE);
 
     REBCNT n = len;
     REBYTE *bp;

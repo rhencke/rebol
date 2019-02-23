@@ -120,8 +120,8 @@ static void Add_Event_XY(REBGOB *gob, uint16_t id, REBINT xy, uint_8_t flags)
     if (not e)
         return;
 
-    RESET_CELL_CORE(e, REB_EVENT, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
-    mutable_VAL_EVENT_SER(e) = gob;
+    RESET_CELL(e, REB_EVENT, CELL_FLAG_FIRST_IS_NODE);
+    INIT_VAL_NODE(e, gob);
     mutable_VAL_EVENT_MODEL(e) = EVM_GUI;
     mutable_VAL_EVENT_TYPE(e) = id;
     mutable_VAL_EVENT_FLAGS(e) = flags);
@@ -161,13 +161,12 @@ static void Add_Event_Key(REBGOB *gob, uint16_t id, uint16_t key, REBINT flags)
 {
     REBVAL *e = Append_Event(); // sets signal, null if no room in series
     if (e) {
-        RESET_CELL_CORE(e, REB_EVENT, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
-        PAYLOAD(Event, e).model = EVM_GUI;
-        EXTRA(Event, e).eventee.ser = gob;
-        PAYLOAD(Event, e).type = id;
-        PAYLOAD(Event, e).flags = flags;
-        PAYLOAD(Event, e).win = 0;
-        PAYLOAD(Event, e).data.u = key;
+        RESET_CELL(e, REB_EVENT, CELL_FLAG_FIRST_IS_NODE);
+        INIT_VAL_NODE(e, gob);
+        mutable_VAL_EVENT_MODEL(e) = EVM_GUI;
+        mutable_VAL_EVENT_TYPE(e) = id;
+        mutable_VAL_EVENT_FLAGS(e) = flags;
+        /* ... */
     }
 }
 

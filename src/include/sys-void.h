@@ -47,7 +47,7 @@
     c_cast(const REBVAL*, &PG_Void_Value)
 
 #define Init_Void(out) \
-    RESET_CELL((out), REB_VOID)
+    RESET_CELL((out), REB_VOID, CELL_MASK_NONE)
 
 inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
     if (IS_NULLED(cell))

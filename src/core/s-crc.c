@@ -426,10 +426,10 @@ REBVAL *Init_Map(RELVAL *out, REBMAP *map)
 
     ENSURE_ARRAY_MANAGED(MAP_PAIRLIST(map));
 
-    RESET_CELL(out, REB_MAP);
+    RESET_CELL(out, REB_MAP, CELL_FLAG_FIRST_IS_NODE);
+    INIT_VAL_NODE(out, MAP_PAIRLIST(map));
+    // second payload pointer not used
     INIT_BINDING(out, UNBOUND);
-    PAYLOAD(Series, out).rebser = SER(MAP_PAIRLIST(map));
-    PAYLOAD(Series, out).index = 0;
 
     return KNOWN(out);
 }

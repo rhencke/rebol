@@ -304,8 +304,8 @@ REBVAL *Init_Any_Series_At_Core(
     //
     ASSERT_SERIES_TERM(s);
 
-    RESET_CELL(out, type);
-    PAYLOAD(Series, out).rebser = s;
+    RESET_CELL(out, type, CELL_FLAG_FIRST_IS_NODE);
+    INIT_VAL_NODE(out, s);
     VAL_INDEX(out) = index;
     INIT_BINDING(out, binding);
 

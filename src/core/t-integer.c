@@ -556,7 +556,7 @@ REBTYPE(Integer)
                 REBDEC dec = Round_Dec(
                     cast(REBDEC, num), flags, VAL_DECIMAL(val2)
                 );
-                RESET_CELL(D_OUT, VAL_TYPE(val2));
+                RESET_CELL(D_OUT, VAL_TYPE(val2), CELL_MASK_NONE);
                 VAL_DECIMAL(D_OUT) = dec;
                 return D_OUT;
             }

@@ -183,7 +183,7 @@ void Clonify(
                     )
                 );
 
-                INIT_VAL_ARRAY(v, ARR(series)); // copies args
+                INIT_VAL_NODE(v, series); // copies args
 
                 // If it was relative, then copying with a specifier
                 // means it isn't relative any more.
@@ -195,7 +195,7 @@ void Clonify(
                     VAL_SERIES(v),
                     NODE_FLAG_MANAGED
                 );
-                INIT_VAL_SERIES(v, series);
+                INIT_VAL_NODE(v, series);
             }
         }
 
@@ -350,12 +350,13 @@ REBARR *Copy_Rerelativized_Array_Deep_Managed(
         Move_Value_Header(dest, src);
 
         if (ANY_ARRAY_OR_PATH(src)) {
-            PAYLOAD(Series, dest).rebser = SER(
+            INIT_VAL_NODE(
+                dest,
                 Copy_Rerelativized_Array_Deep_Managed(
                     VAL_ARRAY(src), before, after
                 )
             );
-            PAYLOAD(Series, dest).index = PAYLOAD(Series, src).index;
+            PAYLOAD(Any, dest).second = PAYLOAD(Any, src).second;
             INIT_BINDING(dest, after); // relative binding
         }
         else {

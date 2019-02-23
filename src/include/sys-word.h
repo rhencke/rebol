@@ -88,9 +88,6 @@ inline static REBCTX *VAL_WORD_CONTEXT(const REBVAL *v) {
     return CTX(binding);
 }
 
-#define INIT_WORD_SPELLING(v,str) \
-    (PAYLOAD(Any, (v)).first.node = NOD(str))
-
 #define INIT_WORD_INDEX_UNCHECKED(v,i) \
     PAYLOAD(Any, (v)).second.i32 = cast(REBINT, i)
 
@@ -120,8 +117,8 @@ inline static REBVAL *Init_Any_Word(
     enum Reb_Kind kind,
     REBSTR *spelling
 ){
-    RESET_CELL_CORE(out, kind, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
-    INIT_WORD_SPELLING(out, spelling);
+    RESET_CELL(out, kind, CELL_FLAG_FIRST_IS_NODE);
+    INIT_VAL_NODE(out, spelling);
     INIT_BINDING(out, UNBOUND);
   #if !defined(NDEBUG)
     INIT_WORD_INDEX_UNCHECKED(out, -1);  // index not heeded if no binding
@@ -141,8 +138,8 @@ inline static REBVAL *Init_Any_Word_Bound(
     REBCTX *context,
     REBCNT index
 ){
-    RESET_CELL_CORE(out, type, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
-    INIT_WORD_SPELLING(out, spelling);
+    RESET_CELL(out, type, CELL_FLAG_FIRST_IS_NODE);
+    INIT_VAL_NODE(out, spelling);
     INIT_BINDING(out, context);
     INIT_WORD_INDEX(out, index);
     return KNOWN(out);

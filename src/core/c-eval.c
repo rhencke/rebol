@@ -1242,7 +1242,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     // from the global empty array.
                     //
                     if (Is_Param_Variadic(f->param)) {
-                        RESET_CELL(f->arg, REB_VARARGS);
+                        RESET_CELL(f->arg, REB_VARARGS, CELL_MASK_NONE);
                         INIT_BINDING(f->arg, EMPTY_ARRAY); // feed finished
 
                         Finalize_Enfix_Variadic_Arg(f);
@@ -1281,7 +1281,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                         Init_Block(ARR_SINGLE(array1), feed); // index 0
                     }
 
-                    RESET_CELL(f->arg, REB_VARARGS);
+                    RESET_CELL(f->arg, REB_VARARGS, CELL_MASK_NONE);
                     INIT_BINDING(f->arg, array1);
                     Finalize_Enfix_Variadic_Arg(f);
                 }
@@ -1369,7 +1369,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // consume additional arguments during the function run.
             //
             if (Is_Param_Variadic(f->param)) {
-                RESET_CELL(f->arg, REB_VARARGS);
+                RESET_CELL(f->arg, REB_VARARGS, CELL_MASK_NONE);
                 INIT_BINDING(f->arg, f->varlist); // frame-based VARARGS!
 
                 Finalize_Variadic_Arg(f);
@@ -2032,7 +2032,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_PATH: {
-        assert(PAYLOAD(Series, v).index == 0);  // this is the rule for now
+        assert(VAL_INDEX_UNCHECKED(v) == 0);  // this is the rule for now
 
         if (ANY_INERT(ARR_HEAD(VAL_ARRAY(v)))) {
             //

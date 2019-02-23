@@ -62,7 +62,7 @@ REB_R MAKE_Tuple(
     if (IS_TUPLE(arg))
         return Move_Value(out, arg);
 
-    RESET_CELL(out, REB_TUPLE);
+    RESET_CELL(out, REB_TUPLE, CELL_MASK_NONE);
     REBYTE *vp = VAL_TUPLE(out);
 
     // !!! Net lookup parses IP addresses out of `tcp://93.184.216.34` or

@@ -1080,9 +1080,10 @@ REBTYPE(Gob)
 
     fail (Error_Illegal_Action(REB_GOB, verb));
 
-set_index:
-    RESET_CELL(D_OUT, REB_GOB);
-    SET_VAL_GOB(D_OUT, gob);
+  set_index:
+
+    RESET_CELL(D_OUT, REB_GOB, CELL_FLAG_FIRST_IS_NODE);
+    INIT_VAL_NODE(D_OUT, gob);
     VAL_GOB_INDEX(D_OUT) = index;
     return D_OUT;
 }

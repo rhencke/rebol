@@ -391,7 +391,7 @@ void Reset_Height(REBVAL *value)
 //
 REBVAL *Init_Tuple_From_Pixel(RELVAL *out, const REBYTE *dp)
 {
-    RESET_CELL(out, REB_TUPLE);
+    RESET_CELL(out, REB_TUPLE, CELL_MASK_NONE);
     REBYTE *tup = VAL_TUPLE(out);
     VAL_TUPLE_LEN(out) = 4;
     tup[0] = dp[0]; // red

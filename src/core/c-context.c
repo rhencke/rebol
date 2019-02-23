@@ -90,11 +90,11 @@ REBCTX *Alloc_Context_Core(enum Reb_Kind kind, REBCNT capacity, REBFLGS flags)
     // varlist[0] is a value instance of the OBJECT!/MODULE!/PORT!/ERROR! we
     // are building which contains this context.
 
-    REBVAL *rootvar = RESET_CELL_CORE(
+    REBVAL *rootvar = RESET_CELL(
         Alloc_Tail_Array(varlist),
         kind,
-        CELL_FLAG_PAYLOAD_FIRST_IS_NODE
-            /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! currently implied
+        CELL_FLAG_FIRST_IS_NODE
+            /* | CELL_FLAG_SECOND_IS_NODE */  // !!! currently implied
     );
     INIT_VAL_CONTEXT_VARLIST(rootvar, varlist);
     INIT_VAL_CONTEXT_PHASE(rootvar, nullptr);
@@ -838,11 +838,11 @@ REBCTX *Make_Selfish_Context_Detect_Managed(
 
     // context[0] is an instance value of the OBJECT!/PORT!/ERROR!/MODULE!
     //
-    REBVAL *var = RESET_CELL_CORE(
+    REBVAL *var = RESET_CELL(
         ARR_HEAD(varlist),
         kind,
-        CELL_FLAG_PAYLOAD_FIRST_IS_NODE
-            /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! currently implied
+        CELL_FLAG_FIRST_IS_NODE
+            /* | CELL_FLAG_SECOND_IS_NODE */  // !!! currently implied
     );
     INIT_VAL_CONTEXT_VARLIST(var, varlist);
     INIT_VAL_CONTEXT_PHASE(var, nullptr);
@@ -1083,11 +1083,11 @@ REBCTX *Merge_Contexts_Selfish_Managed(REBCTX *parent1, REBCTX *parent2)
     // the parent was an ERROR! so will the child be.  This is a new idea,
     // so review consequences.
     //
-    REBVAL *rootvar = RESET_CELL_CORE(
+    REBVAL *rootvar = RESET_CELL(
         ARR_HEAD(varlist),
         CTX_TYPE(parent1),
-        CELL_FLAG_PAYLOAD_FIRST_IS_NODE
-            /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! currently implied
+        CELL_FLAG_FIRST_IS_NODE
+            /* | CELL_FLAG_SECOND_IS_NODE */  // !!! currently implied
     );
     INIT_VAL_CONTEXT_VARLIST(rootvar, varlist);
     INIT_VAL_CONTEXT_PHASE(rootvar, nullptr);

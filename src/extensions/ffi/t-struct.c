@@ -77,7 +77,11 @@ static void get_scalar(
         //
         REBSTU *sub_stu = Alloc_Singular(NODE_FLAG_MANAGED);
         LINK(sub_stu).schema = field;
-        REBVAL *single = RESET_CELL(ARR_SINGLE(sub_stu), REB_STRUCT);
+        REBVAL *single = RESET_CELL(
+            ARR_SINGLE(sub_stu),
+            REB_STRUCT,
+            CELL_FLAG_FIRST_IS_NODE
+        );
 
         // In this case the structure lives at an offset inside another.
         //
@@ -1348,8 +1352,8 @@ REB_R MAKE_Struct(
     MANAGE_ARRAY(schema);
     LINK(stu).schema = schema;
 
-    RESET_CELL_CORE(out, REB_STRUCT, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
-    INIT_VAL_STRUCT(out, stu);
+    RESET_CELL(out, REB_STRUCT, CELL_FLAG_FIRST_IS_NODE);
+    INIT_VAL_NODE(out, stu);
     VAL_STRUCT_OFFSET(out) = 0;
 
     return out;

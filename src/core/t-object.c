@@ -366,7 +366,7 @@ REB_R MAKE_Context(
         /*
         REBINT n = Int32s(arg, 0);
         context = Alloc_Context(kind, n);
-        RESET_VAL_HEADER(CTX_ARCHETYPE(context), target);
+        RESET_VAL_HEADER(CTX_ARCHETYPE(context), target, CELL_MASK_NONE);
         CTX_SPEC(context) = NULL;
         CTX_BODY(context) = NULL; */
 

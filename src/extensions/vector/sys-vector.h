@@ -86,21 +86,25 @@ inline static REBVAL *Init_Vector(
     bool integral,
     REBYTE bitsize
 ){
-    RESET_CELL_CORE(out, REB_VECTOR, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
+    RESET_CELL(out, REB_VECTOR, CELL_FLAG_FIRST_IS_NODE);
 
     REBVAL *paired = Alloc_Pairing();
 
     Init_Binary(paired, bin);
     assert(SER_LEN(bin) % (bitsize / 8) == 0);
 
-    REBVAL *siw = RESET_CELL(PAIRING_KEY(paired), REB_V_SIGN_INTEGRAL_WIDE);
+    REBVAL *siw = RESET_CELL(
+        PAIRING_KEY(paired),
+        REB_V_SIGN_INTEGRAL_WIDE,
+        CELL_MASK_NONE
+    );
     assert(bitsize == 8 or bitsize == 16 or bitsize == 32 or bitsize == 64);
     PAYLOAD(Any, siw).first.flag = sign;
     PAYLOAD(Any, siw).second.flag = integral;
     EXTRA(Any, siw).i32 = bitsize / 8;  // e.g. VAL_VECTOR_WIDE()
 
     Manage_Pairing(paired);
-    PAYLOAD(Any, out).first.node = NOD(paired);
+    INIT_VAL_NODE(out, paired);
     return KNOWN(out);
 }
 

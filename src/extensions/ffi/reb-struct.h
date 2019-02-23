@@ -270,13 +270,10 @@ inline static REBCNT STU_SIZE(REBSTU *stu) {
 // may be a handle instead of a BINARY!.
 
 #define VAL_STRUCT(v) \
-    cast(REBSTU*, PAYLOAD(Any, (v)).first.node)
-
-#define INIT_VAL_STRUCT(v,stu) \
-    (PAYLOAD(Any, (v)).first.node = NOD(stu))
+    cast(REBSTU*, VAL_NODE(v))
 
 #define VAL_STRUCT_DATA(v) \
-    cast(REBSER*, &PAYLOAD(Any, (v)).first.node)
+    cast(REBSER*, VAL_STRUCT(v))
 
 
 #define VAL_STRUCT_OFFSET(v) \

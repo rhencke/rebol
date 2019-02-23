@@ -621,7 +621,7 @@ const REBYTE *Scan_Decimal(
     if (cast(REBCNT, cp - bp) != len)
         return_NULL;
 
-    RESET_VAL_HEADER(out, REB_DECIMAL);
+    RESET_VAL_HEADER(out, REB_DECIMAL, CELL_MASK_NONE);
 
     const char *se;
     VAL_DECIMAL(out) = STRTOD(s_cast(buf), &se);
@@ -718,7 +718,7 @@ const REBYTE *Scan_Integer(
     // Convert, check, and return:
     errno = 0;
 
-    RESET_VAL_HEADER(out, REB_INTEGER);
+    RESET_VAL_HEADER(out, REB_INTEGER, CELL_MASK_NONE);
 
     VAL_INT64(out) = CHR_TO_INT(buf);
     if (errno != 0)
@@ -952,8 +952,10 @@ const REBYTE *Scan_Date(
         cp = ep;
     }
 
-end_date:
-    RESET_VAL_HEADER(out, REB_DATE); // may be overwriting scanned REB_TIME
+  end_date:
+
+    // may be overwriting scanned REB_TIME...
+    RESET_VAL_HEADER(out, REB_DATE, CELL_MASK_NONE);
     // payload.time.nanoseconds is set, may be NO_DATE_TIME, don't RESET_CELL
 
     VAL_YEAR(out)  = year;
@@ -1145,7 +1147,7 @@ const REBYTE *Scan_Pair(
 
     Manage_Pairing(paired);
 
-    RESET_CELL(out, REB_PAIR);
+    RESET_CELL(out, REB_PAIR, CELL_FLAG_FIRST_IS_NODE);
     PAYLOAD(Pair, out).paired = paired;
     return xp;
 }

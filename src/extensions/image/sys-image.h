@@ -99,8 +99,8 @@ inline static REBVAL *Init_Image(
     LINK(a).custom.i = width;  // see notes on why this isn't put on bin...
     MISC(a).custom.i = height;  // (...it would corrupt shared series!)
 
-    RESET_CELL_CORE(out, REB_IMAGE, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
-    PAYLOAD(Any, out).first.node = NOD(a);
+    RESET_CELL(out, REB_IMAGE, CELL_FLAG_FIRST_IS_NODE);
+    INIT_VAL_NODE(out, a);
 
     assert(VAL_IMAGE_POS(out) == 0);  // !!! sketchy concept, is in BINARY!
 

@@ -96,7 +96,7 @@
 
     inline static REBSPC *VAL_SPECIFIER(const REBCEL *v) {
         if (ANY_PATH_KIND(CELL_KIND(v)))
-            assert(PAYLOAD(Series, v).index == 0);
+            assert(VAL_INDEX_UNCHECKED(v) == 0);
         else
             assert(ANY_ARRAY_KIND(CELL_KIND(v)));
 

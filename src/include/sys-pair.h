@@ -84,7 +84,7 @@ inline static REBVAL *Init_Pair(
     assert(ANY_NUMBER(x));
     assert(ANY_NUMBER(y));
 
-    RESET_CELL(out, REB_PAIR);
+    RESET_CELL(out, REB_PAIR, CELL_FLAG_FIRST_IS_NODE);
     REBVAL *p = Alloc_Pairing();
     Move_Value(PAIRING_KEY(p), KNOWN(x));
     Move_Value(p, KNOWN(y));
@@ -94,7 +94,7 @@ inline static REBVAL *Init_Pair(
 }
 
 inline static REBVAL *Init_Pair_Int(RELVAL *out, REBI64 x, REBI64 y) {
-    RESET_CELL(out, REB_PAIR);
+    RESET_CELL(out, REB_PAIR, CELL_FLAG_FIRST_IS_NODE);
     REBVAL *p = Alloc_Pairing();
     Init_Integer(PAIRING_KEY(p), x);
     Init_Integer(p, y);
@@ -104,7 +104,7 @@ inline static REBVAL *Init_Pair_Int(RELVAL *out, REBI64 x, REBI64 y) {
 }
 
 inline static REBVAL *Init_Pair_Dec(RELVAL *out, REBDEC x, REBDEC y) {
-    RESET_CELL(out, REB_PAIR);
+    RESET_CELL(out, REB_PAIR, CELL_FLAG_FIRST_IS_NODE);
     REBVAL *p = Alloc_Pairing();
     Init_Decimal(PAIRING_KEY(p), x);
     Init_Decimal(p, y);
@@ -123,7 +123,7 @@ inline static REBVAL *Init_Zeroed_Hack(RELVAL *out, enum Reb_Kind kind) {
         Init_Pair_Int(out, 0, 0);
     }
     else {
-        RESET_CELL(out, kind);
+        RESET_CELL(out, kind, CELL_MASK_NONE);
         CLEAR(&out->extra, sizeof(union Reb_Value_Extra));
         CLEAR(&out->payload, sizeof(union Reb_Value_Payload));
     }

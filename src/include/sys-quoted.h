@@ -108,7 +108,7 @@ inline static RELVAL *Quotify_Core(
         SET_CELL_FLAG(cell, PROTECTED); // maybe shared; can't change
       #endif
  
-        RESET_VAL_HEADER(v, REB_QUOTED);
+        RESET_VAL_HEADER(v, REB_QUOTED, CELL_MASK_NONE);
         if (Is_Bindable(cell))
             v->extra = cell->extra; // must be in sync with cell (if binding)
         else {

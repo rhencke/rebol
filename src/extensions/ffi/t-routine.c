@@ -524,9 +524,8 @@ static void ffi_to_rebol(
         );
         memcpy(SER_HEAD(REBYTE, data), ffi_rvalue, FLD_WIDE(top));
 
-        RESET_CELL(out, REB_STRUCT);
-        INIT_VAL_STRUCT(out, stu);
-        INIT_VAL_STRUCT_DATA(out, data);
+        RESET_CELL(out, REB_STRUCT, CELL_FLAG_FIRST_IS_NODE);
+        INIT_VAL_NODE(out, stu);
         VAL_STRUCT_OFFSET(out) = 0;
 
         Move_Value(ARR_SINGLE(stu), out); // save canon value
@@ -1127,7 +1126,11 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
 
     // Now fill in the canon value of the paramlist so it is an actual REBACT
     //
-    REBVAL *rootparam = RESET_CELL(ARR_HEAD(paramlist), REB_ACTION);
+    REBVAL *rootparam = RESET_CELL(
+        ARR_HEAD(paramlist),
+        REB_ACTION,
+        CELL_FLAG_FIRST_IS_NODE
+    );
     PAYLOAD(Action, rootparam).paramlist = paramlist;
     INIT_BINDING(rootparam, UNBOUND);
 

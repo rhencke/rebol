@@ -33,7 +33,7 @@
     PAYLOAD(Character, (v)).codepoint
 
 inline static REBVAL *Init_Char(RELVAL *out, REBUNI uni) {
-    RESET_CELL(out, REB_CHAR);
+    RESET_CELL(out, REB_CHAR, CELL_MASK_NONE);
     VAL_CHAR(out) = uni;
     return cast(REBVAL*, out);
 }

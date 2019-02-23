@@ -46,7 +46,7 @@ inline static void FAIL_IF_READ_ONLY_SERIES_CORE(
         ANY_SERIES(any_series)
         or VAL_TYPE(any_series) == REB_MAP  // !!! currently MAP! included
     );
-    REBSER *s = PAYLOAD(Series, any_series).rebser;
+    REBSER *s = SER(PAYLOAD(Any, any_series).first.node);
     FAIL_IF_READ_ONLY_SER(s);
     if (GET_CELL_FLAG(any_series, CONST)) {
         DECLARE_LOCAL (specific);

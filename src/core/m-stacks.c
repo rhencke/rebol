@@ -112,7 +112,11 @@ void Startup_Frame_Stack(void)
     );
     MISC(paramlist).meta = nullptr;
 
-    REBVAL *archetype = RESET_CELL(ARR_HEAD(paramlist), REB_ACTION);
+    REBVAL *archetype = RESET_CELL(
+        ARR_HEAD(paramlist),
+        REB_ACTION,
+        CELL_FLAG_FIRST_IS_NODE
+    );
     EXTRA(Binding, archetype).node = UNBOUND;
     PAYLOAD(Action, archetype).paramlist = paramlist;
     TERM_ARRAY_LEN(paramlist, 1);

@@ -266,7 +266,11 @@ REBNATIVE(typechecker)
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED
     );
 
-    REBVAL *archetype = RESET_CELL(Alloc_Tail_Array(paramlist), REB_ACTION);
+    REBVAL *archetype = RESET_CELL(
+        Alloc_Tail_Array(paramlist),
+        REB_ACTION,
+        CELL_FLAG_FIRST_IS_NODE
+    );
     PAYLOAD(Action, archetype).paramlist = paramlist;
     INIT_BINDING(archetype, UNBOUND);
 
@@ -466,8 +470,12 @@ REBNATIVE(adapt)
 
     REBARR *details = ACT_DETAILS(adaptation);
 
-    REBVAL *block = RESET_CELL(ARR_AT(details, 0), REB_BLOCK);
-    INIT_VAL_ARRAY(block, prelude);
+    REBVAL *block = RESET_CELL(
+        ARR_AT(details, 0),
+        REB_BLOCK,
+        CELL_FLAG_FIRST_IS_NODE
+    );
+    INIT_VAL_NODE(block, prelude);
     VAL_INDEX(block) = 0;
     INIT_BINDING(block, underlying); // relative binding
 
@@ -1193,7 +1201,11 @@ REBNATIVE(n_shot)
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED
     );
 
-    REBVAL *archetype = RESET_CELL(Alloc_Tail_Array(paramlist), REB_ACTION);
+    REBVAL *archetype = RESET_CELL(
+        Alloc_Tail_Array(paramlist),
+        REB_ACTION,
+        CELL_FLAG_FIRST_IS_NODE
+    );
     PAYLOAD(Action, archetype).paramlist = paramlist;
     INIT_BINDING(archetype, UNBOUND);
 

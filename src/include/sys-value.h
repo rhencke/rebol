@@ -381,7 +381,7 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 // so that is left as-is also.  See CELL_MASK_PERSIST.
 //
 
-inline static REBVAL *RESET_VAL_HEADER_CORE_at(
+inline static REBVAL *RESET_VAL_HEADER_at(
     RELVAL *v,
     enum Reb_Kind kind,
     uintptr_t extra
@@ -399,27 +399,24 @@ inline static REBVAL *RESET_VAL_HEADER_CORE_at(
 }
 
 #if defined(DEBUG_CELL_WRITABILITY)
-    #define RESET_VAL_HEADER_CORE(v,kind,extra) \
-        RESET_VAL_HEADER_CORE_at((v), (kind), (extra), __FILE__, __LINE__)
+    #define RESET_VAL_HEADER(v,kind,extra) \
+        RESET_VAL_HEADER_at((v), (kind), (extra), __FILE__, __LINE__)
 #else
-    #define RESET_VAL_HEADER_CORE(v,kind,extra) \
-        RESET_VAL_HEADER_CORE_at((v), (kind), (extra))
+    #define RESET_VAL_HEADER(v,kind,extra) \
+        RESET_VAL_HEADER_at((v), (kind), (extra))
 #endif
-
-#define RESET_VAL_HEADER(v,kind) \
-    RESET_VAL_HEADER_CORE((v), (kind), 0)
 
 #ifdef DEBUG_TRACK_CELLS
     //
-    // RESET_CELL_CORE is a variant of RESET_VAL_HEADER_CORE that actually
-    // overwrites the payload with tracking information.  It should not be
-    // used if the intent is to preserve the payload and extra.
+    // RESET_CELL is a variant of RESET_VAL_HEADER that overwrites the entire
+    // cell payload with tracking information.  It should not be used if the
+    // intent is to preserve the payload and extra.
     //
     // (Because of DEBUG_TRACK_EXTEND_CELLS, it's not necessarily a waste
     // even if you overwrite the Payload/Extra immediately afterward; it also
     // corrupts the data to help ensure all relevant fields are overwritten.)
     //
-    inline static REBVAL *RESET_CELL_CORE_Debug(
+    inline static REBVAL *RESET_CELL_Debug(
         RELVAL *out,
         enum Reb_Kind kind,
         uintptr_t extra,
@@ -427,25 +424,21 @@ inline static REBVAL *RESET_VAL_HEADER_CORE_at(
         int line
     ){
       #ifdef DEBUG_CELL_WRITABILITY
-        RESET_VAL_HEADER_CORE_at(out, kind, extra, file, line);
+        RESET_VAL_HEADER_at(out, kind, extra, file, line);
       #else
-        RESET_VAL_HEADER_CORE(out, kind, extra);
+        RESET_VAL_HEADER(out, kind, extra);
       #endif
 
         TRACK_CELL_IF_DEBUG(out, file, line);
         return cast(REBVAL*, out);
     }
 
-    #define RESET_CELL_CORE(out,kind,extra) \
-        RESET_CELL_CORE_Debug((out), (kind), (extra), __FILE__, __LINE__)
+    #define RESET_CELL(out,kind,flags) \
+        RESET_CELL_Debug((out), (kind), (flags), __FILE__, __LINE__)
 #else
-    #define RESET_CELL_CORE(out,kind,extra) \
-       RESET_VAL_HEADER_CORE((out), (kind), (extra))
+    #define RESET_CELL(out,kind,flags) \
+       RESET_VAL_HEADER((out), (kind), (flags))
 #endif
-
-#define RESET_CELL(out,kind) \
-    RESET_CELL_CORE((out), (kind), 0)
-
 
 // This is another case where the debug build doesn't inline functions, and
 // for such central routines the overhead of passing 3 args is on the radar.
@@ -963,3 +956,24 @@ inline static REBVAL *Constify(REBVAL *v) {
     Prep_Stack_Cell(cast(REBVAL*, &name##_pair)); /* tbd: FS_TOP FRAME! */ \
     REBVAL * const name = cast(REBVAL*, &name##_pair) + 1; \
     Prep_Stack_Cell(name)
+
+
+#if defined(NDEBUG)
+    #define INIT_VAL_NODE(v,n) \
+        (PAYLOAD(Any, (v)).first.node = NOD(n))
+#else
+    inline static void INIT_VAL_NODE(RELVAL *v, void *p) {
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
+        REBNOD *node = NOD(p);
+        assert(
+            node == nullptr
+            or (node->header.bits
+                & (NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_MANAGED)
+            ) == (NODE_FLAG_NODE | NODE_FLAG_MANAGED)
+        );
+        PAYLOAD(Any, v).first.node = node;
+    }
+#endif
+
+#define VAL_NODE(v) \
+    PAYLOAD(Any, (v)).first.node

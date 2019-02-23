@@ -370,12 +370,12 @@ REBNATIVE(now)
         VAL_DATE(D_OUT).zone = NO_DATE_ZONE;
     }
     else if (REF(time)) {
-        RESET_VAL_HEADER(D_OUT, REB_TIME);
+        RESET_VAL_HEADER(D_OUT, REB_TIME, CELL_MASK_NONE);
     }
     else if (REF(zone)) {
         PAYLOAD(Time, D_OUT).nanoseconds
             = VAL_ZONE(D_OUT) * ZONE_MINS * MIN_SEC;
-        RESET_VAL_HEADER(D_OUT, REB_TIME);
+        RESET_VAL_HEADER(D_OUT, REB_TIME, CELL_MASK_NONE);
     }
     else if (REF(weekday))
         n = Week_Day(VAL_DATE(D_OUT));
