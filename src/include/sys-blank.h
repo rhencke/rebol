@@ -53,7 +53,7 @@
 //
 
 #define BLANK_VALUE \
-    c_cast(const REBVAL*, &PG_Blank_Value[0])
+    c_cast(const REBVAL*, &PG_Blank_Value)
 
 #define Init_Blank(v) \
     RESET_CELL_CORE((v), REB_BLANK, CELL_FLAG_FALSEY)

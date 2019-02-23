@@ -834,10 +834,7 @@ static void Startup_Empty_Array(void)
 //
 static void Init_Root_Vars(void)
 {
-    // These values are simple isolated VOID, NONE, TRUE, and FALSE values
-    // that can be used in lieu of initializing them.  They are initialized
-    // as two-element series in order to ensure that their address is not
-    // treated as an array.
+    // Simple isolated VOID, NONE, TRUE, and FALSE values.
     //
     // They should only be accessed by macros which retrieve their values
     // as `const`, to avoid the risk of accidentally changing them.  (This
@@ -850,68 +847,40 @@ static void Init_Root_Vars(void)
     // the root set.  Should that change, they could be explicitly added
     // to the GC's root set.
 
-    Prep_Non_Stack_Cell(&PG_Nulled_Cell[0]);
-    Prep_Non_Stack_Cell(&PG_Nulled_Cell[1]);
-    Init_Nulled(&PG_Nulled_Cell[0]);
-    TRASH_CELL_IF_DEBUG(&PG_Nulled_Cell[1]);
+    Prep_Non_Stack_Cell(&PG_Nulled_Cell);
+    Init_Nulled(&PG_Nulled_Cell);
 
-    Prep_Non_Stack_Cell(&PG_Blank_Value[0]);
-    Prep_Non_Stack_Cell(&PG_Blank_Value[1]);
-    Init_Blank(&PG_Blank_Value[0]);
-    TRASH_CELL_IF_DEBUG(&PG_Blank_Value[1]);
+    Prep_Non_Stack_Cell(&PG_Blank_Value);
+    Init_Blank(&PG_Blank_Value);
 
-    Prep_Non_Stack_Cell(&PG_False_Value[0]);
-    Prep_Non_Stack_Cell(&PG_False_Value[1]);
-    Init_False(&PG_False_Value[0]);
-    TRASH_CELL_IF_DEBUG(&PG_False_Value[1]);
+    Prep_Non_Stack_Cell(&PG_False_Value);
+    Init_False(&PG_False_Value);
 
-    Prep_Non_Stack_Cell(&PG_True_Value[0]);
-    Prep_Non_Stack_Cell(&PG_True_Value[1]);
-    Init_True(&PG_True_Value[0]);
-    TRASH_CELL_IF_DEBUG(&PG_True_Value[1]);
+    Prep_Non_Stack_Cell(&PG_True_Value);
+    Init_True(&PG_True_Value);
 
-    Prep_Non_Stack_Cell(&PG_Void_Value[0]);
-    Prep_Non_Stack_Cell(&PG_Void_Value[1]);
-    Init_Void(&PG_Void_Value[0]);
-    TRASH_CELL_IF_DEBUG(&PG_Void_Value[1]);
+    Prep_Non_Stack_Cell(&PG_Void_Value);
+    Init_Void(&PG_Void_Value);
 
-    Prep_Non_Stack_Cell(&PG_R_Thrown[0]);
-    Prep_Non_Stack_Cell(&PG_R_Thrown[1]);
-    RESET_CELL(&PG_R_Thrown[0], REB_R_THROWN);
-    TRASH_CELL_IF_DEBUG(&PG_R_Thrown[1]);
+    Prep_Non_Stack_Cell(&PG_R_Thrown);
+    RESET_CELL(&PG_R_Thrown, REB_R_THROWN);
 
-    Prep_Non_Stack_Cell(&PG_R_Invisible[0]);
-    Prep_Non_Stack_Cell(&PG_R_Invisible[1]);
-    RESET_CELL(&PG_R_Invisible[0], REB_R_INVISIBLE);
-    TRASH_CELL_IF_DEBUG(&PG_R_Invisible[1]);
+    Prep_Non_Stack_Cell(&PG_R_Invisible);
+    RESET_CELL(&PG_R_Invisible, REB_R_INVISIBLE);
 
-    Prep_Non_Stack_Cell(&PG_R_Immediate[0]);
-    Prep_Non_Stack_Cell(&PG_R_Immediate[1]);
-    RESET_CELL(&PG_R_Immediate[0], REB_R_IMMEDIATE);
-    TRASH_CELL_IF_DEBUG(&PG_R_Immediate[1]);
+    Prep_Non_Stack_Cell(&PG_R_Immediate);
+    RESET_CELL(&PG_R_Immediate, REB_R_IMMEDIATE);
 
-    Prep_Non_Stack_Cell(&PG_R_Redo_Unchecked[0]);
-    Prep_Non_Stack_Cell(&PG_R_Redo_Unchecked[1]);
-    RESET_CELL_CORE(
-        &PG_R_Redo_Unchecked[0],
-        REB_R_REDO,
-        CELL_FLAG_FALSEY // understood by Eval_Core_Throws() as "unchecked"
-    );
-    TRASH_CELL_IF_DEBUG(&PG_R_Redo_Unchecked[1]);
+    Prep_Non_Stack_Cell(&PG_R_Redo_Unchecked);
+    RESET_CELL(&PG_R_Redo_Unchecked, REB_R_REDO);
+    EXTRA(Custom, &PG_R_Redo_Unchecked).flag = false;  // "unchecked"
 
-    Prep_Non_Stack_Cell(&PG_R_Redo_Checked[0]);
-    Prep_Non_Stack_Cell(&PG_R_Redo_Checked[1]);
-    RESET_CELL_CORE(
-        &PG_R_Redo_Checked[0],
-        REB_R_REDO,
-        0 // no CELL_FLAG_FALSEY is taken by Eval_Core_Throws() as "checked"
-    );
-    TRASH_CELL_IF_DEBUG(&PG_R_Redo_Checked[1]);
+    Prep_Non_Stack_Cell(&PG_R_Redo_Checked);
+    RESET_CELL(&PG_R_Redo_Checked, REB_R_REDO);
+    EXTRA(Custom, &PG_R_Redo_Checked).flag = true;  // "checked"
 
-    Prep_Non_Stack_Cell(&PG_R_Reference[0]);
-    Prep_Non_Stack_Cell(&PG_R_Reference[1]);
-    RESET_CELL(&PG_R_Reference[0], REB_R_REFERENCE);
-    TRASH_CELL_IF_DEBUG(&PG_R_Reference[1]);
+    Prep_Non_Stack_Cell(&PG_R_Reference);
+    RESET_CELL(&PG_R_Reference, REB_R_REFERENCE);
 
     REBSER *locker = nullptr;
 

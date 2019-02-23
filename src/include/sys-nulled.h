@@ -46,7 +46,7 @@
 //
 
 #define NULLED_CELL \
-    c_cast(const REBVAL*, &PG_Nulled_Cell[0])
+    c_cast(const REBVAL*, &PG_Nulled_Cell)
 
 #define IS_NULLED(v) \
     (VAL_TYPE(v) == REB_MAX_NULLED)

@@ -33,10 +33,10 @@
 //
 
 #define FALSE_VALUE \
-    c_cast(const REBVAL*, &PG_False_Value[0])
+    c_cast(const REBVAL*, &PG_False_Value)
 
 #define TRUE_VALUE \
-    c_cast(const REBVAL*, &PG_True_Value[0])
+    c_cast(const REBVAL*, &PG_True_Value)
 
 inline static bool IS_TRUTHY(const RELVAL *v) {
     if (KIND_BYTE(v) >= REB_64) {

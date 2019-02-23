@@ -44,7 +44,7 @@
 //
 
 #define VOID_VALUE \
-    c_cast(const REBVAL*, &PG_Void_Value[0])
+    c_cast(const REBVAL*, &PG_Void_Value)
 
 #define Init_Void(out) \
     RESET_CELL((out), REB_VOID)
