@@ -706,51 +706,51 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
 
       case REB_IMAGE: {  // currently a 3-element array (could be a pairing)
       #if !defined(NDEBUG)
-        assert(GET_CELL_FLAG(v, EXTRA_IS_CUSTOM_NODE));
-        REBARR *arr = ARR(EXTRA(Custom, v).node);
+        assert(GET_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE));
+        REBARR *arr = ARR(PAYLOAD(Any, v).first.node);
         assert(ARR_LEN(arr) == 1);
         assert(NOT_SERIES_INFO(arr, LINK_IS_CUSTOM_NODE));  // stores width
         assert(NOT_SERIES_INFO(arr, MISC_IS_CUSTOM_NODE));  // stores hieght
       #endif
-        Queue_Mark_Node_Deep(EXTRA(Custom, v).node);
+        Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);
         break; }
 
       case REB_VECTOR: {  // currently a pairing (BINARY! and an info cell)
       #if !defined(NDEBUG)
-        assert(GET_CELL_FLAG(v, EXTRA_IS_CUSTOM_NODE));
-        REBVAL *p = VAL(EXTRA(Custom, v).node);
+        assert(GET_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE));
+        REBVAL *p = VAL(PAYLOAD(Any, v).first.node);
         assert(IS_BINARY(p));
         assert(KIND_BYTE(PAIRING_KEY(p)) == REB_V_SIGN_INTEGRAL_WIDE);
       #endif
-        Queue_Mark_Node_Deep(EXTRA(Custom, v).node);
+        Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);
         break; }
 
       case REB_GOB: {  // 7-element REBARR
       #if !defined(NDEBUG)
-        assert(GET_CELL_FLAG(v, EXTRA_IS_CUSTOM_NODE));
-        REBARR *gob = ARR(EXTRA(Custom, v).node);
+        assert(GET_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE));
+        REBARR *gob = ARR(PAYLOAD(Any, v).first.node);
         assert(GET_SERIES_INFO(gob, LINK_IS_CUSTOM_NODE));
         assert(GET_SERIES_INFO(gob, MISC_IS_CUSTOM_NODE));
       #endif
-        Queue_Mark_Node_Deep(EXTRA(Custom, v).node);
+        Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);
         break; }
 
       case REB_EVENT: {  // packed cell structure with one GC-able slot
       #if !defined(NDEBUG)
-        assert(GET_CELL_FLAG(v, EXTRA_IS_CUSTOM_NODE));
-        REBNOD *n = EXTRA(Custom, v).node;  // REBGOB*, REBREQ*, etc.
+        assert(GET_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE));
+        REBNOD *n = PAYLOAD(Any, v).first.node;  // REBGOB*, REBREQ*, etc.
         assert(n == nullptr or n->header.bits & NODE_FLAG_NODE);
       #endif
-        Queue_Mark_Node_Deep(EXTRA(Custom, v).node);
+        Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);
         break; }
 
       case REB_STRUCT: {  // like an OBJECT!, but the "varlist" can be binary
       #if !defined(NDEBUG)
-        assert(GET_CELL_FLAG(v, EXTRA_IS_CUSTOM_NODE));
-        REBSER *data = SER(EXTRA(Custom, v).node);
+        assert(GET_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE));
+        REBSER *data = SER(PAYLOAD(Any, v).first.node);
         assert(BYTE_SIZE(data) or IS_SER_ARRAY(data));
       #endif
-        Queue_Mark_Node_Deep(EXTRA(Custom, v).node);
+        Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);
         break; }
 
       case REB_LIBRARY: {

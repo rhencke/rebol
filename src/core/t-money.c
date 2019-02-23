@@ -245,11 +245,11 @@ REBTYPE(Money)
         break;
 
     case SYM_NEGATE: // sign bit is the 32nd bit, highest one used
-        PAYLOAD(Custom, val).second.u ^= (cast(uintptr_t, 1) << 31);
+        PAYLOAD(Any, val).second.u ^= (cast(uintptr_t, 1) << 31);
         RETURN (val);
 
     case SYM_ABSOLUTE:
-        PAYLOAD(Custom, val).second.u &= ~(cast(uintptr_t, 1) << 31);
+        PAYLOAD(Any, val).second.u &= ~(cast(uintptr_t, 1) << 31);
         RETURN (val);
 
     case SYM_ROUND: {

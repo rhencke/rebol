@@ -525,8 +525,8 @@ static void ffi_to_rebol(
         memcpy(SER_HEAD(REBYTE, data), ffi_rvalue, FLD_WIDE(top));
 
         RESET_CELL(out, REB_STRUCT);
-        mutable_VAL_STRUCT(out) = stu;
-        mutable_VAL_STRUCT_DATA(out) = data;
+        INIT_VAL_STRUCT(out, stu);
+        INIT_VAL_STRUCT_DATA(out, data);
         VAL_STRUCT_OFFSET(out) = 0;
 
         Move_Value(ARR_SINGLE(stu), out); // save canon value

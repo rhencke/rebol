@@ -39,21 +39,29 @@
 // to split its payload up.  Now to get a complete event structure through
 // the API, a full alias to a REBVAL is given.
 //
-// EVENT PAYLOAD CONTAINS 2 POINTER-SIZED THINGS
-//
-//     "eventee": REBREQ* (for device events) or REBSER* (port or object)
-//     "data": 32-bit quantity "an x/y position or keycode (raw/decoded)"
-//
 // EVENT EXTRA CONTAINS 4 BYTES
 //
 //     uint8_t type;   // event id (mouse-move, mouse-button, etc)
 //     uint8_t flags;  // special flags
 //     uint8_t win;    // window id
 //     uint8_t model;  // port, object, gui, callback
+//
+// EVENT PAYLOAD CONTAINS 2 POINTER-SIZED THINGS
+//
+//     "eventee": REBREQ* (for device events) or REBSER* (port or object)
+//     "data": "an x/y position or keycode (raw/decoded)"
+//
 
 
 #define REBEVT REBVAL
 
+
+#define VAL_EVENT_TYPE(v) \
+    cast(const REBSYM, FIRST_UINT16(EXTRA(Any, (v)).u))
+
+inline static void SET_VAL_EVENT_TYPE(REBVAL *v, REBSYM sym) {
+    SET_FIRST_UINT16(EXTRA(Any, (v)).u, sym);
+}
 
 // 8-bit event flags (space is at a premium to keep events in a single cell)
 
@@ -67,19 +75,11 @@ enum {
 
 #define EVF_MASK_NONE 0
 
-
-#define VAL_EVENT_TYPE(v) \
-    cast(const REBSYM, FIRST_UINT16(PAYLOAD(Custom, (v)).first.u))
-
-inline static void SET_VAL_EVENT_TYPE(REBVAL *v, REBSYM sym) {
-    SET_FIRST_UINT16(PAYLOAD(Custom, (v)).first.u, sym);
-}
-
 #define VAL_EVENT_FLAGS(v) \
-    THIRD_BYTE(PAYLOAD(Custom, (v)).first.u)
+    THIRD_BYTE(EXTRA(Any, (v)).u)
 
 #define mutable_VAL_EVENT_FLAGS(v) \
-    mutable_THIRD_BYTE(PAYLOAD(Custom, (v)).first.u)
+    mutable_THIRD_BYTE(EXTRA(Any, (v)).u)
 
 
 //=//// EVENT NODE and "EVENT MODEL" //////////////////////////////////////=//
@@ -93,7 +93,7 @@ inline static void SET_VAL_EVENT_TYPE(REBVAL *v, REBSYM sym) {
 //
 // In order to keep the core GC agnostic about events, if the pointer's slot
 // is to something that needs to participate in GC behavior, it must be a
-// REBNOD* and the cell must be marked with CELL_FLAG_EXTRA_IS_CUSTOM_NODE.
+// REBNOD* and the cell must be marked with CELL_FLAG_PAYLOAD_FIRST_IS_NODE.
 // Hence in order to properly mark the ports inside a REBREQ, the REBREQ has
 // to be a Rebol Node with the port visible.  This change was made.
 //
@@ -108,19 +108,19 @@ enum {
 };
 
 #define VAL_EVENT_MODEL(v) \
-    FOURTH_BYTE(PAYLOAD(Custom, (v)).first.u)
+    FOURTH_BYTE(EXTRA(Any, (v)).u)
 
 #define mutable_VAL_EVENT_MODEL(v) \
-    mutable_FOURTH_BYTE(PAYLOAD(Custom, (v)).first.u)
+    mutable_FOURTH_BYTE(EXTRA(Any, (v)).u)
 
 #define VAL_EVENT_NODE(v) \
-    EXTRA(Custom, (v)).node
+    PAYLOAD(Any, (v)).first.node
 
 #define SET_VAL_EVENT_NODE(v,p) \
-    (EXTRA(Custom, (v)).node = NOD(p))
+    (PAYLOAD(Any, (v)).first.node = NOD(p))
 
 #define VAL_EVENT_DATA(v) \
-    PAYLOAD(Custom, (v)).second.u
+    PAYLOAD(Any, (v)).second.u
 
 // Position event data.
 //
@@ -191,13 +191,13 @@ extern void Shutdown_Event_Scheme(void);
 //
 
 #define VAL_GOB(v) \
-    cast(REBGOB*, PAYLOAD(Custom, (v)).first.p)  // use w/a const REBVAL*
+    cast(REBGOB*, PAYLOAD(Any, (v)).first.p)  // use w/a const REBVAL*
 
 #define mutable_VAL_GOB(v) \
-    (*cast(REBGOB**, &PAYLOAD(Custom, (v)).first.p))  // non-const REBVAL*
+    (*cast(REBGOB**, &PAYLOAD(Any, (v)).first.p))  // non-const REBVAL*
 
 #define VAL_GOB_INDEX(v) \
-    PAYLOAD(Custom, v).second.u
+    PAYLOAD(Any, v).second.u
 
 inline static REBVAL *Init_Gob(RELVAL *out, REBGOB *g) {
     assert(GET_SERIES_FLAG(g, MANAGED));

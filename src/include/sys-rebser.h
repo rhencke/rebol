@@ -842,7 +842,7 @@ union Reb_Series_Link {
     // 1. `parent` GOB of GOB! details
     // 2. `next_req` REBREQ* of a REBREQ
     //
-    union Reb_Custom custom;
+    union Reb_Any custom;
 };
 
 
@@ -947,7 +947,7 @@ union Reb_Series_Misc {
     // 1. `owner` of GOB! node
     // 2. `port_ctx` of REBREQ ("link back to REBOL PORT! object")
     //
-    union Reb_Custom custom;
+    union Reb_Any custom;
 };
 
 

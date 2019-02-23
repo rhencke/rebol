@@ -873,11 +873,11 @@ static void Init_Root_Vars(void)
 
     Prep_Non_Stack_Cell(&PG_R_Redo_Unchecked);
     RESET_CELL(&PG_R_Redo_Unchecked, REB_R_REDO);
-    EXTRA(Custom, &PG_R_Redo_Unchecked).flag = false;  // "unchecked"
+    EXTRA(Any, &PG_R_Redo_Unchecked).flag = false;  // "unchecked"
 
     Prep_Non_Stack_Cell(&PG_R_Redo_Checked);
     RESET_CELL(&PG_R_Redo_Checked, REB_R_REDO);
-    EXTRA(Custom, &PG_R_Redo_Checked).flag = true;  // "checked"
+    EXTRA(Any, &PG_R_Redo_Checked).flag = true;  // "checked"
 
     Prep_Non_Stack_Cell(&PG_R_Reference);
     RESET_CELL(&PG_R_Reference, REB_R_REFERENCE);

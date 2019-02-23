@@ -1754,7 +1754,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // run the f->phase again.  The dispatcher may have changed the
             // value of what f->phase is, for instance.
 
-            if (not EXTRA(Custom, r).flag) // R_REDO_UNCHECKED
+            if (not EXTRA(Any, r).flag) // R_REDO_UNCHECKED
                 goto redo_unchecked;
 
           redo_checked:; // R_REDO_CHECKED

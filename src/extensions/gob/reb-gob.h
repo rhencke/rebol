@@ -55,7 +55,7 @@
 //
 // GOB EXTRA:
 //
-//     REBGOB *gob;  // GC knows to mark due to CELL_FLAG_EXTRA_IS_CUSTOM_NODE
+//     REBGOB *gob;  // GC knows to mark due to CELL_FLAG_PAYLOAD_FIRST_IS_NODE
 //
 // GOB PAYLOAD:
 //
@@ -151,8 +151,8 @@ enum Reb_Gob_Type {
 // left over for additional data.  This lets GOB!s use a "somewhat ordinary"
 // array (though these XYF types are internal).
 
-#define VAL_XYF_X(v)    PAYLOAD(Custom, (v)).first.d32
-#define VAL_XYF_Y(v)    PAYLOAD(Custom, (v)).second.d32
+#define VAL_XYF_X(v)    PAYLOAD(Any, (v)).first.d32
+#define VAL_XYF_Y(v)    PAYLOAD(Any, (v)).second.d32
 
 inline static REBVAL *Init_XYF(
     RELVAL *out,
@@ -202,7 +202,7 @@ typedef struct gob_window {  // Maps gob to window
 #define GOB_HO_INT(g)   ROUND_TO_INT(GOB_HO(g))
 
 #define GOB_FLAGS(g) \
-    EXTRA(Custom, ARR_AT((g), IDX_GOB_OFFSET_AND_FLAGS)).u
+    EXTRA(Any, ARR_AT((g), IDX_GOB_OFFSET_AND_FLAGS)).u
 
 #define SET_GOB_FLAG(g,f)       cast(void, GOB_FLAGS(g) |= (f))
 #define GET_GOB_FLAG(g,f)       (did (GOB_FLAGS(g) & (f)))
@@ -276,39 +276,39 @@ extern REBGOB *Gob_Root;  // Top level GOB (the screen)
 
 #if defined(NDEBUG) || !defined(CPLUSPLUS_11)
     #define VAL_GOB(v) \
-        cast(REBGOB*, EXTRA(Custom, (v)).node)  // use w/a const REBVAL*
+        cast(REBGOB*, PAYLOAD(Any, (v)).first.node)  // use w/const REBVAL*
 
     #define SET_VAL_GOB(v,gob) \
-        (EXTRA(Custom, (v)).node = NOD(gob))  // non-const REBVAL*
+        (PAYLOAD(Any, (v)).first.node = NOD(gob))  // non-const REBVAL*
 
     #define VAL_GOB_INDEX(v) \
-        PAYLOAD(Custom, v).second.u
+        PAYLOAD(Any, v).second.u
 #else
     inline static REBGOB* VAL_GOB(const REBCEL *v) {
         assert(CELL_KIND(v) == REB_GOB);
-        return cast(REBGOB*, EXTRA(Custom, v).node);
+        return cast(REBGOB*, PAYLOAD(Any, v).first.node);
     }
 
     inline static void SET_VAL_GOB(REBCEL *v, REBGOB *gob) {
         assert(CELL_KIND(v) == REB_GOB);
-        EXTRA(Custom, v).node = NOD(gob);
+        PAYLOAD(Any, v).first.node = NOD(gob);
     }
 
     inline static uintptr_t const &VAL_GOB_INDEX(const REBCEL *v) {
         assert(CELL_KIND(v) == REB_GOB);
-        return PAYLOAD(Custom, v).second.u;
+        return PAYLOAD(Any, v).second.u;
     }
 
     inline static uintptr_t &VAL_GOB_INDEX(REBCEL *v) {
         assert(CELL_KIND(v) == REB_GOB);
-        return PAYLOAD(Custom, v).second.u;
+        return PAYLOAD(Any, v).second.u;
     }
 #endif
 
 inline static REBVAL *Init_Gob(RELVAL *out, REBGOB *g) {
     assert(GET_SERIES_FLAG(g, MANAGED));
 
-    RESET_CELL_CORE(out, REB_GOB, CELL_FLAG_EXTRA_IS_CUSTOM_NODE);
+    RESET_CELL_CORE(out, REB_GOB, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
     SET_VAL_GOB(out, g);
     VAL_GOB_INDEX(out) = 0;
     return KNOWN(out);

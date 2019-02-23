@@ -44,14 +44,14 @@
 
 inline static REBVAL *VAL_IMAGE_BIN(const REBCEL *v) {
     assert(REB_IMAGE == CELL_KIND(v));
-    return KNOWN(ARR_SINGLE(ARR(EXTRA(Custom, v).node)));
+    return KNOWN(ARR_SINGLE(ARR(PAYLOAD(Any, v).first.node)));
 }
 
 #define VAL_IMAGE_WIDTH(v) \
-    LINK(ARR(EXTRA(Custom, v).node)).custom.i
+    LINK(ARR(PAYLOAD(Any, v).first.node)).custom.i
 
 #define VAL_IMAGE_HEIGHT(v) \
-    MISC(ARR(EXTRA(Custom, v).node)).custom.i
+    MISC(ARR(PAYLOAD(Any, v).first.node)).custom.i
 
 inline static REBYTE *VAL_IMAGE_HEAD(const REBCEL *v) {
     assert(REB_IMAGE == CELL_KIND(v));
@@ -99,8 +99,8 @@ inline static REBVAL *Init_Image(
     LINK(a).custom.i = width;  // see notes on why this isn't put on bin...
     MISC(a).custom.i = height;  // (...it would corrupt shared series!)
 
-    RESET_CELL_CORE(out, REB_IMAGE, CELL_FLAG_EXTRA_IS_CUSTOM_NODE);
-    EXTRA(Custom, out).node = NOD(a);
+    RESET_CELL_CORE(out, REB_IMAGE, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
+    PAYLOAD(Any, out).first.node = NOD(a);
 
     assert(VAL_IMAGE_POS(out) == 0);  // !!! sketchy concept, is in BINARY!
 

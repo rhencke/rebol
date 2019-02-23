@@ -263,14 +263,21 @@ inline static REBCNT STU_SIZE(REBSTU *stu) {
 #define STU_FFTYPE(stu) \
     FLD_FFTYPE(STU_SCHEMA(stu))
 
-#define VAL_STRUCT(v) \
-    cast(REBSTU*, PAYLOAD(Extra, (v)).node)
+// Just as with the varlist of an object, the struct's data is a node for the
+// instance that points to the schema.
+//
+// !!! The series data may come from an outside pointer, hence VAL_STRUCT_DATA
+// may be a handle instead of a BINARY!.
 
-#define mutable_VAL_STRUCT(v) \
-    *cast(REBSTU**, &PAYLOAD(Extra, (v)).node)
+#define VAL_STRUCT(v) \
+    cast(REBSTU*, PAYLOAD(Any, (v)).first.node)
+
+#define INIT_VAL_STRUCT(v,stu) \
+    (PAYLOAD(Any, (v)).first.node = NOD(stu))
 
 #define VAL_STRUCT_DATA(v) \
-    cast(REBSER*, &PAYLOAD(Extra, (v)).node)
+    cast(REBSER*, &PAYLOAD(Any, (v)).first.node)
+
 
 #define VAL_STRUCT_OFFSET(v) \
     STU_OFFSET(VAL_STRUCT(v))

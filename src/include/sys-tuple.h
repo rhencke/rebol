@@ -45,7 +45,7 @@
 #if !defined(CPLUSPLUS_11)
 
     #define VAL_TUPLE(v)        PAYLOAD(Bytes, (v)).common
-    #define VAL_TUPLE_LEN(v)    EXTRA(Custom, (v)).u
+    #define VAL_TUPLE_LEN(v)    EXTRA(Any, (v)).u
 
 #else
     // C++ build can inject a check that it's a tuple, and still give l-value
@@ -62,13 +62,13 @@
 
     inline static REBYTE VAL_TUPLE_LEN(const REBCEL *v) {
         assert(CELL_KIND(v) == REB_TUPLE);
-        assert(EXTRA(Custom, v).u <= MAX_TUPLE);
-        return EXTRA(Custom, v).u;
+        assert(EXTRA(Any, v).u <= MAX_TUPLE);
+        return EXTRA(Any, v).u;
     }
 
     inline static uintptr_t &VAL_TUPLE_LEN(REBCEL *v) {
         assert(CELL_KIND(v) == REB_TUPLE);
-        return EXTRA(Custom, v).u;
+        return EXTRA(Any, v).u;
     }
 #endif
 

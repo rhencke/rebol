@@ -39,18 +39,18 @@
 //
 
 #define VAL_VECTOR_BINARY(v) \
-    VAL(EXTRA(Custom, (v)).node)  // pairing[0]
+    VAL(PAYLOAD(Any, (v)).first.node)  // pairing[0]
 
 #define VAL_VECTOR_SIGN_INTEGRAL_WIDE(v) \
-    PAIRING_KEY(VAL(EXTRA(Custom, (v)).node))  // pairing[1]
+    PAIRING_KEY(VAL(PAYLOAD(Any, (v)).first.node))  // pairing[1]
 
 #define VAL_VECTOR_SIGN(v) \
-    PAYLOAD(Custom, VAL_VECTOR_SIGN_INTEGRAL_WIDE(v)).first.flag
+    PAYLOAD(Any, VAL_VECTOR_SIGN_INTEGRAL_WIDE(v)).first.flag
 
 inline static bool VAL_VECTOR_INTEGRAL(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_VECTOR);
     REBVAL *siw = VAL_VECTOR_SIGN_INTEGRAL_WIDE(v);
-    if (PAYLOAD(Custom, siw).second.flag != 0)
+    if (PAYLOAD(Any, siw).second.flag != 0)
         return true;
 
     assert(VAL_VECTOR_SIGN(v));
@@ -58,7 +58,7 @@ inline static bool VAL_VECTOR_INTEGRAL(const REBCEL *v) {
 }
 
 inline static REBYTE VAL_VECTOR_WIDE(const REBCEL *v) {  // "wide" REBSER term
-    int32_t wide = EXTRA(Custom, VAL_VECTOR_SIGN_INTEGRAL_WIDE(v)).i32;
+    int32_t wide = EXTRA(Any, VAL_VECTOR_SIGN_INTEGRAL_WIDE(v)).i32;
     assert(wide == 1 or wide == 2 or wide == 3 or wide == 4);
     return wide;
 }
@@ -68,7 +68,7 @@ inline static REBYTE VAL_VECTOR_WIDE(const REBCEL *v) {  // "wide" REBSER term
 
 inline static REBYTE *VAL_VECTOR_HEAD(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_VECTOR);
-    return VAL_BIN_HEAD(VAL(EXTRA(Custom, v).node));
+    return VAL_BIN_HEAD(VAL(PAYLOAD(Any, v).first.node));
 }
 
 inline static REBCNT VAL_VECTOR_LEN_AT(const REBCEL *v) {
@@ -86,7 +86,7 @@ inline static REBVAL *Init_Vector(
     bool integral,
     REBYTE bitsize
 ){
-    RESET_CELL_CORE(out, REB_VECTOR, CELL_FLAG_EXTRA_IS_CUSTOM_NODE);
+    RESET_CELL_CORE(out, REB_VECTOR, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
 
     REBVAL *paired = Alloc_Pairing();
 
@@ -95,12 +95,12 @@ inline static REBVAL *Init_Vector(
 
     REBVAL *siw = RESET_CELL(PAIRING_KEY(paired), REB_V_SIGN_INTEGRAL_WIDE);
     assert(bitsize == 8 or bitsize == 16 or bitsize == 32 or bitsize == 64);
-    PAYLOAD(Custom, siw).first.flag = sign;
-    PAYLOAD(Custom, siw).second.flag = integral;
-    EXTRA(Custom, siw).i32 = bitsize / 8;  // e.g. VAL_VECTOR_WIDE()
+    PAYLOAD(Any, siw).first.flag = sign;
+    PAYLOAD(Any, siw).second.flag = integral;
+    EXTRA(Any, siw).i32 = bitsize / 8;  // e.g. VAL_VECTOR_WIDE()
 
     Manage_Pairing(paired);
-    EXTRA(Custom, out).node = NOD(paired);
+    PAYLOAD(Any, out).first.node = NOD(paired);
     return KNOWN(out);
 }
 

@@ -83,14 +83,16 @@ static void get_scalar(
         //
         // Note: The original code allowed this for STU_INACCESSIBLE(stu).
         //
-        mutable_VAL_STRUCT(single) = sub_stu;
+        INIT_VAL_STRUCT(single, sub_stu);
 
         // The parent data may be a singular array for a HANDLE! or a BINARY!
         // series, depending on whether the data is owned by Rebol or not.
         // That series pointer is being referenced again here.
         //
-        mutable_VAL_STRUCT_DATA(single)
-            = ARR_HEAD(stu)->payload.structure.data;
+        INIT_VAL_STRUCT_DATA(
+            single,
+            ARR_HEAD(stu)->payload.structure.data
+        );
         VAL_STRUCT_OFFSET(single) = offset;
 
         // With all fields initialized, assign canon value as result
@@ -1346,8 +1348,8 @@ REB_R MAKE_Struct(
     MANAGE_ARRAY(schema);
     LINK(stu).schema = schema;
 
-    RESET_CELL_CORE(out, REB_STRUCT, CELL_FLAG_EXTRA_IS_CUSTOM_NODE);
-    mutable_VAL_STRUCT(out) = stu;
+    RESET_CELL_CORE(out, REB_STRUCT, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
+    INIT_VAL_STRUCT(out, stu);
     VAL_STRUCT_OFFSET(out) = 0;
 
     return out;

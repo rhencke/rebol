@@ -230,9 +230,9 @@ uint32_t Hash_Value(const RELVAL *v)
         // build a `deci` type.  So it is safe to read the three pointers as
         // uintptr_t back, and hash them.
         //
-        hash = PAYLOAD(Custom, cell).first.u;
-        hash ^= PAYLOAD(Custom, cell).second.u;
-        hash ^= EXTRA(Custom, cell).u;
+        hash = PAYLOAD(Any, cell).first.u;
+        hash ^= PAYLOAD(Any, cell).second.u;
+        hash ^= EXTRA(Any, cell).u;
         break; }
 
       case REB_CHAR:

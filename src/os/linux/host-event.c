@@ -120,7 +120,7 @@ static void Add_Event_XY(REBGOB *gob, uint16_t id, REBINT xy, uint_8_t flags)
     if (not e)
         return;
 
-    RESET_CELL_CORE(e, REB_EVENT, CELL_FLAG_EXTRA_IS_CUSTOM_NODE);
+    RESET_CELL_CORE(e, REB_EVENT, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
     mutable_VAL_EVENT_SER(e) = gob;
     mutable_VAL_EVENT_MODEL(e) = EVM_GUI;
     mutable_VAL_EVENT_TYPE(e) = id;
@@ -146,7 +146,7 @@ static void Update_Event_XY(REBGOB *gob, uint16_t id, REBINT xy, uint8_t flags)
         return;
 
     assert(VAL_TYPE(e) == REB_EVENT);
-    assert(GET_CELL_FLAG(e, EXTRA_IS_CUSTOM_NODE));
+    assert(GET_CELL_FLAG(e, PAYLOAD_FIRST_IS_NODE));
 
     EXTRA(Event, e).eventee = evt->eventee;
     mutable_VAL_EVENT_MODEL(e) = EVM_GUI;
@@ -161,7 +161,7 @@ static void Add_Event_Key(REBGOB *gob, uint16_t id, uint16_t key, REBINT flags)
 {
     REBVAL *e = Append_Event(); // sets signal, null if no room in series
     if (e) {
-        RESET_CELL_CORE(e, REB_EVENT, CELL_FLAG_EXTRA_IS_CUSTOM_NODE);
+        RESET_CELL_CORE(e, REB_EVENT, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
         PAYLOAD(Event, e).model = EVM_GUI;
         EXTRA(Event, e).eventee.ser = gob;
         PAYLOAD(Event, e).type = id;

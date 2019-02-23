@@ -207,7 +207,7 @@
     FLAG_LEFT_BIT(20)
 
 
-//=//// CELL_FLAG_EXTRA_IS_CUSTOM_NODE ////////////////////////////////////=//
+//=//// CELL_FLAG_PAYLOAD_FIRST_IS_NODE ////////////////////////////////////=//
 //
 // This flag is used on cells to indicate that their EXTRA() field should
 // be marked as a node by the GC.  It is used by GOB! and STRUCT! to indicate
@@ -215,7 +215,7 @@
 // the garbage collector in a more invasive way.  Some EVENT! use this when
 // they wish to refer to a series, but others can use it as a raw data.
 //
-#define CELL_FLAG_EXTRA_IS_CUSTOM_NODE \
+#define CELL_FLAG_PAYLOAD_FIRST_IS_NODE \
     FLAG_LEFT_BIT(21)
 
 
@@ -372,7 +372,7 @@ struct Reb_Partial_Extra  // see %c-specialize.c (used with REB_X_PARTIAL)
     REBVAL *next;  // links to next potential partial refinement arg
 };
 
-union Reb_Custom {  // needed to beat strict aliasing, used in payload
+union Reb_Any {  // needed to beat strict aliasing, used in payload
     void *p;
     uintptr_t u;
     intptr_t i;
@@ -384,7 +384,11 @@ union Reb_Custom {  // needed to beat strict aliasing, used in payload
     // The GC is only marking one field in the union, so that's the only
     // field that should be active.
     //
-    REBNOD *node;  // if in EXTRA(), must set CELL_FLAG_EXTRA_IS_CUSTOM_NODE
+    // This is not legal to use in an EXTRA(), only the `PAYLOAD().first` slot
+    // (and perhaps in the future, the payload second slot).  If you do use
+    // a node in the cell, be sure to set CELL_FLAG_PAYLOAD_FIRST_IS_NODE!
+    //
+    REBNOD *node;
 };
 
 union Reb_Bytes_Extra {
@@ -400,7 +404,7 @@ union Reb_Value_Extra { //=/////////////////// ACTUAL EXTRA DEFINITION ////=//
     struct Reb_Date_Extra Date;
     struct Reb_Partial_Extra Partial;
 
-    union Reb_Custom Custom;
+    union Reb_Any Any;
     union Reb_Bytes_Extra Bytes;
 
   #if !defined(NDEBUG)
@@ -518,10 +522,10 @@ struct Reb_Library_Payload  // see %sys-library.h
     REBARR *singular;  // File discriptor in LINK.fd, meta in MISC.meta 
 };
 
-struct Reb_Custom_Payload  // generic, for adding payloads after-the-fact
+struct Reb_Any_Payload  // generic, for adding payloads after-the-fact
 {
-    union Reb_Custom first;
-    union Reb_Custom second;
+    union Reb_Any first;
+    union Reb_Any second;
 };
 
 struct Reb_Partial_Payload // see %c-specialize.c (used with REB_X_PARTIAL)
@@ -546,6 +550,14 @@ union Reb_Bytes_Payload  // IMPORTANT: Do not cast, use `Pointers` instead
 
 union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
 
+    // Due to strict aliasing, if a routine is going to generically access a
+    // node (e.g. to exploit common checks for mutability) it has to do a
+    // read through the same field that was assigned.  Hence, many types
+    // whose payloads are nodes use the generic "Any" payload, which is
+    // broken into two separate variant fields.
+    //
+    struct Reb_Any_Payload Any;
+
     struct Reb_Quoted_Payload Quoted;
     struct Reb_Character_Payload Character;
     struct Reb_Integer_Payload Integer;
@@ -564,7 +576,6 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
 
     struct Reb_Partial_Payload Partial;  // internal (see REB_X_PARTIAL)
 
-    struct Reb_Custom_Payload Custom;
     union Reb_Bytes_Payload Bytes;
 
   #if defined(DEBUG_TRACK_CELLS) && !defined(DEBUG_TRACK_EXTEND_CELLS)

@@ -64,15 +64,15 @@
 inline static deci VAL_MONEY_AMOUNT(const REBCEL *v) {
     deci amount;
 
-    uintptr_t u = EXTRA(Custom, v).u;
+    uintptr_t u = EXTRA(Any, v).u;
     assert(u <= UINT32_MAX);
     amount.m0 = u; // "significand, lowest part" (32 bits)
 
-    uintptr_t u1 = PAYLOAD(Custom, v).first.u;
+    uintptr_t u1 = PAYLOAD(Any, v).first.u;
     assert(u1 <= UINT32_MAX);
     amount.m1 = u1; // "significand, continuation" (32 bits)
 
-    uintptr_t u2 = PAYLOAD(Custom, v).second.u;
+    uintptr_t u2 = PAYLOAD(Any, v).second.u;
     assert(u2 <= UINT32_MAX);
 
     amount.e = cast(signed char, u2 & 0xFF);  // "exponent" (8 bits)
@@ -89,8 +89,8 @@ inline static deci VAL_MONEY_AMOUNT(const REBCEL *v) {
 inline static REBVAL *Init_Money(RELVAL *out, deci amount) {
     RESET_CELL(out, REB_MONEY);
 
-    EXTRA(Custom, out).u = amount.m0;  // "significand, lowest part"
-    PAYLOAD(Custom, out).first.u = amount.m1;  // "significand, continuation"
+    EXTRA(Any, out).u = amount.m0;  // "significand, lowest part"
+    PAYLOAD(Any, out).first.u = amount.m1;  // "significand, continuation"
 
     uintptr_t u2 = amount.m2;  // "significand, highest part" (23 bits)
 
@@ -100,7 +100,7 @@ inline static REBVAL *Init_Money(RELVAL *out, deci amount) {
     u2 <<= 8;  // shift so exponent can go in low byte
     u2 |= cast(unsigned char, amount.e);  // "exponent" (8 bits)"
 
-    PAYLOAD(Custom, out).second.u = u2;
+    PAYLOAD(Any, out).second.u = u2;
 
     return cast(REBVAL*, out);
 }
