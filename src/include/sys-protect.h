@@ -92,7 +92,7 @@ inline static void FAIL_IF_READ_ONLY_ARRAY_CORE(
 
 inline static void FAIL_IF_READ_ONLY_CONTEXT(RELVAL *context) {
     assert(ANY_CONTEXT(context));
-    REBARR *varlist = PAYLOAD(Context, context).varlist;
+    REBNOD *varlist = PAYLOAD(Any, context).first.node;
     FAIL_IF_READ_ONLY_SER(SER(varlist));
 
     // !!! CONST is a work in progress, experimental, but would need handling

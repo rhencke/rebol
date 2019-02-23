@@ -117,11 +117,8 @@
 // another location will not propagate the protectedness from the original
 // value to the copy.
 //
-// Note: Any formatted cell can be tested for this, even if it is "trash".
-// This means writing routines that are putting data into a cell for the first
-// time can check the bit.  (Series, having more than one kind of protection,
-// put those bits in the "info" so they can all be checked at once...otherwise
-// there might be a shared NODE_FLAG_PROTECTED in common.)
+// (Series have more than one kind of protection in "info" bits that can all
+// be checked at once...hence there's not "NODE_FLAG_PROTECTED" in common.)
 //
 #define CELL_FLAG_PROTECTED \
     FLAG_LEFT_BIT(16)
@@ -150,7 +147,7 @@
 // When the array containing a value with this flag set is molding, that will
 // output a new line *before* molding the value.  This flag works in tandem
 // with a flag on the array itself which manages whether there should be a
-// newline output before the closing array delimiter: ARRAY_FLAG_NEWLINE_AT_TAIL.
+// newline before the closing array delimiter: ARRAY_FLAG_NEWLINE_AT_TAIL.
 //
 // The bit is set initially by what the scanner detects, and then left to the
 // user's control after that.
@@ -482,12 +479,6 @@ struct Reb_Action_Payload  // see %sys-action.h
     REBARR *details;  // see MISC.dispatcher, LINK.specialty in %sys-rebser.h
 };
 
-struct Reb_Context_Payload  // see %sys-context.h
-{
-    REBARR *varlist;  // see MISC.meta, LINK.keysource in %sys-rebser.h
-    REBACT *phase;  // only used by FRAME! contexts, see %sys-frame.h
-};
-
 struct Reb_Varargs_Payload  // see %sys-varargs.h
 {
     REBINT signed_param_index;  // if negative, consider the arg enfixed
@@ -556,6 +547,10 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     //     REBSTR *spelling;  // word's non-canonized spelling, UTF-8 string
     //     REBINT index;  // index of word in context (if binding is not null)
     //
+    // ANY-CONTEXT!  // see %sys-context.h
+    //     REBARR *varlist;  // see MISC.meta, LINK.keysource in %sys-rebser.h
+    //     REBACT *phase;  // only used by FRAME! contexts, see %sys-frame.h
+    //
     struct Reb_Any_Payload Any;
 
     struct Reb_Quoted_Payload Quoted;
@@ -566,7 +561,6 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     struct Reb_Typeset_Payload Typeset;
     struct Reb_Series_Payload Series;
     struct Reb_Action_Payload Action;
-    struct Reb_Context_Payload Context;
     struct Reb_Varargs_Payload Varargs;
     struct Reb_Time_Payload Time;
     struct Reb_Pair_Payload Pair;

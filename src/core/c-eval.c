@@ -1724,10 +1724,8 @@ bool Eval_Core_Throws(REBFRM * const f)
                     //
                     REBCTX *exemplar;
                     if (
-                        FRM_PHASE(f) != PAYLOAD(Context, f->out).phase
-                        and did (exemplar = ACT_EXEMPLAR(
-                            PAYLOAD(Context, f->out).phase
-                        ))
+                        FRM_PHASE(f) != VAL_PHASE(f->out)
+                        and did (exemplar = ACT_EXEMPLAR(VAL_PHASE(f->out)))
                     ){
                         f->special = CTX_VARS_HEAD(exemplar);
                         f->arg = FRM_ARGS_HEAD(f);
@@ -1738,7 +1736,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                         }
                     }
 
-                    FRM_PHASE(f) = PAYLOAD(Context, f->out).phase;
+                    INIT_FRM_PHASE(f, VAL_PHASE(f->out));
                     FRM_BINDING(f) = VAL_BINDING(f->out);
                     goto redo_checked;
                 }

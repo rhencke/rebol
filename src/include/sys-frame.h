@@ -230,7 +230,10 @@ inline static int FRM_LINE(REBFRM *f) {
     ((f)->prior + 0) // prevent assignment via this macro
 
 #define FRM_PHASE(f) \
-    PAYLOAD(Context, (f)->rootvar).phase
+    VAL_PHASE_UNCHECKED((f)->rootvar)  // shoud be valid--unchecked for speed
+
+#define INIT_FRM_PHASE(f,phase) \
+    INIT_VAL_CONTEXT_PHASE((f)->rootvar, (phase))
 
 #define FRM_BINDING(f) \
     EXTRA(Binding, (f)->rootvar).node
@@ -1206,15 +1209,19 @@ inline static void Push_Action(
 
     f->rootvar = cast(REBVAL*, s->content.dynamic.data);
     f->rootvar->header.bits =
-        NODE_FLAG_NODE | NODE_FLAG_CELL | NODE_FLAG_STACK
-        | CELL_FLAG_PROTECTED // cell payload/binding tweaked, not by user
-        | FLAG_KIND_BYTE(REB_FRAME);
+        NODE_FLAG_NODE
+            | NODE_FLAG_CELL
+            | NODE_FLAG_STACK
+            | CELL_FLAG_PROTECTED  // payload/binding tweaked, but not by user
+            | CELL_FLAG_PAYLOAD_FIRST_IS_NODE
+            /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! TBD: implicit
+            | FLAG_KIND_BYTE(REB_FRAME);
     TRACK_CELL_IF_DEBUG(f->rootvar, __FILE__, __LINE__);
-    PAYLOAD(Context, f->rootvar).varlist = f->varlist;
+    INIT_VAL_CONTEXT_VARLIST(f->rootvar, f->varlist);
 
   sufficient_allocation:
 
-    PAYLOAD(Context, f->rootvar).phase = act; // FRM_PHASE() (can be dummy)
+    INIT_VAL_CONTEXT_PHASE(f->rootvar, act);  // FRM_PHASE() (can be dummy)
     EXTRA(Binding, f->rootvar).node = binding; // FRM_BINDING()
 
     s->content.dynamic.len = num_args + 1;
@@ -1356,10 +1363,9 @@ inline static void Drop_Action(REBFRM *f) {
         assert(NOT_SERIES_INFO(f->varlist, INACCESSIBLE));
         assert(NOT_SERIES_FLAG(f->varlist, MANAGED));
 
-        REBVAL *rootvar = cast(REBVAL*, ARR_HEAD(f->varlist));
-        assert(IS_FRAME(rootvar));
-        assert(PAYLOAD(Context, rootvar).varlist == f->varlist);
-        TRASH_POINTER_IF_DEBUG(PAYLOAD(Context, rootvar).phase);
+        RELVAL *rootvar = ARR_HEAD(f->varlist);
+        assert(CTX_VARLIST(VAL_CONTEXT(rootvar)) == f->varlist);
+        TRASH_POINTER_IF_DEBUG(PAYLOAD(Any, rootvar).second.node);  // phase
         TRASH_POINTER_IF_DEBUG(EXTRA(Binding, rootvar).node);
     }
   #endif
@@ -1370,11 +1376,6 @@ inline static void Drop_Action(REBFRM *f) {
   #if defined(DEBUG_FRAME_LABELS)
     TRASH_POINTER_IF_DEBUG(f->label_utf8);
   #endif
-}
-
-inline static REBACT *VAL_PHASE(REBVAL *frame) {
-    assert(IS_FRAME(frame));
-    return PAYLOAD(Context, frame).phase;
 }
 
 

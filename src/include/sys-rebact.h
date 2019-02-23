@@ -54,21 +54,24 @@ struct Reb_Action {
 
 #else
 
-    template <class T>
-    inline REBACT *ACT(T *p) {
-        constexpr bool derived = std::is_same<T, REBACT>::value;
+    template <typename P>
+    inline REBACT *ACT(P p) {
+        constexpr bool derived =
+            std::is_same<P, nullptr_t>::value  // here to avoid check below
+            or std::is_same<P, REBACT*>::value;
 
-        constexpr bool base = std::is_same<T, void>::value
-            or std::is_same<T, REBNOD>::value
-            or std::is_same<T, REBSER>::value
-            or std::is_same<T, REBARR>::value;
+        constexpr bool base =
+            std::is_same<P, void*>::value
+            or std::is_same<P, REBNOD*>::value
+            or std::is_same<P, REBSER*>::value
+            or std::is_same<P, REBARR*>::value;
 
         static_assert(
             derived or base,
-            "ACT() works on void/REBNOD/REBSER/REBARR/REBACT"
+            "ACT() works on void/REBNOD/REBSER/REBARR/REBACT/nullptr"
         );
 
-        if (base)
+        if (base and p)  // ACT(nullptr) won't be tested here
             assert(
                 SERIES_MASK_ACTION == (cast(REBSER*, p)->header.bits & (
                     SERIES_MASK_ACTION
@@ -79,7 +82,11 @@ struct Reb_Action {
                 ))
             );
 
-        return reinterpret_cast<REBACT*>(p);
+        // !!! This uses a regular C cast because the `cast()` macro has not
+        // been written in such a way as to tolerate nullptr, and C++ will
+        // not reinterpret_cast<> a nullptr.  Review more elegant answers.
+        //
+        return (REBACT*)p;
     }
 
 #endif

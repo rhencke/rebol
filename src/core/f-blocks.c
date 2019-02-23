@@ -165,8 +165,9 @@ void Clonify(
         //
         REBSER *series;
         if (ANY_CONTEXT(v)) {
-            PAYLOAD(Context, v).varlist = CTX_VARLIST(
-                Copy_Context_Shallow_Managed(VAL_CONTEXT(v))
+            INIT_VAL_CONTEXT_VARLIST(
+                v,
+                CTX_VARLIST(Copy_Context_Shallow_Managed(VAL_CONTEXT(v)))
             );
             series = SER(CTX_VARLIST(VAL_CONTEXT(v)));
         }

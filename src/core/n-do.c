@@ -673,18 +673,9 @@ REBNATIVE(redo)
         if (FRM_UNDERLYING(f) != ACT_UNDERLYING(VAL_ACTION(sibling)))
             fail ("/OTHER function passed to REDO has incompatible FRAME!");
 
-        PAYLOAD(Context, restartee).phase = VAL_ACTION(sibling);
+        INIT_VAL_CONTEXT_PHASE(restartee, VAL_ACTION(sibling));
         INIT_BINDING(restartee, VAL_BINDING(sibling));
     }
-
-    // Phase needs to always be initialized in FRAME! values.
-    //
-    assert(
-        GET_ARRAY_FLAG(
-            ACT_PARAMLIST(PAYLOAD(Context, restartee).phase),
-            IS_PARAMLIST
-        )
-    );
 
     // We need to cooperatively throw a restart instruction up to the level
     // of the frame.  Use REDO as the throw label that Eval_Core_Throws() will
@@ -838,7 +829,7 @@ REBNATIVE(apply)
     f->arg = f->rootvar + 1;
     // f->param assigned above
     f->special = f->arg; // signal only type-check the existing data
-    FRM_PHASE(f) = VAL_ACTION(applicand);
+    INIT_FRM_PHASE(f, VAL_ACTION(applicand));
     FRM_BINDING(f) = VAL_BINDING(applicand);
 
     Begin_Action(f, opt_label);

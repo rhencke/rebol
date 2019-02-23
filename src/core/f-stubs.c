@@ -360,13 +360,13 @@ void Extra_Init_Any_Context_Checks_Debug(enum Reb_Kind kind, REBCTX *c) {
     //
     if (CTX_TYPE(c) == REB_FRAME) {
         assert(IS_ACTION(CTX_ROOTKEY(c)));
-        assert(PAYLOAD(Context, archetype).phase);
+        assert(VAL_PHASE(archetype) != nullptr);
     }
     else {
       #ifdef DEBUG_UNREADABLE_BLANKS
         assert(IS_UNREADABLE_DEBUG(CTX_ROOTKEY(c)));
       #endif
-        assert(not PAYLOAD(Context, archetype).phase);
+        assert(VAL_PHASE(archetype) == nullptr);
     }
 
     // Keylists are uniformly managed, or certain routines would return

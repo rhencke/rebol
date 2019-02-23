@@ -91,7 +91,12 @@ REB_R TO_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     // system/standard/port is made with CONTEXT and not with MAKE PORT!
     //
     REBCTX *context = Copy_Context_Shallow_Managed(VAL_CONTEXT(arg));
-    RESET_VAL_HEADER(CTX_ARCHETYPE(context), REB_PORT);
+    RESET_VAL_HEADER_CORE(
+        CTX_ARCHETYPE(context),
+        REB_PORT,
+        CELL_FLAG_PAYLOAD_FIRST_IS_NODE
+            /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! TBD, implicit
+    );
 
     return Init_Port(out, context);
 }

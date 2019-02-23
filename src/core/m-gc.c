@@ -643,7 +643,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
       case REB_MODULE:
       case REB_ERROR:
       case REB_PORT: { // Note: VAL_CONTEXT() fails on SER_INFO_INACCESSIBLE
-        REBCTX *context = CTX(PAYLOAD(Context, v).varlist);
+        REBCTX *context = CTX(PAYLOAD(Any, v).first.node);
+        assert(GET_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE));
         Queue_Mark_Context_Deep(context);
 
         // Currently the "binding" in a context is only used by FRAME! to
@@ -679,7 +680,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         }
       #endif
 
-        REBACT *phase = PAYLOAD(Context, v).phase;
+        REBACT *phase = ACT(PAYLOAD(Any, v).second.node);
         if (phase) {
             assert(kind == REB_FRAME); // may be heap-based frame
             Queue_Mark_Action_Deep(phase);

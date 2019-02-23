@@ -62,7 +62,7 @@
                "/REBMAP/REBFRM or nullptr"
         );
 
-        if (base)  // NOD(nullptr) won't be tested here
+        if (base and p)  // NOD(nullptr) won't be tested here
             assert(
                 (((REBNOD*)p)->header.bits & (
                     NODE_FLAG_NODE | NODE_FLAG_FREE

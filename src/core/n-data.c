@@ -419,7 +419,7 @@ bool Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
         REBCTX *c = VAL_CONTEXT(out);
         REBFRM *f = CTX_FRAME_IF_ON_STACK(c);
         if (f) {
-            PAYLOAD(Context, out).phase = FRM_PHASE(f);
+            INIT_VAL_CONTEXT_PHASE(out, FRM_PHASE(f));
             INIT_BINDING(out, FRM_BINDING(f));
         }
         else {
@@ -429,9 +429,9 @@ bool Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
         }
 
         assert(
-            not PAYLOAD(Context, out).phase
+            VAL_PHASE(out) == nullptr
             or GET_ARRAY_FLAG(
-                ACT_PARAMLIST(PAYLOAD(Context, out).phase),
+                ACT_PARAMLIST(VAL_PHASE(out)),
                 IS_PARAMLIST
             )
         );
@@ -1015,17 +1015,23 @@ REBNATIVE(free_q)
 
     REBVAL *v = ARG(value);
 
-    REBSER *s;
-    if (ANY_CONTEXT(v))
-        s = SER(PAYLOAD(Context, v).varlist); // VAL_CONTEXT fails if freed
-    else if (IS_HANDLE(v))
-        s = SER(EXTRA(Handle, v).singular);
-    else if (ANY_SERIES(v))
-        s = PAYLOAD(Series, v).rebser; // VAL_SERIES fails if freed
-    else
+    // All freeable values put their freeable series in the payload's "first".
+    //
+    if (NOT_CELL_FLAG(v, PAYLOAD_FIRST_IS_NODE))
         return Init_False(D_OUT);
 
-    return Init_Logic(D_OUT, GET_SERIES_INFO(s, INACCESSIBLE));
+    REBNOD *n = PAYLOAD(Any, v).first.node;
+
+    // If the node is not a series (e.g. a pairing), it cannot be freed (as
+    // a freed version of a pairing is the same size as the pairing).
+    //
+    // !!! Technically speaking a PAIR! could be freed as an array could, it
+    // would mean converting the node.  Review.
+    //
+    if (n->header.bits & NODE_FLAG_CELL)
+        return Init_False(D_OUT);
+
+    return Init_Logic(D_OUT, GET_SERIES_INFO(n, INACCESSIBLE));
 }
 
 

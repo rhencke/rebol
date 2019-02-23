@@ -541,7 +541,7 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
     // copied rootvar to the one just created.
     //
     Move_Value(dest, CTX_ARCHETYPE(original));
-    PAYLOAD(Context, dest).varlist = varlist;
+    INIT_VAL_CONTEXT_VARLIST(dest, varlist);
 
     ++dest;
 
@@ -766,8 +766,8 @@ REBTYPE(Context)
             //
             return Init_Action_Maybe_Bound(
                 D_OUT,
-                PAYLOAD(Context, value).phase, // archetypal, so no binding
-                EXTRA(Binding, value).node // e.g. where RETURN returns to
+                VAL_PHASE(value),  // archetypal, so no binding
+                EXTRA(Binding, value).node  // e.g. where RETURN returns to
             );
         }
 

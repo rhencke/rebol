@@ -711,9 +711,14 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         MISC(types_varlist).meta = NULL; // GC sees this, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(types_varlist), paramlist);
 
-        REBVAL *rootvar = RESET_CELL(ARR_HEAD(types_varlist), REB_FRAME);
-        PAYLOAD(Context, rootvar).varlist = types_varlist; // canon FRAME!
-        PAYLOAD(Context, rootvar).phase = ACT(paramlist);
+        REBVAL *rootvar = RESET_CELL_CORE(
+            ARR_HEAD(types_varlist),
+            REB_FRAME,
+            CELL_FLAG_PAYLOAD_FIRST_IS_NODE
+                /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! TBD, implicit
+        );
+        INIT_VAL_CONTEXT_VARLIST(rootvar, types_varlist);  // "canon FRAME!"
+        INIT_VAL_CONTEXT_PHASE(rootvar, ACT(paramlist));
         INIT_BINDING(rootvar, UNBOUND);
 
         REBVAL *dest = rootvar + 1;
@@ -771,9 +776,14 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         MISC(notes_varlist).meta = NULL; // GC sees this, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(notes_varlist), paramlist);
 
-        REBVAL *rootvar = RESET_CELL(ARR_HEAD(notes_varlist), REB_FRAME);
-        PAYLOAD(Context, rootvar).varlist = notes_varlist; // canon FRAME!
-        PAYLOAD(Context, rootvar).phase = ACT(paramlist);
+        REBVAL *rootvar = RESET_CELL_CORE(
+            ARR_HEAD(notes_varlist),
+            REB_FRAME,
+            CELL_FLAG_PAYLOAD_FIRST_IS_NODE
+                /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! TBD, implicit
+        );
+        INIT_VAL_CONTEXT_VARLIST(rootvar, notes_varlist); // canon FRAME!
+        INIT_VAL_CONTEXT_PHASE(rootvar, ACT(paramlist));
         INIT_BINDING(rootvar, UNBOUND);
 
         REBVAL *dest = rootvar + 1;
@@ -1013,9 +1023,14 @@ REBCTX *Make_Expired_Frame_Ctx_Managed(REBACT *a)
     SET_SERIES_INFO(varlist, INACCESSIBLE);
     MISC(varlist).meta = nullptr;
 
-    RELVAL *rootvar = RESET_CELL(ARR_SINGLE(varlist), REB_FRAME);
-    PAYLOAD(Context, rootvar).varlist = varlist;
-    PAYLOAD(Context, rootvar).phase = a;
+    RELVAL *rootvar = RESET_CELL_CORE(
+        ARR_SINGLE(varlist),
+        REB_FRAME,
+        CELL_FLAG_PAYLOAD_FIRST_IS_NODE
+            /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! TBD, implicit
+    );
+    INIT_VAL_CONTEXT_VARLIST(rootvar, varlist);
+    INIT_VAL_CONTEXT_PHASE(rootvar, a);
     INIT_BINDING(rootvar, UNBOUND); // !!! is a binding relevant?
 
     REBCTX *expired = CTX(varlist);
@@ -1113,7 +1128,7 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
             RELVAL *slot = ARR_AT(maybe_fake_body, real_body_index); // #BODY
             assert(IS_ISSUE(slot));
 
-            RESET_VAL_HEADER_EXTRA(slot, REB_GROUP, 0); // clear VAL_FLAG_LINE
+            RESET_VAL_HEADER_CORE(slot, REB_GROUP, 0); // clear VAL_FLAG_LINE
             INIT_VAL_ARRAY(slot, VAL_ARRAY(body));
             VAL_INDEX(slot) = 0;
             INIT_BINDING(slot, a); // relative binding
@@ -1122,7 +1137,7 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
         // Cannot give user a relative value back, so make the relative
         // body specific to a fabricated expired frame.  See #2221
 
-        RESET_VAL_HEADER_EXTRA(out, REB_BLOCK, 0);
+        RESET_VAL_HEADER_CORE(out, REB_BLOCK, 0);
         INIT_VAL_ARRAY(out, maybe_fake_body);
         VAL_INDEX(out) = 0;
         INIT_BINDING(out, Make_Expired_Frame_Ctx_Managed(a));
@@ -1619,7 +1634,7 @@ REB_R Adapter_Dispatcher(REBFRM *f)
         return R_THROWN;
     }
 
-    FRM_PHASE(f) = VAL_ACTION(adaptee);
+    INIT_FRM_PHASE(f, VAL_ACTION(adaptee));
     FRM_BINDING(f) = VAL_BINDING(adaptee);
 
     return R_REDO_CHECKED;  // the redo will use the updated phase & binding
@@ -1664,7 +1679,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     // encloser again (infinite loop).
     //
     REBVAL *rootvar = CTX_ARCHETYPE(c);
-    PAYLOAD(Context, rootvar).phase = VAL_ACTION(inner);
+    INIT_VAL_CONTEXT_PHASE(rootvar, VAL_ACTION(inner));
     INIT_BINDING_MAY_MANAGE(rootvar, VAL_BINDING(inner));
 
     // We don't actually know how long the frame we give back is going to
@@ -1710,7 +1725,7 @@ REB_R Chainer_Dispatcher(REBFRM *f)
 
     // Extract the first function, itself which might be a chain.
     //
-    FRM_PHASE(f) = VAL_ACTION(chained);
+    INIT_FRM_PHASE(f, VAL_ACTION(chained));
     FRM_BINDING(f) = VAL_BINDING(chained);
 
     return R_REDO_UNCHECKED;  // signatures should match

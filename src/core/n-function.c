@@ -806,7 +806,7 @@ REB_R Skinner_Dispatcher(REBFRM *f)
         NOD(FRM_PHASE(f))
     );
 
-    FRM_PHASE(f) = VAL_ACTION(skinned);
+    INIT_FRM_PHASE(f, VAL_ACTION(skinned));
 
     // We captured the binding for the skin when the action was made; if the
     // user rebound the action, then don't overwrite with the one in the

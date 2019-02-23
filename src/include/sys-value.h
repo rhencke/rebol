@@ -381,7 +381,7 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 // so that is left as-is also.  See CELL_MASK_PERSIST.
 //
 
-inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
+inline static REBVAL *RESET_VAL_HEADER_CORE_at(
     RELVAL *v,
     enum Reb_Kind kind,
     uintptr_t extra
@@ -399,19 +399,19 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
 }
 
 #if defined(DEBUG_CELL_WRITABILITY)
-    #define RESET_VAL_HEADER_EXTRA(v,kind,extra) \
-        RESET_VAL_HEADER_EXTRA_Core((v), (kind), (extra), __FILE__, __LINE__)
+    #define RESET_VAL_HEADER_CORE(v,kind,extra) \
+        RESET_VAL_HEADER_CORE_at((v), (kind), (extra), __FILE__, __LINE__)
 #else
-    #define RESET_VAL_HEADER_EXTRA(v,kind,extra) \
-        RESET_VAL_HEADER_EXTRA_Core((v), (kind), (extra))
+    #define RESET_VAL_HEADER_CORE(v,kind,extra) \
+        RESET_VAL_HEADER_CORE_at((v), (kind), (extra))
 #endif
 
 #define RESET_VAL_HEADER(v,kind) \
-    RESET_VAL_HEADER_EXTRA((v), (kind), 0)
+    RESET_VAL_HEADER_CORE((v), (kind), 0)
 
 #ifdef DEBUG_TRACK_CELLS
     //
-    // RESET_CELL_CORE is a variant of RESET_VAL_HEADER_EXTRA that actually
+    // RESET_CELL_CORE is a variant of RESET_VAL_HEADER_CORE that actually
     // overwrites the payload with tracking information.  It should not be
     // used if the intent is to preserve the payload and extra.
     //
@@ -427,9 +427,9 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
         int line
     ){
       #ifdef DEBUG_CELL_WRITABILITY
-        RESET_VAL_HEADER_EXTRA_Core(out, kind, extra, file, line);
+        RESET_VAL_HEADER_CORE_at(out, kind, extra, file, line);
       #else
-        RESET_VAL_HEADER_EXTRA(out, kind, extra);
+        RESET_VAL_HEADER_CORE(out, kind, extra);
       #endif
 
         TRACK_CELL_IF_DEBUG(out, file, line);
@@ -440,7 +440,7 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
         RESET_CELL_CORE_Debug((out), (kind), (extra), __FILE__, __LINE__)
 #else
     #define RESET_CELL_CORE(out,kind,extra) \
-       RESET_VAL_HEADER_EXTRA((out), (kind), (extra))
+       RESET_VAL_HEADER_CORE((out), (kind), (extra))
 #endif
 
 #define RESET_CELL(out,kind) \

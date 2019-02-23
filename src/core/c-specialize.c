@@ -133,9 +133,14 @@ REBCTX *Make_Context_For_Action_Int_Partials(
         SERIES_MASK_CONTEXT
     );
 
-    REBVAL *rootvar = RESET_CELL(ARR_HEAD(varlist), REB_FRAME);
-    PAYLOAD(Context, rootvar).varlist = varlist;
-    PAYLOAD(Context, rootvar).phase = VAL_ACTION(action);
+    REBVAL *rootvar = RESET_CELL_CORE(
+        ARR_HEAD(varlist),
+        REB_FRAME,
+        CELL_FLAG_PAYLOAD_FIRST_IS_NODE
+            /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! TBD, implicit
+    );
+    INIT_VAL_CONTEXT_VARLIST(rootvar, varlist);
+    INIT_VAL_CONTEXT_PHASE(rootvar, VAL_ACTION(action));
     INIT_BINDING(rootvar, VAL_BINDING(action));
 
     // Copy values from any prior specializations, transforming REFINEMENT!
@@ -865,7 +870,7 @@ bool Specialize_Action_Throws(
     RELVAL *body = ARR_HEAD(ACT_DETAILS(specialized));
     Move_Value(body, CTX_ARCHETYPE(exemplar));
     INIT_BINDING(body, VAL_BINDING(specializee));
-    PAYLOAD(Context, body).phase = unspecialized;
+    INIT_VAL_CONTEXT_PHASE(body, unspecialized);
 
     Init_Action_Unbound(out, specialized);
     return false; // code block did not throw
@@ -888,7 +893,7 @@ REB_R Specializer_Dispatcher(REBFRM *f)
     REBVAL *exemplar = KNOWN(ARR_HEAD(details));
     assert(IS_FRAME(exemplar));
 
-    FRM_PHASE(f) = PAYLOAD(Context, exemplar).phase;
+    INIT_FRM_PHASE(f, VAL_PHASE(exemplar));
     FRM_BINDING(f) = VAL_BINDING(exemplar);
 
     return R_REDO_UNCHECKED; // redo uses the updated phase and binding
@@ -1262,7 +1267,7 @@ bool Make_Invocation_Frame_Throws(
     // Drop_Action() clears out the phase and binding.  Put them back.
     // !!! Should it check EVAL_FLAG_FULFILL_ONLY?
 
-    FRM_PHASE(f) = VAL_ACTION(action);
+    INIT_FRM_PHASE(f, VAL_ACTION(action));
     FRM_BINDING(f) = VAL_BINDING(action);
 
     // The function did not actually execute, so no SPC(f) was never handed

@@ -90,9 +90,14 @@ REBCTX *Alloc_Context_Core(enum Reb_Kind kind, REBCNT capacity, REBFLGS flags)
     // varlist[0] is a value instance of the OBJECT!/MODULE!/PORT!/ERROR! we
     // are building which contains this context.
 
-    REBVAL *rootvar = RESET_CELL(Alloc_Tail_Array(varlist), kind);
-    PAYLOAD(Context, rootvar).varlist = varlist;
-    PAYLOAD(Context, rootvar).phase = nullptr;
+    REBVAL *rootvar = RESET_CELL_CORE(
+        Alloc_Tail_Array(varlist),
+        kind,
+        CELL_FLAG_PAYLOAD_FIRST_IS_NODE
+            /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! currently implied
+    );
+    INIT_VAL_CONTEXT_VARLIST(rootvar, varlist);
+    INIT_VAL_CONTEXT_PHASE(rootvar, nullptr);
     INIT_BINDING(rootvar, UNBOUND);
 
     // keylist[0] is the "rootkey" which we currently initialize to an
@@ -306,7 +311,7 @@ REBCTX *Copy_Context_Shallow_Extra_Managed(REBCTX *src, REBCNT extra) {
         INIT_CTX_KEYLIST_UNIQUE(dest, keylist);
     }
 
-    PAYLOAD(Context, CTX_ARCHETYPE(dest)).varlist = CTX_VARLIST(dest);
+    INIT_VAL_CONTEXT_VARLIST(CTX_ARCHETYPE(dest), CTX_VARLIST(dest));
 
     // !!! Should the new object keep the meta information, or should users
     // have to copy that manually?  If it's copied would it be a shallow or
@@ -833,9 +838,14 @@ REBCTX *Make_Selfish_Context_Detect_Managed(
 
     // context[0] is an instance value of the OBJECT!/PORT!/ERROR!/MODULE!
     //
-    REBVAL *var = RESET_CELL(ARR_HEAD(varlist), kind);
-    PAYLOAD(Context, var).varlist = varlist;
-    PAYLOAD(Context, var).phase = NULL;
+    REBVAL *var = RESET_CELL_CORE(
+        ARR_HEAD(varlist),
+        kind,
+        CELL_FLAG_PAYLOAD_FIRST_IS_NODE
+            /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! currently implied
+    );
+    INIT_VAL_CONTEXT_VARLIST(var, varlist);
+    INIT_VAL_CONTEXT_PHASE(var, nullptr);
     INIT_BINDING(var, UNBOUND);
 
     ++var;
@@ -1073,9 +1083,14 @@ REBCTX *Merge_Contexts_Selfish_Managed(REBCTX *parent1, REBCTX *parent2)
     // the parent was an ERROR! so will the child be.  This is a new idea,
     // so review consequences.
     //
-    REBVAL *rootvar = RESET_CELL(ARR_HEAD(varlist), CTX_TYPE(parent1));
-    PAYLOAD(Context, rootvar).varlist = varlist;
-    PAYLOAD(Context, rootvar).phase = NULL;
+    REBVAL *rootvar = RESET_CELL_CORE(
+        ARR_HEAD(varlist),
+        CTX_TYPE(parent1),
+        CELL_FLAG_PAYLOAD_FIRST_IS_NODE
+            /* | CELL_FLAG_PAYLOAD_SECOND_IS_NODE */  // !!! currently implied
+    );
+    INIT_VAL_CONTEXT_VARLIST(rootvar, varlist);
+    INIT_VAL_CONTEXT_PHASE(rootvar, nullptr);
     INIT_BINDING(rootvar, UNBOUND);
 
     // Copy parent1 values.  (Can't use memcpy() because it would copy things
@@ -1399,7 +1414,7 @@ void Assert_Context_Core(REBCTX *c)
     if (keys_len != vars_len)
         panic (c);
 
-    if (PAYLOAD(Context, rootvar).varlist != varlist)
+    if (VAL_CONTEXT(rootvar) != c)
         panic (rootvar);
 
     if (GET_SERIES_INFO(c, INACCESSIBLE)) {
@@ -1434,25 +1449,17 @@ void Assert_Context_Core(REBCTX *c)
         // know what function the frame is actually for, one must look to
         // the "phase" field...held in the rootvar.
         //
-        if (
-            ACT_UNDERLYING(PAYLOAD(Context, rootvar).phase)
-            != VAL_ACTION(rootkey)
-        ){
+        if (ACT_UNDERLYING(VAL_PHASE(rootvar)) != VAL_ACTION(rootkey))
             panic (rootvar);
-        }
 
         REBFRM *f = CTX_FRAME_IF_ON_STACK(c);
-        if (f != NULL) {
+        if (f) {
             //
             // If the frame is on the stack, the phase should be something
             // with the same underlying function as the rootkey.
             //
-            if (
-                ACT_UNDERLYING(PAYLOAD(Context, rootvar).phase)
-                != VAL_ACTION(rootkey)
-            ){
+            if (ACT_UNDERLYING(VAL_PHASE(rootvar)) != VAL_ACTION(rootkey))
                 panic (rootvar);
-            }
         }
     }
     else

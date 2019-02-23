@@ -102,6 +102,15 @@
 #define CTX_VARLIST(c) \
     (&(c)->varlist)
 
+#define VAL_PHASE_UNCHECKED(v) \
+    cast(REBACT*, PAYLOAD(Any, (v)).second.node)
+
+inline static REBACT *VAL_PHASE(REBVAL *frame) {
+    assert(IS_FRAME(frame));
+    REBACT *phase = VAL_PHASE_UNCHECKED(frame);
+    assert(phase != nullptr);
+    return phase;
+}
 
 // There may not be any dynamic or stack allocation available for a stack
 // allocated context, and in that case it will have to come out of the
@@ -134,9 +143,7 @@ inline static REBARR *CTX_KEYLIST(REBCTX *c) {
     // phase changes, a fixed value can't be put into the keylist...that is
     // just the keylist of the underlying function.
     //
-    REBVAL *archetype = CTX_ARCHETYPE(c);
-    assert(KIND_BYTE(archetype) == REB_FRAME);
-    return ACT_PARAMLIST(PAYLOAD(Context, archetype).phase);
+    return ACT_PARAMLIST(VAL_PHASE(CTX_ARCHETYPE(c)));
 }
 
 static inline void INIT_CTX_KEYLIST_SHARED(REBCTX *c, REBARR *keylist) {
@@ -243,15 +250,22 @@ inline static void FAIL_IF_INACCESSIBLE_CTX(REBCTX *c) {
 
 inline static REBCTX *VAL_CONTEXT(const REBCEL *v) {
     assert(ANY_CONTEXT_KIND(CELL_KIND(v)));
-    assert(not PAYLOAD(Context, v).phase or CELL_KIND(v) == REB_FRAME);
-    REBCTX *c = CTX(PAYLOAD(Context, v).varlist);
+    assert(
+        (VAL_PHASE_UNCHECKED(v) != nullptr) == (CELL_KIND(v) == REB_FRAME)
+    );
+    REBCTX *c = CTX(PAYLOAD(Any, v).first.node);
     FAIL_IF_INACCESSIBLE_CTX(c);
     return c;
 }
 
-inline static void INIT_VAL_CONTEXT(REBVAL *v, REBCTX *c) {
-    PAYLOAD(Context, v).varlist = CTX_VARLIST(c);
-}
+#define INIT_VAL_CONTEXT_VARLIST(v,varlist) \
+    (PAYLOAD(Any, (v)).first.node = NOD(varlist))
+
+#define INIT_VAL_CONTEXT_PHASE(v,phase) \
+    (PAYLOAD(Any, (v)).second.node = NOD(phase))
+
+#define VAL_PHASE(v) \
+    ACT(PAYLOAD(Any, (v)).second.node)
 
 // Convenience macros to speak in terms of object values instead of the context
 //
@@ -466,11 +480,10 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     single->header.bits =
         NODE_FLAG_NODE | NODE_FLAG_CELL | FLAG_KIND_BYTE(REB_FRAME);
     INIT_BINDING(single, VAL_BINDING(rootvar));
-    PAYLOAD(Context, single).varlist = ARR(stub);
-    TRASH_POINTER_IF_DEBUG(PAYLOAD(Context, single).phase);
-    /* PAYLOAD(Context, single).phase = f->original; */ // !!! needed?
+    INIT_VAL_CONTEXT_VARLIST(single, ARR(stub));
+    TRASH_POINTER_IF_DEBUG(PAYLOAD(Any, single).second.node);  // phase
 
-    PAYLOAD(Context, rootvar).varlist = ARR(copy);
+    INIT_VAL_CONTEXT_VARLIST(rootvar, ARR(copy));
 
     // Disassociate the stub from the frame, by degrading the link field
     // to a keylist.  !!! Review why this was needed, vs just nullptr

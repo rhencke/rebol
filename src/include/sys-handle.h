@@ -188,7 +188,7 @@ inline static REBVAL *Init_Handle_Managed(
 
     // Leave the non-singular cfunc as trash; clients should not be using
     //
-    RESET_VAL_HEADER_EXTRA(out, REB_HANDLE, 0);
+    RESET_VAL_HEADER_CORE(out, REB_HANDLE, 0);
 
     REBARR *a = EXTRA(Handle, out).singular;
     RESET_VAL_HEADER(ARR_SINGLE(a), REB_HANDLE);
