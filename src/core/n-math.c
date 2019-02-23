@@ -696,84 +696,53 @@ REBNATIVE(same_q)
 //
 // This used to be "strictness mode 3" of Compare_Modify_Values.  However,
 // folding SAME?-ness in required the comparisons to take REBVALs instead
-// of just REBVALs, when only a limited number of types supported it.
+// of just RELVALs, when only a limited number of types supported it.
 // Rather than incur a cost for all comparisons, this handles the issue
 // specially for those types which support it.
 {
     INCLUDE_PARAMS_OF_SAME_Q;
 
-    REBVAL *value1 = ARG(value1);
-    REBVAL *value2 = ARG(value2);
+    REBVAL *v1 = ARG(value1);
+    REBVAL *v2 = ARG(value2);
 
-    if (VAL_TYPE(value1) != VAL_TYPE(value2))
-        return Init_False(D_OUT); // can't be "same" value if not same type
+    if (VAL_TYPE(v1) != VAL_TYPE(v2))
+        return Init_False(D_OUT);  // can't be "same" value if not same type
 
-    if (IS_BITSET(value1)) {
+    if (IS_BITSET(v1))  // same if binaries are same
+        return Init_Logic(D_OUT, VAL_BITSET(v1) == VAL_BITSET(v2));
+
+    if (ANY_SERIES(v1))  // pointers -and- indices must match
+        return Init_Logic(
+            D_OUT,
+            VAL_SERIES(v1) == VAL_SERIES(v2)
+                and VAL_INDEX(v1) == VAL_INDEX(v2)
+        );
+
+    if (ANY_CONTEXT(v1))  // same if varlists match
+        return Init_Logic(D_OUT, VAL_CONTEXT(v1) == VAL_CONTEXT(v2));
+
+    if (IS_MAP(v1))  // same if map pointer matches
+        return Init_Logic(D_OUT, VAL_MAP(v1) == VAL_MAP(v2));
+
+    if (ANY_WORD(v1))  // !!! "same" was spelling -and- binding in R3-Alpha
+        return Init_Logic(
+            D_OUT,
+            VAL_WORD_SPELLING(v1) == VAL_WORD_SPELLING(v2)
+                and VAL_BINDING(v1) == VAL_BINDING(v2)
+        );
+
+    if (IS_DECIMAL(v1) or IS_PERCENT(v1)) {
         //
-        // BITSET! only has a series, no index.
+        // !!! R3-Alpha's STRICT-EQUAL? for DECIMAL! did not require *exactly*
+        // the same bits, but SAME? did.  :-/
         //
-        if (VAL_SERIES(value1) != VAL_SERIES(value2))
-            return Init_False(D_OUT);
-        return Init_True(D_OUT);
+        return Init_Logic(
+            D_OUT,
+            0 == memcmp(&VAL_DECIMAL(v1), &VAL_DECIMAL(v2), sizeof(REBDEC))
+        );
     }
 
-    if (ANY_SERIES(value1)) {
-        //
-        // ANY-SERIES! can only be the same if pointers and indices match.
-        //
-        if (VAL_SERIES(value1) != VAL_SERIES(value2))
-            return Init_False(D_OUT);
-        if (VAL_INDEX(value1) != VAL_INDEX(value2))
-            return Init_False(D_OUT);
-        return Init_True(D_OUT);
-    }
-
-    if (ANY_CONTEXT(value1)) {
-        //
-        // ANY-CONTEXT! are the same if the varlists match.
-        //
-        if (VAL_CONTEXT(value1) != VAL_CONTEXT(value2))
-            return Init_False(D_OUT);
-        return Init_True(D_OUT);
-    }
-
-    if (IS_MAP(value1)) {
-        //
-        // MAP! will be the same if the map pointer matches.
-        //
-        if (VAL_MAP(value1) != VAL_MAP(value2))
-            return Init_False(D_OUT);
-        return Init_True(D_OUT);
-    }
-
-    if (ANY_WORD(value1)) {
-        //
-        // ANY-WORD! must match in binding as well as be otherwise equal.
-        //
-        if (VAL_WORD_SPELLING(value1) != VAL_WORD_SPELLING(value2))
-            return Init_False(D_OUT);
-        if (VAL_BINDING(value1) != VAL_BINDING(value2))
-            return Init_False(D_OUT);
-        return Init_True(D_OUT);
-    }
-
-    if (IS_DECIMAL(value1) || IS_PERCENT(value1)) {
-        //
-        // The tolerance on strict-equal? for decimals is apparently not
-        // a requirement of exactly the same bits.
-        //
-        if (
-            memcmp(
-                &VAL_DECIMAL(value1), &VAL_DECIMAL(value2), sizeof(REBDEC)
-            ) == 0
-        ){
-            return Init_True(D_OUT);
-        }
-
-        return Init_False(D_OUT);
-    }
-
-    if (IS_MONEY(value1)) {
+    if (IS_MONEY(v1)) {
         //
         // There is apparently a distinction between "strict equal" and "same"
         // when it comes to the MONEY! type:
@@ -784,9 +753,10 @@ REBNATIVE(same_q)
         // >> same? $1 $1.0
         // == false
         //
-        if (deci_is_same(VAL_MONEY_AMOUNT(value1), VAL_MONEY_AMOUNT(value2)))
-            return Init_True(D_OUT);
-        return Init_False(D_OUT);
+        return Init_Logic(
+            D_OUT,
+            deci_is_same(VAL_MONEY_AMOUNT(v1), VAL_MONEY_AMOUNT(v2))
+        );
     }
 
     // For other types, just fall through to strict equality comparison
@@ -795,10 +765,7 @@ REBNATIVE(same_q)
     // seems that "sameness" should go through whatever extension mechanism
     // for comparison user defined types would have.
     //
-    if (Compare_Modify_Values(value1, value2, 1))
-        return Init_True(D_OUT);
-
-    return Init_False(D_OUT);
+    return Init_Logic(D_OUT, Compare_Modify_Values(v1, v2, 1));
 }
 
 

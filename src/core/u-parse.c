@@ -722,12 +722,9 @@ static REBIXO Parse_One_Rule(
                 return END_FLAG;
             return index; }
 
-          case REB_BITSET:
-            //
-            // Check the current character against a character set, advance matches
-            //
+          case REB_BITSET:  // check current character/byte against bitset
             if (Check_Bit(
-                VAL_SERIES(rule), GET_ANY_CHAR(P_INPUT, pos), not P_HAS_CASE
+                VAL_BITSET(rule), GET_ANY_CHAR(P_INPUT, pos), not P_HAS_CASE
             )){
                 return pos + 1;
             }

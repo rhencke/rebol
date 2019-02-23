@@ -781,26 +781,6 @@ REBTYPE(Map)
 
         return Init_Map(D_OUT, map); }
 
-    case SYM_REMOVE: {
-        INCLUDE_PARAMS_OF_REMOVE;
-
-        FAIL_IF_READ_ONLY(val);
-
-        UNUSED(PAR(series));
-
-        if (REF(part)) {
-            UNUSED(ARG(limit));
-            fail (Error_Bad_Refines_Raw());
-        }
-        if (not REF(map))
-            fail (Error_Illegal_Action(REB_MAP, verb));
-
-        Move_Value(D_OUT, val);
-        Find_Map_Entry(
-            map, ARG(key), SPECIFIED, NULLED_CELL, SPECIFIED, true
-        );
-        return D_OUT; }
-
     case SYM_COPY: {
         INCLUDE_PARAMS_OF_COPY;
 

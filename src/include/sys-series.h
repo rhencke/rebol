@@ -469,7 +469,6 @@ inline static void DROP_GC_GUARD(void *p) {
 inline static REBSER *VAL_SERIES(const REBCEL *v) {
     assert(
         ANY_SERIES_KIND(CELL_KIND(v)) or ANY_PATH_KIND(CELL_KIND(v))
-        or CELL_KIND(v) == REB_MAP
     );
     REBSER *s = SER(PAYLOAD(Any, v).first.node);
     if (GET_SERIES_INFO(s, INACCESSIBLE))
@@ -518,23 +517,6 @@ inline static REBYTE *VAL_RAW_DATA_AT(const REBCEL *v) {
 
 #define Init_Any_Series(v,t,s) \
     Init_Any_Series_At((v), (t), (s), 0)
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  BITSET!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// !!! As written, bitsets use the Any_Series structure in their
-// implementation, but are not considered to be an ANY-SERIES! type.
-//
-
-#define VAL_BITSET(v) \
-    VAL_SERIES(v)
-
-#define Init_Bitset(v,s) \
-    Init_Any_Series((v), REB_BITSET, (s))
 
 
 // Make a series of a given width (unit size).  The series will be zero

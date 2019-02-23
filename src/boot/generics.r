@@ -361,8 +361,6 @@ remove: generic [
         [<dequote> any-series! map! gob! port! bitset!]
     /part {Removes multiple elements or to a given position}
     limit [any-number! any-series! pair! char!]
-    /map {Remove key from map}
-    key
 ]
 
 clear: generic [

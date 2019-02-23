@@ -44,13 +44,24 @@ static inline void INIT_BITS_NOT(REBSER *s, bool negated) {
 //
 //  CT_Bitset: C
 //
+// !!! Bitset comparison including the NOT is somewhat nebulous.  If you have
+// a bitset of 8 bits length as 11111111, is it equal to the negation of
+// a bitset of 8 bits length of 00000000 or not?  For the moment, this does
+// not attempt to answer any existential questions--as comparisons in R3-Alpha
+// need significant review.
+//
 REBINT CT_Bitset(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
-    if (mode >= 0) return (
-        BITS_NOT(VAL_SERIES(a)) == BITS_NOT(VAL_SERIES(b))
-        &&
-        Compare_Binary_Vals(a, b) == 0
-    );
+    if (mode >= 0) {  // !!! keep defer to binary comparisons from R3-Alphae
+        DECLARE_LOCAL (atemp);
+        DECLARE_LOCAL (btemp);
+        Init_Binary(atemp, VAL_BITSET(a));
+        Init_Binary(btemp, VAL_BITSET(b));
+        return (
+            BITS_NOT(VAL_BITSET(a)) == BITS_NOT(VAL_BITSET(b))
+            && Compare_Binary_Vals(atemp, btemp) == 0
+        );
+    }
     return -1;
 }
 
@@ -58,21 +69,14 @@ REBINT CT_Bitset(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 //  Make_Bitset: C
 //
-// Return a bitset series (binary.
-//
-// len: the # of bits in the bitset.
-//
-REBSER *Make_Bitset(REBCNT len)
+REBBIN *Make_Bitset(REBCNT num_bits)
 {
-    REBSER *ser;
-
-    len = (len + 7) / 8;
-    ser = Make_Binary(len);
-    Clear_Series(ser);
-    SET_SERIES_LEN(ser, len);
-    INIT_BITS_NOT(ser, false);
-
-    return ser;
+    REBCNT num_bytes = (num_bits + 7) / 8;
+    REBBIN *bin = Make_Binary(num_bytes);
+    Clear_Series(bin);
+    TERM_BIN_LEN(bin, num_bytes);
+    INIT_BITS_NOT(bin, false);
+    return bin;
 }
 
 
@@ -85,7 +89,7 @@ void MF_Bitset(REB_MOLD *mo, const REBCEL *v, bool form)
 
     Pre_Mold(mo, v); // #[bitset! or make bitset!
 
-    REBSER *s = VAL_SERIES(v);
+    REBBIN *s = VAL_BITSET(v);
 
     if (BITS_NOT(s))
         Append_Unencoded(mo->series, "[not bits ");
@@ -124,18 +128,19 @@ REB_R MAKE_Bitset(
     if (len < 0 || len > 0x0FFFFFFF)
         fail (arg);
 
-    REBSER *ser = Make_Bitset(len);
-    Init_Bitset(out, ser);
+    REBBIN *bin = Make_Bitset(len);
+    MANAGE_SERIES(bin);
+    Init_Bitset(out, bin);
 
     if (IS_INTEGER(arg))
         return out; // allocated at a size, no contents.
 
     if (IS_BINARY(arg)) {
-        memcpy(BIN_HEAD(ser), VAL_BIN_AT(arg), len/8 + 1);
+        memcpy(BIN_HEAD(bin), VAL_BIN_AT(arg), len/8 + 1);
         return out;
     }
 
-    Set_Bits(ser, arg, true);
+    Set_Bits(bin, arg, true);
     return out;
 }
 
@@ -584,31 +589,24 @@ void Trim_Tail_Zeros(REBSER *ser)
 //
 REBTYPE(Bitset)
 {
-    REBVAL *value = D_ARG(1);
+    REBVAL *v = D_ARG(1);
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
-    REBSER *ser;
-
-    // !!! Set_Bits does locked series check--what should the more general
-    // responsibility be for checking?
 
     switch (VAL_WORD_SYM(verb)) {
-
-    case SYM_REFLECT: {
+      case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
+        UNUSED(ARG(value)); // covered by `v`
 
-        UNUSED(ARG(value)); // covered by `value`
         REBSYM property = VAL_WORD_SYM(ARG(property));
-        assert(property != SYM_0);
-
         switch (property) {
-        case SYM_LENGTH:
-            return Init_Integer(value, VAL_LEN_HEAD(value) * 8);
+          case SYM_LENGTH:
+            return Init_Integer(v, BIN_LEN(VAL_BITSET(v)) * 8);
 
-        case SYM_TAIL_Q:
+          case SYM_TAIL_Q:
             // Necessary to make EMPTY? work:
-            return Init_Logic(D_OUT, VAL_LEN_HEAD(value) == 0);
+            return Init_Logic(D_OUT, BIN_LEN(VAL_BITSET(v)) == 0);
 
-        default:
+          default:
             break;
         }
 
@@ -616,7 +614,7 @@ REBTYPE(Bitset)
 
     // Add AND, OR, XOR
 
-    case SYM_FIND: {
+      case SYM_FIND: {
         INCLUDE_PARAMS_OF_FIND;
 
         UNUSED(PAR(series));
@@ -640,56 +638,49 @@ REBTYPE(Bitset)
         if (REF(match))
             fail (Error_Bad_Refines_Raw());
 
-        if (not Check_Bits(VAL_SERIES(value), arg, REF(case)))
+        if (not Check_Bits(VAL_BITSET(v), arg, REF(case)))
             return nullptr;
-        return Init_True(D_OUT);
-    }
+        return Init_True(D_OUT); }
 
-    case SYM_COMPLEMENT:
-    case SYM_NEGATE:
-        ser = Copy_Sequence_Core(VAL_SERIES(value), NODE_FLAG_MANAGED);
-        INIT_BITS_NOT(ser, not BITS_NOT(VAL_SERIES(value)));
-        Init_Bitset(value, ser);
-        goto return_bitset;
+      case SYM_COMPLEMENT:
+      case SYM_NEGATE: {
+        REBBIN *copy = Copy_Sequence_Core(VAL_BITSET(v), NODE_FLAG_MANAGED);
+        INIT_BITS_NOT(copy, not BITS_NOT(VAL_BITSET(v)));
+        return Init_Bitset(D_OUT, copy); }
 
-    case SYM_APPEND:  // Accepts: #"a" "abc" [1 - 10] [#"a" - #"z"] etc.
-    case SYM_INSERT: {
-        if (IS_NULLED_OR_BLANK(arg)) {
-            RETURN (value); // don't fail on read only if it would be a no-op
-        }
-        FAIL_IF_READ_ONLY(value);
+      case SYM_APPEND:  // Accepts: #"a" "abc" [1 - 10] [#"a" - #"z"] etc.
+      case SYM_INSERT: {
+        if (IS_NULLED_OR_BLANK(arg))
+            RETURN (v);  // don't fail on read only if it would be a no-op
+
+        FAIL_IF_READ_ONLY(v);
 
         bool diff;
-        if (BITS_NOT(VAL_SERIES(value)))
+        if (BITS_NOT(VAL_BITSET(v)))
             diff = false;
         else
             diff = true;
 
-        if (not Set_Bits(VAL_SERIES(value), arg, diff))
+        if (not Set_Bits(VAL_BITSET(v), arg, diff))
             fail (arg);
-        goto return_bitset; }
+        RETURN (v); }
 
-    case SYM_REMOVE: {
+      case SYM_REMOVE: {
         INCLUDE_PARAMS_OF_REMOVE;
-
-        UNUSED(PAR(series));
-        if (REF(map)) {
-            UNUSED(ARG(key));
-            fail (Error_Bad_Refines_Raw());
-        }
+        UNUSED(PAR(series));  // covered by `v`
 
         if (not REF(part))
             fail (Error_Missing_Arg_Raw());
 
-        if (not Set_Bits(VAL_SERIES(value), ARG(limit), false))
+        if (not Set_Bits(VAL_BITSET(v), ARG(limit), false))
             fail (ARG(limit));
 
-        goto return_bitset; }
+        RETURN (v); }
 
-    case SYM_COPY: {
+      case SYM_COPY: {
         INCLUDE_PARAMS_OF_COPY;
-
         UNUSED(PAR(value));
+
         if (REF(part)) {
             UNUSED(ARG(limit));
             fail (Error_Bad_Refines_Raw());
@@ -701,38 +692,40 @@ REBTYPE(Bitset)
             fail (Error_Bad_Refines_Raw());
         }
 
-        Init_Any_Series_At(
-            D_OUT,
-            REB_BITSET,
-            Copy_Sequence_At_Position(value),
-            VAL_INDEX(value) // !!! can bitset ever not be at 0?
-        );
-        INIT_BITS_NOT(VAL_SERIES(D_OUT), BITS_NOT(VAL_SERIES(value)));
-        return D_OUT; }
+        REBBIN *copy = Copy_Sequence_Core(VAL_BITSET(v), NODE_FLAG_MANAGED);
+        INIT_BITS_NOT(copy, BITS_NOT(VAL_BITSET(v)));
+        return Init_Bitset(D_OUT, copy); }
 
-    case SYM_CLEAR:
-        FAIL_IF_READ_ONLY(value);
-        Clear_Series(VAL_SERIES(value));
-        goto return_bitset;
+      case SYM_CLEAR:
+        FAIL_IF_READ_ONLY(v);
+        Clear_Series(VAL_BITSET(v));
+        RETURN (v);
 
-    case SYM_INTERSECT:
-    case SYM_UNION:
-    case SYM_DIFFERENCE:
-        if (!IS_BITSET(arg) && !IS_BINARY(arg))
+      case SYM_INTERSECT:
+      case SYM_UNION:
+      case SYM_DIFFERENCE: {
+        if (IS_BITSET(arg)) {
+            if (BITS_NOT(VAL_BITSET(arg)))  // !!! see #2365
+                fail ("Bitset negation not handled by set operations");
+            Init_Binary(arg, VAL_BITSET(arg));
+        }
+        else if (not IS_BINARY(arg))
             fail (Error_Math_Args(VAL_TYPE(arg), verb));
-        ser = Xandor_Binary(verb, value, arg);
-        Trim_Tail_Zeros(ser);
-        return Init_Any_Series(D_OUT, VAL_TYPE(value), ser);
+        
+        if (BITS_NOT(VAL_BITSET(v)))  // !!! see #2365
+            fail ("Bitset negation not handled by set operations");
 
-    default:
+        Init_Binary(v, VAL_BITSET(v));
+
+        REBBIN *bits = Xandor_Binary(verb, v, arg);
+        INIT_BITS_NOT(bits, false);
+        Trim_Tail_Zeros(bits);
+        MANAGE_SERIES(bits);
+        return Init_Bitset(D_OUT, bits); }
+
+      default:
         break;
     }
 
     fail (Error_Illegal_Action(REB_BITSET, verb));
-
-  return_bitset:;
-
-    Move_Value(D_OUT, value);
-    return D_OUT;
 }
-

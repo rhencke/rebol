@@ -539,13 +539,18 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         }
         break; }
 
+      case REB_BITSET: {
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
+        REBBIN *bin = SER(VAL_NODE(v));
+        Mark_Rebser_Only(bin);
+        break; }
+
       case REB_BINARY:
       case REB_TEXT:
       case REB_FILE:
       case REB_EMAIL:
       case REB_URL:
-      case REB_TAG:
-      case REB_BITSET: {
+      case REB_TAG: {
         assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
         REBSER *s = SER(PAYLOAD(Any, v).first.node);
         assert(SER_WIDE(s) <= sizeof(REBUNI));

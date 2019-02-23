@@ -676,7 +676,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
             les.data_idx = 0;
         }
         else if (IS_MAP(les.data)) {
-            les.data_ser = VAL_SERIES(les.data);
+            les.data_ser = SER(MAP_PAIRLIST(VAL_MAP(les.data)));
             les.data_idx = 0;
         }
         else if (IS_DATATYPE(les.data)) {

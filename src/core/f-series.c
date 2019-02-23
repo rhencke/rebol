@@ -166,13 +166,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
     case SYM_REMOVE: {
         INCLUDE_PARAMS_OF_REMOVE;
-
-        UNUSED(PAR(series)); // already accounted for
-
-        if (REF(map)) {
-            UNUSED(ARG(key));
-            fail (Error_Bad_Refines_Raw());
-        }
+        UNUSED(PAR(series));  // accounted for by `value`
 
         FAIL_IF_READ_ONLY(value);
 
@@ -409,7 +403,13 @@ REBINT Cmp_Value(const RELVAL *sval, const RELVAL *tval, bool is_case)
       case REB_TAG:
         return Compare_String_Vals(s, t, not is_case);
 
-      case REB_BITSET:
+      case REB_BITSET: {  // !!! Temporarily init as binaries at index 0
+        DECLARE_LOCAL (stemp);
+        DECLARE_LOCAL (ttemp);
+        Init_Binary(stemp, VAL_BITSET(s));
+        Init_Binary(ttemp, VAL_BITSET(t));
+        return Compare_Binary_Vals(stemp, ttemp); }
+
       case REB_BINARY:
         return Compare_Binary_Vals(s, t);
 

@@ -583,6 +583,7 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "sys-binary.h" // BYTE_SIZE(), BIN_HEAD(), etc. used by strings
 #include "sys-string.h" // REBSYM needed for typeset datatype symbols
 #include "sys-typeset.h" // TS_XXX needed for array copying inline functions
+#include "sys-bitset.h"
 #include "sys-array.h"
 
 #include "sys-quoted.h" // requires singular arrays for cell storage

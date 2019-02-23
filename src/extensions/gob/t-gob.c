@@ -1013,13 +1013,7 @@ REBTYPE(Gob)
 
     case SYM_REMOVE: {
         INCLUDE_PARAMS_OF_REMOVE;
-
         UNUSED(PAR(series));
-
-        if (REF(map)) {
-            UNUSED(ARG(key));
-            fail (Error_Bad_Refines_Raw());
-        }
 
         REBCNT len = REF(part) ? Get_Num_From_Arg(ARG(limit)) : 1;
         if (index + len > tail)

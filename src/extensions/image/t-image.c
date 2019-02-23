@@ -1075,16 +1075,10 @@ REBTYPE(Image)
 
 
     case SYM_REMOVE: {
-        FAIL_IF_READ_ONLY(value);
-
         INCLUDE_PARAMS_OF_REMOVE;
-
         UNUSED(PAR(series));
 
-        if (REF(map)) {
-            UNUSED(ARG(key));
-            fail (Error_Bad_Refines_Raw());
-        }
+        FAIL_IF_READ_ONLY(value);
 
         if (REF(part)) {
             val = ARG(limit);

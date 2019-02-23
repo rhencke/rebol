@@ -90,13 +90,13 @@ REBOL [
             ANY_SCALAR_KIND(KIND_BYTE(v))
 
         inline static bool ANY_SERIES_KIND(REBYTE k)
-           { return k >= REB_GET_GROUP and k <= REB_BITSET; }
+           { return k >= REB_GET_GROUP and k <= REB_TAG; }
 
         #define ANY_SERIES(v) \
             ANY_SERIES_KIND(KIND_BYTE(v))
 
         inline static bool ANY_SERIES_OR_PATH_KIND(REBYTE k)
-           { return k >= REB_GET_PATH and k <= REB_BITSET; }
+           { return k >= REB_GET_PATH and k <= REB_TAG; }
 
         #define ANY_SERIES_OR_PATH(v) \
             ANY_SERIES_OR_PATH_KIND(KIND_BYTE(v))
@@ -381,9 +381,6 @@ tag         "markup string (HTML or XML)"
 ;
 ;     (...we continue along in order with more ANY-SERIES! types...)
 
-bitset      "set of bit flags"
-            bitset      +       +       +       []
-
 map         "name-value pairs (hash associative)"
             map         +       +       +       []
 
@@ -450,6 +447,9 @@ datatype    "type of datatype"
 
 typeset     "set of datatypes"
             typeset     -       +       +       []
+
+bitset      "set of bit flags"
+            bitset      +       +       +       []
 
 ; things likely to become user-defined types or extensions
 

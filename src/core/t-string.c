@@ -264,7 +264,7 @@ static REBCNT find_string(
             index,
             end,
             skip,
-            VAL_SERIES(target),
+            VAL_BITSET(target),
             flags
         );
     }
