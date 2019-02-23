@@ -488,12 +488,6 @@ struct Reb_Context_Payload  // see %sys-context.h
     REBACT *phase;  // only used by FRAME! contexts, see %sys-frame.h
 };
 
-struct Reb_Word_Payload  // see %sys-word.h
-{
-    REBSTR *spelling;  // word's non-canonized spelling, UTF-8 string series
-    REBINT index;  // index of word in context (if binding is not null)
-};
-
 struct Reb_Varargs_Payload  // see %sys-varargs.h
 {
     REBINT signed_param_index;  // if negative, consider the arg enfixed
@@ -554,7 +548,13 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     // node (e.g. to exploit common checks for mutability) it has to do a
     // read through the same field that was assigned.  Hence, many types
     // whose payloads are nodes use the generic "Any" payload, which is
-    // broken into two separate variant fields.
+    // two separate variant fields.  If CELL_FLAG_PAYLOAD_FIRST_IS_NODE is
+    // set, then if that is a series node it will be used to answer questions
+    // about mutability (beyond CONST, which the cell encodes itself)
+    //
+    // ANY-WORD!  // see %sys-word.h
+    //     REBSTR *spelling;  // word's non-canonized spelling, UTF-8 string
+    //     REBINT index;  // index of word in context (if binding is not null)
     //
     struct Reb_Any_Payload Any;
 
@@ -567,7 +567,6 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     struct Reb_Series_Payload Series;
     struct Reb_Action_Payload Action;
     struct Reb_Context_Payload Context;
-    struct Reb_Word_Payload Word;
     struct Reb_Varargs_Payload Varargs;
     struct Reb_Time_Payload Time;
     struct Reb_Pair_Payload Pair;

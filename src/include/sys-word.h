@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -49,12 +49,12 @@ inline static bool IS_WORD_UNBOUND(const REBCEL *v) {
 
 inline static REBSTR *VAL_WORD_SPELLING(const REBCEL *v) {
     assert(ANY_WORD_KIND(CELL_KIND(v)));
-    return PAYLOAD(Word, v).spelling;
+    return STR(PAYLOAD(Any, v).first.node);
 }
 
 inline static REBSTR *VAL_WORD_CANON(const REBCEL *v) {
     assert(ANY_WORD_KIND(CELL_KIND(v)));
-    return STR_CANON(PAYLOAD(Word, v).spelling);
+    return STR_CANON(STR(PAYLOAD(Any, v).first.node));
 }
 
 // Some scenarios deliberately store canon spellings in words, to avoid
@@ -67,13 +67,14 @@ inline static REBSTR *VAL_WORD_CANON(const REBCEL *v) {
 //
 inline static REBSTR *VAL_STORED_CANON(const REBCEL *v) {
     assert(ANY_WORD_KIND(CELL_KIND(v)));
-    assert(GET_SERIES_INFO(PAYLOAD(Word, v).spelling, STRING_CANON));
-    return PAYLOAD(Word, v).spelling;
+    REBSTR *str = STR(PAYLOAD(Any, v).first.node);
+    assert(GET_SERIES_INFO(str, STRING_CANON));
+    return str;
 }
 
 inline static OPT_REBSYM VAL_WORD_SYM(const REBCEL *v) {
     assert(ANY_WORD_KIND(CELL_KIND(v)));
-    return STR_SYMBOL(PAYLOAD(Word, v).spelling);
+    return STR_SYMBOL(STR(PAYLOAD(Any, v).first.node));
 }
 
 inline static REBCTX *VAL_WORD_CONTEXT(const REBVAL *v) {
@@ -81,31 +82,37 @@ inline static REBCTX *VAL_WORD_CONTEXT(const REBVAL *v) {
     REBNOD *binding = VAL_BINDING(v);
     assert(
         GET_SERIES_FLAG(binding, MANAGED)
-        or IS_END(FRM(LINK(binding).keysource)->param) // not fulfilling
+        or IS_END(FRM(LINK(binding).keysource)->param)  // not "fulfilling"
     );
-    binding->header.bits |= NODE_FLAG_MANAGED; // !!! review managing needs
+    binding->header.bits |= NODE_FLAG_MANAGED;  // !!! review managing needs
     return CTX(binding);
 }
+
+#define INIT_WORD_SPELLING(v,str) \
+    (PAYLOAD(Any, (v)).first.node = NOD(str))
+
+#define INIT_WORD_INDEX_UNCHECKED(v,i) \
+    PAYLOAD(Any, (v)).second.i32 = cast(REBINT, i)
 
 inline static void INIT_WORD_INDEX(RELVAL *v, REBCNT i) {
   #if !defined(NDEBUG)
     INIT_WORD_INDEX_Extra_Checks_Debug(v, i); // not inline, needs FRM_PHASE()
   #endif
-    PAYLOAD(Word, v).index = cast(REBINT, i);
+    INIT_WORD_INDEX_UNCHECKED(v, i);
 }
 
 inline static REBCNT VAL_WORD_INDEX(const REBCEL *v) {
     assert(IS_WORD_BOUND(v));
-    REBINT i = PAYLOAD(Word, v).index;
+    REBINT i = PAYLOAD(Any, v).second.i32;
     assert(i > 0);
     return cast(REBCNT, i);
 }
 
 inline static void Unbind_Any_Word(RELVAL *v) {
     INIT_BINDING(v, UNBOUND);
-#if !defined(NDEBUG)
-    PAYLOAD(Word, v).index = 0;
-#endif
+  #if !defined(NDEBUG)
+    INIT_WORD_INDEX_UNCHECKED(v, -1);
+  #endif
 }
 
 inline static REBVAL *Init_Any_Word(
@@ -113,38 +120,29 @@ inline static REBVAL *Init_Any_Word(
     enum Reb_Kind kind,
     REBSTR *spelling
 ){
-    RESET_CELL(out, kind);
-    PAYLOAD(Word, out).spelling = spelling;
+    RESET_CELL_CORE(out, kind, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
+    INIT_WORD_SPELLING(out, spelling);
     INIT_BINDING(out, UNBOUND);
   #if !defined(NDEBUG)
-    PAYLOAD(Word, out).index = 0; // index not heeded if no binding
+    INIT_WORD_INDEX_UNCHECKED(out, -1);  // index not heeded if no binding
   #endif
     return KNOWN(out);
 }
 
-#define Init_Word(out,spelling) \
-    Init_Any_Word((out), REB_WORD, (spelling))
+#define Init_Word(out,str)          Init_Any_Word((out), REB_WORD, (str))
+#define Init_Get_Word(out,str)      Init_Any_Word((out), REB_GET_WORD, (str))
+#define Init_Set_Word(out,str)      Init_Any_Word((out), REB_SET_WORD, (str))
+#define Init_Issue(out,str)         Init_Any_Word((out), REB_ISSUE, (str))
 
-#define Init_Get_Word(out,spelling) \
-    Init_Any_Word((out), REB_GET_WORD, (spelling))
-
-#define Init_Set_Word(out,spelling) \
-    Init_Any_Word((out), REB_SET_WORD, (spelling))
-
-#define Init_Issue(out,spelling) \
-    Init_Any_Word((out), REB_ISSUE, (spelling))
-
-// Initialize an ANY-WORD! type with a binding to a context.
-//
 inline static REBVAL *Init_Any_Word_Bound(
     RELVAL *out,
     enum Reb_Kind type,
     REBSTR *spelling,
     REBCTX *context,
     REBCNT index
-) {
-    RESET_CELL(out, type);
-    PAYLOAD(Word, out).spelling = spelling;
+){
+    RESET_CELL_CORE(out, type, CELL_FLAG_PAYLOAD_FIRST_IS_NODE);
+    INIT_WORD_SPELLING(out, spelling);
     INIT_BINDING(out, context);
     INIT_WORD_INDEX(out, index);
     return KNOWN(out);
@@ -172,16 +170,16 @@ inline static REBSTR* Intern(const void *p)
 {
 #endif
     switch (Detect_Rebol_Pointer(p)) {
-    case DETECTED_AS_UTF8: {
+      case DETECTED_AS_UTF8: {
         const char *utf8 = cast(const char*, p);
         return Intern_UTF8_Managed(cb_cast(utf8), strlen(utf8)); }
 
-    case DETECTED_AS_SERIES: {
+      case DETECTED_AS_SERIES: {
         REBSER *s = m_cast(REBSER*, cast(const REBSER*, p));
         assert(GET_SERIES_FLAG(s, IS_UTF8_STRING));
         return s; }
 
-    case DETECTED_AS_CELL: {
+      case DETECTED_AS_CELL: {
         const REBVAL *v = cast(const REBVAL*, p);
         if (ANY_WORD(v))
             return VAL_WORD_SPELLING(v);
@@ -206,7 +204,7 @@ inline static REBSTR* Intern(const void *p)
         REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, v, VAL_LEN_AT(v));
         return Intern_UTF8_Managed(BIN_AT(temp, offset), size); }
 
-    default:
+      default:
         panic ("Bad pointer type passed to Intern()");
     }
 }

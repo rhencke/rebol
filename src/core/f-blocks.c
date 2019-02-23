@@ -359,7 +359,7 @@ REBARR *Copy_Rerelativized_Array_Deep_Managed(
         }
         else {
             assert(ANY_WORD(src));
-            PAYLOAD(Word, dest) = PAYLOAD(Word, src);
+            PAYLOAD(Any, dest) = PAYLOAD(Any, src);
             INIT_BINDING(dest, after);
         }
 

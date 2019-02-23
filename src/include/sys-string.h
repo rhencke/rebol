@@ -165,6 +165,9 @@ inline static bool SAME_SYM_NONZERO(REBSYM a, REBSYM b) {
 // everything else.
 //
 
+#define STR(p) \
+    SER(p)  // !!! Enhance with more checks, like SER(), NOD(), etc.
+
 inline static const char *STR_HEAD(REBSTR *str) {
     return cs_cast(BIN_HEAD(str));
 }

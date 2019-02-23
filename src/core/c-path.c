@@ -471,9 +471,9 @@ bool Eval_Path_Throws_Core(
             // It's faster to just swap the spellings.  (If binding
             // mattered, we'd need to swap the whole cells).
             //
-            REBSTR *temp = PAYLOAD(Word, bottom).spelling;
-            PAYLOAD(Word, bottom).spelling = PAYLOAD(Word, top).spelling;
-            PAYLOAD(Word, top).spelling = temp;
+            REBSTR *temp = VAL_WORD_SPELLING(bottom);
+            INIT_WORD_SPELLING(bottom, VAL_WORD_SPELLING(top));
+            INIT_WORD_SPELLING(top, temp);
 
             top--;
             bottom++;

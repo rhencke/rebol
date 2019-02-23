@@ -274,7 +274,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
 
                 assert(not IS_WORD_BOUND(ordered)); // we bind only one
                 INIT_BINDING(ordered, varlist);
-                PAYLOAD(Word, ordered).index = index;
+                INIT_WORD_INDEX_UNCHECKED(ordered, index);
 
                 // Wasn't hidden in the incoming paramlist, but it should be
                 // hidden from the user when they are running their code

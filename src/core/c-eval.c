@@ -1019,7 +1019,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                     Init_Issue(DS_PUSH(), partial_canon);
                     INIT_BINDING(DS_TOP, f->varlist);
-                    PAYLOAD(Word, DS_TOP).index = partial_index;
+                    INIT_WORD_INDEX(DS_TOP, partial_index);
 
                     f->refine = SKIPPING_REFINEMENT_ARGS;
                     goto used_refinement;

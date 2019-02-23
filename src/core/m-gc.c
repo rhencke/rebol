@@ -439,7 +439,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
       case REB_SET_WORD:
       case REB_GET_WORD:
       case REB_ISSUE: {
-        REBSTR *spelling = PAYLOAD(Word, v).spelling;
+        REBSTR *spelling = STR(PAYLOAD(Any, v).first.node);
 
         // A word marks the specific spelling it uses, but not the canon
         // value.  That's because if the canon value gets GC'd, then
@@ -462,13 +462,13 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
 
     #if !defined(NDEBUG)
         if (IS_WORD_BOUND(v)) {
-            assert(PAYLOAD(Word, v).index != 0);
+            assert(PAYLOAD(Any, v).second.i32 > 0);
         }
         else {
             // The word is unbound...make sure index is 0 in debug build.
             // (it can be left uninitialized in release builds, for now)
             //
-            assert(PAYLOAD(Word, v).index == 0);
+            assert(PAYLOAD(Any, v).second.i32 == -1);
         }
     #endif
         break; }
