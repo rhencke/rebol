@@ -185,7 +185,7 @@ static bool Subparse_Throws(
     REBARR *opt_collection,
     REBFLGS flags
 ){
-    assert(ANY_SERIES_OR_PATH_KIND(CELL_KIND(VAL_UNESCAPED(input))));
+    assert(ANY_SERIES_KIND(CELL_KIND(VAL_UNESCAPED(input))));
 
     // Since SUBPARSE is a native that the user can call directly, and it
     // is "effectively variadic" reading its instructions inline out of the
@@ -384,7 +384,7 @@ static void Set_Parse_Series(
     //
     Init_Integer(P_NUM_QUOTES_VALUE, VAL_NUM_QUOTES(P_INPUT_VALUE));
     Dequotify(P_INPUT_VALUE);
-    if (not ANY_SERIES_OR_PATH(P_INPUT_VALUE)) // #1263
+    if (not ANY_SERIES(P_INPUT_VALUE)) // #1263
         fail (Error_Parse_Series_Raw(P_INPUT_VALUE));
 
     if (VAL_INDEX(P_INPUT_VALUE) > VAL_LEN_HEAD(P_INPUT_VALUE))
@@ -2138,15 +2138,25 @@ REBNATIVE(subparse)
                         fail (Error_Parse_Rule());
 
                     RELVAL *into = ARR_AT(ARR(P_INPUT), P_POS);
-
-                    if (
-                        IS_END(into)
-                        or (
-                            not ANY_BINSTR(into)
-                            and not ANY_ARRAY_OR_PATH(into)
-                        )
+                    if (IS_END(into)) {
+                        i = END_FLAG;  // `parse [] [into [...]]`, rejects
+                        break;
+                    }
+                    else if (ANY_PATH_KIND(CELL_KIND(VAL_UNESCAPED(into)))) {
+                        //
+                        // Can't PARSE an ANY-PATH! because it has no position
+                        // But would be inconvenient if INTO did not support.
+                        // Transform implicitly into a BLOCK! form.
+                        //
+                        // !!! Review faster way of sharing the AS transform.
+                        //
+                        Derelativize(P_CELL, into, P_INPUT_SPECIFIER);
+                        into = rebRun("as block!", P_CELL, rebEND);
+                    }
+                    else if (
+                        not ANY_SERIES_KIND(CELL_KIND(VAL_UNESCAPED(into)))
                     ){
-                        i = END_FLAG;
+                        i = END_FLAG;  // `parse [1] [into [...]`, rejects
                         break;
                     }
 
@@ -2159,28 +2169,32 @@ REBNATIVE(subparse)
                     bool interrupted;
                     if (Subparse_Throws(
                         &interrupted,
-                        SET_END(P_CELL),
+                        SET_END(P_OUT),
                         into,
-                        P_INPUT_SPECIFIER, // val was taken from P_INPUT
+                        P_INPUT_SPECIFIER,  // harmless if specified API value
                         subrules_feed,
                         P_COLLECTION,
                         P_FIND_FLAGS
-                    )) {
-                        Move_Value(P_OUT, P_CELL);
+                    )){
                         return R_THROWN;
                     }
 
                     // !!! ignore interrupted? (e.g. ACCEPT or REJECT ran)
 
-                    if (IS_NULLED(P_CELL)) {
+                    if (IS_NULLED(P_OUT)) {
                         i = END_FLAG;
                     }
                     else {
-                        if (VAL_UINT32(P_CELL) != VAL_LEN_HEAD(into))
+                        if (VAL_UINT32(P_OUT) != VAL_LEN_HEAD(into))
                             i = END_FLAG;
                         else
                             i = P_POS + 1;
                     }
+
+                    if (Is_Api_Value(into))
+                        rebRelease(KNOWN(into));  // !!! rethink to use P_CELL
+
+                    SET_END(P_OUT);  // restore invariant
                     break;
                 }
 
@@ -2588,15 +2602,24 @@ REBNATIVE(subparse)
 //      return: "null if rules failed, else terminal position of match"
 //          [<opt> any-series! quoted!]
 //      input "Input series to parse"
-//          [<blank> any-series! any-path! quoted!]
+//          [<blank> any-series! quoted!]
 //      rules "Rules to parse by"
 //          [<blank> block!]
 //      /case "Uses case-sensitive comparison"
 //  ]
 //
 REBNATIVE(parse)
+//
+// !!! We currently don't use <dequote> and <requote> so that the parse COPY
+// can persist the type of the input.  This complicates things, but also it
+// may not have been a great change in R3-Alpha in the first place:
+//
+// https://forum.rebol.info/t/1084
 {
     INCLUDE_PARAMS_OF_PARSE;
+
+    if (not ANY_SERIES_KIND(CELL_KIND(VAL_UNESCAPED(ARG(input)))))
+        fail ("PARSE input must be an ANY-SERIES! (use AS BLOCK! for PATH!)");
 
     DECLARE_ARRAY_FEED (rules_feed,
         VAL_ARRAY(ARG(rules)),

@@ -711,7 +711,7 @@ REBTYPE(Bitset)
         }
         else if (not IS_BINARY(arg))
             fail (Error_Math_Args(VAL_TYPE(arg), verb));
-        
+
         if (BITS_NOT(VAL_BITSET(v)))  // !!! see #2365
             fail ("Bitset negation not handled by set operations");
 

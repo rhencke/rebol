@@ -43,6 +43,10 @@ REBOL [
          * more likely to notice the impact, and adjust them.
          *
          * !!! Review how these might be auto-generated from the table.
+         *
+         * !!! This order also relates to TOKEN_XXX types in the tokens table
+         * which lines up at certain points.  Review if the tokens could
+         * actually use types (and pseudotypes) vs. being a separate list.
          */
 
         /*
@@ -61,10 +65,10 @@ REBOL [
          */
 
         #define Is_Bindable(v) \
-            (CELL_KIND_UNCHECKED(v) < REB_LOGIC) /* gets checked elsewhere */
+            (CELL_KIND_UNCHECKED(v) <= REB_PORT) /* gets checked elsewhere */
 
         #define Not_Bindable(v) \
-            (CELL_KIND_UNCHECKED(v) >= REB_LOGIC) /* gets checked elsewhere */
+            (CELL_KIND_UNCHECKED(v) > REB_PORT) /* gets checked elsewhere */
 
         /*
          * Testing for QUOTED! is special, as it isn't just the REB_QUOTED
@@ -84,22 +88,10 @@ REBOL [
             (KIND_BYTE(v) != REB_MAX_NULLED)
 
         inline static bool ANY_SCALAR_KIND(REBYTE k)
-            { return k >= REB_LOGIC and k <= REB_DATE; }
+            { return k >= REB_INTEGER and k <= REB_LOGIC; }
 
         #define ANY_SCALAR(v) \
             ANY_SCALAR_KIND(KIND_BYTE(v))
-
-        inline static bool ANY_SERIES_KIND(REBYTE k)
-           { return k >= REB_GET_GROUP and k <= REB_TAG; }
-
-        #define ANY_SERIES(v) \
-            ANY_SERIES_KIND(KIND_BYTE(v))
-
-        inline static bool ANY_SERIES_OR_PATH_KIND(REBYTE k)
-           { return k >= REB_GET_PATH and k <= REB_TAG; }
-
-        #define ANY_SERIES_OR_PATH(v) \
-            ANY_SERIES_OR_PATH_KIND(KIND_BYTE(v))
 
         inline static bool ANY_STRING_KIND(REBYTE k)
             { return k >= REB_TEXT and k <= REB_TAG; }
@@ -124,6 +116,12 @@ REBOL [
 
         #define ANY_ARRAY(v) \
             ANY_ARRAY_KIND(KIND_BYTE(v))
+
+        inline static bool ANY_SERIES_KIND(REBYTE k)
+           { return ANY_BINSTR_KIND(k) or ANY_ARRAY_KIND(k); }
+
+        #define ANY_SERIES(v) \
+            ANY_SERIES_KIND(KIND_BYTE(v))
 
         /* !!! The ANY-WORD! classification is an odd one, because it's not
          * just WORD!/GET-WORD!/SET-WORD! but includes ISSUE! and REFINEMENT!.
@@ -308,10 +306,9 @@ issue       "identifying marker word"
 
 ; </ANY-WORD>
 
-; <ANY-SERIES>
-;     <ANY-ARRAY>
-;         order matters, contiguous with ANY-SERIES! below matters
-;         + 2 will UNSETIFY_ANY_GET_KIND(), + 1 will UNSETIFY_ANY_SET_KIND()
+; <ANY-ARRAY>
+;     order matters
+;     + 2 will UNSETIFY_ANY_GET_KIND(), + 1 will UNSETIFY_ANY_SET_KIND()
 
 ; ===========================================================================
 ; ANY-PATH!, order matters (contiguous with ANY-ARRAY below matters!)
@@ -326,7 +323,7 @@ path        "refinements to functions, objects, files"
             path        *       *       *       [path]
 
 ; ===========================================================================
-; ANY-ARRAY!, order matters (contiguous with ANY-SERIES below matters!)
+; ANY-ARRAY!, order matters (contiguous with ANY-PATH above matters!)
 
 get-group   "array that evaluates and runs GET on the resulting word/path"
             array       *       *       *       [group array series]
@@ -352,37 +349,11 @@ set-block   "array of values that will element-wise SET if evaluated"
 block       "array of values that blocks evaluation unless DO is used"
             array       *       *       *       [block array series]
 
-;     </ANY-ARRAY>
+; </ANY-ARRAY>
 ;
-;     (...we continue along in order with more ANY-SERIES! types...)
-;
-;     <ANY-STRING>
-;         order matters, and contiguous with ANY-ARRAY! above matters
-
-binary      "string series of bytes"
-            string      *       *       +       [series]
-
-text        "text string series of characters"
-            string      *       *       *       [series string]
-
-file        "file name or path"
-            string      *       *       *       [series string]
-
-email       "email address"
-            string      *       *       *       [series string]
-
-url         "uniform resource locator or identifier"
-            string      *       *       *       [series string]
-
-tag         "markup string (HTML or XML)"
-            string      *       *       *       [series string]
-
-;     </ANY-STRING>
-;
-;     (...we continue along in order with more ANY-SERIES! types...)
-
-map         "name-value pairs (hash associative)"
-            map         +       +       +       []
+; !!! ANY-SERIES is discontiguous here, because having a cheap test for if
+; something is evaluative or bindable has more performance consequence.
+; Review if all can be done.
 
 varargs     "evaluator position for variable numbers of arguments"
             varargs     +       +       +       []
@@ -406,10 +377,68 @@ port        "external series, an I/O channel"
 ; END BINDABLE TYPES - SEE Not_Bindable() - Reb_Value.extra USED FOR WHATEVER
 ; ============================================================================
 
-; <ANY-SCALAR>
+; <ANY-STRING>
+;     order does not currently matter
 
-logic       "boolean true or false"
-            logic       -       +       +       []
+binary      "string series of bytes"
+            string      *       *       +       [series]
+
+text        "text string series of characters"
+            string      *       *       *       [series string]
+
+file        "file name or path"
+            string      *       *       *       [series string]
+
+email       "email address"
+            string      *       *       *       [series string]
+
+url         "uniform resource locator or identifier"
+            string      *       *       *       [series string]
+
+tag         "markup string (HTML or XML)"
+            string      *       *       *       [series string]
+
+; </ANY-STRING>
+
+datatype    "type of datatype"
+            datatype    -       +       +       []
+
+typeset     "set of datatypes"
+            typeset     -       +       +       []
+
+bitset      "set of bit flags"
+            bitset      +       +       +       []
+
+map         "name-value pairs (hash associative)"
+            map         +       +       +       []
+
+handle      "arbitrary internal object or value"
+            handle      -       -       +       []
+
+library     "external library reference"
+            library     -       +       +       []
+
+; !!! This table of fundamental types is intended to be limited (less than
+; 64 entries) so extension types need another mechanism.  The cells will run
+; out of bits--perhaps it could be mandated that ->extra becomes the type
+; and there is a single "utype!"
+
+gob         "graphical object"
+            ?           ?       ?       ?       []
+
+event       "user interface event (efficiently sized)"
+            ?           ?       ?       ?       []
+
+struct      "native structure definition"
+            ?           ?       ?       ?       []
+
+image       "RGB image with alpha channel"  ; %src/extensions/image/README.md
+            ?           ?       ?       ?       []
+
+vector      "compact scalar array"  ; %src/extensions/vector/README.md
+            ?           ?       ?       ?       []
+
+; <ANY-SCALAR>
 
 integer     "64 bit integer"
             integer     -       +       +       [number scalar]
@@ -438,41 +467,10 @@ time        "time of day or duration"
 date        "day, month, year, time of day, and timezone"
             date        +       +       +       []
 
+logic       "boolean true or false"
+            logic       -       +       +       []
+
 ; </ANY_SCALAR>
-
-; type system
-
-datatype    "type of datatype"
-            datatype    -       +       +       []
-
-typeset     "set of datatypes"
-            typeset     -       +       +       []
-
-bitset      "set of bit flags"
-            bitset      +       +       +       []
-
-; things likely to become user-defined types or extensions
-
-gob         "graphical object"
-            ?           ?       ?       ?       []
-
-event       "user interface event (efficiently sized)"
-            ?           ?       ?       ?       []
-
-handle      "arbitrary internal object or value"
-            handle      -       -       +       []
-
-struct      "native structure definition"
-            ?           ?       ?       ?       []
-
-image       "RGB image with alpha channel"  ; %src/extensions/image/README.md
-            ?           ?       ?       ?       []
-
-vector      "compact scalar array"  ; %src/extensions/vector/README.md
-            ?           ?       ?       ?       []
-
-library     "external library reference"
-            library     -       +       +       []
 
 ; ===========================================================================
 ; "unit types" https://en.wikipedia.org/wiki/Unit_type

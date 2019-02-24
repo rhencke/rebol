@@ -119,23 +119,6 @@
     parse a-value [b-value: end]
     strict-equal? a-value b-value
 )]
-; symmetry
-(
-    a-value: first [()]
-    parse a-value [b-value: end]
-    equal? strict-equal? a-value b-value strict-equal? b-value a-value
-)
-[#1068 #1066 (
-    a-value: 'a/b
-    parse a-value [b-value: end]
-    strict-equal? :a-value :b-value
-)]
-; symmetry
-(
-    a-value: 'a/b
-    parse a-value [b-value: end]
-    equal? strict-equal? :a-value :b-value strict-equal? :b-value :a-value
-)
 (not strict-equal? any-number! integer!)
 ; symmetry
 (equal? strict-equal? any-number! integer! strict-equal? integer! any-number!)

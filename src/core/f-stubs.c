@@ -307,7 +307,10 @@ REBVAL *Init_Any_Series_At_Core(
     RESET_CELL(out, type, CELL_FLAG_FIRST_IS_NODE);
     INIT_VAL_NODE(out, s);
     VAL_INDEX(out) = index;
-    INIT_BINDING(out, binding);
+    if (ANY_ARRAY_KIND(type))
+        INIT_BINDING(out, binding);
+    else
+        assert(binding == UNBOUND);
 
   #if !defined(NDEBUG)
     if (ANY_STRING_KIND(type)) {

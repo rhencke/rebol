@@ -554,7 +554,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
         REBSER *s = SER(PAYLOAD(Any, v).first.node);
         assert(SER_WIDE(s) <= sizeof(REBUNI));
-        assert(not EXTRA(Binding, v).node); // for future use
 
         if (GET_SERIES_INFO(s, INACCESSIBLE)) {
             //
