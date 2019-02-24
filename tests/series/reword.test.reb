@@ -1,0 +1,26 @@
+; REWORD
+; See https://stackoverflow.com/q/14924801/
+
+("This is that." = reword "$1 is $2." [1 "This" 2 "that"])
+
+("A fox is brown." = reword/escape "A %%a is %%b." [a "fox" b "brown"] "%%")
+
+(
+    "BrianH is answering Adrian." = reword/escape "I am answering you." [
+        "I am" "BrianH is"
+        you "Adrian"
+    ] blank
+)(
+    "Hello is Goodbye" = reword/escape "$$$a$$$ is $$$b$$$" [
+       a Hello
+       b Goodbye
+    ] ["$$$" "$$$"]
+)
+
+; Functions can optionally take the keyword being replaced
+(
+    "zero is one-B" = reword "$A is $B" reduce [
+        "A" func [] ["zero"]
+        "B" func [w] [join "one-" w]
+    ]
+)

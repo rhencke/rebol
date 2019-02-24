@@ -189,20 +189,16 @@ replace: function [
 
 
 reword: function [
-    "Make a string or binary based on a template and substitution values."
+    {Make a string or binary based on a template and substitution values}
 
-    source [any-string! binary!]
-        "Template series with escape sequences"
-    values [map! object! block!]
-        "Keyword literals and value expressions"
-    /case
-        "Characters are case-sensitive"  ;!!! Note CASE is redefined in here!
-    /escape
-        "Choose your own escape char(s) or [prefix suffix] delimiters"
-    delimiters [blank! char! any-string! word! binary! block!]
-        {Default "$"}
-        ; Note: since blank is being taken deliberately, it's not possible
-        ; to use the defaulting feature, e.g. ()
+    source "Template series with escape sequences"
+        [any-string! binary!]
+    values "Keyword literals and value expressions"
+        [map! object! block!]
+    /case "Characters are case-sensitive"
+    /escape "Choose your own escape char(s) or [prefix suffix] delimiters"
+    delimiters "Default is $"
+        [blank! char! any-string! word! binary! block!]
 
     <static>
 
@@ -241,7 +237,7 @@ reword: function [
     ; To be used in a parse rule, words must be turned into strings, though
     ; it would be nice if they didn't have to be, e.g.
     ;
-    ;     parse "abc" [lit abc] => true
+    ;     parse "abc" ['abc] => true
     ;
     ; Integers have to be converted also.
     ;
@@ -258,18 +254,20 @@ reword: function [
         values: make map! values
     ]
 
-    ; The keyword matching rule is a series of [OR'd | clauses], where each
-    ; clause has GROUP! code in it to remember which keyword matched, which
-    ; it stores in this variable.  It's necessary to know the exact form of
-    ; the matched keyword in order to look it up in the values MAP!, as trying
-    ; to figure this out based on copying data out of the source series would
-    ; need to do a lot of reverse-engineering of the types.
+    ; We match strings generated from the keywords, but need to know what
+    ; generated the strings to look them up in the map.  Hence we build a rule
+    ; that will look something like:
     ;
-    keyword-match: _
-
+    ; [
+    ;     "keyword1" (keyword-match: lit keyword1)
+    ;     | "keyword2" (keyword-match: lit keyword2)
+    ;     | fail
+    ; ]
+    ;
     ; Note that the enclosing rule has to account for `prefix` and `suffix`,
-    ; this just matches the keywords themselves, setting `match` if one did.
+    ; this just matches the keywords, setting `keyword-match` if one did.
     ;
+    keyword-match: _  ; variable that gets set by rule
     any-keyword-rule: collect [
         for-each [keyword value] values [
             if not match keyword-types keyword [
@@ -277,106 +275,56 @@ reword: function [
             ]
 
             keep reduce [
-                ; Rule for matching the keyword in the PARSE.  Although it
-                ; is legal to search for BINARY! in ANY-STRING! and vice
-                ; versa due to UTF-8 conversion, keywords can also be WORD!,
-                ; and neither `parse "abc" [abc]` nor `parse "abc" ['abc]`
-                ; will work...so the keyword must be string converted for
-                ; the purposes of this rule.
-                ;
                 if match [integer! word!] keyword [
-                    to-text keyword
+                    to-text keyword  ; `parse "a1" ['a '1]` illegal for now
                 ] else [
                     keyword
                 ]
 
-                ; GROUP! execution code for remembering which keyword matched.
-                ; We want the actual keyword as-is in the MAP! key, not any
-                ; variation modified to
-                ;
-                ; Note also that getting to this point doesn't mean a full
-                ; match necessarily happened, as the enclosing rule may have
-                ; a `suffix` left to take into account.
-                ;
                 compose lit (keyword-match: lit (keyword))
             ]
 
-            keep [
-                |
-            ]
+            keep/line '|
         ]
-        keep 'fail ;-- add failure if no match, instead of removing last |
+        keep 'false  ; add failure if no match, instead of removing last |
     ]
 
-    ; Note that `any-keyword-rule` will look something like:
-    ;
-    ; [
-    ;     "keyword1" (keyword-match: lit keyword1)
-    ;     | "keyword2" (keyword-match: lit keyword2)
-    ;     | fail
-    ; ]
-
     rule: [
-        ; Begin marking text to copy verbatim to output
-        a:
-
+        a:  ; Begin marking text to copy verbatim to output
         any [
-            ; Seek to the prefix.  Note that the prefix may be BLANK!, in
-            ; which case this is a no-op.
-            ;
-            to prefix
-
-            ; End marking text to copy verbatim to output
-            b:
-
-            ; Consume the prefix (again, this could be a no-op, which means
-            ; there's no guarantee we'll be at the start of a match for
-            ; an `any-keyword-rule`
-            ;
-            prefix
-
+            to prefix  ; seek to prefix (may be blank!, this could be a no-op)
+            b:  ; End marking text to copy verbatim to output
+            prefix  ; consume prefix (if no-op, may not be at start of match)
             [
                 [
                     any-keyword-rule suffix (
-                        ;
-                        ; Output any leading text before the prefix was seen
-                        ;
-                        append/part out a b
+                        append/part out a b  ; output text from before prefix
 
-                        v: select/(try if case_REWORD [/case]) values keyword-match
-                        append out case [
-                            action? :v [v :keyword-match]
-                            block? :v [do :v]
+                        v: select/(case_REWORD) values keyword-match
+                        append out switch type of :v [
+                            action! [
+                                ; Give v the option of taking an argument, but
+                                ; if it does not, evaluate to arity-0 result.
+                                ;
+                                (result: v :keyword-match)
+                                :result
+                            ]
+                            block! [do :v]
                             default [:v]
                         ]
                     )
-
-                    ; Restart mark of text to copy verbatim to output
-                    a:
+                    a:  ; Restart mark of text to copy verbatim to output
                 ]
                     |
-                ; Because we might not be at the head of an any-keyword rule
-                ; failure to find a match at this point needs to SKIP to keep
-                ; the ANY rule scanning forward.
-                ;
-                skip
+                skip  ; if wasn't at match, keep the ANY rule scanning ahead
             ]
         ]
-
-        ; Seek to end, just so rule succeeds
-        ;
-        to end
-
-        ; Finalize the output, such that any remainder is transferred verbatim
-        ;
-        (append out a)
+        to end  ; Seek to end, just so rule succeeds
+        (append out a)  ; finalize output - transfer any remainder verbatim
     ]
 
-    parse/(try if case_REWORD [/case]) source rule else [
-        fail "Unexpected error in REWORD's parse rule, should not happen."
-    ]
-
-    out
+    parse/(case_REWORD) source rule else [fail]  ; should succeed
+    return out
 ]
 
 
