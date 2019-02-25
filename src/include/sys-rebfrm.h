@@ -268,9 +268,13 @@ STATIC_ASSERT(EVAL_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 #define EVAL_FLAG_PATH_HARD_QUOTE       EVAL_FLAG_21
 
 
-//=//// EVAL_FLAG_22 //////////////////////////////////////////////////////=//
+//=//// EVAL_FLAG_INERT_OPTIMIZATION //////////////////////////////////////=//
 //
-#define EVAL_FLAG_22 \
+// If EVAL_FLAG_POST_SWITCH is being used due to an inert optimization, this
+// flag is set, so that the quoting machinery can realize the lookback quote
+// is not actually too late.
+//
+#define EVAL_FLAG_INERT_OPTIMIZATION \
     FLAG_LEFT_BIT(22)
 
 

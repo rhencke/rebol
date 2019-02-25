@@ -714,7 +714,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         GET_ACTION_FLAG(VAL_ACTION(*next_gotten), POSTPONES_ENTIRELY)
         or (
             GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)
-            and (kind.byte != REB_SET_WORD and kind.byte != REB_SET_PATH)
+            and not ANY_SET_KIND(kind.byte)  // not SET-WORD!, SET-PATH!, etc.
         )
     ){
         // !!! cache this test?
@@ -2676,7 +2676,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 goto finished;
             }
         }
-        else
+        else if (NOT_EVAL_FLAG(f, INERT_OPTIMIZATION))
             goto lookback_quote_too_late;
     }
 

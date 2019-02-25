@@ -857,20 +857,22 @@ inline static const RELVAL *Fetch_Next_In_Feed(
     ((void)Fetch_Next_In_Feed(FRM(f)->feed, false))
 
 
-inline static void Literal_Next_In_Frame(REBVAL *dest, REBFRM *f) {
-    Derelativize(dest, f->feed->value, f->feed->specifier);
-    SET_CELL_FLAG(dest, UNEVALUATED);
+inline static void Literal_Next_In_Feed(REBVAL *out, struct Reb_Feed *feed) {
+    Derelativize(out, feed->value, feed->specifier);
+    SET_CELL_FLAG(out, UNEVALUATED);
 
     // SEE ALSO: The `inert:` branch in %c-eval.c, which is similar.  We
     // want `loop 2 [append '(a b c) 'd]` to be an error, which means the
     // quoting has to get the const flag from the frame if intended.
     //
-    if (not GET_CELL_FLAG(f->feed->value, EXPLICITLY_MUTABLE))
-        dest->header.bits |= (f->feed->flags.bits & FEED_FLAG_CONST);
+    if (not GET_CELL_FLAG(feed->value, EXPLICITLY_MUTABLE))
+        out->header.bits |= (feed->flags.bits & FEED_FLAG_CONST);
 
-    Fetch_Next_Forget_Lookback(f);
+    (void)(Fetch_Next_In_Feed(feed, false));
 }
 
+#define Literal_Next_In_Frame(out,f) \
+    Literal_Next_In_Feed((out), (f)->feed)
 
 inline static void Abort_Frame(REBFRM *f) {
     if (f->varlist and NOT_SERIES_FLAG(f->varlist, MANAGED))

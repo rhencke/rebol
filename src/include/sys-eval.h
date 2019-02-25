@@ -44,20 +44,94 @@
 // va_list or series representing the arguments.)  This avoids the cost and
 // complexity of allocating a series to combine the values together.
 //
-// These features alone would not cover the case when REBVAL pointers that
-// are originating with C source were intended to be supplied to a function
-// with no evaluation.  In R3-Alpha, the only way in an evaluative context
-// to suppress such evaluations would be by adding elements (such as QUOTE).
-// Besides the cost and labor of inserting these, the risk is that the
-// intended functions to be called without evaluation, if they quoted
-// arguments would then receive the QUOTE instead of the arguments.
+
+
+// Even though ANY_INERT() is a quick test, you can't skip the cost of frame
+// processing due to enfix.  But a feed only looks ahead one unit at a time,
+// so advancing the frame past an inert item to find an enfix function means
+// you have to enter the frame specially with EVAL_FLAG_POST_SWITCH.
 //
-// The problem was solved by adding a feature to the evaluator which was
-// also opened up as a new privileged native called EVAL.  EVAL's refinements
-// completely encompass evaluation possibilities in R3-Alpha, but it was also
-// necessary to consider cases where a value was intended to be provided
-// *without* evaluation.  This introduced EVAL/ONLY.
-//
+inline static bool Did_Inert_Optimization(
+    REBVAL *out,
+    struct Reb_Feed *feed,
+    REBFLGS *flags
+){
+    assert(not (*flags & EVAL_FLAG_TO_END));  // needs multiple steps
+    assert(not (*flags & EVAL_FLAG_POST_SWITCH));  // we might set it
+    assert(not IS_END(feed->value));  // would be wasting time to call
+
+    if (not ANY_INERT(feed->value))
+        return false;  // general case evaluation requires a frame
+
+    if (PG_Eval_Throws != &Eval_Core_Throws)
+        return false;  // don't want to subvert tracing or other hooks
+
+    Literal_Next_In_Feed(out, feed);
+
+    if (KIND_BYTE_UNCHECKED(feed->value) == REB_WORD) {
+        feed->gotten = Try_Get_Opt_Var(feed->value, feed->specifier);
+        if (not feed->gotten or NOT_CELL_FLAG(feed->gotten, ENFIXED)) {
+            CLEAR_FEED_FLAG(feed, NO_LOOKAHEAD);
+            return true;  // not enfixed
+        }
+
+        REBACT *action = VAL_ACTION(feed->gotten);
+        if (GET_ACTION_FLAG(action, QUOTES_FIRST)) {
+            //
+            // Quoting defeats NO_LOOKAHEAD but only on soft quotes.
+            //
+            if (NOT_FEED_FLAG(feed, NO_LOOKAHEAD)) {
+                *flags |= EVAL_FLAG_POST_SWITCH | EVAL_FLAG_INERT_OPTIMIZATION;
+                return false;
+            }
+
+            CLEAR_FEED_FLAG(feed, NO_LOOKAHEAD);
+
+            REBVAL *first = First_Unspecialized_Param(action);  // cache test?
+            if (VAL_PARAM_CLASS(first) == REB_P_SOFT_QUOTE)
+                return true;  // don't look back, yield the lookahead
+
+            *flags |= EVAL_FLAG_POST_SWITCH | EVAL_FLAG_INERT_OPTIMIZATION;
+            return false;
+        }
+
+        if (GET_FEED_FLAG(feed, NO_LOOKAHEAD)) {
+            CLEAR_FEED_FLAG(feed, NO_LOOKAHEAD);
+            return true;   // we're done!
+        }
+
+        // EVAL_FLAG_POST_SWITCH assumes that if the first arg were quoted and
+        // skippable, that the skip check has already been done.  So we have
+        // to do that check here.
+        //
+        if (GET_ACTION_FLAG(action, SKIPPABLE_FIRST)) {
+            REBVAL *first = First_Unspecialized_Param(action);
+            if (not TYPE_CHECK(first, KIND_BYTE(out)))
+                return true;  // didn't actually want this parameter type
+        }
+
+        *flags |= EVAL_FLAG_POST_SWITCH | EVAL_FLAG_INERT_OPTIMIZATION;
+        return false;  // do normal enfix handling
+    }
+
+    if (GET_FEED_FLAG(feed, NO_LOOKAHEAD)) {
+        CLEAR_FEED_FLAG(feed, NO_LOOKAHEAD);
+        return true;   // we're done!
+    }
+
+    if (KIND_BYTE_UNCHECKED(feed->value) != REB_PATH)
+        return true;  // paths do enfix processing if '/'
+
+    if (
+        KIND_BYTE(ARR_AT(VAL_ARRAY(feed->value), 0)) == REB_BLANK
+        and KIND_BYTE(ARR_AT(VAL_ARRAY(feed->value), 1)) == REB_BLANK
+    ){
+        *flags |= EVAL_FLAG_POST_SWITCH | EVAL_FLAG_INERT_OPTIMIZATION;
+        return false;  // Let evaluator handle `/`
+    }
+
+    return true;
+}
 
 
 // This is a very light wrapper over Eval_Core_Throws(), which is used with
@@ -70,6 +144,9 @@ inline static bool Eval_Step_Throws(REBVAL *out, REBFRM *f) {
     assert(NOT_EVAL_FLAG(f, TO_END));
     assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
     assert(NOT_FEED_FLAG(f->feed, BARRIER_HIT));
+
+    if (Did_Inert_Optimization(out, f->feed, &f->flags.bits))
+        return false;
 
     f->out = out;
     f->dsp_orig = DSP;
@@ -93,6 +170,9 @@ inline static bool Eval_Step_Maybe_Stale_Throws(
     assert(NOT_EVAL_FLAG(f, TO_END));
     assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
     assert(NOT_FEED_FLAG(f->feed, BARRIER_HIT));
+
+    if (Did_Inert_Optimization(out, f->feed, &f->flags.bits))
+        return false;
 
     f->out = out;
     f->dsp_orig = DSP;
@@ -147,7 +227,8 @@ inline static bool Eval_Step_In_Subframe_Throws(
     REBFRM *f,
     REBFLGS flags
 ){
-    assert(not IS_END(f->feed->value));  // would be wasting time to call
+    if (Did_Inert_Optimization(out, f->feed, &flags))
+        return false;  // ANY_INERT() might be handled without a frame
 
     DECLARE_FRAME(subframe, f->feed, flags);
 
