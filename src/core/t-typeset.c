@@ -166,7 +166,7 @@ bool Add_Typeset_Bits_Core(
                 // !!! Review if this makes sense to allow with MAKE TYPESET!
                 // instead of just function specs.
                 //
-                TYPE_SET(typeset, REB_MAX_NULLED);
+                TYPE_SET(typeset, REB_NULLED);
             }
             else if (0 == Compare_String_Vals(item, Root_Skip_Tag, true)) {
                 if (VAL_PARAM_CLASS(typeset) != REB_P_HARD_QUOTE)
@@ -284,9 +284,9 @@ REBARR *Typeset_To_Array(const REBVAL *tset)
     REBDSP dsp_orig = DSP;
 
     REBINT n;
-    for (n = 1; n < REB_MAX_NULLED; ++n) {
+    for (n = 1; n < REB_MAX; ++n) {
         if (TYPE_CHECK(tset, cast(enum Reb_Kind, n))) {
-            if (n == REB_MAX_NULLED) {
+            if (n == REB_NULLED) {
                 //
                 // !!! A BLANK! value is currently supported in typesets to
                 // indicate that they take optional values.  This may wind up
@@ -323,7 +323,7 @@ void MF_Typeset(REB_MOLD *mo, const REBCEL *v, bool form)
     if (TYPE_CHECK(v, REB_0_END))
         Emit(mo, "<end> ");
 
-    if (TYPE_CHECK(v, REB_MAX_NULLED))
+    if (TYPE_CHECK(v, REB_NULLED))
         Emit(mo, "<opt> ");
 
     // !!! What about REB_TS_SKIPPABLE and other parameter properties, that

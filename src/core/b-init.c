@@ -236,24 +236,33 @@ static void Startup_Sys(REBARR *boot_sys) {
 //
 static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
 {
-    if (ARR_LEN(boot_types) != REB_MAX - 1)
-        panic (boot_types); // Every REB_XXX but REB_0 should have a WORD!
+    if (ARR_LEN(boot_types) != REB_MAX - 2)  // exclude REB_0_END, REB_NULLED
+        panic (boot_types);  // every other type should have a WORD!
 
     RELVAL *word = ARR_HEAD(boot_types);
 
-    if (VAL_WORD_SYM(word) != SYM_QUOTED_X)
-        panic (word); // First type should be QUOTED!
+    if (VAL_WORD_SYM(word) != SYM_VOID_X)
+        panic (word);  // First "real" type should be VOID!
 
-    REBARR *catalog = Make_Array(REB_MAX - 1);
+    REBARR *catalog = Make_Array(REB_MAX - 2);
+
+    // Put a nulled cell in position [1], just to have something there (the
+    // 0 slot is reserved in contexts, so there's no worry about filling space
+    // to line up with REB_0_END).  Note this is different from NULL the
+    // native, which generates a null (since you'd have to type :NULLED to
+    // get a null value, which is awkward).
+    //
+    REBVAL *nulled = Append_Context(Lib_Context, nullptr, Canon(SYM_NULLED));
+    Init_Nulled(nulled);
 
     REBINT n;
-    for (n = 1; NOT_END(word); word++, n++) {
+    for (n = 2; NOT_END(word); word++, n++) {
         assert(n < REB_MAX);
 
         REBVAL *value = Append_Context(Lib_Context, KNOWN(word), NULL);
         RESET_CELL(value, REB_DATATYPE, CELL_MASK_NONE);
         VAL_TYPE_KIND(value) = cast(enum Reb_Kind, n);
-        VAL_TYPE_SPEC(value) = VAL_ARRAY(ARR_AT(boot_typespecs, n - 1));
+        VAL_TYPE_SPEC(value) = VAL_ARRAY(ARR_AT(boot_typespecs, n - 2));
 
         // !!! The system depends on these definitions, as they are used by
         // Get_Type and Type_Of.  Lock it for safety...though consider an

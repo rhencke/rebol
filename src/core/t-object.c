@@ -646,7 +646,7 @@ void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
     REBVAL *key = CTX_KEYS_HEAD(c);
     REBVAL *var = CTX_VARS_HEAD(VAL_CONTEXT(v));
 
-    for (; NOT_END(key); var ? (++key, ++var) : ++key) {
+    for (; NOT_END(key); ++key, ++var) {
         if (Is_Param_Hidden(key))
             continue;
 
@@ -656,17 +656,14 @@ void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
         Append_Utf8_Utf8(s, STR_HEAD(spelling), STR_SIZE(spelling));
 
         Append_Unencoded(s, ": ");
-        if (not ANY_INERT(var))
-            Append_Unencoded(s, "'"); // need quoting for non-inert values
 
-        if (not var) { // !!! is this branch still active?
-            Append_Unencoded(s, ": --optimized out--");
-        }
-        else if (IS_NULLED(var)) { // no mold defined for null
-            // Just allowing plain `field: '` will null the field.
-        }
-        else
+        if (IS_NULLED(var))
+            Append_Unencoded(s, "'");  // `field: '` would evaluate to null
+        else {
+            if (IS_VOID(var) or not ANY_INERT(var))  // needs quoting
+                Append_Unencoded(s, "'");
             Mold_Value(mo, var);
+        }
     }
 
     mo->indent--;

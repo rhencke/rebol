@@ -266,7 +266,7 @@ inline static void Finalize_Arg(REBFRM *f) {
         or IS_REFINEMENT(f->refine) // ensure arg not null
     );
 
-    if (kind_byte == REB_MAX_NULLED) {
+    if (kind_byte == REB_NULLED) {
         if (IS_REFINEMENT(f->refine)) {
             Revoke_Refinement_Arg(f);
             return; // don't check for optionality, refinement args always are
@@ -330,7 +330,7 @@ inline static void Finalize_Arg(REBFRM *f) {
         // then a returned null should duck the requote.
         //
         f->requotes += VAL_NUM_QUOTES(f->arg);
-        if (CELL_KIND(VAL_UNESCAPED(f->arg)) == REB_MAX_NULLED)
+        if (CELL_KIND(VAL_UNESCAPED(f->arg)) == REB_NULLED)
             SET_EVAL_FLAG(f, REQUOTE_NULL);
 
         Dequotify(f->arg);
@@ -809,21 +809,35 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
-// [QUOTED!] (at 4 or more levels of escaping)
+// [NULL]
 //
-// This is the form of literal that's too escaped to just overlay in the cell
-// by using a higher kind byte.  See the `default:` case in this switch for
-// handling of the more compact forms, that are much more common.
+// Since nulled cells can't be in BLOCK!s, the evaluator shouldn't usually see
+// them.  Plus the API quotes spliced values, so `rebRun("null?", nullptr)`
+// gets a QUOTED! that evaluates to null--it's not a null being evaluated.
 //
-// (Highly escaped literals should be rare, but for completeness you need to
-// be able to escape any value, including any escaped one...!)
+// But one way the evaluator can see NULL is EVAL, such as `eval first []`.
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-      case REB_QUOTED: {
-        Derelativize(f->out, v, *specifier);
-        Unquotify(f->out, 1); // take off one level of quoting
-        break; }
+      case REB_NULLED:
+        fail (Error_Evaluate_Null_Raw());
+
+//==//////////////////////////////////////////////////////////////////////==//
+//
+// [VOID!]
+//
+// "A void! is a means of giving a hot potato back that is a warning about
+//  something, but you don't want to force an error 'in the moment'...in case
+//  the returned information wasn't going to be used anyway."
+//
+// https://forum.rebol.info/t/947
+//
+// If we get here, the evaluator is actually seeing it, and it's time to fail.
+//
+//==//////////////////////////////////////////////////////////////////////==//
+
+      case REB_VOID:
+        fail ("VOID! cells cannot be evaluated");
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
@@ -1870,7 +1884,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         //
         if (GET_ACTION_FLAG(f->original, RETURN_REQUOTES)) {
             if (
-                KIND_BYTE_UNCHECKED(f->out) != REB_MAX_NULLED
+                KIND_BYTE_UNCHECKED(f->out) != REB_NULLED
                 or GET_EVAL_FLAG(f, REQUOTE_NULL)
             ){
                 Quotify(f->out, f->requotes);
@@ -2425,40 +2439,21 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
-// [VOID!]
+// [QUOTED!] (at 4 or more levels of escaping)
 //
-// "A void! is a means of giving a hot potato back that is a warning about
-//  something, but you don't want to force an error 'in the moment'...in case
-//  the returned information wasn't going to be used anyway."
+// This is the form of literal that's too escaped to just overlay in the cell
+// by using a higher kind byte.  See the `default:` case in this switch for
+// handling of the more compact forms, that are much more common.
 //
-// https://forum.rebol.info/t/947
-//
-// If we get here, the evaluator is actually seeing it, and it's time to fail.
-//
-//==//////////////////////////////////////////////////////////////////////==//
-
-      case REB_VOID:
-        fail ("VOID! cells cannot be evaluated");
-
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [NULL]
-//
-// NULLs are not an ANY-VALUE!.  Usually a DO shouldn't be able to see them.
-// An exception is in API calls, such as `rebRun("null?", some_null)`.  That
-// is legal due to CELL_FLAG_EVAL_FLIP, which avoids "double evaluation",
-// and is used by the API when constructing runs of values from C va_args.
-//
-// Another way the evaluator can see NULL is EVAL, such as `eval first []`.
-// An error is given there, for consistency:
-//
-//     :foo/bar => pick foo 'bar (null if not present)
-//     foo/bar => eval :foo/bar (should be an error if not present)
+// (Highly escaped literals should be rare, but for completeness you need to
+// be able to escape any value, including any escaped one...!)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-      case REB_MAX_NULLED:
-        fail (Error_Evaluate_Null_Raw());
+      case REB_QUOTED:
+        Derelativize(f->out, v, *specifier);
+        Unquotify(f->out, 1);  // take off one level of quoting
+        break;
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
@@ -2472,7 +2467,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
       default:
         Derelativize(f->out, v, *specifier);
-        Unquotify_In_Situ(f->out, 1); // checks for illegal REB_XXX bytes
+        Unquotify_In_Situ(f->out, 1);  // checks for illegal REB_XXX bytes
         break;
     }
 

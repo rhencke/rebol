@@ -119,7 +119,7 @@ REBARR *Copy_Values_Len_Extra_Shallow_Core(
     const RELVAL *src = head;
     RELVAL *dest = ARR_HEAD(a);
     for (; count < len; ++count, ++src, ++dest) {
-        if (KIND_BYTE(src) == REB_MAX_NULLED)
+        if (KIND_BYTE(src) == REB_NULLED)
             assert(flags & ARRAY_FLAG_NULLEDS_LEGAL);
 
         Derelativize(dest, src, specifier);

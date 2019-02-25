@@ -315,15 +315,12 @@ void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
         assert(Is_Evaluator_Throwing_Debug() or IS_END(*next));
 
     // We'd like `do [1 + comment "foo"]` to act identically to `do [1 +]`
-    // (as opposed to `do [1 + ()]`).  Eval_Core_Throws() thus distinguishes
-    // an END for a fully "invisible" evaluation, as opposed to void.  This
-    // distinction is only offered internally, at the moment.
+    // Eval_Core_Throws() thus distinguishes an END for a fully "invisible"
+    // evaluation, as opposed to void.  This distinction is internal and not
+    // exposed to the user, at the moment.
     //
     if (NOT_END(f->out))
-        assert(
-            Is_Evaluator_Throwing_Debug()
-            or VAL_TYPE(f->out) <= REB_MAX_NULLED
-        );
+        assert(Is_Evaluator_Throwing_Debug() or VAL_TYPE(f->out) < REB_MAX);
 }
 
 #endif

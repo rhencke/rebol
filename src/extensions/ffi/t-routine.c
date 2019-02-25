@@ -36,7 +36,7 @@ static struct {
     REBSYM sym,
     uintptr_t bits
 } syms_to_typesets[] = {
-    {SYM_VOID, FLAGIT_KIND(REB_MAX_NULLED)},
+    {SYM_VOID, FLAGIT_KIND(REB_VOID)},
     {SYM_UINT8, FLAGIT_KIND(REB_INTEGER)},
     {SYM_INT8, FLAGIT_KIND(REB_INTEGER)},
     {SYM_UINT16, FLAGIT_KIND(REB_INTEGER)},

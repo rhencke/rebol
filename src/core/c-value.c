@@ -57,9 +57,9 @@ ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
     REBNOD *containing = Try_Find_Containing_Node_Debug(v);
 
     switch (KIND_BYTE_UNCHECKED(v)) {
-      case REB_MAX_NULLED:
+      case REB_NULLED:
+      case REB_VOID:
       case REB_BLANK:
-      case REB_LOGIC:
       #if defined(DEBUG_TRACK_CELLS)
         printf("REBVAL init ");
 

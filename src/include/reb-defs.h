@@ -55,6 +55,7 @@ typedef unsigned char REBYTE; // don't change to uint8_t, see note
 // from a table and the numbers should not be exported to clients.
 //
 #include "tmp-kinds.h"
+#include "sys-ordered.h"  // shuffling types *must* consider these macros!
 
 
 //=//// REBOL NUMERIC TYPES ("REBXXX") ////////////////////////////////////=//

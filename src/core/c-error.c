@@ -1307,7 +1307,7 @@ REBCTX *Error_Arg_Type(
         // it's confusing to say that the original function didn't take that
         // type--it was on its interface.  A different message is needed.
         //
-        if (actual == REB_MAX_NULLED)
+        if (actual == REB_NULLED)
             return Error_Phase_No_Arg_Raw(label, param_word);
 
         return Error_Phase_Bad_Arg_Type_Raw(
@@ -1317,7 +1317,7 @@ REBCTX *Error_Arg_Type(
         );
     }
 
-    if (actual == REB_MAX_NULLED) // no Datatype_From_Kind()
+    if (actual == REB_NULLED)  // no Datatype_From_Kind()
         return Error_Arg_Required_Raw(label, param_word);
 
     return Error_Expect_Arg_Raw(
@@ -1335,7 +1335,7 @@ REBCTX *Error_Bad_Return_Type(REBFRM *f, enum Reb_Kind kind) {
     DECLARE_LOCAL (label);
     Get_Frame_Label_Or_Blank(label, f);
 
-    if (kind == REB_MAX_NULLED)
+    if (kind == REB_NULLED)
         return Error_Needs_Return_Opt_Raw(label);
 
     if (kind == REB_VOID)

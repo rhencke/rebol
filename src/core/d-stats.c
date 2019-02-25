@@ -313,7 +313,7 @@ REB_R Measured_Dispatcher_Hook(REBFRM * const f)
             break;
 
         default:
-            assert(VAL_TYPE(r) <= REB_MAX_NULLED); // does cell checking
+            assert(VAL_TYPE(r) < REB_MAX);  // does cell checking
             break;
         }
     }

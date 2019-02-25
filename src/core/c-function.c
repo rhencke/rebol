@@ -376,7 +376,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // not "passed in" that way...the refinement is inactive.
             //
             if (refinement_seen) {
-                if (TYPE_CHECK(param, REB_MAX_NULLED))
+                if (TYPE_CHECK(param, REB_NULLED))
                     fail (Error_Refinement_Arg_Opt_Raw());
             }
 
@@ -492,7 +492,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // SPECIALIZE and other scenarios.
         //
         // Note there are currently two ways to get NULL: <opt> and <end>.
-        // If the typeset bits contain REB_MAX_NULLED, that indicates <opt>.
+        // If the typeset bits contain REB_NULLED, that indicates <opt>.
         // But Is_Param_Endable() indicates <end>.
 
         Init_Param(
@@ -1237,7 +1237,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
         else if (GET_ACTION_FLAG(a, HAS_RETURN)) {
             REBVAL *typeset = ACT_PARAM(a, ACT_NUM_PARAMS(a));
             assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
-            if (not TYPE_CHECK(typeset, REB_MAX_NULLED))  // `do []` returns
+            if (not TYPE_CHECK(typeset, REB_NULLED))  // `do []` returns
                 ACT_DISPATCHER(a) = &Returner_Dispatcher;  // error when run
         }
         else {

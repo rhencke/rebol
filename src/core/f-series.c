@@ -454,7 +454,7 @@ REBINT Cmp_Value(const RELVAL *sval, const RELVAL *tval, bool is_case)
         /* return Cmp_Event(s, t); */
 
       case REB_BLANK:
-      case REB_MAX_NULLED: // !!! should nulls be allowed at this level?
+      case REB_NULLED: // !!! should nulls be allowed at this level?
       case REB_VOID:
         break;
 

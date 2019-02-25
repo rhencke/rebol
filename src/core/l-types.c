@@ -259,13 +259,13 @@ REB_R Reflect_Core(REBFRM *frame_)
         fail (Error_Cannot_Reflect(kind, ARG(property)));
 
       case SYM_KIND: // simpler answer, low-level datatype (e.g. QUOTED!)
-        if (kind == REB_MAX_NULLED)
+        if (kind == REB_NULLED)
             return nullptr;
         return Init_Datatype(D_OUT, VAL_TYPE(v));
 
       case SYM_TYPE: // higher order-answer, may build structured result
-        if (kind == REB_MAX_NULLED) // not a real "datatype"
-            Init_Nulled(D_OUT); // `() = type of ()`, `null = type of ()`
+        if (kind == REB_NULLED)  // not a real "datatype"
+            Init_Nulled(D_OUT);  // `null = type of null`
         else
             Init_Datatype(D_OUT, kind);
 
@@ -288,7 +288,7 @@ REB_R Reflect_Core(REBFRM *frame_)
     // but in general actions should not allow null first arguments...there's
     // no entry in the dispatcher table for them.
     //
-    if (kind == REB_MAX_NULLED) // including escaped nulls, `\\\\`
+    if (kind == REB_NULLED)  // including escaped nulls, `''''`
         fail ("NULL isn't valid for REFLECT, except for TYPE OF ()");
     if (kind == REB_BLANK)
         return nullptr; // only TYPE OF works on blank, otherwise it's null

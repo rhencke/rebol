@@ -507,7 +507,7 @@ void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, bool form)
     for (i = 0; i < depth; ++i)
         Append_Unencoded(mo->series, "'");
 
-    if (kind != REB_MAX_NULLED) {
+    if (kind != REB_NULLED) {
         MOLD_HOOK hook = Mold_Or_Form_Hooks[kind];
         hook(mo, cell, form);
     }

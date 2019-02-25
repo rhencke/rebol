@@ -292,7 +292,7 @@ inline static bool Single_Test_Throws(
      case REB_TAG: // just support <opt> for now
         Init_Logic(
             out,
-            CELL_KIND(arg_cell) == REB_MAX_NULLED
+            CELL_KIND(arg_cell) == REB_NULLED
             and 0 == Compare_String_Vals(test_cell, Root_Opt_Tag, true)
             and VAL_NUM_QUOTES(test) == VAL_NUM_QUOTES(arg)
         );

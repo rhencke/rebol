@@ -145,7 +145,8 @@ e-version/write-emitted
 e-symbols: make-emitter "Symbol Numbers" inc/tmp-symbols.h
 
 syms: copy []
-sym-n: 1
+
+sym-n: 1  ; skip SYM_0 (null added as #1)
 
 boot-words: copy []
 add-sym: function [
@@ -168,6 +169,8 @@ add-sym: function [
     append boot-words word
     return null
 ]
+
+add-sym 'nulled  ; make SYM_NULLED the first symbol (lines up with REB_NULLED)
 
 
 === PROCESS %TYPES.R TABLE ===
@@ -244,7 +247,8 @@ e-dispatch/emit {
      * the type passed into that common hook!
      */
     GENERIC_HOOK Generic_Hooks[REB_MAX] = {
-        nullptr, /* REB_0 */
+        nullptr,  /* REB_0_END */
+        nullptr,  /* REB_NULLED */
         $(Generic-Hooks),
     };
 
@@ -258,7 +262,8 @@ e-dispatch/emit {
      * their class).
      */
     COMPARE_HOOK Compare_Hooks[REB_MAX] = {
-        nullptr, /* REB_0 */
+        nullptr,  /* REB_0_END */
+        nullptr,  /* REB_NULLED */
         $(Compare-Hooks),
     };
 
@@ -266,7 +271,8 @@ e-dispatch/emit {
      * PER-TYPE PATH HOOKS: for `a/b`, `:a/b`, `a/b:`, `pick a b`, `poke a b`
      */
     PATH_HOOK Path_Hooks[REB_MAX] = {
-        nullptr, /* REB_0 */
+        nullptr,  /* REB_0_END */
+        nullptr,  /* REB_NULLED */
         $(Path-Hooks),
     };
 
@@ -278,7 +284,8 @@ e-dispatch/emit {
      * R_THROWN if they throw.  (e.g. `make object! [return]` can throw)
      */
     MAKE_HOOK Make_Hooks[REB_MAX] = {
-        nullptr, /* REB_0 */
+        nullptr,  /* REB_0_END */
+        nullptr,  /* REB_NULLED */
         $(Make-Hooks),
     };
 
@@ -296,7 +303,8 @@ e-dispatch/emit {
      * which means TO-ness and MAKE-ness are a bit too similar.
      */
     TO_HOOK To_Hooks[REB_MAX] = {
-        nullptr, /* REB_0 */
+        nullptr,  /* REB_0_END */
+        nullptr,  /* REB_NULLED */
         $(To-Hooks),
     };
 
@@ -309,7 +317,8 @@ e-dispatch/emit {
      * their class entirely.
      */
     MOLD_HOOK Mold_Or_Form_Hooks[REB_MAX] = {
-        nullptr, /* REB_0 */
+        nullptr,  /* REB_0_END */
+        nullptr,  /* REB_NULLED */
         $(Mold-Hooks),
     };
 }
@@ -321,13 +330,14 @@ e-dispatch/write-emitted
 
 e-types: make-emitter "Datatype Definitions" inc/tmp-kinds.h
 
-n: 1
+n: 2  ; skip REB_0_END and REB_NULLED
+
 rebs: collect [
     for-each-record t type-table [
         ensure word! t/name
         ensure word! t/class
 
-        assert [sym-n == n] ;-- SYM_XXX should equal REB_XXX value
+        assert [sym-n == n]  ; SYM_XXX should equal REB_XXX value
         add-sym to-word unspaced [ensure word! t/name "!"]
         keep cscape/with {REB_${T/NAME} = $<n>} [n t]
         n: n + 1
@@ -361,15 +371,16 @@ e-types/emit {
         REB_TS_ENDABLE = REB_0,  /* bit set in typesets for endability */
         REB_P_DETECT = REB_0,  /* detect paramclass from vararg */
 
+        REB_NULLED = 1,  /* special null signal, not technically a "type" */
+
         /*** REAL TYPES ***/
 
         $[Rebs],
-        REB_MAX, /* one past valid types, does double duty as NULL signal */
-        REB_MAX_NULLED = REB_MAX,
+        REB_MAX, /* one past valid types */
 
         /*** PSEUDOTYPES ***/
 
-        PSEUDOTYPE_ONE,
+        PSEUDOTYPE_ONE = REB_MAX,
         REB_R_THROWN = PSEUDOTYPE_ONE,
         REB_P_NORMAL = PSEUDOTYPE_ONE,
         REB_TS_VARIADIC = PSEUDOTYPE_ONE,
@@ -452,7 +463,7 @@ e-types/emit {
      * routines that don't differentiate literal types, it may be worth it
      * to use KIND_BYTE() for optimization purposes.
      *
-     * Note that due to a raw type encoding trick, IS_LITERAL() is unusual.
+     * Note that due to a raw type encoding trick, IS_QUOTED() is unusual.
      * `KIND_BYTE(v) == REB_QUOTED` isn't `VAL_TYPE(v) == REB_QUOTED`,
      * they mean different things.  This is because raw types > REB_64 are
      * used to encode literals whose escaping level is low enough that it
@@ -476,10 +487,6 @@ for-each-record t type-table [
     n: n + 1
 ]
 
-types-header: first load/header %types.r
-e-types/emit trim/auto copy ensure text! types-header/macros
-
-
 e-types/emit {
     /*
      * TYPESET DEFINITIONS (e.g. TS_ARRAY or TS_STRING)
@@ -489,17 +496,18 @@ e-types/emit {
      */
 
     /*
-     * Subtract 1 to get mask for everything but REB_MAX_NULLED
-     * Subtract 1 again to take out REB_0 for END (signal for "endability")
+     * Subtract 1 to get mask for everything
+     * Subtract 1 again to take out REB_0_END (signal for "endability")
+     * Subtract 2 to take out REB_1_NULLED
      */
     #define TS_VALUE \
-        ((FLAGIT_KIND(REB_MAX) - 1) - 1)
+        (((FLAGIT_KIND(REB_MAX) - 1) - 1) - 2)
 
     /*
      * Similar to TS_VALUE but accept NULL (as REB_MAX)
      */
     #define TS_OPT_VALUE \
-        (((FLAGIT_KIND(REB_MAX_NULLED + 1) - 1) - 1))
+        ((FLAGIT_KIND(REB_MAX) - 1) - 1)
 }
 typeset-sets: copy []
 

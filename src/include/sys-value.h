@@ -318,7 +318,7 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
             printf("VAL_TYPE() on END marker (use IS_END() or KIND_BYTE())\n");
             panic_at (v, file, line);
         }
-        if (kind_byte % REB_64 > REB_MAX_NULLED) {
+        if (kind_byte % REB_64 >= REB_MAX) {
             printf("VAL_TYPE() on pseudotype/garbage (use KIND_BYTE())\n");
             panic_at (v, file, line);
         }
@@ -648,7 +648,7 @@ inline static RELVAL *Prep_Stack_Cell_Core(
 // the same function if it contains any instances of such relative words.
 //
 inline static bool IS_RELATIVE(const REBCEL *v) {
-    if (Not_Bindable(v) or not EXTRA(Binding, v).node)
+    if (not Is_Bindable(v) or not EXTRA(Binding, v).node)
         return false; // INTEGER! and other types are inherently "specific"
 
   #if !defined(NDEBUG)
@@ -846,10 +846,10 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
     //
     out->payload = v->payload;
 
-    if (Not_Bindable(v))
-        out->extra = v->extra; // extra isn't a binding (INTEGER! MONEY!...)
-    else
+    if (Is_Bindable(v))
         INIT_BINDING_MAY_MANAGE(out, EXTRA(Binding, v).node);
+    else
+        out->extra = v->extra; // extra isn't a binding (INTEGER! MONEY!...)
 
     return KNOWN(out);
 }

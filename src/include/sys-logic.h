@@ -44,20 +44,13 @@ inline static bool VAL_LOGIC(const REBCEL *v) {
 }
 
 inline static bool IS_TRUTHY(const RELVAL *v) {
-    if (KIND_BYTE(v) >= REB_64) {
-        //
-        // QUOTED! at an escape level low enough to reuse cell.  So if that
-        // cell happens to be false/blank/nulled, CELL_FLAG_FALSEY will
-        // be set, but don't heed it! `if lit '_ [-- "this is truthy"]`
-        //
-        return true;
-    }
-    if (KIND_BYTE(v) < REB_LOGIC)
-        return true;
-    if (KIND_BYTE(v) == REB_LOGIC)
-        return VAL_LOGIC(v);
+    if (KIND_BYTE(v) > REB_LOGIC)
+        return true;  // includes QUOTED: `if lit '_ [-- "this is truthy"]`
     if (IS_VOID(v))
         fail (Error_Void_Conditional_Raw());
+    if (IS_LOGIC(v))
+        return VAL_LOGIC(v);
+    assert(IS_BLANK(v) or IS_NULLED(v));
     return false;
 }
 

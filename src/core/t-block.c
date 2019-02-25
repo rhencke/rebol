@@ -226,7 +226,7 @@ REB_R MAKE_Array(
             else
                 param += PAYLOAD(Varargs, arg).signed_param_index;
 
-            if (TYPE_CHECK(param, REB_MAX_NULLED))
+            if (TYPE_CHECK(param, REB_NULLED))
                 fail (Error_Null_Vararg_Array_Raw());
         }
 

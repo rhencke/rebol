@@ -150,7 +150,7 @@ inline static RELVAL *Unquotify_In_Situ(RELVAL *v, REBCNT unquotes)
     assert(
         KIND_BYTE(v) % 64 != REB_0
         and KIND_BYTE(v) % 64 != REB_QUOTED
-        and KIND_BYTE(v) % 64 <= REB_MAX_NULLED
+        and KIND_BYTE(v) % 64 < REB_MAX
     );
     return v;
 }
@@ -176,7 +176,7 @@ inline static RELVAL *Unquotify_Core(RELVAL *v, REBCNT unquotes) {
     assert(
         KIND_BYTE(cell) != REB_0
         and KIND_BYTE(cell) != REB_QUOTED
-        and KIND_BYTE(cell) <= REB_MAX_NULLED
+        and KIND_BYTE(cell) < REB_MAX
     );
 
     if (depth > 3) // still can't do in-situ escaping within a single cell

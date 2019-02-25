@@ -508,7 +508,7 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
             return 0;
 
         switch (ta) {
-          case REB_MAX_NULLED:
+          case REB_NULLED:
             return 0; // nothing coerces to void
 
           case REB_INTEGER:
@@ -578,9 +578,9 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
 
     enum Reb_Kind kind = VAL_TYPE(a);
 
-    if (kind == REB_MAX_NULLED) {
-        assert(VAL_TYPE(b) == REB_MAX_NULLED);
-        return 1; // nulls always equal
+    if (kind == REB_NULLED) {
+        assert(VAL_TYPE(b) == REB_NULLED);
+        return 1;  // nulls always equal
     }
 
     // At this point, the types should match...e.g. be able to be passed to

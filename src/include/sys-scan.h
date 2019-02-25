@@ -30,34 +30,30 @@
 //
 //  Tokens returned by the scanner.  Keep in sync with Token_Names[].
 //
-// There was a micro-optimization in R3-Alpha which made the relative order of
+// !!! There was a micro-optimization in R3-Alpha which made the order of
 // tokens align with types, e.g. TOKEN_WORD + 1 => TOKEN_GET_WORD, and
-// REB_WORD + 1 => SET_WORD.  It's kind of silly, but the order of tokens
-// doesn't matter.  So Ren-C made it line up even better, so math is needed
-// to transform from tokens to the associated Reb_Kind.
-//
-// !!! Is there any real reason not to use Reb_Kind and just throw in a few
-// pseudotypes for things that are missing?  (e.g. REB_TOK_NEWLINE could be
-// a value > REB_MAX).  The main reason not to do this seems to be because
-// of the Token_Names[] array, but it seems like it would be simplifying.
+// REB_WORD + 1 => SET_WORD.  As optimizations go, it causes annoyances when
+// the type table is rearranged.  A better idea might be to use REB_XXX
+// values as the tokens themselves--the main reason not to do this seems to
+// be because of the Token_Names[] array.
 //
 enum Reb_Token {
     TOKEN_END = 0,
     TOKEN_NEWLINE,
     TOKEN_BLANK,
-    TOKEN_GET, // should equal REB_GET_WORD
-    TOKEN_SET, // should equal REB_SET_WORD
-    TOKEN_WORD, // should equal REB_WORD
-    TOKEN_LOGIC, // !!! Currently not used LOGIC!, uses #[true] and #[false]
+    TOKEN_GET,
+    TOKEN_SET,
+    TOKEN_WORD,
+    TOKEN_LOGIC,
     TOKEN_INTEGER,
     TOKEN_DECIMAL,
     TOKEN_PERCENT,
-    TOKEN_GET_GROUP_BEGIN, // should equal REB_GET_GROUP
+    TOKEN_GET_GROUP_BEGIN,
     TOKEN_GROUP_END,
-    TOKEN_GROUP_BEGIN, // should equal REB_GROUP
-    TOKEN_GET_BLOCK_BEGIN, // should equal REB_GET_BLOCK
+    TOKEN_GROUP_BEGIN,
+    TOKEN_GET_BLOCK_BEGIN,
     TOKEN_BLOCK_END,
-    TOKEN_BLOCK_BEGIN, // should equal REB_BLOCK
+    TOKEN_BLOCK_BEGIN,
     TOKEN_MONEY,
     TOKEN_TIME,
     TOKEN_DATE,
@@ -78,39 +74,33 @@ enum Reb_Token {
 };
 
 inline static enum Reb_Kind KIND_OF_WORD_FROM_TOKEN(enum Reb_Token t) {
-    enum Reb_Kind k = cast(enum Reb_Kind, t);
 
-  #if !defined(NDEBUG)
+    // !!! Temporarily disable optimization due to type table rearrangement
+
+    if (t == TOKEN_WORD)
+        return REB_WORD;
+    if (t == TOKEN_SET)
+        return REB_SET_WORD;
     if (t == TOKEN_GET)
-        assert(k == REB_GET_WORD);
-    else if (t == TOKEN_SET)
-        assert(k == REB_SET_WORD);
-    else if (t == TOKEN_WORD)
-        assert(k == REB_WORD);
-    else
-        assert(!"Bad token passed to KIND_OF_WORD_FROM_TOKEN()");
-  #endif
-
-    return k;
+        return REB_GET_WORD;
+    assert(!"Bad token passed to KIND_OF_WORD_FROM_TOKEN()");
+    return REB_0_END;
 }
 
 inline static enum Reb_Kind KIND_OF_ARRAY_FROM_TOKEN(enum Reb_Token t) {
-    enum Reb_Kind k = cast(enum Reb_Kind, t);
 
-  #if !defined(NDEBUG)
+    // !!! Temporarily disable optimization due to type table rearrangement
+
+    if (t == TOKEN_GROUP_BEGIN)
+        return REB_GROUP;
+    if (t == TOKEN_BLOCK_BEGIN)
+        return REB_BLOCK;
+    if (t == TOKEN_GET_GROUP_BEGIN)
+        return REB_GET_GROUP;
     if (t == TOKEN_GET_BLOCK_BEGIN)
-        assert(k == REB_GET_BLOCK);
-    else if (t == TOKEN_BLOCK_BEGIN)
-        assert(k == REB_BLOCK);
-    else if (t == TOKEN_GET_GROUP_BEGIN)
-        assert(k == REB_GET_GROUP);
-    else if (t == TOKEN_GROUP_BEGIN)
-        assert(k == REB_GROUP);
-    else
-        assert(!"Bad token passed to KIND_OF_ARRAY_FROM_TOKEN()");
-  #endif
-
-    return k;
+        return REB_GET_BLOCK;
+    assert(!"Bad token passed to KIND_OF_ARRAY_FROM_TOKEN()");
+    return REB_0_END;
 }
 
 

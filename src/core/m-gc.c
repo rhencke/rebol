@@ -303,7 +303,7 @@ inline static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
 inline static void Queue_Mark_Value_Deep(const RELVAL *v)
 {
     assert(NOT_END(v));
-    assert(KIND_BYTE_UNCHECKED(v) != REB_MAX_NULLED); // Unreadable blank ok
+    assert(KIND_BYTE_UNCHECKED(v) != REB_NULLED);  // Unreadable blank ok
     Queue_Mark_Opt_End_Cell_Deep(v);
 }
 
@@ -406,7 +406,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
 
         Mark_Rebser_Only(SER(Singular_From_Cell(v)));
 
-        assert(KIND_BYTE_UNCHECKED(v) <= REB_MAX_NULLED);
+        assert(KIND_BYTE_UNCHECKED(v) < REB_MAX);
         kind = cast(enum Reb_Kind, KIND_BYTE_UNCHECKED(v));
     }
 
@@ -418,6 +418,15 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
     switch (kind) {
       case REB_0_END:
         break; // use Queue_Mark_Opt_Value_Deep() if END would be a bug
+
+      case REB_NULLED:
+        break;  // use Queue_Mark_Value_Deep() if NULLED would be a bug
+
+      case REB_VOID:
+        break;
+
+      case REB_BLANK:
+        break;
 
       case REB_ACTION: {
         REBACT *a = VAL_ACTION(v);
@@ -767,13 +776,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
             Queue_Mark_Context_Deep(meta);
         break; }
 
-      case REB_BLANK:
-      case REB_VOID:
-        break;
-
-      case REB_MAX_NULLED:
-        break; // use Queue_Mark_Value_Deep() if NULLED would be a bug
-
       case REB_P_NORMAL:
       case REB_P_HARD_QUOTE:
       case REB_P_SOFT_QUOTE:
@@ -994,7 +996,7 @@ static void Propagate_All_GC_Marks(void)
             // reified C va_lists as Eval_Core_Throws() sources can have them.
             //
             if (
-                KIND_BYTE_UNCHECKED(v) == REB_MAX_NULLED
+                KIND_BYTE_UNCHECKED(v) == REB_NULLED
                 and NOT_ARRAY_FLAG(a, IS_VARLIST)
                 and NOT_ARRAY_FLAG(a, NULLEDS_LEGAL)
             ){
@@ -1829,7 +1831,7 @@ void Push_Guard_Node(const REBNOD *node)
         // valid before then.)
         //
         const REBVAL* v = cast(const REBVAL*, node);
-        assert(CELL_KIND_UNCHECKED(v) <= REB_MAX_NULLED);
+        assert(CELL_KIND_UNCHECKED(v) < REB_MAX);
 
       #ifdef STRESS_CHECK_GUARD_VALUE_POINTER
         //
