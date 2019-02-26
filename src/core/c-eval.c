@@ -662,7 +662,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     kind.byte = KIND_BYTE(*next);
 
-  do_next:;
+  do_next: ;  // meaningful semicolon--subsequent macro may declare things
 
     START_NEW_EXPRESSION_MAY_THROW(f, goto return_thrown);
     // ^-- resets local `tick` count, Ctrl-C may abort and goto return_thrown
@@ -674,15 +674,11 @@ bool Eval_Core_Throws(REBFRM * const f)
     assert(kind.byte != REB_0_END);
     assert(kind.byte == KIND_BYTE_UNCHECKED(v));
 
-  reevaluate:;
+  reevaluate: ;  // meaningful semicolon--subsequent macro may declare things
 
     // ^-- doesn't advance expression index, so `eval x` starts with `eval`
 
-    //==////////////////////////////////////////////////////////////////==//
-    //
-    // LOOKAHEAD TO ENABLE ENFIXED FUNCTIONS THAT QUOTE THEIR LEFT ARG
-    //
-    //==////////////////////////////////////////////////////////////////==//
+//=//// LOOKAHEAD FOR ENFIXED FUNCTIONS THAT QUOTE THEIR LEFT ARG /////////=//
 
     // Ren-C has an additional lookahead step *before* an evaluation in order
     // to take care of this scenario.  To do this, it pre-emptively feeds the
@@ -787,13 +783,9 @@ bool Eval_Core_Throws(REBFRM * const f)
     CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
     goto process_action;
 
-  give_up_backward_quote_priority:;
+  give_up_backward_quote_priority:
 
-    //==////////////////////////////////////////////////////////////////==//
-    //
-    // BEGIN MAIN SWITCH STATEMENT
-    //
-    //==////////////////////////////////////////////////////////////////==//
+//=//// BEGIN MAIN SWITCH STATEMENT ///////////////////////////////////////=//
 
     // This switch is done via contiguous REB_XXX values, in order to
     // facilitate use of a "jump table optimization":
@@ -807,24 +799,20 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_0_END:
         goto finished;
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [NULL]
+
+//==//// NULL ////////////////////////////////////////////////////////////==//
 //
 // Since nulled cells can't be in BLOCK!s, the evaluator shouldn't usually see
 // them.  Plus the API quotes spliced values, so `rebRun("null?", nullptr)`
 // gets a QUOTED! that evaluates to null--it's not a null being evaluated.
 //
 // But one way the evaluator can see NULL is EVAL, such as `eval first []`.
-//
-//==//////////////////////////////////////////////////////////////////////==//
 
       case REB_NULLED:
         fail (Error_Evaluate_Null_Raw());
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [VOID!]
+
+//==//// VOID! ///////////////////////////////////////////////////////////==//
 //
 // "A void! is a means of giving a hot potato back that is a warning about
 //  something, but you don't want to force an error 'in the moment'...in case
@@ -833,15 +821,12 @@ bool Eval_Core_Throws(REBFRM * const f)
 // https://forum.rebol.info/t/947
 //
 // If we get here, the evaluator is actually seeing it, and it's time to fail.
-//
-//==//////////////////////////////////////////////////////////////////////==//
 
       case REB_VOID:
         fail ("VOID! cells cannot be evaluated");
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [ACTION!] (lookback or non-lookback)
+
+//==//// ACTION! /////////////////////////////////////////////////////////==//
 //
 // If an action makes it to the SWITCH statement, that means it is either
 // literally an action value in the array (`do compose [(:+) 1 2]`) or is
@@ -849,8 +834,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 //
 // Most action evaluations are triggered from a WORD! or PATH!, which jumps in
 // at the `process_action` label.
-//
-//==//////////////////////////////////////////////////////////////////////==//
 
       case REB_ACTION: {
         assert(NOT_CELL_FLAG(v, ENFIXED)); // come from WORD!/PATH! only
@@ -869,11 +852,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         goto process_action; }
 
-    //==////////////////////////////////////////////////////////////////==//
-    //
-    // ACTION! ARGUMENT FULFILLMENT AND/OR TYPE CHECKING PROCESS
-    //
-    //==////////////////////////////////////////////////////////////////==//
+    //=//// ACTION! ARGUMENT FULFILLMENT AND/OR TYPE CHECKING PROCESS /////=//
 
         // This one processing loop is able to handle ordinary action
         // invocation, specialization, and type checking of an already filled
@@ -885,7 +864,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         // expression from values that come after the invocation point.  But
         // not all parameters will consume arguments for all calls.
 
-      process_action:; // Note: Also jumped to by the redo_checked code
+      process_action: // Note: Also jumped to by the redo_checked code
 
       #if !defined(NDEBUG)
         assert(f->original); // set by Begin_Action()
@@ -900,7 +879,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         CLEAR_EVAL_FLAG(f, DOING_PICKUPS);
 
-      process_args_for_pickup_or_to_end:;
+      process_args_for_pickup_or_to_end:
 
         for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
             Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
@@ -1047,7 +1026,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     //=//// UNSPECIALIZED REFINEMENT SLOT (no consumption) ////////////////=//
 
-              unspecialized_refinement:;
+              unspecialized_refinement:
 
                 if (f->dsp_orig == DSP) // no refinements left on stack
                     goto unused_refinement;
@@ -1060,7 +1039,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                 --ordered; // not lucky: if in use, this is out of order
 
-              unspecialized_refinement_must_pickup:; // fulfill on 2nd pass
+              unspecialized_refinement_must_pickup:  // fulfill on 2nd pass
 
                 for (; ordered != DS_AT(f->dsp_orig); --ordered) {
                     if (VAL_STORED_CANON(ordered) != param_canon)
@@ -1080,14 +1059,14 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                 goto unused_refinement; // not in path, not specialized
 
-              unused_refinement:;
+              unused_refinement:
 
                 f->refine = ARG_TO_UNUSED_REFINEMENT; // "don't consume"
                 Init_Blank(f->arg);
                 SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
-              used_refinement:;
+              used_refinement:
 
                 assert(not IS_POINTER_TRASH_DEBUG(f->refine)); // must be set
                 Refinify(Init_Word(f->arg, VAL_PARAM_SPELLING(f->param)));
@@ -1543,12 +1522,12 @@ bool Eval_Core_Throws(REBFRM * const f)
 
             Finalize_Arg(f);
 
-          continue_arg_loop:;
+          continue_arg_loop:
 
             assert(GET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED));
             continue;
 
-          skip_this_arg_for_now:;
+          skip_this_arg_for_now:
 
             // The GC will protect values up through how far we have
             // enumerated, so we need to put *something* in this slot when
@@ -1571,7 +1550,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         //
         if (DSP != f->dsp_orig and IS_ISSUE(DS_TOP)) {
 
-          next_pickup:;
+          next_pickup:
 
             assert(IS_ISSUE(DS_TOP));
 
@@ -1606,7 +1585,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             goto process_args_for_pickup_or_to_end;
         }
 
-      arg_loop_and_any_pickups_done:;
+      arg_loop_and_any_pickups_done:
 
         assert(IS_END(f->param)); // signals !Is_Action_Frame_Fulfilling()
 
@@ -1621,7 +1600,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 fail (Error_Literal_Left_Path_Raw());
         }
 
-      redo_unchecked:;
+      redo_unchecked:
 
         assert(NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT));
 
@@ -1769,7 +1748,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             if (not EXTRA(Any, r).flag) // R_REDO_UNCHECKED
                 goto redo_unchecked;
 
-          redo_checked:; // R_REDO_CHECKED
+          redo_checked:  // R_REDO_CHECKED
 
             Expire_Out_Cell_Unless_Invisible(f);
 
@@ -1816,7 +1795,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             assert(!"Invalid pseudotype returned from action dispatcher");
         }
 
-      dispatch_completed:;
+      dispatch_completed:
 
     //==////////////////////////////////////////////////////////////////==//
     //
@@ -1834,7 +1813,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         Do_After_Action_Checks_Debug(f);
       #endif
 
-      skip_output_check:;
+      skip_output_check:
 
         // If we have functions pending to run on the outputs (e.g. this was
         // the result of a CHAIN) we can run those chained functions in the
@@ -1894,29 +1873,26 @@ bool Eval_Core_Throws(REBFRM * const f)
         Drop_Action(f);
         break;
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [WORD!]
+
+//==//// WORD! ///////////////////////////////////////////////////////////==//
 //
 // A plain word tries to fetch its value through its binding.  It will fail
 // and longjmp out of this stack if the word is unbound (or if the binding is
-// to a variable which is not set).  Should the word look up to a function,
-// then that function will be called by jumping to the ANY-ACTION! case.
+// to a variable which is not set).  Should the word look up to an action,
+// then that action will be called by jumping to the ACTION! case.
 //
-//==//////////////////////////////////////////////////////////////////////==//
+// NOTE: The usual dispatch of enfix functions is *not* via a REB_WORD in this
+// switch, it's by some code at the `post_switch:` label.  So you only see
+// enfix in cases like `(+ 1 2)`, or after PARAMLIST_IS_INVISIBLE e.g.
+// `10 comment "hi" + 20`.
 
       case REB_WORD:
         if (not gotten)
             gotten = Get_Opt_Var_May_Fail(v, *specifier);
 
-        if (IS_ACTION(gotten)) { // before IS_NULLED() is common case
+        if (IS_ACTION(gotten)) {  // before IS_NULLED() is common case
             REBACT *act = VAL_ACTION(gotten);
 
-            // Note: The usual dispatch of enfix functions is not via a
-            // REB_WORD in this switch, it's by some code at the end of
-            // the switch.  So you only see enfix in cases like `(+ 1 2)`,
-            // or after PARAMLIST_IS_INVISIBLE e.g. `10 comment "hi" + 20`.
-            //
             if (GET_CELL_FLAG(gotten, ENFIXED)) {
                 if (
                     GET_ACTION_FLAG(act, POSTPONES_ENTIRELY)
@@ -1950,44 +1926,37 @@ bool Eval_Core_Throws(REBFRM * const f)
         Move_Value(f->out, gotten); // no copy CELL_FLAG_UNEVALUATED
         break;
 
-//==//////////////////////////////////////////////////////////////////////==//
+
+//==//// SET_WORD! ///////////////////////////////////////////////////////==//
 //
-// [SET-WORD!]
+// `x: y: z: ...` may happen, so there could be any number of SET-WORD!s
+// before the value to assign is found.  Keeping a stack cannot be avoided.
 //
-// A chain of `x: y: z: ...` may happen, so there could be any number of
-// SET-WORD!s before the value to assign is found.  Some kind of list needs to
-// be maintained.
-//
-// Recursion into Eval_Core_Throws() is used, but a new frame is not created.
-// So it reuses `f` in a lighter-weight approach, gathering state only on the
-// data stack (which provides GC protection).  Eval_Step_Mid_Frame_Throws()
-// has remarks on how this is done.
+// Recursion into Eval_Core_Throws() is used, BUT a new frame is not created.
+// `f` is reused via Eval_Step_Mid_Frame_Throws(), which GC-protects the
+// SET-WORD! by keeping it on the data stack--not the frame stack.
 //
 // Note that nulled cells are allowed: https://forum.rebol.info/t/895/4
-//
-//==//////////////////////////////////////////////////////////////////////==//
 
       case REB_SET_WORD: {
         if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, v))
             goto return_thrown;
 
-      set_word_with_out:;
+      set_word_with_out:
 
         Move_Value(Sink_Var_May_Fail(v, *specifier), f->out);
         break; }
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [GET-WORD!]
+
+//==//// GET-WORD! ///////////////////////////////////////////////////////==//
 //
 // A GET-WORD! does no checking for unsets, no dispatch on functions, and
-// will return void if the variable is not set.
-//
-//==//////////////////////////////////////////////////////////////////////==//
+// will return NULL if the variable is not set.
 
       case REB_GET_WORD:
         Move_Opt_Var_May_Fail(f->out, v, *specifier);
         break;
+
 
 //==//// INERT WORD AND STRING TYPES /////////////////////////////////////==//
 
@@ -1995,9 +1964,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         // ^-- ANY-WORD!
         goto inert;
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [GROUP!]
+
+//==//// GROUP! ///////////////////////////////////////////////////////////=//
 //
 // If a GROUP! is seen then it generates another call into Eval_Core_Throws().
 // The current frame is not reused, as the source array from which values are
@@ -2011,8 +1979,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 //
 //     >> 1 + () 2
 //     ** Script error: + is missing its value2 argument
-//
-//==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GROUP: {
         *next_gotten = nullptr;  // arbitrary code changes fetched variables
@@ -2033,17 +1999,14 @@ bool Eval_Core_Throws(REBFRM * const f)
         f->out->header.bits &= ~CELL_FLAG_UNEVALUATED;  // `(1)` evaluates
         break; }
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [PATH!]
+
+//==//// PATH! ///////////////////////////////////////////////////////////==//
 //
 // Paths starting with inert values do not evaluate.  `/foo/bar` has a blank
 // at its head, and it evaluates to itself.
 //
 // Other paths run through the GET-PATH! mechanism and then EVAL the result.
 // If the get of the path is null, then it will be an error.
-//
-//==//////////////////////////////////////////////////////////////////////==//
 
       case REB_PATH: {
         assert(VAL_INDEX_UNCHECKED(v) == 0);  // this is the rule for now
@@ -2117,9 +2080,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         }
         break; }
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [SET-PATH!]
+
+//==//// SET-PATH! ///////////////////////////////////////////////////////==//
 //
 // See notes on SET-WORD!  SET-PATH!s are handled in a similar way, by
 // pushing them to the stack, continuing the evaluation via a lightweight
@@ -2141,13 +2103,11 @@ bool Eval_Core_Throws(REBFRM * const f)
 //
 // Note that nulled cells are allowed: https://forum.rebol.info/t/895/4
 
-//==//////////////////////////////////////////////////////////////////////==//
-
       case REB_SET_PATH: {
         if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, v))
             goto return_thrown;
 
-      set_path_with_out:;
+      set_path_with_out:
 
         if (Eval_Path_Throws_Core(
             spare,  // output if thrown, used as scratch space otherwise
@@ -2169,9 +2129,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         CLEAR_CELL_FLAG(f->out, UNEVALUATED);
         break; }
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [GET-PATH!]
+
+//==//// GET-PATH! ///////////////////////////////////////////////////////==//
 //
 // Note that the GET native on a PATH! won't allow GROUP! execution:
 //
@@ -2183,8 +2142,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 // callsite and you are assumed to know what you are doing:
 //
 //    :foo/(print "side effect" 1) ;-- this is allowed
-//
-//==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GET_PATH:
         if (Get_Path_Throws_Core(f->out, v, *specifier))
@@ -2197,15 +2154,12 @@ bool Eval_Core_Throws(REBFRM * const f)
         CLEAR_CELL_FLAG(f->out, UNEVALUATED);
         break;
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [GET-GROUP!]
+
+//==//// GET-GROUP! //////////////////////////////////////////////////////==//
 //
 // Evaluates the group, and then executes GET-WORD!/GET-PATH!/GET-BLOCK!
 // operation on it, if it's a WORD! or a PATH! or BLOCK!.  If it's an arity-0
 // action, it is allowed to execute as a form of "functional getter".
-//
-//==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GET_GROUP: {
         *next_gotten = nullptr; // arbitrary code changes fetched variables
@@ -2234,14 +2188,11 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         goto reevaluate; }
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [SET-GROUP!]
+
+//==//// SET-GROUP! //////////////////////////////////////////////////////==//
 //
 // Synonym for SET on the produced thing, unless it's an action...in which
 // case an arity-1 function is allowed to be called and passed the right.
-//
-//==//////////////////////////////////////////////////////////////////////==//
 
       case REB_SET_GROUP: {
         //
@@ -2298,13 +2249,10 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         fail (Error_Bad_Set_Group_Raw()); }
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [GET-BLOCK!]
+
+//==//// GET-BLOCK! //////////////////////////////////////////////////////==//
 //
 // Synonym for REDUCE.
-//
-//==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GET_BLOCK:
         *next_gotten = nullptr; // arbitrary code changes fetched variables
@@ -2315,19 +2263,16 @@ bool Eval_Core_Throws(REBFRM * const f)
         Init_Block(f->out, Pop_Stack_Values(f->dsp_orig));
         break;
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [SET-BLOCK!]
+
+//==//// SET-BLOCK! //////////////////////////////////////////////////////==//
 //
 // Synonym for SET on the produced thing.
-//
-//==//////////////////////////////////////////////////////////////////////==//
 
       case REB_SET_BLOCK: {
         if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, v))
             goto return_thrown;
 
-      set_block_with_out:;
+      set_block_with_out:
 
         if (IS_NULLED(f->out)) // `[x y]: null` is illegal
             fail (Error_Need_Non_Null_Core(v, *specifier));
@@ -2361,6 +2306,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         break; }
 
+
 //==//////////////////////////////////////////////////////////////////////==//
 //
 // Treat all the other Is_Bindable() types as inert
@@ -2391,6 +2337,7 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_PORT:
         goto inert;
 
+
 //==//////////////////////////////////////////////////////////////////////==//
 //
 // Treat all the other not Is_Bindable() types as inert
@@ -2419,7 +2366,7 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_STRUCT:
       case REB_LIBRARY:
 
-      inert:;  // SEE ALSO: Literal_Next_In_Frame()...similar behavior
+      inert:  // SEE ALSO: Literal_Next_In_Frame()...similar behavior
 
         Derelativize(f->out, v, *specifier);
         SET_CELL_FLAG(f->out, UNEVALUATED);  // CELL_FLAG_INERT ??
@@ -2437,9 +2384,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             f->out->header.bits |= (f->feed->flags.bits & FEED_FLAG_CONST);
         break;
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [QUOTED!] (at 4 or more levels of escaping)
+
+//==//// QUOTED! (at 4 or more levels of escaping) ///////////////////////==//
 //
 // This is the form of literal that's too escaped to just overlay in the cell
 // by using a higher kind byte.  See the `default:` case in this switch for
@@ -2447,23 +2393,18 @@ bool Eval_Core_Throws(REBFRM * const f)
 //
 // (Highly escaped literals should be rare, but for completeness you need to
 // be able to escape any value, including any escaped one...!)
-//
-//==//////////////////////////////////////////////////////////////////////==//
 
       case REB_QUOTED:
         Derelativize(f->out, v, *specifier);
         Unquotify(f->out, 1);  // take off one level of quoting
         break;
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// [QUOTED!] (at 3 levels of escaping or less)...or a garbage type byte
+
+//==//// QUOTED! (at 3 levels of escaping or less...or just garbage) //////=//
 //
 // All the values for types at >= REB_64 currently represent the special
 // compact form of literals, which overlay inside the cell they escape.
 // The real type comes from the type modulo 64.
-//
-//==//////////////////////////////////////////////////////////////////////==//
 
       default:
         Derelativize(f->out, v, *specifier);
@@ -2471,11 +2412,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         break;
     }
 
-    //==////////////////////////////////////////////////////////////////==//
-    //
-    // END MAIN SWITCH STATEMENT
-    //
-    //==////////////////////////////////////////////////////////////////==//
+
+//=//// END MAIN SWITCH STATEMENT /////////////////////////////////////////=//
 
     // We're sitting at what "looks like the end" of an evaluation step.
     // But we still have to consider enfix.  e.g.
@@ -2508,7 +2446,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     //
     // So this post-switch step is where all of it happens, and it's tricky!
 
-  post_switch:;
+  post_switch:
 
     // If something was run with the expectation it should take the next arg
     // from the output cell, and an evaluation cycle ran that wasn't an
@@ -2603,7 +2541,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         not *next_gotten  // v-- note that only ACTIONs have CELL_FLAG_ENFIXED
         or NOT_CELL_FLAG(*next_gotten, ENFIXED)
     ){
-      lookback_quote_too_late:; // run as if starting new expression
+      lookback_quote_too_late: // run as if starting new expression
 
         Dampen_Lookahead(f);
 
@@ -2773,16 +2711,16 @@ bool Eval_Core_Throws(REBFRM * const f)
     Fetch_Next_Forget_Lookback(f);  // advances next
     goto process_action;
 
-  abort_action:;
+  abort_action:
 
     Drop_Action(f);
     DS_DROP_TO(f->dsp_orig); // any unprocessed refinements or chains on stack
 
-  return_thrown:;
+  return_thrown:
 
     threw = true;
 
-  finished:;
+  finished:
 
     assert(Is_Evaluator_Throwing_Debug() == threw);
 
