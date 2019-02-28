@@ -518,8 +518,7 @@ REBARR *Map_To_Array(REBMAP *map, REBINT what)
     REBVAL *dest = KNOWN(ARR_HEAD(a));
     REBVAL *val = KNOWN(ARR_HEAD(MAP_PAIRLIST(map)));
     for (; NOT_END(val); val += 2) {
-        assert(NOT_END(val + 1));
-        if (not IS_NULLED(val + 1)) {
+        if (not IS_NULLED(val + 1)) {  // can't be END
             if (what <= 0) {
                 Move_Value(dest, &val[0]);
                 ++dest;
@@ -551,8 +550,7 @@ REBCTX *Alloc_Context_From_Map(REBMAP *map)
     REBVAL *mval = KNOWN(ARR_HEAD(MAP_PAIRLIST(map)));
     REBCNT count = 0;
 
-    for (; NOT_END(mval); mval += 2) {
-        assert(NOT_END(mval + 1));
+    for (; NOT_END(mval); mval += 2) {  // note mval must not be END
         if (ANY_WORD(mval) and not IS_NULLED(mval + 1))
             ++count;
     }
@@ -565,8 +563,7 @@ REBCTX *Alloc_Context_From_Map(REBMAP *map)
 
     mval = KNOWN(ARR_HEAD(MAP_PAIRLIST(map)));
 
-    for (; NOT_END(mval); mval += 2) {
-        assert(NOT_END(mval + 1));
+    for (; NOT_END(mval); mval += 2) {  // note mval must not be END
         if (ANY_WORD(mval) and not IS_NULLED(mval + 1)) {
             Init_Context_Key(key, VAL_WORD_SPELLING(mval));
             ++key;
@@ -610,8 +607,7 @@ void MF_Map(REB_MOLD *mo, const REBCEL *v, bool form)
     mo->indent++;
 
     RELVAL *key = ARR_HEAD(MAP_PAIRLIST(m));
-    for (; NOT_END(key); key += 2) {
-        assert(NOT_END(key + 1)); // value slot must not be END
+    for (; NOT_END(key); key += 2) {  // note value slot must not be END
         if (IS_NULLED(key + 1))
             continue; // if value for this key is void, key has been removed
 

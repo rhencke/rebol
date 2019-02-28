@@ -42,8 +42,14 @@ REBOL [
 [name       description  ; used by HELP
             class       path    make    mold    typesets]  ; makes TS_XXX
 
-; REB_0_END is an array terminator, and not a "type"
-; REB_1_NULLED is also not a "type"...but it is falsey, hence < REB_LOGIC
+; REB_0_END is an array terminator, and not a "type".  It has the 0 as part
+; of the name to indicate its zero-ness and C falsey-ness is intrinsic to the
+; design--huge parts of the system would not work if it were not zero.
+
+
+; REB_NULLED takes value 1, but it being 1 is less intrinsic.  It is also not
+; a "type"...but it is falsey, hence it has to be before LOGIC! in the table
+
 
 ; <ANY-UNIT> https://en.wikipedia.org/wiki/Unit_type
 

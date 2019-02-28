@@ -647,7 +647,7 @@ inline static const RELVAL *Fetch_Next_In_Feed(
     struct Reb_Feed *feed,
     bool preserve
 ){
-    assert(NOT_END(feed->value));  // caller should test this first
+    ASSERT_NOT_END(feed->value);  // caller should check
 
   #ifdef DEBUG_EXPIRED_LOOKBACK
     if (feed->stress) {
@@ -904,7 +904,7 @@ inline static void Prep_Array_Feed(
         feed->value = opt_first;
         feed->index = index;
         feed->pending = ARR_AT(array, index);
-        assert(NOT_END(feed->value));
+        ASSERT_NOT_END(feed->value);
     }
     else {
         feed->value = ARR_AT(array, index);

@@ -241,7 +241,6 @@ static bool Subparse_Throws(
     // things like HIJACK it.  Consider APPLY-ing it.
     //
     const REBVAL *r = N_subparse(f);
-    assert(NOT_END(out));
 
     Drop_Action(f);
     Drop_Frame(f);
