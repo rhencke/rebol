@@ -460,10 +460,14 @@ inline static void DROP_GC_GUARD(void *p) {
 //
 //=////////////////////////////////////////////////////////////////////////=//
 
+// Uses "evil macro" variations because it is called so frequently, that in
+// the debug build (which doesn't inline functions) there's a notable cost.
+//
 inline static REBSER *VAL_SERIES(const REBCEL *v) {
-    assert(
-        ANY_SERIES_KIND(CELL_KIND(v)) or ANY_PATH_KIND(CELL_KIND(v))
-    );
+  #if !defined(NDEBUG)
+    enum Reb_Kind k = CELL_KIND(v);
+    assert(ANY_SERIES_KIND_EVIL_MACRO or ANY_PATH_KIND_EVIL_MACRO);
+  #endif
     REBSER *s = SER(PAYLOAD(Any, v).first.node);
     if (GET_SERIES_INFO(s, INACCESSIBLE))
         fail (Error_Series_Data_Freed_Raw());
@@ -479,16 +483,22 @@ inline static REBSER *VAL_SERIES(const REBCEL *v) {
 #else
     // allows an assert, but also lvalue: `VAL_INDEX(v) = xxx`
     //
+    // uses "evil macro" variants because the cost of this basic operation
+    // becomes prohibitive when the functions aren't inlined and checks wind
+    // up getting done 
+    //
     inline static REBCNT & VAL_INDEX(REBCEL *v) { // C++ reference type
-        assert(ANY_SERIES_KIND(CELL_KIND(v)) or ANY_PATH_KIND(CELL_KIND(v)));
+        enum Reb_Kind k = CELL_KIND(v);
+        assert(ANY_SERIES_KIND_EVIL_MACRO or ANY_PATH_KIND_EVIL_MACRO);
         return VAL_INDEX_UNCHECKED(v);
     }
     inline static REBCNT VAL_INDEX(const REBCEL *v) {
-        if (ANY_PATH_KIND(CELL_KIND(v))) {
+        enum Reb_Kind k = CELL_KIND(v);
+        if (ANY_PATH_KIND_EVIL_MACRO) {
             assert(VAL_INDEX_UNCHECKED(v) == 0);
             return 0;
         }
-        assert(ANY_SERIES_KIND(CELL_KIND(v)));
+        assert(ANY_SERIES_KIND_EVIL_MACRO);
         return VAL_INDEX_UNCHECKED(v);
     }
 #endif

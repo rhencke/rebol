@@ -150,29 +150,46 @@ inline static bool ANY_STRING_KIND(REBYTE k)
 #define ANY_STRING(v) \
     ANY_STRING_KIND(KIND_BYTE(v))
 
+#define ANY_BINSTR_KIND_EVIL_MACRO \
+    (k >= REB_BINARY and k <= REB_TAG)
+
+
 inline static bool ANY_BINSTR_KIND(REBYTE k)
-    { return k >= REB_BINARY and k <= REB_TAG; }
+    { return ANY_BINSTR_KIND_EVIL_MACRO; }
 
 #define ANY_BINSTR(v) \
     ANY_BINSTR_KIND(KIND_BYTE(v))
 
+
+#define ANY_ARRAY_OR_PATH_KIND_EVIL_MACRO \
+    (k >= REB_BLOCK and k <= REB_GET_PATH)
+
 inline static bool ANY_ARRAY_OR_PATH_KIND(REBYTE k)
-    { return k >= REB_BLOCK and k <= REB_GET_PATH; }
+    { return ANY_ARRAY_OR_PATH_KIND_EVIL_MACRO; }
 
 #define ANY_ARRAY_OR_PATH(v) \
     ANY_ARRAY_OR_PATH_KIND(KIND_BYTE(v))
 
+
+#define ANY_ARRAY_KIND_EVIL_MACRO \
+    (k >= REB_BLOCK and k <= REB_GET_GROUP)
+
 inline static bool ANY_ARRAY_KIND(REBYTE k)
-    { return k >= REB_BLOCK and k <= REB_GET_GROUP; }
+    { return ANY_ARRAY_KIND_EVIL_MACRO; }
 
 #define ANY_ARRAY(v) \
     ANY_ARRAY_KIND(KIND_BYTE(v))
 
+
+#define ANY_SERIES_KIND_EVIL_MACRO \
+    (ANY_BINSTR_KIND_EVIL_MACRO or ANY_ARRAY_KIND_EVIL_MACRO)
+
 inline static bool ANY_SERIES_KIND(REBYTE k)
-    { return ANY_BINSTR_KIND(k) or ANY_ARRAY_KIND(k); }
+    { return ANY_SERIES_KIND_EVIL_MACRO; }
 
 #define ANY_SERIES(v) \
     ANY_SERIES_KIND(KIND_BYTE(v))
+
 
 // !!! The ANY-WORD! classification is an odd one, because it's not just
 // WORD!/GET-WORD!/SET-WORD! but includes ISSUE!.  Ren-C is looking at avenues
@@ -191,11 +208,16 @@ inline static bool ANY_PLAIN_GET_SET_WORD_KIND(REBYTE k)
 #define ANY_PLAIN_GET_SET_WORD(v) \
     ANY_PLAIN_GET_SET_WORD_KIND(KIND_BYTE(v))
 
+
+#define ANY_PATH_KIND_EVIL_MACRO \
+    (k >= REB_PATH and k <= REB_GET_PATH)
+
 inline static bool ANY_PATH_KIND(REBYTE k)
-    { return k >= REB_PATH and k <= REB_GET_PATH; }
+    { return ANY_PATH_KIND_EVIL_MACRO; }
 
 #define ANY_PATH(v) \
     ANY_PATH_KIND(KIND_BYTE(v))
+
 
 inline static bool ANY_BLOCK_KIND(REBYTE k)
     { return k >= REB_BLOCK and k <= REB_GET_BLOCK; }
@@ -203,17 +225,20 @@ inline static bool ANY_BLOCK_KIND(REBYTE k)
 #define ANY_BLOCK(v) \
     ANY_BLOCK_KIND(KIND_BYTE(v))
 
+
 inline static bool ANY_GROUP_KIND(REBYTE k)
     { return k >= REB_GROUP and k <= REB_GET_GROUP; }
 
 #define ANY_GROUP(v) \
     ANY_GROUP_KIND(KIND_BYTE(v))
 
+
 inline static bool ANY_CONTEXT_KIND(REBYTE k)
     { return k >= REB_OBJECT and k <= REB_PORT; }
 
 #define ANY_CONTEXT(v) \
     ANY_CONTEXT_KIND(KIND_BYTE(v))
+
 
 inline static bool ANY_NUMBER_KIND(REBYTE k)
     { return k == REB_INTEGER or k == REB_DECIMAL or k == REB_PERCENT; }
