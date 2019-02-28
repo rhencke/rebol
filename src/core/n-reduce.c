@@ -248,11 +248,14 @@ REB_R Compose_To_Stack_Core(
                 DECLARE_FRAME (
                     sub,
                     subfeed,
-                    EVAL_MASK_DEFAULT | EVAL_FLAG_TO_END
+                    EVAL_MASK_DEFAULT
                 );
 
+                bool threw;
                 Push_Frame(out, sub);
-                bool threw = (*PG_Eval_Throws)(sub);
+                do {
+                    threw = (*PG_Eval_Throws)(sub);
+                } while (not threw and NOT_END(subfeed->value));
                 Drop_Frame(sub);
 
                 if (threw) {

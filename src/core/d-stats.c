@@ -126,35 +126,6 @@ REBNATIVE(stats)
 }
 
 
-//
-//  Measured_Eval_Hook_Throws: C
-//
-// Putting in measurement for Eval_Core would interfere with measurements for
-// Dispatcher, as it would slow down the very functions that are being timed.
-//
-bool Measured_Eval_Hook_Throws(REBFRM * const f)
-{
-    // In order to measure single steps, we convert a EVAL_FLAG_TO_END request
-    // into a sequence of EVALUATE operations, and loop them.
-    //
-    bool was_do_to_end = GET_EVAL_FLAG(f, TO_END);
-    CLEAR_EVAL_FLAG(f, TO_END);
-
-    bool threw;
-    while (true) {
-        threw = Eval_Core_Throws(f);
-
-        if (not was_do_to_end or IS_END(f->feed->value))
-            break;
-    }
-
-    if (was_do_to_end)
-        SET_EVAL_FLAG(f, TO_END);
-
-    return threw;
-}
-
-
 enum {
     // A WORD! name for the first non-anonymous symbol with which a function
     // has been invoked.  This may turn into a BLOCK! of all the names a
@@ -340,12 +311,17 @@ REBNATIVE(metrics)
 
     Check_Security(Canon(SYM_DEBUG), POL_READ, 0);
 
+    // Note only the dispatcher is hooked.  If Eval_Core itself were hooked,
+    // that could time things like SET-WORD! assignments; but there's nothing
+    // the user could do about that.  And it just contaminates the timing they
+    // are interested in, which is how long their functions take.
+
     if (VAL_LOGIC(mode)) {
-        //PG_Eval_Throws = &Measured_Eval_Hook_Throws;
+        /* PG_Eval_Throws = &Measured_Eval_Hook_Throws; */  // see note
         PG_Dispatcher = &Measured_Dispatcher_Hook;
     }
     else {
-        //PG_Eval_Throws = &Eval_Core_Throws;
+        /* PG_Eval_Throws = &Eval_Core_Throws; */  // see note
         PG_Dispatcher = &Dispatcher_Core;
     }
 

@@ -1226,7 +1226,7 @@ REB_R MAKE_Struct(
                 // FFI structures to be used by the C...so that would be more
                 // worthwhile an investment if improvement was a priority.
                 //
-                eval_idx = Eval_Array_At_Mutable_Core(
+                eval_idx = Eval_Step_In_Array_At_Core(
                     init,
                     nullptr, // opt_first (null indicates nothing)
                     VAL_ARRAY(arg),

@@ -74,20 +74,9 @@ STATIC_ASSERT(EVAL_FLAG_0_IS_TRUE == NODE_FLAG_NODE);
 STATIC_ASSERT(EVAL_FLAG_1_IS_FALSE == NODE_FLAG_FREE);
 
 
-//=//// EVAL_FLAG_TO_END //////////////////////////////////////////////////=//
+//=//// EVAL_FLAG_2 ///////////////////////////////////////////////////////=//
 //
-// As exposed by the DO native and its /NEXT refinement, a call to the
-// evaluator can either run to the finish from a position in an array or just
-// do one eval.  Rather than achieve execution to the end by iterative
-// function calls to the /NEXT variant (as in R3-Alpha), Ren-C offers a
-// controlling flag to do it from within the core evaluator as a loop.
-//
-// However: since running to the end follows a different code path than
-// performing EVALUATE several times, it is important to ensure they achieve
-// equivalent results.  There are nuances to preserve this invariant and
-// especially in light of interaction with lookahead.
-//
-#define EVAL_FLAG_TO_END \
+#define EVAL_FLAG_2 \
     FLAG_LEFT_BIT(2)
 
 

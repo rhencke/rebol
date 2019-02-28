@@ -974,9 +974,6 @@ inline static void Drop_Frame(REBFRM *f)
     ASSERT_STATE_BALANCED(&f->state);
   #endif
 
-    if (GET_EVAL_FLAG(f, TO_END))
-        assert(IS_END(f->feed->value) or Is_Evaluator_Throwing_Debug());
-
     assert(DSP == f->dsp_orig); // Drop_Frame_Core() does not check
     Drop_Frame_Unbalanced(f);
 }

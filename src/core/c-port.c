@@ -368,7 +368,8 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
         // not evaluate them again.
         //
         // !!! This tampers with the VALUE_FLAG_UNEVALUATED bit, which is
-        // another good reason this should probably be done another way.
+        // another good reason this should probably be done another way.  It
+        // also loses information about the const bit.
         //
         Quotify(Move_Value(code, f->arg), 1);
         ++code;
@@ -385,21 +386,14 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
     else
         Init_Path(first, Pop_Stack_Values(dsp_orig));
 
-    // Invoke DO with the special mode requesting non-evaluation on all
-    // args, as they were evaluated the first time around.  This will also
-    // prevent application of the const bit to the arguments at this level.
-    //
-    REBIXO indexor = Eval_Array_At_Mutable_Core(
+    return Eval_Array_At_Mutable_Throws_Core(
         out,
         first, // path not in array, will be "virtual" first element
         code_arr,
         0, // index
         SPECIFIED, // reusing existing REBVAL arguments, no relative values
         EVAL_MASK_DEFAULT
-            | EVAL_FLAG_NO_RESIDUE // raise an error if all args not consume
     );
-
-    return indexor == THROWN_FLAG;
 }
 
 

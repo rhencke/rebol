@@ -144,7 +144,7 @@ enum parse_flags {
     PF_INSERT = 1 << 7,
     PF_CHANGE = 1 << 8,
     PF_WHILE = 1 << 9,
-    PF_ONE_RULE = 1 << 10  // parallels !EVAL_FLAG_TO_END
+    PF_ONE_RULE = 1 << 10  // signal to only run one step of the parse
 };
 
 
@@ -1225,7 +1225,7 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
     else {
         // Evaluate next expression from the *input* series (not the rules)
         //
-        indexor = Eval_Any_Array_At_Core(
+        indexor = Eval_Step_In_Any_Array_At_Core(
             P_CELL,
             P_INPUT_VALUE,
             P_INPUT_SPECIFIER,

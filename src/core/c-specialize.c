@@ -1241,8 +1241,7 @@ bool Make_Invocation_Frame_Throws(
 ){
     assert(IS_ACTION(action));
 
-    // Just do one step of the evaluator, so no EVAL_FLAG_TO_END.  Specifically,
-    // it is desired that any voids encountered be processed as if they are
+    // It is desired that any nulls encountered be processed as if they are
     // not specialized...and gather at the callsite if necessary.
     //
     f->flags.bits |= EVAL_FLAG_PROCESS_ACTION

@@ -489,11 +489,11 @@ REBNATIVE(evaluate)
     switch (VAL_TYPE(source)) {
       case REB_BLOCK:
       case REB_GROUP: {
-        REBIXO indexor = Eval_Any_Array_At_Core(
+        REBIXO indexor = Eval_Step_In_Any_Array_At_Core(
             SET_END(D_SPARE),  // use END to distinguish residual non-values
             source,
             SPECIFIED,
-            EVAL_MASK_DEFAULT  // no EVAL_FLAG_TO_END...one step
+            EVAL_MASK_DEFAULT
         );
 
         if (indexor == THROWN_FLAG) {
@@ -529,11 +529,11 @@ REBNATIVE(evaluate)
             // array during execution, there will be problems if it is TAKE'n
             // or DO'd while this operation is in progress.
             //
-            REBIXO indexor = Eval_Any_Array_At_Core(
+            REBIXO indexor = Eval_Step_In_Any_Array_At_Core(
                 SET_END(D_SPARE),
                 position,
                 SPECIFIED,
-                EVAL_MASK_DEFAULT  // no EVAL_FLAG_TO_END
+                EVAL_MASK_DEFAULT
             );
 
             if (indexor == THROWN_FLAG) {

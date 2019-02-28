@@ -311,9 +311,6 @@ void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
         }
     }
 
-    if (GET_EVAL_FLAG(f, TO_END))
-        assert(Is_Evaluator_Throwing_Debug() or IS_END(*next));
-
     // We'd like `do [1 + comment "foo"]` to act identically to `do [1 +]`
     // Eval_Core_Throws() thus distinguishes an END for a fully "invisible"
     // evaluation, as opposed to void.  This distinction is internal and not

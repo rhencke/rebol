@@ -56,7 +56,6 @@ inline static bool Did_Inert_Optimization(
     struct Reb_Feed *feed,
     REBFLGS *flags
 ){
-    assert(not (*flags & EVAL_FLAG_TO_END));  // needs multiple steps
     assert(not (*flags & EVAL_FLAG_POST_SWITCH));  // we might set it
     assert(not IS_END(feed->value));  // would be wasting time to call
 
@@ -141,7 +140,6 @@ inline static bool Did_Inert_Optimization(
 inline static bool Eval_Step_Throws(REBVAL *out, REBFRM *f) {
     assert(IS_END(out));
 
-    assert(NOT_EVAL_FLAG(f, TO_END));
     assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
     assert(NOT_FEED_FLAG(f->feed, BARRIER_HIT));
 
@@ -167,7 +165,6 @@ inline static bool Eval_Step_Maybe_Stale_Throws(
 ){
     assert(NOT_END(out));
 
-    assert(NOT_EVAL_FLAG(f, TO_END));
     assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
     assert(NOT_FEED_FLAG(f->feed, BARRIER_HIT));
 
@@ -199,7 +196,7 @@ inline static bool Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
 
     bool threw = (*PG_Eval_Throws)(f); // should already be pushed
 
-    f->flags.bits = prior_flags; // e.g. restore EVAL_FLAG_TO_END    
+    f->flags.bits = prior_flags; // e.g. restore EVAL_FLAG_TO_END
     return threw;
 }
 
@@ -259,13 +256,13 @@ inline static bool Reevaluate_In_Subframe_Throws(
 // Most common case of evaluator invocation in Rebol: the data lives in an
 // array series.
 //
-inline static REBIXO Eval_Array_At_Mutable_Core(  // no FEED_FLAG_CONST
+inline static bool Eval_Array_At_Mutable_Throws_Core(  // no FEED_FLAG_CONST
     REBVAL *out, // must be initialized, marked stale if empty / all invisible
     const RELVAL *opt_first, // non-array element to kick off execution with
     REBARR *array,
     REBCNT index,
     REBSPC *specifier, // must match array, but also opt_first if relative
-    REBFLGS flags // EVAL_FLAG_TO_END, EVAL_FLAG_EXPLICIT_EVALUATE, etc.
+    REBFLGS flags
 ){
     struct Reb_Feed feed_struct;  // opt_first so can't use DECLARE_ARRAY_FEED
     struct Reb_Feed *feed = &feed_struct;
@@ -279,22 +276,18 @@ inline static REBIXO Eval_Array_At_Mutable_Core(  // no FEED_FLAG_CONST
     );
 
     if (IS_END(feed->value))
-        return END_FLAG;
+        return false;
 
     DECLARE_FRAME (f, feed, flags);
 
+    bool threw;
     Push_Frame(out, f);
-    bool threw = (*PG_Eval_Throws)(f);
+    do {
+        threw = (*PG_Eval_Throws)(f);
+    } while (not threw and NOT_END(feed->value));
     Drop_Frame(f);
 
-    if (threw)
-        return THROWN_FLAG;
-
-    if (f->feed->index == ARR_LEN(array) + 1)
-        return END_FLAG;
-
-    assert(not (flags & EVAL_FLAG_TO_END));
-    return f->feed->index;
+    return threw;
 }
 
 
@@ -400,8 +393,8 @@ inline static void Reify_Va_To_Array_In_Frame(
 //
 // Returns THROWN_FLAG, END_FLAG, or VA_LIST_FLAG
 //
-inline static REBIXO Eval_Va_Core(
-    REBVAL *out,  // must be initialized, marked stale if empty / all invisible
+inline static bool Eval_Step_In_Va_Throws_Core(
+    REBVAL *out,  // must be initialized, won't change if all empty/invisible
     const void *opt_first,
     va_list *vaptr,
     REBFLGS flags  // EVAL_FLAG_XXX (not FEED_FLAG_XXX)
@@ -415,29 +408,56 @@ inline static REBIXO Eval_Va_Core(
     );
     DECLARE_FRAME (f, feed, flags);
 
-    if (IS_END(f->feed->value))
-        return END_FLAG;
+    if (IS_END(feed->value))
+        return false;
 
     Push_Frame(out, f);
     bool threw = (*PG_Eval_Throws)(f);
     Drop_Frame(f); // will va_end() if not reified during evaluation
 
     if (threw)
-        return THROWN_FLAG;
+        return true;
 
-    if (
-        (flags & EVAL_FLAG_TO_END)  // not just an EVALUATE, but a full DO
-        or GET_CELL_FLAG(f->out, OUT_MARKED_STALE)  // just ELIDEs/COMMENTs
-    ){
-        assert(IS_END(f->feed->value));
-        return END_FLAG;
-    }
-
-    if ((flags & EVAL_FLAG_NO_RESIDUE) and NOT_END(f->feed->value))
+    if ((flags & EVAL_FLAG_NO_RESIDUE) and NOT_END(feed->value))
         fail (Error_Apply_Too_Many_Raw());
 
-    return VA_LIST_FLAG; // frame may be at end, next call might just END_FLAG
+    // A va_list-based feed has a lookahead, and also may be spooled due to
+    // the GC being triggered.  So the va_list had ownership taken, and it's
+    // not possible to return a REBIXO here to "resume the va_list later".
+    // That can only be done if the feed is held alive across evaluations.
+    //
+    return false;
 }
+
+
+inline static bool Eval_Va_Throws_Core(
+    REBVAL *out,  // must be initialized, won't change if all empty/invisible
+    const void *opt_first,
+    va_list *vaptr,
+    REBFLGS flags  // EVAL_FLAG_XXX (not FEED_FLAG_XXX)
+){
+    DECLARE_VA_FEED (
+        feed,
+        opt_first,
+        vaptr,
+        FEED_MASK_DEFAULT  // !!! Should top frame flags be heeded?
+            | (FS_TOP->feed->flags.bits & FEED_FLAG_CONST)
+    );
+    DECLARE_FRAME (f, feed, flags);
+
+    if (IS_END(feed->value))
+        return false;
+
+    bool threw;
+    Push_Frame(out, f);
+    do {
+        threw = (*PG_Eval_Throws)(f);
+    } while (not threw and NOT_END(feed->value));
+    Drop_Frame(f);  // will va_end() if not reified during evaluation
+
+    return threw;
+}
+
 
 
 inline static bool Eval_Value_Core_Throws(
@@ -466,19 +486,19 @@ inline static bool Eval_Value_Core_Throws(
         FEED_MASK_DEFAULT | (value->header.bits & FEED_FLAG_CONST)
     );
 
-    DECLARE_FRAME (f, feed, EVAL_MASK_DEFAULT | EVAL_FLAG_TO_END);
+    DECLARE_FRAME (f, feed, EVAL_MASK_DEFAULT);
 
+    bool threw;
     Push_Frame(out, f);
-    bool threw = (*PG_Eval_Throws)(f);
+    do {
+        threw = (*PG_Eval_Throws)(f);
+    } while (not threw and NOT_END(feed->value));
     Drop_Frame(f);
-
-    if (threw)
-        return true;
 
     if (IS_END(out))
         fail ("Eval_Value_Core_Throws() empty or just COMMENTs/ELIDEs/BAR!s");
 
-    return false;
+    return threw;
 }
 
 #define Eval_Value_Throws(out,value) \

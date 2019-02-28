@@ -225,69 +225,29 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
     assert(PG_Eval_Throws == &Traced_Eval_Hook_Throws);
     PG_Eval_Throws = &Eval_Core_Throws;
 
-    // In order to trace single steps, we convert an EVAL_FLAG_TO_END request
-    // into a sequence of EVALUATE operations, and loop them.
-    //
-    uintptr_t saved_flags = f->flags.bits;
+    if (not (
+        KIND_BYTE(*v) == REB_ACTION
+        or (Trace_Flags & TRACE_FLAG_FUNCTION)
+    )){
+        REBVAL *err = rebRescue(cast(REBDNG*, &Trace_Eval_Dangerous), f);
 
-    bool threw;
-
-    while (true) {
-
-        if (not (
-            KIND_BYTE(*v) == REB_ACTION
-            or (Trace_Flags & TRACE_FLAG_FUNCTION)
-        )){
-            // If a caller reuses a frame (as we are doing by single-stepping),
-            // they are responsible for setting the flags each time.  This is
-            // verified in the debug build via EVAL_FLAG_FINAL_DEBUG.
-            //
-            f->flags.bits = saved_flags & (~EVAL_FLAG_TO_END);
-
-            REBVAL *err = rebRescue(cast(REBDNG*, &Trace_Eval_Dangerous), f);
-
-          #if defined(DEBUG_HAS_PROBE)
-            if (err) { PROBE(err); }
-          #endif
-            assert(not err);  // should not raise error!
-            UNUSED(err);
-        }
-
-        // We put the Traced_Dispatcher() into effect.  It knows to turn the
-        // eval hook back on when it dispatches, but it doesn't want to do
-        // it until then (otherwise it would trace its own PRINTs!).
-        //
-        REBNAT saved_dispatcher = PG_Dispatcher;
-        PG_Dispatcher = &Traced_Dispatcher_Hook;
-
-        threw = Eval_Core_Throws(f);
-
-        PG_Dispatcher = saved_dispatcher;
-
-        if (not (saved_flags & EVAL_FLAG_TO_END)) {
-            //
-            // If we didn't morph the flag bits from wanting a full DO to
-            // wanting only a EVALUATE, then the original intent was actually
-            // just an EVALUATE.  Return the frame state as-is.
-            //
-            break;
-        }
-
-        if (threw or IS_END(*v)) {
-            //
-            // If we get here, that means the initial request was for a DO
-            // to END but we distorted it into stepwise.  We don't restore
-            // the flags fully in a "spent frame" whether it was THROWN or
-            // not (that's the caller's job).  But to be "invisible" we do
-            // put back the EVAL_FLAG_TO_END.
-            //
-            SET_EVAL_FLAG(f, TO_END);
-            break;
-        }
-
-        // keep looping (it was originally EVAL_FLAG_TO_END, which we are
-        // simulating step-by-step)
+      #if defined(DEBUG_HAS_PROBE)
+        if (err) { PROBE(err); }
+      #endif
+        assert(not err);  // should not raise error!
+        UNUSED(err);
     }
+
+    // We put the Traced_Dispatcher() into effect.  It knows to turn the
+    // eval hook back on when it dispatches, but it doesn't want to do
+    // it until then (otherwise it would trace its own PRINTs!).
+    //
+    REBNAT saved_dispatcher = PG_Dispatcher;
+    PG_Dispatcher = &Traced_Dispatcher_Hook;
+
+    bool threw = Eval_Core_Throws(f);
+
+    PG_Dispatcher = saved_dispatcher;
 
     PG_Eval_Throws = &Traced_Eval_Hook_Throws;
     return threw;

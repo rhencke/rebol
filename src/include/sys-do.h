@@ -41,18 +41,18 @@ inline static bool Do_At_Mutable_Throws(  // no way to pass in FEED_FLAG_CONST
     REBCNT index,
     REBSPC *specifier
 ){
-    return THROWN_FLAG == Eval_Array_At_Mutable_Core(
+    return Eval_Array_At_Mutable_Throws_Core(
         Init_Void(out),
         nullptr,  // opt_first (null indicates nothing, not nulled cell)
         array,
         index,
         specifier,
-        EVAL_MASK_DEFAULT | EVAL_FLAG_TO_END
+        EVAL_MASK_DEFAULT
     );
 }
 
 
-inline static REBIXO Eval_Any_Array_At_Core(
+inline static REBIXO Eval_Step_In_Any_Array_At_Core(
     REBVAL *out,
     const RELVAL *any_array,  // Note: legal to have any_array = out
     REBSPC *specifier,
@@ -75,8 +75,30 @@ inline static REBIXO Eval_Any_Array_At_Core(
     if (f->feed->index == VAL_LEN_HEAD(any_array) + 1)
         return END_FLAG;
 
-    assert(not (flags & EVAL_FLAG_TO_END));
     return f->feed->index;
+}
+
+inline static bool Eval_Any_Array_At_Throws_Core(
+    REBVAL *out,
+    const RELVAL *any_array,  // Note: legal to have any_array = out
+    REBSPC *specifier,
+    REBFLGS flags
+){
+    DECLARE_FEED_AT_CORE (feed, any_array, specifier);
+
+    if (IS_END(feed->value))
+        return false;
+
+    DECLARE_FRAME (f, feed, flags);
+
+    bool threw;
+    Push_Frame(out, f);
+    do {
+        threw = (*PG_Eval_Throws)(f);
+    } while (not threw and NOT_END(feed->value));
+    Drop_Frame(f);
+
+    return threw;
 }
 
 inline static bool Do_Any_Array_At_Core_Throws(
@@ -84,12 +106,12 @@ inline static bool Do_Any_Array_At_Core_Throws(
     const RELVAL *any_array,
     REBSPC *specifier
 ){
-    assert(out != any_array);  // no longer legal (Init_Void() would corrupt)
-    return THROWN_FLAG == Eval_Any_Array_At_Core(
+    assert(out != any_array);  // the Init_Void() would corrupt it
+    return Eval_Any_Array_At_Throws_Core(
         Init_Void(out),
         any_array,
         specifier,
-        EVAL_MASK_DEFAULT | EVAL_FLAG_TO_END
+        EVAL_MASK_DEFAULT
     );
 }
 
@@ -110,12 +132,11 @@ inline static bool Do_Va_Throws(
     const void *opt_first,
     va_list *vaptr  // va_end() handled by Eval_Va_Core on success/fail/throw
 ){
-    return THROWN_FLAG == Eval_Va_Core(
+    return Eval_Va_Throws_Core(
         Init_Void(out),
         opt_first,
         vaptr,
         EVAL_MASK_DEFAULT
-            | EVAL_FLAG_TO_END
     );
 }
 
@@ -137,7 +158,7 @@ inline static bool Run_Throws(
     va_list va;
     va_start(va, p);
 
-    REBIXO indexor = Eval_Va_Core(
+    bool threw = Eval_Step_In_Va_Throws_Core(
         SET_END(out),  // start at END to detect error if no eval product
         p,  // opt_first
         &va,  // va_end() handled by Eval_Va_Core on success/fail/throw
@@ -148,7 +169,7 @@ inline static bool Run_Throws(
     if (IS_END(out))
         fail ("Run_Throws() empty or just COMMENTs/ELIDEs/BAR!s");
 
-    return indexor == THROWN_FLAG;
+    return threw;
 }
 
 

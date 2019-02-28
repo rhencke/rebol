@@ -99,53 +99,6 @@ REB_R Dispatcher_Core(REBFRM * const f) {
 }
 
 
-static inline bool Start_New_Expression_Throws(REBFRM *f) {
-    assert(Eval_Count >= 0);
-    if (--Eval_Count == 0) {
-        //
-        // Note that Do_Signals_Throws() may do a recycle step of the GC, or
-        // it may spawn an entire interactive debugging session via
-        // breakpoint before it returns.  It may also FAIL and longjmp out.
-        //
-        if (Do_Signals_Throws(f->out))
-            return true;
-    }
-
-    UPDATE_EXPRESSION_START(f); // !!! See FRM_INDEX() for caveats
-
-    if (NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT))
-        SET_CELL_FLAG(f->out, OUT_MARKED_STALE);
-
-    // Want to keep this flag between an operation and an ensuing enfix in
-    // the same frame, so can't clear in Drop_Action(), e.g. due to:
-    //
-    //     left-lit: enfix :lit
-    //     o: make object! [f: does [1]]
-    //     o/f left-lit ;--- want error mentioning -> here, need flag for that
-    //
-    CLEAR_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH);
-
-    if (NOT_EVAL_FLAG(f, FULFILLING_ARG))
-        assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
-
-    assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
-
-    return false;
-}
-
-
-#if !defined(NDEBUG)
-    #define START_NEW_EXPRESSION_MAY_THROW(f,g) \
-        Eval_Core_Expression_Checks_Debug(f); \
-        if (Start_New_Expression_Throws(f)) \
-            g;
-#else
-    #define START_NEW_EXPRESSION_MAY_THROW(f,g) \
-        if (Start_New_Expression_Throws(f)) \
-            g;
-#endif
-
-
 #ifdef DEBUG_COUNT_TICKS
     //
     // Macro for same stack level as Eval_Core when debugging TICK_BREAKPOINT
@@ -585,7 +538,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     SHORTHAND (specifier, f->feed->specifier, REBSPC*);
 
   #if defined(DEBUG_COUNT_TICKS)
-    REBTCK tick = f->tick = TG_Tick;  // snapshot start tick
+    REBTCK tick = f->tick = TG_Tick;  // snapshot tick for C watchlist viewing
   #endif
 
     assert(DSP >= f->dsp_orig);  // REDUCE accrues, APPLY adds refinements
@@ -652,10 +605,39 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     kind.byte = KIND_BYTE(*next);
 
-  do_next: ;  // meaningful semicolon--subsequent macro may declare things
+  #if !defined(NDEBUG)
+    Eval_Core_Expression_Checks_Debug(f);
+  #endif
 
-    START_NEW_EXPRESSION_MAY_THROW(f, goto return_thrown);
-    // ^-- resets local `tick` count, Ctrl-C may abort and goto return_thrown
+//=//// START NEW EXPRESSION //////////////////////////////////////////////=//
+
+    assert(Eval_Count >= 0);
+    if (--Eval_Count == 0) {
+        //
+        // Note that Do_Signals_Throws() may do a recycle step of the GC, or
+        // it may spawn an entire interactive debugging session via
+        // breakpoint before it returns.  It may also FAIL and longjmp out.
+        //
+        if (Do_Signals_Throws(f->out))
+            goto return_thrown;
+    }
+
+    if (NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT))
+        SET_CELL_FLAG(f->out, OUT_MARKED_STALE);
+
+    // Want to keep this flag between an operation and an ensuing enfix in
+    // the same frame, so can't clear in Drop_Action(), e.g. due to:
+    //
+    //     left-lit: enfix :lit
+    //     o: make object! [f: does [1]]
+    //     o/f left-lit ;--- want error mentioning -> here, need flag for that
+    //
+    CLEAR_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH);
+
+    if (NOT_EVAL_FLAG(f, FULFILLING_ARG))
+        assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
+
+    assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
 
     gotten = *next_gotten;
     v = Lookback_While_Fetching_Next(f);
@@ -663,6 +645,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     assert(kind.byte != REB_0_END);
     assert(kind.byte == KIND_BYTE_UNCHECKED(v));
+
+    UPDATE_EXPRESSION_START(f); // !!! See FRM_INDEX() for caveats
 
   reevaluate: ;  // meaningful semicolon--subsequent macro may declare things
 
@@ -1972,20 +1956,19 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_GROUP: {
         *next_gotten = nullptr;  // arbitrary code changes fetched variables
 
-        REBIXO indexor = Eval_Any_Array_At_Core(
+        if (Eval_Any_Array_At_Throws_Core(
             f->out,  // anything in f->out will be left as-is if invisible
             v,
             *specifier,
-            EVAL_MASK_DEFAULT | EVAL_FLAG_TO_END
-        );
-        if (indexor == THROWN_FLAG)
+            EVAL_MASK_DEFAULT
+        )){
             goto return_thrown;
-        assert(indexor == END_FLAG);
+        }
 
         if (GET_CELL_FLAG(f->out, OUT_MARKED_STALE))  // invisible group
             break;  // ...we might be leaving an END in f->out by doing this
 
-        f->out->header.bits &= ~CELL_FLAG_UNEVALUATED;  // `(1)` evaluates
+        CLEAR_CELL_FLAG(f->out, UNEVALUATED);  // `(1)` considered evaluative
         break; }
 
 
@@ -2453,12 +2436,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             or not IS_BLANK(ARR_AT(VAL_ARRAY(*next), 1))
         ){
             CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
-
-            if (NOT_EVAL_FLAG(f, TO_END))
-                goto finished; // just 1 step of work, so stop evaluating
-
-            assert(NOT_EVAL_FLAG(f, FULFILLING_ARG)); // one only
-            goto do_next;
+            goto finished;
         }
 
         // We had something like `5 + 5 / 2 + 3`.  This is a special form of
@@ -2483,11 +2461,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     if (kind.byte != REB_WORD) {
         CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
-
-        if (NOT_EVAL_FLAG(f, TO_END))
-            goto finished; // only want 1 EVALUATE of work, so stop evaluating
-
-        goto do_next;
+        goto finished;
     }
 
 //=//// FETCH WORD! TO PERFORM SPECIAL HANDLING FOR ENFIX/INVISIBLES //////=//
@@ -2502,9 +2476,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //=//// NEW EXPRESSION IF UNBOUND, NON-FUNCTION, OR NON-ENFIX /////////////=//
 
-    // These cases represent finding the start of a new expression, which
-    // continues the evaluator loop if EVAL_FLAG_TO_END, but will stop with
-    // `goto finished` if not (EVAL_FLAG_TO_END).
+    // These cases represent finding the start of a new expression.
     //
     // Fall back on word-like "dispatch" even if ->gotten is null (unset or
     // unbound word).  It'll be an error, but that code path raises it for us.
@@ -2517,34 +2489,10 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
-        if (NOT_EVAL_FLAG(f, TO_END)) {
-            //
-            // Since it's a new expression, EVALUATE doesn't want to run it
-            // even if invisible, as it's not completely invisible (enfixed)
-            //
-            goto finished;
-        }
-
-        START_NEW_EXPRESSION_MAY_THROW(f, goto return_thrown);
-        // ^-- resets local tick, corrupts f->out, Ctrl-C may abort
-
-        UPDATE_TICK_DEBUG(nullptr);
-        // v-- The TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
-
-        gotten = *next_gotten; // if nullptr, the word will error
-        v = Lookback_While_Fetching_Next(f);
-
-        // Were we to jump to the REB_WORD switch case here, LENGTH would
-        // cause an error in the expression below:
+        // Since it's a new expression, EVALUATE doesn't want to run it
+        // even if invisible, as it's not completely invisible (enfixed)
         //
-        //     if true [] length of "hello"
-        //
-        // `reevaluate` accounts for the extra lookahead of after something
-        // like IF TRUE [], where you have a case that even though LENGTH
-        // isn't enfix itself, enfix accounting must be done by looking ahead
-        // to see if something after it (like OF) is enfix and quotes back!
-        //
-        goto reevaluate;
+        goto finished;
     }
 
 //=//// IT'S A WORD ENFIXEDLY TIED TO A FUNCTION (MAY BE "INVISIBLE") /////=//
@@ -2586,15 +2534,12 @@ bool Eval_Core_Throws(REBFRM * const f)
         )
     ){
         if (GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)) {
+            // Don't do enfix lookahead if asked *not* to look.
+
             CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
             assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
             SET_FEED_FLAG(f->feed, DEFERRING_ENFIX);
-
-            // Don't do enfix lookahead if asked *not* to look.  See the
-            // REB_P_TIGHT parameter convention for the use of this, as
-            // well as it being set if EVAL_FLAG_TO_END wants to clear out the
-            // invisibles at this frame level before returning.
 
             goto finished;
         }
