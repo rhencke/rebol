@@ -18,12 +18,6 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // All THROWN values have two parts: the REBVAL arg being thrown and
@@ -34,7 +28,8 @@
 // to approach the problem would be to create a new REB_THROWN type with
 // two fields (like a PAIR!).  But since there can only be one thrown value
 // on an evaluator thread at a time, a more efficient trick is used.  The
-// throw label is kept in the output cell, with the arg put off to the side.
+// throw label is shuffled up the stack via the output cell, with the arg
+// put off to the side.
 //
 // There are important technical reasons for favoring the label as the output:
 //
