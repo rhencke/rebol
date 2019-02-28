@@ -455,7 +455,7 @@ bool Specialize_Action_Throws(
         // Run block and ignore result (unless it is thrown)
         //
         PUSH_GC_GUARD(exemplar);
-        bool threw = Do_Any_Array_At_Throws(out, opt_def);
+        bool threw = Do_Any_Array_At_Throws(out, opt_def, SPECIFIED);
         DROP_GC_GUARD(exemplar);
 
         if (threw) {
@@ -1171,7 +1171,7 @@ REB_R Block_Dispatcher(REBFRM *f)
 
     if (IS_SPECIFIC(block)) {
         if (FRM_BINDING(f) == UNBOUND) {
-            if (Do_Any_Array_At_Throws(f->out, KNOWN(block)))
+            if (Do_Any_Array_At_Throws(f->out, KNOWN(block), SPECIFIED))
                 return R_THROWN;
             return f->out;
         }
@@ -1219,7 +1219,7 @@ REB_R Block_Dispatcher(REBFRM *f)
 
     assert(IS_RELATIVE(block));
 
-    if (Do_Any_Array_At_Core_Throws(f->out, block, SPC(f->varlist)))
+    if (Do_Any_Array_At_Throws(f->out, block, SPC(f->varlist)))
         return R_THROWN;
 
     return f->out;

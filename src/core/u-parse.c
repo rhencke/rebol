@@ -478,7 +478,7 @@ REB_R Process_Group_For_Parse(
 
     // Evaluator should optimize execution of a GROUP! with only one element.
     //
-    if (Do_Any_Array_At_Core_Throws(cell, group, derived))
+    if (Do_Any_Array_At_Throws(cell, group, derived))
         return R_THROWN;
 
     // !!! The input is not locked from modification by agents other than the
@@ -2391,7 +2391,7 @@ REBNATIVE(subparse)
                     // a normal setting procedure.
                     //
                     if (IS_SET_GROUP(set_or_copy_word)) {
-                        if (Do_Any_Array_At_Core_Throws(
+                        if (Do_Any_Array_At_Throws(
                             P_CELL,
                             set_or_copy_word,
                             P_RULE_SPECIFIER
@@ -2476,7 +2476,7 @@ REBNATIVE(subparse)
                             P_RULE_SPECIFIER,
                             rule
                         );
-                        if (Do_Any_Array_At_Core_Throws(
+                        if (Do_Any_Array_At_Throws(
                             evaluated,
                             rule,
                             derived

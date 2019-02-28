@@ -1470,7 +1470,7 @@ inline static bool Interpreted_Dispatch_Throws(
     // paramlist but do not have an instance of an action to line them up
     // with.  We use the frame (identified by varlist) as the "specifier".
     //
-    return Do_Any_Array_At_Core_Throws(out, body, SPC(f->varlist));
+    return Do_Any_Array_At_Throws(out, body, SPC(f->varlist));
 }
 
 
@@ -1635,7 +1635,7 @@ REB_R Adapter_Dispatcher(REBFRM *f)
 
     REBVAL * const discarded = FRM_SPARE(f);
 
-    if (Do_Any_Array_At_Core_Throws(discarded, prelude, SPC(f->varlist))) {
+    if (Do_Any_Array_At_Throws(discarded, prelude, SPC(f->varlist))) {
         Move_Value(f->out, discarded);
         return R_THROWN;
     }

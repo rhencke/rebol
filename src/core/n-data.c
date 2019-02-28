@@ -356,7 +356,7 @@ REBNATIVE(use)
         ARG(vars) // similar to the "spec" of a loop: WORD!/LIT-WORD!/BLOCK!
     );
 
-    if (Do_Any_Array_At_Throws(D_OUT, ARG(body)))
+    if (Do_Any_Array_At_Throws(D_OUT, ARG(body), SPECIFIED))
         return R_THROWN;
 
     return D_OUT;

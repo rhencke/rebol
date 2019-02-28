@@ -119,7 +119,7 @@ bool Do_Breakpoint_Throws(
     assert(IS_LOGIC(mode));
 
     if (VAL_LOGIC(mode)) {
-        if (Do_Any_Array_At_Throws(out, payload)) {
+        if (Do_Any_Array_At_Throws(out, payload, SPECIFIED)) {
             if (not IS_BLANK(target)) // throwing incompatible with /AT
                 fail (Error_No_Catch_For_Throw(out));
 

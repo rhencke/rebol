@@ -777,7 +777,7 @@ static REBARR *Startup_Generics(const REBVAL *boot_generics)
     Bind_Values_Deep(head, Lib_Context);
 
     DECLARE_LOCAL (result);
-    if (Do_Any_Array_At_Throws(result, boot_generics))
+    if (Do_Any_Array_At_Throws(result, boot_generics, SPECIFIED))
         panic (result);
 
     if (not IS_BLANK(result))
@@ -975,7 +975,7 @@ static void Init_System_Object(
     // Evaluate the block (will eval CONTEXTs within).  Expects void result.
     //
     DECLARE_LOCAL (result);
-    if (Do_Any_Array_At_Throws(result, boot_sysobj_spec))
+    if (Do_Any_Array_At_Throws(result, boot_sysobj_spec, SPECIFIED))
         panic (result);
     if (not IS_BLANK(result))
         panic (result);

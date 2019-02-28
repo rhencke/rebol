@@ -566,7 +566,7 @@ REB_R MAKE_Error(
         Bind_Values_Deep(VAL_ARRAY_AT(arg), error);
 
         DECLARE_LOCAL (evaluated);
-        if (Do_Any_Array_At_Throws(evaluated, arg)) {
+        if (Do_Any_Array_At_Throws(evaluated, arg, SPECIFIED)) {
             Move_Value(out, evaluated);
             return R_THROWN;
         }

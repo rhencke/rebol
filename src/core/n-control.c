@@ -959,7 +959,7 @@ REBNATIVE(case)
         // Can't use Do_Branch(), *v is unevaluated RELVAL...simulate it
 
         if (IS_GROUP(*v)) {
-            if (Do_Any_Array_At_Core_Throws(D_SPARE, *v, *specifier)) {
+            if (Do_Any_Array_At_Throws(D_SPARE, *v, *specifier)) {
                 Move_Value(D_OUT, D_SPARE);
                 goto threw;
             }
@@ -970,7 +970,7 @@ REBNATIVE(case)
             Unquotify(Derelativize(D_OUT, *v, *specifier), 1);
         }
         else if (IS_BLOCK(*v)) {
-            if (Do_Any_Array_At_Core_Throws(D_OUT, *v, *specifier))
+            if (Do_Any_Array_At_Throws(D_OUT, *v, *specifier))
                 goto threw;
         }
         else if (IS_ACTION(*v)) {
@@ -1152,7 +1152,7 @@ REBNATIVE(switch)
                 goto reached_end;
 
             if (IS_BLOCK(*v)) {  // *v is RELVAL, can't Do_Branch
-                if (Do_Any_Array_At_Core_Throws(D_OUT, *v, *specifier))
+                if (Do_Any_Array_At_Throws(D_OUT, *v, *specifier))
                     goto threw;
                 break;
             }
@@ -1286,13 +1286,8 @@ REBNATIVE(default)
                     // edge case...not going to address it yet, as perhaps
                     // GET-WORD! in paths aren't good anyway.
                     //
-                    if (Do_Any_Array_At_Core_Throws(
-                        D_OUT,
-                        item,
-                        specifier
-                    )){
+                    if (Do_Any_Array_At_Throws(D_OUT, item, specifier))
                         return R_THROWN;
-                    }
                     Move_Value(dest, D_OUT);
                 }
             }
@@ -1369,7 +1364,7 @@ REBNATIVE(catch)
     if (REF(any) and REF(name))
         fail (Error_Bad_Refines_Raw());
 
-    if (not Do_Any_Array_At_Throws(D_OUT, ARG(block)))
+    if (not Do_Any_Array_At_Throws(D_OUT, ARG(block), SPECIFIED))
         return nullptr; // no throw means just return null
 
     const REBVAL *label = VAL_THROWN_LABEL(D_OUT);

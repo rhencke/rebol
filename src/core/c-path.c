@@ -129,7 +129,7 @@ bool Next_Path_Throws(REBPVS *pvs)
             fail ("GROUP! in PATH! used with GET or SET (use REDUCE/EVAL)");
 
         REBSPC *derived = Derive_Specifier(*specifier, *v);
-        if (Do_Any_Array_At_Core_Throws(PVS_PICKER(pvs), *v, derived)) {
+        if (Do_Any_Array_At_Throws(PVS_PICKER(pvs), *v, derived)) {
             Move_Value(pvs->out, PVS_PICKER(pvs));
             return true; // thrown
         }
@@ -405,7 +405,7 @@ bool Eval_Path_Throws_Core(
             fail ("GROUP! in PATH! used with GET or SET (use REDUCE/EVAL)");
 
         REBSPC *derived = Derive_Specifier(specifier, *v);
-        if (Do_Any_Array_At_Core_Throws(pvs->out, *v, derived))
+        if (Do_Any_Array_At_Throws(pvs->out, *v, derived))
             goto return_thrown;
     }
     else {

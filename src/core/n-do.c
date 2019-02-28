@@ -153,7 +153,7 @@ REBNATIVE(shove)
         Move_Value(shovee, D_OUT);
     }
     else if (IS_GROUP(*v)) {
-        if (Do_Any_Array_At_Core_Throws(D_OUT, *v, *specifier))
+        if (Do_Any_Array_At_Throws(D_OUT, *v, *specifier))
             return R_THROWN;
         if (IS_END(D_OUT))  // !!! need SHOVE frame for type error
             fail ("GROUP! passed to SHOVE did not evaluate to content");
@@ -295,7 +295,7 @@ REBNATIVE(do)
     switch (VAL_TYPE(source)) {
       case REB_BLOCK:
       case REB_GROUP: {
-        if (Do_Any_Array_At_Throws(D_OUT, source))
+        if (Do_Any_Array_At_Throws(D_OUT, source, SPECIFIED))
             return R_THROWN;
         return D_OUT; }
 
@@ -310,7 +310,7 @@ REBNATIVE(do)
             // array during execution, there will be problems if it is TAKE'n
             // or DO'd while this operation is in progress.
             //
-            if (Do_Any_Array_At_Throws(D_OUT, position)) {
+            if (Do_Any_Array_At_Throws(D_OUT, position, SPECIFIED)) {
                 //
                 // !!! A BLOCK! varargs doesn't technically need to "go bad"
                 // on a throw, since the block is still around.  But a FRAME!
@@ -792,7 +792,7 @@ REBNATIVE(apply)
     //
     PUSH_GC_GUARD(exemplar);
     DECLARE_LOCAL (temp);
-    bool def_threw = Do_Any_Array_At_Throws(temp, ARG(def));
+    bool def_threw = Do_Any_Array_At_Throws(temp, ARG(def), SPECIFIED);
     DROP_GC_GUARD(exemplar);
 
     assert(CTX_KEYS_HEAD(exemplar) == ACT_PARAMS_HEAD(VAL_ACTION(applicand)));

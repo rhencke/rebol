@@ -78,12 +78,14 @@ inline static REBIXO Eval_Step_In_Any_Array_At_Core(
     return f->feed->index;
 }
 
-inline static bool Eval_Any_Array_At_Throws_Core(
-    REBVAL *out,
-    const RELVAL *any_array,  // Note: legal to have any_array = out
+inline static bool Do_Any_Array_At_Throws_Core(
+    REBVAL *out,  // must be initialized, unchanged if all empty/invisible
+    const RELVAL *any_array,
     REBSPC *specifier,
     REBFLGS flags
 ){
+    assert(out != any_array);  // if array is empty, result would be array!
+
     DECLARE_FEED_AT_CORE (feed, any_array, specifier);
 
     if (IS_END(feed->value))
@@ -101,28 +103,16 @@ inline static bool Eval_Any_Array_At_Throws_Core(
     return threw;
 }
 
-inline static bool Do_Any_Array_At_Core_Throws(
+inline static bool Do_Any_Array_At_Throws(
     REBVAL *out,
     const RELVAL *any_array,
     REBSPC *specifier
 ){
-    assert(out != any_array);  // the Init_Void() would corrupt it
-    return Eval_Any_Array_At_Throws_Core(
+    return Do_Any_Array_At_Throws_Core(
         Init_Void(out),
         any_array,
         specifier,
         EVAL_MASK_DEFAULT
-    );
-}
-
-inline static bool Do_Any_Array_At_Throws(
-    REBVAL *out,
-    const REBVAL *any_array
-){
-    return Do_Any_Array_At_Core_Throws(
-        out,
-        any_array,
-        VAL_SPECIFIER(any_array)
     );
 }
 
@@ -193,7 +183,7 @@ inline static bool Do_Branch_Core_Throws(
     }
 
     if (IS_BLOCK(branch))
-        return Do_Any_Array_At_Throws(out, branch);
+        return Do_Any_Array_At_Throws(out, branch, SPECIFIED);
 
     assert(IS_ACTION(branch));
     return Run_Throws(

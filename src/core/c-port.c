@@ -232,7 +232,7 @@ bool Wait_Ports_Throws(
             fail ("system/ports/pump must be a block");
 
         DECLARE_LOCAL (result);
-        if (Do_Any_Array_At_Throws(result, pump))
+        if (Do_Any_Array_At_Throws(result, pump, SPECIFIED))
             fail (Error_No_Catch_For_Throw(result));
 
         if (timeout != ALL_BITS) {

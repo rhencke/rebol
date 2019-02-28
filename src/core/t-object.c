@@ -337,7 +337,7 @@ REB_R MAKE_Context(
         Bind_Values_Deep(VAL_ARRAY_AT(arg), ctx);
 
         DECLARE_LOCAL (dummy);
-        if (Do_Any_Array_At_Throws(dummy, arg)) {
+        if (Do_Any_Array_At_Throws(dummy, arg, SPECIFIED)) {
             Move_Value(out, dummy);
             return R_THROWN;
         }
@@ -936,7 +936,7 @@ REBNATIVE(construct)
     Bind_Values_Deep(VAL_ARRAY_AT(spec), context);
 
     DECLARE_LOCAL (dummy);
-    if (Do_Any_Array_At_Throws(dummy, spec)) {
+    if (Do_Any_Array_At_Throws(dummy, spec, SPECIFIED)) {
         Move_Value(D_OUT, dummy);
         return R_THROWN;  // evaluation result ignored unless thrown
     }

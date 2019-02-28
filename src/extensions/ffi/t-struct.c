@@ -950,7 +950,7 @@ static void Parse_Field_Type_May_Fail(
         //
         DECLARE_LOCAL (ret);
         REBSPC *derived = Derive_Specifier(val, VAL_SPECIFIER(spec));
-        if (Do_Any_Array_At_Core_Throws(ret, val, derived))
+        if (Do_Any_Array_At_Throws(ret, val, derived))
             fail (Error_No_Catch_For_Throw(ret));
 
         if (!IS_INTEGER(ret))

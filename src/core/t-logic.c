@@ -234,7 +234,7 @@ REBNATIVE(and)
 
     if (IS_FALSEY(left)) {
         if (IS_GROUP(right)) { // no need to evaluate right if block/quoted
-            if (Do_Any_Array_At_Throws(D_OUT, right))
+            if (Do_Any_Array_At_Throws(D_OUT, right, SPECIFIED))
                 return R_THROWN;
         }
         RETURN (left); // preserve falsey value
@@ -244,7 +244,7 @@ REBNATIVE(and)
         if (Eval_Value_Throws(D_OUT, Unquotify(right, 1)))
             return R_THROWN;
     }
-    else if (Do_Any_Array_At_Throws(D_OUT, right))
+    else if (Do_Any_Array_At_Throws(D_OUT, right, SPECIFIED))
         return R_THROWN;
 
     return D_OUT; // preserve the exact truthy or falsey value
@@ -275,7 +275,7 @@ REBNATIVE(or)
 
     if (IS_TRUTHY(left)) {
         if (IS_GROUP(right)) { // no need to evaluate right if block/quoted
-            if (Do_Any_Array_At_Throws(D_OUT, right))
+            if (Do_Any_Array_At_Throws(D_OUT, right, SPECIFIED))
                 return R_THROWN;
         }
         RETURN (left);
@@ -285,7 +285,7 @@ REBNATIVE(or)
         if (Eval_Value_Throws(D_OUT, Unquotify(right, 1)))
             return R_THROWN;
     }
-    else if (Do_Any_Array_At_Throws(D_OUT, right))
+    else if (Do_Any_Array_At_Throws(D_OUT, right, SPECIFIED))
         return R_THROWN;
 
     return D_OUT; // preserve the exact truthy or falsey value
@@ -314,7 +314,7 @@ REBNATIVE(xor)
     if (IS_BLOCK(left) and GET_CELL_FLAG(left, UNEVALUATED))
         fail ("left hand side of XOR should not be literal block");
 
-    if (Do_Any_Array_At_Throws(D_OUT, ARG(right))) // always evaluated
+    if (Do_Any_Array_At_Throws(D_OUT, ARG(right), SPECIFIED))  // always eval
         return R_THROWN;
 
     REBVAL *right = D_OUT;

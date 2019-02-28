@@ -1956,7 +1956,7 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_GROUP: {
         *next_gotten = nullptr;  // arbitrary code changes fetched variables
 
-        if (Eval_Any_Array_At_Throws_Core(
+        if (Do_Any_Array_At_Throws_Core(
             f->out,  // anything in f->out will be left as-is if invisible
             v,
             *specifier,
@@ -2131,7 +2131,7 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_GET_GROUP: {
         *next_gotten = nullptr; // arbitrary code changes fetched variables
 
-        if (Do_Any_Array_At_Core_Throws(spare, v, *specifier)) {
+        if (Do_Any_Array_At_Throws(spare, v, *specifier)) {
             Move_Value(f->out, spare);
             goto return_thrown;
         }
@@ -2173,7 +2173,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         *next_gotten = nullptr; // arbitrary code changes fetched variables
 
-        if (Do_Any_Array_At_Core_Throws(spare, v, *specifier)) {
+        if (Do_Any_Array_At_Throws(spare, v, *specifier)) {
             Move_Value(f->out, spare);
             goto return_thrown;
         }
