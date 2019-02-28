@@ -55,7 +55,7 @@ REBNATIVE(eval)
     UNUSED(ARG(expressions));
 
     REBFLGS flags = EVAL_MASK_DEFAULT;
-    if (Reevaluate_In_Subframe_Throws(
+    if (Reevaluate_In_Subframe_Maybe_Stale_Throws(
         Init_Void(D_OUT),  // `eval lit (comment "this gives void vs. error")`
         frame_,
         ARG(value),
@@ -63,6 +63,7 @@ REBNATIVE(eval)
     ))
         return R_THROWN;
 
+    CLEAR_CELL_FLAG(D_OUT, OUT_MARKED_STALE);
     return D_OUT;
 }
 
@@ -215,10 +216,17 @@ REBNATIVE(shove)
 
     REBFLGS flags = EVAL_MASK_DEFAULT | EVAL_FLAG_NEXT_ARG_FROM_OUT;
 
-    if (Reevaluate_In_Subframe_Throws(D_OUT, frame_, shovee, flags)) {
+    if (Reevaluate_In_Subframe_Maybe_Stale_Throws(
+        D_OUT,
+        frame_,
+        shovee,
+        flags
+    )){
         rebRelease(composed_set_path);  // ok if nullptr
         return R_THROWN;
     }
+
+    assert(NOT_CELL_FLAG(D_OUT, OUT_MARKED_STALE));  // !!! can this happen?
 
     if (REF(set)) {
         if (IS_SET_WORD(left)) {
@@ -326,14 +334,24 @@ REBNATIVE(do)
         // By definition, we are in the middle of a function call in the frame
         // the varargs came from.  It's still on the stack, and we don't want
         // to disrupt its state.  Use a subframe.
-        //
-        REBFLGS flags = EVAL_MASK_DEFAULT;
-        Init_Void(D_OUT);
-        while (NOT_END(f->feed->value)) {
-            if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags))
-                return R_THROWN;
-        }
 
+        Init_Void(D_OUT);
+        if (IS_END(f->feed->value))
+            return D_OUT;
+
+        DECLARE_FRAME (subframe, f->feed, EVAL_MASK_DEFAULT);
+
+        bool threw;
+        Push_Frame(D_OUT, subframe);
+        do {
+            threw = Eval_Step_Maybe_Stale_Throws(D_OUT, subframe);
+        } while (not threw and NOT_END(f->feed->value));
+        Drop_Frame(subframe);
+
+        if (threw)
+            return R_THROWN;
+
+        CLEAR_CELL_FLAG(D_OUT, OUT_MARKED_STALE);
         return D_OUT; }
 
       case REB_BINARY:

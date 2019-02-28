@@ -380,13 +380,12 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
     else
         Init_Path(first, Pop_Stack_Values(dsp_orig));
 
-    return Eval_Array_At_Mutable_Throws_Core(
+    return Do_At_Mutable_Core_Throws(
         out,
         first, // path not in array, will be "virtual" first element
         code_arr,
         0, // index
-        SPECIFIED, // reusing existing REBVAL arguments, no relative values
-        EVAL_MASK_DEFAULT
+        SPECIFIED // reusing existing REBVAL arguments, no relative values
     );
 }
 

@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2018 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -20,69 +20,39 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// DO is a higher-level concept, built on top of EVALUATE.  It always implies
-// running to the end of its input, and always produces a single value...
-// typically the last value an evaluation step computed.
+// The "DO" helpers have names like Do_XXX(), and are a convenience layer
+// over making repeated calls into the Eval_XXX() routines.  DO-ing things
+// always implies running to the end of an input.  It also implies returning
+// a VOID! value if nothing can be synthesized, but letting the last null
+// or value fall out otherwise:
 //
-// If no evaluative product can be produced (as in `do [comment "hi"]` or
-// `do [| | ()]` or just plain `do []`) then Do_XXX() will synthesize a VOID!.
+//     >> type of do []
+//     == void!
+//
+//     >> type of do [comment "hi"]
+//     == void!
+//
+//     >> do [1 comment "hi"]
+//     == 1
+//
+//    >> do [null comment "hi"]
+//    ; null
+//
+// See %sys-eval.h for the lower level routines if this isn't enough control.
 //
 
 
-inline static bool Do_At_Mutable_Throws(  // no way to pass in FEED_FLAG_CONST
-    REBVAL *out,
-    REBARR *array,
-    REBCNT index,
-    REBSPC *specifier
-){
-    return Eval_Array_At_Mutable_Throws_Core(
-        Init_Void(out),
-        nullptr,  // opt_first (null indicates nothing, not nulled cell)
-        array,
-        index,
-        specifier,
-        EVAL_MASK_DEFAULT
-    );
-}
-
-
-inline static REBIXO Eval_Step_In_Any_Array_At_Core(
-    REBVAL *out,
-    const RELVAL *any_array,  // Note: legal to have any_array = out
-    REBSPC *specifier,
-    REBFLGS flags
-){
-    DECLARE_FEED_AT_CORE (feed, any_array, specifier);
-
-    if (IS_END(feed->value))
-        return END_FLAG;
-
-    DECLARE_FRAME (f, feed, flags);
-
-    Push_Frame(out, f);
-    bool threw = (*PG_Eval_Maybe_Stale_Throws)(f);
-    Drop_Frame(f);
-
-    if (threw)
-        return THROWN_FLAG;
-
-    if (f->feed->index == VAL_LEN_HEAD(any_array) + 1)
-        return END_FLAG;
-
-    return f->feed->index;
-}
-
-inline static bool Do_Any_Array_At_Maybe_Stale_Throws(
+// This helper routine is able to take an arbitrary input cell to start with
+// that may not be VOID!.  It is code that DO shares with GROUP! evaluation
+// in Eval_Core()--where being able to know if a group "completely vaporized"
+// is important as distinct from an expression evaluating to void.
+//
+inline static bool Do_Feed_To_End_Maybe_Stale_Throws(
     REBVAL *out,  // must be initialized, unchanged if all empty/invisible
-    const RELVAL *any_array,
-    REBSPC *specifier
+    struct Reb_Feed *feed  // feed mechanics always call va_end() if va_list
 ){
-    assert(out != any_array);  // if array is empty, result would be array!
-
-    DECLARE_FEED_AT_CORE (feed, any_array, specifier);
-
     if (IS_END(feed->value)) {
-        SET_CELL_FLAG(out, OUT_MARKED_STALE);  // Eval_Core would've done this
+        SET_CELL_FLAG(out, OUT_MARKED_STALE);
         return false;
     }
 
@@ -98,29 +68,76 @@ inline static bool Do_Any_Array_At_Maybe_Stale_Throws(
     return threw;
 }
 
+
 inline static bool Do_Any_Array_At_Throws(
     REBVAL *out,
     const RELVAL *any_array,
     REBSPC *specifier
 ){
-    Init_Void(out);  // e.g. `[]` or `[comment "hi"]` will default to void
-    bool threw = Do_Any_Array_At_Maybe_Stale_Throws(out, any_array, specifier);
+    Init_Void(out);
+
+    DECLARE_FEED_AT_CORE (feed, any_array, specifier);
+
+    bool threw = Do_Feed_To_End_Maybe_Stale_Throws(out, feed);
     CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
     return threw;
 }
 
 
+// !!! When working with an array outside of the context of a REBVAL it was
+// extracted from, then that means automatic determination of the CONST rules
+// isn't possible.  This primitive is currently used in a few places where
+// the desire is not to inherit any "wave of constness" from the parent's
+// frame, or from a value.  The cases need review--in particular the use for
+// the kind of shady frame translations used by HIJACK and ports.
+//
+inline static bool Do_At_Mutable_Core_Throws(
+    REBVAL *out,
+    const RELVAL *opt_first,  // optional element to inject *before* the array
+    REBARR *array,
+    REBCNT index,
+    REBSPC *specifier  // must match array, but also opt_first if relative
+){
+    Init_Void(out);
+
+    struct Reb_Feed feed_struct;  // opt_first so can't use DECLARE_ARRAY_FEED
+    struct Reb_Feed *feed = &feed_struct;
+    Prep_Array_Feed(
+        feed,
+        opt_first,
+        array,
+        index,
+        specifier,
+        FEED_MASK_DEFAULT  // different: does not 
+    );
+
+    bool threw = Do_Feed_To_End_Maybe_Stale_Throws(out, feed);
+    CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
+    return threw;
+}
+
+#define Do_At_Mutable_Throws(out,array,index,specifier) \
+    Do_At_Mutable_Core_Throws((out), nullptr, (array), (index), (specifier))
+
+
 inline static bool Do_Va_Throws(
     REBVAL *out,
-    const void *opt_first,
-    va_list *vaptr  // va_end() handled by Eval_Va_Core on success/fail/throw
+    const void *opt_first,  // optional element to inject *before* the va_list
+    va_list *vaptr  // va_end() handled by feed for all cases (throws, fails)
 ){
-    return Eval_Va_Throws_Core(
-        Init_Void(out),
+    Init_Void(out);
+
+    DECLARE_VA_FEED (
+        feed,
         opt_first,
         vaptr,
-        EVAL_MASK_DEFAULT
+        FEED_MASK_DEFAULT  // !!! Should top frame flags be heeded?
+            | (FS_TOP->feed->flags.bits & FEED_FLAG_CONST)
     );
+
+    bool threw = Do_Feed_To_End_Maybe_Stale_Throws(out, feed);
+    CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
+    return threw;
 }
 
 

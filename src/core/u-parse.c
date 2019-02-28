@@ -207,7 +207,7 @@ static bool Subparse_Throws(
         return false;
     }
 
-    DECLARE_FRAME(f, rules_feed, EVAL_MASK_DEFAULT);
+    DECLARE_FRAME (f, rules_feed, EVAL_MASK_DEFAULT);
 
     Push_Frame(out, f);  // checks for C stack overflow
     Push_Action(f, NAT_ACTION(subparse), UNBOUND);

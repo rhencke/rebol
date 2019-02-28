@@ -1003,6 +1003,88 @@ static void Propagate_All_GC_Marks(void)
 
 
 //
+//  Reify_Va_To_Array_In_Frame: C
+//
+// For performance and memory usage reasons, a variadic C function call that
+// wants to invoke the evaluator with just a comma-delimited list of REBVAL*
+// does not need to make a series to hold them.  Eval_Core is written to use
+// the va_list traversal as an alternate to DO-ing an ARRAY.
+//
+// However, va_lists cannot be backtracked once advanced.  So in a debug mode
+// it can be helpful to turn all the va_lists into arrays before running
+// them, so stack frames can be inspected more meaningfully--both for upcoming
+// evaluations and those already past.
+//
+// A non-debug reason to reify a va_list into an array is if the garbage
+// collector needs to see the upcoming values to protect them from GC.  In
+// this case it only needs to protect those values that have not yet been
+// consumed.
+//
+// Because items may well have already been consumed from the va_list() that
+// can't be gotten back, we put in a marker to help hint at the truncation
+// (unless told that it's not truncated, e.g. a debug mode that calls it
+// before any items are consumed).
+//
+void Reify_Va_To_Array_In_Frame(
+    REBFRM *f,
+    bool truncated
+) {
+    REBDSP dsp_orig = DSP;
+
+    assert(FRM_IS_VALIST(f));
+
+    if (truncated) {
+        DS_PUSH();
+        Init_Word(DS_TOP, Canon(SYM___OPTIMIZED_OUT__));
+    }
+
+    if (NOT_END(f->feed->value)) {
+        assert(f->feed->pending == END_NODE);
+
+        do {
+            Derelativize(DS_PUSH(), f->feed->value, f->feed->specifier);
+            assert(not IS_NULLED(DS_TOP));
+            Fetch_Next_Forget_Lookback(f);
+        } while (NOT_END(f->feed->value));
+
+        if (truncated)
+            f->feed->index = 2; // skip the --optimized-out--
+        else
+            f->feed->index = 1; // position at start of the extracted values
+    }
+    else {
+        assert(IS_POINTER_TRASH_DEBUG(f->feed->pending));
+
+        // Leave at end of frame, but give back the array to serve as
+        // notice of the truncation (if it was truncated)
+        //
+        f->feed->index = 0;
+    }
+
+    assert(not f->feed->vaptr); // feeding forward should have called va_end
+
+    f->feed->array = Pop_Stack_Values(dsp_orig);
+    MANAGE_ARRAY(f->feed->array); // held alive while frame running
+
+    // The array just popped into existence, and it's tied to a running
+    // frame...so safe to say we're holding it.  (This would be more complex
+    // if we reused the empty array if dsp_orig == DSP, since someone else
+    // might have a hold on it...not worth the complexity.) 
+    //
+    assert(NOT_FEED_FLAG(f->feed, TOOK_HOLD));
+    SET_SERIES_INFO(f->feed->array, HOLD);
+    SET_FEED_FLAG(f->feed, TOOK_HOLD);
+
+    if (truncated)
+        f->feed->value = ARR_AT(f->feed->array, 1); // skip `--optimized--`
+    else
+        f->feed->value = ARR_HEAD(f->feed->array);
+
+    f->feed->pending = f->feed->value + 1;
+}
+
+
+//
 //  Reify_Any_C_Valist_Frames: C
 //
 // Some of the call stack frames may have been invoked with a C function call

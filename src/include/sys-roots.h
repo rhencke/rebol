@@ -200,3 +200,40 @@ inline static void Free_Instruction(REBARR *a) {
 //
 inline static REBVAL *rebSpecific(const RELVAL *v, REBSPC *specifier)
     { return Derelativize(Alloc_Value(), v, specifier);}
+
+
+// The evaluator accepts API handles back from action dispatchers, and the
+// path evaluator accepts them from path dispatch.  This code does common
+// checking used by both, which includes automatic release of the handle
+// so the dispatcher can write things like `return rebRun(...);` and not
+// encounter a leak.
+//
+// !!! There is no protocol in place yet for the external API to throw,
+// so that is something to think about.  At the moment, only f->out can
+// hold thrown returns, and these API handles are elsewhere.
+//
+inline static void Handle_Api_Dispatcher_Result(REBFRM *f, const REBVAL* r) {
+    //
+    // NOTE: Evaluations are performed directly into API handles as the output
+    // slot of the evaluation.  Clearly you don't want to release the cell
+    // you're evaluating into, so checks against the frame's output cell
+    // should be done before calling this routine!
+    //
+    assert(r != f->out);
+
+  #if !defined(NDEBUG)
+    if (NOT_CELL_FLAG(r, ROOT)) {
+        printf("dispatcher returned non-API value not in D_OUT\n");
+        printf("during ACTION!: %s\n", f->label_utf8);
+        printf("`return D_OUT;` or use `RETURN (non_api_cell);`\n");
+        panic(r);
+    }
+  #endif
+
+    if (IS_NULLED(r))
+        assert(!"Dispatcher returned nulled cell, not C nullptr for API use");
+
+    Move_Value(f->out, r);
+    if (NOT_CELL_FLAG(r, MANAGED))
+        rebRelease(r);
+}

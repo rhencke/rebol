@@ -554,6 +554,7 @@ bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
     assert(not IS_TRASH_DEBUG(f->out));  // all invisible will preserve output
     assert(f->out != spare);  // overwritten by temporary calculations
     assert(GET_EVAL_FLAG(f, DEFAULT_DEBUG));  // must use EVAL_MASK_DEFAULT
+    assert(NOT_FEED_FLAG(f->feed, BARRIER_HIT));
 
     // Caching KIND_BYTE(*at) in a local can make a slight performance
     // difference, though how much depends on what the optimizer figures out.
@@ -1956,10 +1957,12 @@ bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
       case REB_GROUP: {
         *next_gotten = nullptr;  // arbitrary code changes fetched variables
 
+        DECLARE_FEED_AT_CORE (subfeed, v, *specifier);
+
         // "Maybe_Stale" variant leaves f->out as-is if no result generated
         // However, it sets OUT_MARKED_STALE in that case.
         //
-        if (Do_Any_Array_At_Maybe_Stale_Throws(f->out,  v, *specifier))
+        if (Do_Feed_To_End_Maybe_Stale_Throws(f->out,  subfeed))
             goto return_thrown;
 
         if (GET_CELL_FLAG(f->out, OUT_MARKED_STALE))  // invisible group

@@ -139,8 +139,7 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
             *index != TRASHED_INDEX
             and *index != END_FLAG_PRIVATE // ...special case use!
             and *index != THROWN_FLAG_PRIVATE // ...don't use these
-            and *index != VA_LIST_FLAG_PRIVATE // ...usually...
-        ); // END, THROWN, VA_LIST only used by wrappers
+        ); // END, THROWN, only used by wrappers
     }
     else
         assert(*index == TRASHED_INDEX);

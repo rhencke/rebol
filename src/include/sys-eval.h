@@ -20,7 +20,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// The primary routine that performs DO and EVALUATE is Eval_Core().
+// The routine that powers a single EVAL or EVALUATE step is Eval_Core().
 // It takes one parameter which holds the running state of the evaluator.
 // This state may be allocated on the C variable stack...and fail() is
 // written such that a longjmp up to a failure handler above it can run
@@ -38,10 +38,37 @@
 // va_list or series representing the arguments.)  This avoids the cost and
 // complexity of allocating a series to combine the values together.
 //
+//=//// NOTES ////////////////////////////////////////////////////////////=//
+//
+// * The usermode EVALUATE action is able to avoid overwriting the previous
+//   value if the final evaluation step has nothing in it.  That's based on
+//   the ability exposed here through the "Maybe_Stale" variations of the
+//   Eval_XXX() routines.  Care should be taken not to allow OUT_MARKED_STALE
+//   to leak and clear it on the cell (it is NODE_FLAG_MARKED and could be
+//   misinterpreted--very easily so as ARG_MARKED_CHECKED!)
+//
+// * The usermode EVAL function chooses to make `eval comment "hi"` a VOID!
+//   rather than to raise an error.  However, the non-"Maybe_Stale" versions
+//   of code here have another option...which is to give the result as END.
+//   Currently this is what all the Eval_Step() routines which aren't stale
+//   preserving do--but Eval_Value_Throws() will error.
+//
+
+
+// Simple and short variant of Eval_Core() that clears off OUT_MARKED_STALE.
+// (Note that it is wasteful to clear the stale flag if running in a loop,
+// so the Do_XXX() versions don't use this.)
+//
+inline static bool Eval_Throws(REBFRM *f) {
+    if ((*PG_Eval_Maybe_Stale_Throws)(f))
+        return true;
+    CLEAR_CELL_FLAG(f->out, OUT_MARKED_STALE);
+    return false;
+}
 
 
 // Even though ANY_INERT() is a quick test, you can't skip the cost of frame
-// processing due to enfix.  But a feed only looks ahead one unit at a time,
+// processing--due to enfix.  But a feed only looks ahead one unit at a time,
 // so advancing the frame past an inert item to find an enfix function means
 // you have to enter the frame specially with EVAL_FLAG_POST_SWITCH.
 //
@@ -129,17 +156,6 @@ inline static bool Did_Init_Inert_Optimize_Complete(
 }
 
 
-// Most callers of Eval_Throws() don't want OUT_MARKED_STALE to escape.
-//
-inline static bool Eval_Throws(REBFRM *f) {
-    if ((*PG_Eval_Maybe_Stale_Throws)(f))
-        return true;
-    CLEAR_CELL_FLAG(f->out, OUT_MARKED_STALE);
-    return false;
-}
-
-
-
 // This is a very light wrapper over Eval_Core(), which is used with
 // operations like ANY or REDUCE that wish to perform several successive
 // operations on an array, without creating a new frame each time.
@@ -149,7 +165,6 @@ inline static bool Eval_Step_Maybe_Stale_Throws(
     REBFRM *f
 ){
     assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
-    assert(NOT_FEED_FLAG(f->feed, BARRIER_HIT));
 
     f->out = out;
     f->dsp_orig = DSP;
@@ -169,18 +184,6 @@ inline static bool Eval_Step_Throws(REBVAL *out, REBFRM *f) {
 // that only happens if a function call is in effect -or- if a SET-WORD! or
 // SET-PATH! are running with an expiring `current` in effect.  Else it is
 // more efficient to call Eval_Step_In_Frame_Throws(), or the also lighter
-// Eval_Step_In_Mid_Frame_Throws().
-//
-// !!! This operation used to try and optimize some cases without using a
-// subframe.  But checking for whether an optimization would be legal or not
-// was complex, as even something inert like `1` cannot be evaluated into a
-// slot as `1` unless you are sure there's no `+` or other enfixed operation.
-// Over time as the evaluator got more complicated, the redundant work and
-// conditional code paths showed a slight *slowdown* over just having an
-// inline function that built a frame and recursed Eval_Core().
-//
-// Future investigation could attack the problem again and see if there is
-// any common case that actually offered an advantage to optimize for here.
 //
 inline static bool Eval_Step_In_Subframe_Throws(
     REBVAL *out,
@@ -190,7 +193,11 @@ inline static bool Eval_Step_In_Subframe_Throws(
     if (Did_Init_Inert_Optimize_Complete(out, f->feed, &flags))
         return false;  // If eval not hooked, ANY-INERT! may not need a frame
 
-    DECLARE_FRAME(subframe, f->feed, flags);
+    // Can't SET_END() here, because sometimes it would be overwriting what
+    // the optimization produced.  Trust that it has already done it if it
+    // was necessary.
+
+    DECLARE_FRAME (subframe, f->feed, flags);
 
     Push_Frame(out, subframe);
     bool threw = Eval_Throws(subframe);
@@ -200,141 +207,47 @@ inline static bool Eval_Step_In_Subframe_Throws(
 }
 
 
-inline static bool Reevaluate_In_Subframe_Throws(
+inline static bool Reevaluate_In_Subframe_Maybe_Stale_Throws(
     REBVAL *out,
     REBFRM *f,
     const REBVAL *reval,
     REBFLGS flags
 ){
-    DECLARE_FRAME(subframe, f->feed, flags | EVAL_FLAG_REEVALUATE_CELL);
+    DECLARE_FRAME (subframe, f->feed, flags | EVAL_FLAG_REEVALUATE_CELL);
     subframe->u.reval.value = reval;
 
     Push_Frame(out, subframe);
-    bool threw = Eval_Throws(subframe);
+    bool threw = (*PG_Eval_Maybe_Stale_Throws)(subframe);
     Drop_Frame(subframe);
 
     return threw;
 }
 
-// Most common case of evaluator invocation in Rebol: the data lives in an
-// array series.
-//
-inline static bool Eval_Array_At_Mutable_Throws_Core(  // no FEED_FLAG_CONST
-    REBVAL *out, // must be initialized, marked stale if empty / all invisible
-    const RELVAL *opt_first, // non-array element to kick off execution with
-    REBARR *array,
-    REBCNT index,
-    REBSPC *specifier, // must match array, but also opt_first if relative
+
+inline static REBIXO Eval_Step_In_Any_Array_At_Core(
+    REBVAL *out,
+    const RELVAL *any_array,  // Note: legal to have any_array = out
+    REBSPC *specifier,
     REBFLGS flags
 ){
-    struct Reb_Feed feed_struct;  // opt_first so can't use DECLARE_ARRAY_FEED
-    struct Reb_Feed *feed = &feed_struct;
-    Prep_Array_Feed(
-        feed,
-        opt_first,
-        array,
-        index,
-        specifier,
-        FEED_MASK_DEFAULT
-    );
+    DECLARE_FEED_AT_CORE (feed, any_array, specifier);
 
     if (IS_END(feed->value))
-        return false;
+        return END_FLAG;
 
     DECLARE_FRAME (f, feed, flags);
 
-    bool threw;
     Push_Frame(out, f);
-    do {
-        threw = (*PG_Eval_Maybe_Stale_Throws)(f);
-    } while (not threw and NOT_END(feed->value));
+    bool threw = Eval_Throws(f);
     Drop_Frame(f);
 
-    CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
+    if (threw)
+        return THROWN_FLAG;
 
-    return threw;
-}
+    if (f->feed->index == VAL_LEN_HEAD(any_array) + 1)
+        return END_FLAG;
 
-
-//
-//  Reify_Va_To_Array_In_Frame: C
-//
-// For performance and memory usage reasons, a variadic C function call that
-// wants to invoke the evaluator with just a comma-delimited list of REBVAL*
-// does not need to make a series to hold them.  Eval_Core is written to use
-// the va_list traversal as an alternate to DO-ing an ARRAY.
-//
-// However, va_lists cannot be backtracked once advanced.  So in a debug mode
-// it can be helpful to turn all the va_lists into arrays before running
-// them, so stack frames can be inspected more meaningfully--both for upcoming
-// evaluations and those already past.
-//
-// A non-debug reason to reify a va_list into an array is if the garbage
-// collector needs to see the upcoming values to protect them from GC.  In
-// this case it only needs to protect those values that have not yet been
-// consumed.
-//
-// Because items may well have already been consumed from the va_list() that
-// can't be gotten back, we put in a marker to help hint at the truncation
-// (unless told that it's not truncated, e.g. a debug mode that calls it
-// before any items are consumed).
-//
-inline static void Reify_Va_To_Array_In_Frame(
-    REBFRM *f,
-    bool truncated
-) {
-    REBDSP dsp_orig = DSP;
-
-    assert(FRM_IS_VALIST(f));
-
-    if (truncated) {
-        DS_PUSH();
-        Init_Word(DS_TOP, Canon(SYM___OPTIMIZED_OUT__));
-    }
-
-    if (NOT_END(f->feed->value)) {
-        assert(f->feed->pending == END_NODE);
-
-        do {
-            Derelativize(DS_PUSH(), f->feed->value, f->feed->specifier);
-            assert(not IS_NULLED(DS_TOP));
-            Fetch_Next_Forget_Lookback(f);
-        } while (NOT_END(f->feed->value));
-
-        if (truncated)
-            f->feed->index = 2; // skip the --optimized-out--
-        else
-            f->feed->index = 1; // position at start of the extracted values
-    }
-    else {
-        assert(IS_POINTER_TRASH_DEBUG(f->feed->pending));
-
-        // Leave at end of frame, but give back the array to serve as
-        // notice of the truncation (if it was truncated)
-        //
-        f->feed->index = 0;
-    }
-
-    assert(not f->feed->vaptr); // feeding forward should have called va_end
-
-    f->feed->array = Pop_Stack_Values(dsp_orig);
-    MANAGE_ARRAY(f->feed->array); // held alive while frame running
-
-    // The array just popped into existence, and it's tied to a running
-    // frame...so safe to say we're holding it.  (This would be more complex
-    // if we reused the empty array if dsp_orig == DSP, since someone else
-    // might have a hold on it...not worth the complexity.) 
-    //
-    assert(NOT_FEED_FLAG(f->feed, TOOK_HOLD));
-    SET_SERIES_INFO(f->feed->array, HOLD);
-    SET_FEED_FLAG(f->feed, TOOK_HOLD);
-
-    if (truncated)
-        f->feed->value = ARR_AT(f->feed->array, 1); // skip `--optimized--`
-    else
-        f->feed->value = ARR_HEAD(f->feed->array);
-
-    f->feed->pending = f->feed->value + 1;
+    return f->feed->index;
 }
 
 
@@ -355,8 +268,6 @@ inline static void Reify_Va_To_Array_In_Frame(
 // C++ build should be able to check this for the callers of this function
 // *and* check that you ended properly.  It means this function will need
 // two different signatures (and so will each caller of this routine).
-//
-// Returns THROWN_FLAG, END_FLAG, or VA_LIST_FLAG
 //
 inline static bool Eval_Step_In_Va_Throws_Core(
     REBVAL *out,  // must be initialized, won't change if all empty/invisible
@@ -395,37 +306,6 @@ inline static bool Eval_Step_In_Va_Throws_Core(
 }
 
 
-inline static bool Eval_Va_Throws_Core(
-    REBVAL *out,  // must be initialized, won't change if all empty/invisible
-    const void *opt_first,
-    va_list *vaptr,
-    REBFLGS flags  // EVAL_FLAG_XXX (not FEED_FLAG_XXX)
-){
-    DECLARE_VA_FEED (
-        feed,
-        opt_first,
-        vaptr,
-        FEED_MASK_DEFAULT  // !!! Should top frame flags be heeded?
-            | (FS_TOP->feed->flags.bits & FEED_FLAG_CONST)
-    );
-    DECLARE_FRAME (f, feed, flags);
-
-    if (IS_END(feed->value))
-        return false;
-
-    bool threw;
-    Push_Frame(out, f);
-    do {
-        threw = (*PG_Eval_Maybe_Stale_Throws)(f);
-    } while (not threw and NOT_END(feed->value));
-    Drop_Frame(f);  // will va_end() if not reified during evaluation
-
-    CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
-    return threw;
-}
-
-
-
 inline static bool Eval_Value_Throws(
     REBVAL *out,
     const RELVAL *value,  // e.g. a BLOCK! here would just evaluate to itself!
@@ -439,7 +319,7 @@ inline static bool Eval_Value_Throws(
     // We need the const bits on this value to apply, so have to use a low
     // level call.
 
-    Init_Void(out);  // as in `eval comment "this produces void"`
+    SET_END(out);
 
     struct Reb_Feed feed_struct;  // opt_first so can't use DECLARE_ARRAY_FEED
     struct Reb_Feed *feed = &feed_struct;
@@ -458,44 +338,17 @@ inline static bool Eval_Value_Throws(
     bool threw = Eval_Throws(f);
     Drop_Frame(f);
 
+    // The callsites for Eval_Value_Throws() generally expect an evaluative
+    // result (at least null).  They might be able to give a better error, but
+    // they pretty much all need to give an error.
+    //
+    // In contrast, note that EVAL itself errs on the side of voids, so:
+    //
+    //     >> type of eval comment "hi"
+    //     == #[void!]
+    //
+    if (IS_END(out))
+        fail ("Single step EVAL produced no result (invisible or empty)");
+
     return threw;
-}
-
-
-// The evaluator accepts API handles back from action dispatchers, and the
-// path evaluator accepts them from path dispatch.  This code does common
-// checking used by both, which includes automatic release of the handle
-// so the dispatcher can write things like `return rebRun(...);` and not
-// encounter a leak.
-//
-inline static void Handle_Api_Dispatcher_Result(REBFRM *f, const REBVAL* r) {
-    //
-    // !!! There is no protocol in place yet for the external API to throw,
-    // so that is something to think about.  At the moment, only f->out can
-    // hold thrown returns, and these API handles are elsewhere.
-    //
-    assert(not Is_Evaluator_Throwing_Debug());
-
-    // NOTE: Evaluations are performed directly into API handles as the output
-    // slot of the evaluation.  Clearly you don't want to release the cell
-    // you're evaluating into, so checks against the frame's output cell
-    // should be done before calling this routine!
-    //
-    assert(r != f->out);
-
-  #if !defined(NDEBUG)
-    if (NOT_CELL_FLAG(r, ROOT)) {
-        printf("dispatcher returned non-API value not in D_OUT\n");
-        printf("during ACTION!: %s\n", f->label_utf8);
-        printf("`return D_OUT;` or use `RETURN (non_api_cell);`\n");
-        panic(r);
-    }
-  #endif
-
-    if (IS_NULLED(r))
-        assert(!"Dispatcher returned nulled cell, not C nullptr for API use");
-
-    Move_Value(f->out, r);
-    if (NOT_CELL_FLAG(r, MANAGED))
-        rebRelease(r);
 }
