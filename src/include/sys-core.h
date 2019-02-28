@@ -598,6 +598,7 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 
 #include "sys-roots.h"
 
+#include "sys-throw.h"
 #include "sys-frame.h"  // needs words for frame-label-returning helpers
 
 #include "sys-protect.h"
