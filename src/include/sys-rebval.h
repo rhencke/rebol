@@ -158,7 +158,7 @@
 // as a literal in source or as a product of an evaluation.  While all values
 // carry the bit, it is only guaranteed to be meaningful on arguments in
 // function frames...though it is valid on any result at the moment of taking
-// it from Eval_Core_Throws().
+// it from Eval_Core().
 //
 // It is in the negative sense because the act of requesting it is uncommon,
 // e.g. from the QUOTE operator.  So most Init_Blank() or other assignment

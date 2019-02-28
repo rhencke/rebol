@@ -272,8 +272,8 @@ typedef REB_R (*PATH_HOOK)(
 //=//// VARIADIC OPERATIONS ///////////////////////////////////////////////=//
 //
 // These 3 operations are the current legal set of what can be done with a
-// VARARG!.  They integrate with Eval_Core_Throws()'s limitations in the
-// prefetch evaluator--such as to having one unit of lookahead.
+// VARARG!.  They integrate with Eval_Core()'s limitations in the prefetch
+// evaluator--such as to having one unit of lookahead.
 //
 // While it might seem natural for this to live in %sys-varargs.h, the enum
 // type is used by a function prototype in %tmp-internals.h...hence it must be

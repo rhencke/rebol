@@ -586,7 +586,7 @@ bool Form_Reduce_Throws(
     bool nothing = true; // any elements seen so far have been null or blank
 
     while (NOT_END(f->feed->value)) {
-        if (Eval_Step_Throws(SET_END(out), f)) {
+        if (Eval_Step_Throws(out, f)) {
             Drop_Mold(mo);
             Abort_Frame(f);
             return true;

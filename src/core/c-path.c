@@ -941,7 +941,7 @@ REB_R MAKE_Path(
     REBDSP dsp_orig = DSP;
 
     while (NOT_END(f->feed->value)) {
-        if (Eval_Step_Throws(SET_END(out), f)) {
+        if (Eval_Step_Throws(out, f)) {
             Abort_Frame(f);
             return R_THROWN;
         }

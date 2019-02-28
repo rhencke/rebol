@@ -26,7 +26,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// The primary routine that performs DO and EVALUATE is Eval_Core_Throws().
+// The primary routine that performs DO and EVALUATE is Eval_Core().
 // It takes one parameter which holds the running state of the evaluator.
 // This state may be allocated on the C variable stack...and fail() is
 // written such that a longjmp up to a failure handler above it can run
@@ -51,7 +51,7 @@
 // so advancing the frame past an inert item to find an enfix function means
 // you have to enter the frame specially with EVAL_FLAG_POST_SWITCH.
 //
-inline static bool Did_Inert_Optimization(
+inline static bool Did_Init_Inert_Optimize_Complete(
     REBVAL *out,
     struct Reb_Feed *feed,
     REBFLGS *flags
@@ -59,10 +59,12 @@ inline static bool Did_Inert_Optimization(
     assert(not (*flags & EVAL_FLAG_POST_SWITCH));  // we might set it
     assert(not IS_END(feed->value));  // would be wasting time to call
 
-    if (not ANY_INERT(feed->value))
+    if (not ANY_INERT(feed->value)) {
+        SET_END(out);  // Have to Init() out one way or another...
         return false;  // general case evaluation requires a frame
+    }
 
-    if (PG_Eval_Throws != &Eval_Core_Throws)
+    if (PG_Eval_Maybe_Stale_Throws != &Eval_Core_Maybe_Stale_Throws)
         return false;  // don't want to subvert tracing or other hooks
 
     Literal_Next_In_Feed(out, feed);
@@ -133,48 +135,37 @@ inline static bool Did_Inert_Optimization(
 }
 
 
-// This is a very light wrapper over Eval_Core_Throws(), which is used with
-// operations like ANY or REDUCE that wish to perform several successive
-// operations on an array, without creating a new frame each time.
+// Most callers of Eval_Throws() don't want OUT_MARKED_STALE to escape.
 //
-inline static bool Eval_Step_Throws(REBVAL *out, REBFRM *f) {
-    assert(IS_END(out));
-
-    assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
-    assert(NOT_FEED_FLAG(f->feed, BARRIER_HIT));
-
-    if (Did_Inert_Optimization(out, f->feed, &f->flags.bits))
-        return false;
-
-    f->out = out;
-    f->dsp_orig = DSP;
-    bool threw = (*PG_Eval_Throws)(f);  // should already be pushed
-
-    return threw;
+inline static bool Eval_Throws(REBFRM *f) {
+    if ((*PG_Eval_Maybe_Stale_Throws)(f))
+        return true;
+    CLEAR_CELL_FLAG(f->out, OUT_MARKED_STALE);
+    return false;
 }
 
 
-// Unlike Eval_Step_Throws() which relies on tests of IS_END() on out to
-// see if the end was reached, this expects the caller to preload the output
-// with some value, and then test OUT_MARKED_STALE to see if the only thing
-// run in the frame were invisibles (empty groups, comments) or nothing.
+
+// This is a very light wrapper over Eval_Core(), which is used with
+// operations like ANY or REDUCE that wish to perform several successive
+// operations on an array, without creating a new frame each time.
 //
 inline static bool Eval_Step_Maybe_Stale_Throws(
     REBVAL *out,
     REBFRM *f
 ){
-    assert(NOT_END(out));
-
     assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
     assert(NOT_FEED_FLAG(f->feed, BARRIER_HIT));
 
-    if (Did_Inert_Optimization(out, f->feed, &f->flags.bits))
-        return false;
-
     f->out = out;
     f->dsp_orig = DSP;
-    bool threw = (*PG_Eval_Throws)(f); // should already be pushed
+    return (*PG_Eval_Maybe_Stale_Throws)(f); // should already be pushed;
+}
 
+inline static bool Eval_Step_Throws(REBVAL *out, REBFRM *f) {
+    SET_END(out);
+    bool threw = Eval_Step_Maybe_Stale_Throws(out, f);
+    CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
     return threw;
 }
 
@@ -192,7 +183,7 @@ inline static bool Eval_Step_Maybe_Stale_Throws(
 // slot as `1` unless you are sure there's no `+` or other enfixed operation.
 // Over time as the evaluator got more complicated, the redundant work and
 // conditional code paths showed a slight *slowdown* over just having an
-// inline function that built a frame and recursed Eval_Core_Throws().
+// inline function that built a frame and recursed Eval_Core().
 //
 // Future investigation could attack the problem again and see if there is
 // any common case that actually offered an advantage to optimize for here.
@@ -202,13 +193,13 @@ inline static bool Eval_Step_In_Subframe_Throws(
     REBFRM *f,
     REBFLGS flags
 ){
-    if (Did_Inert_Optimization(out, f->feed, &flags))
-        return false;  // ANY_INERT() might be handled without a frame
+    if (Did_Init_Inert_Optimize_Complete(out, f->feed, &flags))
+        return false;  // If eval not hooked, ANY-INERT! may not need a frame
 
     DECLARE_FRAME(subframe, f->feed, flags);
 
     Push_Frame(out, subframe);
-    bool threw = (*PG_Eval_Throws)(subframe);
+    bool threw = Eval_Throws(subframe);
     Drop_Frame(subframe);
 
     return threw;
@@ -225,7 +216,7 @@ inline static bool Reevaluate_In_Subframe_Throws(
     subframe->u.reval.value = reval;
 
     Push_Frame(out, subframe);
-    bool threw = (*PG_Eval_Throws)(subframe);
+    bool threw = Eval_Throws(subframe);
     Drop_Frame(subframe);
 
     return threw;
@@ -261,9 +252,11 @@ inline static bool Eval_Array_At_Mutable_Throws_Core(  // no FEED_FLAG_CONST
     bool threw;
     Push_Frame(out, f);
     do {
-        threw = (*PG_Eval_Throws)(f);
+        threw = (*PG_Eval_Maybe_Stale_Throws)(f);
     } while (not threw and NOT_END(feed->value));
     Drop_Frame(f);
+
+    CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
 
     return threw;
 }
@@ -390,7 +383,7 @@ inline static bool Eval_Step_In_Va_Throws_Core(
         return false;
 
     Push_Frame(out, f);
-    bool threw = (*PG_Eval_Throws)(f);
+    bool threw = Eval_Throws(f);
     Drop_Frame(f); // will va_end() if not reified during evaluation
 
     if (threw)
@@ -429,16 +422,17 @@ inline static bool Eval_Va_Throws_Core(
     bool threw;
     Push_Frame(out, f);
     do {
-        threw = (*PG_Eval_Throws)(f);
+        threw = (*PG_Eval_Maybe_Stale_Throws)(f);
     } while (not threw and NOT_END(feed->value));
     Drop_Frame(f);  // will va_end() if not reified during evaluation
 
+    CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
     return threw;
 }
 
 
 
-inline static bool Eval_Value_Core_Throws(
+inline static bool Eval_Value_Throws(
     REBVAL *out,
     const RELVAL *value,  // e.g. a BLOCK! here would just evaluate to itself!
     REBSPC *specifier
@@ -451,7 +445,7 @@ inline static bool Eval_Value_Core_Throws(
     // We need the const bits on this value to apply, so have to use a low
     // level call.
 
-    SET_END(out);  // start with END to detect no actual eval product
+    Init_Void(out);  // as in `eval comment "this produces void"`
 
     struct Reb_Feed feed_struct;  // opt_first so can't use DECLARE_ARRAY_FEED
     struct Reb_Feed *feed = &feed_struct;
@@ -466,21 +460,12 @@ inline static bool Eval_Value_Core_Throws(
 
     DECLARE_FRAME (f, feed, EVAL_MASK_DEFAULT);
 
-    bool threw;
     Push_Frame(out, f);
-    do {
-        threw = (*PG_Eval_Throws)(f);
-    } while (not threw and NOT_END(feed->value));
+    bool threw = Eval_Throws(f);
     Drop_Frame(f);
-
-    if (IS_END(out))
-        fail ("Eval_Value_Core_Throws() empty or just COMMENTs/ELIDEs/BAR!s");
 
     return threw;
 }
-
-#define Eval_Value_Throws(out,value) \
-    Eval_Value_Core_Throws((out), (value), SPECIFIED)
 
 
 // The evaluator accepts API handles back from action dispatchers, and the

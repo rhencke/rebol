@@ -33,8 +33,8 @@
 //
 // The method used is to store a FRAME! in the specialization's ACT_BODY.
 // It contains non-null values for any arguments that have been specialized.
-// Eval_Core_Throws() heeds these when walking parameters (see `f->special`),
-// and processes slots with nulls in them normally.
+// Eval_Core() heeds these when walking parameters (see `f->special`), and
+// processes slots with nulls in them normally.
 //
 // Code is shared between the SPECIALIZE native and specialization of a
 // GET-PATH! via refinements, such as `adp: :append/dup/part`.  However,
@@ -68,8 +68,8 @@
 //
 // More concretely, the exemplar frame slots for `foo23: :foo/ref2/ref3` are:
 //
-// * REF1's slot would contain the REFINEMENT! ref3.  As Eval_Core_Throws()
-//   traverses arguments it pushes ref3 as the current first-in-line to take
+// * REF1's slot would contain the REFINEMENT! ref3.  As Eval_Core() traverses
+//   through arguments it pushes ref3 as the current first-in-line to take
 //   arguments at the callsite.  Yet REF1 has not been "specialized out", so
 //   a call like `foo23/ref1` is legal...it's just that pushing ref3 from the
 //   ref1 slot means ref1 defers gathering arguments at the callsite.
@@ -173,7 +173,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
                 assert(GET_CELL_FLAG(special, ARG_MARKED_CHECKED));
                 Move_Value(arg, special); // !!! copy the flag?
                 SET_CELL_FLAG(arg, ARG_MARKED_CHECKED); // !!! not copied
-                goto continue_specialized; // Eval_Core_Throws() checks type
+                goto continue_specialized;  // Eval_Core() checks type
             }
             goto continue_unspecialized;
         }
@@ -708,12 +708,12 @@ bool Specialize_Action_Throws(
     // must now convert these transitional placeholders to...
     //
     // * VOID! -- Unspecialized, BUT in traversal order before a partial
-    //   refinement.  That partial must pre-empt Eval_Core_Throws() fulfilling
-    //   a use of this unspecialized refinement from a PATH! at the callsite.
+    //   refinement.  That partial must pre-empt Eval_Core() fulfilling a use
+    //   of this unspecialized refinement from a PATH! at the callsite.
     //
     // * NULL -- Unspecialized with no outranking partials later in traversal.
-    //   So Eval_Core_Throws() is free to fulfill a use of this refinement
-    //   from a PATH! at the callsite when it first comes across it.
+    //   So Eval_Core() is free to fulfill a use of this refinement from a
+    //   PATH! at the callsite when it first comes across it.
     //
     // * REFINEMENT! (with symbol of the parameter) -- All arguments were
     //   filled in, it's no longer partial.
@@ -884,9 +884,9 @@ bool Specialize_Action_Throws(
 //
 // The evaluator does not do any special "running" of a specialized frame.
 // All of the contribution that the specialization had to make was taken care
-// of when Eval_Core_Throws() used f->special to fill from the exemplar.  So
-// all this does is change the phase and binding to match the function this
-// layer was specializing.
+// of when Eval_Core() used f->special to fill from the exemplar.  So all this
+// does is change the phase and binding to match the function this layer wa
+// specializing.
 //
 REB_R Specializer_Dispatcher(REBFRM *f)
 {
@@ -1231,7 +1231,7 @@ REB_R Block_Dispatcher(REBFRM *f)
 //
 // Logic shared currently by DOES and MATCH to build a single executable
 // frame from feeding forward a VARARGS! parameter.  A bit like being able to
-// call EVALUATE via Eval_Core_Throws() yet introspect the evaluator step.
+// call EVALUATE via Eval_Core() yet introspect the evaluator step.
 //
 bool Make_Invocation_Frame_Throws(
     REBVAL *out, // in case there is a throw
@@ -1263,7 +1263,7 @@ bool Make_Invocation_Frame_Throws(
 
     assert(FRM_BINDING(f) == VAL_BINDING(action));  // no invoke to change it
 
-    bool threw = (*PG_Eval_Throws)(f);
+    bool threw = Eval_Throws(f);
 
     assert(NOT_EVAL_FLAG(f, FULFILL_ONLY));  // cleared by the evaluator
 

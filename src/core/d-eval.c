@@ -27,8 +27,8 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Due to the length of Eval_Core_Throws() and debug checks it already has,
-// some debug-only routines are separated out here.  (Note that these are in
+// Due to the length of Eval_Core() and debug checks it already has, some
+// debug-only routines are separated out here.  (Note that these are in
 // addition to the checks already done by Push_Frame() and Drop_Frame() time)
 //
 // * Eval_Core_Expression_Checks_Debug() runs before each full "expression"
@@ -38,7 +38,7 @@
 //   accidentally carry over from one step to another, so that there will be
 //   a crash instead of a casual reuse.
 //
-// * Eval_Core_Exit_Checks_Debug() runs if the Eval_Core_Throws() call makes
+// * Eval_Core_Exit_Checks_Debug() runs only if the Eval_Core() call makes
 //   it to the end without a fail() longjmping out from under it.  It also
 //   checks to make sure the state has balanced, and that the return result is
 //   consistent with the state being returned.
@@ -312,7 +312,7 @@ void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
     }
 
     // We'd like `do [1 + comment "foo"]` to act identically to `do [1 +]`
-    // Eval_Core_Throws() thus distinguishes an END for a fully "invisible"
+    // Eval_Core() thus distinguishes an END for a fully "invisible"
     // evaluation, as opposed to void.  This distinction is internal and not
     // exposed to the user, at the moment.
     //

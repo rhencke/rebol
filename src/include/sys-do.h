@@ -66,7 +66,7 @@ inline static REBIXO Eval_Step_In_Any_Array_At_Core(
     DECLARE_FRAME (f, feed, flags);
 
     Push_Frame(out, f);
-    bool threw = (*PG_Eval_Throws)(f);
+    bool threw = (*PG_Eval_Maybe_Stale_Throws)(f);
     Drop_Frame(f);
 
     if (threw)
@@ -78,25 +78,26 @@ inline static REBIXO Eval_Step_In_Any_Array_At_Core(
     return f->feed->index;
 }
 
-inline static bool Do_Any_Array_At_Throws_Core(
+inline static bool Do_Any_Array_At_Maybe_Stale_Throws(
     REBVAL *out,  // must be initialized, unchanged if all empty/invisible
     const RELVAL *any_array,
-    REBSPC *specifier,
-    REBFLGS flags
+    REBSPC *specifier
 ){
     assert(out != any_array);  // if array is empty, result would be array!
 
     DECLARE_FEED_AT_CORE (feed, any_array, specifier);
 
-    if (IS_END(feed->value))
+    if (IS_END(feed->value)) {
+        SET_CELL_FLAG(out, OUT_MARKED_STALE);  // Eval_Core would've done this
         return false;
+    }
 
-    DECLARE_FRAME (f, feed, flags);
+    DECLARE_FRAME (f, feed, EVAL_MASK_DEFAULT);
 
     bool threw;
     Push_Frame(out, f);
     do {
-        threw = (*PG_Eval_Throws)(f);
+        threw = (*PG_Eval_Maybe_Stale_Throws)(f);
     } while (not threw and NOT_END(feed->value));
     Drop_Frame(f);
 
@@ -108,12 +109,10 @@ inline static bool Do_Any_Array_At_Throws(
     const RELVAL *any_array,
     REBSPC *specifier
 ){
-    return Do_Any_Array_At_Throws_Core(
-        Init_Void(out),
-        any_array,
-        specifier,
-        EVAL_MASK_DEFAULT
-    );
+    Init_Void(out);  // e.g. `[]` or `[comment "hi"]` will default to void
+    bool threw = Do_Any_Array_At_Maybe_Stale_Throws(out, any_array, specifier);
+    CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
+    return threw;
 }
 
 

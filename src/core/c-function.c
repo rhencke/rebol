@@ -1391,27 +1391,12 @@ REB_R Dummy_Dispatcher(REBFRM *f)
 
 
 //
-//  Null_Dispatcher: C
-//
-// If you write `func [...] []` it uses this dispatcher instead of running
-// Eval_Core_Throws() on an empty block.  This serves more of a point than
-// it sounds, because you can make fast stub actions that only cost if they
-// are HIJACK'd (e.g. ASSERT is done this way).
-//
-REB_R Null_Dispatcher(REBFRM *f)
-{
-    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
-    assert(VAL_LEN_AT(ARR_HEAD(details)) == 0);
-    UNUSED(details);
-
-    return nullptr;
-}
-
-
-//
 //  Void_Dispatcher: C
 //
-// Analogue to Null_Dispatcher() for `func [return: <void> ...] []`.
+// If you write `func [return: <void> ...] []` it uses this dispatcher instead
+// of running Eval_Core() on an empty block.  This serves more of a point than
+// it sounds, because you can make fast stub actions that only cost if they
+// are HIJACK'd (e.g. ASSERT is done this way).
 //
 REB_R Void_Dispatcher(REBFRM *f)
 {
@@ -1420,6 +1405,22 @@ REB_R Void_Dispatcher(REBFRM *f)
     UNUSED(details);
 
     return Init_Void(f->out);
+}
+
+
+//
+//  Null_Dispatcher: C
+//
+// Analogue to Void_Dispatcher() for `func [return: [<opt>] ...] [null]`
+// situations.
+//
+REB_R Null_Dispatcher(REBFRM *f)
+{
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    assert(VAL_LEN_AT(ARR_HEAD(details)) == 0);
+    UNUSED(details);
+
+    return nullptr;
 }
 
 
@@ -1506,7 +1507,7 @@ REB_R Voider_Dispatcher(REBFRM *f)
 // Runs block, ensure type matches RETURN: [...] specification, else fail.
 //
 // Note: Natives get this check only in the debug build, but not here (their
-// dispatcher *is* the native!)  So the extra check is in Eval_Core_Throws().
+// dispatcher *is* the native!)  So the extra check is in Eval_Core().
 //
 REB_R Returner_Dispatcher(REBFRM *f)
 {

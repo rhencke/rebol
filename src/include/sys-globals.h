@@ -149,7 +149,7 @@ PVAR REBACT *PG_Dummy_Action;
 // It is possible to swap out the evaluator for one that does tracing, or
 // single step debugging, etc.
 //
-PVAR REBEVL PG_Eval_Throws; // Evaluator (takes REBFRM, returns void)
+PVAR REBEVL PG_Eval_Maybe_Stale_Throws; // Evaluator (takes REBFRM, returns void)
 PVAR REBNAT PG_Dispatcher; // Dispatcher (takes REBFRM, returns REBVAL*)
 
 

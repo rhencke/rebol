@@ -317,11 +317,11 @@ REBNATIVE(metrics)
     // are interested in, which is how long their functions take.
 
     if (VAL_LOGIC(mode)) {
-        /* PG_Eval_Throws = &Measured_Eval_Hook_Throws; */  // see note
+        /* PG_Eval_Maybe_Stale_Throws = &Measured_Eval_Hook_Throws; */
         PG_Dispatcher = &Measured_Dispatcher_Hook;
     }
     else {
-        /* PG_Eval_Throws = &Eval_Core_Throws; */  // see note
+        /* PG_Eval_Maybe_Stale_Throws = &Eval_Core_Throws; */  // see note
         PG_Dispatcher = &Dispatcher_Core;
     }
 

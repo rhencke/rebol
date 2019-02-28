@@ -189,7 +189,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
             // Note: Eval_Step_In_Subframe_Throws() is not needed here because
             // this is a single use frame, whose state can be overwritten.
             //
-            if (Eval_Step_Throws(SET_END(out), f_temp)) {
+            if (Eval_Step_Throws(out, f_temp)) {
                 Abort_Frame(f_temp);
                 return true;
             }
@@ -220,7 +220,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
 
         case REB_P_SOFT_QUOTE:
             if (IS_QUOTABLY_SOFT(VAL_ARRAY_AT(shared))) {
-                if (Eval_Value_Core_Throws(
+                if (Eval_Value_Throws(
                     out, VAL_ARRAY_AT(shared), VAL_SPECIFIER(shared)
                 )){
                     return true;
@@ -275,7 +275,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
         switch (pclass) {
         case REB_P_NORMAL: {
             REBFLGS flags = EVAL_MASK_DEFAULT | EVAL_FLAG_FULFILLING_ARG;
-            if (Eval_Step_In_Subframe_Throws(SET_END(out), f, flags))
+            if (Eval_Step_In_Subframe_Throws(out, f, flags))
                 return true;
             break; }
 
@@ -285,7 +285,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
 
         case REB_P_SOFT_QUOTE:
             if (IS_QUOTABLY_SOFT(f->feed->value)) {
-                if (Eval_Value_Core_Throws(
+                if (Eval_Value_Throws(
                     SET_END(out),
                     f->feed->value,
                     f->feed->specifier

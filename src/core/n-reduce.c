@@ -55,7 +55,7 @@ bool Reduce_To_Stack_Throws(
     while (NOT_END(*v)) {
         bool line = GET_CELL_FLAG(*v, NEWLINE_BEFORE);
 
-        if (Eval_Step_Throws(SET_END(out), f)) {
+        if (Eval_Step_Throws(out, f)) {
             DS_DROP_TO(dsp_orig);
             Abort_Frame(f);
             return true;
@@ -125,7 +125,7 @@ REBNATIVE(reduce)
     //
     // !!! Should the error be more "reduce-specific" if args were required?
 
-    if (Eval_Value_Throws(D_OUT, v))
+    if (Eval_Value_Throws(D_OUT, v, SPECIFIED))
         return R_THROWN;
 
     return D_OUT; // let caller worry about whether to error on nulls
@@ -254,7 +254,7 @@ REB_R Compose_To_Stack_Core(
                 bool threw;
                 Push_Frame(out, sub);
                 do {
-                    threw = (*PG_Eval_Throws)(sub);
+                    threw = (*PG_Eval_Maybe_Stale_Throws)(sub);
                 } while (not threw and NOT_END(subfeed->value));
                 Drop_Frame(sub);
 

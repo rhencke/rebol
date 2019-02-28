@@ -241,7 +241,7 @@ REBNATIVE(and)
     }
 
     if (IS_QUOTED(right)) {
-        if (Eval_Value_Throws(D_OUT, Unquotify(right, 1)))
+        if (Eval_Value_Throws(D_OUT, Unquotify(right, 1), SPECIFIED))
             return R_THROWN;
     }
     else if (Do_Any_Array_At_Throws(D_OUT, right, SPECIFIED))
@@ -282,7 +282,7 @@ REBNATIVE(or)
     }
 
     if (IS_QUOTED(right)) {
-        if (Eval_Value_Throws(D_OUT, Unquotify(right, 1)))
+        if (Eval_Value_Throws(D_OUT, Unquotify(right, 1), SPECIFIED))
             return R_THROWN;
     }
     else if (Do_Any_Array_At_Throws(D_OUT, right, SPECIFIED))

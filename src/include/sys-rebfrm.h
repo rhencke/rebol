@@ -26,11 +26,11 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// The primary routine that handles DO and EVALUATE is Eval_Core_Throws().  It
+// The primary routine that handles DO and EVALUATE is Eval_Core().  It
 // takes a single parameter which holds the running state of the evaluator.
 // This state may be allocated on the C variable stack.
 //
-// Eval_Core_Throws() is written so that a longjmp to a failure handler above
+// Eval_Core() is written so that a longjmp to a failure handler above
 // it can do cleanup safely even though intermediate stacks have vanished.
 // This is because Push_Frame and Drop_Frame maintain an independent global
 // list of the frames in effect, so that the Fail_Core() routine can unwind
@@ -201,8 +201,8 @@ STATIC_ASSERT(EVAL_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 
 //=//// EVAL_FLAG_PATH_MODE ///////////////////////////////////////////////=//
 //
-// The frame is for a PATH! dispatch.  Many of the Eval_Core_Throws() flags
-// are not applicable in this case.
+// The frame is for a PATH! dispatch.  Many of the Eval_Core() flags are not
+// applicable in this case.
 //
 #define EVAL_FLAG_PATH_MODE \
     FLAG_LEFT_BIT(20)
@@ -315,8 +315,8 @@ STATIC_ASSERT(EVAL_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 // order from how they appear in the frame's parameter definition, then the
 // arguments at the callsite can't be gathered in sequence.  Revisiting them
 // will be necessary.  This flag is set while they are revisited, which is
-// important not only for Eval_Core_Throws() to know, but also the GC...since
-// it means it must protect *all* of the arguments--not just up thru f->param.
+// important not only for Eval_Core() to know, but also the GC...since it
+// means it must protect *all* of the arguments--not just up thru f->param.
 //
 #define EVAL_FLAG_DOING_PICKUPS \
     FLAG_LEFT_BIT(27)
@@ -863,7 +863,7 @@ struct Reb_Frame {
         REBSPC *specifier;
     } ref;
 
-    // Used to slip cell to re-evaluate into Eval_Core_Throws()
+    // Used to slip cell to re-evaluate into Eval_Core()
     //
     struct {
         const REBVAL *value;
@@ -915,7 +915,7 @@ struct Reb_Frame {
 #define FS_BOTTOM (TG_Bottom_Frame + 0) // avoid assign to FS_BOTTOM via + 0
 
 
-// Hookable evaluator core function (see PG_Eval_Throws, Eval_Core_Throws())
+// Hookable evaluator core function (see PG_Eval_Maybe_Stale_Throws)
 // Unlike a dispatcher, its result is always in the frame's ->out cell, and
 // the boolean result only tells you whether or not it threw.
 //

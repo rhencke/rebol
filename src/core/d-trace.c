@@ -212,7 +212,7 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
 {
     int depth = Eval_Depth() - Trace_Depth;
     if (depth < 0 || depth >= Trace_Level)
-        return Eval_Core_Throws(f); // don't trace (REPL uses this to hide)
+        return Eval_Core_Maybe_Stale_Throws(f);  // (REPL uses this to hide)
 
     SHORTHAND (v, f->feed->value, NEVERNULL(const RELVAL*));
 
@@ -222,8 +222,8 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
     // We're running, so while we're running we shouldn't hook again until
     // a dispatch says we're running the traced dispatcher.
     //
-    assert(PG_Eval_Throws == &Traced_Eval_Hook_Throws);
-    PG_Eval_Throws = &Eval_Core_Throws;
+    assert(PG_Eval_Maybe_Stale_Throws == &Traced_Eval_Hook_Throws);
+    PG_Eval_Maybe_Stale_Throws = &Eval_Core_Maybe_Stale_Throws;
 
     if (not (
         KIND_BYTE(*v) == REB_ACTION
@@ -245,11 +245,11 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
     REBNAT saved_dispatcher = PG_Dispatcher;
     PG_Dispatcher = &Traced_Dispatcher_Hook;
 
-    bool threw = Eval_Core_Throws(f);
+    bool threw = Eval_Core_Maybe_Stale_Throws(f);
 
     PG_Dispatcher = saved_dispatcher;
 
-    PG_Eval_Throws = &Traced_Eval_Hook_Throws;
+    PG_Eval_Maybe_Stale_Throws = &Traced_Eval_Hook_Throws;
     return threw;
 }
 
@@ -382,12 +382,12 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
     //
     bool last_phase = (ACT_UNDERLYING(phase) == phase);
 
-    REBEVL saved_eval = PG_Eval_Throws;
-    PG_Eval_Throws = &Traced_Eval_Hook_Throws;
+    REBEVL saved_eval = PG_Eval_Maybe_Stale_Throws;
+    PG_Eval_Maybe_Stale_Throws = &Traced_Eval_Hook_Throws;
 
     REB_R r = Dispatcher_Core(f);
 
-    PG_Eval_Throws = saved_eval;
+    PG_Eval_Maybe_Stale_Throws = saved_eval;
 
 /*    if (PG_Dispatcher != Traced_Dispatcher_Hook)
         return r; // TRACE OFF during the traced code, don't print any more
@@ -457,14 +457,14 @@ REBNATIVE(trace)
         Trace_Level = Int32(mode);
 
     if (Trace_Level) {
-        PG_Eval_Throws = &Traced_Eval_Hook_Throws;
+        PG_Eval_Maybe_Stale_Throws = &Traced_Eval_Hook_Throws;
 
         if (REF(function))
             Trace_Flags |= TRACE_FLAG_FUNCTION;
         Trace_Depth = Eval_Depth() - 1; // subtract current TRACE frame
     }
     else
-        PG_Eval_Throws = &Eval_Core_Throws;
+        PG_Eval_Maybe_Stale_Throws = &Eval_Core_Maybe_Stale_Throws;
 
     return nullptr;
 }

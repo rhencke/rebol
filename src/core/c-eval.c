@@ -26,17 +26,22 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// This file contains Eval_Core_Throws(), which is the central evaluator which
-// is behind DO.  It can execute single evaluation steps (e.g. EVALUATE/EVAL)
-// or it can run the array to the end of its content.  A flag controls that
-// behavior, and there are EVAL_FLAG_XXX for controlling other behaviors.
+// This file contains Eval_Core_Maybe_Stale_Throws(), which is the central
+// evaluator behind EVALUATE (which calls a single step), and DO (which calls
+// it multiple times in a loop when evaluating a block).
+//
+// Few people should be calling the routine directly--which is why it is given
+// such a long and descriptive name.  This reminds those who *do* need to call
+// it directly that it may leave a stray informational flag on the output, and
+// that it returns a boolean which must be heeded saying whether it threw.
+// In conversation and comments, the routine is referred to as "Eval_Core()".
 //
 // For comprehensive notes on the input parameters, output parameters, and
 // internal state variables...see %sys-rebfrm.h.
 //
 // NOTES:
 //
-// * Eval_Core_Throws() is a long routine.  That is largely on purpose, as it
+// * "Eval_Core()" is a long routine.  That is largely on purpose, as it
 //   doesn't contain repeated portions.  If it were broken into functions that
 //   would add overhead for little benefit, and prevent interesting tricks
 //   and optimizations.  Note that it is separated into sections, and
@@ -55,7 +60,7 @@
 #if defined(DEBUG_COUNT_TICKS)  // <-- THIS IS *VERY USEFUL*, READ CAREFULLY!
     //
     // The evaluator `tick` should be visible in the C debugger watchlist as a
-    // local variable in Eval_Core_Throws() on each stack level.  So if fail()
+    // local variable in Eval_Core() on each stack level.  So if a fail()
     // happens at a deterministic moment in a run, capture the number from
     // the level of interest and recompile with it here to get a breakpoint
     // at that tick.
@@ -413,7 +418,7 @@ void Lookahead_To_Sync_Enfix_Defer_Flag(struct Reb_Feed *feed) {
 // Keeping a stack is unavoidable.
 //
 // This inline function attempts to keep that stack by means of the local
-// variable `v` in Eval_Core_May_Throw(), if it is stable.  The handling can
+// variable `v` in Eval_Core(), if it is stable.  The handling can
 // then reuse the REBFRM by just saving and restoring the flags.  See
 // Eval_Step_Mid_Frame_Throws() for details on that.
 //
@@ -466,7 +471,7 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
             return true;
     }
     else {  // !!! Reusing the frame, would inert optimization be worth it?
-        if ((*PG_Eval_Throws)(f))  // reuse `f`
+        if ((*PG_Eval_Maybe_Stale_Throws)(f))  // reuse `f`
             return true;
     }
 
@@ -509,8 +514,8 @@ void Push_Enfix_Action(REBFRM *f, const REBVAL *action, REBSTR *opt_label)
 //     may move during arbitrary evaluation, and that includes cells on the
 //     expandable data stack.  It also usually can't write a function argument
 //     cell, because that could expose an unfinished calculation during this
-//     Eval_Core_Throws() through its FRAME!...though a Eval_Core_Throws(f)
-//     must write f's *own* arg slots to fulfill them.
+//     Eval_Core() through its FRAME!...though a Eval_Core(f) must write f's
+//     *own* arg slots to fulfill them.
 //
 //     f->feed
 //     Contains the REBARR* or C va_list of subsequent values to fetch...as
@@ -526,7 +531,7 @@ void Push_Enfix_Action(REBFRM *f, const REBVAL *action, REBSTR *opt_label)
 // More detailed assertions of the preconditions, postconditions, and state
 // at each evaluation step are contained in %d-eval.c
 //
-bool Eval_Core_Throws(REBFRM * const f)
+bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
 {
     // These shorthands help readability, and any decent compiler optimizes
     // such things out.  Note it means you refer to `next` via `*next`.
@@ -576,7 +581,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     // Given how the evaluator is written, it's inevitable that there will
     // have to be a test for points to `goto` before running normal eval.
-    // This cost is paid on every entry to Eval_Core_Throws().
+    // This cost is paid on every entry to Eval_Core().
     //
     // Trying alternatives (such as a synthetic REB_XXX type to signal it,
     // to fold along in a switch) seem to only make it slower.  Using flags
@@ -1311,7 +1316,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     // also allowing `1 + x: <- lib/default [...]` to work.
 
                     if (IS_QUOTABLY_SOFT(f->out)) {
-                        if (Eval_Value_Throws(f->arg, f->out)) {
+                        if (Eval_Value_Throws(f->arg, f->out, SPECIFIED)) {
                             Move_Value(f->out, f->arg);
                             goto abort_action;
                         }
@@ -1415,7 +1420,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 REBFLGS flags = EVAL_MASK_DEFAULT
                     | EVAL_FLAG_FULFILLING_ARG;
 
-                if (Eval_Step_In_Subframe_Throws(SET_END(f->arg), f, flags)) {
+                if (Eval_Step_In_Subframe_Throws(f->arg, f, flags)) {
                     Move_Value(f->out, f->arg);
                     goto abort_action;
                 }
@@ -1456,7 +1461,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     Literal_Next_In_Frame(f->arg, f); // CELL_FLAG_UNEVALUATED
                 }
                 else {
-                    if (Eval_Value_Core_Throws(f->arg, *next, *specifier)) {
+                    if (Eval_Value_Throws(f->arg, *next, *specifier)) {
                         Move_Value(f->out, f->arg);
                         goto abort_action;
                     }
@@ -1941,8 +1946,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //==//// GROUP! ///////////////////////////////////////////////////////////=//
 //
-// If a GROUP! is seen then it generates another call into Eval_Core_Throws().
-// The current frame is not reused, as the source array from which values are
+// If a GROUP! is seen then it generates another call into Eval_Core().  The
+// current frame is not reused, as the source array from which values are
 // being gathered changes.
 //
 // Empty groups vaporize, as do ones that only consist of invisibles.
@@ -1957,14 +1962,11 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_GROUP: {
         *next_gotten = nullptr;  // arbitrary code changes fetched variables
 
-        if (Do_Any_Array_At_Throws_Core(
-            f->out,  // anything in f->out will be left as-is if invisible
-            v,
-            *specifier,
-            EVAL_MASK_DEFAULT
-        )){
+        // "Maybe_Stale" variant leaves f->out as-is if no result generated
+        // However, it sets OUT_MARKED_STALE in that case.
+        //
+        if (Do_Any_Array_At_Maybe_Stale_Throws(f->out,  v, *specifier))
             goto return_thrown;
-        }
 
         if (GET_CELL_FLAG(f->out, OUT_MARKED_STALE))  // invisible group
             break;  // ...we might be leaving an END in f->out by doing this
@@ -2144,7 +2146,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         else if (ANY_BLOCK(spare))
             kind.byte = mutable_KIND_BYTE(spare) = REB_GET_BLOCK;
         else if (IS_ACTION(spare)) {
-            if (Eval_Value_Throws(f->out, spare)) // only arity-0 allowed
+            if (Eval_Value_Throws(f->out, spare, SPECIFIED))  // only arity-0
                 goto return_thrown;
             goto post_switch;
         }
@@ -2632,14 +2634,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
   finished:
 
-    // The NODE_FLAG_MARKED bit is set on the output at the beginning to
-    // determine if it isn't overwritten by the end of the routine.  But this
-    // knowledge is used only internally to prevent an enfix step from
-    // running.  It is not exposed externally, and NODE_FLAG_MARKED is used
-    // for other purposes (e.g. ARG_MARKED_CHECKED) by callers.
-    //
-    CLEAR_CELL_FLAG(f->out, OUT_MARKED_STALE);  // note this may be an END
-
     // Want to keep this flag between an operation and an ensuing enfix in
     // the same frame, so can't clear in Drop_Action(), e.g. due to:
     //
@@ -2656,5 +2650,10 @@ bool Eval_Core_Throws(REBFRM * const f)
     assert(f->flags.bits == initial_flags);  // any change should be restored
   #endif
 
+    // It may be that the f->out cell carries OUT_MARKED_STALE.  Most wrappers
+    // over Eval_Core() should not expose this flag...and those that do,
+    // the caller must take responsibility for making sure it is handled
+    // correctly (which will usually involve clearing it off).
+    //
     return false;  // most callers should also inspect for IS_END(f->value)
 }

@@ -616,7 +616,7 @@ REBNATIVE(match)
 
         Begin_Action(f, opt_label);
 
-        bool threw = (*PG_Eval_Throws)(f);
+        bool threw = Eval_Throws(f);
 
         Drop_Frame(f);
 
@@ -743,12 +743,11 @@ REBNATIVE(all)
             return nullptr;
         }
 
-        // consider case of `all [true elide print "hi"]`
-        //
-        CLEAR_CELL_FLAG(D_OUT, OUT_MARKED_STALE);
     }
 
     Drop_Frame(f);
+
+    CLEAR_CELL_FLAG(D_OUT, OUT_MARKED_STALE);  // `all [true elide 1 + 2]`
     return D_OUT; // successful ALL when the last D_OUT assignment is truthy
 }
 
@@ -771,7 +770,7 @@ REBNATIVE(any)
     DECLARE_FRAME_AT (f, ARG(block), EVAL_MASK_DEFAULT);
     Push_Frame(nullptr, f);
 
-    Init_Nulled(D_OUT); // default return result
+    Init_Nulled(D_OUT);  // preload output with falsey value
 
     while (NOT_END(f->feed->value)) {
         if (Eval_Step_Maybe_Stale_Throws(D_OUT, f)) {
@@ -783,10 +782,6 @@ REBNATIVE(any)
             Abort_Frame(f);
             return D_OUT;
         }
-
-        // consider case of `any [true elide print "hi"]`
-        //
-        CLEAR_CELL_FLAG(D_OUT, OUT_MARKED_STALE);
     }
 
     Drop_Frame(f);
@@ -815,7 +810,7 @@ REBNATIVE(none)
     DECLARE_FRAME_AT (f, ARG(block), EVAL_MASK_DEFAULT);
     Push_Frame(nullptr, f);
 
-    Init_Nulled(D_OUT); // default return result
+    Init_Nulled(D_OUT);  // preload output with falsey value
 
     while (NOT_END(f->feed->value)) {
         if (Eval_Step_Maybe_Stale_Throws(D_OUT, f)) {
@@ -827,10 +822,6 @@ REBNATIVE(none)
             Abort_Frame(f);
             return nullptr;
         }
-
-        // consider case of `none [true elide print "hi"]`
-        //
-        CLEAR_CELL_FLAG(D_OUT, OUT_MARKED_STALE);
     }
 
     Drop_Frame(f);
@@ -937,7 +928,7 @@ REBNATIVE(case)
                 // IF evaluates branches that are GROUP! even if it does not
                 // run them.  This implies CASE should too.
                 //
-                if (Eval_Value_Core_Throws(D_SPARE, *v, *specifier)) {
+                if (Eval_Value_Throws(D_SPARE, *v, *specifier)) {
                     Move_Value(D_OUT, D_SPARE);
                     goto threw;
                 }

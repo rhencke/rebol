@@ -210,7 +210,7 @@ REBNATIVE(shove)
             and GET_ACTION_FLAG(VAL_ACTION(shovee), QUOTES_FIRST)
         )
     ){
-        if (Eval_Value_Throws(D_OUT, left))
+        if (Eval_Value_Throws(D_OUT, left, SPECIFIED))
             return R_THROWN;
     }
     else {
@@ -395,7 +395,7 @@ REBNATIVE(do)
         if (NOT_END(param))
             fail (Error_Use_Eval_For_Eval_Raw());
 
-        if (Eval_Value_Throws(D_OUT, source))
+        if (Eval_Value_Throws(D_OUT, source, SPECIFIED))
             return R_THROWN;
         return D_OUT; }
 
@@ -441,7 +441,7 @@ REBNATIVE(do)
         REBSTR *opt_label = nullptr;
         Begin_Action(f, opt_label);
 
-        bool threw = (*PG_Eval_Throws)(f);
+        bool threw = Eval_Throws(f);
 
         Drop_Frame(f);
 
@@ -571,7 +571,7 @@ REBNATIVE(evaluate)
             return nullptr;
 
         REBFLGS flags = EVAL_MASK_DEFAULT;
-        if (Eval_Step_In_Subframe_Throws(SET_END(D_SPARE), f, flags)) {
+        if (Eval_Step_In_Subframe_Throws(D_SPARE, f, flags)) {
             Move_Value(D_OUT, D_SPARE);
             return R_THROWN;
         }
@@ -604,7 +604,7 @@ REBNATIVE(sync_invisibles)
     INCLUDE_PARAMS_OF_SYNC_INVISIBLES;
 
     // !!! This hasn't been implemented yet.  It is probably best done as
-    // an adaptation of Eval_Core_Throws() with some kind of mode flag, and
+    // an adaptation of Eval_Core() with some kind of mode flag, and
     // would take some redesign to do efficiently.
 
     if (VAL_LEN_AT(ARG(source)) == 0)
@@ -675,7 +675,7 @@ REBNATIVE(redo)
     }
 
     // We need to cooperatively throw a restart instruction up to the level
-    // of the frame.  Use REDO as the throw label that Eval_Core_Throws() will
+    // of the frame.  Use REDO as the throw label that Eval_Core() will
     // identify for that behavior.
     //
     Move_Value(D_OUT, NAT_VALUE(redo));
@@ -683,7 +683,7 @@ REBNATIVE(redo)
 
     // The FRAME! contains its ->phase and ->binding, which should be enough
     // to restart the phase at the point of parameter checking.  Make that
-    // the actual value that Eval_Core_Throws() catches.
+    // the actual value that Eval_Core() catches.
     //
     return Init_Thrown_With_Label(D_OUT, restartee, D_OUT);
 }
@@ -812,7 +812,7 @@ REBNATIVE(apply)
         //
         // If nulls are taken literally as null arguments, then no arguments
         // are gathered at the callsite, so the "ordering information"
-        // on the stack isn't needed.  Eval_Core_Throws() will just treat a
+        // on the stack isn't needed.  Eval_Core() will just treat a
         // slot with an INTEGER! for a refinement as if it were "true".
         //
         f->flags.bits |= EVAL_FLAG_FULLY_SPECIALIZED;
@@ -831,7 +831,7 @@ REBNATIVE(apply)
 
     Begin_Action(f, opt_label);
 
-    bool action_threw = (*PG_Eval_Throws)(f);
+    bool action_threw = Eval_Throws(f);
 
     Drop_Frame(f);
 

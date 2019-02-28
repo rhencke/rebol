@@ -223,7 +223,7 @@ REBNATIVE(return)
         if (IS_ENDISH_NULLED(v))
             Init_Void(v); // `do [return]` acts as `return void`
 
-        // Check type NOW instead of waiting and letting Eval_Core_Throws()
+        // Check type NOW instead of waiting and letting Eval_Core()
         // check it.  Reasoning is that the error can indicate the callsite,
         // e.g. the point where `return badly-typed-value` happened.
         //

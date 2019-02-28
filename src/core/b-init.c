@@ -558,7 +558,7 @@ static void Shutdown_Action_Meta_Shim(void) {
 //
 // Though the manual building of this table is not as "nice" as running the
 // evaluator, the evaluator makes comparisons against native values.  Having
-// all natives loaded fully before ever running Eval_Core_Throws() helps with
+// all natives loaded fully before ever running Eval_Core() helps with
 // stability and invariants...also there's "state" in keeping track of which
 // native index is being loaded, which is non-obvious.  But these issues
 // could be addressed (e.g. by passing the native index number / DLL in).
@@ -1444,12 +1444,12 @@ void Startup_Core(void)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    // Initialize eval handler to the default, Eval_Core_Throws(), and ACTION!
+    // Initialize eval handler to the default, Eval_Core(), and ACTION!
     // dispatcher handler to Dispatcher_Core().  These routines have no
     // tracing, no debug handling, etc.  If those features are needed, an
     // augmented function must be substituted.
     //
-    PG_Eval_Throws = &Eval_Core_Throws;
+    PG_Eval_Maybe_Stale_Throws = &Eval_Core_Maybe_Stale_Throws;
     PG_Dispatcher = &Dispatcher_Core;
 
     // boot->natives is from the automatically gathered list of natives found

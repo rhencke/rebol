@@ -361,7 +361,7 @@ REBNATIVE(of)
     REBVAL *prop = ARG(property);
 
     if (IS_GROUP(prop)) {
-        if (Eval_Value_Throws(D_SPARE, prop))
+        if (Eval_Value_Throws(D_SPARE, prop, SPECIFIED))
             return R_THROWN;
     }
     else

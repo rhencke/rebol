@@ -329,7 +329,7 @@ inline static void Push_Frame_No_Varlist(REBVAL *out, REBFRM *f)
     //
     f->out = out;
 
-    // All calls to a Eval_Core_Throws() are assumed to happen at the same C
+    // All calls through to Eval_Core() are assumed to happen at the same C
     // stack level for a pushed frame (though this is not currently enforced).
     // Hence it's sufficient to check for C stack overflow only once, e.g.
     // not on each Eval_Step_Throws() for `reduce [a | b | ... | z]`.
@@ -442,7 +442,7 @@ inline static void Push_Frame_No_Varlist(REBVAL *out, REBFRM *f)
     f->state.dsp = f->dsp_orig;
   #endif
 
-    // Eval_Core_Throws() expects a varlist to be in the frame, so it must
+    // Eval_Core() expects a varlist to be in the frame, therefore it must
     // be filled in by Reuse_Varlist(), or if this is something like a DO
     // of a FRAME! it needs to be filled in from that frame before eval'ing.
     //
@@ -966,7 +966,7 @@ inline static void Drop_Frame(REBFRM *f)
 {
   #if defined(DEBUG_BALANCE_STATE)
     //
-    // To avoid slowing down the debug build a lot, Eval_Core_Throws() doesn't
+    // To avoid slowing down the debug build a lot, Eval_Core() doesn't
     // check this every cycle, just on drop.  But if it's hard to find which
     // exact cycle caused the problem, see BALANCE_CHECK_EVERY_EVALUATION_STEP
     //
@@ -985,7 +985,7 @@ inline static void Drop_Frame(REBFRM *f)
 //
 // Just to simplify matters, the frame cell is set to a bit pattern the GC
 // will accept.  It would need stack preparation anyway, and this simplifies
-// the invariant so if a recycle happens before Eval_Core_Throws() gets to its
+// the invariant so if a recycle happens before Eval_Core() gets to its
 // body, it's always set to something.  Using an unreadable blank means we
 // signal to users of the frame that they can't be assured of any particular
 // value between evaluations; it's not cleared.

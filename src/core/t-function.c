@@ -329,7 +329,7 @@ REBTYPE(Action)
 // instead is each step pushes a canonized word to the stack.  The processing
 // for GET-PATH! will--at the end--make a partially refined ACTION! value
 // (see WORD_FLAG_PARTIAL_REFINE).  But the processing for REB_PATH in
-// Eval_Core_Throws() does not need to...it operates off stack values directly.
+// Eval_Core() does not need to...it operates off stack values directly.
 //
 REB_R PD_Action(
     REBPVS *pvs,

@@ -286,7 +286,7 @@ REBNATIVE(console)
     // is supposed to be "invisible" and not show up on the stack...as if
     // it were part of the C codebase, even though it isn't written in C)
     //
-    REBEVL saved_eval_hook = PG_Eval_Throws;
+    REBEVL saved_eval_hook = PG_Eval_Maybe_Stale_Throws;
     REBNAT saved_dispatcher_hook = PG_Dispatcher;
 
     // !!! While the new mode of TRACE (and other code hooking function
@@ -390,7 +390,7 @@ REBNATIVE(console)
             // console is using to implement *itself*, which it does with
             // BLOCK! Same for Trace_Level seen by PARSE.
             //
-            PG_Eval_Throws = saved_eval_hook;
+            PG_Eval_Maybe_Stale_Throws = saved_eval_hook;
             PG_Dispatcher = saved_dispatcher_hook;
             Trace_Level = Save_Trace_Level;
             Trace_Depth = Save_Trace_Depth;
@@ -411,9 +411,9 @@ REBNATIVE(console)
         // iteration of HOST-CONSOLE.  Same for Trace_Level seen by PARSE.
         //
         if (not is_console_instruction) {
-            saved_eval_hook = PG_Eval_Throws;
+            saved_eval_hook = PG_Eval_Maybe_Stale_Throws;
             saved_dispatcher_hook = PG_Dispatcher;
-            PG_Eval_Throws = &Eval_Core_Throws;
+            PG_Eval_Maybe_Stale_Throws = &Eval_Core_Maybe_Stale_Throws;
             PG_Dispatcher = &Dispatcher_Core;
             Save_Trace_Level = Trace_Level;
             Save_Trace_Depth = Trace_Depth;
