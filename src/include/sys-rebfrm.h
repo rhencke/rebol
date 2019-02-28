@@ -50,24 +50,9 @@
 // va_list or series representing the arguments.)  This avoids the cost and
 // complexity of allocating a series to combine the values together.
 //
-// These features alone would not cover the case when REBVAL pointers that
-// are originating with C source were intended to be supplied to a function
-// with no evaluation.  In R3-Alpha, the only way in an evaluative context
-// to suppress such evaluations would be by adding elements (such as QUOTE).
-// Besides the cost and labor of inserting these, the risk is that the
-// intended functions to be called without evaluation, if they quoted
-// arguments would then receive the QUOTE instead of the arguments.
-//
-// The problem was solved by adding a feature to the evaluator which was
-// also opened up as a new privileged native called EVAL.  EVAL's refinements
-// completely encompass evaluation possibilities in R3-Alpha, but it was also
-// necessary to consider cases where a value was intended to be provided
-// *without* evaluation.  This introduced EVAL/ONLY.
 
 
-
-// Default for Eval_Core_Throws() operation is just a single EVALUATE, where
-// args to functions are evaluated (vs. quoted), and lookahead is enabled.
+// Default for Eval_Core_May_Throw() is just a single EVALUATE step.
 //
 #if defined(NDEBUG)
     #define EVAL_MASK_DEFAULT 0
@@ -106,30 +91,13 @@ STATIC_ASSERT(EVAL_FLAG_1_IS_FALSE == NODE_FLAG_FREE);
     FLAG_LEFT_BIT(2)
 
 
-//=//// EVAL_FLAG_PRESERVE_STALE //////////////////////////////////////////=//
+//=//// EVAL_FLAG_3 ///////////////////////////////////////////////////////=//
 //
-// The evaluator tags the output value while running with OUT_FLAG_STALE
-// to keep track of whether it can be valid input for an enfix operation.  So
-// when you do `[1 () + 2]`, there can be an error even though the `()`
-// vaporizes, as the 1 gets the flag..  If this bit weren't cleared, then
-// doing `[1 ()]` would return a stale 1 value, and stale values cannot be
-// the ->out result of an ACTION! dispatcher C function (checked by assert).
+// !!! Unused.  This bit is the same as NODE_FLAG_MARKED, which may make it
+// interesting for lining up with OUT_MARKED_STALE or ARG_MARKED_CHECKED.
 //
-// Most callers of the core evaluator don't care about the stale bit.  But
-// some want to feed it with a value, and then tell whether the value they
-// fed in was overwritten--and this can't be done with just looking at the
-// value content itself.  e.g. preloading the output with `3` and then wanting
-// to differentiate running `[comment "no data"]` from `[1 + 2]`, to discern
-// if the preloaded 3 was overwritten or not.
-//
-// This DO_FLAG has the same bit position as OUT_FLAG_STALE, allowing it to
-// be bitwise-&'d out easily via masking with this bit.  This saves most
-// callers the trouble of clearing it (though it's not copied in Move_Value(),
-// it will be "sticky" to output cells returned by dispatchers, and it would
-// be irritating for every evaluator call to clear it.)
-//
-#define EVAL_FLAG_PRESERVE_STALE \
-    FLAG_LEFT_BIT(3) // same as OUT_FLAG_STALE (e.g. NODE_FLAG_MARKED)
+#define EVAL_FLAG_3 \
+    FLAG_LEFT_BIT(3)
 
 
 //=//// EVAL_FLAG_REEVALUATE_CELL /////////////////////////////////////////=//

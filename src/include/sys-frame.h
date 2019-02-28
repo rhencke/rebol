@@ -857,17 +857,30 @@ inline static const RELVAL *Fetch_Next_In_Feed(
     ((void)Fetch_Next_In_Feed(FRM(f)->feed, false))
 
 
-inline static void Literal_Next_In_Feed(REBVAL *out, struct Reb_Feed *feed) {
-    Derelativize(out, feed->value, feed->specifier);
+// This code is shared by Literal_Next_In_Feed(), and used without a feed
+// advancement in the inert branch of the evaluator.  So for something like
+// `loop 2 [append [] 10]`, the steps are:
+//
+//    1. loop defines its body parameter as <const>
+//    2. When LOOP runs Do_Any_Array_At_Throws() on the const ARG(body), the
+//       frame gets FEED_FLAG_CONST due to the CELL_FLAG_CONST.
+//    3. The argument to append is handled by the inert processing branch
+//       which moves the value here.  If the block wasn't made explicitly
+//       mutable (e.g. with MUTABLE) it takes the flag from the feed.
+//
+inline static void Inertly_Derelativize_Inheriting_Const(
+    REBVAL *out,
+    const RELVAL *v,
+    struct Reb_Feed *feed
+){
+    Derelativize(out, v, feed->specifier);
     SET_CELL_FLAG(out, UNEVALUATED);
-
-    // SEE ALSO: The `inert:` branch in %c-eval.c, which is similar.  We
-    // want `loop 2 [append '(a b c) 'd]` to be an error, which means the
-    // quoting has to get the const flag from the frame if intended.
-    //
-    if (not GET_CELL_FLAG(feed->value, EXPLICITLY_MUTABLE))
+    if (not GET_CELL_FLAG(v, EXPLICITLY_MUTABLE))
         out->header.bits |= (feed->flags.bits & FEED_FLAG_CONST);
+}
 
+inline static void Literal_Next_In_Feed(REBVAL *out, struct Reb_Feed *feed) {
+    Inertly_Derelativize_Inheriting_Const(out, feed->value, feed);
     (void)(Fetch_Next_In_Feed(feed, false));
 }
 

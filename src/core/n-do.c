@@ -297,7 +297,6 @@ REBNATIVE(do)
       case REB_GROUP: {
         if (Do_Any_Array_At_Throws(D_OUT, source))
             return R_THROWN;
-        assert(NOT_CELL_FLAG(D_OUT, UNEVALUATED));
         return D_OUT; }
 
       case REB_VARARGS: {
@@ -506,8 +505,6 @@ REBNATIVE(evaluate)
             assert(indexor == END_FLAG);
             return nullptr;  // no disruption of output result
         }
-
-        assert(NOT_CELL_FLAG(D_SPARE, UNEVALUATED));
 
         if (REF(set))
             Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), D_SPARE);

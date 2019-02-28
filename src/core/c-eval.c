@@ -52,7 +52,7 @@
 #include "sys-core.h"
 
 
-#if defined(DEBUG_COUNT_TICKS)
+#if defined(DEBUG_COUNT_TICKS)  // <-- THIS IS *VERY USEFUL*, READ CAREFULLY!
     //
     // The evaluator `tick` should be visible in the C debugger watchlist as a
     // local variable in Eval_Core_Throws() on each stack level.  So if fail()
@@ -60,8 +60,8 @@
     // the level of interest and recompile with it here to get a breakpoint
     // at that tick.
     //
-    // On the command-line, you can also request to break at a particular tick
-    // using the `--breakpoint NNN` option.
+    // You can also request to break at a particular tick on the command line
+    // with `--breakpoint NNN` (if the tick is AFTER command line processing).
     //
     // *Plus* you can get the initialization tick for nulled cells, BLANK!s,
     // LOGIC!s, and most end markers by looking at the `track` payload of
@@ -72,9 +72,7 @@
     #define TICK_BREAKPOINT        0
     //      *** DON'T COMMIT THIS --^ KEEP IT AT ZERO! ***
     //
-    // Note also there is `Dump_Frame_Location()` if there's a trouble spot
-    // and you want to see what the state is.  It will reify C va_list
-    // input for you, so you can see what the C caller passed as an array.
+    // Or, `BREAK_NOW()` can be used to pause and dump state at any moment.
     //
 #endif
 
@@ -434,45 +432,42 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 // quote ran, it would get deferred until after the RETURN.  This is not
 // consistent with the pattern people expect.
 //
-void Lookahead_To_Sync_Enfix_Defer_Flag(REBFRM *f) {
-    SHORTHAND (gotten, f->feed->gotten, const REBVAL*);
+void Lookahead_To_Sync_Enfix_Defer_Flag(struct Reb_Feed *feed) {
+    assert(NOT_FEED_FLAG(feed, DEFERRING_ENFIX));
+    assert(not feed->gotten);
 
-    assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
-    assert(not *gotten);
+    CLEAR_FEED_FLAG(feed, NO_LOOKAHEAD);
 
-    CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
-
-    if (not IS_WORD(f->feed->value))
+    if (not IS_WORD(feed->value))
         return;
 
-    *gotten = Try_Get_Opt_Var(f->feed->value, f->feed->specifier);
+    feed->gotten = Try_Get_Opt_Var(feed->value, feed->specifier);
 
-    if (not *gotten or not IS_ACTION(*gotten))
+    if (not feed->gotten or not IS_ACTION(feed->gotten))
         return;
 
-    if (GET_ACTION_FLAG(VAL_ACTION(*gotten), DEFERS_LOOKBACK))
-        SET_FEED_FLAG(f->feed, DEFERRING_ENFIX);
-}
-
-
-inline static bool Dampen_Lookahead(REBFRM *f) {
-    if (GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)) {
-        CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
-        return true;
-    }
-    return false;
+    if (GET_ACTION_FLAG(VAL_ACTION(feed->gotten), DEFERS_LOOKBACK))
+        SET_FEED_FLAG(feed, DEFERRING_ENFIX);
 }
 
 
 // SET-WORD!, SET-PATH!, SET-GROUP!, and SET-BLOCK! all want to do roughly
-// the same thing as the first step of their evaluation.  They want to make
-// sure they don't corrupt whatever is in current (e.g. remember the WORD!
-// or PATH! so they can set it), while evaluating the right hand side to
-// know what to put there.
+// the same thing as the first step of their evaluation.  They evaluate the
+// right hand side into f->out.
+//
+// -but- because you can be asked to evaluate something like `x: y: z: ...`,
+// there could be any number of SET-XXX! before the value to assign is found.
+// Keeping a stack is unavoidable.
+//
+// This inline function attempts to keep that stack by means of the local
+// variable `v` in Eval_Core_May_Throw(), if it is stable.  The handling can
+// then reuse the REBFRM by just saving and restoring the flags.  See
+// Eval_Step_Mid_Frame_Throws() for details on that.
 //
 // What makes this slightly complicated is that the current value may be in
-// a place that doing a Fetch_Next_In_Frame() might corrupt it.  This must
-// be accounted for by using a subframe.
+// a place that doing a Fetch_Next_In_Frame() might corrupt it.  This could
+// be accounted for by pushing the value to some other stack--e.g. the data
+// stack.  But for the moment this (uncommon?) case uses a new frame.
 //
 inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     REBFRM *f,
@@ -533,7 +528,7 @@ void Push_Enfix_Action(REBFRM *f, const REBVAL *action, REBSTR *opt_label)
 {
     Push_Action(f, VAL_ACTION(action), VAL_BINDING(action));
 
-    Dampen_Lookahead(f); // not until after action pushed, invisibles cache it
+    CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);  // *after* push, invisibles cache
 
     Begin_Action(f, opt_label);
 
@@ -564,14 +559,11 @@ void Push_Enfix_Action(REBFRM *f, const REBVAL *action, REBSTR *opt_label)
 //     Eval_Core_Throws() through its FRAME!...though a Eval_Core_Throws(f)
 //     must write f's *own* arg slots to fulfill them.
 //
-//     f->value
-//     Pre-fetched first value to execute (cannot be an END marker)
-//
 //     f->feed
-//     Contains the REBARR* or C va_list of subsequent values to fetch.
-//
-//     f->specifier
-//     Resolver for bindings of values in f->feed, SPECIFIED if all resolved
+//     Contains the REBARR* or C va_list of subsequent values to fetch...as
+//     well as the specifier.  The current value, its cached "gotten" value if
+//     it is a WORD!, and other information is stored here through a level of
+//     indirection so it may be shared and updated between recursions.
 //
 //     f->dsp_orig
 //     Must be set to the base stack location of the operation (this may be
@@ -583,8 +575,6 @@ void Push_Enfix_Action(REBFRM *f, const REBVAL *action, REBSTR *opt_label)
 //
 bool Eval_Core_Throws(REBFRM * const f)
 {
-    bool threw = false;
-
     // These shorthands help readability, and any decent compiler optimizes
     // such things out.  Note it means you refer to `next` via `*next`.
     // (This is ensured by the C++ build, that you don't say `if (next)...`)
@@ -787,10 +777,14 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //=//// BEGIN MAIN SWITCH STATEMENT ///////////////////////////////////////=//
 
-    // This switch is done via contiguous REB_XXX values, in order to
+    // This switch is done with a case for all REB_XXX values, in order to
     // facilitate use of a "jump table optimization":
     //
     // http://stackoverflow.com/questions/17061967/c-switch-and-jump-tables
+    //
+    // Subverting the jump table optimization with specialized branches for
+    // fast tests like ANY_INERT() and IS_NULLED_OR_VOID_OR_END() has shown
+    // to reduce performance in practice.  The compiler does the right thing.
 
     assert(kind.byte == KIND_BYTE_UNCHECKED(v));
 
@@ -1464,7 +1458,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 //
                 //     return lit 1 then (x => [x + 1])
                 //
-                Lookahead_To_Sync_Enfix_Defer_Flag(f);
+                Lookahead_To_Sync_Enfix_Defer_Flag(f->feed);
 
                 if (GET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED))
                     goto continue_arg_loop;
@@ -1489,7 +1483,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 //
                 //     return if false '[foo] else '[bar]
                 //
-                Lookahead_To_Sync_Enfix_Defer_Flag(f);
+                Lookahead_To_Sync_Enfix_Defer_Flag(f->feed);
 
                 break;
 
@@ -1929,17 +1923,12 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //==//// SET_WORD! ///////////////////////////////////////////////////////==//
 //
-// `x: y: z: ...` may happen, so there could be any number of SET-WORD!s
-// before the value to assign is found.  Keeping a stack cannot be avoided.
+// Right hand side is evaluated into `out`, and then copied to the variable.
 //
-// Recursion into Eval_Core_Throws() is used, BUT a new frame is not created.
-// `f` is reused via Eval_Step_Mid_Frame_Throws(), which GC-protects the
-// SET-WORD! by keeping it on the data stack--not the frame stack.
-//
-// Note that nulled cells are allowed: https://forum.rebol.info/t/895/4
+// Nulled cells are allowed: https://forum.rebol.info/t/895/4
 
       case REB_SET_WORD: {
-        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, v))
+        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, v))  // see notes
             goto return_thrown;
 
       set_word_with_out:
@@ -2070,14 +2059,9 @@ bool Eval_Core_Throws(REBFRM * const f)
         }
 
         if (where != f->out)
-            Move_Value(f->out, where);
-        else {
-            // !!! Usually not true but seems true for path evaluation in
-            // varargs, e.g. while running `-- "a" "a"`.  Review.
-            //
+            Move_Value(f->out, where);  // won't move CELL_FLAG_UNEVALUATED
+        else
             CLEAR_CELL_FLAG(f->out, UNEVALUATED);
-            /* assert(NOT_CELL_FLAG(f->out, CELL_FLAG_UNEVALUATED)); */
-        }
         break; }
 
 
@@ -2302,8 +2286,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             );
         }
 
-        assert(NOT_CELL_FLAG(f->out, UNEVALUATED));
-
+        CLEAR_CELL_FLAG(f->out, UNEVALUATED);  // e.g. `[a b]: [10 20]`
         break; }
 
 
@@ -2366,22 +2349,9 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_STRUCT:
       case REB_LIBRARY:
 
-      inert:  // SEE ALSO: Literal_Next_In_Frame()...similar behavior
+      inert:
 
-        Derelativize(f->out, v, *specifier);
-        SET_CELL_FLAG(f->out, UNEVALUATED);  // CELL_FLAG_INERT ??
-
-        // `rebRun("loop 2 [append", "[]", "10]");` should error, passing on
-        // the const of the loop's body frame to apply to the block.  But the
-        // block itself has neutral bits (no const, no mutable).  So the
-        // constness the loop brings should win.
-        //
-        // However, `rebRun("loop 2 [append", block, "10]");` needs to get
-        // the mutability bits of that block variable...more like as if you
-        // had the plain Rebol code `append block 10`.
-        //
-        if (not GET_CELL_FLAG(v, EXPLICITLY_MUTABLE))
-            f->out->header.bits |= (f->feed->flags.bits & FEED_FLAG_CONST);
+        Inertly_Derelativize_Inheriting_Const(f->out, v, f->feed);
         break;
 
 
@@ -2477,11 +2447,13 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     if (kind.byte == REB_PATH) {
         if (
-            Dampen_Lookahead(f)
+            GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)
             or VAL_LEN_AT(*next) != 2
             or not IS_BLANK(ARR_AT(VAL_ARRAY(*next), 0))
             or not IS_BLANK(ARR_AT(VAL_ARRAY(*next), 1))
         ){
+            CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
+
             if (NOT_EVAL_FLAG(f, TO_END))
                 goto finished; // just 1 step of work, so stop evaluating
 
@@ -2510,7 +2482,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     }
 
     if (kind.byte != REB_WORD) {
-        Dampen_Lookahead(f);
+        CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
         if (NOT_EVAL_FLAG(f, TO_END))
             goto finished; // only want 1 EVALUATE of work, so stop evaluating
@@ -2543,7 +2515,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     ){
       lookback_quote_too_late: // run as if starting new expression
 
-        Dampen_Lookahead(f);
+        CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
         if (NOT_EVAL_FLAG(f, TO_END)) {
             //
@@ -2553,25 +2525,11 @@ bool Eval_Core_Throws(REBFRM * const f)
             goto finished;
         }
 
-        if (
-            *next_gotten
-            and IS_ACTION(*next_gotten)
-            and GET_ACTION_FLAG(VAL_ACTION(*next_gotten), IS_INVISIBLE)
-        ){
-            // Even if not EVALUATE, we do not want START_NEW_EXPRESSION on
-            // "invisible" functions.  e.g. `do [1 + 2 comment "hi"]` should
-            // consider that one whole expression.  Reason being that the
-            // comment cannot be broken out and thought of as having a return
-            // result... `comment "hi"` alone cannot have any basis for
-            // evaluating to 3.
-        }
-        else {
-            START_NEW_EXPRESSION_MAY_THROW(f, goto return_thrown);
-            // ^-- resets local tick, corrupts f->out, Ctrl-C may abort
+        START_NEW_EXPRESSION_MAY_THROW(f, goto return_thrown);
+        // ^-- resets local tick, corrupts f->out, Ctrl-C may abort
 
-            UPDATE_TICK_DEBUG(nullptr);
-            // v-- The TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
-        }
+        UPDATE_TICK_DEBUG(nullptr);
+        // v-- The TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
 
         gotten = *next_gotten; // if nullptr, the word will error
         v = Lookback_While_Fetching_Next(f);
@@ -2627,7 +2585,9 @@ bool Eval_Core_Throws(REBFRM * const f)
                                        // ^-- `1 + 2 + comment "foo" 3` => 6
         )
     ){
-        if (Dampen_Lookahead(f)) {
+        if (GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)) {
+            CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
+
             assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
             SET_FEED_FLAG(f->feed, DEFERRING_ENFIX);
 
@@ -2638,6 +2598,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 
             goto finished;
         }
+
+        CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
     }
 
     // A deferral occurs, e.g. with:
@@ -2687,9 +2649,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         SET_FEED_FLAG(f->feed, DEFERRING_ENFIX);
 
-        if (GET_ACTION_FLAG(VAL_ACTION(*next_gotten), POSTPONES_ENTIRELY))
-            SET_CELL_FLAG(f->out, OUT_MARKED_STALE);
-
         // Leave the enfix operator pending in the frame, and it's up to the
         // parent frame to decide whether to use EVAL_FLAG_POST_SWITCH to jump
         // back in and finish fulfilling this arg or not.  If it does resume
@@ -2718,32 +2677,25 @@ bool Eval_Core_Throws(REBFRM * const f)
 
   return_thrown:
 
-    threw = true;
+  #if !defined(NDEBUG)
+    Eval_Core_Exit_Checks_Debug(f);   // called unless a fail() longjmps
+  #endif
+
+    return true;
 
   finished:
 
-    assert(Is_Evaluator_Throwing_Debug() == threw);
-
-    // The unevaluated flag is meaningless outside of arguments to functions.
-
-    if (NOT_EVAL_FLAG(f, FULFILLING_ARG))
-        f->out->header.bits &= ~CELL_FLAG_UNEVALUATED; // may be an END cell
-
-    if (NOT_EVAL_FLAG(f, PRESERVE_STALE))
-        f->out->header.bits &= ~CELL_FLAG_OUT_MARKED_STALE; // may be END
-    else {
-        // Most clients would prefer not to read the stale flag, and be
-        // burdened with clearing it (can't be present on frame output).
-        // But argument fulfillment *can't* read it (ARG_MARKED_CHECKED and
-        // OUT_MARKED_STALE are the same bit)...but it doesn't need to,
-        // since it always starts END.
-        //
-        assert(NOT_EVAL_FLAG(f, FULFILLING_ARG));
-    }
+    // The NODE_FLAG_MARKED bit is set on the output at the beginning to
+    // determine if it isn't overwritten by the end of the routine.  But this
+    // knowledge is used only internally to prevent an enfix step from
+    // running.  It is not exposed externally, and NODE_FLAG_MARKED is used
+    // for other purposes (e.g. ARG_MARKED_CHECKED) by callers.
+    //
+    f->out->header.bits &= ~CELL_FLAG_OUT_MARKED_STALE;  // may be END
 
   #if !defined(NDEBUG)
-    Eval_Core_Exit_Checks_Debug(f); // will get called unless a fail() longjmps
+    Eval_Core_Exit_Checks_Debug(f);  // called unless a fail() longjmps
   #endif
 
-    return threw; // most callers should inspect for IS_END(f->value)
+    return false;  // most callers should also inspect for IS_END(f->value)
 }
