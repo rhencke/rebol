@@ -465,8 +465,8 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
         if (Eval_Step_In_Subframe_Throws(f->out, f, flags))
             return true;
     }
-    else {
-        if (Eval_Step_Mid_Frame_Throws(f, flags)) // light reuse of `f`
+    else {  // !!! Reusing the frame, would inert optimization be worth it?
+        if ((*PG_Eval_Throws)(f))  // reuse `f`
             return true;
     }
 
@@ -541,6 +541,16 @@ bool Eval_Core_Throws(REBFRM * const f)
     REBTCK tick = f->tick = TG_Tick;  // snapshot tick for C watchlist viewing
   #endif
 
+  #if !defined(NDEBUG)
+    REBFLGS initial_flags = f->flags.bits & ~(
+        EVAL_FLAG_POST_SWITCH
+        | EVAL_FLAG_PROCESS_ACTION
+        | EVAL_FLAG_REEVALUATE_CELL
+        | EVAL_FLAG_NEXT_ARG_FROM_OUT
+        | EVAL_FLAG_FULFILL_ONLY  // can be requested or <blank> can trigger
+    );  // should be unchanged on exit
+  #endif
+
     assert(DSP >= f->dsp_orig);  // REDUCE accrues, APPLY adds refinements
     assert(not IS_TRASH_DEBUG(f->out));  // all invisible will preserve output
     assert(f->out != spare);  // overwritten by temporary calculations
@@ -607,6 +617,10 @@ bool Eval_Core_Throws(REBFRM * const f)
 
   #if !defined(NDEBUG)
     Eval_Core_Expression_Checks_Debug(f);
+    assert(NOT_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH));
+    if (NOT_EVAL_FLAG(f, FULFILLING_ARG))
+        assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
+    assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
   #endif
 
 //=//// START NEW EXPRESSION //////////////////////////////////////////////=//
@@ -622,22 +636,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             goto return_thrown;
     }
 
-    if (NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT))
-        SET_CELL_FLAG(f->out, OUT_MARKED_STALE);
-
-    // Want to keep this flag between an operation and an ensuing enfix in
-    // the same frame, so can't clear in Drop_Action(), e.g. due to:
-    //
-    //     left-lit: enfix :lit
-    //     o: make object! [f: does [1]]
-    //     o/f left-lit ;--- want error mentioning -> here, need flag for that
-    //
-    CLEAR_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH);
-
-    if (NOT_EVAL_FLAG(f, FULFILLING_ARG))
-        assert(NOT_FEED_FLAG(f->feed, NO_LOOKAHEAD));
-
-    assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
+    assert(NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT));
+    SET_CELL_FLAG(f->out, OUT_MARKED_STALE);  // internal use flag only
 
     gotten = *next_gotten;
     v = Lookback_While_Fetching_Next(f);
@@ -855,7 +855,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         TRASH_POINTER_IF_DEBUG(v); // shouldn't be used below
         TRASH_POINTER_IF_DEBUG(gotten);
 
-        CLEAR_EVAL_FLAG(f, DOING_PICKUPS);
+        assert(NOT_EVAL_FLAG(f, DOING_PICKUPS));
 
       process_args_for_pickup_or_to_end:
 
@@ -1565,7 +1565,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 
       arg_loop_and_any_pickups_done:
 
-        assert(IS_END(f->param)); // signals !Is_Action_Frame_Fulfilling()
+        CLEAR_EVAL_FLAG(f, DOING_PICKUPS);  // reevaluate may set flag again
+        assert(IS_END(f->param));  // signals !Is_Action_Frame_Fulfilling()
 
     //==////////////////////////////////////////////////////////////////==//
     //
@@ -2624,6 +2625,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
   #if !defined(NDEBUG)
     Eval_Core_Exit_Checks_Debug(f);   // called unless a fail() longjmps
+    // don't care if f->flags has changes; thrown frame is not resumable
   #endif
 
     return true;
@@ -2636,10 +2638,22 @@ bool Eval_Core_Throws(REBFRM * const f)
     // running.  It is not exposed externally, and NODE_FLAG_MARKED is used
     // for other purposes (e.g. ARG_MARKED_CHECKED) by callers.
     //
-    f->out->header.bits &= ~CELL_FLAG_OUT_MARKED_STALE;  // may be END
+    CLEAR_CELL_FLAG(f->out, OUT_MARKED_STALE);  // note this may be an END
+
+    // Want to keep this flag between an operation and an ensuing enfix in
+    // the same frame, so can't clear in Drop_Action(), e.g. due to:
+    //
+    //     left-lit: enfix :lit
+    //     o: make object! [f: does [1]]
+    //     o/f left-lit  ; want error suggesting -> here, need flag for that
+    //
+    CLEAR_EVAL_FLAG(f, DIDNT_LEFT_QUOTE_PATH);
+    assert(NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT));  // must be consumed
 
   #if !defined(NDEBUG)
     Eval_Core_Exit_Checks_Debug(f);  // called unless a fail() longjmps
+    assert(NOT_EVAL_FLAG(f, DOING_PICKUPS));
+    assert(f->flags.bits == initial_flags);  // any change should be restored
   #endif
 
     return false;  // most callers should also inspect for IS_END(f->value)

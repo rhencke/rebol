@@ -1265,6 +1265,8 @@ bool Make_Invocation_Frame_Throws(
 
     bool threw = (*PG_Eval_Throws)(f);
 
+    assert(NOT_EVAL_FLAG(f, FULFILL_ONLY));  // cleared by the evaluator
+
     // Drop_Action() clears out the phase and binding.  Put them back.
     // !!! Should it check EVAL_FLAG_FULFILL_ONLY?
 

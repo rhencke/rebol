@@ -179,28 +179,6 @@ inline static bool Eval_Step_Maybe_Stale_Throws(
 }
 
 
-// Bit heavier wrapper of Eval_Core_Throws() than Eval_Step_In_Frame_Throws().
-// It also reuses the frame...but has to clear and restore the frame's
-// flags.  It is currently used only by SET-WORD! and SET-PATH!.
-//
-// Note: Consider pathological case `x: eval lit y: eval eval lit z: ...`
-// This can be done without making a new frame, but the eval cell which holds
-// the SET-WORD! needs to be put back in place before returning, so that the
-// set knows where to write.  The caller handles this with the data stack.
-//
-inline static bool Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
-    assert(f->dsp_orig == DSP);
-
-    REBFLGS prior_flags = f->flags.bits;
-    f->flags = Endlike_Header(flags);
-
-    bool threw = (*PG_Eval_Throws)(f); // should already be pushed
-
-    f->flags.bits = prior_flags; // e.g. restore EVAL_FLAG_TO_END
-    return threw;
-}
-
-
 // It should not be necessary to use a subframe unless there is meaningful
 // state which would be overwritten in the parent frame.  For the moment,
 // that only happens if a function call is in effect -or- if a SET-WORD! or
