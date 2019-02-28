@@ -56,6 +56,7 @@ PVAR REBCNT PG_Num_Canon_Slots_In_Use; // Total canon hash slots (+ deleteds)
 #if !defined(NDEBUG)
     PVAR REBCNT PG_Num_Canon_Deleteds; // Deleted canon hash slots "in use"
 #endif
+PVAR REBSTR *PG_Bar_Canon;  // fast canon value for testing for `|`
 
 PVAR REBCTX *Lib_Context;
 PVAR REBCTX *Sys_Context;

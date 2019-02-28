@@ -273,7 +273,7 @@ inline static void Push_Frame_No_Varlist(REBVAL *out, REBFRM *f)
     for (; ftemp != FS_BOTTOM; ftemp = ftemp->prior) {
         if (not Is_Action_Frame(ftemp))
             continue;
-        if (Is_Action_Frame_Fulfilling(ftemp))
+        if (Is_Action_Frame_Fulfilling_Unchecked(ftemp))
             continue;
         if (GET_SERIES_INFO(ftemp->varlist, INACCESSIBLE))
             continue; // Encloser_Dispatcher() reuses args from up stack

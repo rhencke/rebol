@@ -565,6 +565,8 @@ void Startup_Symbols(REBARR *words)
 
     if (0 != strcmp("open", STR_HEAD(Canon(SYM_OPEN))))
         panic (Canon(SYM_OPEN));
+
+    PG_Bar_Canon = Canon(SYM_BAR);  // used by PARSE for speedup
 }
 
 

@@ -112,12 +112,22 @@
 #define FETCH_NEXT_RULE(f) \
     Fetch_Next_Forget_Lookback(f)
 
+// It's fundamental to PARSE to recognize `|` and skip ahead to it to the end.
+// The debug build has enough checks on things like VAL_WORD_SPELLING() that
+// it adds up when you already tested someting IS_WORD().  This reaches a
+// bit lower level to try and still have protections but speed up some--and
+// since there's no inlining in the debug build, FETCH_TO_BAR_OR_END=>macro
+//
 inline static bool IS_BAR(const RELVAL *v)
-    { return IS_WORD(v) and VAL_WORD_SYM(v) == SYM_BAR; }
+    { return IS_WORD(v) and VAL_NODE(v) == NOD(PG_Bar_Canon); }
 
 #define FETCH_TO_BAR_OR_END(f) \
-    while (NOT_END(P_RULE) and not IS_BAR(P_RULE)) \
-        { FETCH_NEXT_RULE(f); }
+    while (NOT_END(P_RULE) and not ( \
+        KIND_BYTE_UNCHECKED(P_RULE) == REB_WORD \
+        and VAL_NODE(P_RULE) == NOD(PG_Bar_Canon) \
+    )){ \
+        FETCH_NEXT_RULE(f); \
+    }
 
 
 // See the notes on `flags` in the main parse loop for how these work.

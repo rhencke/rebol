@@ -76,34 +76,36 @@
     ARRAY_FLAG_25
 
 
-inline static bool Is_Action_Frame(REBFRM *f) {
-    if (f->original != nullptr) {
-        //
-        // Do not count as a function frame unless its gotten to the point
-        // of pushing arguments.
-        //
-        return true;
-    }
-    return false;
-}
+// When Push_Action() happens, it sets f->original, but it's guaranteed to be
+// null if an action is not running.  This is tested via a macro because the
+// debug build doesn't do any inlining, and it's called often.
+//
+#define Is_Action_Frame(f) \
+    ((f)->original != nullptr)
+
 
 // While a function frame is fulfilling its arguments, the `f->param` will
 // be pointing to a typeset.  The invariant that is maintained is that
 // `f->param` will *not* be a typeset when the function is actually in the
 // process of running.  (So no need to set/clear/test another "mode".)
 //
-inline static bool Is_Action_Frame_Fulfilling(REBFRM *f)
-{
+// Some cases in debug code call this all the way up the call stack, and when
+// the debug build doesn't inline functions it's best to use as a macro.
+
+#define Is_Action_Frame_Fulfilling_Unchecked(f) \
+    NOT_END((f)->param)
+
+inline static bool Is_Action_Frame_Fulfilling(REBFRM *f) {
     assert(Is_Action_Frame(f));
-    return NOT_END(f->param);
+    return Is_Action_Frame_Fulfilling_Unchecked(f);
 }
+
 
 
 //
 //  Context_For_Frame_May_Manage: C
 //
-inline static REBCTX *Context_For_Frame_May_Manage(REBFRM *f)
-{
+inline static REBCTX *Context_For_Frame_May_Manage(REBFRM *f) {
     assert(not Is_Action_Frame_Fulfilling(f));
     SET_SERIES_FLAG(f->varlist, MANAGED);
     return CTX(f->varlist);
