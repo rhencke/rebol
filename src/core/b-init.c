@@ -1438,13 +1438,12 @@ void Startup_Core(void)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    // Initialize eval handler to the default, Eval_Core(), and ACTION!
-    // dispatcher handler to Dispatcher_Core().  These routines have no
-    // tracing, no debug handling, etc.  If those features are needed, an
-    // augmented function must be substituted.
+    // Initialize eval handler and ACTION! dispatcher to the default internal
+    // routines.  These routines have no tracing, no debug handling, etc.  If
+    // those features are needed, augmented functions must be substituted.
     //
-    PG_Eval_Maybe_Stale_Throws = &Eval_Core_Maybe_Stale_Throws;
-    PG_Dispatcher = &Dispatcher_Core;
+    PG_Eval_Maybe_Stale_Throws = &Eval_Internal_Maybe_Stale_Throws;
+    PG_Dispatch = &Dispatch_Internal;
 
     // boot->natives is from the automatically gathered list of natives found
     // by scanning comments in the C sources for `native: ...` declarations.

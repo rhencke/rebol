@@ -281,7 +281,7 @@ REBNATIVE(console)
     // it were part of the C codebase, even though it isn't written in C)
     //
     REBEVL saved_eval_hook = PG_Eval_Maybe_Stale_Throws;
-    REBNAT saved_dispatcher_hook = PG_Dispatcher;
+    REBNAT saved_dispatch_hook = PG_Dispatch;
 
     // !!! While the new mode of TRACE (and other code hooking function
     // execution) is covered by `saved_eval_hook/saved_apply_hook`, there
@@ -385,7 +385,7 @@ REBNATIVE(console)
             // BLOCK! Same for Trace_Level seen by PARSE.
             //
             PG_Eval_Maybe_Stale_Throws = saved_eval_hook;
-            PG_Dispatcher = saved_dispatcher_hook;
+            PG_Dispatch = saved_dispatch_hook;
             Trace_Level = Save_Trace_Level;
             Trace_Depth = Save_Trace_Depth;
         }
@@ -406,9 +406,9 @@ REBNATIVE(console)
         //
         if (not is_console_instruction) {
             saved_eval_hook = PG_Eval_Maybe_Stale_Throws;
-            saved_dispatcher_hook = PG_Dispatcher;
-            PG_Eval_Maybe_Stale_Throws = &Eval_Core_Maybe_Stale_Throws;
-            PG_Dispatcher = &Dispatcher_Core;
+            saved_dispatch_hook = PG_Dispatch;
+            PG_Eval_Maybe_Stale_Throws = &Eval_Internal_Maybe_Stale_Throws;
+            PG_Dispatch = &Dispatch_Internal;
             Save_Trace_Level = Trace_Level;
             Save_Trace_Depth = Trace_Depth;
             Trace_Level = 0;

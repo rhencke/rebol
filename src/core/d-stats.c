@@ -140,15 +140,15 @@ enum {
 
 
 //
-//  Measured_Dispatcher_Hook: C
+//  Measured_Dispatch_Hook: C
 //
-// This is the function which is swapped in for Dispatcher_Core when stats are
-// enabled.
+// This is the function which is swapped in for Dispatch_Internal() when stats
+// are enabled.
 //
 // In order to actually be accurate, it would need some way to subtract out
 // its own effect on the timing of functions above on the stack.
 //
-REB_R Measured_Dispatcher_Hook(REBFRM * const f)
+REB_R Measured_Dispatch_Hook(REBFRM * const f)
 {
     REBMAP *m = VAL_MAP(Root_Stats_Map);
 
@@ -173,7 +173,7 @@ REB_R Measured_Dispatcher_Hook(REBFRM * const f)
         // being studied for starters...of just counting.
     }
 
-    REB_R r = Dispatcher_Core(f);
+    REB_R r = Dispatch_Internal(f);
     assert(r->header.bits & NODE_FLAG_CELL);
 
     if (is_last_phase) {
@@ -310,14 +310,10 @@ REBNATIVE(metrics)
     // the user could do about that.  And it just contaminates the timing they
     // are interested in, which is how long their functions take.
 
-    if (VAL_LOGIC(mode)) {
-        /* PG_Eval_Maybe_Stale_Throws = &Measured_Eval_Hook_Throws; */
-        PG_Dispatcher = &Measured_Dispatcher_Hook;
-    }
-    else {
-        /* PG_Eval_Maybe_Stale_Throws = &Eval_Core_Throws; */  // see note
-        PG_Dispatcher = &Dispatcher_Core;
-    }
+    if (VAL_LOGIC(mode))
+        PG_Dispatch = &Measured_Dispatch_Hook;
+    else
+        PG_Dispatch = &Dispatch_Internal;
 
     return Root_Stats_Map;
 }

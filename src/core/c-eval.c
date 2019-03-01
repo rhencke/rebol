@@ -20,145 +20,148 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// This file contains Eval_Core_Maybe_Stale_Throws(), which is the central
-// evaluator behind EVALUATE (which calls a single step), and DO (which calls
-// it multiple times in a loop when evaluating a block).
+// This file contains Eval_Internal_Maybe_Stale_Throws(), which is the central
+// evaluator implementation.  Most callers should use higher level wrappers,
+// because the long name conveys any direct caller must handle the following:
 //
-// Few people should be calling the routine directly--which is why it is given
-// such a long and descriptive name.  This reminds those who *do* need to call
-// it directly that it may leave a stray informational flag on the output, and
-// that it returns a boolean which must be heeded saying whether it threw.
-// In conversation and comments, the routine is referred to as "Eval_Core()".
+// * _Maybe_Stale_ => The evaluation targets an output cell which must be
+//   preloaded or set to END.  If there is no result (e.g. due to being just
+//   comments) then whatever was in that cell will still be there -but- will
+//   carry OUT_MARKED_STALE.  This is just an alias for NODE_FLAG_MARKED, and
+//   it must be cleared off before passing pointers to the cell to a routine
+//   which may interpret that flag differently.
 //
-// For comprehensive notes on the input parameters, output parameters, and
-// internal state variables...see %sys-rebfrm.h.
+// * _Internal_ => This is the fundamental C code for the evaluator, but it
+//   can be "hooked".  Those hooks provide services like debug stepping and
+//   tracing.  So most calls to this routine should be through a function
+//   pointer and not directly.
 //
-// NOTES:
+// * _Throws => The return result is a boolean which all callers *must* heed.
+//   There is no "thrown value" data type or cell flag, so the only indication
+//   that a throw happened comes from this flag.  See %sys-throw.h
 //
-// * "Eval_Core()" is a long routine.  That is largely on purpose, as it
-//   doesn't contain repeated portions.  If it were broken into functions that
-//   would add overhead for little benefit, and prevent interesting tricks
-//   and optimizations.  Note that it is separated into sections, and
-//   the invariants in each section are made clear with comments and asserts.
+// Eval_Throws() is a small stub which takes care of the first two concerns,
+// though some low-level clients actually want the stale flag.
 //
-// * The evaluator only moves forward, and it consumes exactly one element
-//   from the input at a time.  Input is held read-only (SERIES_INFO_HOLD) for
-//   the duration of execution.  At the moment it can be an array tracked by
-//   index and incrementation, or it may be a C va_list which tracks its own
-//   position on each fetch through a forward-only iterator.
+//=//// NOTES /////////////////////////////////////////////////////////////=//
+//
+// * See %sys-eval.h for wrappers that make it easier to set up frames and
+//   use the evaluator for a single step.
+//
+// * See %sys-do.h for wrappers that make it easier to run multiple evaluator
+//   steps in a frame and return the final result.
+//
+// * Eval_Internal_Maybe_Stale_Throws() is LONG.  That's largely on purpose.
+//   Breaking it into functions would add overhead (in the debug build if not
+//   also release builds) and prevent interesting tricks and optimizations.
+//   It is separated into sections, and the invariants in each section are
+//   made clear with comments and asserts.
+//
+// * The evaluator only moves forward, and operates on a strict window of
+//   visibility of two elements at a time (current position and "lookback").
+//   See `Reb_Feed` for the code that provides this abstraction over Rebol
+//   arrays as well as C va_list.
 //
 
 #include "sys-core.h"
 
 
-#if defined(DEBUG_COUNT_TICKS)  // <-- THIS IS *VERY USEFUL*, READ CAREFULLY!
-    //
-    // The evaluator `tick` should be visible in the C debugger watchlist as a
-    // local variable in Eval_Core() on each stack level.  So if a fail()
-    // happens at a deterministic moment in a run, capture the number from
-    // the level of interest and recompile with it here to get a breakpoint
-    // at that tick.
-    //
-    // You can also request to break at a particular tick on the command line
-    // with `--breakpoint NNN` (if the tick is AFTER command line processing).
-    //
-    // *Plus* you can get the initialization tick for nulled cells, BLANK!s,
-    // LOGIC!s, and most end markers by looking at the `track` payload of
-    // the REBVAL cell.  Series contain the `REBSER.tick` where they were
-    // created as well.  See also TOUCH_SERIES() and TOUCH_CELL().
+#if defined(DEBUG_COUNT_TICKS)  // <-- THIS IS VERY USEFUL, READ THIS SECTION!
     //
     //      *** DON'T COMMIT THIS v-- KEEP IT AT ZERO! ***
     #define TICK_BREAKPOINT        0
     //      *** DON'T COMMIT THIS --^ KEEP IT AT ZERO! ***
     //
-    // Or, `BREAK_NOW()` can be used to pause and dump state at any moment.
+    // The evaluator `tick` should be visible in the C debugger watchlist as a
+    // local variable on each evaluator stack level.  So if a fail() happens
+    // at a deterministic moment in a run, capture the number from the level
+    // of interest and recompile for a breakpoint at that tick.
     //
+    // If the tick is AFTER command line processing is done, you can request
+    // a tick breakpoint that way with `--breakpoint NNN`
+    //
+    // The debug build carries ticks many other places.  Series contain the
+    // `REBSER.tick` where they were created, frames have a `REBFRM.tick`,
+    // and the DEBUG_TRACK_EXTEND_CELLS switch will double the size of cells
+    // so they can carry the tick, file, and line where they were initialized.
+    // (Even without TRACK_EXTEND, cells that don't have their EXTRA() field
+    // in use carry the tick--it's in end cells, nulls, blanks, and trash.)
+    //
+    // For custom updating of stored ticks to help debugging some scenarios,
+    // see TOUCH_SERIES() and TOUCH_CELL().  Note also that BREAK_NOW() can be
+    // called to pause and dump state at any moment.
+
+    #define UPDATE_TICK_DEBUG(v) \
+        do { \
+            if (TG_Tick < INTPTR_MAX)  /* avoid rollover (may be 32-bit!) */ \
+                tick = f->tick = ++TG_Tick; \
+            else \
+                tick = f->tick = INTPTR_MAX;  /* see tick for why signed! */ \
+            if ( \
+                (TG_Break_At_Tick != 0 and tick >= TG_Break_At_Tick) \
+                or tick == TICK_BREAKPOINT \
+            ){ \
+                printf("TICK_BREAKPOINT at %u\n", cast(unsigned int, tick)); \
+                Dump_Frame_Location((v), f); \
+                debug_break();  /* see %debug_break.h */ \
+                TG_Break_At_Tick = 0; \
+            } \
+        } while (false)  // macro so that breakpoint is at right stack level!
+#else
+    #define UPDATE_TICK_DEBUG(v) NOOP
 #endif
 
 
 //
-//  Dispatcher_Core: C
+//  Dispatch_Internal: C
 //
-// Default function provided for the hook at the moment of action application.
-// All arguments are gathered, and this gets access to the return result.
+// Default function provided for the hook at the moment of action application,
+// with all arguments gathered.
 //
 // As this is the default, it does nothing besides call the phase dispatcher.
 // Debugging and instrumentation might want to do other things...e.g TRACE
 // wants to preface the call by dumping the frame, and postfix it by showing
 // the evaluative result.
 //
-// This adds one level of C function into every dispatch--but well worth it
-// for the functionality.  Note also that R3-Alpha had `if (Trace_Flags)`
-// in the main loop before and after function dispatch, which was more costly
-// and much less flexible.  Nevertheless, sneaky lower-level-than-C tricks
-// might be used to patch the machine code and avoid cost when not hooked.
+// !!! Review if lower-level than C tricks could be used to patch code in
+// some builds to not pay the cost for calling through a pointer.
 //
-REB_R Dispatcher_Core(REBFRM * const f) {
-    return ACT_DISPATCHER(FRM_PHASE(f))(f);
-}
+REB_R Dispatch_Internal(REBFRM * const f)
+  { return ACT_DISPATCHER(FRM_PHASE(f))(f); }
 
 
-#ifdef DEBUG_COUNT_TICKS
-    //
-    // Macro for same stack level as Eval_Core when debugging TICK_BREAKPOINT
-    // Note that it uses a *signed* maximum due to the needs of the unreadable
-    // blank, which doesn't want to steal a bit for its unreadable state...
-    // so it negates the sign of the unsigned tick for unreadability.
-    //
-    #define UPDATE_TICK_DEBUG(cur) \
-        do { \
-            if (TG_Tick < INTPTR_MAX) /* avoid rollover (may be 32-bit!) */ \
-                tick = f->tick = ++TG_Tick; \
-            else \
-                tick = f->tick = INTPTR_MAX; /* unsigned tick, signed max */ \
-            if ( \
-                (TG_Break_At_Tick != 0 and tick >= TG_Break_At_Tick) \
-                or tick == TICK_BREAKPOINT \
-            ){ \
-                printf("TICK_BREAKPOINT at %u\n", cast(unsigned int, tick)); \
-                Dump_Frame_Location((cur), f); \
-                debug_break(); /* see %debug_break.h */ \
-                TG_Break_At_Tick = 0; \
-            } \
-        } while (false)
-#else
-    #define UPDATE_TICK_DEBUG(cur) \
-        NOOP
-#endif
-
-
-// ARGUMENT LOOP MODES
+//=//// ARGUMENT LOOP MODES ///////////////////////////////////////////////=//
 //
-// The settings of f->special are chosen purposefully.  It is kept in sync
-// with one of three possibilities:
+// f->special is kept in sync with one of three possibilities:
 //
 // * f->param to indicate ordinary argument fulfillment for all the relevant
-//   args, refinements, and refinement args of the function
+//   args, refinements, and refinement args of the function.
 //
-// * f->arg, in order to indicate that the arguments should only be
-//   type-checked.
+// * f->arg, to indicate that the arguments should only be type-checked.
 //
 // * some other pointer to an array of REBVAL which is the same length as the
-//   argument list.  This indicates that any non-void values in that array
-//   should be used in lieu of an ordinary argument...e.g. that argument has
-//   been "specialized".
+//   argument list.  Any non-null values in that array should be used in lieu
+//   of an ordinary argument...e.g. that argument has been "specialized".
 //
-// By having all the states able to be incremented and hold the invariant, one
-// can blindly do `++f->special` without doing something like checking for a
-// null value first.
+// All the states can be incremented across the length of the frame.  This
+// means `++f->special` can be done without checking for null values.
 //
 // Additionally, in the f->param state, f->special will never register as
 // anything other than a typeset.  This increases performance of some checks,
 // e.g. `IS_NULLED(f->special)` can only match the other two cases.
 //
+// Done with macros for speed in the debug build (which does not inline).
+// The name of the trigger condition is included since reinforcing what's true
+// at the callsite is good to help understand the state.
 
-inline static bool In_Typecheck_Mode(REBFRM *f) {
-    return f->special == f->arg;
-}
+#define SPECIAL_IS_ARG_SO_TYPECHECKING \
+    (f->special == f->arg)
 
-inline static bool In_Unspecialized_Mode(REBFRM *f) {
-    return f->special == f->param;
-}
+#define SPECIAL_IS_PARAM_SO_UNSPECIALIZED \
+    (f->special == f->param)
+
+#define SPECIAL_IS_ARBITRARY_SO_SPECIALIZED \
+    (f->special != f->param and f->special != f->arg)
 
 
 inline static void Revoke_Refinement_Arg(REBFRM *f) {
@@ -253,8 +256,9 @@ inline static void Finalize_Arg(REBFRM *f) {
     // `foo: func [...] mutable [...]` ?  This seems bad, because the contract
     // of the function hasn't been "tweaked", e.g. with reskinning.
     //
-    if (f->special != f->arg and TYPE_CHECK(f->param, REB_TS_CONST))
-        SET_CELL_FLAG(f->arg, CONST);
+    if (not SPECIAL_IS_ARG_SO_TYPECHECKING)
+        if (TYPE_CHECK(f->param, REB_TS_CONST))
+            SET_CELL_FLAG(f->arg, CONST);
 
     // If the <dequote> tag was used on an argument, we want to remove the
     // quotes (and queue them to be added back in if the return was marked
@@ -409,12 +413,10 @@ void Lookahead_To_Sync_Enfix_Defer_Flag(struct Reb_Feed *feed) {
 //
 // -but- because you can be asked to evaluate something like `x: y: z: ...`,
 // there could be any number of SET-XXX! before the value to assign is found.
-// Keeping a stack is unavoidable.
 //
 // This inline function attempts to keep that stack by means of the local
-// variable `v` in Eval_Core(), if it is stable.  The handling can
-// then reuse the REBFRM by just saving and restoring the flags.  See
-// Eval_Step_Mid_Frame_Throws() for details on that.
+// variable `v`, if it points to a stable location.  If so, it simply reuses
+// the frame it already has.
 //
 // What makes this slightly complicated is that the current value may be in
 // a place that doing a Fetch_Next_In_Frame() might corrupt it.  This could
@@ -490,42 +492,16 @@ void Push_Enfix_Action(REBFRM *f, const REBVAL *action, REBSTR *opt_label)
 
 
 //
-//  Eval_Core_Throws: C
+//  Eval_Internal_Maybe_Stale_Throws: C
 //
-// While this routine looks very complex, it's actually not that difficult
-// to step through.  A lot of it is assertions, debug tracking, and comments.
-//
-// Comments on the definition of Reb_Frame are a good place to start looking
-// to understand what's going on.  See %sys-rebfrm.h for full details.
-//
-// These fields are required upon initialization:
-//
-//     f->out
-//     REBVAL pointer to which the evaluation's result should be written.
-//     Should be to writable memory in a cell that lives above this call to
-//     Eval_Core in stable memory that is not user-visible (e.g. DECLARE_LOCAL
-//     or the frame's f->spare).  This can't point into an array whose memory
-//     may move during arbitrary evaluation, and that includes cells on the
-//     expandable data stack.  It also usually can't write a function argument
-//     cell, because that could expose an unfinished calculation during this
-//     Eval_Core() through its FRAME!...though a Eval_Core(f) must write f's
-//     *own* arg slots to fulfill them.
-//
-//     f->feed
-//     Contains the REBARR* or C va_list of subsequent values to fetch...as
-//     well as the specifier.  The current value, its cached "gotten" value if
-//     it is a WORD!, and other information is stored here through a level of
-//     indirection so it may be shared and updated between recursions.
-//
-//     f->dsp_orig
-//     Must be set to the base stack location of the operation (this may be
-//     a deeper stack level than current DSP if this is an apply, and
-//     refinements were preloaded onto the stack)
+// See notes at top of file for general remarks on this central functions'
+// name, and that wrappers should nearly always be used to call it.
 //
 // More detailed assertions of the preconditions, postconditions, and state
-// at each evaluation step are contained in %d-eval.c
+// at each evaluation step are contained in %d-eval.c, to keep this file
+// more manageable in length.
 //
-bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
+bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 {
     // These shorthands help readability, and any decent compiler optimizes
     // such things out.  Note it means you refer to `next` via `*next`.
@@ -875,8 +851,12 @@ bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
             // initialization work, but it's in progress to do this more
             // subtly so that the frame can be left formatted as non-stack.
             //
-            if (NOT_EVAL_FLAG(f, DOING_PICKUPS) and f->special != f->arg)
+            if (
+                NOT_EVAL_FLAG(f, DOING_PICKUPS)
+                and not SPECIAL_IS_ARG_SO_TYPECHECKING
+            ){
                 Prep_Stack_Cell(f->arg); // improve...
+            }
             else {
                 // If the incoming series came from a heap frame, just put
                 // a bit on it saying its a stack node for now--this will
@@ -929,8 +909,8 @@ bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
                 REBVAL *ordered = DS_TOP;
                 REBSTR *param_canon = VAL_PARAM_CANON(f->param); // #2258
 
-                if (f->special == f->param) // acquire all args at callsite
-                    goto unspecialized_refinement; // most common case
+                if (SPECIAL_IS_PARAM_SO_UNSPECIALIZED)  // args from callsite
+                    goto unspecialized_refinement;  // most common case (?)
 
                 // All tests below are on special, but if f->special is not
                 // the same as f->arg then f->arg must get assigned somehow
@@ -1067,10 +1047,10 @@ bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
               case REB_P_LOCAL:
                 //
                 // When REDOing a function frame, it is sent back up to do
-                // typechecking (f->special == f->arg), and the check takes
-                // care of clearing the locals, they may not be null...
+                // SPECIAL_IS_ARG_SO_TYPECHECKING, and the check takes care
+                // of clearing the locals, they may not be null...
                 //
-                if (f->special != f->param and f->special != f->arg)
+                if (SPECIAL_IS_ARBITRARY_SO_SPECIALIZED)
                     assert(IS_NULLED(f->special));
 
                 Init_Nulled(f->arg);
@@ -1085,7 +1065,7 @@ bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
                 // Also, as with locals, could be modified during a call and
                 // then a REDO of the frame could happen.
                 //
-                if (f->special != f->param and f->special != f->arg)
+                if (SPECIAL_IS_ARBITRARY_SO_SPECIALIZED)
                     assert(
                         IS_NULLED(f->special)
                         or NAT_ACTION(return) == VAL_ACTION(f->special)
@@ -1110,8 +1090,9 @@ bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
 
     //=//// SPECIALIZED OR OTHERWISE TYPECHECKED ARG //////////////////////=//
 
-                if (f->arg != f->special) {
-                    //
+                if (not SPECIAL_IS_ARG_SO_TYPECHECKING) {
+                    assert(SPECIAL_IS_ARBITRARY_SO_SPECIALIZED);
+
                     // Specializing with VARARGS! is generally not a good
                     // idea unless that is an empty varargs...because each
                     // call will consume from it.  Specializations you use
@@ -1158,7 +1139,7 @@ bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
             // treat all values (nulls included) as fully specialized.
             //
             if (
-                f->arg == f->special // !!! should this ever allow gathering?
+                SPECIAL_IS_ARG_SO_TYPECHECKING  // !!! ever allow gathering?
                 /* GET_EVAL_FLAG(f, FULLY_SPECIALIZED) */
             ){
                 if (Is_Param_Variadic(f->param))
@@ -1494,8 +1475,8 @@ bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
             assert(pclass != REB_P_REFINEMENT);
             assert(pclass != REB_P_LOCAL);
             assert(
-                not In_Typecheck_Mode(f) // already handled, unless...
-                or NOT_EVAL_FLAG(f, FULLY_SPECIALIZED) // ...this!
+                not SPECIAL_IS_ARG_SO_TYPECHECKING  // was handled, unless...
+                or NOT_EVAL_FLAG(f, FULLY_SPECIALIZED)  // ...this!
             );
 
             Finalize_Arg(f);
@@ -1617,7 +1598,7 @@ bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
         // which are used to process the return result after the switch.
         //
         const REBVAL *r; // initialization would be skipped by gotos
-        r = (*PG_Dispatcher)(f); // default just calls FRM_PHASE(f)
+        r = (*PG_Dispatch)(f); // default just calls FRM_PHASE(f)
 
         if (r == f->out) {
             assert(NOT_CELL_FLAG(f->out, OUT_MARKED_STALE));
@@ -2627,7 +2608,7 @@ bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
     // don't care if f->flags has changes; thrown frame is not resumable
   #endif
 
-    return true;
+    return true;  // true => thrown
 
   finished:
 
@@ -2647,10 +2628,5 @@ bool Eval_Core_Maybe_Stale_Throws(REBFRM * const f)
     assert(f->flags.bits == initial_flags);  // any change should be restored
   #endif
 
-    // It may be that the f->out cell carries OUT_MARKED_STALE.  Most wrappers
-    // over Eval_Core() should not expose this flag...and those that do,
-    // the caller must take responsibility for making sure it is handled
-    // correctly (which will usually involve clearing it off).
-    //
-    return false;  // most callers should also inspect for IS_END(f->value)
+    return false;  // false => not thrown
 }

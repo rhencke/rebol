@@ -206,7 +206,7 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
 {
     int depth = Eval_Depth() - Trace_Depth;
     if (depth < 0 || depth >= Trace_Level)
-        return Eval_Core_Maybe_Stale_Throws(f);  // (REPL uses this to hide)
+        return Eval_Internal_Maybe_Stale_Throws(f);  // (REPL uses to hide)
 
     SHORTHAND (v, f->feed->value, NEVERNULL(const RELVAL*));
 
@@ -217,7 +217,7 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
     // a dispatch says we're running the traced dispatcher.
     //
     assert(PG_Eval_Maybe_Stale_Throws == &Traced_Eval_Hook_Throws);
-    PG_Eval_Maybe_Stale_Throws = &Eval_Core_Maybe_Stale_Throws;
+    PG_Eval_Maybe_Stale_Throws = &Eval_Internal_Maybe_Stale_Throws;
 
     if (not (
         KIND_BYTE(*v) == REB_ACTION
@@ -236,12 +236,12 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
     // eval hook back on when it dispatches, but it doesn't want to do
     // it until then (otherwise it would trace its own PRINTs!).
     //
-    REBNAT saved_dispatcher = PG_Dispatcher;
-    PG_Dispatcher = &Traced_Dispatcher_Hook;
+    REBNAT saved_dispatch_hook = PG_Dispatch;
+    PG_Dispatch = &Traced_Dispatch_Hook;
 
-    bool threw = Eval_Core_Maybe_Stale_Throws(f);
+    bool threw = Eval_Internal_Maybe_Stale_Throws(f);
 
-    PG_Dispatcher = saved_dispatcher;
+    PG_Dispatch = saved_dispatch_hook;
 
     PG_Eval_Maybe_Stale_Throws = &Traced_Eval_Hook_Throws;
     return threw;
@@ -347,18 +347,18 @@ REBVAL *Trace_Return_Dangerous(struct Reb_Return_Descriptor *d)
 
 
 //
-//  Traced_Dispatcher_Hook: C
+//  Traced_Dispatch_Hook: C
 //
-// This is the function which is swapped in for Dispatcher_Core when tracing
-// isenabled.
+// This is the function which is swapped in for Dispatch_Internal() when
+// tracing is enabled.
 //
-REB_R Traced_Dispatcher_Hook(REBFRM * const f)
+REB_R Traced_Dispatch_Hook(REBFRM * const f)
 {
     int depth = Eval_Depth() - Trace_Depth;
     if (depth < 0 || depth >= Trace_Level)
-        return Dispatcher_Core(f);
+        return Dispatch_Internal(f);
 
-    PG_Dispatcher = &Dispatcher_Core; // don't trace the trace!
+    PG_Dispatch = &Dispatch_Internal;  // don't trace the trace!
 
     REBACT *phase = FRM_PHASE(f);
 
@@ -379,11 +379,11 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
     REBEVL saved_eval = PG_Eval_Maybe_Stale_Throws;
     PG_Eval_Maybe_Stale_Throws = &Traced_Eval_Hook_Throws;
 
-    REB_R r = Dispatcher_Core(f);
+    REB_R r = Dispatch_Internal(f);
 
     PG_Eval_Maybe_Stale_Throws = saved_eval;
 
-/*    if (PG_Dispatcher != Traced_Dispatcher_Hook)
+/*    if (PG_Dispatch != Traced_Dispatch_Hook)
         return r; // TRACE OFF during the traced code, don't print any more
         */
 
@@ -412,7 +412,7 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
         UNUSED(err);
     }
 
-    PG_Dispatcher = &Traced_Dispatcher_Hook;
+    PG_Dispatch = &Traced_Dispatch_Hook;
 
     return r;
 }
@@ -458,7 +458,7 @@ REBNATIVE(trace)
         Trace_Depth = Eval_Depth() - 1; // subtract current TRACE frame
     }
     else
-        PG_Eval_Maybe_Stale_Throws = &Eval_Core_Maybe_Stale_Throws;
+        PG_Eval_Maybe_Stale_Throws = &Eval_Internal_Maybe_Stale_Throws;
 
     return nullptr;
 }

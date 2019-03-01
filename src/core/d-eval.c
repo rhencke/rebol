@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -21,7 +21,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Due to the length of Eval_Core() and debug checks it already has, some
+// Due to the length of %c-eval.c and debug checks it already has, some
 // debug-only routines are separated out here.  (Note that these are in
 // addition to the checks already done by Push_Frame() and Drop_Frame() time)
 //
@@ -177,11 +177,32 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
 //
 //  Eval_Core_Expression_Checks_Debug: C
 //
-// The iteration preamble takes care of clearing out variables and preparing
-// the state for a new "/NEXT" evaluation.  It's a way of ensuring in the
-// debug build that one evaluation does not leak data into the next, and
-// making the code shareable allows code paths that jump to later spots
-// in the switch (vs. starting at the top) to reuse the work.
+// These fields are required upon initialization:
+//
+//     f->out
+//     REBVAL pointer to which the evaluation's result should be written.
+//     Should be to writable memory in a cell that lives above this call to
+//     Eval_Core in stable memory that is not user-visible (e.g. DECLARE_LOCAL
+//     or the parent's f->spare).  This can't point into an array whose memory
+//     may move during arbitrary evaluation, and that includes cells on the
+//     expandable data stack.  It also usually can't write a function argument
+//     cell, because that could expose an unfinished calculation during this
+//     Eval_Core() through its FRAME!...though a Eval_Core(f) must write f's
+//     *own* arg slots to fulfill them.
+//
+//     f->feed
+//     Contains the REBARR* or C va_list of subsequent values to fetch...as
+//     well as the specifier.  The current value, its cached "gotten" value if
+//     it is a WORD!, and other information is stored here through a level of
+//     indirection so it may be shared and updated between recursions.
+//
+//     f->dsp_orig
+//     Must be set to the base stack location of the operation (this may be
+//     a deeper stack level than current DSP if this is an apply, and
+//     refinements were preloaded onto the stack)
+//
+// This routine attempts to "trash" a lot of frame state variables to help
+// make sure one evaluation does not leak data into the next.
 //
 void Eval_Core_Expression_Checks_Debug(REBFRM *f)
 {

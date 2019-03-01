@@ -85,7 +85,7 @@ inline static bool Did_Init_Inert_Optimize_Complete(
         return false;  // general case evaluation requires a frame
     }
 
-    if (PG_Eval_Maybe_Stale_Throws != &Eval_Core_Maybe_Stale_Throws)
+    if (PG_Eval_Maybe_Stale_Throws != &Eval_Internal_Maybe_Stale_Throws)
         return false;  // don't want to subvert tracing or other hooks
 
     Literal_Next_In_Feed(out, feed);
