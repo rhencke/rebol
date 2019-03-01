@@ -224,16 +224,21 @@ inline static bool Reevaluate_In_Subframe_Maybe_Stale_Throws(
 }
 
 
-inline static REBIXO Eval_Step_In_Any_Array_At_Core(
+inline static bool Eval_Step_In_Any_Array_At_Throws(
     REBVAL *out,
+    REBCNT *index_out,
     const RELVAL *any_array,  // Note: legal to have any_array = out
     REBSPC *specifier,
     REBFLGS flags
 ){
+    SET_END(out);
+
     DECLARE_FEED_AT_CORE (feed, any_array, specifier);
 
-    if (IS_END(feed->value))
-        return END_FLAG;
+    if (IS_END(feed->value)) {
+        *index_out = 0xDECAFBAD;  // avoid compiler warning
+        return false;
+    }
 
     DECLARE_FRAME (f, feed, flags);
 
@@ -241,13 +246,13 @@ inline static REBIXO Eval_Step_In_Any_Array_At_Core(
     bool threw = Eval_Throws(f);
     Drop_Frame(f);
 
-    if (threw)
-        return THROWN_FLAG;
+    if (threw) {
+        *index_out = 0xDECAFBAD;
+        return true;
+    }
 
-    if (f->feed->index == VAL_LEN_HEAD(any_array) + 1)
-        return END_FLAG;
-
-    return f->feed->index;
+    *index_out = f->feed->index - 1;
+    return false;
 }
 
 

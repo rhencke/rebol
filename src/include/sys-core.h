@@ -263,7 +263,6 @@
 
 #include "sys-state.h"
 #include "sys-rebfrm.h" // `REBFRM` definition (also used by value)
-#include "sys-indexor.h" // REBIXO definition
 
 #include "sys-mold.h"
 

@@ -380,13 +380,15 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
     else
         Init_Path(first, Pop_Stack_Values(dsp_orig));
 
-    return Do_At_Mutable_Core_Throws(
-        out,
+    bool threw = Do_At_Mutable_Maybe_Stale_Throws(
+        out,  // invisibles allow for out to not be Init_Void()'d
         first, // path not in array, will be "virtual" first element
         code_arr,
         0, // index
         SPECIFIED // reusing existing REBVAL arguments, no relative values
     );
+    CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
+    return threw;
 }
 
 

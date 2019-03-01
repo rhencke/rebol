@@ -135,11 +135,7 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
 
     if (f->feed->array) {
         assert(not IS_POINTER_TRASH_DEBUG(f->feed->array));
-        assert(
-            *index != TRASHED_INDEX
-            and *index != END_FLAG_PRIVATE // ...special case use!
-            and *index != THROWN_FLAG_PRIVATE // ...don't use these
-        ); // END, THROWN, only used by wrappers
+        assert(*index != TRASHED_INDEX);
     }
     else
         assert(*index == TRASHED_INDEX);

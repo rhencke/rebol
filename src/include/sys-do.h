@@ -91,15 +91,13 @@ inline static bool Do_Any_Array_At_Throws(
 // frame, or from a value.  The cases need review--in particular the use for
 // the kind of shady frame translations used by HIJACK and ports.
 //
-inline static bool Do_At_Mutable_Core_Throws(
+inline static bool Do_At_Mutable_Maybe_Stale_Throws(
     REBVAL *out,
     const RELVAL *opt_first,  // optional element to inject *before* the array
     REBARR *array,
     REBCNT index,
     REBSPC *specifier  // must match array, but also opt_first if relative
 ){
-    Init_Void(out);
-
     struct Reb_Feed feed_struct;  // opt_first so can't use DECLARE_ARRAY_FEED
     struct Reb_Feed *feed = &feed_struct;
     Prep_Array_Feed(
@@ -111,13 +109,27 @@ inline static bool Do_At_Mutable_Core_Throws(
         FEED_MASK_DEFAULT  // different: does not 
     );
 
-    bool threw = Do_Feed_To_End_Maybe_Stale_Throws(out, feed);
+    return Do_Feed_To_End_Maybe_Stale_Throws(out, feed);;
+}
+
+inline static bool Do_At_Mutable_Throws(
+    REBVAL *out,
+    REBARR *array,
+    REBCNT index,
+    REBSPC *specifier
+){
+    Init_Void(out);
+
+    bool threw = Do_At_Mutable_Maybe_Stale_Throws(
+        out,
+        nullptr,
+        array,
+        index,
+        specifier
+    );
     CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
     return threw;
 }
-
-#define Do_At_Mutable_Throws(out,array,index,specifier) \
-    Do_At_Mutable_Core_Throws((out), nullptr, (array), (index), (specifier))
 
 
 inline static bool Do_Va_Throws(

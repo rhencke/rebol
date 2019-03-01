@@ -58,6 +58,19 @@
 #include "sys-core.h"
 
 
+// !!! R3-Alpha would frequently conflate indexes and flags, which could be
+// confusing in the evaluator and led to many THROWN values being overlooked.
+// To deal with this, a REBIXO datatype (Index-OR-a-flag) was introduced.  It
+// helped transition the system to its current mechanism where there is no
+// THROWN type indicator--rather a _Throws() boolean-return convention that
+// chains through the stack.  PARSE is left as the only user of the datatype,
+// and should also be converted to the cleaner convention.
+//
+#define REBIXO REBCNT
+#define THROWN_FLAG ((REBCNT)(-1))
+#define END_FLAG ((REBCNT)(-2))
+
+
 //
 // These macros are used to address into the frame directly to get the
 // current parse rule, current input series, current parse position in that
@@ -167,7 +180,7 @@ inline static REBSYM VAL_CMD(const RELVAL *v) {
 }
 
 
-// Throws is a helper that sets up a call frame and invokes the
+// Subparse_Throws() is a helper that sets up a call frame and invokes the
 // SUBPARSE native--which represents one level of PARSE recursion.
 //
 // !!! It is the intent of Ren-C that calling functions be light and fast
@@ -1214,7 +1227,7 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
     //
     REBARR *holder;
 
-    REBIXO indexor;
+    REBCNT index;
     if (P_POS >= SER_LEN(P_INPUT)) {
         //
         // We could short circuit and notice if the rule was END or not, but
@@ -1223,24 +1236,22 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
         // the series to process.
         //
         holder = EMPTY_ARRAY; // read-only
-        indexor = END_FLAG;
+        index = 0xDECAFBAD;  // shouldn't be used, avoid compiler warning
+        SET_END(P_CELL);
     }
     else {
         // Evaluate next expression from the *input* series (not the rules)
         //
-        indexor = Eval_Step_In_Any_Array_At_Core(
+        if (Eval_Step_In_Any_Array_At_Throws(
             P_CELL,
+            &index,
             P_INPUT_VALUE,
             P_INPUT_SPECIFIER,
             EVAL_MASK_DEFAULT
-        );
-        if (indexor == THROWN_FLAG) { // BREAK/RETURN/QUIT/THROW...
-            Move_Value(P_OUT, P_CELL);
+        )){
+            Move_Value(P_OUT, P_CELL);  // BREAK/RETURN/QUIT/THROW...
             return THROWN_FLAG;
         }
-
-        if (indexor != END_FLAG)
-            indexor = cast(REBCNT, indexor) - 1; // 1 past
 
         // !!! This copies a single value into a block to use as data, because
         // parse input is matched as a series.  Can this be avoided?
@@ -1293,11 +1304,11 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
         // Eval result reaching end means success, so return index advanced
         // past the evaluation.
         //
-        // !!! Although DO_NEXT_MAY_THROW uses an END_FLAG-based
-        // convention when it reaches the end, these parse routines always
-        // return an array index.
+        // !!! Though Eval_Step_In_Any_Array_At_Throws() uses an END cell to
+        // communicate reaching the end, these parse routines always return
+        // an array index.
         //
-        return indexor == END_FLAG ? SER_LEN(P_INPUT) : indexor;
+        return IS_END(P_CELL) ? SER_LEN(P_INPUT) : index;
     }
 
     return P_POS; // as failure, hand back original position--no advancement

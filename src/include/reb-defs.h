@@ -77,6 +77,14 @@ typedef uint_fast32_t REBFLGS; // unsigned used for working with bit flags
 typedef uintptr_t REBLIN; // type used to store line numbers in Rebol files
 typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 
+
+// These were used in R3-Alpha.  Could use some better typing in C++ to avoid
+// mistaking untested errors for ordinary integers.
+//
+#define NOT_FOUND ((REBCNT)-1)
+#define UNKNOWN ((REBCNT)-1)
+
+
 // !!! Review this choice from R3-Alpha:
 //
 // https://stackoverflow.com/q/1153548/

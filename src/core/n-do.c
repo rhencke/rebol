@@ -501,33 +501,26 @@ REBNATIVE(evaluate)
     switch (VAL_TYPE(source)) {
       case REB_BLOCK:
       case REB_GROUP: {
-        REBIXO indexor = Eval_Step_In_Any_Array_At_Core(
-            SET_END(D_SPARE),  // use END to distinguish residual non-values
+        REBCNT index;
+        if (Eval_Step_In_Any_Array_At_Throws(
+            D_SPARE,
+            &index,
             source,
             SPECIFIED,
             EVAL_MASK_DEFAULT
-        );
-
-        if (indexor == THROWN_FLAG) {
+        )){
             Move_Value(D_OUT, D_SPARE);
             return R_THROWN;
         }
 
-        if (IS_END(D_SPARE)) {
-            assert(indexor == END_FLAG);
-            return nullptr;  // no disruption of output result
-        }
+        if (IS_END(D_SPARE))  // we were at array end or was just COMMENT/etc.
+            return nullptr;  // leave the result variable with old value
 
         if (REF(set))
             Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), D_SPARE);
 
         Move_Value(D_OUT, source);
-
-        if (indexor == END_FLAG)
-            VAL_INDEX(D_OUT) = VAL_LEN_HEAD(source);
-        else
-            VAL_INDEX(D_OUT) = cast(REBCNT, indexor) - 1;  // was one past
-        assert(VAL_INDEX(D_OUT) <= VAL_LEN_HEAD(source));
+        VAL_INDEX(D_OUT) = index;
         return D_OUT; }
 
       case REB_VARARGS: {
@@ -541,15 +534,14 @@ REBNATIVE(evaluate)
             // array during execution, there will be problems if it is TAKE'n
             // or DO'd while this operation is in progress.
             //
-            REBIXO indexor = Eval_Step_In_Any_Array_At_Core(
+            REBCNT index;
+            if (Eval_Step_In_Any_Array_At_Throws(
                 SET_END(D_SPARE),
+                &index,
                 position,
                 SPECIFIED,
                 EVAL_MASK_DEFAULT
-            );
-
-            if (indexor == THROWN_FLAG) {
-                //
+            )){
                 // !!! A BLOCK! varargs doesn't technically need to "go bad"
                 // on a throw, since the block is still around.  But a FRAME!
                 // varargs does.  This will cause an assert if reused, and
@@ -560,7 +552,7 @@ REBNATIVE(evaluate)
                 return R_THROWN;
             }
 
-            if (indexor == END_FLAG or IS_END(D_SPARE)) {
+            if (IS_END(D_SPARE)) {
                 SET_END(position);  // convention for shared data at end point
                 return nullptr;
             }
@@ -568,6 +560,7 @@ REBNATIVE(evaluate)
             if (REF(set))
                 Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), D_SPARE);
 
+            VAL_INDEX(position) = index;
             RETURN (source);  // original VARARGS! will have updated position
         }
 

@@ -395,39 +395,7 @@ STATIC_ASSERT(31 < 32); // otherwise EVAL_FLAG_XXX too high
     ((FRM(f)->flags.bits & EVAL_FLAG_##name) == 0)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  DO INDEX OR FLAG (a.k.a. "INDEXOR")
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// * END_FLAG if end of series prohibited a full evaluation
-//
-// * THROWN_FLAG if the output is Thrown--you MUST check!
-//
-// * ...or the next index position where one might continue evaluation
-//
-// ===========================((( IMPORTANT )))==============================
-//
-//      The THROWN_FLAG means your value does not represent a directly
-//      usable value, so you MUST check for it.  See notes in %sys-frame.h
-//      about what that means.  If you don't know how to handle it, then at
-//      least do:
-//
-//              fail (Error_No_Catch_For_Throw(out));
-//
-// ===========================================================================
-//
-// Note that thrownness is not an indicator of an error, rather something that
-// ordinary language constructs might meaningfully want to process as they
-// bubble up the stack.  Some examples would be BREAK, RETURN, and QUIT.
-//
-// Errors are handled with a different mechanism using longjmp().  So if an
-// actual error happened during the DO then there wouldn't even *BE* a return
-// value...because the function call would never return!  See PUSH_TRAP()
-// and fail() for more information.
-//
-
+#define TRASHED_INDEX ((REBCNT)(-3))
 
 #define IS_KIND_INERT(k) \
     ((k) >= REB_BLOCK)

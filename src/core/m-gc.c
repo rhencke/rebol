@@ -1069,7 +1069,7 @@ void Reify_Va_To_Array_In_Frame(
     // The array just popped into existence, and it's tied to a running
     // frame...so safe to say we're holding it.  (This would be more complex
     // if we reused the empty array if dsp_orig == DSP, since someone else
-    // might have a hold on it...not worth the complexity.) 
+    // might have a hold on it...not worth the complexity.)
     //
     assert(NOT_FEED_FLAG(f->feed, TOOK_HOLD));
     SET_SERIES_INFO(f->feed->array, HOLD);

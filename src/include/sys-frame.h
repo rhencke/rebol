@@ -76,9 +76,7 @@ inline static REBCNT FRM_INDEX(REBFRM *f) {
 
 inline static REBCNT FRM_EXPR_INDEX(REBFRM *f) {
     assert(not FRM_IS_VALIST(f));
-    return f->expr_index == END_FLAG
-        ? ARR_LEN((f)->feed->array)
-        : f->expr_index - 1;
+    return f->expr_index - 1;
 }
 
 inline static REBSTR* FRM_FILE(REBFRM *f) { // https://trello.com/c/K3vntyPx
