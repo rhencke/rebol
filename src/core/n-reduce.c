@@ -130,13 +130,13 @@ bool Match_For_Compose(const RELVAL *group, const REBVAL *label) {
     if (IS_NULLED(label))
         return true;
 
-    assert(IS_TAG(label));
+    assert(IS_TAG(label) or IS_FILE(label));
 
     if (VAL_LEN_AT(group) == 0) // you have a pattern, so leave `()` as-is
         return false;
 
     RELVAL *first = VAL_ARRAY_AT(group);
-    if (not IS_TAG(first))
+    if (VAL_TYPE(first) != VAL_TYPE(label))
         return false;
 
     return (CT_String(label, first, 1) > 0);
@@ -188,87 +188,64 @@ REB_R Compose_To_Stack_Core(
             continue;
         }
 
+        REBCNT quotes = VAL_NUM_QUOTES(*v);
+
         bool splice = not only; // can force no splice if override via ((...))
 
         REBSPC *match_specifier = nullptr;
         const RELVAL *match = nullptr;
 
-        REBCNT quotes = VAL_NUM_QUOTES(*v);
-
-        if (kind != REB_GROUP) {
+        if (not ANY_GROUP_KIND(kind)) {
             //
             // Don't compose at this level, but may need to walk deeply to
             // find compositions inside it if /DEEP and it's an array
         }
-        else if (quotes == 0) {
-            if (Is_Doubled_Group(*v)) {  // non-spliced compose, if match
-                RELVAL *inner = VAL_ARRAY_AT(*v);
-                if (Match_For_Compose(inner, label)) {
-                    splice = false;
-                    match = inner;
-                    match_specifier = Derive_Specifier(specifier, inner);
-                }
-            }
-            else {  // plain compose, if match
-                if (Match_For_Compose(*v, label)) {
-                    match = *v;
-                    match_specifier = specifier;
-                }
+        else if (Is_Any_Doubled_Group(*v)) {  // non-spliced compose, if match
+            RELVAL *inner = VAL_ARRAY_AT(*v);
+            if (Match_For_Compose(inner, label)) {
+                splice = false;
+                match = inner;
+                match_specifier = Derive_Specifier(specifier, inner);
             }
         }
-        else {  // all escaped groups just lose one level of their escaping
-            Derelativize(DS_PUSH(), *v, specifier);
-            Unquotify(DS_TOP, 1);
-            changed = true;
-            continue;
+        else {  // plain compose, if match
+            if (Match_For_Compose(*v, label)) {
+                match = *v;
+                match_specifier = specifier;
+            }
         }
 
         if (match) {
-            DECLARE_FEED_AT_CORE (subfeed, match, match_specifier);
-
-            Init_Nulled(out);  // want empty () to vanish as a null would
-
-            // We're using a low-level call because we want to do something
-            // weird and skip over any label.  So if <*> is the label and a
-            // match like (<*> 1 + 2) was found, we want the evaluator to
-            // only see (1 + 2).
             //
+            // If <*> is the label and (<*> 1 + 2) is found, run just (1 + 2).
+            // Using feed interface vs plain Do_XXX to skip cheaply.
+            //
+            DECLARE_FEED_AT_CORE (subfeed, match, match_specifier);
             if (not IS_NULLED(label))
-                Fetch_Next_In_Feed(subfeed, false);
+                Fetch_Next_In_Feed(subfeed, false);  // wasn't possibly at END
 
-            if (IS_END(subfeed->value))
-                assert(not IS_NULLED(label));  // ...else, how'd it match?
-            else {
-                DECLARE_FRAME (
-                    sub,
-                    subfeed,
-                    EVAL_MASK_DEFAULT
-                );
-
-                bool threw;
-                Push_Frame(out, sub);
-                do {
-                    threw = (*PG_Eval_Maybe_Stale_Throws)(sub);
-                } while (not threw and NOT_END(subfeed->value));
-                Drop_Frame(sub);
-
-                if (threw) {
-                    DS_DROP_TO(dsp_orig);
-                    Abort_Frame(f);
-                    return R_THROWN;
-                }
-
-                assert(sub->feed->index == VAL_LEN_HEAD(match) + 1);
+            Init_Nulled(out);  // want empty `()` to vanish as a null would
+            if (Do_Feed_To_End_Maybe_Stale_Throws(out, subfeed)) {
+                DS_DROP_TO(dsp_orig);
+                Abort_Frame(f);
+                return R_THROWN;
             }
 
-            if (IS_NULLED(out)) {
+            // We do not have to clear the stale flag, because the `out`
+            // cell's pointer is not passed to any clients who read it.
+            // (Move_Value() explicitly does not copy NODE_FLAG_MARKED)
+
+            if (IS_NULLED(out) and kind == REB_GROUP and quotes == 0) {
                 //
-                // compose [("nulls *vanish*!" null)] => []
+                // compose [(unquoted "nulls *vanish*!" null)] => []
                 // compose [(elide "so do 'empty' composes")] => []
             }
             else if (splice and IS_BLOCK(out)) {
                 //
                 // compose [not-only ([a b]) merges] => [not-only a b merges]
+
+                if (quotes != 0 or kind != REB_GROUP)
+                    fail ("Currently cannot splice plain unquoted GROUP!s");
 
                 RELVAL *push = VAL_ARRAY_AT(out);
                 if (NOT_END(push)) {
@@ -292,6 +269,15 @@ REB_R Compose_To_Stack_Core(
                 // compose/only [([a b c]) unmerged] => [[a b c] unmerged]
 
                 Move_Value(DS_PUSH(), out);  // can't eval to stack directly!
+
+                if (kind == REB_SET_GROUP)
+                    Setify(DS_TOP);
+                else if (kind == REB_GET_GROUP)
+                    Getify(DS_TOP);
+                else
+                    assert(kind == REB_GROUP);
+
+                Quotify(DS_TOP, quotes);  // match original quotes
                 if (GET_CELL_FLAG(*v, NEWLINE_BEFORE))
                     SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
             }
@@ -343,7 +329,7 @@ REB_R Compose_To_Stack_Core(
                 popped  // can't push and pop in same step, need this variable
             );
 
-            Quotify(DS_TOP, quotes);  // put back QUOTEs
+            Quotify(DS_TOP, quotes);  // match original quoting
 
             if (GET_CELL_FLAG(*v, NEWLINE_BEFORE))
                 SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
@@ -369,7 +355,7 @@ REB_R Compose_To_Stack_Core(
 //
 //      return: [any-array! any-path!]
 //      :label "Distinguish compose groups, e.g. [(plain) (<*> composed)]"
-//          [<skip> tag!]
+//          [<skip> tag! file!]
 //      value "Array to use as the template for substitution"
 //          [any-array! any-path!]
 //      /deep "Compose deeply into nested arrays"

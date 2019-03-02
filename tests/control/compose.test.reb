@@ -81,3 +81,63 @@
         ((left alone))
     ]
 )
+
+
+; While some proposals for COMPOSE handling of QUOTED! would knock one quote
+; level off a group, protecting groups from composition is better done with
+; labeled compose...saving it for quoting composed material.
+
+([3 '3 ''3] == compose [(1 + 2) '(1 + 2) ''(1 + 2)])
+(['] = compose ['(if false [<vanish>])])
+
+; Quoting should be preserved by deep composition
+
+([a ''[b 3 c] d] == compose/deep [a ''[b (1 + 2) c] d])
+
+
+; Using a SET-GROUP! will *try* to convert the composed value to a set form
+
+([x:] = compose [('x):])
+([x:] = compose [('x:):])
+([x:] = compose [(':x):])
+([x:] = compose [(#x):])
+([x:] = compose [("x"):])
+
+([x/y:] = compose [('x/y):])
+([x/y:] = compose [('x/y:):])
+([x/y:] = compose [(':x/y):])
+
+([(x y):] = compose [(('(x y))):])
+([(x y):] = compose [(('(x y):)):])
+([(x y):] = compose [((':(x y))):])
+
+; !!! Hopefully temporary: block splicing throws a wrench in this.  Better
+; to make (( )) the splicing operator
+
+([[x y]:] = compose [(('[x y])):])
+([[x y]:] = compose [(('[x y]:)):])
+([[x y]:] = compose [((':[x y])):])
+
+
+; Using a GET-GROUP! will *try* to convert the composed value to a get form
+
+([:x] = compose [:('x)])
+([:x] = compose [:('x:)])
+([:x] = compose [:(':x)])
+([:x] = compose [:(#x)])
+([:x] = compose [:("x")])
+
+([:x/y] = compose [:('x/y)])
+([:x/y] = compose [:('x/y:)])
+([:x/y] = compose [:(':x/y)])
+
+([:(x y)] = compose [:(('(x y)))])
+([:(x y)] = compose [:(('(x y):))])
+([:(x y)] = compose [:((':(x y)))])
+
+; !!! Hopefully temporary: block splicing throws a wrench in this.  Better
+; to make (( )) the splicing operator
+
+([:[x y]] = compose [:(('[x y]))])
+([:[x y]] = compose [:(('[x y]:))])
+([:[x y]] = compose [:((':[x y]))])

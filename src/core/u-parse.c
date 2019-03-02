@@ -481,7 +481,7 @@ REB_R Process_Group_For_Parse(
     // can't be used in mezzanine code...so doubled groups remain as an
     // alternative expression.
     //
-    if (Is_Doubled_Group(group)) {
+    if (Is_Any_Doubled_Group(group)) {
       #if !defined(NDEBUG)
         PROBE(group);
       #endif
@@ -508,7 +508,7 @@ REB_R Process_Group_For_Parse(
         IS_NULLED(cell) // even for GET-GROUP!, null evals are discarded
         or not (
             IS_GET_GROUP(group) // plain groups always discard
-            or Is_Doubled_Group(group) // !!! Temp hack, see above
+            or Is_Any_Doubled_Group(group) // !!! Temp hack, see above
         )
     ){
         return R_INVISIBLE;

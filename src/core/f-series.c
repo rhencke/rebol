@@ -383,7 +383,11 @@ REBINT Cmp_Value(const RELVAL *sval, const RELVAL *tval, bool is_case)
         return Cmp_Date(s, t);
 
       case REB_BLOCK:
+      case REB_SET_BLOCK:
+      case REB_GET_BLOCK:
       case REB_GROUP:
+      case REB_SET_GROUP:
+      case REB_GET_GROUP:
       case REB_MAP:
       case REB_PATH:
       case REB_SET_PATH:

@@ -139,17 +139,6 @@
 ((lit '(1 2 3 <four>)) == append ''(1 2 3) <four>)
 
 
-;; Routines could be adapted to do all kinds of interesting things
-;; with the escaping, but COMPOSE goes ahead and knocks one level
-;; of escaping off of any GROUP! it sees.
-
-(
-    [3 (1 + 2) '(1 + 2)] == compose [(1 + 2) '(1 + 2) ''(1 + 2)]
-)(
-    [a ''[b 3 c] d] == compose/deep [a ''[b (1 + 2) c] d]
-)
-
-
 ;; All escaped values are truthy, regardless of what it is they are escaping
 
 (did lit '_)

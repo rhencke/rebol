@@ -552,10 +552,10 @@ inline static bool Splices_Into_Type_Without_Only(
 }
 
 
-// Checks to see if a GROUP! is like ((...)) or (...), used by COMPOSE & PARSE
+// Checks if ANY-GROUP! is like ((...)) or (...), used by COMPOSE & PARSE
 //
-inline static bool Is_Doubled_Group(const RELVAL *group) {
-    assert(IS_GROUP(group));
+inline static bool Is_Any_Doubled_Group(const REBCEL *group) {
+    assert(ANY_GROUP_KIND(CELL_KIND(group)));
     RELVAL *inner = VAL_ARRAY_AT(group);
     if (KIND_BYTE(inner) != REB_GROUP or VAL_LEN_AT(group) != 1)
         return false; // plain (...) GROUP!

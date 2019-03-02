@@ -544,3 +544,72 @@ int64_t Mul_Max(enum Reb_Kind type, int64_t n, int64_t m, int64_t maxi)
     return cast(int, r); // !!! (?) review this cast
 }
 
+
+//
+//  Setify: C
+//
+// Turn a value into its SET-XXX! equivalent, if possible.  This tries to
+// "be smart" so even a TEXT! can be turned into a SET-WORD! (just an
+// unbound one).
+//
+REBVAL *Setify(REBVAL *out) {
+    REBCNT quotes = Dequotify(out);
+
+    enum Reb_Kind kind = VAL_TYPE(out);
+    if (ANY_BLOCK_KIND(kind)) {
+        mutable_KIND_BYTE(out) = REB_SET_BLOCK;
+    }
+    else if (ANY_GROUP_KIND(kind)) {
+        mutable_KIND_BYTE(out) = REB_SET_GROUP;
+    }
+    else if (ANY_PATH_KIND(kind)) {
+        mutable_KIND_BYTE(out) = REB_SET_PATH;
+    }
+    else if (ANY_PLAIN_GET_SET_WORD_KIND(kind)) {
+        mutable_KIND_BYTE(out) = REB_SET_WORD;
+    }
+    else {
+        // !!! For everything else, as en experiment see if there's some
+        // kind of logic to turn into a SET-WORD!  Calling through the
+        // API is slow, but easy to do for a test.
+        //
+        REBVAL *set = rebRun("to set-word!", out, rebEND);
+        Move_Value(out, set);
+        rebRelease(set);
+    }
+
+    return Quotify(out, quotes);
+}
+
+
+//
+//  Getify: C
+//
+// Like Setify() but Makes GET-XXX! instead of SET-XXX!.
+//
+REBVAL *Getify(REBVAL *out) {
+    REBCNT quotes = Dequotify(out);
+
+    enum Reb_Kind kind = VAL_TYPE(out);
+    if (ANY_BLOCK_KIND(kind)) {
+        mutable_KIND_BYTE(out) = REB_GET_BLOCK;
+    }
+    else if (ANY_GROUP_KIND(kind)) {
+        mutable_KIND_BYTE(out) = REB_GET_GROUP;
+    }
+    else if (ANY_PATH_KIND(kind)) {
+        mutable_KIND_BYTE(out) = REB_GET_PATH;
+    }
+    else if (ANY_PLAIN_GET_SET_WORD_KIND(kind)) {
+        mutable_KIND_BYTE(out) = REB_GET_WORD;
+    }
+    else {
+        // !!! Experiment...see what happens if we fall back on GET-WORD!
+        //
+        REBVAL *get = rebRun("to get-word!", out, rebEND);
+        Move_Value(out, get);
+        rebRelease(get);
+    }
+
+    return Quotify(out, quotes);
+}
