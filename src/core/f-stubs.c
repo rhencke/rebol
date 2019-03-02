@@ -556,17 +556,20 @@ REBVAL *Setify(REBVAL *out) {
     REBCNT quotes = Dequotify(out);
 
     enum Reb_Kind kind = VAL_TYPE(out);
-    if (ANY_BLOCK_KIND(kind)) {
+    if (ANY_PLAIN_GET_SET_WORD_KIND(kind)) {
+        mutable_KIND_BYTE(out) = REB_SET_WORD;
+    }
+    else if (ANY_PATH_KIND(kind)) {
+        mutable_KIND_BYTE(out) = REB_SET_PATH;
+    }
+    else if (ANY_BLOCK_KIND(kind)) {
         mutable_KIND_BYTE(out) = REB_SET_BLOCK;
     }
     else if (ANY_GROUP_KIND(kind)) {
         mutable_KIND_BYTE(out) = REB_SET_GROUP;
     }
-    else if (ANY_PATH_KIND(kind)) {
-        mutable_KIND_BYTE(out) = REB_SET_PATH;
-    }
-    else if (ANY_PLAIN_GET_SET_WORD_KIND(kind)) {
-        mutable_KIND_BYTE(out) = REB_SET_WORD;
+    else if (kind == REB_NULLED) {
+        fail ("Cannot SETIFY a NULL");
     }
     else {
         // !!! For everything else, as en experiment see if there's some
@@ -579,6 +582,23 @@ REBVAL *Setify(REBVAL *out) {
     }
 
     return Quotify(out, quotes);
+}
+
+
+//
+//  setify: native [
+//
+//  {If possible, convert a value to a SET-XXX! representation}
+//
+//      return: [set-word! set-path! set-group! set-block!]
+//      value [any-value!]
+//  ]
+//
+REBNATIVE(setify)
+{
+    INCLUDE_PARAMS_OF_SETIFY;
+
+    RETURN (Setify(ARG(value)));
 }
 
 
@@ -603,6 +623,9 @@ REBVAL *Getify(REBVAL *out) {
     else if (ANY_PLAIN_GET_SET_WORD_KIND(kind)) {
         mutable_KIND_BYTE(out) = REB_GET_WORD;
     }
+    else if (kind == REB_NULLED) {
+        fail ("Cannot GETIFY a NULL");
+    }
     else {
         // !!! Experiment...see what happens if we fall back on GET-WORD!
         //
@@ -612,4 +635,21 @@ REBVAL *Getify(REBVAL *out) {
     }
 
     return Quotify(out, quotes);
+}
+
+
+//
+//  getify: native [
+//
+//  {If possible, convert a value to a GET-XXX! representation}
+//
+//      return: [get-word! get-path! get-group! get-block!]
+//      value [any-value!]
+//  ]
+//
+REBNATIVE(getify)
+{
+    INCLUDE_PARAMS_OF_GETIFY;
+
+    RETURN (Getify(ARG(value)));
 }

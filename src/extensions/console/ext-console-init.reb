@@ -451,7 +451,7 @@ ext-console-impl: function [
             <bad> [
                 emit #no-unskin-if-error
                 emit [print (<*> mold uneval prior)]
-                emit [fail ["Bad REPL continuation:" ((<*> result))]]
+                emit [fail ["Bad REPL continuation:" (<*> result)]]
             ]
         ] then [
             return-to-c instruction
@@ -643,7 +643,7 @@ ext-console-impl: function [
     === HANDLE RESULT FROM EXECUTION OF CODE ON USER'S BEHALF ===
 
     if group? prior [
-        emit [system/console/print-result ((<*> result))]
+        emit [system/console/print-result (<*> result)]
         return <prompt>
     ]
 
@@ -715,9 +715,9 @@ ext-console-impl: function [
                 ; program output or evaluation results.
                 ;
                 write-stdout unspaced [unclosed #"\" space space]
-                emit compose/deep [reduce [
-                    (result)
-                    system/console/input-hook
+                emit [reduce [  ; reduce will runs in sandbox
+                    ((<*> result))  ; splice previous inert literal lines
+                    system/console/input-hook  ; hook to run in sandbox
                 ]]
 
                 return block!
@@ -762,7 +762,7 @@ ext-console-impl: function [
     emit #unskin-if-halt  ; Ctrl-C during dialect hook is a problem
     emit [
         comment {not all users may want CONST result, review configurability}
-        as group! system/console/dialect-hook ((<*> code))
+        as group! system/console/dialect-hook (<*> code)
     ]
     return group!  ; a group RESULT should come back to HOST-CONSOLE
 ]

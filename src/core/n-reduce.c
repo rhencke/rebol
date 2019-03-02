@@ -166,8 +166,11 @@ REB_R Compose_To_Stack_Core(
     REBSPC *specifier, // specifier for relative any_array value
     const REBVAL *label, // e.g. if <*>, only match `(<*> ...)`
     bool deep, // recurse into sub-blocks
-    bool only // pattern matches that return blocks are kept as blocks
+    const REBVAL *predicate,  // function to run on each spliced slot
+    bool only  // do not exempt (( )) from splicing
 ){
+    assert(predicate == nullptr or IS_ACTION(predicate));
+
     REBDSP dsp_orig = DSP;
 
     bool changed = false;
@@ -190,7 +193,7 @@ REB_R Compose_To_Stack_Core(
 
         REBCNT quotes = VAL_NUM_QUOTES(*v);
 
-        bool splice = not only; // can force no splice if override via ((...))
+        bool doubled_group = false;  // override predicate with ((...))
 
         REBSPC *match_specifier = nullptr;
         const RELVAL *match = nullptr;
@@ -200,10 +203,10 @@ REB_R Compose_To_Stack_Core(
             // Don't compose at this level, but may need to walk deeply to
             // find compositions inside it if /DEEP and it's an array
         }
-        else if (Is_Any_Doubled_Group(*v)) {  // non-spliced compose, if match
+        else if (not only and Is_Any_Doubled_Group(*v)) {
             RELVAL *inner = VAL_ARRAY_AT(*v);
             if (Match_For_Compose(inner, label)) {
-                splice = false;
+                doubled_group = true;
                 match = inner;
                 match_specifier = Derive_Specifier(specifier, inner);
             }
@@ -230,45 +233,55 @@ REB_R Compose_To_Stack_Core(
                 Abort_Frame(f);
                 return R_THROWN;
             }
+            CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
 
-            // We do not have to clear the stale flag, because the `out`
-            // cell's pointer is not passed to any clients who read it.
-            // (Move_Value() explicitly does not copy NODE_FLAG_MARKED)
+            REBVAL *insert;
+            if (
+                predicate
+                and not doubled_group
+                and VAL_ACTION(predicate) != NAT_ACTION(identity)
+            ){
+                insert = rebRun(predicate, out, rebEND);
+            } else
+                insert = out;
 
-            if (IS_NULLED(out) and kind == REB_GROUP and quotes == 0) {
+            if (IS_NULLED(insert) and kind == REB_GROUP and quotes == 0) {
                 //
                 // compose [(unquoted "nulls *vanish*!" null)] => []
                 // compose [(elide "so do 'empty' composes")] => []
             }
-            else if (splice and IS_BLOCK(out)) {
+            else if (IS_BLOCK(insert) and (predicate or doubled_group)) {
                 //
-                // compose [not-only ([a b]) merges] => [not-only a b merges]
+                // We splice blocks if they were produced by a predicate
+                // application, or if (( )) was used.
+
+                // compose [(([a b])) merges] => [a b merges]
 
                 if (quotes != 0 or kind != REB_GROUP)
-                    fail ("Currently cannot splice plain unquoted GROUP!s");
+                    fail ("Currently can only splice plain unquoted GROUP!s");
 
-                RELVAL *push = VAL_ARRAY_AT(out);
+                RELVAL *push = VAL_ARRAY_AT(insert);
                 if (NOT_END(push)) {
                     //
                     // Only proxy newline flag from the template on *first*
                     // value spliced in (it may have its own newline flag)
                     //
-                    Derelativize(DS_PUSH(), push, VAL_SPECIFIER(out));
+                    Derelativize(DS_PUSH(), push, VAL_SPECIFIER(insert));
                     if (GET_CELL_FLAG(*v, NEWLINE_BEFORE))
                         SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
 
                     while (++push, NOT_END(push))
-                        Derelativize(DS_PUSH(), push, VAL_SPECIFIER(out));
+                        Derelativize(DS_PUSH(), push, VAL_SPECIFIER(insert));
                 }
             }
-            else if (IS_VOID(out) and splice) {
-                fail ("Must use COMPOSE/ONLY to insert VOID! values");
-            }
             else {
-                // compose [(1 + 2) inserts as-is] => [3 inserts as-is]
-                // compose/only [([a b c]) unmerged] => [[a b c] unmerged]
+                // !!! What about VOID!s?  REDUCE and other routines have
+                // become more lenient, and let you worry about it later.
 
-                Move_Value(DS_PUSH(), out);  // can't eval to stack directly!
+                // compose [(1 + 2) inserts as-is] => [3 inserts as-is]
+                // compose [([a b c]) unmerged] => [[a b c] unmerged]
+
+                Move_Value(DS_PUSH(), insert);  // can't stack eval directly!
 
                 if (kind == REB_SET_GROUP)
                     Setify(DS_TOP);
@@ -281,6 +294,9 @@ REB_R Compose_To_Stack_Core(
                 if (GET_CELL_FLAG(*v, NEWLINE_BEFORE))
                     SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
             }
+
+            if (insert != out)
+                rebRelease(insert);
 
           #ifdef DEBUG_UNREADABLE_BLANKS
             Init_Unreadable_Blank(out);  // shouldn't leak temp eval to caller
@@ -298,6 +314,7 @@ REB_R Compose_To_Stack_Core(
                 specifier,
                 label,
                 true,  // deep (guaranteed true if we get here)
+                predicate,
                 only
             );
 
@@ -354,12 +371,14 @@ REB_R Compose_To_Stack_Core(
 //  {Evaluates only contents of GROUP!-delimited expressions in an array}
 //
 //      return: [any-array! any-path!]
+//      :predicate [<skip> path!]
+//          "Function to run on composed slots (default: ENBLOCK)"
 //      :label "Distinguish compose groups, e.g. [(plain) (<*> composed)]"
 //          [<skip> tag! file!]
 //      value "Array to use as the template for substitution"
 //          [any-array! any-path!]
 //      /deep "Compose deeply into nested arrays"
-//      /only "Insert arrays as single value (not as contents of array)"
+//      /only "Do not exempt ((...)) from predicate application"
 //  ]
 //
 REBNATIVE(compose)
@@ -369,6 +388,24 @@ REBNATIVE(compose)
 {
     INCLUDE_PARAMS_OF_COMPOSE;
 
+    REBVAL *predicate = ARG(predicate);
+    if (not IS_NULLED(predicate)) {
+        REBSTR *opt_label;
+        if (Get_If_Word_Or_Path_Throws(
+            D_OUT,
+            &opt_label,
+            predicate,
+            SPECIFIED,
+            false  // push_refinements = false, specialize for multiple uses
+        )){
+            return R_THROWN;
+        }
+        if (not IS_ACTION(D_OUT))
+            fail ("PREDICATE provided to COMPOSE must look up to an ACTION!");
+
+        Move_Value(predicate, D_OUT);
+    }
+
     REBDSP dsp_orig = DSP;
 
     REB_R r = Compose_To_Stack_Core(
@@ -377,6 +414,7 @@ REBNATIVE(compose)
         VAL_SPECIFIER(ARG(value)),
         ARG(label),
         REF(deep),
+        IS_NULLED(predicate) ? nullptr : predicate,
         REF(only)
     );
 

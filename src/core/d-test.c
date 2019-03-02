@@ -46,7 +46,7 @@ REBNATIVE(test_librebol)
 {
     INCLUDE_PARAMS_OF_TEST_LIBREBOL;
     UNUSED(ARG(value));
-    
+
   #if !defined(INCLUDE_TEST_LIBREBOL_NATIVE)
     return Init_Text(  // text! vs. failing to distinguish from test failure
         D_OUT,

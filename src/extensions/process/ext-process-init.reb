@@ -15,7 +15,7 @@ call*: adapt 'call-internal* [
     command: switch type of command [
         text! [
             ; A TEXT! is passed through as-is, and will be interpreted by
-            ; the shell (e.g. `sh -c your text` or `cmd.exe /C your text`) 
+            ; the shell (e.g. `sh -c your text` or `cmd.exe /C your text`)
             ;
             command
         ]

@@ -862,9 +862,6 @@ static REBCNT Prescan_Token(SCAN_STATE *ss)
 //
 // TOKEN_END is returned if end of input is reached.
 //
-// !!! This should be modified to explain how paths work, once
-// I can understand how paths work. :-/  --HF
-//
 // Newlines that should be internal to a non-ANY-ARRAY! type are included in
 // the scanned range between the `begin` and `end`.  But newlines that are
 // found outside of a string are returned as TOKEN_NEWLINE.  (These are used
@@ -1659,7 +1656,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
     enum Reb_Token token;
 
-  loop:;
+  loop:
 
     while (true) {
         Drop_Mold_If_Pushed(mo);
