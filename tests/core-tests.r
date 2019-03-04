@@ -14,6 +14,7 @@
 ;     http://www.apache.org/licenses/LICENSE-2.0
 ;
 ; *****************************************************************************
+
 %parse-tests.r
 
 %datatypes/action.test.reb
@@ -70,12 +71,14 @@
 %datatypes/varargs.test.reb
 %datatypes/vector.test.reb
 %datatypes/word.test.reb
+
 %comparison/lesserq.test.reb
 %comparison/maximum-of.test.reb
 %comparison/equalq.test.reb
 %comparison/sameq.test.reb
 %comparison/strict-equalq.test.reb
 %comparison/strict-not-equalq.test.reb
+
 %context/bind.test.reb
 %context/boundq.test.reb
 %context/bindq.test.reb
@@ -85,6 +88,7 @@
 %context/unset.test.reb
 %context/use.test.reb
 %context/valueq.test.reb
+
 %control/all.test.reb
 %control/any.test.reb
 %control/apply.test.reb
@@ -129,14 +133,18 @@
 %convert/load.test.reb
 %convert/mold.test.reb
 %convert/to.test.reb
+
 %define/func.test.reb
+
 %convert/to-hex.test.reb
+
 %file/clean-path.test.reb
 %file/existsq.test.reb
 %file/make-dir.test.reb
 %file/open.test.reb
 %file/split-path.test.reb
 %file/file-typeq.test.reb
+
 %functions/adapt.test.reb
 %functions/apply.test.reb
 %functions/chain.test.reb
@@ -150,6 +158,7 @@
 %functions/redescribe.test.reb
 %functions/redo.test.reb
 %functions/specialize.test.reb
+
 %math/absolute.test.reb
 %math/add.test.reb
 %math/and.test.reb
@@ -184,10 +193,16 @@
 %math/zeroq.test.reb
 %misc/assert.test.reb
 %misc/help.test.reb
+
+%network/dns.test.reb
+%network/http.test.reb
+
 %reflectors/body-of.test.reb
+
 %secure/const.test.reb
 %secure/protect.test.reb
 %secure/unprotect.test.reb
+
 %series/append.test.reb
 %series/as.test.reb
 %series/at.test.reb
@@ -224,15 +239,19 @@
 %series/trim.test.reb
 %series/union.test.reb
 %series/unique.test.reb
+
 %string/checksum.test.reb
 %string/compress.test.reb
 %string/decode.test.reb
 %string/encode.test.reb
 %string/decompress.test.reb
 %string/dehex.test.reb
+
 %system/system.test.reb
 %system/file.test.reb
 %system/gc.test.reb
+
 %call/call.test.reb
+
 %source/text-lines.test.reb
 %source/analysis.test.reb

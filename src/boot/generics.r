@@ -426,8 +426,13 @@ close: generic [
 
 read: generic [
     {Read from a file, URL, or other port.}
-    return: [<opt> binary! text! block! port!]
-        "null on (some) failures !!! REVIEW as part of port model review"
+    return: "null on (some) failures (REVIEW as part of port model review)" [
+        <opt> binary!  ; should all READ return a BINARY!?
+        text!  ; READ/STRING returned TEXT!
+        block!  ; READ/LINES returned BLOCK!
+        port!  ; asynchronous READ on PORT!s returned the PORT!
+        tuple!  ; READ/DNS returned tuple!
+    ]
     source [port! file! url! block!]
     /part {Partial read a given number of units (source relative)}
         limit [any-number!]

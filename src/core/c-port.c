@@ -457,6 +457,9 @@ post_process_output:
         UNUSED(PAR(seek));
         UNUSED(PAR(index));
 
+        if (not r)
+            return nullptr;  // !!! `read dns://` returns nullptr on failure
+
         if (r != D_OUT) {
             if (Is_Api_Value(r)) {
                 Handle_Api_Dispatcher_Result(frame_, r);

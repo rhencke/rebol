@@ -1,4 +1,5 @@
 ; system/gc.r
+
 [#1776 #2072 (
     a: copy []
     loop 200'000 [a: append/only copy [] a]
@@ -60,19 +61,3 @@
 (
     (unspaced ["<" intersect [a b c] [d e f]  ">"]) = "<>"
 )
-
-;;
-;; Simplest possible HTTP and HTTPS protocol smoke test
-;;
-;; !!! EXPAND!
-;;
-
-[#1613 (
-    ; !!! Note that returning a WORD! from a function ending in ? is not seen
-    ; as a good practice, and will likely change.
-    ;
-    'file = exists? http://www.rebol.com/index.html
-)]
-
-(binary? read http://example.com)
-(binary? read https://example.com)

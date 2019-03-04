@@ -107,7 +107,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
                 memcpy(&(ReqNet(req)->remote_ip), VAL_TUPLE(tmp), 4);
             }
             else // lookup string's IP address
-                sock->common.data = VAL_BIN_HEAD(arg);
+                sock->common.data = BIN_AT(temp, offset);
         }
         else
             fail (Error_On_Port(SYM_INVALID_SPEC, port, -10));
@@ -115,31 +115,28 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         OS_DO_DEVICE_SYNC(req, RDC_READ);
 
         len = 1;
-        goto pick; }
+        goto pick_with_position_in_len; }
 
     case SYM_PICK: { // FIRST - return result
         if (not (sock->flags & RRF_OPEN))
             fail (Error_On_Port(SYM_NOT_OPEN, port, -12));
 
-     pick:
         len = Get_Num_From_Arg(arg); // Position
+
+       pick_with_position_in_len:
+
         if (len != 1)
             fail (Error_Out_Of_Range(arg));
 
         assert(sock->flags & RRF_DONE); // R3-Alpha async DNS removed
 
         if (ReqNet(req)->host_info == NULL) // HOST_NOT_FOUND, NO_ADDRESS
-            return Init_Blank(D_OUT);
+            return nullptr;
 
-        if (sock->modes & RST_REVERSE) {
-            Init_Text(
-                D_OUT,
-                Copy_Bytes(sock->common.data, LEN_BYTES(sock->common.data))
-            );
-        }
+        if (sock->modes & RST_REVERSE)
+            Init_Text(D_OUT, Make_String_UTF8(cs_cast(sock->common.data)));
         else
             Init_Tuple(D_OUT, cast(REBYTE*, &ReqNet(req)->remote_ip), 4);
-
 
         OS_DO_DEVICE_SYNC(req, RDC_CLOSE);
         return D_OUT; }
