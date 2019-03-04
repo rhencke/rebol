@@ -428,32 +428,3 @@ REBNATIVE(c_debug_break)
     fail (Error_Debug_Only_Raw());
   #endif
 }
-
-
-//
-//  test: native [
-//
-//  "This is a place to put test code in debug builds."
-//
-//      return: [<opt> any-value!]
-//          {For maximum freedom, can be anything}
-//      :value [<end> any-value!]
-//          {An argument (which test code may or may not use)}
-//  ]
-//
-REBNATIVE(test)
-{
-    INCLUDE_PARAMS_OF_TEST;
-
-    fail (PAR(value));
-
-   /* UNUSED(ARG(value));
-
-    rebElide(
-        "print", rebI(10), // won't leak, rebI() releases during variadic walk
-        "if false [print", rebInteger(30), "]", // rebInteger() leaks here
-        rebEND
-    );
-
-    return nullptr;*/
-}

@@ -45,6 +45,7 @@ core: [
     d-print.c
     d-stack.c
     d-stats.c
+    d-test.c
     d-trace.c
 
     ; (F)???

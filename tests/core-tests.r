@@ -17,6 +17,8 @@
 
 %parse-tests.r
 
+%api/librebol-test.reb
+
 %datatypes/action.test.reb
 %datatypes/binary.test.reb
 %datatypes/bitset.test.reb
