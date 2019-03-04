@@ -229,9 +229,9 @@ REB_R Call_Core(REBFRM *frame_) {
         // Pipes and file reirects are generally understood in Windows to
         // *not* use those encodings, and transmit raw bytes.
         //
-        inbuf_size = rebSpellInto(nullptr, 0, ARG(in));
+        inbuf_size = rebSpellInto(nullptr, 0, ARG(in), rebEND);
         inbuf = rebAllocN(char, inbuf_size + 1);
-        size_t check = rebSpellInto(inbuf, inbuf_size, ARG(in));
+        size_t check = rebSpellInto(inbuf, inbuf_size, ARG(in), rebEND);
         assert(check == inbuf_size);
         UNUSED(check);
         goto input_via_buffer; }

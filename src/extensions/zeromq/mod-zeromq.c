@@ -218,12 +218,12 @@ REBNATIVE(zmq_msg_init_data) {
 
     zmq_msg_t *msg = VAL_HANDLE_POINTER(zmq_msg_t, ARG(msg));
 
-    size_t msg_size = rebBytesInto(nullptr, 0, ARG(data)); // query size
+    size_t msg_size = rebBytesIntoQ(nullptr, 0, ARG(data));  // query size
     REBYTE *msg_data = cast(REBYTE*, malloc(msg_size + 1));
     if (not msg_data)
-        rebJumps("FAIL {Insufficient memory for msg_data}");
+        rebJumps ("FAIL {Insufficient memory for msg_data}");
 
-    size_t check_size = rebBytesInto(msg_data, msg_size, ARG(data));
+    size_t check_size = rebBytesIntoQ(msg_data, msg_size, ARG(data));
     assert(check_size == msg_size);
     UNUSED(check_size);
 

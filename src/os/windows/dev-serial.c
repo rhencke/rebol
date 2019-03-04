@@ -89,7 +89,8 @@ DEVICE_CMD Open_Serial(REBREQ *serial)
     REBCNT chars_appended = rebSpellIntoWide(
         &fullpath[wcslen(fullpath)],
         buf_left, // space, minus terminator
-        ReqSerial(serial)->path
+        ReqSerial(serial)->path,
+        rebEND
     );
     if (chars_appended > buf_left)
         rebJumps(

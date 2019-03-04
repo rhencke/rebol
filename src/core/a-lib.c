@@ -1075,7 +1075,7 @@ REBVAL *RL_rebHandle(void *data, size_t length, CLEANUP_CFUNC *cleaner)
 
 
 //
-//  rebSpellInto: RL_API
+//  rebSpellInto_internal: RL_API
 //
 // Extract UTF-8 data from an ANY-STRING! or ANY-WORD!.
 //
@@ -1083,11 +1083,15 @@ REBVAL *RL_rebHandle(void *data, size_t length, CLEANUP_CFUNC *cleaner)
 // the answer to that is always cached for any value position as LENGTH OF.
 // The more immediate quantity of concern to return is the number of bytes.
 //
-size_t RL_rebSpellInto(
+size_t RL_rebSpellInto_internal(
     char *buf,
     size_t buf_size, // number of bytes
-    const REBVAL *v
+    const REBVAL *v,
+    const void *end
 ){
+    if (Detect_Rebol_Pointer(end) != DETECTED_AS_END)
+        fail ("rebSpellInto() doesn't support more than one value yet");
+
     const char *utf8;
     REBSIZ utf8_size;
     if (ANY_STRING(v)) {
@@ -1133,15 +1137,15 @@ char *RL_rebSpell(const void *p, va_list *vaptr)
     if (IS_NULLED(string))
         return nullptr; // NULL is passed through, for opting out
 
-    size_t size = rebSpellInto(nullptr, 0, string);
+    size_t size = rebSpellInto_internal(nullptr, 0, string, rebEND);
     char *result = cast(char*, rebMalloc(size + 1)); // add space for term
-    rebSpellInto(result, size, string);
+    rebSpellInto_internal(result, size, string, rebEND);
     return result;
 }
 
 
 //
-//  rebSpellIntoWide: RL_API
+//  rebSpellIntoWide_internal: RL_API
 //
 // Extract UCS-2 data from an ANY-STRING! or ANY-WORD!.  Note this is *not*
 // UTF-16, so codepoints that require more than two bytes to represent will
@@ -1152,11 +1156,15 @@ char *RL_rebSpell(const void *p, va_list *vaptr)
 // be more useful for the wide string APIs to do this so leaving it that way
 // for now.
 //
-unsigned int RL_rebSpellIntoWide(
+unsigned int RL_rebSpellIntoWide_internal(
     REBWCHAR *buf,
     unsigned int buf_chars, // chars buf can hold (not including terminator)
-    const REBVAL *v
+    const REBVAL *v,
+    const void *end
 ){
+    if (Detect_Rebol_Pointer(end) != DETECTED_AS_END)
+        fail ("rebSpellIntoWide() doesn't support more than one value yet");
+
     REBSER *s;
     REBCNT index;
     REBCNT len;
@@ -1216,17 +1224,17 @@ REBWCHAR *RL_rebSpellWide(const void *p, va_list *vaptr)
     if (IS_NULLED(string))
         return nullptr; // NULL is passed through, for opting out
 
-    REBCNT len = rebSpellIntoWide(nullptr, 0, string);
+    REBCNT len = rebSpellIntoWide_internal(nullptr, 0, string, rebEND);
     REBWCHAR *result = cast(
         REBWCHAR*, rebMalloc(sizeof(REBWCHAR) * (len + 1))
     );
-    rebSpellIntoWide(result, len, string);
+    rebSpellIntoWide_internal(result, len, string, rebEND);
     return result;
 }
 
 
 //
-//  rebBytesInto: RL_API
+//  rebBytesInto_internal: RL_API
 //
 // Extract binary data from a BINARY!
 //
@@ -1234,11 +1242,15 @@ REBWCHAR *RL_rebSpellWide(const void *p, va_list *vaptr)
 // if this is a good idea; but this is based on a longstanding convention of
 // zero termination of Rebol series, including binaries.  Review.
 //
-size_t RL_rebBytesInto(
-    unsigned char *buf,
+size_t RL_rebBytesInto_internal(
+    unsigned char *buf,  // parameters besides p,vaptr throw off wrapper code
     size_t buf_size,
-    const REBVAL *binary
+    const REBVAL *binary,
+    const void *end
 ){
+    if (Detect_Rebol_Pointer(end) != DETECTED_AS_END)
+        fail ("rebBytesInto() doesn't support more than one value yet");
+
     if (not IS_BINARY(binary))
         fail ("rebBytesInto() only works on BINARY!");
 
@@ -1280,18 +1292,26 @@ unsigned char *RL_rebBytes(
     }
 
     if (ANY_WORD(series) or ANY_STRING(series)) {
-        *size_out = rebSpellInto(nullptr, 0, series);
+        *size_out = rebSpellInto_internal(nullptr, 0, series, rebEND);
         char *result = rebAllocN(char, (*size_out + 1));
-        size_t check = rebSpellInto(result, *size_out, series);
+        size_t check = rebSpellInto_internal(
+            result,
+            *size_out,
+            series,
+        rebEND);
         assert(check == *size_out);
         UNUSED(check);
         return cast(unsigned char*, result);
     }
 
     if (IS_BINARY(series)) {
-        *size_out = rebBytesInto(nullptr, 0, series);
+        *size_out = rebBytesInto_internal(nullptr, 0, series, rebEND);
         unsigned char *result = rebAllocN(REBYTE, (*size_out + 1));
-        size_t check = rebBytesInto(result, *size_out, series);
+        size_t check = rebBytesInto_internal(
+            result,
+            *size_out,
+            series,
+        rebEND);
         assert(check == *size_out);
         UNUSED(check);
         return result;

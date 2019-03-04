@@ -199,7 +199,12 @@ DEVICE_CMD Open_Serial(REBREQ *req)
     assert(serial->path != NULL);
 
     char path_utf8[MAX_SERIAL_PATH];
-    REBCNT size = rebSpellInto(path_utf8, MAX_SERIAL_PATH, serial->path);
+    REBCNT size = rebSpellInto(
+        path_utf8,
+        MAX_SERIAL_PATH,
+        serial->path,
+        rebEND
+    );
 
     if (path_utf8[0] != '/') { // relative path, insert `/dev` before slash
         memmove(path_utf8 + 4, path_utf8, size + 1);

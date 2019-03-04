@@ -438,9 +438,9 @@ SQLRETURN ODBC_BindParameter(
         // Call to get the length of how big a buffer to make, then a second
         // call to fill the buffer after its made.
         //
-        REBCNT len_no_term = rebSpellIntoWide(NULL, 0, v);
+        REBCNT len_no_term = rebSpellIntoWide(NULL, 0, v, rebEND);
         SQLWCHAR *chars = rebAllocN(SQLWCHAR, len_no_term + 1);
-        REBCNT len_check = rebSpellIntoWide(chars, len_no_term, v);
+        REBCNT len_check = rebSpellIntoWide(chars, len_no_term, v, rebEND);
         assert(len_check == len_no_term);
         UNUSED(len_check);
 

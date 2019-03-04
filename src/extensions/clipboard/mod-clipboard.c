@@ -126,9 +126,9 @@ static REB_R Clipboard_Actor(
         // byte representation of the string could be locked + aliased
         // as a UTF-8 binary series.  Conversion is needed for the moment.
 
-        size_t size = rebSpellInto(NULL, 0, str); // size query
+        size_t size = rebSpellInto(NULL, 0, str, rebEND);  // size query
         char *utf8 = rebAllocN(char, size + 1);
-        size_t check_size = rebSpellInto(utf8, size, str); // now fetch
+        size_t check_size = rebSpellInto(utf8, size, str, rebEND);  // fetch
         assert(check_size == size);
         UNUSED(check_size);
 
@@ -197,7 +197,9 @@ static REB_R Clipboard_Actor(
                 "FAIL {GlobalLock() fail on clipboard write}", rebEND
             );
 
-        REBINT len_check = rebSpellIntoWide(wide, len, arg); // UTF-16 extract
+        // Extract the UTF-16
+        //
+        REBINT len_check = rebSpellIntoWide(wide, len, arg, rebEND);
         assert(len <= len_check); // may only be writing /PART of the string
         UNUSED(len_check);
 

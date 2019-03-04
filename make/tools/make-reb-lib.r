@@ -236,6 +236,15 @@ c89-macros: map-each-api [
     ]
     cscape/with {#define $<Name> $<Name>_inline} api
 ]
+append c89-macros reduce [
+    ;
+    ; Placeholder for smarter API wrapping--we want the c89 calls to these
+    ; APIs have to include rebEND when they become variadic.
+    ;
+    {#define rebSpellInto rebSpellInto_internal}
+    {#define rebSpellIntoWide rebSpellIntoWide_internal}
+    {#define rebBytesInto rebBytesInto_internal}
+]
 
 c99-or-c++11-macros: map-each-api [
     if find paramlist 'vaptr [
@@ -244,6 +253,24 @@ c99-or-c++11-macros: map-each-api [
     ] else [
         cscape/with {#define $<Name> $<Name>_inline} api
     ]
+]
+append c99-or-c++11-macros reduce [
+    ;
+    ; Placeholder for smarter API wrapping--we *don't* want the c99 or c++11
+    ; calls to these APIs have to include rebEND when they become variadic.
+    ;
+    trim/auto copy {
+        #define rebSpellInto(buf,buf_size,v) \
+            rebSpellInto_Internal((buf), (buf_size), (v), rebEND)
+    }
+    trim/auto copy {
+        #define rebSpellIntoWide(buf,buf_size,v) \
+            rebSpellIntoWide_Internal((buf), (buf_size), (v), rebEND)
+    }
+    trim/auto copy {
+        #define rebBytesInto(buf,buf_size,binary) \
+            rebBytesIntoWide_Internal((buf), (buf_size), (binary), rebEND)
+    }
 ]
 
 
