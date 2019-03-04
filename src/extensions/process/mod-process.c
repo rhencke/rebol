@@ -169,7 +169,7 @@ REBNATIVE(get_os_browsers)
         --len;
     }
 
-    rebElide("append", list, rebR(rebLengthedTextW(buffer, len)), rebEND);
+    rebElide("append", list, rebR(rebLengthedTextWide(buffer, len)), rebEND);
 
     rebFree(buffer);
 
@@ -338,7 +338,7 @@ REBNATIVE(get_env)
   #ifdef TO_WINDOWS
     // Note: The Windows variant of this API is NOT case-sensitive
 
-    WCHAR *key = rebSpellW(variable, rebEND);
+    WCHAR *key = rebSpellWide(variable, rebEND);
 
     DWORD val_len_plus_one = GetEnvironmentVariable(key, NULL, 0);
     if (val_len_plus_one == 0) { // some failure...
@@ -353,7 +353,7 @@ REBNATIVE(get_env)
         if (result == 0)
             error = Error_User("Unknown error fetching variable to buffer");
         else {
-            REBVAL *temp = rebLengthedTextW(val, val_len_plus_one - 1);
+            REBVAL *temp = rebLengthedTextWide(val, val_len_plus_one - 1);
             Move_Value(D_OUT, temp);
             rebRelease(temp);
         }
@@ -413,8 +413,8 @@ REBNATIVE(set_env)
     Check_Security(Canon(SYM_ENVR), POL_WRITE, variable);
 
   #ifdef TO_WINDOWS
-    WCHAR *key_wide = rebSpellW(variable, rebEND);
-    WCHAR *opt_val_wide = rebSpellW("ensure [<opt> text!]", value, rebEND);
+    WCHAR *key_wide = rebSpellWide(variable, rebEND);
+    WCHAR *opt_val_wide = rebSpellWide("ensure [<opt> text!]", value, rebEND);
 
     if (not SetEnvironmentVariable(key_wide, opt_val_wide)) // null unsets
         fail ("environment variable couldn't be modified");
@@ -527,10 +527,10 @@ REBNATIVE(list_env)
         }
 
         int key_len = eq_pos - key_equals_val;
-        REBVAL *key = rebLengthedTextW(key_equals_val, key_len);
+        REBVAL *key = rebLengthedTextWide(key_equals_val, key_len);
 
         int val_len = len - (eq_pos - key_equals_val) - 1;
-        REBVAL *val = rebLengthedTextW(eq_pos + 1, val_len);
+        REBVAL *val = rebLengthedTextWide(eq_pos + 1, val_len);
 
         rebElide(
             "append", map, rebU("[", rebR(key), rebR(val), "]", rebEND),

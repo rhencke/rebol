@@ -116,7 +116,7 @@ static REB_R Clipboard_Actor(
             );
         }
 
-        REBVAL *str = rebTextW(wide);
+        REBVAL *str = rebTextWide(wide);
 
         GlobalUnlock(h);
         CloseClipboard();
@@ -197,7 +197,7 @@ static REB_R Clipboard_Actor(
                 "FAIL {GlobalLock() fail on clipboard write}", rebEND
             );
 
-        REBINT len_check = rebSpellIntoW(wide, len, arg); // UTF-16 extract
+        REBINT len_check = rebSpellIntoWide(wide, len, arg); // UTF-16 extract
         assert(len <= len_check); // may only be writing /PART of the string
         UNUSED(len_check);
 

@@ -79,7 +79,7 @@ REBNATIVE(locale)
     assert(len_check == len_plus_term);
     UNUSED(len_check);
 
-    REBVAL *text = rebLengthedTextW(buffer, len_plus_term - 1);
+    REBVAL *text = rebLengthedTextWide(buffer, len_plus_term - 1);
     rebFree(buffer);
 
     return text;

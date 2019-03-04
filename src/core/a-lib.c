@@ -1141,7 +1141,7 @@ char *RL_rebSpell(const void *p, va_list *vaptr)
 
 
 //
-//  rebSpellIntoW: RL_API
+//  rebSpellIntoWide: RL_API
 //
 // Extract UCS-2 data from an ANY-STRING! or ANY-WORD!.  Note this is *not*
 // UTF-16, so codepoints that require more than two bytes to represent will
@@ -1152,7 +1152,7 @@ char *RL_rebSpell(const void *p, va_list *vaptr)
 // be more useful for the wide string APIs to do this so leaving it that way
 // for now.
 //
-unsigned int RL_rebSpellIntoW(
+unsigned int RL_rebSpellIntoWide(
     REBWCHAR *buf,
     unsigned int buf_chars, // chars buf can hold (not including terminator)
     const REBVAL *v
@@ -1195,7 +1195,7 @@ unsigned int RL_rebSpellIntoW(
 
 
 //
-//  rebSpellW: RL_API
+//  rebSpellWide: RL_API
 //
 // Gives the spelling as WCHARs.  If length in codepoints is needed, use
 // a separate LENGTH OF call.
@@ -1207,7 +1207,7 @@ unsigned int RL_rebSpellIntoW(
 // API (possible solutions could include usermode UTF-16 conversion to binary,
 // and extraction of that with rebBytes(), then dividing the size by 2).
 //
-REBWCHAR *RL_rebSpellW(const void *p, va_list *vaptr)
+REBWCHAR *RL_rebSpellWide(const void *p, va_list *vaptr)
 {
     DECLARE_LOCAL (string);
     if (Do_Va_Throws(string, p, vaptr)) // calls va_end()
@@ -1216,11 +1216,11 @@ REBWCHAR *RL_rebSpellW(const void *p, va_list *vaptr)
     if (IS_NULLED(string))
         return nullptr; // NULL is passed through, for opting out
 
-    REBCNT len = rebSpellIntoW(nullptr, 0, string);
+    REBCNT len = rebSpellIntoWide(nullptr, 0, string);
     REBWCHAR *result = cast(
         REBWCHAR*, rebMalloc(sizeof(REBWCHAR) * (len + 1))
     );
-    rebSpellIntoW(result, len, string);
+    rebSpellIntoWide(result, len, string);
     return result;
 }
 
@@ -1335,9 +1335,9 @@ REBVAL *RL_rebText(const char *utf8)
 
 
 //
-//  rebLengthedTextW: RL_API
+//  rebLengthedTextWide: RL_API
 //
-REBVAL *RL_rebLengthedTextW(const REBWCHAR *wstr, unsigned int num_chars)
+REBVAL *RL_rebLengthedTextWide(const REBWCHAR *wstr, unsigned int num_chars)
 {
     DECLARE_MOLD (mo);
     Push_Mold(mo);
@@ -1350,9 +1350,9 @@ REBVAL *RL_rebLengthedTextW(const REBWCHAR *wstr, unsigned int num_chars)
 
 
 //
-//  rebTextW: RL_API
+//  rebTextWide: RL_API
 //
-REBVAL *RL_rebTextW(const REBWCHAR *wstr)
+REBVAL *RL_rebTextWide(const REBWCHAR *wstr)
 {
     DECLARE_MOLD (mo);
     Push_Mold(mo);
@@ -1658,7 +1658,7 @@ void RL_rebFail_OS(int errnum)
         error = Error_User("FormatMessage() gave no error description");
     }
     else {
-        REBVAL *message = rebTextW(lpMsgBuf);
+        REBVAL *message = rebTextWide(lpMsgBuf);
         LocalFree(lpMsgBuf);
 
         error = Error(SYM_0, SYM_0, message, END_NODE);

@@ -191,10 +191,12 @@ int main(int argc, char *argv_ansi[])
         if (argv_ucs2[i] == nullptr)
             continue; // !!! Comment here said "shell bug" (?)
 
-        // Note: rebTextW() currently only supports UCS-2, so codepoints that
-        // need more than two bytes to be represented will cause a failure.
+        // Note: rebTextWide() currently only supports UCS-2, so codepoints
+        // needing more than two bytes to be represented will cause a failure.
         //
-        rebElide("append", argv_block, rebR(rebTextW(argv_ucs2[i])), rebEND);
+        rebElide(
+            "append", argv_block, rebR(rebTextWide(argv_ucs2[i])),
+        rebEND);
     }
   #else
     // Just take the ANSI C "char*" args...which should ideally be in UTF8.

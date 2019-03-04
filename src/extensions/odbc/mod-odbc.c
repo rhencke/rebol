@@ -129,7 +129,7 @@ REBCTX *Error_ODBC(SQLSMALLINT handleType, SQLHANDLE handle) {
     DECLARE_LOCAL (string);
 
     if (rc == SQL_SUCCESS or rc == SQL_SUCCESS_WITH_INFO) {
-        REBVAL *temp = rebLengthedTextW(message, message_len);
+        REBVAL *temp = rebLengthedTextWide(message, message_len);
         Move_Value(string, temp);
         rebRelease(temp);
     }
@@ -252,7 +252,7 @@ REBNATIVE(open_connection)
     // Connect to the Driver, using the converted connection string
     //
     REBCNT connect_len = rebUnbox("length of", ARG(spec), rebEND);
-    SQLWCHAR *connect = rebSpellW(ARG(spec), rebEND);
+    SQLWCHAR *connect = rebSpellWide(ARG(spec), rebEND);
 
     SQLSMALLINT out_connect_len;
     rc = SQLDriverConnectW(
@@ -434,10 +434,13 @@ SQLRETURN ODBC_BindParameter(
         break; }
 
     case REB_TEXT: {
-        REBCNT len_no_term = rebSpellIntoW(NULL, 0, v); // first, get length
+        //
+        // Call to get the length of how big a buffer to make, then a second
+        // call to fill the buffer after its made.
+        //
+        REBCNT len_no_term = rebSpellIntoWide(NULL, 0, v);
         SQLWCHAR *chars = rebAllocN(SQLWCHAR, len_no_term + 1);
-
-        REBCNT len_check = rebSpellIntoW(chars, len_no_term, v); // now, get
+        REBCNT len_check = rebSpellIntoWide(chars, len_no_term, v);
         assert(len_check == len_no_term);
         UNUSED(len_check);
 
@@ -504,7 +507,7 @@ SQLRETURN ODBC_GetCatalog(
         );
         if (value) {
             REBCNT len = rebUnbox("length of", value, rebEND);
-            pattern[arg] = rebSpellW(value, rebEND);
+            pattern[arg] = rebSpellWide(value, rebEND);
             length[arg] = len;
             rebRelease(value);
         }
@@ -666,8 +669,8 @@ SQLRETURN ODBC_DescribeResults(
         // int length = ODBC_UnCamelCase(column->title, title);
 
         column->title_word = rebRun(
-            "as word!", rebLengthedTextW(title, title_length), rebEND
-        );
+            "as word!", rebLengthedTextWide(title, title_length),
+        rebEND);
         rebUnmanage(column->title_word);
     }
 
@@ -894,7 +897,7 @@ REBNATIVE(insert_odbc)
 
         if (not use_cache) {
             REBCNT length = rebUnbox("length of", value, rebEND);
-            SQLWCHAR *sql_string = rebSpellW(value, rebEND);
+            SQLWCHAR *sql_string = rebSpellWide(value, rebEND);
 
             rc = SQLPrepareW(hstmt, sql_string, cast(SQLSMALLINT, length));
             if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
@@ -1150,7 +1153,10 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
     case SQL_WVARCHAR:
     case SQL_WLONGVARCHAR:
         assert(col->length % 2 == 0);
-        return rebLengthedTextW(cast(SQLWCHAR*, col->buffer), col->length / 2);
+        return rebLengthedTextWide(
+            cast(SQLWCHAR*, col->buffer),
+            col->length / 2
+        );
 
     case SQL_GUID:
         fail ("SQL_GUID not supported by ODBC (currently)");

@@ -136,9 +136,8 @@ REBVAL *OS_Get_Current_Dir(void)
     GetCurrentDirectory(len, path);
 
     REBVAL *result = rebRun(
-        "local-to-file/dir", rebR(rebTextW(path)),
-        rebEND
-    );
+        "local-to-file/dir", rebR(rebTextWide(path)),
+    rebEND);
     rebFree(path);
     return result;
 }
@@ -151,7 +150,7 @@ REBVAL *OS_Get_Current_Dir(void)
 //
 bool OS_Set_Current_Dir(const REBVAL *path)
 {
-    WCHAR *path_wide = rebSpellW("file-to-local/full", path, rebEND);
+    WCHAR *path_wide = rebSpellWide("file-to-local/full", path, rebEND);
 
     BOOL success = SetCurrentDirectory(path_wide);
 
@@ -193,7 +192,7 @@ void *OS_Open_Library(const REBVAL *path)
     // default.  So if %foo is passed in, you don't want to prepend the
     // current dir to make it absolute, because it will *only* look there.
     //
-    WCHAR *path_utf8 = rebSpellW("file-to-local", path, rebEND);
+    WCHAR *path_utf8 = rebSpellWide("file-to-local", path, rebEND);
 
     void *dll = LoadLibraryW(path_utf8);
 
@@ -280,9 +279,8 @@ REBVAL *OS_Get_Current_Exec(void)
     path[r] = '\0'; // May not be NULL-terminated if buffer is not big enough
 
     REBVAL *result = rebRun(
-        "local-to-file", rebR(rebTextW(path)),
-        rebEND
-    );
+        "local-to-file", rebR(rebTextWide(path)),
+    rebEND);
     rebFree(path);
 
     return result;
