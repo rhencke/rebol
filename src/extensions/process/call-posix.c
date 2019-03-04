@@ -124,7 +124,7 @@ static inline bool Set_Nonblocking_Fails(int fd) {
 // This uses 'execvp' which is "POSIX.1 conforming, UNIX compatible"
 //
 REB_R Call_Core(REBFRM *frame_) {
-    PROCESS_INCLUDE_PARAMS_OF_CALL;
+    PROCESS_INCLUDE_PARAMS_OF_CALL_INTERNAL_P;
 
     UNUSED(REF(console));  // !!! actually not paid attention to, why?
 
@@ -202,11 +202,23 @@ REB_R Call_Core(REBFRM *frame_) {
     const char **argv;
 
     if (IS_TEXT(ARG(command))) {
-        // `call {foo bar}` => execute %"foo bar"
-
-        // !!! Interpreting string case as an invocation of %foo with argument
-        // "bar" has been requested and seems more suitable.  Question is
-        // whether it should go through the shell parsing to do so.
+        //
+        // !!! POSIX does not offer the ability to take a single command
+        // line string when invoking a process.  You have to use an argv[]
+        // array.  The only workaround to this is to run through a shell--
+        // but that would give you a new environment.  We only parse the
+        // command line if forced (Windows can call with a single command
+        // line, but has the reverse problem: it has to make the command
+        // line out of argv[] parts if you pass an array).
+        //
+        if (not REF(shell)) {
+            REBVAL *block = rebRun(
+                "parse-command-to-argv*", ARG(command), rebEND
+            );
+            Move_Value(ARG(command), block);
+            rebRelease(block);
+            goto block_command;
+        }
 
         cmd = rebSpell(ARG(command), rebEND);
 
@@ -221,39 +233,23 @@ REB_R Call_Core(REBFRM *frame_) {
     else if (IS_BLOCK(ARG(command))) {
         // `call ["foo" "bar"]` => execute %foo with arg "bar"
 
+      block_command:
+
         cmd = nullptr;
 
         REBVAL *block = ARG(command);
         argc = VAL_LEN_AT(block);
-        if (argc == 0)
-            fail (Error_Too_Short_Raw());
-
+        assert(argc != 0);  // usermode layer checks this
         argv = rebAllocN(const char*, (argc + 1));
 
         int i;
         for (i = 0; i < argc; i ++) {
             RELVAL *param = VAL_ARRAY_AT_HEAD(block, i);
-            if (IS_TEXT(param)) {
-                argv[i] = rebSpell(KNOWN(param), rebEND);
-            }
-            else if (IS_FILE(param)) {
-                argv[i] = rebSpell("file-to-local", KNOWN(param), rebEND);
-            }
-            else
-                fail (Error_Bad_Value_Core(param, VAL_SPECIFIER(block)));
+            if (not IS_TEXT(param))  // usermode layer ensures FILE! converted
+                fail (PAR(command));
+            argv[i] = rebSpell(KNOWN(param), rebEND);
         }
         argv[argc] = nullptr;
-    }
-    else if (IS_FILE(ARG(command))) {
-        // `call %"foo bar"` => execute %"foo bar"
-
-        cmd = nullptr;
-
-        argc = 1;
-        argv = rebAllocN(const char*, (argc + 1));
-
-        argv[0] = rebSpell("file-to-local", ARG(command), rebEND);
-        argv[1] = nullptr;
     }
     else
         fail (PAR(command));
@@ -265,7 +261,7 @@ REB_R Call_Core(REBFRM *frame_) {
     // is treated as a request to append the results of the pipe to them.
     //
     // !!! At the moment this is done by having the OS-specific routine
-    // pass back a buffer it malloc()s and reallocates to be the size of the
+    // pass back a buffer it allocates and reallocates to be the size of the
     // full data, which is then appended after the operation is finished.
     // With CALL now an extension where all parts have access to the internal
     // API, it could be added directly to the binary or string as it goes.
@@ -445,10 +441,10 @@ REB_R Call_Core(REBFRM *frame_) {
                 exit(EXIT_FAILURE);
             }
 
-            const char ** argv_new = cast(
-                const char**,
-                malloc((argc + 3) * sizeof(argv[0])
-            ));
+            const char ** argv_new = rebAllocN(
+                const char*,
+                (argc + 3) * sizeof(argv[0])
+            );
             argv_new[0] = sh;
             argv_new[1] = "-c";
             memcpy(&argv_new[2], argv, argc * sizeof(argv[0]));
@@ -523,7 +519,7 @@ REB_R Call_Core(REBFRM *frame_) {
 
             outbuf_capacity = BUF_SIZE_CHUNK;
 
-            outbuf = cast(char*, malloc(outbuf_capacity));
+            outbuf = rebAllocN(char, outbuf_capacity);  // freed if fail()
             outbuf_used = 0;
 
             pfds[nfds].fd = stdout_pipe[R];
@@ -540,7 +536,7 @@ REB_R Call_Core(REBFRM *frame_) {
 
             errbuf_capacity = BUF_SIZE_CHUNK;
 
-            errbuf = cast(char*, malloc(errbuf_capacity));
+            errbuf = rebAllocN(char, errbuf_capacity);
             errbuf_used = 0;
 
             pfds[nfds].fd = stderr_pipe[R];
@@ -561,7 +557,7 @@ REB_R Call_Core(REBFRM *frame_) {
 
             infobuf_capacity = 4;
 
-            infobuf = cast(char*, malloc(infobuf_capacity));
+            infobuf = rebAllocN(char, infobuf_capacity);
 
             close(info_pipe[W]);
             info_pipe[W] = -1;
@@ -727,14 +723,14 @@ REB_R Call_Core(REBFRM *frame_) {
                         assert(*used <= *capacity);
 
                         if (*used == *capacity) {
-                            char *larger = cast(
-                                char*,
-                                malloc(*capacity + BUF_SIZE_CHUNK)
+                            char *larger = rebAllocN(
+                                char,
+                                *capacity + BUF_SIZE_CHUNK
                             );
                             if (larger == nullptr)
                                 goto kill;
                             memcpy(larger, *buffer, *capacity);
-                            free(*buffer);
+                            rebFree(*buffer);
                             *buffer = larger;
                             *capacity += BUF_SIZE_CHUNK;
                         }
@@ -810,7 +806,7 @@ REB_R Call_Core(REBFRM *frame_) {
         //
         assert(false);
         if (infobuf)
-            free(infobuf);
+            rebFree(infobuf);
         rebJumps("fail {Child process is stopped}", rebEND);
     }
     else {
@@ -818,7 +814,7 @@ REB_R Call_Core(REBFRM *frame_) {
     }
 
     if (infobuf != NULL)
-        free(infobuf);
+        rebFree(infobuf);
 
   info_pipe_err:
 
@@ -890,7 +886,7 @@ REB_R Call_Core(REBFRM *frame_) {
     }
     else
         assert(outbuf == nullptr);
-    free(outbuf);  // legal if outbuf is nullptr
+    rebFree(outbuf);  // legal if outbuf is nullptr
 
     if (IS_TEXT(ARG(err))) {
         if (errbuf_used > 0) {
@@ -901,10 +897,9 @@ REB_R Call_Core(REBFRM *frame_) {
     } else if (IS_BINARY(ARG(err))) {
         if (errbuf_used > 0) {
             Append_Unencoded_Len(VAL_SERIES(ARG(err)), errbuf, errbuf_used);
-            free(errbuf);
         }
     }
-    free(errbuf);  // legal if errbuf is nullptr
+    rebFree(errbuf);  // legal if errbuf is nullptr
 
     if (inbuf != nullptr)
         rebFree(inbuf);

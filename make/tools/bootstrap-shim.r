@@ -153,3 +153,6 @@ has: null
 ]
 
 const?: func [x] [return false]
+
+call*: :call
+call: specialize 'call* [wait: true]

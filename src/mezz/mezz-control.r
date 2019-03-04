@@ -21,7 +21,7 @@ launch: func [
     if file? script [script: file-to-local clean-path script]
     args: reduce [file-to-local system/options/boot script]
     if set? 'arg [append args arg]
-    either wait [call/wait args] [call args]
+    call*/(wait) args
 ]
 
 wrap: func [

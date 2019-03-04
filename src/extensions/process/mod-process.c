@@ -72,9 +72,9 @@
 
 
 //
-//  export call: native [
+//  export call-internal*: native [
 //
-//  {Run another program; return immediately (unless /WAIT)}
+//  {Run another program by spawning a new process}
 //
 //      command "OS-local command line, block with arguments, executable file"
 //          [text! block! file!]
@@ -90,7 +90,7 @@
 //      err [text! binary! file! blank!]
 //  ]
 //
-REBNATIVE(call)
+REBNATIVE(call_internal_p)
 //
 // !!! Parameter usage may require WAIT mode even if not explicitly requested.
 // /WAIT should be default, with /ASYNC (or otherwise) as exception!

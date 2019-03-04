@@ -9,7 +9,7 @@
 (
     ; small - note Windows doesn't do BLOCK! arg to CALL (argv style) yet
 
-    call/shell/wait/output spaced [
+    call/shell/output spaced [
         (file-to-local system/options/boot)
         {--suppress "*" call/print.reb 100}
     ] data: {}
@@ -19,7 +19,7 @@
 (
     ; medium - note Windows doesn't do BLOCK! arg to CALL (argv style) yet
 
-    call/shell/wait/output spaced [
+    call/shell/output spaced [
         (file-to-local system/options/boot)
         {--suppress "*" call/print.reb 9000}
     ] data: {}
@@ -29,7 +29,7 @@
 (
     ; large - note Windows doesn't do BLOCK! arg to CALL (argv style) yet
 
-    call/shell/wait/output spaced [
+    call/shell/output spaced [
         (file-to-local system/options/boot)
         {--suppress "*" call/print.reb 80000}
     ] data: {}
@@ -41,7 +41,7 @@
 (
     (not exists? %/usr/bin/git) or [
         data: {}
-        call/wait/output compose [
+        call/output compose [
             %/usr/bin/git "log" (spaced [
                 "--pretty=format:'["
                     "commit: {%h}"
@@ -60,14 +60,14 @@
 
 ; Tests feeding input and taking output from various sources
 [
-    (did echoer: enclose specialize 'call/shell/wait/input/output [
+    (did echoer: enclose specialize 'call/input/output [
         command: spaced [
-          file-to-local system/options/boot
-          {--suppress "*"} {-qs} {--do} {"write-stdout input quit"}
+            file-to-local system/options/boot {--suppress "*"} {-qs}
+            {--do} {"write-stdout read system/ports/input"}
         ]
-    ] function [f [frame!]] [
-        out: f/out
-        do f
+    ] function [frame [frame!]] [
+        out: frame/out
+        do frame
         return out
     ])
 
@@ -78,4 +78,16 @@
     (#{466F6F} = echoer #{466F6F} #{})
     ("Foo" = echoer #{466F6F} "")
     (#{466F6F} = echoer "Foo" #{})
+    (#{DECAFBAD} = echoer #{DECAFBAD} #{})
+    (error? trap [#{DECAFBAD} = echoer #{DECAFBAD} ""])
 ]
+
+; Both unix and windows echo text back, so this is a good test of the shell
+; But line endings will vary because it's not redirected.  :-/
+(
+    call/shell/output "echo test" out: ""
+    did any [
+        "test^M^/" = out
+        "test^/" = out
+    ]
+)

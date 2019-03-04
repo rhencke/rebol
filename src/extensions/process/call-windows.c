@@ -59,7 +59,7 @@
 //  Call_Core: C
 //
 REB_R Call_Core(REBFRM *frame_) {
-    PROCESS_INCLUDE_PARAMS_OF_CALL;
+    PROCESS_INCLUDE_PARAMS_OF_CALL_INTERNAL_P;
 
     UNUSED(REF(console));  // !!! This is not paid attention to (?)
 
@@ -97,12 +97,9 @@ REB_R Call_Core(REBFRM *frame_) {
     int argc;
     const REBWCHAR **argv;
 
-    if (IS_TEXT(ARG(command))) {
-        // `call {foo bar}` => execute %"foo bar"
+    if (IS_TEXT(ARG(command))) {  // Windows takes command-lines by default
 
-        // !!! Interpreting string case as an invocation of %foo with argument
-        // "bar" has been requested and seems more suitable.  Question is
-        // whether it should go through the shell parsing to do so.
+      text_command:
 
         call = rebSpellWideQ(ARG(command), rebEND);
 
@@ -115,61 +112,25 @@ REB_R Call_Core(REBFRM *frame_) {
         argv[1] = nullptr;
     }
     else if (IS_BLOCK(ARG(command))) {
-        // `call ["foo" "bar"]` => execute %foo with arg "bar"
+        //
+        // In order for argv-call to work with Windows reliably, it has to do
+        // proper escaping of its arguments when forming a string.  We
+        // do this with a usermode helper.
+        //
+        // https://github.com/rebol/rebol-issues/issues/2225
 
-        call = nullptr;
-
-        REBVAL *block = ARG(command);
-        argc = VAL_LEN_AT(block);
-        if (argc == 0)
-            fail (Error_Too_Short_Raw());
-
-        argv = rebAllocN(const REBWCHAR*, (argc + 1));
-
-        int i;
-        for (i = 0; i < argc; i ++) {
-            RELVAL *param = VAL_ARRAY_AT_HEAD(block, i);
-            if (IS_TEXT(param)) {
-                argv[i] = rebSpellWideQ(KNOWN(param), rebEND);
-            }
-            else if (IS_FILE(param)) {
-                argv[i] = rebSpellWideQ(
-                    "file-to-local", KNOWN(param),
-                rebEND);
-            }
-            else
-                fail (Error_Bad_Value_Core(param, VAL_SPECIFIER(block)));
-        }
-        argv[argc] = nullptr;
-    }
-    else if (IS_FILE(ARG(command))) {
-        // `call %"foo bar"` => execute %"foo bar"
-
-        call = nullptr;
-
-        argc = 1;
-        argv = rebAllocN(const REBWCHAR*, (argc + 1));
-
-        argv[0] = rebSpellWideQ("file-to-local", ARG(command), rebEND);
-        argv[1] = nullptr;
+        REBVAL *text = rebRun(
+            "argv-block-to-command*", ARG(command),
+        rebEND);
+        Move_Value(ARG(command), text);
+        rebRelease(text);
+        goto text_command;
     }
     else
         fail (PAR(command));
 
     REBU64 pid = 1020;  // avoid uninitialized warning, garbage value
     DWORD exit_code = 304;  // ...same...
-
-    // If a TEXT! or BINARY! is used for the outbuf or error, then that
-    // is treated as a request to append the results of the pipe to them.
-    //
-    // !!! At the moment this is done by having the OS-specific routine
-    // pass back a buffer it malloc()s and reallocates to be the size of the
-    // full data, which is then appended after the operation is finished.
-    // With CALL now an extension where all parts have access to the internal
-    // API, it could be added directly to the binary or string as it goes.
-
-    if (call == NULL)
-        fail ("'argv[]'-style launching not implemented on Windows CALL");
 
   #ifdef GET_IS_NT_FLAG  // !!! Why was this here?
     bool is_NT;
@@ -279,6 +240,9 @@ REB_R Call_Core(REBFRM *frame_) {
       default:
         panic (ARG(in));
     }
+
+    // !!! Output and Error code is nearly identical and should be factored
+    // into a subroutine.
 
     //=//// OUTPUT SINK SETUP /////////////////////////////////////////////=//
 

@@ -57,7 +57,7 @@ get-git-log: function [
     {Return Rebolised block of Ren/C `git log`}
 ][
     git-log: make text! 0
-    call/shell/wait/output "git log --pretty=format:'[commit: {%h} author: {%an} email: {%ae} date-string: {%ai} summary: {%s}]'" git-log
+    call/shell/output "git log --pretty=format:'[commit: {%h} author: {%an} email: {%ae} date-string: {%ai} summary: {%s}]'" git-log
     split git-log newline
 
 ]
