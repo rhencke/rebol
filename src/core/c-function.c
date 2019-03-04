@@ -370,8 +370,12 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // not "passed in" that way...the refinement is inactive.
             //
             if (refinement_seen) {
-                if (TYPE_CHECK(param, REB_NULLED))
+                if (
+                    TYPE_CHECK(param, REB_NULLED)
+                    and not TYPE_CHECK(param, REB_TS_SKIPPABLE)  // !!! allow?
+                ){
                     fail (Error_Refinement_Arg_Opt_Raw());
+                }
             }
 
             has_types = true;
