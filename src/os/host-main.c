@@ -231,7 +231,7 @@ int main(int argc, char *argv_ansi[])
     rebEND); // turn into group so it can run without a DO in stack trace
 
     rebElide(  // has an empty bin @ tail
-        "lib/ensure :lib/empty? lib/take/last", host_code_group,
+        "lib/ensure :lib/empty? lib/take/last", rebQ1(host_code_group),
     rebEND);
 
     // Create a new context specifically for startup.  This way, changes
@@ -268,9 +268,9 @@ int main(int argc, char *argv_ansi[])
     );
     Bind_Values_Deep(VAL_ARRAY_HEAD(host_code_group), startup_ctx);
 
-    REBVAL *host_start = rebRun(rebEVAL, host_code_group, rebEND);
-    if (rebNot("lib/action?", host_start, rebEND))
-        rebJumps("lib/PANIC-VALUE", host_start, rebEND);
+    REBVAL *host_start = rebRun(host_code_group, rebEND);
+    if (rebNot("action?", rebQ1(host_start), rebEND))
+        rebJumps("PANIC-VALUE", rebQ1(host_start), rebEND);
 
     rebRelease(host_code_group);
 
@@ -296,7 +296,7 @@ int main(int argc, char *argv_ansi[])
     //
     REBVAL *trapped = rebRun(
         "lib/entrap [",  // HOST-START action! takes one argument (argv[])
-            rebEVAL, host_start, "mutable", rebR(argv_block),
+            host_start, rebR(argv_block),
         "]",
     rebEND);
     rebRelease(host_start);

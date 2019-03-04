@@ -234,7 +234,7 @@ static REBVAL *Run_Sandboxed_Group(REBVAL *group) {
     //
     // So don't add superfluous libRebol calls here, except to debug.
     //
-    return rebQuote(rebEVAL, group, rebEND);  // ownership gets proxied
+    return rebQuote(group, rebEND);  // ownership gets proxied
 }
 
 
@@ -318,7 +318,7 @@ REBNATIVE(console)
         // Run_Sandboxed_Group().
         //
         REBVAL *trapped;  // Note: goto would cross initialization
-        trapped = rebRun(
+        trapped = rebRunQ(
             "entrap [",
                 "ext-console-impl",  // action! that takes 2 args, run it
                 code,  // group! or block! executed prior (or blank!)
@@ -330,7 +330,7 @@ REBNATIVE(console)
         rebRelease(code);
         rebRelease(result);
 
-        if (rebDid("error?", trapped, rebEND)) {
+        if (rebDidQ("error?", trapped, rebEND)) {
             //
             // If the HOST-CONSOLE function has any of its own implementation
             // that could raise an error (or act as an uncaught throw) it
@@ -342,35 +342,35 @@ REBNATIVE(console)
             // it might have generated (a BLOCK!) asking itself to crash.
 
             if (no_recover)
-                rebJumps("PANIC", trapped, rebEND);
+                rebJumpsQ("PANIC", trapped, rebEND);
 
-            code = rebRun("[#host-console-error]", rebEND);
+            code = rebRunQ("[#host-console-error]", rebEND);
             result = trapped;
             no_recover = true;  // no second chances until user code runs
             goto recover;
         }
 
-        code = rebRun("first", trapped, rebEND);  // entrap []'s the output
+        code = rebRunQ("first", trapped, rebEND);  // entrap []'s the output
         rebRelease(trapped); // don't need the outer block any more
 
       provoked:
 
-        if (rebDid("integer?", code, rebEND))
+        if (rebDidQ("integer?", code, rebEND))
             break;  // when HOST-CONSOLE returns INTEGER! it means exit code
 
-        if (rebDid("path?", code, rebEND)) {
+        if (rebDidQ("path?", code, rebEND)) {
             assert(REF(resumable));
             break;
         }
 
-        bool is_console_instruction = rebDid("block?", code, rebEND);
+        bool is_console_instruction = rebDidQ("block?", code, rebEND);
         REBVAL *group;
 
         if (is_console_instruction) {
-            group = rebRun("as group!", code, rebEND);  // to run without DO
+            group = rebRunQ("as group!", code, rebEND);  // to run without DO
         }
         else {
-            group = rebRun(code, rebEND);  // rebRelease() w/o affecting code
+            group = rebRunQ(code, rebEND);  // rebRelease() w/o affecting code
 
             // If they made it to a user mode instruction, the console skin
             // must not be broken beyond all repair.  So re-enable recovery.

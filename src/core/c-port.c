@@ -144,11 +144,10 @@ REBINT Awake_System(REBARR *ports, bool only)
     // Call the system awake function:
     //
     DECLARE_LOCAL (result);
-    if (Run_Throws(
+    if (RunQ_Throws(
         result,
         true, // fully
-        rebEVAL,
-        only ? awake_only : awake,
+        rebU1(only ? awake_only : awake),
         port,
         tmp,
         rebEND

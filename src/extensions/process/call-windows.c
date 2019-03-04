@@ -104,14 +104,14 @@ REB_R Call_Core(REBFRM *frame_) {
         // "bar" has been requested and seems more suitable.  Question is
         // whether it should go through the shell parsing to do so.
 
-        call = rebSpellWide(ARG(command), rebEND);
+        call = rebSpellWideQ(ARG(command), rebEND);
 
         argc = 1;
         argv = rebAllocN(const REBWCHAR*, (argc + 1));
 
         // !!! Make two copies because it frees cmd and all the argv.  Review.
         //
-        argv[0] = rebSpellWide(ARG(command), rebEND);
+        argv[0] = rebSpellWideQ(ARG(command), rebEND);
         argv[1] = nullptr;
     }
     else if (IS_BLOCK(ARG(command))) {
@@ -130,10 +130,12 @@ REB_R Call_Core(REBFRM *frame_) {
         for (i = 0; i < argc; i ++) {
             RELVAL *param = VAL_ARRAY_AT_HEAD(block, i);
             if (IS_TEXT(param)) {
-                argv[i] = rebSpellWide(KNOWN(param), rebEND);
+                argv[i] = rebSpellWideQ(KNOWN(param), rebEND);
             }
             else if (IS_FILE(param)) {
-                argv[i] = rebSpellWide("file-to-local", KNOWN(param), rebEND);
+                argv[i] = rebSpellWideQ(
+                    "file-to-local", KNOWN(param),
+                rebEND);
             }
             else
                 fail (Error_Bad_Value_Core(param, VAL_SPECIFIER(block)));
@@ -148,7 +150,7 @@ REB_R Call_Core(REBFRM *frame_) {
         argc = 1;
         argv = rebAllocN(const REBWCHAR*, (argc + 1));
 
-        argv[0] = rebSpellWide("file-to-local", ARG(command), rebEND);
+        argv[0] = rebSpellWideQ("file-to-local", ARG(command), rebEND);
         argv[1] = nullptr;
     }
     else
@@ -229,9 +231,9 @@ REB_R Call_Core(REBFRM *frame_) {
         // Pipes and file reirects are generally understood in Windows to
         // *not* use those encodings, and transmit raw bytes.
         //
-        inbuf_size = rebSpellInto(nullptr, 0, ARG(in), rebEND);
+        inbuf_size = rebSpellIntoQ(nullptr, 0, ARG(in), rebEND);
         inbuf = rebAllocN(char, inbuf_size + 1);
-        size_t check = rebSpellInto(inbuf, inbuf_size, ARG(in), rebEND);
+        size_t check = rebSpellIntoQ(inbuf, inbuf_size, ARG(in), rebEND);
         assert(check == inbuf_size);
         UNUSED(check);
         goto input_via_buffer; }
@@ -255,7 +257,7 @@ REB_R Call_Core(REBFRM *frame_) {
         break;
 
       case REB_FILE: {  // feed standard input from file contents
-        WCHAR *local_wide = rebSpellWide("file-to-local", ARG(in), rebEND);
+        WCHAR *local_wide = rebSpellWideQ("file-to-local", ARG(in), rebEND);
 
         hInputRead = CreateFile(
             local_wide,
@@ -304,7 +306,7 @@ REB_R Call_Core(REBFRM *frame_) {
         break;
 
       case REB_FILE: {  // write stdout outbuf to file
-        WCHAR *local_wide = rebSpellWide("file-to-local", ARG(out), rebEND);
+        WCHAR *local_wide = rebSpellWideQ("file-to-local", ARG(out), rebEND);
 
         si.hStdOutput = CreateFile(
             local_wide,
@@ -364,7 +366,7 @@ REB_R Call_Core(REBFRM *frame_) {
         break;
 
       case REB_FILE: {  // write stderr outbuf to file
-        WCHAR *local_wide = rebSpellWide("file-to-local", ARG(out), rebEND);
+        WCHAR *local_wide = rebSpellWideQ("file-to-local", ARG(out), rebEND);
 
         si.hStdError = CreateFile(
             local_wide,

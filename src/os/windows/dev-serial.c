@@ -86,7 +86,7 @@ DEVICE_CMD Open_Serial(REBREQ *serial)
     // to be placed at the end of the buffer.
     //
     REBCNT buf_left = MAX_SERIAL_DEV_PATH - wcslen(fullpath) - 1;
-    REBCNT chars_appended = rebSpellIntoWide(
+    REBCNT chars_appended = rebSpellIntoWideQ(
         &fullpath[wcslen(fullpath)],
         buf_left, // space, minus terminator
         ReqSerial(serial)->path,
@@ -232,10 +232,10 @@ DEVICE_CMD Read_Serial(REBREQ *serial)
     req->actual = result;
 
     rebElide(
-        "insert system/ports/system make event!", rebU("[",
+        "insert system/ports/system make event! [",
             "type: 'read",
             "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(serial))),
-        "]", rebEND),
+        "]",
     rebEND);
 
 #ifdef DEBUG_SERIAL
@@ -275,10 +275,10 @@ DEVICE_CMD Write_Serial(REBREQ *serial)
     req->common.data += result;
     if (req->actual >= req->length) {
         rebElide(
-            "insert system/ports/system make event!", rebU("[",
+            "insert system/ports/system make event! [",
                 "type: 'wrote",
                 "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(serial))),
-            "]", rebEND),
+            "]",
         rebEND);
 
         return DR_DONE;

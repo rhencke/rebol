@@ -154,10 +154,10 @@ REB_R Call_Core(REBFRM *frame_) {
         break;
 
       case REB_TEXT: {
-        inbuf_size = rebSpellInto(nullptr, 0, ARG(in), rebEND);
+        inbuf_size = rebSpellIntoQ(nullptr, 0, ARG(in), rebEND);
         inbuf = rebAllocN(char, inbuf_size);
         size_t check;
-        check = rebSpellInto(inbuf, inbuf_size, ARG(in), rebEND);
+        check = rebSpellIntoQ(inbuf, inbuf_size, ARG(in), rebEND);
         UNUSED(check);
         break; }
 

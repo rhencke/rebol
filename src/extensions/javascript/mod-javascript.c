@@ -268,10 +268,9 @@ struct Reb_Promise_Info *PG_Promises;  // Singly-linked list
 // ties the returned integer into the resolve and reject branches of an
 // actual JavaScript Promise.
 //
-EMSCRIPTEN_KEEPALIVE EXTERN_C
-intptr_t RL_rebPromise(void *p, va_list *vaptr)
+static intptr_t rebPromise_internal(REBFLGS flags, void *p, va_list *vaptr)
 {
-    TRACE("rebPromise() called");
+    TRACE("rebPromise_internal() called");
     ASSERT_ON_MAIN_THREAD();
 
     // If we're asked to run `rebPromise("input")` from the MAIN thread, there
@@ -297,29 +296,12 @@ intptr_t RL_rebPromise(void *p, va_list *vaptr)
     // for granted the resolve() function created on return from this helper
     // already exists.
 
-    DECLARE_VA_FEED (
-        feed,
-        p,
-        vaptr,
-        FEED_MASK_DEFAULT  // !!! Should top frame flags be heeded?
-            | (FS_TOP->feed->flags.bits & FEED_FLAG_CONST)
-    );
+    DECLARE_VA_FEED (feed, p, vaptr, flags);
 
-    // !!! This code inlined from Do_Va_Throws(), go over it to see if it's
-    // really all necessary.
-    //
     REBDSP dsp_orig = DSP;
     while (NOT_END(feed->value)) {
         Derelativize(DS_PUSH(), feed->value, feed->specifier);
         SET_CELL_FLAG(DS_TOP, UNEVALUATED);
-
-        // SEE ALSO: The `inert:` branch in %c-eval.c, which is similar.  We
-        // want `loop 2 [append '(a b c) 'd]` to be an error, which means the
-        // quoting has to get the const flag from the frame if intended.
-        //
-        if (not GET_CELL_FLAG(feed->value, EXPLICITLY_MUTABLE))
-            DS_TOP->header.bits |= (feed->flags.bits & FEED_FLAG_CONST);
-
         Fetch_Next_In_Feed(feed, false);
     }
     // Note: exhausting feed should take care of the va_end()
@@ -344,6 +326,14 @@ intptr_t RL_rebPromise(void *p, va_list *vaptr)
 
     return info->promise_id;
 }
+
+EMSCRIPTEN_KEEPALIVE EXTERN_C
+intptr_t RL_rebPromise(void *p, va_list *vaptr)
+  { return rebPromise_internal(FEED_MASK_DEFAULT, p, vaptr); }
+
+EMSCRIPTEN_KEEPALIVE EXTERN_C
+intptr_t RL_rebPromiseQ(void *p, va_list *vaptr)
+  { return rebPromise_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
 
 
 #if defined(USE_PTHREADS)

@@ -249,11 +249,10 @@ inline static bool Single_Test_Throws(
         PUSH_GC_GUARD(arg_specified);
 
         DECLARE_LOCAL (temp);  // test is in `out`
-        bool threw = Run_Throws(
+        bool threw = RunQ_Throws(
             temp,
             true,  // `fully` (ensure argument consumed)
-            rebEVAL,
-            KNOWN(test),
+            rebU1(KNOWN(test)),
             NULLIFY_NULLED(arg_specified),  // nulled cells to nullptr for API
             rebEND
         );
@@ -899,11 +898,10 @@ REBNATIVE(case)
         }
         else {
             DECLARE_LOCAL (temp);
-            if (Run_Throws(
+            if (RunQ_Throws(
                 temp,
                 true,  // fully = true (e.g. argument must be taken)
-                rebEVAL,
-                predicate,
+                rebU1(predicate),
                 D_OUT,  // argument
                 rebEND
             )){
@@ -1115,11 +1113,10 @@ REBNATIVE(switch)
             // survive across this point.
             //
             DECLARE_LOCAL (temp);
-            if (Run_Throws(
+            if (RunQ_Throws(
                 temp,
                 true,  // fully = true (e.g. both arguments must be taken)
-                rebEVAL,
-                predicate,
+                rebU1(predicate),
                 left,  // first arg (left hand side if infix)
                 D_OUT,  // second arg (right hand side if infix)
                 rebEND
@@ -1144,11 +1141,10 @@ REBNATIVE(switch)
 
             if (IS_ACTION(*v)) {  // must have been COMPOSE'd in cases
                 DECLARE_LOCAL (temp);
-                if (Run_Throws(
+                if (RunQ_Throws(
                     temp,
                     false,  // fully = false, e.g. arity-0 functions are ok
-                    rebEVAL,
-                    KNOWN(*v),  // actions don't need specifiers
+                    rebU1(KNOWN(*v)),  // actions don't need specifiers
                     D_OUT,
                     rebEND
                 )){

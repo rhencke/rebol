@@ -44,7 +44,7 @@
 
 //=//// ARRAY_FLAG_SINGULAR_API_RELEASE //////////////////////////////////=//
 //
-// The rebT() function can be used with an API handle to tell a variadic
+// The rebR() function can be used with an API handle to tell a variadic
 // function to release that handle after encountering it.
 //
 // !!! API handles are singular arrays, because there is already a stake in
@@ -56,24 +56,14 @@
     ARRAY_FLAG_23
 
 
-//=//// ARRAY_FLAG_SINGULAR_API_INSTRUCTION //////////////////////////////=//
+//=//// ARRAY_FLAG_INSTRUCTION_ADJUST_QUOTING /////////////////////////////=//
 //
-// Rather than have LINK() and MISC() fields used to distinguish an API
-// handle like an INTEGER! from something like a rebEVAL(), a flag helps
-// keep those free for different purposes.
+// This is used by rebQ() and rebU() to either add a quoting level of splices
+// or to remove one.  Today these arrays are always singular and contain
+// one value, but in the future they might contain more.
 //
-#define ARRAY_FLAG_SINGULAR_API_INSTRUCTION \
+#define ARRAY_FLAG_INSTRUCTION_ADJUST_QUOTING \
     ARRAY_FLAG_24
-
-
-//=//// ARRAY_FLAG_SINGULAR_API_INSTRUCTION //////////////////////////////=//
-//
-// rebUNEVALUATIVE() a.k.a. rebU() will set its feed to unevaluative, so that
-// it knows not to splice values with a quote.  But then there's the matter
-// of the node itself.  We set it to unevaluative.
-//
-#define ARRAY_FLAG_SINGULAR_API_UNEVALUATIVE \
-    ARRAY_FLAG_25
 
 
 // When Push_Action() happens, it sets f->original, but it's guaranteed to be
@@ -168,8 +158,7 @@ inline static void Free_Value(REBVAL *v)
 inline static REBARR *Alloc_Instruction(enum Reb_Api_Opcode opcode) {
     REBSER *s = Alloc_Series_Node(
         SERIES_FLAG_FIXED_SIZE // not tracked as stray manual, but unmanaged
-        | ARRAY_FLAG_SINGULAR_API_INSTRUCTION
-        | ARRAY_FLAG_SINGULAR_API_RELEASE
+        /* ... */
     );
     s->info = Endlike_Header(
         FLAG_WIDE_BYTE_OR_0(0) // signals array, also implicit terminator

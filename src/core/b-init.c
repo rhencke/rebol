@@ -1557,11 +1557,10 @@ static REBVAL *Startup_Mezzanine(BOOT_BLK *boot)
     // bound to the lib context and DO'd.
     //
     DECLARE_LOCAL (result);
-    if (Run_Throws(
+    if (RunQ_Throws(
         result,
         true, // fully = true (error if all arguments aren't consumed)
-        rebEVAL,
-        finish_init, // %sys-start.r function to call
+        rebU1(finish_init), // %sys-start.r function to call
         KNOWN(&boot->mezz), // boot-mezz argument
         rebEND
     )){

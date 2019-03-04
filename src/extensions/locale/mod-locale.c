@@ -60,8 +60,8 @@ REBNATIVE(locale)
             "language*", rebI(LOCALE_SNATIVELANGNAME),
             "territory", rebI(LOCALE_SENGCOUNTRY),
             "territory*", rebI(LOCALE_SCOUNTRY),
-        "]", cat, "else [",
-            "fail [{Invalid locale category:}", cat, "]",
+        "]", rebQ1(cat), "else [",
+            "fail [{Invalid locale category:}", rebQ1(cat), "]",
         "]", rebEND // !!! review using fail with ID-based errors
     );
 
@@ -157,13 +157,13 @@ REBNATIVE(setlocale)
         "]", rebEND
     );
 
-    int cat = rebUnbox("-1 unless select", map, ARG(category), rebEND);
+    int cat = rebUnboxQ("-1 unless select", map, ARG(category), rebEND);
     rebRelease(map);
 
     if (cat == -1)
-        rebJumps(
-            "fail [{Invalid locale category:}", ARG(category), "]", rebEND
-        );
+        rebJumpsQ(
+            "fail [{Invalid locale category:}", ARG(category), "]",
+        rebEND);
 
     char *value_utf8 = rebSpell(ARG(value), rebEND);
     const char *result = setlocale(cat, value_utf8);

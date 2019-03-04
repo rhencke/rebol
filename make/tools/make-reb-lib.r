@@ -241,9 +241,9 @@ append c89-macros reduce [
     ; Placeholder for smarter API wrapping--we want the c89 calls to these
     ; APIs have to include rebEND when they become variadic.
     ;
-    {#define rebSpellInto rebSpellInto_internal}
-    {#define rebSpellIntoWide rebSpellIntoWide_internal}
-    {#define rebBytesInto rebBytesInto_internal}
+    {#define rebSpellIntoQ rebSpellIntoQ_internal}
+    {#define rebSpellIntoWideQ rebSpellIntoWideQ_internal}
+    {#define rebBytesIntoQ rebBytesIntoQ_internal}
 ]
 
 c99-or-c++11-macros: map-each-api [
@@ -260,16 +260,16 @@ append c99-or-c++11-macros reduce [
     ; calls to these APIs have to include rebEND when they become variadic.
     ;
     trim/auto copy {
-        #define rebSpellInto(buf,buf_size,v) \
-            rebSpellInto_Internal((buf), (buf_size), (v), rebEND)
+        #define rebSpellIntoQ(buf,buf_size,v) \
+            rebSpellIntoQ_internal((buf), (buf_size), (v), rebEND)
     }
     trim/auto copy {
-        #define rebSpellIntoWide(buf,buf_size,v) \
-            rebSpellIntoWide_Internal((buf), (buf_size), (v), rebEND)
+        #define rebSpellIntoWideQ(buf,buf_size,v) \
+            rebSpellIntoWideQ_internal((buf), (buf_size), (v), rebEND)
     }
     trim/auto copy {
-        #define rebBytesInto(buf,buf_size,binary) \
-            rebBytesIntoWide_Internal((buf), (buf_size), (binary), rebEND)
+        #define rebBytesIntoQ(buf,buf_size,binary) \
+            rebBytesIntoQ_internal((buf), (buf_size), (binary), rebEND)
     }
 ]
 
@@ -510,23 +510,24 @@ e-lib/emit {
      * obviously not reading this generated header file!)
      */
 
-    #define rebR(v) \
-        rebRELEASING(v)
+    #define rebR rebRELEASING
+    #define rebQ rebQUOTING
+    #define rebU rebUNQUOTING
 
-    #define rebEVAL \
-        rebEVAL_internal()
+    #define rebQ1(v)  /* C89 requires the rebEND, nice to omit it */ \
+        rebQ((v), rebEND)  /* has optimization in rebQ() for this case */
 
-    #define rebU \
-        rebUNEVALUATIVE
+    #define rebU1(v) /* C89 requires the rebEND, nice to omit it */ \
+        rebU((v), rebEND)  /* has optimization in rebU() for this case */
 
     #define rebT(utf8) \
-        rebEVAL, rebR(rebText(utf8))  /* might rebTEXT() delayed-load? */
+        rebR(rebText(utf8))  /* might rebTEXT() delayed-load? */
 
     #define rebI(int64) \
-        rebEVAL, rebR(rebInteger(int64))
+        rebR(rebInteger(int64))
 
     #define rebL(flag) \
-        rebEVAL, rebR(rebLogic(flag))
+        rebR(rebLogic(flag))
 
     /*
      * Function entry points for reb-lib.  Formulating this way allows the
@@ -802,6 +803,14 @@ append api-objects make object! [
 
 append api-objects make object! [
     spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
+    name: "rebPromiseQ"
+    returns: "intptr_t"
+    paramlist: ["const void *" p "va_list *" vaptr]
+    proto: "intptr_t rebPromiseQ(void *p, va_list *vaptr)"
+]
+
+append api-objects make object! [
+    spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
     name: "rebIdle_internal"  ; !!! see %mod-javascript.c
     returns: "void"
     paramlist: []
@@ -956,10 +965,8 @@ map-each-api [
 ]
 e-cwrap/emit {
     reb.R = reb.RELEASING
-
-    reb.EVAL = reb.EVAL_internal
-
-    reb.U = reb.UNEVALUATIVE
+    reb.Q = reb.QUOTING
+    reb.U = reb.UNQUOTING
 
     /* !!! reb.T()/reb.I()/reb.L() could be optimized entry points, but make
      * them compositions for now, to ensure that it's possible for the user to
@@ -967,15 +974,15 @@ e-cwrap/emit {
      */
 
     reb.T = function(utf8) {
-        return reb.U(reb.R(reb.Text(utf8)))  /* might reb.Text() delayload? */
+        return reb.R(reb.Text(utf8))  /* might reb.Text() delayload? */
     }
 
     reb.I = function(int64) {
-        return reb.U(reb.R(reb.Integer(int64)))
+        return reb.R(reb.Integer(int64))
     }
 
     reb.L = function(flag) {
-        return reb.U(reb.R(reb.Logic(flag)))
+        return reb.R(reb.Logic(flag))
     }
 
     reb.Startup = function() {

@@ -250,10 +250,10 @@ REBNATIVE(decode_png)
     REBVAL *binary = rebRepossess(image_bytes, (w * h) * 4);
 
     REBVAL *image = rebRun(
-        "make image! compose", rebU("[",
+        "make image! compose [",
             "(make pair! [", rebI(w), rebI(h), "])",
             binary,
-        "]", rebEND),
+        "]",
     rebEND);
 
     rebRelease(binary);

@@ -308,8 +308,7 @@ enum Reb_Vararg_Op {
 //
 
 enum Reb_Api_Opcode {
-    API_OPCODE_EVAL,
-    API_OPCODE_RELEASE
+    API_OPCODE_UNUSED  // !!! Not currently used, review
 };
 
 

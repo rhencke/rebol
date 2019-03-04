@@ -199,7 +199,7 @@ DEVICE_CMD Open_Serial(REBREQ *req)
     assert(serial->path != NULL);
 
     char path_utf8[MAX_SERIAL_PATH];
-    REBCNT size = rebSpellInto(
+    REBCNT size = rebSpellIntoQ(
         path_utf8,
         MAX_SERIAL_PATH,
         serial->path,
@@ -279,10 +279,10 @@ DEVICE_CMD Read_Serial(REBREQ *serial)
     req->actual = result;
 
     rebElide(
-        "insert system/ports/system make event!", rebU("[",
+        "insert system/ports/system make event! [",
             "type: 'read",
             "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(serial))),
-        "]", rebEND),
+        "]",
     rebEND);
 
     return DR_DONE;
@@ -320,10 +320,10 @@ DEVICE_CMD Write_Serial(REBREQ *serial)
     req->common.data += result;
     if (req->actual >= req->length) {
         rebElide(
-            "insert system/ports/system make event!", rebU("[",
+            "insert system/ports/system make event! [",
                 "type: 'wrote",
                 "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(serial))),
-            "]", rebEND),
+            "]",
         rebEND);
 
         return DR_DONE;

@@ -190,8 +190,8 @@ REBNATIVE(shove)
         }
         else if (IS_SET_PATH(left)) {
             f->feed->gotten = nullptr;  // calling arbitrary code, may disrupt
-            composed_set_path = rebRun("compose", left, rebEND);
-            REBVAL *temp = rebRun("get/hard", composed_set_path, rebEND);
+            composed_set_path = rebRunQ("compose", left, rebEND);
+            REBVAL *temp = rebRunQ("get/hard", composed_set_path, rebEND);
             Move_Value(D_OUT, temp);
             rebRelease(temp);
         }
@@ -234,7 +234,7 @@ REBNATIVE(shove)
         }
         else if (IS_SET_PATH(left)) {
             f->feed->gotten = nullptr;  // calling arbitrary code, may disrupt
-            rebElide("set/hard", composed_set_path, D_OUT, rebEND);
+            rebElideQ("set/hard", composed_set_path, D_OUT, rebEND);
             rebRelease(composed_set_path);
         }
         else
@@ -367,11 +367,10 @@ REBNATIVE(do)
 
         UNUSED(REF(args)); // detected via `value? :arg`
 
-        if (Run_Throws(
+        if (RunQ_Throws(
             D_OUT,
             true,  // fully = true, error if not all arguments consumed
-            rebEVAL,
-            sys_do_helper,
+            rebU1(sys_do_helper),
             source,
             NULLIFY_NULLED(ARG(arg)), // nulled cells => nullptr for API
             REF(only) ? TRUE_VALUE : FALSE_VALUE,

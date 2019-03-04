@@ -276,21 +276,17 @@ inline static bool Eval_Step_In_Any_Array_At_Throws(
 //
 inline static bool Eval_Step_In_Va_Throws_Core(
     REBVAL *out,  // must be initialized, won't change if all empty/invisible
+    REBFLGS feed_flags,
     const void *opt_first,
     va_list *vaptr,
-    REBFLGS flags  // EVAL_FLAG_XXX (not FEED_FLAG_XXX)
+    REBFLGS eval_flags
 ){
-    DECLARE_VA_FEED (
-        feed,
-        opt_first,
-        vaptr,
-        FEED_MASK_DEFAULT  // !!! Should top frame flags be heeded?
-            | (FS_TOP->feed->flags.bits & FEED_FLAG_CONST)
-    );
-    DECLARE_FRAME (f, feed, flags);
+    DECLARE_VA_FEED (feed, opt_first, vaptr, feed_flags);
 
     if (IS_END(feed->value))
         return false;
+
+    DECLARE_FRAME (f, feed, eval_flags);
 
     Push_Frame(out, f);
     bool threw = Eval_Throws(f);
@@ -299,7 +295,7 @@ inline static bool Eval_Step_In_Va_Throws_Core(
     if (threw)
         return true;
 
-    if ((flags & EVAL_FLAG_NO_RESIDUE) and NOT_END(feed->value))
+    if ((eval_flags & EVAL_FLAG_NO_RESIDUE) and NOT_END(feed->value))
         fail (Error_Apply_Too_Many_Raw());
 
     // A va_list-based feed has a lookahead, and also may be spooled due to

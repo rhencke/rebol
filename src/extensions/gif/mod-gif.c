@@ -342,10 +342,10 @@ REBNATIVE(decode_gif)
         REBVAL *binary = rebRepossess(dp, (w * h) * 4);
 
         rebElide(
-            "append", frames, "make image! compose", rebU("[",
+            "append", frames, "make image! compose [",
                 "(to pair! [", rebI(w), rebI(h), "])",
                 binary,
-            "]", rebEND),
+            "]",
         rebEND);
 
         rebRelease(binary);

@@ -57,7 +57,7 @@ REB_R MAKE_Port(
     assert(IS_ACTION(make_port_helper));
 
     assert(not IS_NULLED(arg)); // would need to DEVOID it otherwise
-    if (Run_Throws(out, fully, rebEVAL, make_port_helper, arg, rebEND))
+    if (RunQ_Throws(out, fully, rebU1(make_port_helper), arg, rebEND))
         fail (Error_No_Catch_For_Throw(out));
 
     // !!! Shouldn't this be testing for !IS_PORT( ) ?
@@ -141,7 +141,7 @@ REB_R Retrigger_Append_As_Write(REBFRM *frame_) {
     if (REF(line))
         fail (Error_Bad_Refines_Raw());
 
-    return rebRun("write/append", D_ARG(1), D_ARG(2), rebEND);
+    return rebRunQ("write/append", D_ARG(1), D_ARG(2), rebEND);
 }
 
 
@@ -176,7 +176,7 @@ REBTYPE(Port)
             // are going to read the D_ARG(1) slot *implicitly* regardless of
             // what value points to.
             //
-            const REBVAL *made = rebRun("make port!", D_ARG(1), rebEND);
+            const REBVAL *made = rebRunQ("make port!", D_ARG(1), rebEND);
             assert(IS_PORT(made));
             Move_Value(D_ARG(1), made);
             rebRelease(made);

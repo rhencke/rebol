@@ -933,6 +933,10 @@ union Reb_Series_Misc {
     //
     bool negated;
 
+    // rebQ() and rebU() use this with ARRAY_FLAG_INSTRUCTION_ADJUST_QUOTING.
+    //
+    int quoting_delta;
+
     // If a REBSER is used by a custom cell type, it can use the MISC()
     // field how it likes.  But if it is a node and needs to be GC-marked,
     // it has to tell the system with SERIES_INFO_MISC_IS_CUSTOM_NODE.

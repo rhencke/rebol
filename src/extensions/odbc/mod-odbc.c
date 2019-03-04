@@ -300,7 +300,7 @@ REBNATIVE(open_statement)
     ODBC_INCLUDE_PARAMS_OF_OPEN_STATEMENT;
 
     REBVAL *connection = ARG(connection);
-    REBVAL *hdbc_value = rebRun(
+    REBVAL *hdbc_value = rebRunQ(
         "ensure handle! pick", connection, "'hdbc", rebEND
     );
     SQLHDBC hdbc = VAL_HANDLE_POINTER(SQLHDBC, hdbc_value);
@@ -438,9 +438,9 @@ SQLRETURN ODBC_BindParameter(
         // Call to get the length of how big a buffer to make, then a second
         // call to fill the buffer after its made.
         //
-        REBCNT len_no_term = rebSpellIntoWide(NULL, 0, v, rebEND);
+        REBCNT len_no_term = rebSpellIntoWideQ(NULL, 0, v, rebEND);
         SQLWCHAR *chars = rebAllocN(SQLWCHAR, len_no_term + 1);
-        REBCNT len_check = rebSpellIntoWide(chars, len_no_term, v, rebEND);
+        REBCNT len_check = rebSpellIntoWideQ(chars, len_no_term, v, rebEND);
         assert(len_check == len_no_term);
         UNUSED(len_check);
 

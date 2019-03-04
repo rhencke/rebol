@@ -391,8 +391,8 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
 
     if (not p) {  // libRebol's null/<opt> (IS_NULLED prohibited in CELL case)
 
-        if (GET_FEED_FLAG(feed, UNEVALUATIVE))
-            fail ("rebUNEVALUATIVE/rebU API mode cannot splice nulls");
+        if (QUOTING_BYTE(feed) == 0)
+            panic ("Cannot directly splice nulls...use rebQ(), rebXxxQ()");
 
         // !!! We could make a global QUOTED_NULLED_VALUE with a stable
         // pointer and not have to use fetched or FETCHED_MARKED_TEMPORARY.
@@ -477,92 +477,49 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
         CLEAR_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
         break; }
 
-      case DETECTED_AS_SERIES: {  // e.g. rebEVAL(), or a rebR() handle
+      case DETECTED_AS_SERIES: {  // e.g. rebQ, rebU, or a rebR() handle
         REBARR *inst1 = ARR(m_cast(void*, p));
 
-        // The instruction should be unmanaged, and will be freed on the next
-        // entry to this routine (optionally copying out its contents into
-        // the frame's cell for stable lookback--if necessary).
+        // As we feed forward, we're supposed to be freeing this--it is not
+        // managed -and- it's not manuals tracked, it is only held alive by
+        // the va_list()'s plan to visit it.  A fail() here won't auto free
+        // it *because it is this traversal code which is supposed to free*.
         //
-        if (GET_ARRAY_FLAG(inst1, SINGULAR_API_INSTRUCTION)) {
+        // !!! Actually, THIS CODE CAN'T FAIL.  :-/  It is part of the
+        // implementation of fail's cleanup itself.
+        //
+        if (GET_ARRAY_FLAG(inst1, INSTRUCTION_ADJUST_QUOTING)) {
             assert(NOT_SERIES_FLAG(inst1, MANAGED));
 
-            switch (MISC(inst1).opcode) {
-              case API_OPCODE_EVAL: {
+            if (QUOTING_BYTE(feed) + MISC(inst1).quoting_delta < 0)
+                panic ("rebU() can't unquote a feed splicing plain values");
 
-                Free_Instruction(inst1);
-                TRASH_POINTER_IF_DEBUG(inst1);
+            assert(ARR_LEN(inst1) > 0);
+            if (ARR_LEN(inst1) > 1)
+                panic ("rebU() of more than one value splice not written");
 
-                p = va_arg(*feed->vaptr, const void*);
-                if (not p)
-                    fail ("rebEVAL and rebU/rebUNEVALUATIVE can't take null");
+            REBVAL *single = KNOWN(ARR_SINGLE(inst1));
+            Move_Value(&feed->fetched, single);
+            Quotify(
+                &feed->fetched,
+                QUOTING_BYTE(feed) + MISC(inst1).quoting_delta
+            );
+            SET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
+            feed->value = &feed->fetched;
 
-                switch (Detect_Rebol_Pointer(p)) {
-                  case DETECTED_AS_CELL: {  // should not be relative
-                    feed->value = KNOWN(cast(const REBVAL*, p));
-                    feed->index = TRASHED_INDEX;  // necessary?
-
-                    CLEAR_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
-                    break; }
-
-                  case DETECTED_AS_SERIES: {
-                    //
-                    // We allow `rebRun(..., rebEVAL, rebR(v), ...)`
-                    //
-                    REBARR *inst2 = ARR(m_cast(void*, p));
-                    if (
-                        GET_ARRAY_FLAG(inst2, SINGULAR_API_INSTRUCTION)
-                        or NOT_ARRAY_FLAG(inst2, SINGULAR_API_RELEASE)
-                    ){
-                        goto not_supported;
-                    }
-
-                    // We're freeing the value, so even though it has the
-                    // right non-quoted bit pattern, we copy it.  (Previous
-                    // attempts to avoid copying and releasing on the *next*
-                    // fetch were too convoluted to be worth it, reconsider
-                    // if a tidy approach can be done.
-                    //
-                    // !!! Repeats code below with tiny deviation (no quote)
-                    //
-                    REBVAL *single = KNOWN(ARR_SINGLE(inst2));
-                    Move_Value(&feed->fetched, single);
-                    SET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
-                    feed->value = &feed->fetched;
-                    rebRelease(cast(const REBVAL*, single));
-                    break; }
-
-                  default:
-                  not_supported:
-                    fail ("rebEVAL and rebUNEVALUATIVE/rebU only on REBVAL*");
-                }
-
-                break; }
-
-              default:
-                panic (p);
-            }
+            GC_Kill_Series(SER(inst1));  // not manuals-tracked
         }
         else if (GET_ARRAY_FLAG(inst1, SINGULAR_API_RELEASE)) {
             assert(GET_SERIES_FLAG(inst1, MANAGED));
 
-            REBVAL *single = KNOWN(ARR_SINGLE(inst1));
-            if (
-                GET_FEED_FLAG(feed, UNEVALUATIVE)
-                or GET_ARRAY_FLAG(inst1, SINGULAR_API_UNEVALUATIVE)
-            ){
-                //
-                // See notes above (duplicate code, fix!) about how if we
-                // aren't adding a quote, then we might like to use the
-                // as-is value and wait to free until the next cycle vs.
-                // putting it in fetched/MARKED_TEMPORARY...but that makes
-                // this more convoluted.  Review.
-                //
-                Move_Value(&feed->fetched, single);
-            }
-            else
-                Quotify(Move_Value(&feed->fetched, single), 1);
+            // See notes above (duplicate code, fix!) about how we might like
+            // to use the as-is value and wait to free until the next cycle
+            // vs. putting it in fetched/MARKED_TEMPORARY...but that makes
+            // this more convoluted.  Review.
 
+            REBVAL *single = KNOWN(ARR_SINGLE(inst1));
+            Move_Value(&feed->fetched, single);
+            Quotify(&feed->fetched, QUOTING_BYTE(feed));
             SET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
             feed->value = &feed->fetched;
             rebRelease(cast(const REBVAL*, single));  // *is* the instruction
@@ -581,18 +538,14 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
         if (IS_NULLED(cell))  // API enforces use of C's nullptr (0) for NULL
             assert(!"NULLED cell API leak, see NULLIFY_NULLED() in C source");
 
-        if (GET_FEED_FLAG(feed, UNEVALUATIVE)) {
-            feed->value = cell;  // non-nulled cell can be used as-is
+        if (QUOTING_BYTE(feed) == 0) {
+            feed->value = cell;  // cell can be used as-is
         }
         else {
-            // Cells that do not have rebEVAL() preceding them need to appear
-            // at one quote level to the evaluator, so that they seem to have
-            // already been evaluated (e.g. the lookup by C name counts as
-            // their "evaluation", as if they'd been fetched by a WORD!).
-            // But we don't want to corrupt the value itself.  We have to move
+            // We don't want to corrupt the value itself.  We have to move
             // it into the fetched cell and quote it.
             //
-            Quotify(Move_Value(&feed->fetched, cell), 1);
+            Quotify(Move_Value(&feed->fetched, cell), QUOTING_BYTE(feed));
             SET_CELL_FLAG(&feed->fetched, FETCHED_MARKED_TEMPORARY);
             feed->value = &feed->fetched;  // note END is detected separately
         }
@@ -949,7 +902,7 @@ inline static void Prep_Va_Feed(
 
 // The flags is passed in by the macro here by default, because it does a
 // fetch as part of the initialization from the opt_first...and if you want
-// FEED_FLAG_UNEVALUATIVE to take effect, it must be passed in up front.
+// FLAG_QUOTING_BYTE() to take effect, it must be passed in up front.
 //
 #define DECLARE_VA_FEED(name,opt_first,vaptr,flags) \
     struct Reb_Feed name##struct; \

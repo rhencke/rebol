@@ -1701,7 +1701,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     SET_SERIES_FLAG(f->varlist, MANAGED);
 
     const bool fully = true;
-    if (Run_Throws(f->out, fully, rebEVAL, outer, rootvar, rebEND))
+    if (RunQ_Throws(f->out, fully, rebU1(outer), rootvar, rebEND))
         return R_THROWN;
 
     return f->out;

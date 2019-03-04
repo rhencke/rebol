@@ -421,7 +421,7 @@ struct Reb_Feed {
     //
     RELVAL fetched;
 
-    union Reb_Header flags;
+    union Reb_Header flags;  // quoting level included
 
     // If the binder isn't NULL, then any words or arrays are bound into it
     // during the loading process.  
@@ -603,12 +603,52 @@ struct Reb_Feed {
     FLAG_LEFT_BIT(3)
 
 
-// By default, the feed will quote items that are being spliced.  But if it
-// is marked unevaluative, it will not quote them.  In this mode, null
-// splices are prohibited.
-//
-#define FEED_FLAG_UNEVALUATIVE \
+#define FEED_FLAG_4 \
     FLAG_LEFT_BIT(4)
+
+
+//=//// BITS 8...15 ARE THE QUOTING LEVEL /////////////////////////////////=//
+
+// There was significant deliberation over what the following code should do:
+//
+//     REBVAL *word = rebRun("'print");
+//     REBVAL *type = rebRun("type of", word);
+//
+// If the WORD! is simply spliced into the code and run, then that will be
+// an error.  It would be as if you had written:
+//
+//     do compose [type of (word)]
+//
+// It may seem to be more desirable to pretend you had fetched word from a
+// variable, as if the code had been Rebol.  The illusion could be given by
+// automatically splicing quotes, but doing this without being asked creates
+// other negative side effects:
+//
+//     REBVAL *x = rebInteger(10);
+//     REBVAL *y = rebInteger(20);
+//     REBVAL *coordinate = rebRun("[", x, y, "]");
+//
+// You don't want to wind up with `['10 '20]` in that block.  So automatic
+// splicing with quotes is fraught with problems.  Still it might be useful
+// sometimes, so it is exposed via `rebRunQ()` and other `rebXxxQ()`.
+//
+// These facilities are generalized so that one may add and drop quoting from
+// splices on a feed via ranges, countering any additions via rebQ() with a
+// corresponding rebU().  This is kept within reason at up to 255 levels
+// in a byte, and that byte is in the feed flags in the second byte (where
+// it is least likely to be needed to line up with cell bits etc.)  Being in
+// the flags means it can be initialized with them in one assignment if
+// it does not change.
+//
+
+#define FLAG_QUOTING_BYTE(quoting) \
+    FLAG_SECOND_BYTE(quoting)
+
+#define QUOTING_BYTE(feed) \
+    SECOND_BYTE((feed)->flags.bits)
+
+#define mutable_QUOTING_BYTE(feed) \
+    mutable_SECOND_BYTE((feed)->flags.bits)
 
 
 // The user is able to flip the constness flag explicitly with the CONST and

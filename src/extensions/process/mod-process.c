@@ -338,7 +338,7 @@ REBNATIVE(get_env)
   #ifdef TO_WINDOWS
     // Note: The Windows variant of this API is NOT case-sensitive
 
-    WCHAR *key = rebSpellWide(variable, rebEND);
+    WCHAR *key = rebSpellWideQ(variable, rebEND);
 
     DWORD val_len_plus_one = GetEnvironmentVariable(key, NULL, 0);
     if (val_len_plus_one == 0) { // some failure...
@@ -364,7 +364,7 @@ REBNATIVE(get_env)
   #else
     // Note: The Posix variant of this API is case-sensitive
 
-    char *key = rebSpell(variable, rebEND);
+    char *key = rebSpellQ(variable, rebEND);
 
     const char* val = getenv(key);
     if (val == NULL) // key not present in environment
@@ -533,7 +533,7 @@ REBNATIVE(list_env)
         REBVAL *val = rebLengthedTextWide(eq_pos + 1, val_len);
 
         rebElide(
-            "append", map, rebU("[", rebR(key), rebR(val), "]", rebEND),
+            "append", map, "[", rebR(key), rebR(val), "]",
         rebEND);
 
         key_equals_val += len + 1; // next
@@ -565,7 +565,7 @@ REBNATIVE(list_env)
         REBVAL *val = rebSizedText(eq_pos + 1, val_size);
 
         rebElide(
-            "append", map, rebU("[", rebR(key), rebR(val), "]", rebEND),
+            "append", map, "[", rebR(key), rebR(val), "]",
         rebEND);
     }
   #endif

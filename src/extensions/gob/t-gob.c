@@ -829,8 +829,8 @@ REB_R PD_Gob(
     }
 
     if (IS_INTEGER(picker))
-        return rebRun(
-            rebEVAL, NAT_VALUE(pick), ARR_AT(gob, IDX_GOB_PANE), picker,
+        return rebRunQ(
+            rebU1(NAT_VALUE(pick)), ARR_AT(gob, IDX_GOB_PANE), picker,
         rebEND);
 
     return R_UNHANDLED;
@@ -1058,7 +1058,7 @@ REBTYPE(Gob)
         return nullptr;
 
     case SYM_REVERSE:
-        return rebRun(
+        return rebRunQ(
             "reverse", ARR_AT(gob, IDX_GOB_PANE),
         rebEND);
 

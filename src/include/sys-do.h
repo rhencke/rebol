@@ -132,27 +132,6 @@ inline static bool Do_At_Mutable_Throws(
 }
 
 
-inline static bool Do_Va_Throws(
-    REBVAL *out,
-    const void *opt_first,  // optional element to inject *before* the va_list
-    va_list *vaptr  // va_end() handled by feed for all cases (throws, fails)
-){
-    Init_Void(out);
-
-    DECLARE_VA_FEED (
-        feed,
-        opt_first,
-        vaptr,
-        FEED_MASK_DEFAULT  // !!! Should top frame flags be heeded?
-            | (FS_TOP->feed->flags.bits & FEED_FLAG_CONST)
-    );
-
-    bool threw = Do_Feed_To_End_Maybe_Stale_Throws(out, feed);
-    CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
-    return threw;
-}
-
-
 // Takes a list of arguments terminated by an end marker and will do something
 // similar to R3-Alpha's "apply/only" with a value.  If that value is a
 // function, it will be called...if it's a SET-WORD! it will be assigned, etc.
@@ -161,7 +140,7 @@ inline static bool Do_Va_Throws(
 // then calling EVAL/ONLY on it.  If all the inputs are not consumed, an
 // error will be thrown.
 //
-inline static bool Run_Throws(
+inline static bool RunQ_Throws(
     REBVAL *out,
     bool fully,
     const void *p,  // last param before ... mentioned in va_start()
@@ -172,6 +151,7 @@ inline static bool Run_Throws(
 
     bool threw = Eval_Step_In_Va_Throws_Core(
         SET_END(out),  // start at END to detect error if no eval product
+        FEED_MASK_DEFAULT | FLAG_QUOTING_BYTE(1),
         p,  // opt_first
         &va,  // va_end() handled by Eval_Va_Core on success/fail/throw
         EVAL_MASK_DEFAULT
@@ -208,11 +188,10 @@ inline static bool Do_Branch_Core_Throws(
         return Do_Any_Array_At_Throws(out, branch, SPECIFIED);
 
     assert(IS_ACTION(branch));
-    return Run_Throws(
+    return RunQ_Throws(
         out,
         false, // !fully, e.g. arity-0 functions can ignore condition
-        rebEVAL,
-        branch,
+        rebU1(branch),
         condition, // may be an END marker, if not Do_Branch_With() case
         rebEND // ...but if condition wasn't an END marker, we need one
     );

@@ -207,7 +207,7 @@ REBNATIVE(to)
     enum Reb_Kind old_kind = VAL_TYPE(v);
 
     if (new_kind == old_kind)
-        return rebRun("copy", v, rebEND);
+        return rebRunQ("copy", v, rebEND);
 
     TO_HOOK hook = To_Hooks[new_kind];
 

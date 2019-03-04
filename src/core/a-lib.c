@@ -433,6 +433,159 @@ long RL_rebTick(void)
 }
 
 
+//=//// VALUE CONSTRUCTORS ////////////////////////////////////////////////=//
+//
+// These routines are for constructing Rebol values from C primitive types.
+// The general philosophy is that this stay limited.  Hence there is no
+// constructor for making DATE! directly (one is expected to use MAKE DATE!
+// and pass in parts that were constructed from integers.)  This also avoids
+// creation of otherwise useless C structs, while the Rebol function designs
+// are needed to create the values from the interpreter itself.
+//
+// * There's no function for returning a null pointer, because C's notion of
+//   (void*)0 is used.  But note that the C standard permits NULL defined as
+//   simply 0.  This breaks use in variadics, so it is advised to use C++'s
+//   nullptr, or do `#define nullptr (void*)0
+//
+// * Routines with full written out names like `rebInteger()` return API
+//   handles which must be rebRelease()'d.  Shorter versions like rebI() don't
+//   return REBVAL* but are designed for transient use when evaluating, e.g.
+//   `rebRun("print [", rebI(count), "]");` does not need to rebRelease()
+//   the resulting variable because the evaluator frees it after use.
+//
+//=////////////////////////////////////////////////////////////////////////=//
+
+
+//
+//  rebVoid: RL_API
+//
+REBVAL *RL_rebVoid(void)
+ { return Init_Void(Alloc_Value()); }
+
+
+//
+//  rebBlank: RL_API
+//
+REBVAL *RL_rebBlank(void)
+ { return Init_Blank(Alloc_Value()); }
+
+
+//
+//  rebLogic: RL_API
+//
+// !!! For the C and C++ builds to produce compatible APIs, we assume the
+// C <stdbool.h> gives a bool that is the same size as for C++.  This is not
+// a formal guarantee, but there's no "formal" guarantee the `int`s would be
+// compatible either...more common sense: https://stackoverflow.com/q/3529831
+//
+// Use DID on the bool, in case it's a "shim bool" (e.g. just some integer
+// type) and hence may have values other than strictly 0 or 1.
+//
+//
+REBVAL *RL_rebLogic(bool logic)
+ { return Init_Logic(Alloc_Value(), did logic); }
+
+
+//
+//  rebChar: RL_API
+//
+REBVAL *RL_rebChar(uint32_t codepoint)
+{
+    if (codepoint > MAX_UNI)
+        fail ("Codepoint out of range, see: https://forum.rebol.info/t/374");
+
+    return Init_Char(Alloc_Value(), codepoint);
+}
+
+
+//
+//  rebInteger: RL_API
+//
+// !!! Should there be rebSigned() and rebUnsigned(), in order to catch cases
+// of using out of range values?
+//
+REBVAL *RL_rebInteger(int64_t i)
+ { return Init_Integer(Alloc_Value(), i); }
+
+
+//
+//  rebDecimal: RL_API
+//
+REBVAL *RL_rebDecimal(double dec)
+ { return Init_Decimal(Alloc_Value(), dec); }
+
+
+//
+//  rebBinary: RL_API
+//
+REBVAL *RL_rebBinary(const void *bytes, size_t size)
+{
+    REBSER *bin = Make_Binary(size);
+    memcpy(BIN_HEAD(bin), bytes, size);
+    TERM_BIN_LEN(bin, size);
+
+    return Init_Binary(Alloc_Value(), bin);
+}
+
+
+//
+//  rebSizedText: RL_API
+//
+// If utf8 does not contain valid UTF-8 data, this may fail().
+//
+REBVAL *RL_rebSizedText(const char *utf8, size_t size)
+ { return Init_Text(Alloc_Value(), Make_Sized_String_UTF8(utf8, size)); }
+
+
+//
+//  rebText: RL_API
+//
+REBVAL *RL_rebText(const char *utf8)
+ { return rebSizedText(utf8, strsize(utf8)); }
+
+
+//
+//  rebLengthedTextWide: RL_API
+//
+REBVAL *RL_rebLengthedTextWide(const REBWCHAR *wstr, unsigned int num_chars)
+{
+    DECLARE_MOLD (mo);
+    Push_Mold(mo);
+
+    for (; num_chars != 0; --num_chars, ++wstr)
+        Append_Utf8_Codepoint(mo->series, *wstr);
+
+    return Init_Text(Alloc_Value(), Pop_Molded_String(mo));
+}
+
+
+//
+//  rebTextWide: RL_API
+//
+REBVAL *RL_rebTextWide(const REBWCHAR *wstr)
+{
+    DECLARE_MOLD (mo);
+    Push_Mold(mo);
+
+    for (; *wstr != 0; ++wstr)
+        Append_Utf8_Codepoint(mo->series, *wstr);
+
+    return Init_Text(Alloc_Value(), Pop_Molded_String(mo));
+}
+
+
+//
+//  rebHandle: RL_API
+//
+// !!! The HANDLE! type has some complexity to it, because function pointers
+// in C and C++ are not actually guaranteed to be the same size as data
+// pointers.  Also, there is an optional size stored in the handle, and a
+// cleanup function the GC may call when references to the handle are gone.
+//
+REBVAL *RL_rebHandle(void *data, size_t length, CLEANUP_CFUNC *cleaner)
+ { return Init_Handle_Managed(Alloc_Value(), data, length, cleaner); }
+
+
 //
 //  rebArgR: RL_API
 //
@@ -499,33 +652,90 @@ REBVAL *RL_rebArg(const void *p, va_list *vaptr)
 }
 
 
+//=//// EVALUATIVE EXTRACTORS /////////////////////////////////////////////=//
 //
-//  rebRun: RL_API
+// The libRebol API evaluative routines are all variadic, and call the
+// evaluator on multiple pointers.  Each pointer may be:
 //
-// C variadic function which calls the evaluator on multiple pointers.
-// Each pointer may either be a REBVAL* or a UTF-8 string which will be
-// scanned to reflect one or more values in the sequence.
+// - a REBVAL*
+// - a UTF-8 string to be scanned as one or more values in the sequence
+// - a REBSER* that represents an "API instruction"
 //
-// All REBVAL* are spliced in quoted by default.  Use rebEVAL or rebU():
+// There isn't a separate concept of routines that perform evaluations and
+// ones that extract C fundamental types out of Rebol values.  Hence you
+// don't have to say:
 //
-// https://forum.rebol.info/t/1050
+//      REBVAL *value = rebRun("1 +", some_rebol_integer);
+//      int sum = rebUnboxInteger(value);
+//      rebRelease(value);
 //
-REBVAL *RL_rebRun(const void *p, va_list *vaptr)
+// You can just write:
+//
+//      int sum = rebUnboxInteger("1 +", some_rebol_integer);
+//
+// The default evaluators splice Rebol values "as-is" into the feed.  This
+// means that any evaluator active types (like WORD!, ACTION!, GROUP!...)
+// will run.  This can be mitigated with rebQ, but to make it easier for
+// some cases variants like `rebRunQ()` and `rebUnboxIntegerQ()` are provided
+// which default to splicing with quotes.
+//
+// (see FLAG_QUOTING_BYTE(1) for why quoting splices is not the default)
+//
+//=////////////////////////////////////////////////////////////////////////=//
+
+static void Run_Va_May_Fail(
+    REBVAL *out,
+    REBFLGS feed_flags,  // e.g. FLAG_QUOTING_BYTE(1)
+    const void *opt_first,  // optional element to inject *before* the va_list
+    va_list *vaptr  // va_end() handled by feed for all cases (throws, fails)
+){
+    Init_Void(out);
+
+    DECLARE_VA_FEED (feed, opt_first, vaptr, feed_flags);
+    if (Do_Feed_To_End_Maybe_Stale_Throws(out, feed)) {
+        //
+        // !!! Being able to THROW across C stacks is necessary in the general
+        // case (consider implementing QUIT or HALT).  Probably need to be
+        // converted to a kind of error, and then re-converted into a THROW
+        // to bubble up through Rebol stacks?  Development on this is ongoing.
+        //
+        fail (Error_No_Catch_For_Throw(out));
+    }
+
+    CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
+}
+
+
+//=//// rebRun + rebRunQ //////////////////////////////////////////////////=//
+//
+// Most basic evaluator that returns a REBVAL*, which must be rebRelease()'d.
+//
+static REBVAL *rebRun_internal(REBFLGS flags, const void *p, va_list *vaptr)
 {
     REBVAL *result = Alloc_Value();
-    if (Do_Va_Throws(result, p, vaptr))  // will ensure va_end() is called
-        fail (Error_No_Catch_For_Throw(result));  // implicit result release
+    Run_Va_May_Fail(result, flags, p, vaptr);  // calls va_end()
 
     if (not IS_NULLED(result))
-        return result;
+        return result;  // caller must rebRelease()
 
     rebRelease(result);
     return nullptr;  // No NULLED cells in API, see notes on NULLIFY_NULLED()
 }
 
+//
+//  rebRun: RL_API
+//
+REBVAL *RL_rebRun(const void *p, va_list *vaptr)
+  { return rebRun_internal(FEED_MASK_DEFAULT, p, vaptr); }
 
 //
-//  rebQuote: RL_API
+//  rebRunQ: RL_API
+//
+REBVAL *RL_rebRunQ(const void *p, va_list *vaptr)
+ { return rebRun_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
+
+
+//=//// rebQuote + rebQuoteQ //////////////////////////////////////////////=//
 //
 // Variant of rebRun() that simply quotes its result.  So `rebQuote(...)` is
 // equivalent to `rebRun("quote", ...)`, with the advantage of being faster
@@ -535,75 +745,53 @@ REBVAL *RL_rebRun(const void *p, va_list *vaptr)
 // is important for the console when trapping its generated result, to be
 // able to quote it without the backtrace showing a QUOTE stack frame.)
 //
-REBVAL *RL_rebQuote(const void *p, va_list *vaptr)
+static REBVAL *rebQuote_internal(REBFLGS flags, const void *p, va_list *vaptr)
 {
     REBVAL *result = Alloc_Value();
-    if (Do_Va_Throws(result, p, vaptr))  // will ensure va_end() is called
-        fail (Error_No_Catch_For_Throw(result));  // implicit result release
+    Run_Va_May_Fail(result, flags, p, vaptr);  // calls va_end()
 
-    return Quotify(result, 1);
+    return Quotify(result, 1);  // nulled cells legal for API if quoted
 }
 
+//
+//  rebQuote: RL_API
+//
+REBVAL *RL_rebQuote(const void *p, va_list *vaptr)
+ { return rebQuote_internal(FEED_MASK_DEFAULT, p, vaptr); }
 
 //
-//  rebUNEVALUATIVE: RL_API
+//  rebQuoteQ: RL_API
 //
-// https://forum.rebol.info/t/1050
-//
-// !!! It may be possible to create variations of this which are done in a
-// way that would allow arbitrary spans, `rebU("[, value1), value2, "]")`.
-// But those variants would have to be more sophisticated than this.
-//
-const void *RL_rebUNEVALUATIVE(const void *p, va_list *vaptr)
-{
-    REBFLGS feed_flags = FEED_MASK_DEFAULT | FEED_FLAG_UNEVALUATIVE;
-    DECLARE_VA_FEED (feed, p, vaptr, feed_flags);
-
-    // Feed through all the values to the stack, unevaluated
-
-    REBDSP dsp_orig = DSP;
-
-    while (NOT_END(feed->value)) {
-        Move_Value(DS_PUSH(), KNOWN(feed->value));
-        Fetch_Next_In_Feed(feed, false);
-    }
-
-    if (dsp_orig == DSP)
-        fail ("No values in rebUNEVALUATIVE()");
-
-    if (dsp_orig > DSP + 1)
-        fail ("Multiple values in rebUNEVALUATIVE(), not implemented");
-
-    assert(not IS_NULLED(DS_TOP));  // UNEVALUATIVE should fail on nulls
-
-    REBVAL *result = Move_Value(Alloc_Value(), DS_TOP);
-    DS_DROP();
-
-    REBARR *a = Singular_From_Cell(result);
-    SET_ARRAY_FLAG(a, SINGULAR_API_RELEASE);
-    SET_ARRAY_FLAG(a, SINGULAR_API_UNEVALUATIVE);
-    return a;
-}
+REBVAL *RL_rebQuoteQ(const void *p, va_list *vaptr)
+ { return rebQuote_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
 
 
-//
-//  rebElide: RL_API
+//=//// rebElide + rebElideQ //////////////////////////////////////////////=//
 //
 // Variant of rebRun() which assumes you don't need the result.  This saves on
 // allocating an API handle, or the caller needing to manage its lifetime.
 //
-void RL_rebElide(const void *p, va_list *vaptr)
+static void rebElide_internal(REBFLGS flags, const void *p, va_list *vaptr)
 {
     DECLARE_LOCAL (elided);
-    if (Do_Va_Throws(elided, p, vaptr)) // calls va_end()
-        fail (Error_No_Catch_For_Throw(elided));
+    Run_Va_May_Fail(elided, flags, p, vaptr);  // calls va_end()
 }
+
+//
+//  rebElide: RL_API
+//
+void RL_rebElide(const void *p, va_list *vaptr)
+ { rebElide_internal(FEED_MASK_DEFAULT, p, vaptr); }
 
 
 //
-//  rebJumps: RL_API [
-//      #noreturn
-//  ]
+//  rebElideQ: RL_API
+//
+void RL_rebElideQ(const void *p, va_list *vaptr)
+ { rebElide_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
+
+
+//=//// rebJumps + rebJumpsQ //////////////////////////////////////////////=//
 //
 // rebJumps() is like rebElide, but has the noreturn attribute.  This helps
 // inform the compiler that the routine is not expected to return.  Use it
@@ -621,185 +809,503 @@ void RL_rebElide(const void *p, va_list *vaptr)
 //    rebNoReturn(...) -- whose return?
 //    rebStop(...) -- STOP is rather final sounding, the code keeps going
 //
-void RL_rebJumps(const void *p, va_list *vaptr)
+static void rebJumps_internal(REBFLGS flags, const void *p, va_list *vaptr)
 {
-    DECLARE_LOCAL (elided);
-    if (Do_Va_Throws(elided, p, vaptr)) { // calls va_end()
-        //
-        // !!! Being able to THROW across C stacks is necessary in the general
-        // case (consider implementing QUIT or HALT).  Probably need to be
-        // converted to a kind of error, and then re-converted into a THROW
-        // to bubble up through Rebol stacks?  Development on this is ongoing.
-        //
-        fail (Error_No_Catch_For_Throw(elided));
-    }
+    DECLARE_LOCAL (dummy);
+    Run_Va_May_Fail(dummy, flags, p, vaptr);  // calls va_end()
 
     fail ("rebJumps() was used to run code, but it didn't FAIL/QUIT/THROW!");
 }
 
+//
+//  rebJumps: RL_API [
+//      #noreturn
+//  ]
+//
+void RL_rebJumps(const void *p, va_list *vaptr)
+ { rebJumps_internal(FEED_MASK_DEFAULT, p, vaptr); }
 
 //
-//  rebEVAL_internal: RL_API
+//  rebJumpsQ: RL_API [
+//      #noreturn
+//  ]
 //
-// (Note: "_internal" is so that macro can be rebEVAL with no parentheses.)
+void RL_rebJumpsQ(const void *p, va_list *vaptr)
+ { rebJumps_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
+
+
+//=//// rebDid + rebNot + rebDidQ + rebNotQ ///////////////////////////////=//
 //
-// Optimized stand in for the EVAL function, useful for triggering actions
-// or picking the quotes off of things.
+// Simply returns the logical result, with no returned handle to release.
 //
-// It is not intended for use inside blocks, e.g.:
+// !!! If this were going to be a macro like (not (rebDid(...))) it would have
+// to be a variadic macro.  Just make a separate entry point for now.
 //
-//    REBVAL *block = rebRun("[", rebEVAL, word, "]");
-//
-// Plan is that this will either raise an error in the variadic scanner,
-// or possibly put the native EVAL ACTION! in that spot.  Instead, use the
-// rebUNEVALUATIVE() mechanism:
-//
-//    REBVAL *block = rebRun("[", rebU(word), "]");
-//    REBVAL *block = rebRun(rebU("[", word, "]"));  // only 1 scan item ATM
-//
-const void *RL_rebEVAL_internal(void)
+static bool rebDid_internal(REBFLGS flags, const void *p, va_list *vaptr)
 {
-    REBARR *instruction = Alloc_Instruction(API_OPCODE_EVAL);
-    return instruction;
+    DECLARE_LOCAL (condition);
+    Run_Va_May_Fail(condition, flags, p, vaptr);  // calls va_end()
+
+    return IS_TRUTHY(condition);  // will fail() on voids
+}
+
+//
+//  rebDid: RL_API
+//
+bool RL_rebDid(const void *p, va_list *vaptr)
+ { return rebDid_internal(FEED_MASK_DEFAULT, p, vaptr); }
+
+//
+//  rebNot: RL_API
+//
+bool RL_rebNot(const void *p, va_list *vaptr)
+ { return not rebDid_internal(FEED_MASK_DEFAULT, p, vaptr); }
+
+//
+//  rebDidQ: RL_API
+//
+bool RL_rebDidQ(const void *p, va_list *vaptr)
+ { return rebDid_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
+
+//
+//  rebNotQ: RL_API
+//
+bool RL_rebNotQ(const void *p, va_list *vaptr)
+ { return not rebDid_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
+
+
+//=//// rebUnbox + rebUnboxQ //////////////////////////////////////////////=//
+//
+// C++, JavaScript, and other languages can do some amount of intelligence
+// with a generic `rebUnbox()` operation...either picking the type to return
+// based on the target in static typing, or returning a dynamically typed
+// value.  For convenience in C, make the generic unbox operation return
+// an integer for INTEGER!, LOGIC!, CHAR!...assume it's most common so the
+// short name is worth it.
+//
+static long rebUnbox_internal(REBFLGS flags, const void *p, va_list *vaptr)
+{
+    DECLARE_LOCAL (result);
+    Run_Va_May_Fail(result, flags, p, vaptr);  // calls va_end()
+
+    switch (VAL_TYPE(result)) {
+      case REB_INTEGER:
+        return VAL_INT64(result);
+
+      case REB_CHAR:
+        return VAL_CHAR(result);
+
+      case REB_LOGIC:
+        return VAL_LOGIC(result) ? 1 : 0;
+
+      default:
+        fail ("C-based rebUnbox() only supports INTEGER!, CHAR!, and LOGIC!");
+    }
+}
+
+//
+//  rebUnbox: RL_API
+//
+long RL_rebUnbox(const void *p, va_list *vaptr)
+ { return rebUnbox_internal(FEED_MASK_DEFAULT, p, vaptr); }
+
+
+//
+//  rebUnboxQ: RL_API
+//
+long RL_rebUnboxQ(const void *p, va_list *vaptr)
+ { return rebUnbox_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
+
+
+//=//// rebUnboxInteger + rebUnboxIntegerQ ////////////////////////////////=//
+//
+static long rebUnboxInteger_internal(REBFLGS flags, const void *p, va_list *vaptr)
+{
+    DECLARE_LOCAL (result);
+    Run_Va_May_Fail(result, flags, p, vaptr);  // calls va_end()
+
+    if (VAL_TYPE(result) != REB_INTEGER)
+        fail ("rebUnboxInteger() called on non-INTEGER!");
+
+    return VAL_INT64(result);
+}
+
+//
+//  rebUnboxInteger: RL_API
+//
+long RL_rebUnboxInteger(const void *p, va_list *vaptr)
+ { return rebUnboxInteger_internal(FEED_MASK_DEFAULT, p, vaptr); }
+
+//
+//  rebUnboxIntegerQ: RL_API
+//
+long RL_rebUnboxIntegerQ(const void *p, va_list *vaptr)
+ { return rebUnboxInteger_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
+
+
+
+//=//// rebUnboxDecimal + rebUnboxDecimalQ ////////////////////////////////=//
+//
+static double rebUnboxDecimal_internal(
+    REBFLGS flags,
+    const void *p,
+    va_list *vaptr
+){
+    DECLARE_LOCAL (result);
+    Run_Va_May_Fail(result, flags, p, vaptr);  // calls va_end()
+
+    if (VAL_TYPE(result) == REB_DECIMAL)
+        return VAL_DECIMAL(result);
+
+    if (VAL_TYPE(result) == REB_INTEGER)
+        return cast(double, VAL_INT64(result));
+
+    fail ("rebUnboxDecimal() called on non-DECIMAL! or non-INTEGER!");
+}
+
+//
+//  rebUnboxDecimal: RL_API
+//
+double RL_rebUnboxDecimal(const void *p, va_list *vaptr)
+ { return rebUnboxDecimal_internal(FEED_MASK_DEFAULT, p, vaptr); }
+
+//
+//  rebUnboxDecimalQ: RL_API
+//
+double RL_rebUnboxDecimalQ(const void *p, va_list *vaptr)
+ { return rebUnboxDecimal_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
+
+
+
+//=//// rebUnboxChar + rebUnboxCharQ //////////////////////////////////////=//
+//
+static uint32_t rebUnboxChar_internal(
+    REBFLGS flags,
+    const void *p,
+    va_list *vaptr
+){
+    DECLARE_LOCAL (result);
+    Run_Va_May_Fail(result, flags, p, vaptr);  // calls va_end()
+
+    if (VAL_TYPE(result) != REB_CHAR)
+        fail ("rebUnboxChar() called on non-CHAR!");
+
+    return VAL_CHAR(result);
+}
+
+//
+//  rebUnboxChar: RL_API
+//
+uint32_t RL_rebUnboxChar(const void *p, va_list *vaptr)
+ { return rebUnboxChar_internal(FEED_MASK_DEFAULT, p, vaptr); }
+
+//
+//  rebUnboxCharQ: RL_API
+//
+uint32_t RL_rebUnboxCharQ(const void *p, va_list *vaptr)
+ { return rebUnboxChar_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
+
+
+//
+//  rebSpellIntoQ_internal: RL_API
+//
+// Extract UTF-8 data from an ANY-STRING! or ANY-WORD!.
+//
+// API does not return the number of UTF-8 characters for a value, because
+// the answer to that is always cached for any value position as LENGTH OF.
+// The more immediate quantity of concern to return is the number of bytes.
+//
+size_t RL_rebSpellIntoQ_internal(
+    char *buf,
+    size_t buf_size, // number of bytes
+    const REBVAL *v,
+    const void *end
+){
+    if (Detect_Rebol_Pointer(end) != DETECTED_AS_END)
+        fail ("rebSpellInto() doesn't support more than one value yet");
+
+    const char *utf8;
+    REBSIZ utf8_size;
+    if (ANY_STRING(v)) {
+        REBSIZ offset;
+        REBSER *temp = Temp_UTF8_At_Managed(
+            &offset, &utf8_size, v, VAL_LEN_AT(v)
+        );
+        utf8 = cs_cast(BIN_AT(temp, offset));
+    }
+    else {
+        assert(ANY_WORD(v));
+
+        REBSTR *spelling = VAL_WORD_SPELLING(v);
+        utf8 = STR_HEAD(spelling);
+        utf8_size = STR_SIZE(spelling);
+    }
+
+    if (not buf) {
+        assert(buf_size == 0);
+        return utf8_size; // caller must allocate a buffer of size + 1
+    }
+
+    REBSIZ limit = MIN(buf_size, utf8_size);
+    memcpy(buf, utf8, limit);
+    buf[limit] = '\0';
+    return utf8_size;
 }
 
 
+//=//// rebSpell + rebSpellQ //////////////////////////////////////////////=//
 //
-//  rebRELEASING: RL_API
+// This gives the spelling as UTF-8 bytes.  Length in codepoints should be
+// extracted with LENGTH OF.  If size in bytes of the encoded UTF-8 is needed,
+// use the binary extraction API (works on ANY-STRING! to get UTF-8)
 //
-// Convenience tool for making "auto-release" form of values.  They will only
-// exist for one API call.  They will be automatically rebRelease()'d when
-// they are seen (or even if they are not seen, if there is a failure on that
-// call it will still process the va_list in order to release these handles)
-//
-const void *RL_rebRELEASING(REBVAL *v)
-{
-    if (not Is_Api_Value(v))
-        fail ("Cannot apply rebR() to non-API value");
+static char *rebSpell_internal(REBFLGS flags, const void *p, va_list *vaptr) {
+    DECLARE_LOCAL (string);
+    Run_Va_May_Fail(string, flags, p, vaptr);  // calls va_end()
 
-    REBARR *a = Singular_From_Cell(v);
-    if (GET_ARRAY_FLAG(a, SINGULAR_API_RELEASE))
-        fail ("Cannot apply rebR() more than once to the same API value");
+    if (IS_NULLED(string))
+        return nullptr;  // NULL is passed through, for opting out
 
-    SET_ARRAY_FLAG(a, SINGULAR_API_RELEASE);
-    return a; // returned as const void* to discourage use outside variadics
+    size_t size = rebSpellIntoQ_internal(nullptr, 0, string, rebEND);
+    char *result = cast(char*, rebMalloc(size + 1)); // add space for term
+    rebSpellIntoQ_internal(result, size, string, rebEND);
+    return result;
+}
+
+//
+//  rebSpell: RL_API
+//
+char *RL_rebSpell(const void *p, va_list *vaptr)
+ { return rebSpell_internal(FEED_MASK_DEFAULT, p, vaptr); }
+
+//
+//  rebSpellQ: RL_API
+//
+char *RL_rebSpellQ(const void *p, va_list *vaptr)
+ { return rebSpell_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
+
+
+//
+//  rebSpellIntoWideQ_internal: RL_API
+//
+// Extract UCS-2 data from an ANY-STRING! or ANY-WORD!.  Note this is *not*
+// UTF-16, so codepoints that require more than two bytes to represent will
+// cause errors.
+//
+// !!! Although the rebSpellInto API deals in bytes, this deals in count of
+// characters.  (The use of REBCNT instead of REBSIZ indicates this.)  It may
+// be more useful for the wide string APIs to do this so leaving it that way
+// for now.
+//
+unsigned int RL_rebSpellIntoWideQ_internal(
+    REBWCHAR *buf,
+    unsigned int buf_chars, // chars buf can hold (not including terminator)
+    const REBVAL *v,
+    const void *end
+){
+    if (Detect_Rebol_Pointer(end) != DETECTED_AS_END)
+        fail ("rebSpellIntoWide() doesn't support more than one value yet");
+
+    REBSER *s;
+    REBCNT index;
+    REBCNT len;
+    if (ANY_STRING(v)) {
+        s = VAL_SERIES(v);
+        index = VAL_INDEX(v);
+        len = VAL_LEN_AT(v);
+    }
+    else {
+        assert(ANY_WORD(v));
+
+        REBSTR *spelling = VAL_WORD_SPELLING(v);
+        s = Make_Sized_String_UTF8(STR_HEAD(spelling), STR_SIZE(spelling));
+        index = 0;
+        len = SER_LEN(s);
+    }
+
+    if (not buf) { // querying for size
+        assert(buf_chars == 0);
+        if (ANY_WORD(v))
+            Free_Unmanaged_Series(s);
+        return len; // caller must now allocate buffer of len + 1
+    }
+
+    REBCNT limit = MIN(buf_chars, len);
+    REBCNT n = 0;
+    for (; index < limit; ++n, ++index)
+        buf[n] = GET_ANY_CHAR(s, index);
+
+    buf[limit] = 0;
+
+    if (ANY_WORD(v))
+        Free_Unmanaged_Series(s);
+    return len;
 }
 
 
+//=//// rebSpellWide + rebSpellWideQ //////////////////////////////////////=//
 //
-//  rebVoid: RL_API
+// Gives the spelling as WCHARs.  If length in codepoints is needed, use
+// a separate LENGTH OF call.
 //
-REBVAL *RL_rebVoid(void)
-{
-    return Init_Void(Alloc_Value());
+// !!! Unlike with rebSpell(), there is not an alternative for getting
+// the size in UTF-16-encoded characters, just the LENGTH OF result.  While
+// that works for UCS-2 (where all codepoints are two bytes), it would not
+// work if Rebol supported UTF-16.  Which it may never do in the core or
+// API (possible solutions could include usermode UTF-16 conversion to binary,
+// and extraction of that with rebBytes(), then dividing the size by 2).
+//
+static REBWCHAR *rebSpellWide_internal(
+    REBFLGS flags,
+    const void *p,
+    va_list *vaptr
+){
+    DECLARE_LOCAL (string);
+    Run_Va_May_Fail(string, flags, p, vaptr);  // calls va_end()
+
+    if (IS_NULLED(string))
+        return nullptr; // NULL is passed through, for opting out
+
+    REBCNT len = rebSpellIntoWideQ_internal(nullptr, 0, string, rebEND);
+    REBWCHAR *result = cast(
+        REBWCHAR*, rebMalloc(sizeof(REBWCHAR) * (len + 1))
+    );
+    rebSpellIntoWideQ_internal(result, len, string, rebEND);
+    return result;
+}
+
+//
+//  rebSpellWide: RL_API
+//
+REBWCHAR *RL_rebSpellWide(const void *p, va_list *vaptr)
+ { return rebSpellWide_internal(FEED_MASK_DEFAULT, p, vaptr); }
+
+//
+//  rebSpellWideQ: RL_API
+//
+REBWCHAR *RL_rebSpellWideQ(const void *p, va_list *vaptr)
+ { return rebSpellWide_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
+
+
+//
+//  rebBytesIntoQ_internal: RL_API
+//
+// Extract binary data from a BINARY!
+//
+// !!! Caller must allocate a buffer of the returned size + 1.  It's not clear
+// if this is a good idea; but this is based on a longstanding convention of
+// zero termination of Rebol series, including binaries.  Review.
+//
+size_t RL_rebBytesIntoQ_internal(
+    unsigned char *buf,  // parameters besides p,vaptr throw off wrapper code
+    size_t buf_size,
+    const REBVAL *binary,
+    const void *end
+){
+    if (Detect_Rebol_Pointer(end) != DETECTED_AS_END)
+        fail ("rebBytesInto() doesn't support more than one value yet");
+
+    if (not IS_BINARY(binary))
+        fail ("rebBytesInto() only works on BINARY!");
+
+    REBCNT size = VAL_LEN_AT(binary);
+
+    if (not buf) {
+        assert(buf_size == 0);
+        return size; // currently, caller must allocate a buffer of size + 1
+    }
+
+    REBCNT limit = MIN(buf_size, size);
+    memcpy(s_cast(buf), cs_cast(VAL_BIN_AT(binary)), limit);
+    buf[limit] = '\0';
+    return size;
 }
 
 
+//=//// rebBytes + rebBytesQ //////////////////////////////////////////////=//
 //
-//  rebBlank: RL_API
+// Can be used to get the bytes of a BINARY! and its size, or the UTF-8
+// encoding of an ANY-STRING! or ANY-WORD! and that size in bytes.  (Hence,
+// for strings it is like rebSpell() except telling you how many bytes.)
 //
-REBVAL *RL_rebBlank(void)
-{
-    return Init_Blank(Alloc_Value());
+// !!! This may wind up being a generic TO BINARY! converter, so you might
+// be able to get the byte conversion for any type.
+//
+unsigned char *rebBytes_internal(
+    REBFLGS flags,
+    size_t *size_out, // !!! Enforce non-null, to ensure type safety?
+    const void *p, va_list *vaptr
+){
+    DECLARE_LOCAL (series);
+    Run_Va_May_Fail(series, flags, p, vaptr);  // calls va_end()
+
+    if (IS_NULLED(series)) {
+        *size_out = 0;
+        return nullptr; // NULL is passed through, for opting out
+    }
+
+    if (ANY_WORD(series) or ANY_STRING(series)) {
+        *size_out = rebSpellIntoQ_internal(nullptr, 0, series, rebEND);
+        char *result = rebAllocN(char, (*size_out + 1));
+        size_t check = rebSpellIntoQ_internal(
+            result,
+            *size_out,
+            series,
+        rebEND);
+        assert(check == *size_out);
+        UNUSED(check);
+        return cast(unsigned char*, result);
+    }
+
+    if (IS_BINARY(series)) {
+        *size_out = rebBytesIntoQ_internal(nullptr, 0, series, rebEND);
+        unsigned char *result = rebAllocN(REBYTE, (*size_out + 1));
+        size_t check = rebBytesIntoQ_internal(
+            result,
+            *size_out,
+            series,
+        rebEND);
+        assert(check == *size_out);
+        UNUSED(check);
+        return result;
+    }
+
+    fail ("rebBytes() only works with ANY-STRING!/ANY-WORD!/BINARY!");
+}
+
+//
+//  rebBytes: RL_API
+//
+unsigned char *RL_rebBytes(
+    size_t *size_out, // !!! Enforce non-null, to ensure type safety?
+    const void *p, va_list *vaptr
+){
+    return rebBytes_internal(FEED_MASK_DEFAULT, size_out, p, vaptr);
+}
+
+//
+//  rebBytesQ: RL_API
+//
+unsigned char *RL_rebBytesQ(
+    size_t *size_out, // !!! Enforce non-null, to ensure type safety?
+    const void *p, va_list *vaptr
+){
+    return rebBytes_internal(FLAG_QUOTING_BYTE(1), size_out, p, vaptr);
 }
 
 
+//=//// EXCEPTION HANDLING ////////////////////////////////////////////////=//
 //
-//  rebLogic: RL_API
+// There API is approaching exception handling with three different modes.
 //
-// !!! Use of bool in this file assumes compatibility between C99 stdbool and
-// C++ stdbool.  Are they compatible?
-//
-// "There doesn't seem to be any guarantee that C int is compatible with C++
-//  int. 'Linkage from C++ to objects defined in other languages and to
-//  objects defined in C++ from other languages is implementation-defined
-//  (...) I'd expect C and C++ compilers intended to be used together (such as
-//  gcc and g++) to make their bool and int types, among others, compatible."
-// https://stackoverflow.com/q/3529831
-//
-// Take this for granted, then assume that a shim `bool` that is -not- part of
-// stdbool would be defined to be the same size as C++'s bool (if such a
-// pre-C99 system could even be used to make a C++ build at all!)
-//
-REBVAL *RL_rebLogic(bool logic)
-{
-    // Use DID on the bool, in case it's a "shim bool" (e.g. just some integer
-    // type) and hence may have values other than strictly 0 or 1.
-    //
-    return Init_Logic(Alloc_Value(), did logic);
-}
-
-
-//
-//  rebChar: RL_API
-//
-REBVAL *RL_rebChar(uint32_t codepoint)
-{
-    if (codepoint > MAX_UNI)
-        fail ("Codepoint out of range, see: https://forum.rebol.info/t/374");
-
-    return Init_Char(Alloc_Value(), codepoint);
-}
-
-
-//
-//  rebInteger: RL_API
-//
-// !!! Should there be rebSigned() and rebUnsigned(), in order to catch cases
-// of using out of range values?
-//
-REBVAL *RL_rebInteger(int64_t i)
-{
-    return Init_Integer(Alloc_Value(), i);
-}
-
-
-//
-//  rebDecimal: RL_API
-//
-REBVAL *RL_rebDecimal(double dec)
-{
-    return Init_Decimal(Alloc_Value(), dec);
-}
-
-
-//
-//  rebHalt: RL_API
-//
-// Signal that code evaluation needs to be interrupted.
-//
-// Returns:
-//     nothing
-// Notes:
-//     This function sets a signal that is checked during evaluation
-//     and will cause the interpreter to begin processing an escape
-//     trap. Note that control must be passed back to REBOL for the
-//     signal to be recognized and handled.
-//
-void RL_rebHalt(void)
-{
-    SET_SIGNAL(SIG_HALT);
-}
-
-
-//
-//  rebRescue: RL_API
-//
-// This API abstracts the mechanics by which exception-handling is done.
-// While code that knows specifically which form is used can take advantage of
-// that knowledge and use the appropriate mechanism without this API, any
-// code (such as core code) that wants to be agnostic to mechanism should
-// use rebRescue() instead.
-//
-// There are three current mechanisms which can be built with.  One is to
-// use setjmp()/longjmp(), which is extremely dodgy.  But it's what R3-Alpha
-// used, and it's the only choice if one is sticking to ANSI C89-99:
+// One is to use setjmp()/longjmp(), which is extremely dodgy.  But it's what
+// R3-Alpha used, and it's the only choice if one is sticking to ANSI C89-99:
 //
 // https://en.wikipedia.org/wiki/Setjmp.h#Exception_handling
 //
 // If one is willing to compile as C++ -and- link in the necessary support
 // for exception handling, there are benefits to doing exception handling
-// with throw/catch.  One advantage is performance: most compilers can avoid
+// with throw()/catch().  One advantage is that most compilers can avoid
 // paying for catch blocks unless a throw occurs ("zero-cost exceptions"):
 //
 // https://stackoverflow.com/q/15464891/ (description of the phenomenon)
@@ -809,14 +1315,27 @@ void RL_rebHalt(void)
 // the rebRescue() abstraction, as well as have destructors run safely.
 // (longjmp pulls the rug out from under execution, and doesn't stack unwind).
 //
-// The other abstraction is for JavaScript, where an emscripten build would
+// The third exceptionmode is for JavaScript, where an emscripten build would
 // have to painstakingly emulate setjmp/longjmp.  Using inline JavaScript to
 // catch and throw is more efficient, and also provides the benefit of API
 // clients being able to use normal try/catch of a RebolError instead of
 // having to go through rebRescue().
 //
-// But using rebRescue() internally allows the core to be compiled and run
-// compatibly across all these scenarios.  It is named after Ruby's operation,
+// !!! Currently only the setjmp()/longjmp() form is emulated.  Clients must
+// either explicitly TRAP errors within their Rebol code calls, or use the
+// rebRescue() abstraction to catch the setjmp/longjmp failures.  Rebol
+// THROW and CATCH cannot be thrown across an API call barrier--it will be
+// handled as an uncaught throw and raised as an error.
+//
+//=////////////////////////////////////////////////////////////////////////=//
+
+//
+//  rebRescue: RL_API
+//
+// This API abstracts the mechanics by which exception-handling is done.
+//
+// Using rebRescue() internally to the core allows it to be compiled and run
+// compatibly regardless of what .  It is named after Ruby's operation,
 // which deals with the identical problem:
 //
 // http://silverhammermba.github.io/emberb/c/#rescue
@@ -949,438 +1468,163 @@ REBVAL *RL_rebRescueWith(
 
 
 //
-//  rebDid: RL_API
+//  rebHalt: RL_API
 //
-bool RL_rebDid(const void *p, va_list *vaptr)
+// Signal that code evaluation needs to be interrupted.
+//
+// Returns:
+//     nothing
+// Notes:
+//     This function sets a signal that is checked during evaluation
+//     and will cause the interpreter to begin processing an escape
+//     trap. Note that control must be passed back to REBOL for the
+//     signal to be recognized and handled.
+//
+void RL_rebHalt(void)
 {
-    DECLARE_LOCAL (condition);
-    if (Do_Va_Throws(condition, p, vaptr)) // calls va_end()
-        fail (Error_No_Catch_For_Throw(condition));
-
-    return IS_TRUTHY(condition); // will fail() on voids
+    SET_SIGNAL(SIG_HALT);
 }
 
 
+
+//=//// API "INSTRUCTIONS" ////////////////////////////////////////////////=//
 //
-//  rebNot: RL_API
+// The evaluator API takes further advantage of Detect_Rebol_Pointer() when
+// processing variadic arguments to do things more efficiently.
 //
-// !!! If this were going to be a macro like (not (rebDid(...))) it would have
-// to be a variadic macro.  Just make a separate entry point for now.
+// All instructions must be handed *directly* to an evaluator feed.  That
+// feed is what guarantees that if a GC occurs that the variadic will be
+// spooled forward and their contents guarded.
 //
-bool RL_rebNot(const void *p, va_list *vaptr)
-{
-    DECLARE_LOCAL (condition);
-    if (Do_Va_Throws(condition, p, vaptr)) // calls va_end()
-        fail (Error_No_Catch_For_Throw(condition));
-
-    return IS_FALSEY(condition); // will fail() on voids
-}
-
-
+// NOTE THIS IS NOT LEGAL:
 //
-//  rebUnbox: RL_API
+//     void *instruction = rebQ("stuff");  // not passed direct to evaluator
+//     rebElide("print {Hi!}");  // a RECYCLE could be triggered here
+//     rebRun(..., instruction, ...);  // the instruction may be corrupt now!
 //
-// C++, JavaScript, and other languages can do some amount of intelligence
-// with a generic `rebUnbox()` operation...either picking the type to return
-// based on the target in static typing, or returning a dynamically typed
-// value.  For convenience in C, make the generic unbox operation return
-// an integer for INTEGER!, LOGIC!, CHAR!...assume it's most common so the
-// short name is worth it.
+//=////////////////////////////////////////////////////////////////////////=//
+
+
+// The rebQ instruction is designed to work so that `rebRun(rebQ(...))` would
+// be the same as rebRunQ(...).  Hence it doesn't mean "quote", it means
+// "quote any value splices in this section".  And if you turned around and
+// said `rebRun(rebQ(rebU(...)))` that should undo your effect.  The two
+// operations share a mostly common implementation.
 //
-long RL_rebUnbox(const void *p, va_list *vaptr)
-{
-    DECLARE_LOCAL (result);
-    if (Do_Va_Throws(result, p, vaptr))
-        fail (Error_No_Catch_For_Throw(result));
-
-    switch (VAL_TYPE(result)) {
-      case REB_INTEGER:
-        return VAL_INT64(result);
-
-      case REB_CHAR:
-        return VAL_CHAR(result);
-
-      case REB_LOGIC:
-        return VAL_LOGIC(result) ? 1 : 0;
-
-      default:
-        fail ("C-based rebUnbox() only supports INTEGER!, CHAR!, and LOGIC!");
-    }
-}
-
-
+// Note that `rebRun("print {One}", rebQ("print {Two}", ...), ...)` should not
+// execute rebQ()'s code right when C runs it.  If it did, then `Two` would
+// print before `One`.  It has to give back something that provides more than
+// one value when the feed visits it.
 //
-//  rebUnboxInteger: RL_API
+// So what these operations produce is an array.  If it quotes a single value
+// then it will just be a singular array (sizeof(REBSER)).  This array is not
+// managed by the GC directly--which means it's cheap to allocate and then
+// free as the feed passes it by.  which is one of the reasons that a GC has to
+// force reification of outstanding variadic feeds)
 //
-long RL_rebUnboxInteger(const void *p, va_list *vaptr)
-{
-    DECLARE_LOCAL (result);
-    if (Do_Va_Throws(result, p, vaptr))
-        fail (Error_No_Catch_For_Throw(result));
-
-    if (VAL_TYPE(result) != REB_INTEGER)
-        fail ("rebUnboxInteger() called on non-INTEGER!");
-
-    return VAL_INT64(result);
-}
-
-
+// We lie and say the array is NODE_FLAG_MANAGED when we create it so it
+// won't get manuals tracked.  Then clear the managed flag.  If the GC kicks
+// in it will spool the va_list() to the end first and take care of it.  If
+// it does not kick in, then the array will just be freed as it's passed.
 //
-//  rebUnboxDecimal: RL_API
+// !!! It may be possible to create variations of this which are done in a
+// way that would allow arbitrary spans, `rebU("[, value1), value2, "]"`.
+// But those variants would have to be more sophisticated than this.
 //
-double RL_rebUnboxDecimal(const void *p, va_list *vaptr)
-{
-    DECLARE_LOCAL (result);
-    if (Do_Va_Throws(result, p, vaptr))
-        fail (Error_No_Catch_For_Throw(result));
-
-    if (VAL_TYPE(result) == REB_DECIMAL)
-        return VAL_DECIMAL(result);
-
-    if (VAL_TYPE(result) == REB_INTEGER)
-        return cast(double, VAL_INT64(result));
-
-    fail ("rebUnboxDecimal() called on non-DECIMAL! or non-INTEGER!");
-}
-
-
+// !!! Formative discussion: https://forum.rebol.info/t/1050
 //
-//  rebUnboxChar: RL_API
-//
-uint32_t RL_rebUnboxChar(const void *p, va_list *vaptr)
-{
-    DECLARE_LOCAL (result);
-    if (Do_Va_Throws(result, p, vaptr))
-        fail (Error_No_Catch_For_Throw(result));
-
-    if (VAL_TYPE(result) != REB_CHAR)
-        fail ("rebUnboxChar() called on non-CHAR!");
-
-    return VAL_CHAR(result);
-}
-
-
-//
-//  rebHandle: RL_API
-//
-// !!! The HANDLE! type has some complexity to it, because function pointers
-// in C and C++ are not actually guaranteed to be the same size as data
-// pointers.  Also, there is an optional size stored in the handle, and a
-// cleanup function the GC may call when references to the handle are gone.
-//
-REBVAL *RL_rebHandle(void *data, size_t length, CLEANUP_CFUNC *cleaner)
-{
-    return Init_Handle_Managed(Alloc_Value(), data, length, cleaner);
-}
-
-
-//
-//  rebSpellInto_internal: RL_API
-//
-// Extract UTF-8 data from an ANY-STRING! or ANY-WORD!.
-//
-// API does not return the number of UTF-8 characters for a value, because
-// the answer to that is always cached for any value position as LENGTH OF.
-// The more immediate quantity of concern to return is the number of bytes.
-//
-size_t RL_rebSpellInto_internal(
-    char *buf,
-    size_t buf_size, // number of bytes
-    const REBVAL *v,
-    const void *end
+static const void *rebSpliceQuoteAdjuster_internal(
+    int delta,  // -1 to remove quote from splices, +1 to add quote to splices
+    const void *p,
+    va_list *vaptr
 ){
-    if (Detect_Rebol_Pointer(end) != DETECTED_AS_END)
-        fail ("rebSpellInto() doesn't support more than one value yet");
+    REBDSP dsp_orig = DSP;
 
-    const char *utf8;
-    REBSIZ utf8_size;
-    if (ANY_STRING(v)) {
-        REBSIZ offset;
-        REBSER *temp = Temp_UTF8_At_Managed(
-            &offset, &utf8_size, v, VAL_LEN_AT(v)
-        );
-        utf8 = cs_cast(BIN_AT(temp, offset));
+    REBARR *a;
+
+    // In the general case, we need the feed, and all the magic it does for
+    // deciphering its arguments (like UTF-8 strings).  But a common case is
+    // just calling rebQ(value) to get a quote on a single value.  Sense
+    // that situation and make it faster.
+    //
+    if (Detect_Rebol_Pointer(p) == DETECTED_AS_CELL) {
+        const REBVAL *first = VAL(p);  // save pointer
+        p = va_arg(*vaptr, const void*);  // advance next pointer (fast!)
+        if (Detect_Rebol_Pointer(p) == DETECTED_AS_END) {
+            a = Alloc_Singular(NODE_FLAG_MANAGED);
+            CLEAR_SERIES_FLAG(a, MANAGED);  // see notes above on why we lied
+            Move_Value(ARR_SINGLE(a), first);
+        }
+        else {
+            Move_Value(DS_PUSH(), first);  // no shortcut, push and keep going
+            goto no_shortcut;
+        }
     }
     else {
-        assert(ANY_WORD(v));
+      no_shortcut: ;
 
-        REBSTR *spelling = VAL_WORD_SPELLING(v);
-        utf8 = STR_HEAD(spelling);
-        utf8_size = STR_SIZE(spelling);
+        REBFLGS feed_flags = FEED_MASK_DEFAULT;  // just get plain values
+        DECLARE_VA_FEED (feed, p, vaptr, feed_flags);
+
+        while (NOT_END(feed->value)) {
+            Move_Value(DS_PUSH(), KNOWN(feed->value));
+            Fetch_Next_In_Feed(feed, false);
+        }
+
+        a = Pop_Stack_Values_Core(dsp_orig, NODE_FLAG_MANAGED);
+        CLEAR_SERIES_FLAG(a, MANAGED);  // see notes above on why we lied
     }
 
-    if (not buf) {
-        assert(buf_size == 0);
-        return utf8_size; // caller must allocate a buffer of size + 1
-    }
+    // !!! Although you can do `rebU("[", a, b, "]"), you cannot do
+    // `rebU(a, b)` at this time.  That's because the feed does not have a
+    // way of holding a position inside of a nested array.  The only thing
+    // it could do would be to reify the feed into an array--which it can
+    // do, but the feature should be thought through more.
+    //
+    if (ARR_LEN(a) > 1)
+        fail ("rebU() and rebQ() currently can't splice more than one value");
 
-    REBSIZ limit = MIN(buf_size, utf8_size);
-    memcpy(buf, utf8, limit);
-    buf[limit] = '\0';
-    return utf8_size;
+    SET_ARRAY_FLAG(a, INSTRUCTION_ADJUST_QUOTING);
+    MISC(a).quoting_delta = delta;
+    return a;
 }
 
+//
+//  rebQUOTING: RL_API
+//
+// This is #defined as rebQ, with C89 shortcut rebQ1 => rebQ(v, rebEND)
+//
+const void *RL_rebQUOTING(const void *p, va_list *vaptr)
+ { return rebSpliceQuoteAdjuster_internal(+1, p, vaptr); }
 
 //
-//  rebSpell: RL_API
+//  rebUNQUOTING: RL_API
 //
-// This gives the spelling as UTF-8 bytes.  Length in codepoints should be
-// extracted with LENGTH OF.  If size in bytes of the encoded UTF-8 is needed,
-// use the binary extraction API (works on ANY-STRING! to get UTF-8)
+// This is #defined as rebU, with C89 shortcut rebU1 => rebU(v, rebEND)
 //
-char *RL_rebSpell(const void *p, va_list *vaptr)
+const void *RL_rebUNQUOTING(const void *p, va_list *vaptr)
+ { return rebSpliceQuoteAdjuster_internal(-1, p, vaptr); }
+
+
+//
+//  rebRELEASING: RL_API
+//
+// Convenience tool for making "auto-release" form of values.  They will only
+// exist for one API call.  They will be automatically rebRelease()'d when
+// they are seen (or even if they are not seen, if there is a failure on that
+// call it will still process the va_list in order to release these handles)
+//
+const void *RL_rebRELEASING(REBVAL *v)
 {
-    DECLARE_LOCAL (string);
-    if (Do_Va_Throws(string, p, vaptr)) // calls va_end()
-        fail (Error_No_Catch_For_Throw(string));
+    if (not Is_Api_Value(v))
+        fail ("Cannot apply rebR() to non-API value");
 
-    if (IS_NULLED(string))
-        return nullptr; // NULL is passed through, for opting out
+    REBARR *a = Singular_From_Cell(v);
+    if (GET_ARRAY_FLAG(a, SINGULAR_API_RELEASE))
+        fail ("Cannot apply rebR() more than once to the same API value");
 
-    size_t size = rebSpellInto_internal(nullptr, 0, string, rebEND);
-    char *result = cast(char*, rebMalloc(size + 1)); // add space for term
-    rebSpellInto_internal(result, size, string, rebEND);
-    return result;
-}
-
-
-//
-//  rebSpellIntoWide_internal: RL_API
-//
-// Extract UCS-2 data from an ANY-STRING! or ANY-WORD!.  Note this is *not*
-// UTF-16, so codepoints that require more than two bytes to represent will
-// cause errors.
-//
-// !!! Although the rebSpellInto API deals in bytes, this deals in count of
-// characters.  (The use of REBCNT instead of REBSIZ indicates this.)  It may
-// be more useful for the wide string APIs to do this so leaving it that way
-// for now.
-//
-unsigned int RL_rebSpellIntoWide_internal(
-    REBWCHAR *buf,
-    unsigned int buf_chars, // chars buf can hold (not including terminator)
-    const REBVAL *v,
-    const void *end
-){
-    if (Detect_Rebol_Pointer(end) != DETECTED_AS_END)
-        fail ("rebSpellIntoWide() doesn't support more than one value yet");
-
-    REBSER *s;
-    REBCNT index;
-    REBCNT len;
-    if (ANY_STRING(v)) {
-        s = VAL_SERIES(v);
-        index = VAL_INDEX(v);
-        len = VAL_LEN_AT(v);
-    }
-    else {
-        assert(ANY_WORD(v));
-
-        REBSTR *spelling = VAL_WORD_SPELLING(v);
-        s = Make_Sized_String_UTF8(STR_HEAD(spelling), STR_SIZE(spelling));
-        index = 0;
-        len = SER_LEN(s);
-    }
-
-    if (not buf) { // querying for size
-        assert(buf_chars == 0);
-        if (ANY_WORD(v))
-            Free_Unmanaged_Series(s);
-        return len; // caller must now allocate buffer of len + 1
-    }
-
-    REBCNT limit = MIN(buf_chars, len);
-    REBCNT n = 0;
-    for (; index < limit; ++n, ++index)
-        buf[n] = GET_ANY_CHAR(s, index);
-
-    buf[limit] = 0;
-
-    if (ANY_WORD(v))
-        Free_Unmanaged_Series(s);
-    return len;
-}
-
-
-//
-//  rebSpellWide: RL_API
-//
-// Gives the spelling as WCHARs.  If length in codepoints is needed, use
-// a separate LENGTH OF call.
-//
-// !!! Unlike with rebSpell(), there is not an alternative for getting
-// the size in UTF-16-encoded characters, just the LENGTH OF result.  While
-// that works for UCS-2 (where all codepoints are two bytes), it would not
-// work if Rebol supported UTF-16.  Which it may never do in the core or
-// API (possible solutions could include usermode UTF-16 conversion to binary,
-// and extraction of that with rebBytes(), then dividing the size by 2).
-//
-REBWCHAR *RL_rebSpellWide(const void *p, va_list *vaptr)
-{
-    DECLARE_LOCAL (string);
-    if (Do_Va_Throws(string, p, vaptr)) // calls va_end()
-        fail (Error_No_Catch_For_Throw(string));
-
-    if (IS_NULLED(string))
-        return nullptr; // NULL is passed through, for opting out
-
-    REBCNT len = rebSpellIntoWide_internal(nullptr, 0, string, rebEND);
-    REBWCHAR *result = cast(
-        REBWCHAR*, rebMalloc(sizeof(REBWCHAR) * (len + 1))
-    );
-    rebSpellIntoWide_internal(result, len, string, rebEND);
-    return result;
-}
-
-
-//
-//  rebBytesInto_internal: RL_API
-//
-// Extract binary data from a BINARY!
-//
-// !!! Caller must allocate a buffer of the returned size + 1.  It's not clear
-// if this is a good idea; but this is based on a longstanding convention of
-// zero termination of Rebol series, including binaries.  Review.
-//
-size_t RL_rebBytesInto_internal(
-    unsigned char *buf,  // parameters besides p,vaptr throw off wrapper code
-    size_t buf_size,
-    const REBVAL *binary,
-    const void *end
-){
-    if (Detect_Rebol_Pointer(end) != DETECTED_AS_END)
-        fail ("rebBytesInto() doesn't support more than one value yet");
-
-    if (not IS_BINARY(binary))
-        fail ("rebBytesInto() only works on BINARY!");
-
-    REBCNT size = VAL_LEN_AT(binary);
-
-    if (not buf) {
-        assert(buf_size == 0);
-        return size; // currently, caller must allocate a buffer of size + 1
-    }
-
-    REBCNT limit = MIN(buf_size, size);
-    memcpy(s_cast(buf), cs_cast(VAL_BIN_AT(binary)), limit);
-    buf[limit] = '\0';
-    return size;
-}
-
-
-//
-//  rebBytes: RL_API
-//
-// Can be used to get the bytes of a BINARY! and its size, or the UTF-8
-// encoding of an ANY-STRING! or ANY-WORD! and that size in bytes.  (Hence,
-// for strings it is like rebSpell() except telling you how many bytes.)
-//
-// !!! This may wind up being a generic TO BINARY! converter, so you might
-// be able to get the byte conversion for any type.
-//
-unsigned char *RL_rebBytes(
-    size_t *size_out, // !!! Enforce non-null, to ensure type safety?
-    const void *p, va_list *vaptr
-){
-    DECLARE_LOCAL (series);
-    if (Do_Va_Throws(series, p, vaptr)) // calls va_end()
-        fail (Error_No_Catch_For_Throw(series));
-
-    if (IS_NULLED(series)) {
-        *size_out = 0;
-        return nullptr; // NULL is passed through, for opting out
-    }
-
-    if (ANY_WORD(series) or ANY_STRING(series)) {
-        *size_out = rebSpellInto_internal(nullptr, 0, series, rebEND);
-        char *result = rebAllocN(char, (*size_out + 1));
-        size_t check = rebSpellInto_internal(
-            result,
-            *size_out,
-            series,
-        rebEND);
-        assert(check == *size_out);
-        UNUSED(check);
-        return cast(unsigned char*, result);
-    }
-
-    if (IS_BINARY(series)) {
-        *size_out = rebBytesInto_internal(nullptr, 0, series, rebEND);
-        unsigned char *result = rebAllocN(REBYTE, (*size_out + 1));
-        size_t check = rebBytesInto_internal(
-            result,
-            *size_out,
-            series,
-        rebEND);
-        assert(check == *size_out);
-        UNUSED(check);
-        return result;
-    }
-
-    fail ("rebBytes() only works with ANY-STRING!/ANY-WORD!/BINARY!");
-}
-
-
-//
-//  rebBinary: RL_API
-//
-REBVAL *RL_rebBinary(const void *bytes, size_t size)
-{
-    REBSER *bin = Make_Binary(size);
-    memcpy(BIN_HEAD(bin), bytes, size);
-    TERM_BIN_LEN(bin, size);
-
-    return Init_Binary(Alloc_Value(), bin);
-}
-
-
-//
-//  rebSizedText: RL_API
-//
-// If utf8 does not contain valid UTF-8 data, this may fail().
-//
-REBVAL *RL_rebSizedText(const char *utf8, size_t size)
-{
-    return Init_Text(Alloc_Value(), Make_Sized_String_UTF8(utf8, size));
-}
-
-
-//
-//  rebText: RL_API
-//
-REBVAL *RL_rebText(const char *utf8)
-{
-    return rebSizedText(utf8, strsize(utf8));
-}
-
-
-//
-//  rebLengthedTextWide: RL_API
-//
-REBVAL *RL_rebLengthedTextWide(const REBWCHAR *wstr, unsigned int num_chars)
-{
-    DECLARE_MOLD (mo);
-    Push_Mold(mo);
-
-    for (; num_chars != 0; --num_chars, ++wstr)
-        Append_Utf8_Codepoint(mo->series, *wstr);
-
-    return Init_Text(Alloc_Value(), Pop_Molded_String(mo));
-}
-
-
-//
-//  rebTextWide: RL_API
-//
-REBVAL *RL_rebTextWide(const REBWCHAR *wstr)
-{
-    DECLARE_MOLD (mo);
-    Push_Mold(mo);
-
-    for (; *wstr != 0; ++wstr)
-        Append_Utf8_Codepoint(mo->series, *wstr);
-
-    return Init_Text(Alloc_Value(), Pop_Molded_String(mo));
+    SET_ARRAY_FLAG(a, SINGULAR_API_RELEASE);
+    return a; // returned as const void* to discourage use outside variadics
 }
 
 

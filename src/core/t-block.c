@@ -251,7 +251,7 @@ REB_R MAKE_Array(
         //
         REBDSP dsp_orig = DSP;
         while (true) {
-            REBVAL *generated = rebRun(rebEVAL, arg, rebEND);
+            REBVAL *generated = rebRun(arg, rebEND);
             if (not generated)
                 break;
             Move_Value(DS_PUSH(), generated);
@@ -456,11 +456,10 @@ static int Compare_Val_Custom(void *arg, const void *v1, const void *v2)
     const bool fully = true; // error if not all arguments consumed
 
     DECLARE_LOCAL (result);
-    if (Run_Throws(
+    if (RunQ_Throws(
         result,
         fully,
-        rebEVAL,
-        flags->comparator,
+        rebU1(flags->comparator),
         flags->reverse ? v1 : v2,
         flags->reverse ? v2 : v1,
         rebEND
