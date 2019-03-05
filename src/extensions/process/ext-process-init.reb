@@ -70,8 +70,7 @@ parse-command-to-argv*: function [
 
     parse command [
         collect result: [any [
-            any space
-            [
+            any space [
                 {"} keep quoted-shell-item-rule {"}
                 | keep unquoted-shell-item-rule
             ]
@@ -84,6 +83,7 @@ parse-command-to-argv*: function [
             "the command line is valid then help fix PARSE-COMMAND-TO-ARGV*"
         ]
     ]
+    for-each item result [replace/all item {\"} {"}]
     return result
 ]
 
