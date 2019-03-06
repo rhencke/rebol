@@ -189,15 +189,11 @@ switch: checked [
 ]
 
 apply: checked [
-    adapt 'apply [
-        ((first def = '|) else [
-            fail [
-                {APPLY has changed, see https://trello.com/c/P2HCcu0V}
-                {Use a bar as the first item in the definition block to}
-                {subvert this check: `apply 'foo [| "Ok, I get it..."]`}
-            ]
-        ]
-    ]
+    ;
+    ; APPLY with refinements won't work the same way...should this hook apply
+    ; in order to warn about it?
+    ;
+    :apply
 ]
 
 bind?: deprecated [

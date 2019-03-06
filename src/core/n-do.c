@@ -694,7 +694,7 @@ REBNATIVE(redo)
 
 
 //
-//  apply: native [
+//  applique: native [
 //
 //  {Invoke an ACTION! with all required arguments specified}
 //
@@ -706,24 +706,15 @@ REBNATIVE(redo)
 //      /opt "Treat nulls as unspecialized <<experimental!>>"
 //  ]
 //
-REBNATIVE(apply)
-//
-// !!! Because APPLY is being written as a regular native (and not a
-// special exception case inside of Eval_Core) it has to "re-enter" Eval_Core
-// and jump to the argument processing.
-//
-// This could also be accomplished if function dispatch were a subroutine
-// that would be called both here and from the evaluator loop.  But if
-// the subroutine were parameterized with the frame state, it would be
-// basically equivalent to a re-entry.  And re-entry is interesting to
-// experiment with for other reasons (e.g. continuations), so that is what
-// is used here.
+REBNATIVE(applique)
 {
-    INCLUDE_PARAMS_OF_APPLY;
+    INCLUDE_PARAMS_OF_APPLIQUE;
 
     REBVAL *applicand = ARG(applicand);
 
-    // Need to do this up front, because it captures f->dsp
+    // Need to do this up front, because it captures f->dsp.  Note that the
+    // EVAL_FLAG_PROCESS_ACTION causes the evaluator to jump straight to the
+    // point in the switch() where a function is invoked.
     //
     DECLARE_END_FRAME (f, EVAL_MASK_DEFAULT | EVAL_FLAG_PROCESS_ACTION);
 

@@ -1,7 +1,7 @@
 ; better-than-nothing (New)APPLY tests
 
 (
-    s: apply :append [
+    s: applique :append [
         series: [a b c]
         value: [d e]
         dup: true

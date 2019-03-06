@@ -244,22 +244,6 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
     //=//// v-- BELOW CHECKS ONLY APPLY WHEN FRM_PHASE() is VALID ////////=//
 
     assert(GET_ARRAY_FLAG(ACT_PARAMLIST(phase), IS_PARAMLIST));
-    if (f->param != ACT_PARAMS_HEAD(phase)) {
-        //
-        // !!! When you MAKE FRAME! 'APPEND/ONLY, it will create a frame
-        // with a keylist that has /ONLY hidden.  But there's no new ACTION!
-        // to tie it to, so the only phase it knows about is plain APPEND.
-        // This means when it sees system internal signals like a REFINEMENT!
-        // in a refinement slot--instead of TRUE or FALSE--it thinks it has
-        // to type check it, as if the user said `apply 'append [only: /foo]`.
-        // Using the keylist as the facade is taken care of in DO for FRAME!,
-        // and this check is here pending a more elegant sorting of this.
-        //
-        assert(
-            FRM_PHASE(f->prior) == NAT_ACTION(do)
-            or FRM_PHASE(f->prior) == NAT_ACTION(apply)
-        );
-    }
 
     assert(f->refine == ORDINARY_ARG);
     if (NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT)) {

@@ -300,7 +300,7 @@ static int Read_Directory(REBREQ *dir, REBREQ *file)
         file_req->modes |= RFM_DIR;
 
     ReqFile(file)->path = rebRun(
-        "apply 'local-to-file [",
+        "applique 'local-to-file [",
             "path:", rebT(file_utf8),
             "dir:", rebL(file_req->modes & RFM_DIR),
         "]", rebEND
@@ -366,7 +366,7 @@ DEVICE_CMD Open_File(REBREQ *file)
     // printf("Open: %s %d %d\n", path, modes, access);
 
     char *path_utf8 = rebSpell(
-        "apply 'file-to-local [",
+        "applique 'file-to-local [",
             "path:", ReqFile(file)->path,
             "wild:", rebL(req->modes & RFM_DIR),  // !!! necessary?
             "full: true"

@@ -1745,7 +1745,7 @@ REB_R Chainer_Dispatcher(REBFRM *f)
 // the GET for you.  By doing the GET inside the function, they are able
 // to preserve the symbol:
 //
-//     >> apply 'append [value: 'c]
+//     >> applique 'append [value: 'c]
 //     ** Script error: append is missing its series argument
 //
 // If push_refinements is used, then it avoids intermediate specializations...

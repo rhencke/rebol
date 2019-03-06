@@ -93,7 +93,6 @@
 
 %control/all.test.reb
 %control/any.test.reb
-%control/apply.test.reb
 %control/attempt.test.reb
 %control/break.test.reb
 %control/case.test.reb
@@ -148,7 +147,6 @@
 %file/file-typeq.test.reb
 
 %functions/adapt.test.reb
-%functions/apply.test.reb
 %functions/chain.test.reb
 %functions/does.test.reb
 %functions/enclose.test.reb
@@ -198,6 +196,8 @@
 
 %network/dns.test.reb
 %network/http.test.reb
+
+%redbol/redbol-apply.test.reb
 
 %reflectors/body-of.test.reb
 

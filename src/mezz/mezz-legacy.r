@@ -167,64 +167,21 @@ rejoin: function [
 ]
 
 
-; For the moment, Ren-C has taken APPLY for a function that names parameters
-; and refinements directly in a block of code.  APPLIQUE acts like R3-Alpha's
-; APPLY, demonstrating that such a construct could be written in userspace--
-; even implementing the /ONLY refinement:
-;
-; `APPEND/ONLY/DUP A B 2` => `applique :append [a b none none true true 2]`
-;
-; This is hoped to be a "design lab" for figuring out what a better apply
-; might look like.
-;
-applique: function [
-    {APPLY interface is still evolving, see https://trello.com/c/P2HCcu0V}
-    return: [<opt> any-value!]
-    action [action!]
-    block [block!]
-    /only
-][
-    frame: make frame! :action
-    params: parameters of :action
-    using-args: true
-
-    while [block: sync-invisibles block] [
-        block: if only [
-            arg: block/1
-            try next block
-        ] else [
-            try evaluate/set block lit arg:
-        ]
-
-        if refinement? params/1 [
-            using-args: did set (in frame second params/1) :arg
-        ] else [
-            if using-args [
-                set* (in frame params/1) :arg
-            ]
-        ]
-
-        params: try next params
-    ]
-
-    comment [
-        ;
-        ; Too many arguments was not a problem for R3-alpha's APPLY, it would
-        ; evaluate them all even if not used by the function.  It may or
-        ; may not be better to have it be an error.
-        ;
-        if not tail? block [
-            fail "Too many arguments passed in R3-ALPHA-APPLY block."
-        ]
-    ]
-
-    do frame  ; nulls are optionals
-]
-
-
 ; The name FOREVER likely dissuades its use, since many loops aren't intended
 ; to run forever.  CYCLE gives similar behavior without suggesting the
 ; permanence.  It also is unique among loop constructs by supporting a value
 ; return via STOP, since it has no "normal" loop termination condition.
 ;
 forever: :cycle
+
+
+apply: func [dummy:] [
+    fail 'dummy [
+        {APPLY is being reverted to a reimagination of the positional}
+        {APPLY from Rebol2/R3-Alpha, but with a different way of dealing with}
+        {refinements.  The Ren-C APPLY experiment has been moved to the name}
+        {APPLIQUE, which runs a block of code that is bound into a frame.}
+        {APPLY will be reverted when all Ren-C style apply are switched to}
+        {use APPLIQUE.}  https://forum.rebol.info/t/1103
+    ]
+]

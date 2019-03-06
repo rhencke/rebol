@@ -208,7 +208,64 @@ function: emulate [
     ]
 ]
 
-apply: emulate [:applique]
+apply: emulate [
+    ; Historical Rebol had an APPLY which would take refinements themselves
+    ; as arguments in the block.
+    ;
+    ; `APPEND/ONLY/DUP A B 2` => `apply :append [a b none none true true 2]`
+    ;
+    ; This made the apply call aware of the ordering of refinements in the
+    ; spec, which is not supposed to be a thing.  So Ren-C's APPLY requires
+    ; you to account for any refinements in your call by naming them in the
+    ; path that you are applying, then the array should have exactly that
+    ; number of arguments: https://trello.com/c/P2HCcu0V
+    ;
+    ; This emulation is a good example of how FRAME! can be used to build
+    ; customized apply-like functions.
+    ;
+    function [
+        return: [<opt> any-value!]
+        action [action!]
+        block [block!]
+        /only
+    ][
+        frame: make frame! :action
+        params: parameters of :action
+        using-args: true
+
+        while [block: sync-invisibles block] [
+            block: if only [
+                arg: block/1
+                try next block
+            ] else [
+                try evaluate/set block lit arg:
+            ]
+
+            if refinement? params/1 [
+                using-args: did set (in frame second params/1) :arg
+            ] else [
+                if using-args [
+                    set* (in frame params/1) :arg
+                ]
+            ]
+
+            params: try next params
+        ]
+
+        comment [
+            ;
+            ; Too many arguments was not a problem for R3-alpha's APPLY, it
+            ; would evaluate them all even if not used by the function.  It
+            ; may or may not be better to have it be an error.
+            ;
+            if not tail? block [
+                fail "Too many arguments passed in R3-ALPHA-APPLY block."
+            ]
+        ]
+
+        do frame  ; nulls are optionals
+    ]
+]
 
 ?: emulate [:help]
 
@@ -311,7 +368,7 @@ set: emulate [
         set_ANY: any
         any: :lib/any
 
-        apply 'set [
+        applique 'set [
             target: either any-context? target [words of target] [target]
             set* (lit value:) :value
             some: some
@@ -395,7 +452,7 @@ do: emulate [
             ]
             do code
         ] else [
-            apply 'do [
+            applique 'do [
                 source: :source
                 if args: args [
                     arg: :arg
@@ -528,7 +585,7 @@ compose: emulate [
         case [
             not block? value [:value]
             into [
-                insert out apply 'compose [
+                insert out applique 'compose [
                     value: :value
                     deep: deep
                     only: true  ; controls turning off ((...)) splicing
@@ -536,7 +593,7 @@ compose: emulate [
                 ]
             ]
         ] else [
-            apply 'compose [
+            applique 'compose [
                 value: :value
                 deep: deep
                 only: true  ; controls turning off ((...)) splicing
@@ -588,7 +645,7 @@ repend: emulate [
     ][
         ;-- R3-alpha REPEND with block behavior called out
         ;
-        apply 'append/part/dup [
+        applique 'append/part/dup [
             series: series
             value: (block? :value) and [reduce :value] or [:value]
             if part [limit: :limit]
@@ -605,7 +662,7 @@ join: emulate [
     ][
         ;-- double-inline of R3-alpha `repend value :rest`
         ;
-        apply 'append [
+        applique 'append [
             series: if series? :value [copy value] else [form :value]
             value: if block? :rest [reduce :rest] else [rest]
         ]
@@ -635,7 +692,7 @@ quit: emulate [
         /return {use /WITH in Ren-C: https://trello.com/c/3hCNux3z}
         value
     ][
-        apply 'quit [
+        applique 'quit [
             with: ensure [refinement! blank!] return
             if return [value: :value]
         ]
