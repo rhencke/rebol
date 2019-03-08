@@ -13,16 +13,33 @@ REBOL [
     License: {Apache 2.0}
 ]
 
-comment [
-    {Rebol Support Routines for User Natives Would Go Here}
-]
-
-; Currently all the necessary initialization for JavaScript extensions is in
-; the rebStartup() wrapper for the library.  But it's helpful to have a call
-; here at least so that one can know in the debugger if the extension ran.
-;
 init-javascript-extension
+
+
+; !!! The table which maps ID numbers to JavaScript functions that implement
+; JS-NATIVEs has to live on the GUI thread.  But when running rebPromise(),
+; that Rebol code runs on the worker thread...which includes the ordinary
+; native for registering JavaScript natives.
+;
+; As a temporary workaround, this makes JS-NATIVE JavaScript code itself.
+; That does enough to jump it to the main thread, where it calls the form
+; of the main thread internal native creator.
+;
+js-native: js-native-mainthread [
+    {Create ACTION! from textual JavaScript code}
+
+    return: [action!]
+    spec "Function specification (similar to the one used by FUNCTION)"
+        [block!]
+    source "JavaScript code as a text string" [text!]
+    /awaiter "implicit resolve()/reject() parameters signal return result"
+]{
+    return reb.Run(
+        "js-native-mainthread/(", reb.ArgR("awaiter"), ")",
+        reb.ArgR("spec"), reb.ArgR("source")
+    );
+}
 
 js-awaiter: specialize 'js-native [awaiter: true]
 
-sys/export [js-awaiter]  ; !!! Hacky export scheme
+sys/export [js-native js-awaiter]  ; !!! Hacky export scheme

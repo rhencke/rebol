@@ -775,9 +775,9 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
 
 
 //
-//  export js-native: native [
+//  export js-native-mainthread: native [
 //
-//  {Create ACTION! from textual JavaScript code}
+//  {Create ACTION! from textual JavaScript code, works only on main thread}
 //
 //      return: [action!]
 //      spec "Function specification (similar to the one used by FUNCTION)"
@@ -786,9 +786,26 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
 //      /awaiter "implicit resolve()/reject() parameters signal return result"
 //  ]
 //
-REBNATIVE(js_native)  // specialized as JS-AWAITER in %ext-javascript-init.reb
+REBNATIVE(js_native_mainthread)
+//
+// !!! As a temporary workaround to make sure all JS-NATIVEs get registered
+// on the main thread, the JS-NATIVE itself runs JavaScript which then calls
+// this function.  It thus very inefficiently reuses the code for proxying
+// natives to the main thread.  But it runs through the right code path
+// and shows what mechanism we should reuse (just in a better way).
+//
+// Note: specialized as JS-AWAITER in %ext-javascript-init.reb
 {
-    JAVASCRIPT_INCLUDE_PARAMS_OF_JS_NATIVE;
+    JAVASCRIPT_INCLUDE_PARAMS_OF_JS_NATIVE_MAINTHREAD;
+
+    // The use of the worker is for running Rebol code, when that code may
+    // need to hold its state in suspended animation while JavaScript runs.
+    // But the JavaScript *always* runs on the main/GUI thread.  So the
+    // table matching integers to code lives only on the GUI thread (and
+    // due to the rules of JavaScript web workers, is not visible to the
+    // worker thread).
+    //
+    ASSERT_ON_MAIN_THREAD();
 
     REBVAL *spec = ARG(spec);
     REBVAL *source = ARG(source);
