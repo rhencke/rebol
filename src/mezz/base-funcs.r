@@ -65,7 +65,7 @@ maybe: enfix func [
             ; https://github.com/rebol/rebol-issues/issues/2275
             ;
             if null? :optional [return do compose [(as get-path! target)]]
-            do compose [(target) lit ((:optional))]
+            do compose [(target) lit (:optional)]
         ]
     ]
 ]
