@@ -460,16 +460,21 @@ matrix:
 
     # [13] Emscripten, asm.js + emterpreter, release
     #
-    # The job of this build is to create a JavaScript library that can be
-    # loaded into a web page or Node.JS.  For an example:
+    # The "emtepreter" is a less-desirable way to achieve asynchronous code
+    # in a browser than using WebAssembly Threads.  However, some JavaScript
+    # hosts are missing that--or other features--which are needed for the
+    # "good" emscripten build.  (Alternatively they may have the features, but
+    # disable them by default, creating a usability barrier.)
     #
-    # https://github.com/hostilefork/replpad-js
+    # https://github.com/emscripten-core/emscripten/wiki/Emterpreter
+    #
+    # This build varation is created as a fallback.
     #
     - os: osx
       osx_image: xcode10.1  # was originally using xcode9.3beta
       language: c
       env:
-        - NUMBER=12
+        - NUMBER=13
         - CONFIG=emterpreter.r
         - OS_ID=0.16.1
         - DEBUG=none
@@ -480,6 +485,8 @@ matrix:
         - WITH_FFI=no
         - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS=-  # requests inclusion of no extensions (default?)
+
+
 # The install step occurs before the `script:` step runs.  The language that
 # was specified in the `matrix:` entry for each instance will guide certain
 # default tools that will be installed.  But you can add custom steps:

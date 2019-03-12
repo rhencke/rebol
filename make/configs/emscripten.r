@@ -51,8 +51,6 @@ top: 'library
 
 os-id: default [0.16.2]
 
-gcc-path:
-
 toolset: [
     gcc %emcc
     ld %emcc
@@ -117,7 +115,7 @@ cflags: compose [
         {-s USE_PTHREADS=1}  ; must be in both cflags and ldflags if used
 
         ; Instruction to compiler front end (via -D) to do a #define
-        {-DUSE_PTHREADS=1}  ; clearer than `#if !defined(USE_EMSCRIPTEN)`
+        {-DUSE_PTHREADS=1}  ; clearer than `#if !defined(USE_EMTERPRETER)`
     ]]))
 ]
 
@@ -185,8 +183,8 @@ ldflags: compose [
         ; to emcc, e.g.
         ;     export EMCC_CLOSURE_ARGS="--externs closure-externs.json"
         ;
-        ;{-s IGNORE_CLOSURE_COMPILER_ERRORS=1} ;-- maybe useful
-        {-g1} ;-- Note: this level can be used with closure compiler
+        ;{-s IGNORE_CLOSURE_COMPILER_ERRORS=1}  ; maybe useful?
+        {-g1}  ; Note: debug level 1 can be used with closure compiler
         {--closure 1}
     ]] else [[
         {--closure 0}
