@@ -534,7 +534,7 @@ void RL_rebIdle_internal(void)  // there should be NO user JS code on stack!
 
     if (NOT_CELL_FLAG(result, MARKED_RESULT_SUCCESS)) {
         assert(IS_ERROR(result));
-        info->state = PROMISE_STATE_REJECTED
+        info->state = PROMISE_STATE_REJECTED;
         TRACE("rebIdle() => error in emterpreted promise => reject");
     }
     else {
