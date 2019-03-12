@@ -253,8 +253,6 @@ struct Reb_Promise_Info *PG_Promises;  // Singly-linked list
 #endif
 
 
-// rebPromise() the API augments the output of this RL_rebPromise() primitive.
-//
 // This returns an integer of a unique memory address it allocated to use in
 // a mapping for the [resolve, reject] functions.  We will trigger those
 // mappings when the promise is fulfilled.  In order to come back and do that
@@ -264,9 +262,9 @@ struct Reb_Promise_Info *PG_Promises;  // Singly-linked list
 // The resolve will be called if it reaches the end of the input and the
 // reject if there is a failure.
 //
-// See %make-reb-lib.r for code that produces the `rebPromise(...)` API, which
-// ties the returned integer into the resolve and reject branches of an
-// actual JavaScript Promise.
+// Note: See %make-reb-lib.r for code that produces the `rebPromise(...)` API,
+// which ties the returned integer into the resolve and reject branches of an
+// actual JavaScript ES6 Promise.
 //
 static intptr_t rebPromise_internal(REBFLGS flags, void *p, va_list *vaptr)
 {
@@ -336,6 +334,25 @@ intptr_t RL_rebPromiseQ(void *p, va_list *vaptr)
   { return rebPromise_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
 
 
+// Function passed to rebRescue() so code can be run but trap errors safely.
+//
+REBVAL *Run_Array_Dangerous(void *opaque) {
+    REBARR *code = cast(REBARR*, opaque);
+
+    REBVAL *result = Alloc_Value();
+    if (Do_At_Mutable_Throws(result, code, 0, SPECIFIED))
+        fail (Error_No_Catch_For_Throw(result));
+
+    // We want to distinguish an error that was raised from an error that
+    // was returned by value.  Here we experiment with using the MARKED flag.
+    // An error that comes back from the trap won't have the flag.
+    //
+    assert(NOT_CELL_FLAG(result, MARKED_RESULT_SUCCESS));
+    SET_CELL_FLAG(result, MARKED_RESULT_SUCCESS);
+    return result;
+}
+
+
 #if defined(USE_PTHREADS)
 
 // Worker pthread that loops, picks up promise work items, and runs the
@@ -347,6 +364,9 @@ void *promise_worker(void *vargp)
 
     ASSERT_ON_PROMISE_THREAD();
 
+    // This loop should have a signal to exit cleanly and shut down the
+    // worker thread: https://forum.rebol.info/t/960
+    //
     while (true) {
         //
         // Wait until we're signaled that MAIN won't make any libRebol calls.
@@ -365,34 +385,35 @@ void *promise_worker(void *vargp)
         assert(info->state == PROMISE_STATE_QUEUEING);
         info->state = PROMISE_STATE_RUNNING;
 
-        // !!! In the pthread case, we are running this promise not on the MAIN
-        // thread.  That means this is top level.  We have to push a trap.
-        // But as this is JavaScript, we only need to handle the JS-specific
-        // fails...which rebTrap() is supposed to abstract.  Review.
-        //
-        // !!! reject() should probably be called on error.  JavaScript's
-        // analogue to FAIL is throw(), and the difference between `throw()`
+        // We run the code using rebRescue() so that if there are errors, we
+        // will be able to trap them.  the difference between `throw()`
         // and `reject()` in JS is subtle.
         //
         // https://stackoverflow.com/q/33445415/
 
-        REBVAL *result = Alloc_Value();
-        if (Do_At_Mutable_Throws(result, code, 0, SPECIFIED)) {
-            //
-            // !!! This should presumably be a reject(), see note above.
-            // !!! Nothing to catch this fail() on the non-MAIN thread
-            //
-            fail (Error_No_Catch_For_Throw(result));  // result auto-releases
-        }
+        REBVAL *result = rebRescue(&Run_Array_Dangerous, code);
+        assert(info->state == PROMISE_STATE_RUNNING);
 
-        info->state = PROMISE_STATE_RESOLVED;
+        if (NOT_CELL_FLAG(result, MARKED_RESULT_SUCCESS)) {
+            //
+            // Note this could be an uncaught throw error, raised by the
+            // Run_Array_Dangerous() itself.
+            //
+            assert(IS_ERROR(result));
+            info->state = PROMISE_STATE_REJECTED;
+            TRACE("promise_worker() => error unblocked MAIN => reject");
+        }
+        else {
+            CLEAR_CELL_FLAG(result, MARKED_RESULT_SUCCESS);
+            info->state = PROMISE_STATE_RESOLVED;
+            TRACE("promise_worker() => unblock MAIN => resolve");
+        }
         PG_Promise_Result = result;
 
         // Signal MAIN to unblock.  (Any time rebIdle() is unblocked, it needs
         // to check promise_result to see if it's ready, or if there's a
         // request to run some other code)
         //
-        TRACE("promise_worker() => signaling MAIN to unblock");
         pthread_mutex_lock(&PG_Main_Mutex);
         pthread_cond_signal(&PG_Main_Cond);
         pthread_mutex_unlock(&PG_Main_Mutex);
@@ -502,25 +523,25 @@ void RL_rebIdle_internal(void)  // there should be NO user JS code on stack!
     assert(info->state == PROMISE_STATE_QUEUEING);
     info->state = PROMISE_STATE_RUNNING;
 
-    // REVIEW: PUSH_TRAP() / reject()?
-
     // The "simple" case: we actually stay on the MAIN thread, and JS-AWAITER
     // can call emscripten_sleep_with_yield()...which will just post any
     // requests to continue as a setTimeout().  Emscripten does all the work.
     //
     TRACE("rebIdle() => begin emterpreting promise code");
-    result = Alloc_Value();
-    if (Do_At_Mutable_Throws(result, code, 0, SPECIFIED)) {
-        //
-        // !!! This should presumably be a reject(), see note above.
-        // !!! Nothing to catch this fail() on the non-MAIN thread
-        //
-        fail (Error_No_Catch_For_Throw(result));  // will release result
-    }
-    TRACE("rebIdle() => end emterpreting promise code");
 
+    result = rebRescue(&Run_Array_Dangerous, code);
     assert(info->state == PROMISE_STATE_RUNNING);
-    info->state = PROMISE_STATE_RESOLVED;
+
+    if (NOT_CELL_FLAG(result, MARKED_RESULT_SUCCESS)) {
+        assert(IS_ERROR(result));
+        info->state = PROMISE_STATE_REJECTED
+        TRACE("rebIdle() => error in emterpreted promise => reject");
+    }
+    else {
+        CLEAR_CELL_FLAG(result, MARKED_RESULT_SUCCESS);
+        info->state = PROMISE_STATE_RESOLVED;
+        TRACE("rebIdle() => successful emterpreted promise => resolve");
+    }
 
   #else  // PTHREAD model
 
@@ -601,17 +622,33 @@ void RL_rebIdle_internal(void)  // there should be NO user JS code on stack!
     }
   #endif
 
-    if (info->state == PROMISE_STATE_RESOLVED) {
+    if (
+        info->state == PROMISE_STATE_AWAITING
+        or info->state == PROMISE_STATE_RUNNING
+    ){
+        // Not finished
+    }
+    else {
         if (IS_NULLED(result)) {
             rebRelease(result);
             result = nullptr;
         }
 
-        EM_ASM(
-            { reb.ResolvePromise_internal($0, $1); },
-            info->promise_id,  // => $0 (promise table entry will be freed)
-            result  // => $1 (recipient takes over handle)
-        );
+        if (info->state == PROMISE_STATE_RESOLVED) {
+            EM_ASM(
+                { reb.ResolvePromise_internal($0, $1); },
+                info->promise_id,  // => $0 (table entry will be freed)
+                result  // => $1 (recipient takes over handle)
+            );
+        }
+        else {
+            assert(info->state == PROMISE_STATE_REJECTED);
+            EM_ASM(
+                { reb.RejectPromise_internal($0, $1); },
+                info->promise_id,  // => $0 (table entry will be freed)
+                result  // => $1 (recipient takes over handle)
+            );
+        }
 
         assert(PG_Promises == info);
         PG_Promises = info->next;
@@ -852,13 +889,20 @@ REBNATIVE(js_native_mainthread)
     REBINT len = Emit_Integer(buf, native_id);
     Append_Unencoded_Len(mo->series, s_cast(buf), len);
 
+    // By not using `new function` we avoid escaping of the string literal.
+    // We also have the option of making it an async function in the future
+    // if we wanted to...which would allow `await` in the body.
+    //
     Append_Unencoded(mo->series, ", function() {\n");  // would add ID number
     Append_Unencoded(mo->series, "return function");  // !!!! async function?
+
+    // We do not try to auto-translate the Rebol arguments into JS args.  It
+    // would make calling it more complex, and introduce several issues of
+    // mapping Rebol names to legal JavaScript identifiers.  reb.Arg() or
+    // reb.ArgR() must be used to access the arguments out of the frame.
+    //
     Append_Unencoded(mo->series, REF(awaiter) ? "(resolve, reject)" : "()");
     Append_Unencoded(mo->series, " {");
-
-    // By not using `new function` we are able to make this an async function,
-    // as well as avoid escaping of string literals.
 
     REBSIZ offset;
     REBSIZ size;

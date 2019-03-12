@@ -8,7 +8,7 @@ REBOL [
     Version: 0.1.0
     Date: 15-Sep-2018
 
-    Rights: "Copyright (C) 2018 Rebol Open Source Contributors"
+    Rights: "Copyright (C) 2018-2019 Rebol Open Source Contributors"
 
     License: {Apache 2.0}
 ]

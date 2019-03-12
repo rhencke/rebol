@@ -44,10 +44,9 @@ REBNATIVE(halt)
 //
 //  quit: native [
 //
-//  {Stop evaluating and return control to command shell or calling script.}
+//  {Stop evaluating and return control to command shell or calling script}
 //
-//      /with
-//          {Yield a result (mapped to an integer if given to shell)}
+//      /with "Yield a result (mapped to an integer if given to shell)"
 //      value [any-value!]
 //          "See: http://en.wikipedia.org/wiki/Exit_status"
 //  ]
@@ -75,11 +74,10 @@ REBNATIVE(quit)
 //
 //  exit-rebol: native [
 //
-//  {Stop the current Rebol interpreter, cannot be caught by CATCH/QUIT.}
+//  {Stop the current Rebol interpreter (cannot be caught by CATCH/QUIT)}
 //
 //      /with
-//          {Yield a result (mapped to an integer if given to shell)}
-//      value [any-value!]
+//      value [integer!]
 //          "See: http://en.wikipedia.org/wiki/Exit_status"
 //  ]
 //
