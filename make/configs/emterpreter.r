@@ -31,6 +31,6 @@ javascript-environment: #web
 ;
 use-emterpreter: true
 
-use-wasm: false
+;use-wasm: false
 
 config: %emscripten.r
