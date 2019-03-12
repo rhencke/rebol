@@ -2365,10 +2365,15 @@ REBNATIVE(subparse)
                         set_or_copy_word,
                         P_RULE_SPECIFIER
                     );
-                    if (ANY_ARRAY_OR_PATH(P_INPUT_VALUE)) {
+                    if (ANY_ARRAY(P_INPUT_VALUE)) {
+                        //
+                        // Act like R3-Alpha in preserving GROUP! vs. BLOCK!
+                        // distinction (which Rebol2 did not).  But don't keep
+                        // SET-XXX! or GET-XXX! (like how quoting is not kept)
+                        //
                         Init_Any_Array(
                             sink,
-                            P_TYPE,
+                            ANY_GROUP_KIND(P_TYPE) ? REB_GROUP : REB_BLOCK,
                             Copy_Array_At_Max_Shallow(
                                 ARR(P_INPUT),
                                 begin,
@@ -2378,7 +2383,7 @@ REBNATIVE(subparse)
                         );
                     }
                     else if (IS_BINARY(P_INPUT_VALUE)) {
-                        Init_Binary(
+                        Init_Binary(  // R3-Alpha behavior (e.g. not AS TEXT!)
                             sink,
                             Copy_Sequence_At_Len(P_INPUT, begin, count)
                         );
@@ -2389,14 +2394,21 @@ REBNATIVE(subparse)
                         DECLARE_LOCAL (begin_val);
                         Init_Any_Series_At(begin_val, P_TYPE, P_INPUT, begin);
 
-                        Init_Any_Series(
+                        // Rebol2 behavior of always "netural" TEXT!.  Avoids
+                        // creation of things like URL!-typed fragments that
+                        // have no scheme:// at their head, or getting <bc>
+                        // out of <abcd> as if `<b` or `c>` had been found.
+                        //
+                        Init_Text(
                             sink,
-                            P_TYPE,
                             Copy_String_At_Len(begin_val, count)
                         );
                     }
 
-                    Quotify(sink, P_NUM_QUOTES);
+                    // !!! As we are losing the datatype here, it doesn't make
+                    // sense to carry forward the quoting on the input.  It
+                    // is collecting items in a neutral container.  It is less
+                    // obvious what marking a position should do.
                 }
                 else if ((flags & PF_SET) and (count != 0)) { // 0-leave alone
                     //

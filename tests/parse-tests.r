@@ -289,9 +289,12 @@
 (did parse [... [a b]] [thru '[a b] end])
 (did parse [1 1 1] [some '1 end])
 
+; Quote level is currently retained by the return value, but not by the
+; captured content.
+;
 (did all [
     lit ''[] == parse lit ''[1 + 2] [copy x to end]
-    x == lit ''[1 + 2]
+    x == [1 + 2]
 ])
 
 

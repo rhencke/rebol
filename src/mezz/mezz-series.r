@@ -594,17 +594,17 @@ split: function [
         return map-each len dlm [
             if len <= 0 [
                 series: skip series negate len
-                continue ;-- don't add to output
+                continue  ; don't add to output
             ]
             copy/part series series: skip series len
         ]
     ]
 
-    if tag? dlm [dlm: form dlm] ;-- reserve other strings for future meanings
+    if tag? dlm [dlm: form dlm]  ; reserve other strings for future meanings
 
     result: collect [
         parse series if integer? dlm [
-            size: dlm ;-- alias for readability in integer case
+            size: dlm  ; alias for readability in integer case
             if size < 1 [fail "Bad SPLIT size given:" size]
 
             if into [
