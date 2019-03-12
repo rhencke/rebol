@@ -1075,9 +1075,16 @@ e-cwrap/emit {
             resolve_or_reject(arg, 1)
         }
 
-        var dummy = RL_JS_NATIVES[id](resolve, reject)
-        if (dummy !== undefined)
-            throw Error("JS-AWAITER cannot return a value, use resolve()")
+        /* Is an `async` function and hence returns a Promise.  We aren't
+         * expecting it to return a value, so the only time it should return
+         * anything but undefined (same as no return or no argument to return)
+         * is if it AWAITs.
+         */
+        RL_JS_NATIVES[id](resolve, reject)
+          .then(function(dummy) {
+            if (dummy !== undefined)
+                throw Error("JS-AWAITER can't return a value, use resolve()")
+          }).catch(reject)
     }
 
     reb.GetNativeResult_internal = function(frame_id) {

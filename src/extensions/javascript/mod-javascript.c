@@ -893,8 +893,24 @@ REBNATIVE(js_native_mainthread)
     // We also have the option of making it an async function in the future
     // if we wanted to...which would allow `await` in the body.
     //
-    Append_Unencoded(mo->series, ", function() {\n");  // would add ID number
-    Append_Unencoded(mo->series, "return function");  // !!!! async function?
+    Append_Unencoded(mo->series, ", ");
+
+    // A JS-AWAITER can only be triggered from Rebol on the worker thread as
+    // part of a rebPromise().  The function itself has no return value, as
+    // it does its work by either resolve() or reject().  Making it an async
+    // function means it will return an ES6 Promise, and allows use of the
+    // AWAIT JavaScript feature inside the body:
+    //
+    // https://javascript.info/async-await
+    //
+    // Using plain return inside an async function returns a fulfilled promise
+    // while using AWAIT causes the execution to pause and return a pending
+    // promise.  When that promise is fulfilled it will jump back in and
+    // pick up code on the line after that AWAIT.
+    //
+    if (REF(awaiter))
+        Append_Unencoded(mo->series, "async ");
+    Append_Unencoded(mo->series, "function");
 
     // We do not try to auto-translate the Rebol arguments into JS args.  It
     // would make calling it more complex, and introduce several issues of
@@ -915,7 +931,6 @@ REBNATIVE(js_native_mainthread)
     Append_Utf8_Utf8(mo->series, cs_cast(BIN_AT(temp, offset)), size);
 
     Append_Unencoded(mo->series, "}\n");  // end `function() {`
-    Append_Unencoded(mo->series, "}()");  // invoke dummy function
     Append_Unencoded(mo->series, ");");  // end `reb.RegisterId_internal(`
 
     TERM_SERIES(mo->series);
