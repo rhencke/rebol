@@ -910,15 +910,13 @@ REBNATIVE(js_native_mainthread)
     //
     if (REF(awaiter))
         Append_Unencoded(mo->series, "async ");
-    Append_Unencoded(mo->series, "function");
 
     // We do not try to auto-translate the Rebol arguments into JS args.  It
     // would make calling it more complex, and introduce several issues of
     // mapping Rebol names to legal JavaScript identifiers.  reb.Arg() or
     // reb.ArgR() must be used to access the arguments out of the frame.
     //
-    Append_Unencoded(mo->series, REF(awaiter) ? "(resolve, reject)" : "()");
-    Append_Unencoded(mo->series, " {");
+    Append_Unencoded(mo->series, "function () {");
 
     REBSIZ offset;
     REBSIZ size;

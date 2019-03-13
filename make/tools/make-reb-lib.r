@@ -1063,28 +1063,47 @@ e-cwrap/emit {
             _RL_rebSignalAwaiter_internal(frame_id, rej)  /* 1 = reject */
         }
 
-        var resolve = function(arg) {
+        /* Is an `async` function and hence returns a Promise.  In JS, you
+         * can't synchronously determine if it is a resolved Promise, e.g.
+         *
+         *     async function f() { return 1020; }  // auto-promise-ifies it
+         *     f().then(function() { console.log("prints second"); });
+         *     console.log("prints first");  // doesn't care it's fulfilled
+         *
+         * Hence you have to pre-announce if you're writing a JS-AWAITER or
+         * plain JS-NATIVE (which doesn't use an async function)
+         */
+        RL_JS_NATIVES[id]()
+          .then(function(arg) {
+
+            /* The caller asked for a Rebol return result.  So the return
+             * value needs to be one Rebol return result (with exceptions
+             * made for any JS types like nullptr or undefined that are
+             * to be automatically translated).
+             */
             if (arguments.length > 1)
                 throw Error("JS-AWAITER's resolve() takes 1 argument")
             resolve_or_reject(arg, 0)
-        }
 
-        var reject = function(arg) {
+          }).catch(function(arg) {
+
+            /* !!! Initially it was modeled that errors from a THROW would be
+             * Rebol values, like the return result.  This likely does not
+             * make sense, and all catch() arguments need to be JavaScript
+             * errors objects which may wrap Rebol ERROR!, but more likely
+             * are the result of a `throw` from JavaScript code.
+             */
             if (arguments.length > 1)
                 throw Error("JS-AWAITER's reject() takes 1 argument")
             resolve_or_reject(arg, 1)
-        }
 
-        /* Is an `async` function and hence returns a Promise.  We aren't
-         * expecting it to return a value, so the only time it should return
-         * anything but undefined (same as no return or no argument to return)
-         * is if it AWAITs.
+          })
+
+        /* Just fall through back to Idle, who lets the GUI loop spin back
+         * to where something should hopefully trigger the then() or the
+         * catch() branches above to either let the calling rebPromise() keep
+         * going or be rejected.
          */
-        RL_JS_NATIVES[id](resolve, reject)
-          .then(function(dummy) {
-            if (dummy !== undefined)
-                throw Error("JS-AWAITER can't return a value, use resolve()")
-          }).catch(reject)
     }
 
     reb.GetNativeResult_internal = function(frame_id) {
