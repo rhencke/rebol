@@ -435,6 +435,7 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
             fail (Error_Need_Non_Void_Core(v, *specifier));
 
         CLEAR_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
+        CLEAR_CELL_FLAG(f->out, UNEVALUATED);  // this helper counts as eval
         return false;
     }
 
@@ -474,6 +475,7 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     if (IS_VOID(f->out))  // some set-xxx! accept null, none take void
         fail (Error_Need_Non_Void_Core(v, *specifier));
 
+    CLEAR_CELL_FLAG(f->out, UNEVALUATED);  // this helper counts as eval
     return false;
 }
 
@@ -572,6 +574,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             CLEAR_EVAL_FLAG(f, PROCESS_ACTION);
 
             SET_CELL_FLAG(f->out, OUT_MARKED_STALE); // !!! necessary?
+            kind.byte = REB_ACTION;  // must init for UNEVALUATED check
             goto process_action;
         }
 
@@ -580,6 +583,8 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         if (GET_CELL_FLAG(f->u.reval.value, ENFIXED)) {
             Push_Enfix_Action(f, f->u.reval.value, nullptr);
             Fetch_Next_Forget_Lookback(f);  // advances f->at
+
+            kind.byte = REB_ACTION;  // must init for UNEVALUATED check
             goto process_action;
         }
 
@@ -731,6 +736,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
     SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
 
     CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
+    kind.byte = REB_ACTION;  // for consistency in the UNEVALUATED check
     goto process_action;
 
   give_up_backward_quote_priority:
@@ -1602,6 +1608,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
         if (r == f->out) {
             assert(NOT_CELL_FLAG(f->out, OUT_MARKED_STALE));
+            CLEAR_CELL_FLAG(f->out, UNEVALUATED);  // other cases Move_Value()
         }
         else if (not r) { // API and internal code can both return `nullptr`
             Init_Nulled(f->out);
@@ -1779,14 +1786,6 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         // the result of a CHAIN) we can run those chained functions in the
         // same REBFRM, for efficiency.
         //
-        // !!! There is also a feature where the QUOTED! dispatcher wants to
-        // run through ordinary dispatch for generic dispatch, but then add
-        // its level of "literality" to the output result.  Right now that's
-        // done by having it push a plain integer to the stack, saying how
-        // many levels of escaping to add to the output.  This is in the
-        // experimental phase, but would probably be done with a similar
-        // mechanism based on some information from any action's signature.
-        //
         while (DSP != f->dsp_orig) {
             //
             // We want to keep the label that the function was invoked with,
@@ -1941,13 +1940,11 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         DECLARE_FEED_AT_CORE (subfeed, v, *specifier);
 
         // "Maybe_Stale" variant leaves f->out as-is if no result generated
-        // However, it sets OUT_MARKED_STALE in that case.
+        // However, it sets OUT_MARKED_STALE in that case (note we may be
+        // leaving an END in f->out by doing this.)
         //
-        if (Do_Feed_To_End_Maybe_Stale_Throws(f->out,  subfeed))
+        if (Do_Feed_To_End_Maybe_Stale_Throws(f->out, subfeed))
             goto return_thrown;
-
-        if (GET_CELL_FLAG(f->out, OUT_MARKED_STALE))  // invisible group
-            break;  // ...we might be leaving an END in f->out by doing this
 
         CLEAR_CELL_FLAG(f->out, UNEVALUATED);  // `(1)` considered evaluative
         break; }
@@ -2070,11 +2067,6 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             goto return_thrown;
         }
 
-        // !!! May have passed something into Eval_Path_Throws_Core() with
-        // the unevaluated flag, so it could tell `x/y: 2` from `x/y: 1 + 1`.
-        // But now that the SET-PATH! ran, consider the result "evaluated".
-        //
-        CLEAR_CELL_FLAG(f->out, UNEVALUATED);
         break; }
 
 
@@ -2250,7 +2242,6 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             );
         }
 
-        CLEAR_CELL_FLAG(f->out, UNEVALUATED);  // e.g. `[a b]: [10 20]`
         break; }
 
 
@@ -2348,6 +2339,26 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
 
 //=//// END MAIN SWITCH STATEMENT /////////////////////////////////////////=//
+
+    // The UNEVALUATED flag is one of the bits that doesn't get copied by
+    // Move_Value() or Derelativize().  Hence it can be overkill to clear it
+    // off if one knows a value came from doing those things.  This test at
+    // the end checks to make sure that the right thing happened.
+    //
+    if (ANY_INERT_KIND(kind.byte)) {  // if() so as to check which part failed
+        assert(GET_CELL_FLAG(f->out, UNEVALUATED));
+    }
+    else if (GET_CELL_FLAG(f->out, UNEVALUATED)) {
+        //
+        // !!! Should ONLY happen if we processed a WORD! that looked up to
+        // an invisible function, and left something behind that was not
+        // previously evaluative.  To track this accurately, we would have
+        // to use an EVAL_FLAG_DEBUG_INVISIBLE_UNEVALUATIVE here, because we
+        // don't have the word anymore to look up (and even if we did, what
+        // it looks up to may have changed).
+        //
+        assert(kind.byte == REB_WORD);
+    }
 
     // We're sitting at what "looks like the end" of an evaluation step.
     // But we still have to consider enfix.  e.g.
