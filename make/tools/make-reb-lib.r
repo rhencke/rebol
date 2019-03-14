@@ -1045,24 +1045,6 @@ e-cwrap/emit {
         if (!(id in RL_JS_NATIVES))
             throw Error("Can't dispatch " + id + " in JS_NATIVES table")
 
-        var resolve_or_reject = function(arg, rej) {
-            /*
-             * !!! Should resolve make it easy by taking JS strings or other
-             * types that variadics might take?
-             */
-            if (arg === undefined)  /* `resolve()`, `resolve(undefined)` */
-                {}  /* allow it */
-            else if (arg === null)  /* explicitly, e.g. `resolve(null)` */
-                {}  /* allow it */
-            else if (typeof arg == "function")
-                {}  /* emterpreter can't make REBVAL* during sleep w/yield */
-            else if (typeof arg !== "number")
-                throw Error("bad type passed to awaiter resolve()")
-
-            RL_JS_NATIVES[frame_id] = arg  /* stow for RL_Await */
-            _RL_rebSignalAwaiter_internal(frame_id, rej)  /* 1 = reject */
-        }
-
         /* Is an `async` function and hence returns a Promise.  In JS, you
          * can't synchronously determine if it is a resolved Promise, e.g.
          *
@@ -1076,27 +1058,50 @@ e-cwrap/emit {
         RL_JS_NATIVES[id]()
           .then(function(arg) {
 
-            /* The caller asked for a Rebol return result.  So the return
-             * value needs to be one Rebol return result (with exceptions
-             * made for any JS types like nullptr or undefined that are
-             * to be automatically translated).
-             */
             if (arguments.length > 1)
                 throw Error("JS-AWAITER's resolve() takes 1 argument")
-            resolve_or_reject(arg, 0)
+
+            /* JS-AWAITER results become Rebol ACTION! returns, and must be
+             * received by arbitrary Rebol code.  Hence they can't be any old
+             * JavaScript object...they must be a REBVAL*, today a raw heap
+             * address (Emscripten uses "number", someday that could be
+             * wrapped in a specific JS object type).  Also allow null and
+             * undefined...such auto-conversions may expand in scope.
+             */
+
+            if (arg === undefined)  /* `resolve()`, `resolve(undefined)` */
+                {}  /* allow it */
+            else if (arg === null)  /* explicitly, e.g. `resolve(null)` */
+                {}  /* allow it */
+            else if (typeof arg == "function")
+                {}  /* emterpreter can't make REBVAL* during sleep w/yield */
+            else if (typeof arg !== "number") {
+                console.log("typeof " + typeof arg)
+                console.log(arg)
+                throw Error("AWAITER resolve takes REBVAL*, null, undefined")
+            }
+
+            RL_JS_NATIVES[frame_id] = arg  /* stow for RL_Await */
+            _RL_rebSignalAwaiter_internal(frame_id, 0)  /* 0 = resolve */
 
           }).catch(function(arg) {
 
-            /* !!! Initially it was modeled that errors from a THROW would be
-             * Rebol values, like the return result.  This likely does not
-             * make sense, and all catch() arguments need to be JavaScript
-             * errors objects which may wrap Rebol ERROR!, but more likely
-             * are the result of a `throw` from JavaScript code.
-             */
             if (arguments.length > 1)
                 throw Error("JS-AWAITER's reject() takes 1 argument")
-            resolve_or_reject(arg, 1)
 
+            /* If a JavaScript throw() happens in the body of a JS-AWAITER's
+             * textual JS code, that throw's arg will wind up here.  The
+             * likely "bubble up" policy will always make catch arguments a
+             * JavaScript Error(), even if it's wrapping a REBVAL* ERROR! as
+             * a data member.  It may-or-may-not make sense to prohibit raw
+             * Rebol values here.
+             */
+
+            if (typeof arg == "number")
+                console.log("Suspicious numeric throw() in JS-AWAITER");
+
+            RL_JS_NATIVES[frame_id] = arg  /* stow for RL_Await */
+            _RL_rebSignalAwaiter_internal(frame_id, 1)  /* 1 = reject */
           })
 
         /* Just fall through back to Idle, who lets the GUI loop spin back
@@ -1120,18 +1125,29 @@ e-cwrap/emit {
         return result
     }
 
-    reb.ResolvePromise_internal = function(id, rebval) {
-        if (!(id in RL_JS_NATIVES))
-            throw Error("Can't dispatch " + id + " in JS_NATIVES table")
-        RL_JS_NATIVES[id][0](rebval)
-        reb.UnregisterId_internal(id);
+    reb.ResolvePromise_internal = function(promise_id, rebval) {
+        if (!(promise_id in RL_JS_NATIVES))
+            throw Error(
+                "Can't find promise_id " + promise_id + " in JS_NATIVES"
+            )
+        RL_JS_NATIVES[promise_id][0](rebval)  /* [0] is resolve() */
+        reb.UnregisterId_internal(promise_id);
     }
 
-    reb.RejectPromise_internal = function(id, rebval) {
-        if (!(id in RL_JS_NATIVES))
-            throw Error("Can't dispatch " + id + " in JS_NATIVES table")
-        RL_JS_NATIVES[id][1](rebval)
-        reb.UnregisterId_internal(id)
+    reb.RejectPromise_internal = function(promise_id, throw_id) {
+        if (!(throw_id in RL_JS_NATIVES))  // frame_id of throwing JS-AWAITER
+            throw Error(
+                "Can't find throw_id " + throw_id + " in JS_NATIVES"
+            )
+        let error = RL_JS_NATIVES[throw_id]  /* typically JS Error() Object */
+        reb.UnregisterId_internal(throw_id)
+
+        if (!(promise_id in RL_JS_NATIVES))
+            throw Error(
+                "Can't find promise_id " + promise_id + " in JS_NATIVES"
+            )
+        RL_JS_NATIVES[promise_id][1](error)  /* [1] is reject() */
+        reb.UnregisterId_internal(promise_id)
     }
 }
 e-cwrap/write-emitted

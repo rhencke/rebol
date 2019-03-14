@@ -78,10 +78,10 @@
 #ifdef DEBUG_JAVASCRIPT_EXTENSION
     #undef assert  // if it was defined (most emscripten builds are NDEBUG)
     #define assert(expr) \
-        if (!(expr)) { \
+        do { if (!(expr)) { \
             printf("%s:%d - assert(%s)\n", __FILE__, __LINE__, #expr); \
             exit(0); \
-        }
+        } } while (0)
 
     bool PG_JS_Trace = false;  // Can be turned on/off with JS-TRACE native
 
@@ -138,6 +138,10 @@
 // Track the places that make this assumption with `heapaddr_t`, and sanity
 // check that we aren't truncating any C pointers in the conversions.
 //
+// Note heap addresses can be used as ID numbers in JavaScript for mapping
+// C entities to JavaScript objects that cannot be referred to directly.
+// Tables referring to them must be updated when the related pointer is
+// freed, as the pointer may get reused.
 
 typedef unsigned int heapaddr_t;
 
@@ -147,8 +151,61 @@ inline static heapaddr_t Heapaddr_From_Pointer(void *p) {
     return i;
 }
 
-static void* Pointer_From_Heapaddr(heapaddr_t addr)
+inline static void* Pointer_From_Heapaddr(heapaddr_t addr)
   { return cast(void*, cast(intptr_t, addr)); }
+
+
+//=//// FRAME ID AND THROWING /////////////////////////////////////////////=//
+//
+// We go ahead and use the REBCTX* instead of the raw REBFRM* to act as the
+// unique pointer to identify a frame.  That's because if the JavaScript code
+// throws and that throw needs to make it to a promise higher up the stack, it
+// uses that pointer as an ID in a mapping table (on the main thread) to
+// associate the call with the JavaScript object it threw.
+//
+// !!! This aspect is overkill for something that can only happen once on
+// the stack at a time.  Review.
+//
+// !!! Future designs may translate that object into Rebol so it could
+// be caught by Rebol, but for now we assume a throw originating from
+// JavaScript code may only be caught by JavaScript code.
+//
+
+inline static heapaddr_t Frame_Id_For_Frame_May_Outlive_Call(REBFRM* f) {
+    REBCTX *frame_ctx = Context_For_Frame_May_Manage(f);
+    return Heapaddr_From_Pointer(frame_ctx);
+}
+
+static REBCTX *js_throw_nocatch_converter(REBVAL *thrown)
+{
+    // If this is a pthread build and we're not on the main thread, we have
+    // to do maneuvers to get the information off the GUI thread and to
+    // remove the thrown object from the table.  First test the concept.
+
+    return Error_User(
+        "JavaScript error not in rebPromise()! (TBD: extract string here)"
+    );
+}
+
+inline static REB_R Init_Throw_For_Frame_Id(REBVAL *out, heapaddr_t frame_id)
+{
+    // Note that once the throw is performed, the context will be expired.
+    // VAL_CONTEXT() will fail, so VAL_NODE() must be used to extract the
+    // heap address.
+    //
+    REBCTX *frame_ctx = CTX(Pointer_From_Heapaddr(frame_id));
+    REBVAL *frame = CTX_ARCHETYPE(frame_ctx);
+
+    // Use NOCATCH_FUNC trick in the throw machinery, so that we can bubble
+    // the throw up and see if we find a rebPromise() which is equipped to
+    // unpack a JavaScript object.  If not, the function converts to a
+    // Rebol ERROR! failure.
+    //
+    DECLARE_LOCAL (handle);
+    Init_Handle_Cfunc(handle, cast(CFUNC*, &js_throw_nocatch_converter));
+
+    return Init_Thrown_With_Label(out, frame, handle);
+}
 
 
 //=//// JS-NATIVE PER-ACTION! DETAILS /////////////////////////////////////=//
@@ -167,6 +224,9 @@ static void* Pointer_From_Heapaddr(heapaddr_t addr)
 // was put in that table at the time of creation (the native_id).
 //
 
+inline static heapaddr_t Native_Id_For_Action(REBACT *act)
+  { return Heapaddr_From_Pointer(ACT_PARAMLIST(act)); }
+
 #define IDX_JS_NATIVE_HANDLE \
     IDX_NATIVE_MAX  // handle gives hookpoint for GC of table entry
 
@@ -180,7 +240,7 @@ REB_R JavaScript_Dispatcher(REBFRM *f);
 
 static void cleanup_js_native(const REBVAL *v) {
     REBARR *paramlist = ARR(VAL_HANDLE_POINTER(REBARR*, v));
-    heapaddr_t native_id = Heapaddr_From_Pointer(paramlist);
+    heapaddr_t native_id = Native_Id_For_Action(ACT(paramlist));
     assert(native_id < UINT_MAX);
     EM_ASM(
         { reb.UnregisterId_internal($0); },  // don't leak map[int->JS funcs]
@@ -340,8 +400,15 @@ REBVAL *Run_Array_Dangerous(void *opaque) {
     REBARR *code = cast(REBARR*, opaque);
 
     REBVAL *result = Alloc_Value();
-    if (Do_At_Mutable_Throws(result, code, 0, SPECIFIED))
+    if (Do_At_Mutable_Throws(result, code, 0, SPECIFIED)) {
+        if (IS_HANDLE(VAL_THROWN_LABEL(result))) {
+            CATCH_THROWN(result, result);
+            assert(IS_FRAME(result));
+            return result;
+        }
+
         fail (Error_No_Catch_For_Throw(result));
+    }
 
     // We want to distinguish an error that was raised from an error that
     // was returned by value.  Here we experiment with using the MARKED flag.
@@ -392,22 +459,27 @@ void *promise_worker(void *vargp)
         // https://stackoverflow.com/q/33445415/
 
         REBVAL *result = rebRescue(&Run_Array_Dangerous, code);
-        assert(info->state == PROMISE_STATE_RUNNING);
-
-        if (NOT_CELL_FLAG(result, MARKED_RESULT_SUCCESS)) {
-            //
-            // Note this could be an uncaught throw error, raised by the
-            // Run_Array_Dangerous() itself.
-            //
-            assert(IS_ERROR(result));
-            info->state = PROMISE_STATE_REJECTED;
-            TRACE("promise_worker() => error unblocked MAIN => reject");
-        }
+        if (info->state == PROMISE_STATE_REJECTED)
+            assert(IS_FRAME(result));
         else {
-            CLEAR_CELL_FLAG(result, MARKED_RESULT_SUCCESS);
-            info->state = PROMISE_STATE_RESOLVED;
-            TRACE("promise_worker() => unblock MAIN => resolve");
+            assert(info->state == PROMISE_STATE_RUNNING);
+
+            if (NOT_CELL_FLAG(result, MARKED_RESULT_SUCCESS)) {
+                //
+                // Note this could be an uncaught throw error, raised by the
+                // Run_Array_Dangerous() itself.
+                //
+                assert(IS_ERROR(result));
+                info->state = PROMISE_STATE_REJECTED;
+                TRACE("promise_worker() => error unblocked MAIN => reject");
+            }
+            else {
+                CLEAR_CELL_FLAG(result, MARKED_RESULT_SUCCESS);
+                info->state = PROMISE_STATE_RESOLVED;
+                TRACE("promise_worker() => unblock MAIN => resolve");
+            }
         }
+
         PG_Promise_Result = result;
 
         // Signal MAIN to unblock.  (Any time rebIdle() is unblocked, it needs
@@ -424,7 +496,7 @@ void *promise_worker(void *vargp)
 #endif  // defined(USE_PTHREADS)
 
 
-REBVAL *Get_Native_Result(intptr_t frame_id)
+REBVAL *Get_Native_Result(heapaddr_t frame_id)
 {
     ASSERT_ON_MAIN_THREAD();
     heapaddr_t result_addr = EM_ASM_INT(
@@ -435,7 +507,7 @@ REBVAL *Get_Native_Result(intptr_t frame_id)
 }
 
 #ifdef USE_PTHREADS
-    void Proxy_Native_Result_To_Worker(intptr_t frame_id) {
+    void Proxy_Native_Result_To_Worker(heapaddr_t frame_id) {
         //
         // We can get the result now...and need to.  (We won't be able to
         // access MAIN variables on the MAIN thread.)
@@ -448,7 +520,7 @@ REBVAL *Get_Native_Result(intptr_t frame_id)
     }
 #endif
 
-void Invoke_JavaScript_Native(REBFRM *f)
+void Invoke_Js_Body_On_Main(REBFRM *f)
 {
     ASSERT_ON_MAIN_THREAD();
     struct Reb_Promise_Info *info = PG_Promises;
@@ -456,10 +528,10 @@ void Invoke_JavaScript_Native(REBFRM *f)
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     bool is_awaiter = VAL_LOGIC(ARR_AT(details, IDX_JS_NATIVE_IS_AWAITER));
 
-    heapaddr_t native_id = Heapaddr_From_Pointer(ACT_PARAMLIST(FRM_PHASE(f)));
-    heapaddr_t frame_id = Heapaddr_From_Pointer(f);  // unique pointer
+    heapaddr_t native_id = Native_Id_For_Action(FRM_PHASE(f));
+    heapaddr_t frame_id = Frame_Id_For_Frame_May_Outlive_Call(f);
 
-    TRACE("Invoke_JavaScript_Native(%s)", Frame_Label_Or_Anonymous_UTF8(f));
+    TRACE("Invoke_Js_Body_On_Main(%s)", Frame_Label_Or_Anonymous_UTF8(f));
 
     if (is_awaiter) {
         //
@@ -565,6 +637,8 @@ void RL_rebIdle_internal(void)  // there should be NO user JS code on stack!
         TRACE("rebIdle() => waking up worker to resume after awaiting");
     else if (info->state == PROMISE_STATE_RUNNING)
         TRACE("rebIdle() => waking up worker after non-awaiter native");
+    else if (info->state == PROMISE_STATE_REJECTED)
+        TRACE("rebIdle() => waking up JavaScript_Dispatcher after throw");
     else
         assert(!"rebIdle() bad promise state");
     pthread_mutex_lock(&PG_Promise_Mutex);
@@ -587,6 +661,10 @@ void RL_rebIdle_internal(void)  // there should be NO user JS code on stack!
         result = PG_Promise_Result;
         ENDIFY_POINTER_IF_DEBUG(PG_Promise_Result);
     }
+    else if (info->state == PROMISE_STATE_REJECTED) {
+        result = PG_Promise_Result;
+        ENDIFY_POINTER_IF_DEBUG(PG_Promise_Result);
+    }
     else {
         // We didn't finish, and the reason we're unblocking is because a
         // JS-NATIVE wants to run.  It wants us to run the body text of the
@@ -598,8 +676,8 @@ void RL_rebIdle_internal(void)  // there should be NO user JS code on stack!
         REBARR *details = ACT_DETAILS(phase);
         bool is_awaiter = VAL_LOGIC(ARR_AT(details, IDX_JS_NATIVE_IS_AWAITER));
 
-        TRACE("rebIdle() => Invoke_JavaScript_Native()");
-        Invoke_JavaScript_Native(FS_TOP);
+        TRACE("rebIdle() => Invoke_Js_Body_On_Main()");
+        Invoke_Js_Body_On_Main(FS_TOP);
 
         if (not is_awaiter) {
             //
@@ -608,7 +686,7 @@ void RL_rebIdle_internal(void)  // there should be NO user JS code on stack!
             // So that includes plain JavaScript natives.  But that native
             // is blocked here.  Solve it by requeuing idle for now.
             //
-            heapaddr_t frame_id = Heapaddr_From_Pointer(FS_TOP);
+            heapaddr_t frame_id = Frame_Id_For_Frame_May_Outlive_Call(FS_TOP);
             Proxy_Native_Result_To_Worker(frame_id);
         }
 
@@ -643,10 +721,15 @@ void RL_rebIdle_internal(void)  // there should be NO user JS code on stack!
         }
         else {
             assert(info->state == PROMISE_STATE_REJECTED);
+
+            assert(IS_FRAME(result));  // Note: Expired, can't use VAL_CONTEXT
+            REBNOD *frame_ctx = VAL_NODE(result);
+            heapaddr_t throw_id = Heapaddr_From_Pointer(frame_ctx);
+
             EM_ASM(
                 { reb.RejectPromise_internal($0, $1); },
                 info->promise_id,  // => $0 (table entry will be freed)
-                result  // => $1 (recipient takes over handle)
+                throw_id  // => $1 (table entry will be freed)
             );
         }
 
@@ -684,6 +767,13 @@ void RL_rebSignalAwaiter_internal(intptr_t frame_id, int rejected) {
         // but just pushed it back into the running state.
         //
         info->state = PROMISE_STATE_RUNNING;
+
+      #if defined(USE_PTHREADS)
+        Proxy_Native_Result_To_Worker(frame_id);
+      #endif
+
+        // !!! "The above only signaled.  The awaiter will get the actual
+        // result with reb.GetAwaiterResult_internal()."  Still true?
     }
     else {
         assert(rejected == 1);
@@ -693,14 +783,59 @@ void RL_rebSignalAwaiter_internal(intptr_t frame_id, int rejected) {
         // failed, I'd assume?
         //
         info->state = PROMISE_STATE_REJECTED;
+
+      #if defined(USE_PTHREADS)
+        //
+        // This signal is happening during the .catch() clause of the internal
+        // routine that runs natives.  But it happens after it is no longer
+        // on the stack, e.g. 
+        //
+        //     async function js_awaiter_impl() { throw 1020; }
+        //     function js_awaiter_invoker() {
+        //         js_awaiter_impl().catch(function() {
+        //              console.log("prints second")  // we're here now
+        //         })
+        //         console.log("prints first")  // fell through to GUI pump
+        //     }
+        //
+        // So the js_awaiter_invoker() is not on the stack, this is an async
+        // resolution even if the throw was called directly like that.
+        //
+        // In the long term it may be possible for Rebol constructs like
+        // TRAP or CATCH to intercept a JavaScript-thrown error.  If they
+        // did they may ask for more work to be done on the GUI so it would
+        // need to be in idle for that (otherwise the next thing it ran
+        // could always be assumed as the result to the await).
+        //
+        // But if the Rebol construct could catch a JS throw, it would need
+        // to convert it somehow to a Rebol value.  That conversion would
+        // have to be done right now--or there'd have to be some specific
+        // protocol for coming back and requesting it.
+        //
+        // But what we have to do is unblock the JS-AWAITER that's running
+        // with a throw so it can finish.  We do not want to do the promise
+        // rejection until it is.  We make that thrown value the frame so
+        // we can get the ID back out of it (and so it doesn't GC, so the
+        // lifetime lasts long enough to not conflate IDs in the table).
+        //
+        // Note: We don't want to fall through to the main thread's message
+        // pump so long as any code is running on the worker that's using Rebol
+        // features.  A stray setTimeout() message might get processed while
+        // the R_THROW is being unwound, and use a Rebol API which would
+        // be contentious with running code on another thread.  Block, and
+        // it should be unblocked to let the catch() clause run.
+        //
+        // We *could* do mutex management here and finish up the signal
+        // sequence.  But we can't on the emterpreted build, because it has
+        // to unwind that asm.js stack safely, so we could only call the
+        // reject here for pthread.  Pipe everything through idle so both
+        // emterpreter and not run the reject on GUI from the same stack.
+        //
+        EM_ASM(
+            { setTimeout(function() { _RL_rebIdle_internal(); }, 0); }
+        );  // note `_RL` (leading underscore means no cwrap)
+      #endif
     }
-
-  #if defined(USE_PTHREADS)
-    Proxy_Native_Result_To_Worker(frame_id);
-  #endif
-
-    // The above only signaled.  The awaiter will get the actual result with
-    // reb.GetAwaiterResult_internal().
 }
 
 
@@ -717,7 +852,7 @@ void RL_rebSignalAwaiter_internal(intptr_t frame_id, int rejected) {
 //
 REB_R JavaScript_Dispatcher(REBFRM *f)
 {
-    heapaddr_t frame_id = Heapaddr_From_Pointer(f);  // unique pointer
+    heapaddr_t frame_id = Frame_Id_For_Frame_May_Outlive_Call(f);
 
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     bool is_awaiter = VAL_LOGIC(ARR_AT(details, IDX_JS_NATIVE_IS_AWAITER));
@@ -734,13 +869,9 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
 
     REBVAL *result;
 
-  #if defined(USE_EMTERPRETER)
-    //
-    // We're on the MAIN thread, by definition (there only is a MAIN thread)
-    // Pre-emptively set the state to awaiting, because resolve() or reject()
-    // may be called during the body.
+  #if defined(USE_EMTERPRETER)  // on MAIN thread (by definition)
 
-    Invoke_JavaScript_Native(f);
+    Invoke_Js_Body_On_Main(f);
 
     // We don't know exactly what MAIN event is going to trigger and cause a
     // resolve() to happen.  It could be a timer, it could be a fetch(),
@@ -763,14 +894,19 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
     }
     TRACE("JavaScript_Dispatcher() => end sleep_with_yield() loop");
 
-    result = Get_Native_Result(frame_id);
+    if (not info or info->state == PROMISE_STATE_RUNNING)
+        result = Get_Native_Result(frame_id);
+    else {
+        assert(info->state == PROMISE_STATE_REJECTED);
+        result = m_cast(REBVAL*, END_NODE);
+    }
   #else
     // If we're already on the MAIN thread, then we're just calling a JS
     // service routine with no need to yield.
     //
     if (pthread_equal(pthread_self(), PG_Main_Thread)) {
         assert(not is_awaiter);
-        Invoke_JavaScript_Native(f);
+        Invoke_Js_Body_On_Main(f);
         result = Get_Native_Result(frame_id);
     }
     else {
@@ -805,6 +941,24 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
         // MAIN should be locked again at this point
     }
   #endif
+
+    // See notes on frame_id above for how the context's heap address is used
+    // to identify the thrown JavaScript object in a mapping table, so that
+    // when this throw reaches the top it can be supplied to the caller.
+    // (We don't want to unsafely EM_ASM() throw from within a Rebol call in
+    // a way that breaks asm.js execution and bypasses the cleanup needed)
+    // 
+    if (info and info->state == PROMISE_STATE_REJECTED) {
+        assert(IS_END(result));
+        
+        // !!! Testing at the moment to see if a throw can at least not cause
+        // a crash (?)  The throw currently goes up and gets caught by
+        // someone, can we see what happens?
+
+        info->state = PROMISE_STATE_RUNNING;
+
+        return Init_Throw_For_Frame_Id(f->out, frame_id);
+    }
 
     assert(not info or info->state == PROMISE_STATE_RUNNING);  // reject?
     return result;
@@ -856,7 +1010,7 @@ REBNATIVE(js_native_mainthread)
         IDX_JS_NATIVE_MAX  // details len [source module handle]
     );
 
-    heapaddr_t native_id = Heapaddr_From_Pointer(paramlist);
+    heapaddr_t native_id = Native_Id_For_Action(native);
 
     REBARR *details = ACT_DETAILS(native);
 

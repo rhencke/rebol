@@ -1089,12 +1089,12 @@ const REBYTE *Scan_Email(
 //     https://duckduckgo.com/?q=hergé+%26+tintin
 //
 // Then, the encoded forms with UTF-8 bytes expressed in %XX form would be
-// converted as STRING!, where their datatype suggests the encodedness:
+// converted as TEXT!, where their datatype suggests the encodedness:
 //
 //     {https://duckduckgo.com/?q=herg%C3%A9+%26+tintin}
 //
 // (This is similar to how local FILE!s, where e.g. slashes become backslash
-// on Windows, are expressed as STRING!.)
+// on Windows, are expressed as TEXT!.)
 //
 const REBYTE *Scan_URL(
     RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
