@@ -91,21 +91,13 @@ extensions: make map! [
 ; Note environment variable EMCC_DEBUG for diagnostic output
 
 cflags: compose [
-    ;
-    ; At time of writing, the shipping `emscripten.h` has an unconditional
-    ; inclusion of `stdio.h`.  So long as it does, DEBUG_STDIO_OK has to be
-    ; allowed.  A PR has been sent asking for stdio to be optional:
-    ;
-    ; https://github.com/emscripten-core/emscripten/pull/8089
-    ;
-    {-DDEBUG_STDIO_OK}
-
     ((if debug-javascript-extension [[
         {-DDEBUG_JAVASCRIPT_EXTENSION}
 
-        ; {-DDEBUG_STDIO_OK}  ; !!! see above
+        {-DDEBUG_STDIO_OK}
         {-DDEBUG_HAS_PROBE}
         {-DDEBUG_COUNT_TICKS}
+        {-DDEBUG_PRINTF_FAIL_LOCATIONS}
     ]]))
 
     ((if use-emterpreter [[

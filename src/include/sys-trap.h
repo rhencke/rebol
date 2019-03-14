@@ -255,14 +255,15 @@ inline static void DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(struct Reb_State *s) {
 //
 
 #ifdef NDEBUG
-    //
-    // We don't want release builds to have to pay for the parameter
-    // passing cost *or* the string table cost of having a list of all
-    // the files and line numbers for all the places that originate
-    // errors...
-    //
-    #define fail(error) \
-        Fail_Core(error)
+    #ifdef DEBUG_PRINTF_FAIL_LOCATIONS  // see remarks in %reb-config.h
+        #define fail(error) do { \
+            printf("fail() @ %s %d\n", __FILE__, __LINE__); \
+            Fail_Core(error); \
+        } while (0)
+    #else
+        #define fail(error) \
+            Fail_Core(error)
+    #endif
 #else
     #ifdef CPLUSPLUS_11
         //

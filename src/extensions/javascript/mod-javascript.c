@@ -42,6 +42,13 @@
 //   https://www.cs.cmu.edu/afs/cs/academic/class/15492-f07/www/pthreads.html
 //
 
+// Older emscripten.h do an #include of <stdio.h>, so %sys-core.h must allow
+// it until this: https://github.com/emscripten-core/emscripten/pull/8089
+//
+#if !defined(DEBUG_STDIO_OK)
+    #define DEBUG_STDIO_OK
+#endif
+
 #include "sys-core.h"
 
 #include "tmp-mod-javascript.h"
