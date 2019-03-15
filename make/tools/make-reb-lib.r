@@ -918,7 +918,7 @@ map-each-api [
                 $<Enter>
                 var argc = arguments.length
                 var stack = stackSave()
-                var va = allocate(4 * (argc + 1 + 1), '', ALLOC_STACK)
+                var va = stackAlloc(4 * (argc + 1 + 1))
                 var a, i, l, p
                 for (i=0; i < argc; i++) {
                     a = arguments[i]
@@ -926,7 +926,7 @@ map-each-api [
                       case 'string':
                         l = lengthBytesUTF8(a) + 4
                         l = l & ~3
-                        p = allocate(l, '', ALLOC_STACK)
+                        p = stackAlloc(l)
                         stringToUTF8(a, p, l)
                         break
                       case 'number':
@@ -994,6 +994,24 @@ e-cwrap/emit {
         reb.END = _malloc(2)
         setValue(reb.END, -127, 'i8')  /* 0x80 */
         setValue(reb.END + 1, 0, 'i8')  /* 0x00 */
+    }
+
+    reb.Binary = function(array) {  /* how about `reb.Binary([1, 2, 3])` ? */
+        let view = null
+        if (array instanceof ArrayBuffer)
+            view = new Int8Array(array)  /* Int8Array.from() gives 0 length */
+        else if (array instanceof Int8Array)
+            view = array
+        else if (array instanceof Uint8Array)
+            view = array
+        else
+            throw Error("Unknown array type in reb.Binary " + typeof array)
+
+        let binary = reb.UninitializedBinary_internal(view.length)
+        let head = reb.BinaryHead_internal(binary)
+        writeArrayToMemory(view, head)  /* uses Int8Array.set() on HEAP8 */
+
+        return binary
     }
 
     /*

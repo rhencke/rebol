@@ -516,15 +516,71 @@ REBVAL *RL_rebDecimal(double dec)
 
 
 //
-//  rebBinary: RL_API
+//  rebSizedBinary: RL_API
 //
-REBVAL *RL_rebBinary(const void *bytes, size_t size)
+// The name "rebBinary()" is reserved for use in languages who have some
+// concept of data which can serve as a single argument because it knows its
+// own length.  C doesn't have this for raw byte buffers, but JavaScript has
+// things like Int8Array.
+//
+REBVAL *RL_rebSizedBinary(const void *bytes, size_t size)
 {
     REBSER *bin = Make_Binary(size);
     memcpy(BIN_HEAD(bin), bytes, size);
     TERM_BIN_LEN(bin, size);
 
     return Init_Binary(Alloc_Value(), bin);
+}
+
+
+//
+//  rebUninitializedBinary_internal: RL_API
+//
+// !!! This is a dicey construction routine that users shouldn't have access
+// to, because it gives the internal pointer of the binary out.  The reason
+// it exists is because emscripten's writeArrayToMemory() is based on use of
+// an Int8Array.set() call.
+//
+// When large binary blobs come back from file reads/etc. we already have one
+// copy of it.  We don't want to extract it into a temporary malloc'd buffer
+// just to be able to pass it to reb.Binary() to make *another* copy.
+//
+// Note: It might be interesting to have a concept of "external" memory by
+// which the data wasn't copied but a handle was kept to the JavaScript
+// Int8Array that came back from fetch() (or whatever).  But emscripten does
+// not at this time have a way to read anything besides the HEAP8:
+//
+// https://stackoverflow.com/a/43325166
+//
+REBVAL *RL_rebUninitializedBinary_internal(size_t size)
+{
+    REBSER *bin = Make_Binary(size);
+
+    // !!! Caution, unfilled bytes, access or molding may be *worse* than
+    // random by the rules of C if they don't get written!  Must be filled
+    // immediately by caller--before a GC or other operation.
+    //
+    TERM_BIN_LEN(bin, size);
+
+    return Init_Binary(Alloc_Value(), bin);
+}
+
+
+//
+//  rebBinaryHead_internal: RL_API
+//
+// Complementary "evil" routine to rebUninitializedBinary().  Should not
+// be generally used, as passing out raw pointers to binaries can have them
+// get relocated out from under the caller.  If pointers are going to be
+// given out in this fashion, there has to be some kind of locking semantics.
+//
+// (Note: This could be a second return value from rebUninitializedBinary(),
+// but that would involve pointers-to-pointers which are awkward in
+// emscripten and probably cheaper to make two direct WASM calls.
+//
+unsigned char *RL_rebBinaryHead_internal(const REBVAL *binary)
+{
+    return VAL_BIN_HEAD(binary);
 }
 
 

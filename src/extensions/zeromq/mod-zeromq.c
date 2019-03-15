@@ -280,7 +280,7 @@ REBNATIVE(zmq_msg_data) {
     size_t msg_size = zmq_msg_size(msg);
     void *msg_data = zmq_msg_data(msg);
 
-    return rebBinary(msg_data, msg_size);
+    return rebSizedBinary(msg_data, msg_size);
 }
 
 
@@ -651,7 +651,7 @@ REBNATIVE(zmq_getsockopt) {
             result = rebText(value_data);
         else {
             rebElide("assert [", datatype, "= binary!]");
-            result = rebBinary(value_data, value_size);
+            result = rebSizedBinary(value_data, value_size);
         }
     }
 

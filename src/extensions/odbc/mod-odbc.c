@@ -1142,7 +1142,7 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
     case SQL_BINARY:
     case SQL_VARBINARY:
     case SQL_LONGVARBINARY:
-        return rebBinary(col->buffer, col->length);
+        return rebSizedBinary(col->buffer, col->length);
 
     case SQL_CHAR:
     case SQL_VARCHAR:
