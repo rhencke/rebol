@@ -1876,7 +1876,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             goto process_action;
         }
 
-        if (IS_NULLED_OR_VOID(gotten)) { // need `:x` if `x` is unset
+        if (IS_NULLED_OR_VOID(gotten)) { // need `:x` if it's unset or void
             if (IS_NULLED(gotten))
                 fail (Error_No_Value_Core(v, *specifier));
             fail (Error_Need_Non_Void_Core(v, *specifier));
@@ -1904,8 +1904,9 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
 //==//// GET-WORD! ///////////////////////////////////////////////////////==//
 //
-// A GET-WORD! does no checking for unsets, no dispatch on functions, and
-// will return NULL if the variable is not set.
+// A GET-WORD! does no dispatch on functions, and will return NULL if the
+// variable is not set.  The GET native operation requires the /ANY refinement
+// to retrieve a VOID! value, but a GET-WORD! acts with an implicit /ANY.
 
       case REB_GET_WORD:
         Move_Opt_Var_May_Fail(f->out, v, *specifier);
@@ -1987,13 +1988,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             goto return_thrown;
         }
 
-        if (IS_NULLED_OR_VOID(where)) { // need `:x/y` if `y` is unset
-            if (IS_NULLED(where))
-                fail (Error_No_Value_Core(v, *specifier));
-            fail (Error_Need_Non_Void_Core(v, *specifier));
-        }
-
-        if (IS_ACTION(where)) {
+        if (IS_ACTION(where)) {  // try this branch before fail on void+null
             //
             // PATH! dispatch is costly and can error in more ways than WORD!:
             //
@@ -2017,6 +2012,12 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                 Expire_Out_Cell_Unless_Invisible(f);
 
             goto process_action;
+        }
+
+        if (IS_NULLED_OR_VOID(where)) {  // need `:x/y` if it's unset or void
+            if (IS_NULLED(where))
+                fail (Error_No_Value_Core(v, *specifier));
+            fail (Error_Need_Non_Void_Core(v, *specifier));
         }
 
         if (where != f->out)
@@ -2076,12 +2077,15 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 //
 //    foo: [X]
 //    path: 'foo/(print "side effect!" 1)
-//    get path ;-- not allowed, due to surprising side effects
+//    get path  ; not allowed, due to surprising side effects
 //
 // However a source-level GET-PATH! allows them, since they are at the
 // callsite and you are assumed to know what you are doing:
 //
-//    :foo/(print "side effect" 1) ;-- this is allowed
+//    :foo/(print "side effect" 1)  ; this is allowed
+//
+// Consistent with GET-WORD!, a GET-PATH! acts as GET/ANY and permits VOID!
+// and NULL return results.
 
       case REB_GET_PATH:
         if (Get_Path_Throws_Core(f->out, v, *specifier))
@@ -2192,7 +2196,11 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
 //==//// GET-BLOCK! //////////////////////////////////////////////////////==//
 //
-// Synonym for REDUCE.
+// !!! This code path should be unified with GET/ANY of BLOCK!.  Temporarily
+// does a REDUCE, but that was an experiment to see if perhaps GET of a
+// BLOCK! should actually be what REDUCE was.  That thought experiment is
+// probably over--it shouldn't, functions should not run (at least ones that
+// are not zero arity)
 
       case REB_GET_BLOCK:
         *next_gotten = nullptr; // arbitrary code changes fetched variables
@@ -2237,6 +2245,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                 IS_BLOCK(f->out)
                     ? VAL_SPECIFIER(f->out)
                     : SPECIFIED,
+                false,  // not /ANY, e.g. voids are not legal
                 false,  // doesn't set enfixedly
                 false  // doesn't use "hard" semantics on groups in paths
             );

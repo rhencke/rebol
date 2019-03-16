@@ -19,10 +19,10 @@
         ]
 
         if refinement? params/1 [
-            using-args: did set (in frame second params/1) :arg
+            using-args: did set/any (in frame second params/1) :arg
         ] else [
             if using-args [
-                set* (in frame params/1) :arg
+                set/any (in frame params/1) :arg
             ]
         ]
 
@@ -98,13 +98,33 @@
 )
 
 (
-    void? redbol-apply func [
+    null? redbol-apply func [
         return: [<opt> any-value!]
         x [<opt> any-value!]
     ][
         get 'x
     ][
-        void
+        null
+    ]
+)
+(
+    null? redbol-apply func [
+        return: [<opt> any-value!]
+        'x [<opt> any-value!]
+    ][
+        get 'x
+    ][
+        null
+    ]
+)
+(
+    null? redbol-apply func [
+        return: [<opt> any-value!]
+        x [<opt> any-value!]
+    ][
+        return get 'x
+    ][
+        null
     ]
 )
 (
@@ -112,27 +132,7 @@
         return: [<opt> any-value!]
         'x [<opt> any-value!]
     ][
-        get 'x
-    ][
-        void
-    ]
-)
-(
-    void? redbol-apply func [
-        return: [<opt> any-value!]
-        x [<opt> any-value!]
-    ][
-        return get 'x
-    ][
-        void
-    ]
-)
-(
-    void? redbol-apply func [
-        return: [<opt> any-value!]
-        'x [<opt> any-value!]
-    ][
-        return get 'x
+        return get/any 'x
     ][
         void
     ]

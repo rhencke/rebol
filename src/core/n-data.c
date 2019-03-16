@@ -520,15 +520,13 @@ inline static void Get_Opt_Polymorphic_May_Fail(
     REBVAL *out,
     const RELVAL *source_orig,
     REBSPC *specifier,
-    bool hard // should GROUP!s in paths not be evaluated
+    bool any,  // should a VOID! value be gotten normally vs. error
+    bool hard  // should GROUP!s in paths not be evaluated
 ){
     const REBCEL *source = VAL_UNESCAPED(source_orig);
     enum Reb_Kind kind = CELL_KIND(source);
 
-    if (kind == REB_BLANK) {
-        Init_Nulled(out); // may be turned to blank after loop, or error
-    }
-    else if (ANY_WORD_KIND(kind)) {
+    if (ANY_WORD_KIND(kind)) {
         Move_Opt_Var_May_Fail(out, source, specifier);
     }
     else if (ANY_PATH_KIND(kind)) {
@@ -551,35 +549,39 @@ inline static void Get_Opt_Polymorphic_May_Fail(
     }
     else
         fail (Error_Bad_Value_Core(source_orig, specifier));
+
+    if (IS_VOID(out) and not any)
+        fail (Error_Need_Non_Void_Core(source_orig, specifier));
 }
 
 
 //
 //  get: native [
 //
-//  {Gets the value of a word or path, or block of words/paths.}
+//  {Gets the value of a word or path, or block of words/paths}
 //
 //      return: [<opt> any-value!]
 //      source "Word or path to get, or block of words or paths"
 //          [<blank> <dequote> any-word! any-path! block!]
-//      /try "Return blank for variables that are unset" ;-- Is this good?
+//      /any "Retrieve ANY-VALUE! (e.g. do not error on VOID!)"
 //      /hard "Do not evaluate GROUP!s in PATH! (assume pre-COMPOSE'd)"
 //  ]
 //
 REBNATIVE(get)
-//
-// Note: `get [x y] [some-var :some-unset-var]` would fail without /TRY
 {
     INCLUDE_PARAMS_OF_GET;
 
     REBVAL *source = ARG(source);
-    bool hard = REF(hard);
 
     if (not IS_BLOCK(source)) {
-        Get_Opt_Polymorphic_May_Fail(D_OUT, source, SPECIFIED, hard);
-        if (IS_NULLED(D_OUT) and REF(try))
-            Init_Blank(D_OUT);
-        return D_OUT;
+        Get_Opt_Polymorphic_May_Fail(
+            D_OUT,
+            source,
+            SPECIFIED,
+            REF(any),
+            REF(hard)
+        );
+        return D_OUT;  // IS_NULLED() is okay
     }
 
     REBARR *results = Make_Array(VAL_LEN_AT(source));
@@ -587,13 +589,14 @@ REBNATIVE(get)
     RELVAL *item = VAL_ARRAY_AT(source);
 
     for (; NOT_END(item); ++item, ++dest) {
-        Get_Opt_Polymorphic_May_Fail(dest, item, VAL_SPECIFIER(source), hard);
-        if (IS_NULLED(dest)) { // can't put nulls in blocks
-            if (REF(try))
-                Init_Blank(dest);
-            else
-                fail (Error_No_Value_Core(item, VAL_SPECIFIER(source)));
-        }
+        Get_Opt_Polymorphic_May_Fail(
+            dest,
+            item,
+            VAL_SPECIFIER(source),
+            REF(any),
+            REF(hard)
+        );
+        Voidify_If_Nulled(dest);  // blocks can't contain nulls
     }
 
     TERM_ARRAY_LEN(results, VAL_LEN_AT(source));
@@ -611,9 +614,15 @@ void Set_Opt_Polymorphic_May_Fail(
     REBSPC *target_specifier,
     const RELVAL *setval,
     REBSPC *setval_specifier,
+    bool any,
     bool enfix,
     bool hard
 ){
+    if (IS_VOID(setval)) {
+        if (not any)
+            fail (Error_Need_Non_Void_Core(target_orig, target_specifier));
+    }
+
     if (enfix and not IS_ACTION(setval))
         fail ("Attempt to SET/ENFIX on a non-ACTION!");
 
@@ -677,12 +686,12 @@ void Set_Opt_Polymorphic_May_Fail(
 //      target [any-word! any-path! block! quoted!]
 //          {Word or path, or block of words and paths}
 //      value [<opt> any-value!]
-//          "Value or block of values"
+//          "Value or block of values (NULL means unset)"
+//      /any "Allow ANY-VALUE! assignments (e.g. do not error on VOID!)"
+//      /hard "Do not evaluate GROUP!s in PATH! (assume pre-COMPOSE'd)"
+//      /enfix "ACTION! calls through this word get first arg from left"
 //      /single "If target and value are blocks, set each to the same value"
 //      /some "blank values (or values past end of block) are not set."
-//      /enfix "ACTION! calls through this word get first arg from left"
-//      /opt "If value is null, then consider this to be an UNSET operation"
-//      /hard "Do not evaluate GROUP!s in PATH! (assume pre-COMPOSE'd)"
 //  ]
 //
 REBNATIVE(set)
@@ -706,19 +715,13 @@ REBNATIVE(set)
     REBVAL *target = ARG(target);
     REBVAL *value = ARG(value);
 
-    if (not REF(opt)) {
-        if (IS_NULLED(value))
-            fail (Error_Need_Non_Null_Raw(target));
-        if (IS_VOID(value))
-            fail (Error_Need_Non_Void_Raw(target));
-    }
-
     if (not IS_BLOCK(target)) {
         Set_Opt_Polymorphic_May_Fail(
             target,
             SPECIFIED,
             IS_BLANK(value) and REF(some) ? NULLED_CELL : value,
             SPECIFIED,
+            REF(any),
             REF(enfix),
             REF(hard)
         );
@@ -753,6 +756,7 @@ REBNATIVE(set)
             (IS_BLOCK(value) and not REF(single))
                 ? VAL_SPECIFIER(value)
                 : SPECIFIED,
+            REF(any),
             REF(enfix),
             REF(hard)
         );

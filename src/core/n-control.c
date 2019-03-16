@@ -1202,7 +1202,7 @@ REBNATIVE(switch)
 //          [<...>]
 //      /only "Consider target being BLANK! to be a value not to overwrite"
 //  ][
-//      if unset? 'target [ ;-- `case [... default [...]]`
+//      if unset? 'target [  ; `case [... default [...]]`
 //          if not tail? look [
 //              fail ["DEFAULT usage with no left hand side must be at <end>"]
 //          ]
@@ -1213,7 +1213,7 @@ REBNATIVE(switch)
 //          value? set* lit gotten: get/hard target
 //          only or [not blank? :gotten]
 //      ][
-//          :gotten ;; so that `x: y: default z` leads to `x = y`
+//          :gotten  ; so that `x: y: default z` leads to `x = y`
 //      ][
 //          set/hard target do :branch
 //      ]

@@ -45,9 +45,11 @@
 )]
 
 
-;; Typically SET and GET want to avoid evaluating GROUP!s in paths, but if
-;; but if you pre-compose them and use /HARD it allows it.  This enables
-;; functions like DEFAULT to avoid double-evaluation.
+; Typically SET and GET evaluate GROUP!s in paths, vs. treat them "as-is".
+; But various circumstances like using GROUP! as map keys warrant it.  It's
+; also used to avoid double-evaluations in things like DEFAULT (so it can
+; COMPOSE a SET-PATH! once, then use GET/HARD to see if it has a value and
+; SET/HARD to assign it if needed.)
 (
    counter: 0
    obj: make object! [x: _]

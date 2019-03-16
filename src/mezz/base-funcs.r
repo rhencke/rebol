@@ -561,9 +561,9 @@ skip*: redescribe [
 )
 
 set*: redescribe [
-    {Variant of SET that allows a null to actually unset the variable}
+    {Variant of SET that allows VOID! values}
 ](
-    specialize 'set [opt: true]
+    :set/any
 )
 
 ensure: redescribe [
