@@ -85,28 +85,14 @@
 
 //=//// EXPECTS <stdbool.h> OR "pstdbool.h" SHIM INCLUDED /////////////////=//
 //
-// It's better than what was previously used, a (bool)cast_of_expression.
-// And it makes it much safer to use ordinary `&` operations to test for
-// flags, more succinctly even:
-//
-//     bool b = GET_FLAG(flags, SOME_FLAG_ORDINAL);
-//     bool b = !GET_FLAG(flags, SOME_FLAG_ORDINAL);
-//
-// vs.
-//
-//     bool b = did (flags & SOME_FLAG_BITWISE); // 3 fewer chars
-//     bool b = not (flags & SOME_FLAG_BITWISE); // 4 fewer chars
-//
-// (Bitwise vs. ordinal also permits initializing options by just |'ing them.)
-//
-// !!! Historically Rebol used TRUE and FALSE uppercase macros, but so long
-// as C99 has added bool to the language, there's not much point in being
+// Historically Rebol used TRUE and FALSE uppercase macros, but so long as
+// C99 has added bool to the language, there's not much point in being
 // compatible with codebases that have `char* true = "Spandau";` or similar
 // in them.  So Rebol can use `true` and `false.
 //
 #ifdef __cplusplus
   #if defined(_MSC_VER)
-    #include <iso646.h> // MSVC doesn't have `and`, `not`, etc. w/o this
+    #include <iso646.h>  // MSVC doesn't have `and`, `not`, etc. w/o this
   #else
     // legitimate compilers define them, they're even in the C++98 standard!
   #endif
@@ -133,6 +119,20 @@
 #endif
 
 // A 12th macro: http://blog.hostilefork.com/did-programming-opposite-of-not/
+//
+// It's better than what was previously used, a (bool)cast_of_expression.
+// And it makes it much safer to use ordinary `&` operations to test for
+// flags, more succinctly even:
+//
+//     bool b = GET_FLAG(flags, SOME_FLAG_ORDINAL);
+//     bool b = !GET_FLAG(flags, SOME_FLAG_ORDINAL);
+//
+// vs.
+//
+//     bool b = did (flags & SOME_FLAG_BITWISE); // 3 fewer chars
+//     bool b = not (flags & SOME_FLAG_BITWISE); // 4 fewer chars
+//
+// (Bitwise vs. ordinal also permits initializing options by just |'ing them.)
 //
 #define did !!
 
@@ -737,162 +737,6 @@
         memset(&v, 123, sizeof(TRR));
     }
 #endif
-
-
-//=//// BYTE-ORDER SENSITIVE BIT FLAGS & MASKING //////////////////////////=//
-//
-// These macros are for purposefully arranging bit flags with respect to the
-// "leftmost" and "rightmost" bytes of the underlying platform, when encoding
-// them into an unsigned integer the size of a platform pointer:
-//
-//     uintptr_t flags = FLAG_LEFT_BIT(0);
-//     unsigned char *ch = (unsigned char*)&flags;
-//
-// In the code above, the leftmost bit of the flags has been set to 1,
-// resulting in `ch == 128` on all supported platforms.
-//
-// These can form *compile-time constants*, which can be singly assigned to
-// a uintptr_t in one instruction.  Quantities smaller than a byte can be
-// mixed in on with bytes: 
-//
-//    uintptr_t flags
-//        = FLAG_LEFT_BIT(0) | FLAG_LEFT_BIT(1) | FLAG_SECOND_BYTE(13);
-//
-// They can be masked or shifted out efficiently:
-//
-//    unsigned int left = LEFT_N_BITS(flags, 3); // == 6 (binary `110`)
-//    unsigned int right = SECOND_BYTE(flags); // == 13
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Note: It is simpler to not worry about the underlying bytes and just use
-// ordinary bit masking.  But this is used for an important feature (the
-// discernment of a `void*` to a REBVAL from that of a valid UTF-8 string).
-// Other tools that might be tried with this all have downsides:
-//
-// * bitfields arranged in a `union` with integers have no layout guarantee
-// * `#pragma pack` is not standard C98 or C99...nor is any #pragma
-// * `char[4]` or `char[8]` targets don't usually assign in one instruction
-//
-
-#define PLATFORM_BITS \
-    (sizeof(uintptr_t) * 8)
-
-#if defined(ENDIAN_BIG) // Byte w/most significant bit first
-
-    #define FLAG_LEFT_BIT(n) \
-        ((uintptr_t)1 << (PLATFORM_BITS - (n) - 1)) // 63,62,61..or..32,31,30
-
-    #define FLAG_FIRST_BYTE(b) \
-        ((uintptr_t)(b) << (24 + (PLATFORM_BITS - 8)))
-
-    #define FLAG_SECOND_BYTE(b) \
-        ((uintptr_t)(b) << (16 + (PLATFORM_BITS - 8)))
-
-    #define FLAG_THIRD_BYTE(b) \
-        ((uintptr_t)(b) << (8 + (PLATFORM_BITS - 32)))
-
-    #define FLAG_FOURTH_BYTE(b) \
-        ((uintptr_t)(b) << (0 + (PLATFORM_BITS - 32)))
-
-#elif defined(ENDIAN_LITTLE) // Byte w/least significant bit first (e.g. x86)
-
-    #define FLAG_LEFT_BIT(n) \
-        ((uintptr_t)1 << (7 + ((n) / 8) * 8 - (n) % 8)) // 7,6,..0|15,14..8|..
-
-    #define FLAG_FIRST_BYTE(b) \
-        ((uintptr_t)(b))
-
-    #define FLAG_SECOND_BYTE(b) \
-        ((uintptr_t)(b) << 8)
-
-    #define FLAG_THIRD_BYTE(b) \
-        ((uintptr_t)(b) << 16)
-
-    #define FLAG_FOURTH_BYTE(b) \
-        ((uintptr_t)(b) << 24)
-#else
-    // !!! There are macro hacks which can actually make reasonable guesses
-    // at endianness, and should possibly be used in the config if nothing is
-    // specified explicitly.
-    //
-    // http://stackoverflow.com/a/2100549/211160
-    //
-    #error "ENDIAN_BIG or ENDIAN_LITTLE must be defined"
-#endif
-
-// `unsigned char` is used below, as opposed to `uint8_t`, to coherently
-// access the bytes despite being written via a `uintptr_t`, due to the strict
-// aliasing exemption for character types.
-
-#define FIRST_BYTE(flags) \
-    ((const unsigned char*)&(flags))[0]
-
-#define SECOND_BYTE(flags) \
-    ((const unsigned char*)&(flags))[1]
-
-#define THIRD_BYTE(flags) \
-    ((const unsigned char*)&(flags))[2]
-
-#define FOURTH_BYTE(flags) \
-    ((const unsigned char*)&(flags))[3]
-
-#define mutable_FIRST_BYTE(flags) \
-    ((unsigned char*)&(flags))[0]
-
-#define mutable_SECOND_BYTE(flags) \
-    ((unsigned char*)&(flags))[1]
-
-#define mutable_THIRD_BYTE(flags) \
-    ((unsigned char*)&(flags))[2]
-
-#define mutable_FOURTH_BYTE(flags) \
-    ((unsigned char*)&(flags))[3]
-
-// There might not seem to be a good reason to keep the uint16_t variant in
-// any particular order.  But if you cast a uintptr_t (or otherwise) to byte
-// and then try to read it back as a uint16_t, compilers see through the
-// cast and complain about strict aliasing.  Building it out of bytes makes
-// these generic (so they work with uint_fast32_t, or uintptr_t, etc.) and
-// as long as there has to be an order, might as well be platform-independent.
-
-inline static uint16_t FIRST_UINT16_helper(const unsigned char *flags)
-  { return ((uint16_t)flags[0] << 8) | flags[1]; }
-
-inline static uint16_t SECOND_UINT16_helper(const unsigned char *flags)
-  { return ((uint16_t)flags[2] << 8) | flags[3]; }
-
-#define FIRST_UINT16(flags) \
-    FIRST_UINT16_helper((const unsigned char*)&flags)
-
-#define SECOND_UINT16(flags) \
-    SECOND_UINT16_helper((const unsigned char*)&flags)
-
-inline static void SET_FIRST_UINT16_helper(unsigned char *flags, uint16_t u) {
-    flags[0] = u / 256;
-    flags[1] = u % 256;
-}
-
-inline static void SET_SECOND_UINT16_helper(unsigned char *flags, uint16_t u) {
-    flags[2] = u / 256;
-    flags[3] = u % 256;
-}
-
-#define SET_FIRST_UINT16(flags,u) \
-    SET_FIRST_UINT16_helper((unsigned char*)&(flags), (u))
-
-#define SET_SECOND_UINT16(flags,u) \
-    SET_SECOND_UINT16_helper((unsigned char*)&(flags), (u))
-
-inline static uintptr_t FLAG_FIRST_UINT16(uint16_t u)
-  { return FLAG_FIRST_BYTE(u / 256) | FLAG_SECOND_BYTE(u % 256); }
-
-inline static uintptr_t FLAG_SECOND_UINT16(uint16_t u)
-  { return FLAG_THIRD_BYTE(u / 256) | FLAG_FOURTH_BYTE(u % 256); }
-
-
-// !!! SECOND_UINT32 should be defined on 64-bit platforms, for any enhanced
-// features that might be taken advantage of when that storage is available.
 
 
 //=//// MIN AND MAX ///////////////////////////////////////////////////////=//

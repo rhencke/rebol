@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2018 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -21,10 +21,12 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // In order to implement several "tricks", the first pointer-size slots of
-// many datatypes is a `Reb_Header` structure.  The bit layout of this header
-// is chosen in such a way that not only can Rebol value pointers (REBVAL*)
-// be distinguished from Rebol series pointers (REBSER*), but these can be
-// discerned from a valid UTF-8 string just by looking at the first byte.
+// many datatypes is a `Reb_Header` structure.  Using byte-order-sensitive
+// macros like FLAG_LEFT_BIT(), the layout of this header is chosen in such a
+// way that not only can Rebol value pointers (REBVAL*) be distinguished from
+// Rebol series pointers (REBSER*), but these can be discerned from a valid
+// UTF-8 string just by looking at the first byte.  That's a safe C operation
+// since reading a `char*` is not subject to "strict aliasing" requirements.
 //
 // On a semi-superficial level, this permits a kind of dynamic polymorphism,
 // such as that used by panic():
@@ -52,7 +54,146 @@
 //
 
 
-//=//// TYPE-PUNNING BITFIELD DEBUG HELPER (GCC LITTLE-ENDIAN ONLY) ///////=//
+//=////////////////////////////////////////////////////////////////////=///=//
+//
+// BYTE-ORDER SENSITIVE BIT FLAGS & MASKING
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// To facilitate the tricks of the Rebol Node, these macros are purposefully
+// arranging bit flags with respect to the "leftmost" and "rightmost" bytes of
+// the underlying platform, when encoding them into an unsigned integer the
+// size of a platform pointer:
+//
+//     uintptr_t flags = FLAG_LEFT_BIT(0);
+//     unsigned char *ch = (unsigned char*)&flags;
+//
+// In the code above, the leftmost bit of the flags has been set to 1, giving
+// `ch == 128` on all supported platforms.
+//
+// These can form *compile-time constants*, which can be singly assigned to
+// a uintptr_t in one instruction.  Quantities smaller than a byte can be
+// mixed in on with bytes: 
+//
+//    uintptr_t flags
+//        = FLAG_LEFT_BIT(0) | FLAG_LEFT_BIT(1) | FLAG_SECOND_BYTE(13);
+//
+// They can be masked or shifted out efficiently:
+//
+//    unsigned int left = LEFT_N_BITS(flags, 3); // == 6 (binary `110`)
+//    unsigned int right = SECOND_BYTE(flags); // == 13
+//
+// Other tools that might be tried with this all have downsides:
+//
+// * bitfields arranged in a `union` with integers have no layout guarantee
+// * `#pragma pack` is not standard C98 or C99...nor is any #pragma
+// * `char[4]` or `char[8]` targets don't usually assign in one instruction
+//
+
+#define PLATFORM_BITS \
+    (sizeof(uintptr_t) * 8)
+
+#if defined(ENDIAN_BIG) // Byte w/most significant bit first
+
+    #define FLAG_LEFT_BIT(n) \
+        ((uintptr_t)1 << (PLATFORM_BITS - (n) - 1)) // 63,62,61..or..32,31,30
+
+    #define FLAG_FIRST_BYTE(b) \
+        ((uintptr_t)(b) << (24 + (PLATFORM_BITS - 8)))
+
+    #define FLAG_SECOND_BYTE(b) \
+        ((uintptr_t)(b) << (16 + (PLATFORM_BITS - 8)))
+
+    #define FLAG_THIRD_BYTE(b) \
+        ((uintptr_t)(b) << (8 + (PLATFORM_BITS - 32)))
+
+    #define FLAG_FOURTH_BYTE(b) \
+        ((uintptr_t)(b) << (0 + (PLATFORM_BITS - 32)))
+
+#elif defined(ENDIAN_LITTLE) // Byte w/least significant bit first (e.g. x86)
+
+    #define FLAG_LEFT_BIT(n) \
+        ((uintptr_t)1 << (7 + ((n) / 8) * 8 - (n) % 8)) // 7,6,..0|15,14..8|..
+
+    #define FLAG_FIRST_BYTE(b)      ((uintptr_t)(b))
+    #define FLAG_SECOND_BYTE(b)     ((uintptr_t)(b) << 8)
+    #define FLAG_THIRD_BYTE(b)      ((uintptr_t)(b) << 16)
+    #define FLAG_FOURTH_BYTE(b)     ((uintptr_t)(b) << 24)
+#else
+    // !!! There are macro hacks which can actually make reasonable guesses
+    // at endianness, and should possibly be used in the config if nothing is
+    // specified explicitly.
+    //
+    // http://stackoverflow.com/a/2100549/211160
+    //
+    #error "ENDIAN_BIG or ENDIAN_LITTLE must be defined"
+#endif
+
+// `unsigned char` is used below, as opposed to `uint8_t`, to coherently
+// access the bytes despite being written via a `uintptr_t`, due to the strict
+// aliasing exemption for character types (some say uint8_t should count...)
+
+#define FIRST_BYTE(flags)       ((const unsigned char*)&(flags))[0]
+#define SECOND_BYTE(flags)      ((const unsigned char*)&(flags))[1]
+#define THIRD_BYTE(flags)       ((const unsigned char*)&(flags))[2]
+#define FOURTH_BYTE(flags)      ((const unsigned char*)&(flags))[3]
+
+#define mutable_FIRST_BYTE(flags)       ((unsigned char*)&(flags))[0]
+#define mutable_SECOND_BYTE(flags)      ((unsigned char*)&(flags))[1]
+#define mutable_THIRD_BYTE(flags)       ((unsigned char*)&(flags))[2]
+#define mutable_FOURTH_BYTE(flags)      ((unsigned char*)&(flags))[3]
+
+// There might not seem to be a good reason to keep the uint16_t variant in
+// any particular order.  But if you cast a uintptr_t (or otherwise) to byte
+// and then try to read it back as a uint16_t, compilers see through the
+// cast and complain about strict aliasing.  Building it out of bytes makes
+// these generic (so they work with uint_fast32_t, or uintptr_t, etc.) and
+// as long as there has to be an order, might as well be platform-independent.
+
+inline static uint16_t FIRST_UINT16_helper(const unsigned char *flags)
+  { return ((uint16_t)flags[0] << 8) | flags[1]; }
+
+inline static uint16_t SECOND_UINT16_helper(const unsigned char *flags)
+  { return ((uint16_t)flags[2] << 8) | flags[3]; }
+
+#define FIRST_UINT16(flags) \
+    FIRST_UINT16_helper((const unsigned char*)&flags)
+
+#define SECOND_UINT16(flags) \
+    SECOND_UINT16_helper((const unsigned char*)&flags)
+
+inline static void SET_FIRST_UINT16_helper(unsigned char *flags, uint16_t u) {
+    flags[0] = u / 256;
+    flags[1] = u % 256;
+}
+
+inline static void SET_SECOND_UINT16_helper(unsigned char *flags, uint16_t u) {
+    flags[2] = u / 256;
+    flags[3] = u % 256;
+}
+
+#define SET_FIRST_UINT16(flags,u) \
+    SET_FIRST_UINT16_helper((unsigned char*)&(flags), (u))
+
+#define SET_SECOND_UINT16(flags,u) \
+    SET_SECOND_UINT16_helper((unsigned char*)&(flags), (u))
+
+inline static uintptr_t FLAG_FIRST_UINT16(uint16_t u)
+  { return FLAG_FIRST_BYTE(u / 256) | FLAG_SECOND_BYTE(u % 256); }
+
+inline static uintptr_t FLAG_SECOND_UINT16(uint16_t u)
+  { return FLAG_THIRD_BYTE(u / 256) | FLAG_FOURTH_BYTE(u % 256); }
+
+
+// !!! SECOND_UINT32 should be defined on 64-bit platforms, for any enhanced
+// features that might be taken advantage of when that storage is available.
+
+
+//=////////////////////////////////////////////////////////////////////=///=//
+//
+// TYPE-PUNNING BITFIELD DEBUG HELPERS (GCC LITTLE-ENDIAN ONLY)
+//
+//=////////////////////////////////////////////////////////////////////////=//
 //
 // Disengaged union states are used to give alternative debug views into
 // the header bits.  This is called type punning, and it can't be relied
@@ -296,12 +437,12 @@ union Reb_Header {
 // transient structure in the source cell, which would need to be converted
 // into something longer-lived if the destination cell will outlive it.
 //
-// Hence cells must be formatted to say whether they are CELL_FLAG_STACK_LIFETIME or
-// not, before any writing can be done to them.  If they are not then they
+// Hence cells must be formatted to say if they are CELL_FLAG_STACK_LIFETIME
+// or not, before any writing can be done to them.  If they are not then they
 // are presumed to be indefinite lifetime (e.g. cells resident inside of an
 // array managed by the garbage collector).
 //
-// But if a cell is marked with CELL_FLAG_STACK_LIFETIME, that means it is expected
+// But for cells marked CELL_FLAG_STACK_LIFETIME, that means it is expected
 // that scanning *backwards* in memory will find a specially marked REB_FRAME
 // cell, which will lead to the frame to whose lifetime the cell is bound.
 //
@@ -348,11 +489,7 @@ union Reb_Header {
 #define FREED_CELL_BYTE 193
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  NODE STRUCTURE
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// NODE STRUCTURE ////////////////////////////////////////////////////=//
 //
 // Though the name Node is used for a superclass that can be "in use" or
 // "free", this is the definition of the structure for its layout when it
@@ -392,11 +529,7 @@ struct Reb_Node {
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// MEMORY ALLOCATION AND FREEING MACROS
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// MEMORY ALLOCATION AND FREEING MACROS //////////////////////////////=//
 //
 // Rebol's internal memory management is done based on a pooled model, which
 // use Alloc_Mem and Free_Mem instead of calling malloc directly.  (See the
