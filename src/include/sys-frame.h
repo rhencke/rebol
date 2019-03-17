@@ -584,7 +584,7 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
 
 
 //
-// Fetch_Next_In_Frame_Core() (see notes above)
+// Fetch_Next_In_Feed_Core() (see notes above)
 //
 // Once a va_list is "fetched", it cannot be "un-fetched".  Hence only one
 // unit of fetch is done at a time, into f->value.  f->feed->pending thus
@@ -594,12 +594,10 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
 // More generally, an END marker in f->feed->pending for this routine is a
 // signal that the vaptr (if any) should be consulted next.
 //
-inline static const RELVAL *Fetch_Next_In_Feed(
+inline static const RELVAL *Fetch_Next_In_Feed_Core(
     struct Reb_Feed *feed,
     bool preserve
 ){
-    ASSERT_NOT_END(feed->value);  // caller should check
-
   #ifdef DEBUG_EXPIRED_LOOKBACK
     if (feed->stress) {
         TRASH_CELL_IF_DEBUG(feed->stress);
@@ -684,6 +682,17 @@ inline static const RELVAL *Fetch_Next_In_Feed(
   #endif
 
     return lookback;
+}
+
+#define Fetch_First_In_Feed(feed) \
+    Fetch_Next_In_Feed_Core((feed), false)
+
+inline static const RELVAL *Fetch_Next_In_Feed(  // adds not-end checking
+    struct Reb_Feed *feed,
+    bool preserve
+){
+    ASSERT_NOT_END(feed->value);
+    return Fetch_Next_In_Feed_Core(feed, preserve);
 }
 
 
@@ -894,7 +903,7 @@ inline static void Prep_Va_Feed(
     if (opt_first)
         Detect_Feed_Pointer_Maybe_Fetch(feed, opt_first, false);
     else
-        Fetch_Next_In_Feed(feed, false);
+        Fetch_First_In_Feed(feed);
 
     feed->gotten = nullptr;
     assert(IS_END(feed->value) or READABLE(feed->value, __FILE__, __LINE__));
