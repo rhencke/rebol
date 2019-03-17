@@ -94,15 +94,16 @@
 #define P_INPUT_SPECIFIER   VAL_SPECIFIER(P_INPUT_VALUE)
 #define P_POS               VAL_INDEX(P_INPUT_VALUE)
 
-#define P_FIND_FLAGS        VAL_INT64(f->rootvar + 2)
+#define P_FIND_FLAGS_VALUE  (f->rootvar + 2)
+#define P_FIND_FLAGS        VAL_INT64(P_FIND_FLAGS_VALUE)
 #define P_HAS_CASE          (did (P_FIND_FLAGS & AM_FIND_CASE))
 
-#define P_NUM_QUOTES_VALUE  (f->rootvar + 3)
-#define P_NUM_QUOTES        VAL_INT32(P_NUM_QUOTES_VALUE)
-
-#define P_COLLECTION_VALUE  (f->rootvar + 4)
+#define P_COLLECTION_VALUE  (f->rootvar + 3)
 #define P_COLLECTION \
     (IS_BLANK(P_COLLECTION_VALUE) ? nullptr : VAL_ARRAY(P_COLLECTION_VALUE))
+
+#define P_NUM_QUOTES_VALUE  (f->rootvar + 4)
+#define P_NUM_QUOTES        VAL_INT32(P_NUM_QUOTES_VALUE)
 
 #define P_OUT (f->out)
 
@@ -232,29 +233,29 @@ static bool Subparse_Throws(
     assert(f->refine == ORDINARY_ARG); // Begin_Action() sets
     f->special = END_NODE;
 
-    Derelativize(Prep_Stack_Cell(f->rootvar + 1), input, input_specifier);
+    Derelativize(Prep_Stack_Cell(P_INPUT_VALUE), input, input_specifier);
 
     // We always want "case-sensitivity" on binary bytes, vs. treating as
     // case-insensitive bytes for ASCII characters.
     //
-    Init_Integer(Prep_Stack_Cell(f->rootvar + 2), flags);
-
-    // Need to track NUM-QUOTES somewhere that it can be read from the frame
-    //
-    Init_Nulled(Prep_Stack_Cell(f->rootvar + 3));
+    Init_Integer(Prep_Stack_Cell(P_FIND_FLAGS_VALUE), flags);
 
     // If there's an array for collecting into, there has to be some way of
     // passing it between frames.
     //
     REBCNT collect_tail;
     if (opt_collection) {
-        Init_Block(Prep_Stack_Cell(f->rootvar + 4), opt_collection);
+        Init_Block(Prep_Stack_Cell(P_COLLECTION_VALUE), opt_collection);
         collect_tail = ARR_LEN(opt_collection);  // roll back here on failure
     }
     else {
-        Init_Blank(Prep_Stack_Cell(f->rootvar + 4));
+        Init_Blank(Prep_Stack_Cell(P_COLLECTION_VALUE));
         collect_tail = 0;
     }
+
+    // Need to track NUM-QUOTES somewhere that it can be read from the frame
+    //
+    Init_Nulled(Prep_Stack_Cell(P_NUM_QUOTES_VALUE));
 
     assert(ACT_NUM_PARAMS(NAT_ACTION(subparse)) == 5); // checks RETURN:
     Init_Nulled(Prep_Stack_Cell(f->rootvar + 5));

@@ -616,8 +616,6 @@ REBNATIVE(match)
         if (threw)
             return R_THROWN;
 
-        assert(IS_END(f->feed->value)); // started @ END_FLAG, can only throw
-
         if (IS_VOID(temp))
             fail (Error_Void_Conditional_Raw());
 
