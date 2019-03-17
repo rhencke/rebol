@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -31,7 +31,7 @@
 // UTF-8 strings are "byte-sized series", which is also true of BINARY!
 // datatypes.  However, the series used to store UTF-8 strings also store
 // information about their length in codepoints in their series nodes (the
-// main "number of bytes used" in the series conveys bytes, not codepoints.
+// main "number of bytes used" in the series conveys bytes, not codepoints).
 //
 
 
@@ -44,16 +44,8 @@
 // Rebol exchanges UTF-8 data with the outside world via "char*".  But inside
 // the code, REBYTE* is used for not-yet-validated bytes that are to be
 // scanned as UTF-8.  When accessing an already-checked string, however,
-// the REBCHR(*) type is used...and no error checking should need to be done
-// while walking through the characters.
-//
-// The C++ build uses a class that disables the ability to directly increment
-// or decrement pointers to char* without going through helper routines.  To
-// get this checking, raw pointers cannot be used...and using pointer classes
-// directly would rule out building casually as C.  So a technique described
-// here was used to create the REBCHR(*) macro to be used in place of REBUNI*:
-//
-// http://blog.hostilefork.com/kinda-smart-pointers-in-c/
+// the REBCHR(*) type is used...signaling no error checking should need to be
+// done while walking through the UTF-8 sequence.
 //
 // So for instance: instead of simply saying:
 //
@@ -63,7 +55,7 @@
 // ...one must instead write:
 //
 //     REBCHR(*) ptr = UNI_HEAD(string_series);
-//     ptr = NEXT_CHR(&c, ptr); // ++ptr or ptr[n] will error in C++ build
+//     ptr = NEXT_CHR(&c, ptr);  // ++ptr or ptr[n] will error in C++ build
 //
 // The code that runs behind the scenes is typical UTF-8 forward and backward
 // scanning code, minus any need for error handling.
@@ -72,12 +64,100 @@
 // should be factored out for efficiency.
 //
 
-#ifdef CPLUSPLUS_11
-    template<typename T>
-    struct RebchrPtr;
+#if !defined(CPLUSPLUS_11)
+    //
+    // Plain C build uses trivial expansion of REBCHR() and REBCHR(const*)
+    //
+    // REBCHR(*) cp; => REBYTE * cp;
+    // REBCHR(const *) cp; => REBYTE const * cp;
+    //
+    #define REBCHR(star_or_const_star) \
+        REBYTE star_or_const_star
 
+    inline static REBYTE* NEXT_CHR(
+        REBUNI *codepoint_out,
+        const REBYTE *bp
+    ){
+        if (*bp < 0x80)
+            *codepoint_out = *bp;
+        else
+            bp = Back_Scan_UTF8_Char(codepoint_out, bp, NULL);
+        return m_cast(REBYTE*, bp + 1);
+    }
+
+    inline static REBYTE* BACK_CHR(
+        REBUNI *codepoint_out,
+        const REBYTE *bp
+    ){
+        NEXT_CHR(codepoint_out, bp);
+        --bp;
+        while ((*bp & 0xC0) == 0x80)
+            --bp;
+        return m_cast(REBYTE*, bp);
+    }
+
+    inline static REBYTE* NEXT_STR(const REBYTE *bp) {
+        do {
+            ++bp;
+        } while ((*bp & 0xC0) == 0x80);
+        return m_cast(REBYTE*, bp);
+    }
+
+    inline static REBYTE* BACK_STR(const REBYTE *bp) {
+        do {
+            --bp;
+        } while ((*bp & 0xC0) == 0x80);
+        return m_cast(REBYTE*, bp);
+    }
+
+    inline static REBYTE* SKIP_CHR(
+        REBUNI *codepoint_out,
+        const REBYTE *bp,
+        REBINT delta
+    ){
+        REBINT n = delta;
+        while (n != 0) {
+            if (delta > 0) {
+                bp = NEXT_CHR(codepoint_out, bp);
+                --n;
+            }
+            else {
+                bp = BACK_CHR(codepoint_out, bp);
+                ++n;
+            }
+        }
+        return m_cast(REBYTE*, bp);
+    }
+
+
+    inline static REBUNI CHR_CODE(const REBYTE *bp) {
+        REBUNI codepoint;
+        NEXT_CHR(&codepoint, bp);
+        return codepoint;
+    }
+
+    inline static REBYTE* WRITE_CHR(REBYTE* bp, REBUNI codepoint) {
+        return bp + Encode_UTF8_Char(bp, codepoint);
+    }
+
+    #define AS_REBYTE_PTR(p) \
+        (p)
+
+    #define AS_REBCHR(p) \
+        (p)
+#else
+    // C++ build uses templates to expand REBCHR(*) and REBCHR(const *) into
+    // pointer classes.  This technique allows the simple C compilation too:
+    //
+    // http://blog.hostilefork.com/kinda-smart-pointers-in-c/
+    //
+    template<typename T> struct RebchrPtr;
     #define REBCHR(star_or_const_star) \
         RebchrPtr<REBYTE star_or_const_star>
+
+    // Primary purpose of the classes is to disable the ability to directly
+    // increment or decrement pointers to REBYTE* without going through helper
+    // routines that do decoding.
 
     template<>
     struct RebchrPtr<const REBYTE*> {
@@ -191,21 +271,17 @@
 
         operator void * () { return m_cast(REBYTE*, bp); }
 
-        static const REBYTE *as_rebyte_ptr(RebchrPtr<const REBYTE*> cp) {
-            return cp.bp;
-        }
+        static const REBYTE *as_rebyte_ptr(RebchrPtr<const REBYTE*> cp)
+          { return cp.bp; }
 
-        static REBYTE *as_rebyte_ptr(RebchrPtr<REBYTE *> cp) {
-            return m_cast(REBYTE*, cp.bp);
-        }
+        static REBYTE *as_rebyte_ptr(RebchrPtr<REBYTE *> cp)
+          { return m_cast(REBYTE*, cp.bp); }
 
-        static RebchrPtr<const REBYTE*> as_rebchr(const REBYTE *bp) {
-            return bp;
-        }
+        static RebchrPtr<const REBYTE*> as_rebchr(const REBYTE *bp)
+          { return bp; }
 
-        static RebchrPtr<REBYTE *> as_rebchr(REBYTE *bp) {
-            return bp;
-        }
+        static RebchrPtr<REBYTE *> as_rebchr(REBYTE *bp)
+          { return bp; }
     };
 
     #define NEXT_CHR(out, cp)               (cp).next(out)
@@ -221,84 +297,11 @@
 
     #define AS_REBCHR(bp) \
         RebchrPtr<REBYTE *>::as_rebchr(bp)
-#else
-    #define REBCHR(star_or_const_star) \
-        REBYTE star_or_const_star
-
-    inline static REBYTE* NEXT_CHR(
-        REBUNI *codepoint_out,
-        const REBYTE *bp
-    ){
-        if (*bp < 0x80)
-            *codepoint_out = *bp;
-        else
-            bp = Back_Scan_UTF8_Char(codepoint_out, bp, NULL);
-        return m_cast(REBYTE*, bp + 1);
-    }
-
-    inline static REBYTE* BACK_CHR(
-        REBUNI *codepoint_out,
-        const REBYTE *bp
-    ){
-        NEXT_CHR(codepoint_out, bp);
-        --bp;
-        while ((*bp & 0xC0) == 0x80)
-            --bp;
-        return m_cast(REBYTE*, bp);
-    }
-
-    inline static REBYTE* NEXT_STR(const REBYTE *bp) {
-        do {
-            ++bp;
-        } while ((*bp & 0xC0) == 0x80);
-        return m_cast(REBYTE*, bp);
-    }
-
-    inline static REBYTE* BACK_STR(const REBYTE *bp) {
-        do {
-            --bp;
-        } while ((*bp & 0xC0) == 0x80);
-        return m_cast(REBYTE*, bp);
-    }
-
-    inline static REBYTE* SKIP_CHR(
-        REBUNI *codepoint_out,
-        const REBYTE *bp,
-        REBINT delta
-    ){
-        REBINT n = delta;
-        while (n != 0) {
-            if (delta > 0) {
-                bp = NEXT_CHR(codepoint_out, bp);
-                --n;
-            }
-            else {
-                bp = BACK_CHR(codepoint_out, bp);
-                ++n;
-            }
-        }
-        return m_cast(REBYTE*, bp);
-    }
-
-
-    inline static REBUNI CHR_CODE(const REBYTE *bp) {
-        REBUNI codepoint;
-        NEXT_CHR(&codepoint, bp);
-        return codepoint;
-    }
-
-    inline static REBYTE* WRITE_CHR(REBYTE* bp, REBUNI codepoint) {
-        return bp + Encode_UTF8_Char(bp, codepoint);
-    }
-
-    #define AS_REBYTE_PTR(p) \
-        (p)
-
-    #define AS_REBCHR(p) \
-        (p)
 #endif
 
 
+//=//// SAFE COMPARISONS WITH BUILT-IN SYMBOLS ////////////////////////////=//
+//
 // R3-Alpha's concept was that all words got persistent integer values, which
 // prevented garbage collection.  Ren-C only gives built-in words integer
 // values--or SYMs--while others must be compared by pointers to their
@@ -309,36 +312,40 @@
 // writes `VAL_WORD_SYM(a) == VAL_WORD_SYM(b)`, because all non-built-ins
 // will appear to be equal.  It's a tricky enough bug to catch to warrant an
 // extra check in C++ that disallows comparing SYMs with ==
-//
-#if !defined(NDEBUG) && defined(CPLUSPLUS_11)
+
+#if defined(NDEBUG) || !defined(CPLUSPLUS_11)
+    //
+    // Trivial definition for C build or release builds: symbols are just a C
+    // enum value and an OPT_REBSYM acts just like a REBSYM.
+    //
+    typedef enum Reb_Symbol REBSYM;
+    typedef enum Reb_Symbol OPT_REBSYM;
+#else
     struct REBSYM;
 
-    struct OPT_REBSYM { // can only be converted to REBSYM, no comparisons
+    struct OPT_REBSYM {  // may only be converted to REBSYM, no comparisons
         enum Reb_Symbol n;
         OPT_REBSYM (const REBSYM& sym);
-        bool operator==(enum Reb_Symbol other) const {
-            return n == other;
-        }
-        bool operator!=(enum Reb_Symbol other) const {
-            return n != other;
-        }
+        bool operator==(enum Reb_Symbol other) const
+          { return n == other; }
+        bool operator!=(enum Reb_Symbol other) const
+          { return n != other; }
 
-        bool operator==(OPT_REBSYM &&other) const;
-        bool operator!=(OPT_REBSYM &&other) const;
+        bool operator==(OPT_REBSYM &&other) const = delete;
+        bool operator!=(OPT_REBSYM &&other) const = delete;
 
-        operator unsigned int() const {
-            return cast(unsigned int, n);
-        }
+        operator unsigned int() const
+          { return cast(unsigned int, n); }
     };
 
-    struct REBSYM { // acts like a REBOL_Symbol with no OPT_REBSYM compares
+    struct REBSYM {  // acts like a REBOL_Symbol with no OPT_REBSYM compares
         enum Reb_Symbol n;
         REBSYM () {}
         REBSYM (int n) : n (cast(enum Reb_Symbol, n)) {}
         REBSYM (OPT_REBSYM opt_sym) : n (opt_sym.n) {}
-        operator unsigned int() const {
-            return cast(unsigned int, n);
-        }
+        operator unsigned int() const
+          { return cast(unsigned int, n); }
+
         bool operator>=(enum Reb_Symbol other) const {
             assert(other != SYM_0);
             return n >= other;
@@ -355,22 +362,18 @@
             assert(other != SYM_0);
             return n < other;
         }
-        bool operator==(enum Reb_Symbol other) const {
-            return n == other;
-        }
-        bool operator!=(enum Reb_Symbol other) const {
-            return n != other;
-        }
-        bool operator==(REBSYM &other) const; // could be SYM_0!
-        void operator!=(REBSYM &other) const; // could be SYM_0!
-        bool operator==(const OPT_REBSYM &other) const; // could be SYM_0!
-        void operator!=(const OPT_REBSYM &other) const; // could be SYM_0!
+        bool operator==(enum Reb_Symbol other) const
+          { return n == other; }
+        bool operator!=(enum Reb_Symbol other) const
+          { return n != other; }
+
+        bool operator==(REBSYM &other) const = delete;  // may be SYM_0
+        void operator!=(REBSYM &other) const = delete;  // ...same
+        bool operator==(const OPT_REBSYM &other) const = delete;  // ...same
+        void operator!=(const OPT_REBSYM &other) const = delete;  // ...same
     };
 
     inline OPT_REBSYM::OPT_REBSYM(const REBSYM &sym) : n (sym.n) {}
-#else
-    typedef enum Reb_Symbol REBSYM;
-    typedef enum Reb_Symbol OPT_REBSYM; // act sameas REBSYM in C build
 #endif
 
 inline static bool SAME_SYM_NONZERO(REBSYM a, REBSYM b) {
@@ -669,9 +672,9 @@ inline static REBSER *Copy_Sequence_At_Len(
 // in ASCII range and fixed size.  If this is the case, different algorithms
 // might be applied, for instance a standard C qsort() to sort the characters.
 //
-inline static bool Is_String_ASCII(const RELVAL *str) {
+inline static bool Is_String_Definitely_ASCII(const RELVAL *str) {
     UNUSED(str);
-    return false; // currently all strings are 16-bit REBUNI characters
+    return false;
 }
 
 #define Make_String(encoded_capacity) \

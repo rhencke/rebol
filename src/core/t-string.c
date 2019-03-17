@@ -109,7 +109,7 @@ static void reverse_string(REBVAL *v, REBCNT len)
     if (len == 0)
         return; // if non-zero, at least one character in the string
 
-    if (Is_String_ASCII(v))
+    if (Is_String_Definitely_ASCII(v))
         reverse_binary(v, len);
     else {
         // !!! This is an inefficient method for reversing strings with
@@ -1216,7 +1216,7 @@ REBTYPE(String)
         if (REF(all)) // Not Supported
             fail (Error_Bad_Refine_Raw(ARG(all)));
 
-        if (not Is_String_ASCII(v))
+        if (not Is_String_Definitely_ASCII(v))
             fail ("UTF-8 Everywhere: String sorting temporarily unavailable");
 
         Sort_String(
@@ -1253,7 +1253,7 @@ REBTYPE(String)
             return D_OUT;
         }
 
-        if (not Is_String_ASCII(v))
+        if (not Is_String_Definitely_ASCII(v))
             fail ("UTF-8 Everywhere: String shuffle temporarily unavailable");
 
         FAIL_IF_READ_ONLY(v);
