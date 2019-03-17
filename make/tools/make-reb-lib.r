@@ -111,6 +111,28 @@ emit-proto: func [return: <void> proto] [
         ]
     ]
 
+    if is-variadic: did find paramlist 'vaptr [
+        parse paramlist [
+            ;
+            ; `quotes` is first to facilitate C99 macros that want two places
+            ; to splice arguments: head and tail, e.g.
+            ;
+            ;     #define rebFoo(...) RL_rebFoo(0, __VA_ARGS__, rebEND)
+            ;     #define rebFooQ(...) RL_rebFoo(1, __VA_ARGS__, rebEND)
+            ;
+            ; `quotes` may generalize to more `modes` or `flags` someday.
+            ;
+            "unsigned char" 'quotes
+
+            copy paramlist: to "const void *"  ; signal start of variadic
+
+            "const void *" 'p
+            "va_list *" 'vaptr
+        ] else [
+            fail [name "has unsupported variadic paramlist:" mold paramlist]
+        ]
+    ]
+
     ; Note: Cannot set object fields directly from PARSE, tried it :-(
     ; https://github.com/rebol/rebol-issues/issues/2317
     ;
@@ -120,6 +142,7 @@ emit-proto: func [return: <void> proto] [
         returns: (ensure text! trim/tail returns)
         paramlist: (ensure block! paramlist)
         proto: (ensure text! proto)
+        is-variadic: (ensure logic! is-variadic)
     ]
 ]
 
@@ -148,13 +171,13 @@ extern-prototypes: map-each-api [
 ]
 
 lib-struct-fields: map-each-api [
-    cfunc-params: if empty? paramlist [
-        "void"
-    ] else [
-        delimit ", " map-each [type var] paramlist [
-            spaced [type var]
-        ]
+    cfunc-params: delimit ", " compose [
+        (if is-variadic ["unsigned char quotes"])
+        ((map-each [type var] paramlist [spaced [type var]]))
+        (if is-variadic ["const void *p"])
+        (if is-variadic ["va_list *vaptr"])
     ]
+    cfunc-params: default ["void"]
     cscape/with {$<Returns> (*$<Name>)($<Cfunc-Params>)} api
 ]
 
@@ -166,30 +189,6 @@ for-each api api-objects [do in api [
         "rebEnterApi_internal" ; called as RL_rebEnterApi_internal
     ] name [
         continue
-    ]
-
-    opt-va-start: _
-    if va-pos: find paramlist "va_list *" [
-        assert ['vaptr first next va-pos]
-        assert ['p = first back va-pos]
-        assert ["const void *" = first back back va-pos]
-        opt-va-start: {va_list va; va_start(va, p);}
-    ]
-
-    wrapper-params: (delimit ", " map-each [type var] paramlist [
-        if type = "va_list *" [
-            "..."
-        ] else [
-            spaced [type var]
-        ]
-    ]) else ["void"]
-
-    proxied-args: try delimit ", " map-each [type var] paramlist [
-        if type = "va_list *" [
-            "&va"   ; to produce vaptr
-        ] else [
-            to text! var
-        ]
     ]
 
     if find spec #noreturn [
@@ -210,10 +209,16 @@ for-each api api-objects [do in api [
     make-inline-proxy: func [
         return: [text!]
         internal [text!]
+        /Q
     ][
+        q: try if q ["Q"]
+
+        returns: default ["void"]
+        wrapper-params: default ["void"]
+
         cscape/with {
             $<OPT-NORETURN>
-            inline static $<Returns> $<Name>_inline($<Wrapper-Params>) {
+            inline static $<Returns> $<Name>$<Q>_inline($<Wrapper-Params>) {
                 $<Enter>
                 $<Opt-Va-Start>
                 $<opt-return> $<Internal>($<Proxied-Args>);
@@ -222,56 +227,82 @@ for-each api api-objects [do in api [
         } reduce [api 'internal]
     ]
 
-    append direct-call-inlines make-inline-proxy unspaced ["RL_" name]
-    append struct-call-inlines make-inline-proxy unspaced ["RL->" name]
-]]
+    if is-variadic [
+        opt-va-start: {va_list va; va_start(va, p);}
 
-c89-macros: map-each-api [
-    cfunc-params: if empty? paramlist [
-        "void"
-    ] else [
-        delimit ", " map-each [type var] paramlist [
+        wrapper-params: delimit ", " compose [
+            ((map-each [type var] paramlist [spaced [type var]]))
+            "const void *p"
+            "..."
+        ]
+
+        ; We need two versions of the inline function for C89, one for Q to
+        ; quote spliced slots and one normal.
+
+        proxied-args: delimit ", " compose [
+            "0" ((map-each [type var] paramlist [to-text var])) "p" "&va"
+        ]
+        append direct-call-inlines make-inline-proxy unspaced ["RL_" name]
+        append struct-call-inlines make-inline-proxy unspaced ["RL->" name]
+
+        proxied-args: delimit ", " compose [
+            "1" ((map-each [type var] paramlist [to-text var])) "p" "&va"
+        ]
+        append direct-call-inlines make-inline-proxy/Q unspaced ["RL_" name]
+        append struct-call-inlines make-inline-proxy/Q unspaced ["RL->" name]
+    ]
+    else [
+        opt-va-start: _
+
+        wrapper-params: try delimit ", " map-each [type var] paramlist [
             spaced [type var]
         ]
-    ]
-    cscape/with {#define $<Name> $<Name>_inline} api
-]
-append c89-macros reduce [
-    ;
-    ; Placeholder for smarter API wrapping--we want the c89 calls to these
-    ; APIs have to include rebEND when they become variadic.
-    ;
-    {#define rebSpellIntoQ rebSpellIntoQ_internal}
-    {#define rebSpellIntoWideQ rebSpellIntoWideQ_internal}
-    {#define rebBytesIntoQ rebBytesIntoQ_internal}
-]
 
-c99-or-c++11-macros: map-each-api [
-    if find paramlist 'vaptr [
-        cscape/with
-            {#define $<Name>(...) $<Name>_inline(__VA_ARGS__, rebEND)} api
-    ] else [
-        cscape/with {#define $<Name> $<Name>_inline} api
+        proxied-args: try delimit ", " map-each [type var] paramlist [
+            to text! var
+        ]
+
+        append direct-call-inlines make-inline-proxy unspaced ["RL_" name]
+        append struct-call-inlines make-inline-proxy unspaced ["RL->" name]
     ]
-]
-append c99-or-c++11-macros reduce [
+]]
+
+c89-macros: collect [ map-each-api [
+    if is-variadic [
+        keep cscape/with {#define $<Name> $<Name>_inline} api
+        keep cscape/with {#define $<Name>Q $<Name>Q_inline} api
+    ] else [
+        keep cscape/with {#define $<Name> $<Name>_inline} api
+    ]
+] ]
+
+c99-or-c++11-macros: collect [ map-each-api [
     ;
-    ; Placeholder for smarter API wrapping--we *don't* want the c99 or c++11
-    ; calls to these APIs have to include rebEND when they become variadic.
+    ; C99/C++11 have the ability to do variadic macros, giving the power to
+    ; implicitly slip a rebEND signal at the end of the parameter list.  This
+    ; overcomes a C variadic function's fundamental limitation of not being
+    ; able to implicitly know the number of variadic parameters used.
     ;
-    trim/auto copy {
-        #define rebSpellIntoQ(buf,buf_size,v) \
-            rebSpellIntoQ_internal((buf), (buf_size), (v), rebEND)
-    }
-    trim/auto copy {
-        #define rebSpellIntoWideQ(buf,buf_size,v) \
-            rebSpellIntoWideQ_internal((buf), (buf_size), (v), rebEND)
-    }
-    trim/auto copy {
-        #define rebBytesIntoQ(buf,buf_size,binary) \
-            rebBytesIntoQ_internal((buf), (buf_size), (binary), rebEND)
-    }
-]
+    ; We make two entries for each variadic splicer--one that quotes splices
+    ; (e.g. rebDidQ) and one that does not (plain rebDid)
+    ;
+    ; !!! We could likely do better than this, e.g. if the `quotes` were moved
+    ; to the first parameter, it could be passed as 0 or 1 here and use only
+    ; one inline function instead of two.  But so long as C89 support is
+    ; a given, it would just make the header file larger to add that variant.
+    ;
+    if is-variadic [
+        keep cscape/with
+            {#define $<Name>(...) $<Name>_inline(__VA_ARGS__, rebEND)} api
+        keep cscape/with
+            {#define $<Name>Q(...) $<Name>Q_inline(__VA_ARGS__, rebEND)} api
+    ] else [
+        ;
+        ; For non-variadics just call the inline form directly
+        ;
+        keep cscape/with {#define $<Name> $<Name>_inline} api
+    ]
+] ]
 
 
 === GENERATE REBOL.H ===
@@ -732,8 +763,6 @@ to-js-type: func [
     s [text!] "C type as string"
 ][
     case [
-        s = "va_list *" [<va_ptr>]  ; special processing, only an argument
-
         s = "intptr_t" [<promise>]  ; distinct handling for return vs. arg
 
         ; APIs dealing with `char *` means UTF-8 bytes.  While C must memory
@@ -797,16 +826,9 @@ append api-objects make object! [
     spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
     name: "rebPromise"
     returns: "intptr_t"
-    paramlist: ["const void *" p "va_list *" vaptr]
-    proto: "intptr_t rebPromise(void *p, va_list *vaptr)"
-]
-
-append api-objects make object! [
-    spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
-    name: "rebPromiseQ"
-    returns: "intptr_t"
-    paramlist: ["const void *" p "va_list *" vaptr]
-    proto: "intptr_t rebPromiseQ(void *p, va_list *vaptr)"
+    paramlist: []
+    proto: "intptr_t rebPromise(unsigned char quotes, void *p, va_list *vaptr)"
+    is-variadic: true
 ]
 
 append api-objects make object! [
@@ -815,6 +837,7 @@ append api-objects make object! [
     returns: "void"
     paramlist: []
     proto: "void rebIdle_internal(void)"
+    is-variadic: false
 ]
 
 append api-objects make object! [
@@ -825,6 +848,7 @@ append api-objects make object! [
     proto: unspaced [
         "void rebSignalAwaiter_internal(intptr_t frame_id)"
     ]
+    is-variadic: false
 ]
 
 map-each-api [
@@ -851,13 +875,16 @@ map-each-api [
                 continue
             ]
             keep to-js-type type else [
-                fail ["No JavaScript argument mapping for type" type]
+                fail [
+                    {No JavaScript argument mapping for type} type
+                    {used by} name {with paramlist} mold paramlist
+                ]
             ]
         ]
     ]
 
-    if find js-param-types <va_ptr> [
-        if 2 < length of js-param-types [
+    if is-variadic [
+        if js-param-types [
             print cscape/with
             "!!! WARNING! !!! Skipping mixed variadic function $<Name> !!!"
             api
@@ -914,7 +941,7 @@ map-each-api [
         ]
 
         e-cwrap/emit cscape/with {
-            reb.$<No-Reb-Name> = function() {
+            reb.$<No-Reb-Name>_qlevel = function() {
                 $<Enter>
                 var argc = arguments.length
                 var stack = stackSave()
@@ -945,12 +972,16 @@ map-each-api [
                  */
                 HEAP32[(va>>2) + (argc + 1)] = va + 4
 
-                a = _RL_$<Name>(HEAP32[va>>2], va + 4 * (argc + 1))
+                a = _RL_$<Name>(this.quotes, HEAP32[va>>2], va + 4 * (argc + 1))
 
                 stackRestore(stack)
 
                 $<Return-Code>
             }
+
+            reb.$<No-Reb-Name> = reb.$<No-Reb-Name>_qlevel.bind({quotes: 0})
+
+            reb.$<No-Reb-Name>Q = reb.$<No-Reb-Name>_qlevel.bind({quotes: 1})
         } api
     ] else [
         e-cwrap/emit cscape/with {

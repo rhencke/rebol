@@ -333,9 +333,10 @@ struct Reb_Promise_Info *PG_Promises;  // Singly-linked list
 // which ties the returned integer into the resolve and reject branches of an
 // actual JavaScript ES6 Promise.
 //
-static intptr_t rebPromise_internal(REBFLGS flags, void *p, va_list *vaptr)
+EMSCRIPTEN_KEEPALIVE EXTERN_C
+intptr_t RL_rebPromise(REBFLGS flags, void *p, va_list *vaptr)
 {
-    TRACE("rebPromise_internal() called");
+    TRACE("rebPromise() called");
     ASSERT_ON_MAIN_THREAD();
 
     // If we're asked to run `rebPromise("input")` from the MAIN thread, there
@@ -391,14 +392,6 @@ static intptr_t rebPromise_internal(REBFLGS flags, void *p, va_list *vaptr)
 
     return info->promise_id;
 }
-
-EMSCRIPTEN_KEEPALIVE EXTERN_C
-intptr_t RL_rebPromise(void *p, va_list *vaptr)
-  { return rebPromise_internal(FEED_MASK_DEFAULT, p, vaptr); }
-
-EMSCRIPTEN_KEEPALIVE EXTERN_C
-intptr_t RL_rebPromiseQ(void *p, va_list *vaptr)
-  { return rebPromise_internal(FLAG_QUOTING_BYTE(1), p, vaptr); }
 
 
 // Function passed to rebRescue() so code can be run but trap errors safely.
