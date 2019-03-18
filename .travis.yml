@@ -980,6 +980,9 @@ script:
            mv libr3.worker.js "${OS_ID}/lib${NEW_NAME}.worker.js"
       fi
 
+    # Keep note of GIT_COMMIT_SHORT
+    - echo "last_git_commit_short = '${GIT_COMMIT_SHORT}'" > ${OS_ID}/last_git_commit_short.js
+
     # Return whether the build succeeded or not to Travis.  If this succeeded 
     # then the deploy step to S3 will run.  Parentheses create a "subshell"
     #
