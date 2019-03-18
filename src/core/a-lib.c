@@ -491,10 +491,7 @@ REBVAL *RL_rebLogic(bool logic)
 //
 REBVAL *RL_rebChar(uint32_t codepoint)
 {
-    if (codepoint > MAX_UNI)
-        fail ("Codepoint out of range, see: https://forum.rebol.info/t/374");
-
-    return Init_Char(Alloc_Value(), codepoint);
+    return Init_Char_May_Fail(Alloc_Value(), codepoint);
 }
 
 
@@ -617,6 +614,8 @@ REBVAL *RL_rebLengthedTextWide(const REBWCHAR *wstr, unsigned int num_chars)
 
 //
 //  rebTextWide: RL_API
+//
+// Imports a TEXT! from UCS2 (no UTF16 multi-wchar-encoding, at least not yet)
 //
 REBVAL *RL_rebTextWide(const REBWCHAR *wstr)
 {
@@ -1035,40 +1034,48 @@ unsigned int RL_rebSpellIntoWide(
 ){
     DECLARE_LOCAL (v);
     Run_Va_May_Fail(v, quotes, p, vaptr);  // calls va_end()
- 
-    REBSER *s;
-    REBCNT index;
+
+    REBCHR(const*) cp; 
     REBCNT len;
     if (ANY_STRING(v)) {
-        s = VAL_SERIES(v);
-        index = VAL_INDEX(v);
+        cp = VAL_UNI_AT(v);
         len = VAL_LEN_AT(v);
     }
-    else {
-        assert(ANY_WORD(v));
-
+    else if (ANY_WORD(v)) {
         REBSTR *spelling = VAL_WORD_SPELLING(v);
-        s = Make_Sized_String_UTF8(STR_HEAD(spelling), STR_SIZE(spelling));
-        index = 0;
+        cp = UNI_HEAD(spelling);
+
+        // !!! Inefficient way of asking "how long is this UTF-8 series", fix!
+        //
+        REBSER *s = Make_Sized_String_UTF8(
+            STR_HEAD(spelling),
+            STR_SIZE(spelling)
+        );
         len = SER_LEN(s);
+        Free_Unmanaged_Series(s);
     }
+    else
+        fail ("rebSpellIntoWide() only accepts ANY-STRING! and ANY-WORD!");
 
     if (not buf) {  // querying for size
         assert(buf_chars == 0);
-        if (ANY_WORD(v))
-            Free_Unmanaged_Series(s);
         return len;  // caller must now allocate buffer of len + 1
     }
 
     REBCNT limit = MIN(buf_chars, len);
-    REBCNT n = 0;
-    for (; index < limit; ++n, ++index)
-        buf[n] = GET_ANY_CHAR(s, index);
 
-    buf[limit] = 0;
+    REBUNI c;
+    cp = NEXT_CHR(&c, cp);
 
-    if (ANY_WORD(v))
-        Free_Unmanaged_Series(s);
+    REBCNT i;
+    for (i = 0; i < limit; cp = NEXT_CHR(&c, cp), ++i) {
+        if (c > 0xFFFF)  // !!! Should we do multi-wchar UTF16 encoding?
+            fail ("Codepoint too high for REBWCHAR in rebSpellIntoWide()");
+
+        buf[i] = c;
+    }
+
+    buf[i] = 0;
     return len;
 }
 

@@ -284,11 +284,20 @@
             "invalid m_cast() - input and output have mismatched volatility");
         return const_cast<T>(v);
     }
-    /* reinterpret_cast for pointer to pointer casting (non-class source)*/
+    /* construct if possible for ptr to ptr casting (non-class source) */
     template<typename T, typename V,
         typename std::enable_if<
             !std::is_class<V>::value
             && (std::is_pointer<V>::value || std::is_pointer<T>::value)
+            && std::is_constructible<T, V>::value
+        >::type* = nullptr>
+                T cast_helper(V v) { return T {v}; }
+    /* reinterpret_cast for all other ptr-to-ptr (non-class source) */
+    template<typename T, typename V,
+        typename std::enable_if<
+            !std::is_class<V>::value
+            && (std::is_pointer<V>::value || std::is_pointer<T>::value)
+            && !std::is_constructible<T, V>::value
         >::type* = nullptr>
                 T cast_helper(V v) { return reinterpret_cast<T>(v); }
     /* static_cast for non-pointer to non-pointer casting (non-class source) */

@@ -555,8 +555,8 @@ inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding);
 #include "sys-void.h"
 #include "sys-blank.h"
 #include "sys-logic.h"
-#include "sys-char.h"
 #include "sys-integer.h"
+#include "sys-char.h"  // uses Init_Integer() for bad codepoint error
 #include "sys-decimal.h"
 #include "sys-datatype.h"
 

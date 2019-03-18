@@ -329,6 +329,8 @@ inline static union Reb_Header Endlike_Header(uintptr_t bits) {
 // work.  It's also likely preferred by x86.
 //
 
+struct Reb_Character_Extra { REBUNI codepoint; };  // see %sys-char.h
+
 struct Reb_Binding_Extra  // see %sys-bind.h
 {
     REBNOD* node;
@@ -386,6 +388,7 @@ union Reb_Bytes_Extra {
 
 union Reb_Value_Extra { //=/////////////////// ACTUAL EXTRA DEFINITION ////=//
 
+    struct Reb_Character_Extra Character;
     struct Reb_Binding_Extra Binding;
     struct Reb_Key_Extra Key;
     struct Reb_Handle_Extra Handle;
@@ -443,7 +446,9 @@ struct Reb_Quoted_Payload  // see %sys-quoted.h
 
 struct Reb_Logic_Payload { bool flag; };  // see %sys-logic.h
 
-struct Reb_Character_Payload { REBUNI codepoint; };  // see %sys-char.h
+struct Reb_Character_Payload {  // see %sys-char.h
+    REBYTE size_then_encoded[8];
+};
 
 struct Reb_Integer_Payload { REBI64 i64; };  // see %sys-integer.h
 

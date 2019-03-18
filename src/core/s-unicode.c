@@ -130,17 +130,17 @@
     bit mask & shift operations.
 ------------------------------------------------------------------------ */
 
-typedef unsigned long   UTF32;  /* at least 32 bits */
-typedef unsigned short  UTF16;  /* at least 16 bits */
-typedef unsigned char   UTF8;   /* typically 8 bits */
+typedef uint_fast32_t   UTF32;  /* at least 32 bits */
+typedef uint_fast16_t   UTF16;  /* at least 16 bits */
+typedef uint_fast8_t    UTF8;   /* typically 8 bits */
 typedef unsigned char   Boolean; /* 0 or 1 */
 
-/* Some fundamental constants */
-#define UNI_REPLACEMENT_CHAR (UTF32)0x0000FFFD
-#define UNI_MAX_BMP (UTF32)0x0000FFFF
-#define UNI_MAX_UTF16 (UTF32)0x0010FFFF
-#define UNI_MAX_UTF32 (UTF32)0x7FFFFFFF
-#define UNI_MAX_LEGAL_UTF32 (UTF32)0x0010FFFF
+/* Some fundamental constants */  // Note: moved to %sys-char.h
+//#define UNI_REPLACEMENT_CHAR (UTF32)0x0000FFFD
+//#define UNI_MAX_BMP (UTF32)0x0000FFFF
+//#define UNI_MAX_UTF16 (UTF32)0x0010FFFF
+//#define UNI_MAX_UTF32 (UTF32)0x7FFFFFFF
+//#define UNI_MAX_LEGAL_UTF32 (UTF32)0x0010FFFF
 
 typedef enum {
     conversionOK,       /* conversion successful */
@@ -204,10 +204,12 @@ Boolean isLegalUTF8Sequence(const UTF8 *source, const UTF8 *sourceEnd);
 #endif
 
 
-#define UNI_SUR_HIGH_START  (UTF32)0xD800
-#define UNI_SUR_HIGH_END    (UTF32)0xDBFF
-#define UNI_SUR_LOW_START   (UTF32)0xDC00
-#define UNI_SUR_LOW_END     (UTF32)0xDFFF
+// Note: Moved to %sys-char.h
+//
+//#define UNI_SUR_HIGH_START  (UTF32)0xD800
+//#define UNI_SUR_HIGH_END    (UTF32)0xDBFF
+//#define UNI_SUR_LOW_START   (UTF32)0xDC00
+//#define UNI_SUR_LOW_END     (UTF32)0xDFFF
 
 /* --------------------------------------------------------------------- */
 
@@ -218,7 +220,7 @@ Boolean isLegalUTF8Sequence(const UTF8 *source, const UTF8 *sourceEnd);
  * left as-is for anyone who may want to do such conversion, which was
  * allowed in earlier algorithms.
  */
-static const char trailingBytesForUTF8[256] = {
+const char trailingBytesForUTF8[256] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -234,7 +236,7 @@ static const char trailingBytesForUTF8[256] = {
  * This table contains as many values as there might be trailing bytes
  * in a UTF-8 sequence.
  */
-static const UTF32 offsetsFromUTF8[6] = { 0x00000000UL, 0x00003080UL, 0x000E2080UL,
+const UTF32 offsetsFromUTF8[6] = { 0x00000000UL, 0x00003080UL, 0x000E2080UL,
              0x03C82080UL, 0xFA082080UL, 0x82082080UL };
 
 /*
@@ -244,7 +246,7 @@ static const UTF32 offsetsFromUTF8[6] = { 0x00000000UL, 0x00003080UL, 0x000E2080
  * (I.e., one byte sequence, two byte... etc.). Remember that sequencs
  * for *legal* UTF-8 will be 4 or fewer bytes total.
  */
-static const UTF8 firstByteMark[7] = { 0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC };
+const UTF8 firstByteMark[7] = { 0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC };
 
 /* --------------------------------------------------------------------- */
 
@@ -746,146 +748,6 @@ REBYTE *Check_UTF8(REBYTE *utf8, size_t size)
     }
 
     return NULL;
-}
-
-
-//
-//  Back_Scan_UTF8_Char_Core: C
-//
-// Converts a single UTF8 code-point and returns the position *at the
-// the last byte of the character's data*.  (This differs from the usual
-// `Scan_XXX` interface of returning the position after the scanned
-// element, ready to read the next one.)
-//
-// The peculiar interface is useful in loops that are processing
-// ordinary ASCII chars directly -as well- as UTF8 ones.  The loop can
-// do a single byte pointer increment after both kinds of
-// elements, avoiding the need to call any kind of `Scan_Ascii()`:
-//
-//     for (; size > 0; ++bp, --size) {
-//         if (*bp < 0x80) {
-//             // do ASCII stuff...
-//         }
-//         else {
-//             REBUNI uni;
-//             bp = Back_Scan_UTF8_Char(&uni, bp, &size);
-//             // do UNICODE stuff...
-//         }
-//     }
-//
-// The third parameter is an optional size that will be decremented by
-// the number of "extra" bytes the UTF8 has beyond a single byte character.
-// This allows for decrement-style loops such as the above.
-//
-// Prescans source for null, and will not return code point 0.
-//
-// If failure due to insufficient data or malformed bytes, then NULL is
-// returned (size is not advanced).
-//
-const REBYTE *Back_Scan_UTF8_Char(
-    REBUNI *out, // "UTF32" is defined as unsigned long above
-    const REBYTE *bp,
-    REBSIZ *size
-){
-    *out = 0;
-
-    const UTF8 *source = bp;
-    REBCNT trail = trailingBytesForUTF8[*source];
-
-    // Check that we have enough valid source bytes:
-    if (size) {
-        if (trail + 1 > *size)
-            return NULL;
-    }
-    else if (trail != 0) {
-        do {
-            if (source[trail] < 0x80)
-                return NULL;
-        } while (--trail != 0);
-
-        trail = trailingBytesForUTF8[*source];
-    }
-
-    // Do this check whether lenient or strict:
-    // if (!isLegalUTF8(source, slen+1)) return 0;
-
-    switch (trail) {
-        case 5: *out += *source++; *out <<= 6; // falls through
-        case 4: *out += *source++; *out <<= 6; // falls through
-        case 3: *out += *source++; *out <<= 6; // falls through
-        case 2: *out += *source++; *out <<= 6; // falls through
-        case 1: *out += *source++; *out <<= 6; // falls through
-        case 0: *out += *source++;
-    }
-    *out -= offsetsFromUTF8[trail];
-
-    // UTF-16 surrogate values are illegal in UTF-32, and anything
-    // over Plane 17 (> 0x10FFFF) is illegal.
-    //
-    if (*out > UNI_MAX_LEGAL_UTF32)
-        return NULL;
-    if (*out >= UNI_SUR_HIGH_START && *out <= UNI_SUR_LOW_END)
-        return NULL;
-
-    if (size)
-        *size -= trail;
-
-    // !!! Original implementation used 0 as a return value to indicate a
-    // decoding failure.  However, 0 is a legal UTF8 codepoint, and also
-    // Rebol strings are able to store NUL characters (they track a length
-    // and are not zero-terminated.)  Should this be legal?
-    //
-    assert(*out != 0);
-    if (*out == 0)
-        return NULL;
-
-    return bp + trail;
-}
-
-
-//
-//  Encode_UTF8_Char: C
-//
-// Converts a single char to UTF8 code-point.
-// Returns length of char stored in dst.
-// Be sure dst has at least 4 bytes available.
-//
-REBCNT Encode_UTF8_Char(REBYTE *dst, REBUNI c)
-{
-    int len = 0;
-    const uint32_t mask = 0xBF;
-    const uint32_t mark = 0x80;
-
-    if (c < cast(uint32_t, 0x80))
-        len = 1;
-    else if (c < cast(uint32_t, 0x800))
-        len = 2;
-    else if (c < cast(uint32_t, 0x10000))
-        len = 3;
-    else if (c <= UNI_MAX_LEGAL_UTF32)
-        len = 4;
-    else { // !!! Should this fail() instead of pick a replacement char?
-        len = 3;
-        c = UNI_REPLACEMENT_CHAR;
-    }
-
-    dst += len;
-
-    switch (len) {
-    case 4:
-        *--dst = cast(REBYTE, (c | mark) & mask);
-        c >>= 6; // falls through
-    case 3:
-        *--dst = cast(REBYTE, (c | mark) & mask);
-        c >>= 6; // falls through
-    case 2:
-        *--dst = cast(REBYTE, (c | mark) & mask);
-        c >>= 6; // falls through
-    case 1:
-        *--dst = cast(REBYTE, c | firstByteMark[len]);
-    }
-
-    return len;
 }
 
 

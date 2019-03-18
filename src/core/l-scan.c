@@ -1897,13 +1897,13 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 goto syntax_error;
             break;
 
-          case TOKEN_CHAR:
-            DS_PUSH();
-            RESET_VAL_HEADER(DS_TOP, REB_CHAR, CELL_MASK_NONE);
+          case TOKEN_CHAR: {
+            REBUNI uni;
             bp += 2;  // skip #", and subtract 1 from ep for "
-            if (ep - 1 != Scan_UTF8_Char_Escapable(&VAL_CHAR(DS_TOP), bp))
+            if (ep - 1 != Scan_UTF8_Char_Escapable(&uni, bp))
                 goto syntax_error;
-            break;
+            Init_Char_May_Fail(DS_PUSH(), uni);
+            break; }
 
           case TOKEN_STRING:  // UTF-8 pre-scanned above, and put in MOLD_BUF
             Init_Text(DS_PUSH(), Pop_Molded_String(mo));

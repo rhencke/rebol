@@ -288,7 +288,7 @@ static REBVAL *Get_Event_Var(RELVAL *out, const REBCEL *v, REBSTR *name)
         if (VAL_EVENT_KEYSYM(v) != SYM_0)
             return Init_Word(out, Canon(VAL_EVENT_KEYSYM(v)));
 
-        return Init_Char(out, VAL_EVENT_KEYCODE(v)); }
+        return Init_Char_May_Fail(out, VAL_EVENT_KEYCODE(v)); }
 
       case SYM_FLAGS:
         if (

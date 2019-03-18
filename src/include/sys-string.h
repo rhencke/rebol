@@ -63,7 +63,7 @@
 // !!! Error handling is still included due to running common routines, but
 // should be factored out for efficiency.
 //
-#if !defined(CPLUSPLUS_11)
+#if !defined(CPLUSPLUS_11) /* or !defined(NDEBUG) */
     //
     // Plain C build uses trivial expansion of REBCHR() and REBCHR(const*)
     //
@@ -149,6 +149,13 @@
     // incompatible runtime interface between C and C++ builds of cores and
     // extensions using the internal API--which we want to avoid!
     //
+    // NOTE: THIS IS EXTREMELY SLOW IN UNOPTIMIZED BUILDS!  They do not do
+    // inlining so traversing strings involves a lot of constructing objects
+    // and calling methods that call methods.  Hence these classes are used
+    // only in non-debug (and hopefully) optimized builds, where the inlining
+    // makes it equivalent to the C version.  That allows for the compile-time
+    // type checking but no runtime overhead.
+    //
     template<typename T> struct RebchrPtr;
     #define REBCHR(star_or_const_star) \
         RebchrPtr<REBYTE star_or_const_star>
@@ -159,11 +166,12 @@
 
     template<>
     struct RebchrPtr<const REBYTE*> {
-        const REBYTE *bp;
+        const REBYTE *bp;  // will actually be mutable if constructed mutable
 
         RebchrPtr () {}
         explicit RebchrPtr (const REBYTE *bp) : bp (bp) {}
-        explicit RebchrPtr (const char *cstr) : bp (cast(REBYTE*, cstr)) {}
+        explicit RebchrPtr (const char *cstr)
+            : bp (cast(const REBYTE*, cstr)) {}
 
         RebchrPtr next(REBUNI *out) {
             const REBYTE *t = bp;
@@ -171,7 +179,7 @@
                 *out = *t;
             else
                 t = Back_Scan_UTF8_Char(out, t, NULL);
-            return cast(REBCHR(const*), t + 1);
+            return RebchrPtr {t + 1};
         }
 
         RebchrPtr back(REBUNI *out) {
@@ -180,7 +188,7 @@
             --t;
             while ((*t & 0xC0) == 0x80)
                 --t;
-            return cast(REBCHR(const*), t);
+            return RebchrPtr {t};
         }
 
         RebchrPtr next_only() {
@@ -188,7 +196,7 @@
             do {
                 ++t;
             } while ((*t & 0xC0) == 0x80);
-            return cast(REBCHR(const*), t);
+            return RebchrPtr {t};
         }
 
         RebchrPtr back_only() {
@@ -196,7 +204,7 @@
             do {
                 --t;
             } while ((*t & 0xC0) == 0x80);
-            return cast(REBCHR(const*), t);
+            return RebchrPtr {t};
         }
 
         RebchrPtr skip(REBUNI *out, REBINT delta) {
@@ -213,7 +221,7 @@
                     ++n;
                 }
             }
-            return cast(REBCHR(const*), t);
+            return RebchrPtr {t};
         }
 
         REBUNI code() {
@@ -221,8 +229,6 @@
             next(&codepoint);
             return codepoint;
         }
-
-        operator const void * () { return bp; }
 
         REBSIZ operator-(const REBYTE *rhs)
           { return bp - rhs; }
@@ -242,6 +248,7 @@
         bool operator!=(const REBYTE *other)
           { return bp != other; }
 
+        operator const void*() { return bp; }  // implicit cast
         operator const REBYTE*() { return bp; }  // implicit cast
     };
 
@@ -254,7 +261,7 @@
             : RebchrPtr<const REBYTE*> (cast(REBYTE*, cstr)) {}
 
         static REBCHR(*) nonconst(REBCHR(const*) cp)
-          { return cast(REBCHR(*), m_cast(REBYTE*, cp.bp)); }
+          { return RebchrPtr {m_cast(REBYTE*, cp.bp)}; }
 
         RebchrPtr back(REBUNI *out)
           { return nonconst(REBCHR(const*)::back(out)); }
@@ -272,15 +279,13 @@
           { return nonconst(REBCHR(const*)::skip(out, delta)); }
 
         RebchrPtr write(REBUNI codepoint) {
-            return cast(
-                REBCHR(*),
+            return RebchrPtr {
                 m_cast(REBYTE*, bp)
                     + Encode_UTF8_Char(m_cast(REBYTE*, bp), codepoint)
-            );
+            };
         }
 
-        operator void * () { return m_cast(REBYTE*, bp); }
-
+        operator void*() { return m_cast(REBYTE*, bp); }  // implicit cast
         operator REBYTE*() { return m_cast(REBYTE*, bp); }  // implicit cast
     };
 
@@ -563,26 +568,18 @@ inline static REBSIZ VAL_OFFSET_FOR_INDEX(const REBCEL *v, REBCNT index) {
 //
 
 inline static REBUNI GET_ANY_CHAR(REBSER *s, REBCNT n) {
-    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
-        REBCHR(const *) up = UNI_AT(s, n);
-        REBUNI c;
-        NEXT_CHR(&c, up);
-        return c;
-    }
-    return *BIN_AT(s, n);
+    assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
+    REBCHR(const *) up = UNI_AT(s, n);
+    REBUNI c;
+    NEXT_CHR(&c, up);
+    return c;
 }
 
 inline static void SET_ANY_CHAR(REBSER *s, REBCNT n, REBUNI c) {
+    assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
     assert(n < SER_LEN(s));
-
-    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
-        REBCHR(*) up = UNI_AT(s, n);
-        WRITE_CHR(up, c);
-    }
-    else {
-        assert(c <= 255);
-        *BIN_AT(s, n) = c;
-    }
+    REBCHR(*) up = UNI_AT(s, n);
+    WRITE_CHR(up, c);
 }
 
 #define VAL_ANY_CHAR(v) \

@@ -60,15 +60,13 @@ REB_R MAKE_Char(
         fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     switch(VAL_TYPE(arg)) {
-    case REB_CHAR:
-        return Init_Char(out, VAL_CHAR(arg));
+    case REB_CHAR:  // !!! is this really necessary for MAKE CHAR!?
+        return Move_Value(out, arg);
 
     case REB_INTEGER:
     case REB_DECIMAL: {
         REBINT n = Int32(arg);
-        if (n > MAX_UNI or n < 0)
-            goto bad_make;
-        return Init_Char(out, n); }
+        return Init_Char_May_Fail(out, n); }
 
       case REB_BINARY: {
         const REBYTE *bp = VAL_BIN_HEAD(arg);
@@ -89,7 +87,7 @@ REB_R MAKE_Char(
             if (!bp || len != 0) // must be valid UTF8 and consume all data
                 goto bad_make;
         }
-        return Init_Char(out, uni); }
+        return Init_Char_May_Fail(out, uni); }
 
       case REB_TEXT:
         //
@@ -100,7 +98,7 @@ REB_R MAKE_Char(
         //
         if (VAL_INDEX(arg) >= VAL_LEN_HEAD(arg))
             goto bad_make;
-        return Init_Char(out, CHR_CODE(VAL_UNI_AT(arg)));
+        return Init_Char_Unchecked(out, CHR_CODE(VAL_UNI_AT(arg)));
 
       default:
         break;
@@ -256,9 +254,9 @@ REBTYPE(Char)
         fail (Error_Illegal_Action(REB_CHAR, verb));
     }
 
-    if (chr < 0 || chr > 0xffff) // DEBUG_UTF8_EVERYWHERE
+    if (chr < 0) // DEBUG_UTF8_EVERYWHERE
         fail (Error_Type_Limit_Raw(Datatype_From_Kind(REB_CHAR)));
 
-    return Init_Char(D_OUT, cast(REBUNI, chr));
+    return Init_Char_May_Fail(D_OUT, cast(REBUNI, chr));
 }
 

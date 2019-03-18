@@ -281,7 +281,7 @@ REBCNT Find_Bin_In_Bin(
     assert(SER_LEN(series) >= offset);
     assert((flags & ~AM_FIND_MATCH) == 0);  // no AM_FIND_CASE
 
-    if (size2 == 0 || (size2 + offset) > SER_LEN(series))
+    if (size2 == 0 || (size2 + offset) > BIN_LEN(series))
         return NOT_FOUND; // pattern empty or is longer than the target
 
     REBYTE *bp1 = BIN_AT(series, offset);
@@ -748,12 +748,12 @@ REBCNT Find_In_Any_Sequence(
     REBINT skip = 1;
 
     if (IS_BINARY(any_series))
-        return find_binary(
+        return find_binary(  // Note: returned len is in bytes here
             len, series, index, end, pattern, flags, skip
         );
 
     if (ANY_STRING(any_series))
-        return find_string(
+        return find_string(  // Note: returned len is in codepoints here
             len, series, index, end, pattern, flags, skip
         );
 

@@ -69,14 +69,6 @@ REBINT CT_String(const REBCEL *a, const REBCEL *b, REBINT mode)
 **
 ***********************************************************************/
 
-// !!! "STRING value to CHAR value (save some code space)" <-- what?
-static void str_to_char(REBVAL *out, REBVAL *val, REBCNT idx)
-{
-    // Note: out may equal val, do assignment in two steps
-    REBUNI codepoint = GET_ANY_CHAR(VAL_SERIES(val), idx);
-    Init_Char(out, codepoint);
-}
-
 
 static void swap_chars(REBVAL *val1, REBVAL *val2)
 {
@@ -281,6 +273,43 @@ REBCNT find_string(
             VAL_BITSET(pattern),
             flags & (AM_FIND_MATCH | AM_FIND_CASE)
         );
+    }
+    else if (IS_BINARY(pattern)) {
+        //
+        // Finding an arbitrary binary (which may not be UTF-8) in a string
+        // is probably most sensibly done by thinking of the string itself
+        // as a binary, and then searching in that.  Invalid UTF-8 patterns
+        // simply would not be found.
+        //
+        REBSIZ psize = VAL_LEN_AT(pattern);
+        if (psize == 0)
+            return index;  // empty binaries / strings are matches
+
+        const REBYTE *pbytes = VAL_BIN_AT(pattern);
+        REBSIZ offset = cast(REBYTE*, UNI_AT(str, index)) - BIN_HEAD(str);
+        REBCNT result = Find_Bin_In_Bin(
+            str,
+            offset,
+            pbytes,
+            psize,
+            flags & (AM_FIND_MATCH)
+        );
+        if (result == NOT_FOUND)
+            return NOT_FOUND;
+
+        // We found a match, but the binary find did not count how many
+        // codepoints that was.  But what we know now is that it was valid.
+        // step through it to get the length.
+
+        REBCHR(const*) cp = cast(REBCHR(const*), pbytes);
+        REBCHR(const*) ep = cast(REBCHR(const*), pbytes + psize);
+
+        REBUNI c;
+        cp = NEXT_CHR(&c, cp);
+        *len = 1;
+        for (; cp != ep; cp = NEXT_CHR(&c, cp))
+            ++(*len);
+        return result;
     }
     else
         fail ("find_string() received unknown pattern datatype");
@@ -513,7 +542,7 @@ REB_R PD_String(
             if (n < 0 or cast(REBCNT, n) >= SER_LEN(ser))
                 return nullptr;
 
-            Init_Char(pvs->out, GET_ANY_CHAR(ser, n));
+            Init_Char_Unchecked(pvs->out, GET_ANY_CHAR(ser, n));
             return pvs->out;
         }
 
@@ -594,12 +623,12 @@ REB_R PD_String(
     REBINT c;
     if (IS_CHAR(opt_setval)) {
         c = VAL_CHAR(opt_setval);
-        if (c > MAX_CHAR)
+        if (c > cast(REBI64, MAX_UNI))
             return R_UNHANDLED;
     }
     else if (IS_INTEGER(opt_setval)) {
         c = Int32(opt_setval);
-        if (c > MAX_CHAR || c < 0)
+        if (c > cast(REBI64, MAX_UNI) || c < 0)
             return R_UNHANDLED;
     }
     else if (ANY_BINSTR(opt_setval)) {
@@ -1082,7 +1111,10 @@ REBTYPE(String)
         if (ret == tail)
             return nullptr;
 
-        return Init_Char(D_OUT, CHR_CODE(UNI_AT(VAL_SERIES(v), ret))); }
+        return Init_Char_Unchecked(
+            D_OUT,
+            CHR_CODE(UNI_AT(VAL_SERIES(v), ret))
+        ); }
 
     case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
@@ -1127,7 +1159,7 @@ REBTYPE(String)
         if (REF(part))
             Init_Any_Series(D_OUT, VAL_TYPE(v), Copy_String_At_Limit(v, len));
         else
-            Init_Char(D_OUT, CHR_CODE(VAL_UNI_AT(v)));
+            Init_Char_Unchecked(D_OUT, CHR_CODE(VAL_UNI_AT(v)));
 
 
         Remove_Series_Len(ser, VAL_INDEX(v), len);
@@ -1249,8 +1281,11 @@ REBTYPE(String)
             if (index >= tail)
                 return nullptr;
             index += cast(REBCNT, Random_Int(REF(secure))) % (tail - index);
-            str_to_char(D_OUT, v, index);
-            return D_OUT;
+
+            return Init_Char_Unchecked(
+                D_OUT,
+                GET_ANY_CHAR(VAL_SERIES(v), index)
+            );
         }
 
         if (not Is_String_Definitely_ASCII(v))

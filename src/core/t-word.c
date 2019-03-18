@@ -266,7 +266,7 @@ REB_R PD_Word(
                 ++bp;
             } while (n-- != 0);
 
-            Init_Char(pvs->out, c);
+            Init_Char_Unchecked(pvs->out, c);
             return pvs->out;
         }
 

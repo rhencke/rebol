@@ -677,24 +677,45 @@ static REBIXO Parse_One_Rule(
         return END_FLAG;
     }
     else {
+        assert(ANY_STRING_KIND(P_TYPE) or P_TYPE == REB_BINARY);
+
         switch (VAL_TYPE(rule)) {
           case REB_CHAR:
+            if (P_TYPE == REB_BINARY) {
+                //
+                // See if current binary position matches UTF-8 encoded char
+                //
+                if (P_POS + VAL_CHAR_ENCODED_SIZE(rule) > BIN_LEN(P_INPUT))
+                    return END_FLAG;
+
+                const REBYTE *ep = VAL_CHAR_ENCODED(rule);
+                assert(*ep != 0);
+                const REBYTE *bp = BIN_AT(P_INPUT, P_POS);
+                do {
+                    if (*ep++ != *bp++)
+                        return END_FLAG;
+                } while (*ep);
+
+                return P_POS + VAL_CHAR_ENCODED_SIZE(rule);
+            }
+
+            // Otherwise it's a string and may have case sensitive behavior.
             //
-            // Try matching character against current string parse position
-            //
+            // !!! Could this unify with above method for binary, somehow?
+
             if (P_HAS_CASE) {
-                if (VAL_CHAR(rule) == GET_ANY_CHAR(P_INPUT, P_POS))
-                    return P_POS + 1;
+                if (VAL_CHAR(rule) != GET_ANY_CHAR(P_INPUT, P_POS))
+                    return END_FLAG;
             }
             else {
                 if (
                     UP_CASE(VAL_CHAR(rule))
-                    == UP_CASE(GET_ANY_CHAR(P_INPUT, P_POS))
+                    != UP_CASE(GET_ANY_CHAR(P_INPUT, P_POS))
                 ){
-                    return P_POS + 1;
+                    return END_FLAG;
                 }
             }
-            return END_FLAG;
+            return P_POS + 1;
 
           case REB_TAG:
           case REB_FILE:
@@ -712,16 +733,20 @@ static REBIXO Parse_One_Rule(
                 return END_FLAG;
             return index + len; }
 
-          case REB_BITSET:
+          case REB_BITSET: {
             //
             // Check current char/byte against character set, advance matches
             //
-            if (Check_Bit(
-                VAL_BITSET(rule), GET_ANY_CHAR(P_INPUT, P_POS), not P_HAS_CASE
-            )){
+            REBUNI uni;
+            if (P_TYPE == REB_BINARY)
+                uni = *BIN_AT(P_INPUT, P_POS);
+            else
+                uni = GET_ANY_CHAR(P_INPUT, P_POS);
+
+            if (Check_Bit(VAL_BITSET(rule), uni, not P_HAS_CASE))
                 return P_POS + 1;
-            }
-            return END_FLAG;
+
+            return END_FLAG; }
 
           default:
             fail (Error_Parse_Rule());
@@ -2375,11 +2400,13 @@ REBNATIVE(subparse)
                         );
                         */
 
-                        REBUNI ch = GET_ANY_CHAR(P_INPUT, begin);
                         if (P_TYPE == REB_BINARY)
-                            Init_Integer(var, ch);
+                            Init_Integer(var, *BIN_AT(P_INPUT, begin));
                         else
-                            Init_Char(var, ch);
+                            Init_Char_Unchecked(
+                                var,
+                                GET_ANY_CHAR(P_INPUT, begin)
+                            );
                     }
                 }
 

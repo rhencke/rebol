@@ -72,8 +72,8 @@
     (same? :a-value f) and [:a-value == f]
 )
 (
-    f: does [#"^@"]
-    #"^@" == f
+    f: does [#"^M"]
+    #"^M" == f
 )
 (
     a-value: make image! 0x0

@@ -624,7 +624,10 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
       case REB_DECIMAL:
       case REB_PERCENT:
       case REB_MONEY:
+        break;
+
       case REB_CHAR:
+        assert(VAL_CHAR_ENCODED_SIZE(v) <= 4);
         break;
 
       case REB_PAIR: {

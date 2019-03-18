@@ -537,7 +537,10 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
               case REB_FILE:
               case REB_EMAIL:
               case REB_URL:
-                Init_Char(var, GET_ANY_CHAR(les->data_ser, les->data_idx));
+                Init_Char_Unchecked(
+                    var,
+                    GET_ANY_CHAR(les->data_ser, les->data_idx)
+                );
                 if (++les->data_idx == les->data_len)
                     more_data = false;
                 break;
@@ -1266,7 +1269,7 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
                 Init_Integer(var, cast(REBI64, BIN_HEAD(res->series)[index]));
             else {
                 assert(ANY_STRING(res->data));
-                Init_Char(var, GET_ANY_CHAR(res->series, index));
+                Init_Char_Unchecked(var, GET_ANY_CHAR(res->series, index));
             }
             ++index;
         }

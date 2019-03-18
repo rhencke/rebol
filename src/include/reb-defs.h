@@ -95,13 +95,24 @@ typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 
 //=//// UNICODE CODEPOINT /////////////////////////////////////////////////=//
 //
-// On some platforms, `int` is only 16-bit, and unicode codepoints require
-// more than that for storing their largest value.  `unsigned long` is what
-// was used in Unicode, Inc's ConvertUTF.h and ConvertUTF.c, so we use that.
-//
+// These fundamental constants came from %s-unicode.c.  We use the <stdint.h>
+// fast 32 bit unsigned for REBUNI, as there is no need for it to be a
+// standardized size (not persisted in files, etc.)
 
-typedef unsigned long REBUNI;
-#define MAX_UNI 0x10ffff  // https://stackoverflow.com/a/20883643
+typedef uint_fast32_t REBUNI;
+
+#define UNI_REPLACEMENT_CHAR    (REBUNI)0x0000FFFD
+#define UNI_MAX_BMP             (REBUNI)0x0000FFFF
+#define UNI_MAX_UTF16           (REBUNI)0x0010FFFF
+#define UNI_MAX_UTF32           (REBUNI)0x7FFFFFFF
+#define UNI_MAX_LEGAL_UTF32     (REBUNI)0x0010FFFF
+
+#define UNI_SUR_HIGH_START  (REBUNI)0xD800
+#define UNI_SUR_HIGH_END    (REBUNI)0xDBFF
+#define UNI_SUR_LOW_START   (REBUNI)0xDC00
+#define UNI_SUR_LOW_END     (REBUNI)0xDFFF
+
+#define MAX_UNI UNI_MAX_LEGAL_UTF32  // https://stackoverflow.com/a/20883643
 
 
 //=//// MEMORY POOLS //////////////////////////////////////////////////////=//

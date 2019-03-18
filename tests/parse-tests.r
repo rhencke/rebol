@@ -427,3 +427,22 @@
     outer = ["bbb"]
     inner = ["aaa"]
 ])
+
+
+; Multi-byte characters and strings present a lot of challenges.  There should
+; be many more tests and philosophies written up of what the semantics are,
+; especially when it comes to BINARY! and ANY-STRING! mixtures.  These tests
+; are better than nothing...
+(
+    catchar: #"🐱"
+    did parse #{F09F90B1} [catchar end]
+)(
+    cattext: "🐱"
+    did parse #{F09F90B1} [cattext end]
+)(
+    catbin: #{F09F90B1}
+    did parse "🐱" [catbin end]
+)(
+    catchar: #"🐱"
+    did parse "🐱" [catchar end]
+)

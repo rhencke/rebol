@@ -281,7 +281,7 @@ void Change_Case(
 ){
     if (IS_CHAR(val)) {
         REBUNI c = VAL_CHAR(val);
-        Init_Char(out, upper ? UP_CASE(c) : LO_CASE(c));
+        Init_Char_Unchecked(out, upper ? UP_CASE(c) : LO_CASE(c));
         return;
     }
 

@@ -532,7 +532,14 @@ REBNATIVE(enhex)
 
     REBCNT i;
     for (i = 0; i < len; cp = NEXT_CHR(&c, cp), ++i) {
-        REBYTE encoded[4];
+        //
+        // !!! Length 4 should be legal here, but a warning in an older GCC
+        // is complaining that Encode_UTF8_Char reaches out of array bounds
+        // when it does not appear to.  Possibly related to this:
+        //
+        // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=43949
+        //
+        REBYTE encoded[6];
         REBCNT encoded_size;
 
         if (c > 0x80) // all non-ASCII characters *must* be percent encoded

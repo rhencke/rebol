@@ -88,7 +88,7 @@ static void reverse_binary(REBVAL *v, REBCNT len)
 //  find_binary: C
 //
 REBCNT find_binary(
-    REBCNT *len,  // match len (if TAG! pattern, not VAL_LEN_AT(pattern))
+    REBCNT *size,  // match size (if TAG! pattern, not VAL_LEN_AT(pattern))
     REBSER *bin,
     REBCNT index,
     REBCNT end,
@@ -111,28 +111,28 @@ REBCNT find_binary(
         REBSER *formed = nullptr;
 
         REBYTE *bp2;
-        REBCNT size2;
+        REBCNT len2;
         if (not IS_TEXT(pattern)) { // !!! for TAG!, but what about FILE! etc?
             formed = Copy_Form_Value(pattern, 0);
-            *len = UNI_LEN(formed);
+            len2 = UNI_LEN(formed);
             bp2 = UNI_HEAD(formed);
-            size2 = SER_USED(formed);
+            *size = SER_USED(formed);
         }
         else {
-            *len = VAL_LEN_AT(pattern);
+            len2 = VAL_LEN_AT(pattern);
             bp2 = VAL_UNI_AT(pattern);
-            size2 = VAL_SIZE_LIMIT_AT(NULL, pattern, *len);
+            *size = VAL_SIZE_LIMIT_AT(NULL, pattern, len2);
         }
 
-        if (*len > end - index) // series not long enough for pattern
+        if (*size > end - index)  // series not long enough for pattern
             return NOT_FOUND;
 
         REBCNT result = Find_Str_In_Bin(
             bin,
             start,
             bp2,
-            *len,
-            size2,
+            len2,
+            *size,
             flags & AM_FIND_MATCH
         );
 
@@ -145,17 +145,23 @@ REBCNT find_binary(
         if (skip != 1)
             fail ("Search for BINARY! in BINARY! only supports /SKIP 1 ATM");
 
-        *len = VAL_LEN_AT(pattern);
+        *size = VAL_LEN_AT(pattern);
         return Find_Bin_In_Bin(
             bin,
             start,
             VAL_BIN_AT(pattern),
-            *len,
+            *size,
             flags & AM_FIND_MATCH
         );
     }
     else if (IS_CHAR(pattern)) {
-        *len = 1;
+        //
+        // Technically speaking the upper and lowercase sizes of a character
+        // may not be the same.  It's okay here since we only do cased.
+        //
+        // https://stackoverflow.com/q/14792841/
+        //
+        *size = VAL_CHAR_ENCODED_SIZE(pattern);
         return Find_Char_In_Bin(
             VAL_CHAR(pattern),
             bin,
@@ -170,7 +176,7 @@ REBCNT find_binary(
         if (VAL_INT64(pattern) < 0 or VAL_INT64(pattern) > 255)
             fail (Error_Out_Of_Range(KNOWN(pattern)));
 
-        *len = 1;
+        *size = 1;
 
         REBYTE byte = cast(REBYTE, VAL_INT64(pattern));
 
@@ -178,12 +184,12 @@ REBCNT find_binary(
             bin,
             start,
             &byte,
-            *len,
+            *size,
             flags & AM_FIND_MATCH
         );
     }
     else if (IS_BITSET(pattern)) {
-        *len = 1;
+        *size = 1;
 
         return Find_Bin_Bitset(
             bin,
@@ -497,12 +503,12 @@ REB_R PD_Binary(
     REBINT c;
     if (IS_CHAR(opt_setval)) {
         c = VAL_CHAR(opt_setval);
-        if (c > MAX_CHAR)
+        if (c > cast(REBI64, MAX_UNI))
             return R_UNHANDLED;
     }
     else if (IS_INTEGER(opt_setval)) {
         c = Int32(opt_setval);
-        if (c > MAX_CHAR or c < 0)
+        if (c > cast(REBI64, MAX_UNI) or c < 0)
             return R_UNHANDLED;
     }
     else if (ANY_BINSTR(opt_setval)) {
