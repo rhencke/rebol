@@ -163,6 +163,7 @@
 
         RebchrPtr () {}
         explicit RebchrPtr (const REBYTE *bp) : bp (bp) {}
+        explicit RebchrPtr (const char *cstr) : bp (cast(REBYTE*, cstr)) {}
 
         RebchrPtr next(REBUNI *out) {
             const REBYTE *t = bp;
@@ -247,7 +248,10 @@
     template<>
     struct RebchrPtr<REBYTE*> : public RebchrPtr<const REBYTE*> {
         RebchrPtr () : RebchrPtr<const REBYTE*>() {}
-        explicit RebchrPtr (REBYTE *bp) : RebchrPtr<const REBYTE*> (bp) {}
+        explicit RebchrPtr (REBYTE *bp)
+            : RebchrPtr<const REBYTE*> (bp) {}
+        explicit RebchrPtr (char *cstr)
+            : RebchrPtr<const REBYTE*> (cast(REBYTE*, cstr)) {}
 
         static REBCHR(*) nonconst(REBCHR(const*) cp)
           { return cast(REBCHR(*), m_cast(REBYTE*, cp.bp)); }

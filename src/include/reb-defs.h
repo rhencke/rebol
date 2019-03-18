@@ -101,7 +101,7 @@ typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 //
 
 typedef unsigned long REBUNI;
-#define MAX_UNI 0x10ffff // https://stackoverflow.com/a/20883643
+#define MAX_UNI 0x10ffff  // https://stackoverflow.com/a/20883643
 
 
 //=//// MEMORY POOLS //////////////////////////////////////////////////////=//
@@ -173,6 +173,8 @@ typedef struct Reb_Action REBACT;
 
 struct Reb_Map;
 typedef struct Reb_Map REBMAP;
+
+typedef REBARR REBBMK;  // "bookmark" (list of UTF-8 index=>offset singulars)
 
 
 //=//// BINDING ///////////////////////////////////////////////////////////=//

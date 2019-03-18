@@ -629,17 +629,17 @@ STATIC_ASSERT(31 < 32);
 // being accidentally overwritten (which would corrupt link and misc), the
 // bit corresponding to NODE_FLAG_CELL is clear.
 //
-// Singulars have widespread applications in the system, notably the
+// Singulars have widespread applications in the system.  One is that a
+// "single element array living in a series node" makes a very efficient
+// implementation of an API handle to a value.  Plus it's used notably in the
 // efficient implementation of FRAME!.  They also narrow the gap in overhead
 // between COMPOSE [A (B) C] vs. REDUCE ['A B 'C] such that the memory cost
 // of the array is nearly the same as just having another value in the array.
 //
 // Pair REBSERs are allocated from the REBSER pool instead of their own to
 // help exchange a common "currency" of allocation size more efficiently.
-// They are planned for use in the PAIR! and MAP! datatypes, and anticipated
-// to play a crucial part in the API--allowing a persistent handle for a
-// GC'able REBVAL and associated "meta" value (which can be used for
-// reference counting or other tracking.)
+// They are used in the PAIR! datatype, but can have other interesting
+// applications when exactly two values (with no termination) are needed.
 //
 // Most of the time, code does not need to be concerned about distinguishing
 // Pair from the Dynamic and Singular layouts--because it already knows
@@ -649,8 +649,8 @@ STATIC_ASSERT(31 < 32);
 
 struct Reb_Series_Dynamic {
     //
-    // `data` is the "head" of the series data.  It may not point directly at
-    // the memory location that was returned from the allocator if it has
+    // `data` is the "head" of the series data.  It might not point directly
+    // at the memory location that was returned from the allocator if it has
     // bias included in it.
     //
     // !!! We use `char*` here to ease debugging in systems that don't show
@@ -662,8 +662,6 @@ struct Reb_Series_Dynamic {
     // and holding a UTF-8 string, then this may be a size in bytes distinct
     // than the count of "logical" elements, e.g. codepoints.  The actual
     // logical length in such cases will be in the MISC(length) field.
-    //
-    // !!! Series with SER_LEN() != SER_USED() are a work-in-progress.
     //
     REBCNT used;
 
@@ -703,9 +701,9 @@ union Reb_Series_Content {
         //
         RELVAL values[1];
 
-      #if !defined(NDEBUG) // https://en.wikipedia.org/wiki/Type_punning
-        char utf8_pun[sizeof(RELVAL)]; // debug watchlist insight into UTF-8
-        REBUNI ucs2_pun[sizeof(RELVAL)/sizeof(REBUNI)]; // wchar_t insight
+      #if !defined(NDEBUG)  // https://en.wikipedia.org/wiki/Type_punning
+        char utf8_pun[sizeof(RELVAL)];  // debug watchlist insight into UTF-8
+        REBWCHAR ucs2_pun[sizeof(RELVAL)/sizeof(REBUNI)];  // wchar_t insight
       #endif
     } fixed;
 };
@@ -791,15 +789,16 @@ union Reb_Series_Link {
     //
     REBSTR *synonym;
 
-    // For a writable REBSTR, this mutation stamp is used to track how many
-    // times it has changed in ways that could affect an extant character
-    // positioning in a REBVAL* somewhere.  The stamp is mirrored in the
-    // REBVAL, and if it doesn't match the value must re-seek instead of
-    // using an offset in the value.
+    // For a writable REBSTR, a list of entities that cache the mapping from
+    // index to character offset is maintained.  Without some help, it would
+    // be necessary to search from the head or tail of the string, character
+    // by character, to turn an index into an offset.  This is prohibitive.
     //
-    // !!! Work in progress.
+    // These bookmarks must be kept in sync.  How many bookmarks are kept
+    // should be reigned in proportionally to the length of the series.  As
+    // a first try of this strategy, singular arrays are being used.
     //
-    uintptr_t stamp;
+    REBBMK *bookmark;
 
     // REBACT uses this.  It can hold either the varlist of a frame containing
     // specialized values (e.g. an "exemplar"), with ARRAY_FLAG_IS_VARLIST set.

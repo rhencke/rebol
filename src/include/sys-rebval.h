@@ -363,15 +363,20 @@ union Reb_Any {  // needed to beat strict aliasing, used in payload
     REBD32 d32;  // 32-bit float not in C standard, typically just `float`
     bool flag;  // "wasteful" to just use for one flag, but fast to read/write
 
-    // Note: do *not* add more subtypes (e.g. `REBSER* ser` or `REBARR* arr`)
-    // The GC is only marking one field in the union, so that's the only
-    // field that should be active.
-    //
     // This is not legal to use in an EXTRA(), only the `PAYLOAD().first` slot
     // (and perhaps in the future, the payload second slot).  If you do use
     // a node in the cell, be sure to set CELL_FLAG_FIRST_IS_NODE!
     //
     REBNOD *node;
+
+    // The GC is only marking one field in the union...the node.  So that is
+    // the only field that should be assigned and read.  These "type puns"
+    // are unreliable, and for debug viewing only--in case they help.
+    //
+  #if !defined(NDEBUG)
+    REBSER *rebser_pun;
+    REBVAL *rebval_pun;
+  #endif
 };
 
 union Reb_Bytes_Extra {
