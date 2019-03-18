@@ -204,7 +204,7 @@ REBCNT find_string(
         }
         else {
             *len = VAL_LEN_AT(pattern);
-            bp2 = AS_REBYTE_PTR(VAL_UNI_AT(pattern));
+            bp2 = VAL_UNI_AT(pattern);
             size2 = VAL_SIZE_LIMIT_AT(NULL, pattern, *len);
         }
 

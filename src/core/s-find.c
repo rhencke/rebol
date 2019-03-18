@@ -157,8 +157,8 @@ REBINT Compare_Uni_Str(
     REBCNT len,
     bool uncase
 ){
-    REBCHR(const *) u1 = bp1;
-    REBCHR(const *) u2 = bp2;
+    REBCHR(const*) u1 = cast(REBCHR(const*), bp1);
+    REBCHR(const*) u2 = cast(REBCHR(const*), bp2);
 
     for (; len > 0; len--) {
         REBUNI c1;
@@ -199,8 +199,8 @@ REBINT Compare_String_Vals(const REBCEL *v1, const REBCEL *v2, bool uncase)
     REBCNT len = MIN(l1, l2);
 
     REBINT n = Compare_Uni_Str(
-        AS_REBYTE_PTR(VAL_UNI_AT(v1)),
-        AS_REBYTE_PTR(VAL_UNI_AT(v2)),
+        VAL_UNI_AT(v1),  // as a REBYTE* (can't put REBCHR(*) in %sys-core.h)
+        VAL_UNI_AT(v2),
         len,
         uncase
     );
@@ -354,7 +354,7 @@ REBCNT Find_Str_In_Bin(
         = bp1 + ((flags & AM_FIND_MATCH) ? 1 : size1 - (size2 - 1));
 
     REBUNI c2_canon; // first codepoint, but only calculate lowercase once
-    REBCHR(const*) next2 = bp2;
+    REBCHR(const*) next2 = cast(REBCHR(const*), bp2);  // guaranteed valid
     next2 = NEXT_CHR(&c2_canon, next2);
     c2_canon = LO_CASE(c2_canon);
 

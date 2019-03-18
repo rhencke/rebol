@@ -542,8 +542,12 @@ REBINT Hash_Bytes(const REBYTE *data, REBCNT len) {
 //
 // !!! See redundant code in Hash_UTF8 which takes a size, not a length
 //
-REBINT Hash_UTF8_Caseless(const REBYTE *data, REBCNT len) {
-    REBCHR(const *) cp = data;
+REBINT Hash_UTF8_Caseless(const REBYTE *utf8, REBCNT len) {
+    //
+    // Note: can't make the argument a REBCHR() because the C++ build and C
+    // build can't have different ABIs for %sys-core.h
+    //
+    REBCHR(const*) cp = cast(REBCHR(const*), utf8);
 
     uint32_t crc = 0x00000000;
 

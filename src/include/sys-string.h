@@ -63,13 +63,12 @@
 // !!! Error handling is still included due to running common routines, but
 // should be factored out for efficiency.
 //
-
 #if !defined(CPLUSPLUS_11)
     //
     // Plain C build uses trivial expansion of REBCHR() and REBCHR(const*)
     //
     // REBCHR(*) cp; => REBYTE * cp;
-    // REBCHR(const *) cp; => REBYTE const * cp;
+    // REBCHR(const*) cp; => REBYTE const* cp;
     //
     #define REBCHR(star_or_const_star) \
         REBYTE star_or_const_star
@@ -139,17 +138,16 @@
     inline static REBYTE* WRITE_CHR(REBYTE* bp, REBUNI codepoint) {
         return bp + Encode_UTF8_Char(bp, codepoint);
     }
-
-    #define AS_REBYTE_PTR(p) \
-        (p)
-
-    #define AS_REBCHR(p) \
-        (p)
 #else
-    // C++ build uses templates to expand REBCHR(*) and REBCHR(const *) into
+    // C++ build uses templates to expand REBCHR(*) and REBCHR(const*) into
     // pointer classes.  This technique allows the simple C compilation too:
     //
     // http://blog.hostilefork.com/kinda-smart-pointers-in-c/
+    //
+    // NOTE: Don't put this in %reb-defs.h and try to pass REBCHR(*) as args
+    // to routines as part of the %sys-core.h API.  This would lead to an
+    // incompatible runtime interface between C and C++ builds of cores and
+    // extensions using the internal API--which we want to avoid!
     //
     template<typename T> struct RebchrPtr;
     #define REBCHR(star_or_const_star) \
@@ -164,7 +162,7 @@
         const REBYTE *bp;
 
         RebchrPtr () {}
-        RebchrPtr (const REBYTE *bp) : bp (bp) {}
+        explicit RebchrPtr (const REBYTE *bp) : bp (bp) {}
 
         RebchrPtr next(REBUNI *out) {
             const REBYTE *t = bp;
@@ -172,7 +170,7 @@
                 *out = *t;
             else
                 t = Back_Scan_UTF8_Char(out, t, NULL);
-            return t + 1;
+            return cast(REBCHR(const*), t + 1);
         }
 
         RebchrPtr back(REBUNI *out) {
@@ -181,7 +179,7 @@
             --t;
             while ((*t & 0xC0) == 0x80)
                 --t;
-            return t;
+            return cast(REBCHR(const*), t);
         }
 
         RebchrPtr next_only() {
@@ -189,7 +187,7 @@
             do {
                 ++t;
             } while ((*t & 0xC0) == 0x80);
-            return t;
+            return cast(REBCHR(const*), t);
         }
 
         RebchrPtr back_only() {
@@ -197,7 +195,7 @@
             do {
                 --t;
             } while ((*t & 0xC0) == 0x80);
-            return t;
+            return cast(REBCHR(const*), t);
         }
 
         RebchrPtr skip(REBUNI *out, REBINT delta) {
@@ -214,7 +212,7 @@
                     ++n;
                 }
             }
-            return t;
+            return cast(REBCHR(const*), t);
         }
 
         REBUNI code() {
@@ -242,46 +240,44 @@
 
         bool operator!=(const REBYTE *other)
           { return bp != other; }
+
+        operator const REBYTE*() { return bp; }  // implicit cast
     };
 
     template<>
     struct RebchrPtr<REBYTE*> : public RebchrPtr<const REBYTE*> {
         RebchrPtr () : RebchrPtr<const REBYTE*>() {}
-        RebchrPtr (REBYTE *bp) : RebchrPtr<const REBYTE*> (bp) {}
+        explicit RebchrPtr (REBYTE *bp) : RebchrPtr<const REBYTE*> (bp) {}
+
+        static REBCHR(*) nonconst(REBCHR(const*) cp)
+          { return cast(REBCHR(*), m_cast(REBYTE*, cp.bp)); }
 
         RebchrPtr back(REBUNI *out)
-          { return m_cast(REBYTE*, REBCHR(const*)::back(out).bp); }
+          { return nonconst(REBCHR(const*)::back(out)); }
 
         RebchrPtr next(REBUNI *out)
-          { return m_cast(REBYTE*, REBCHR(const*)::next(out).bp); }
+          { return nonconst(REBCHR(const*)::next(out)); }
 
         RebchrPtr back_only()
-          { return m_cast(REBYTE*, REBCHR(const*)::back_only().bp); }
+          { return nonconst(REBCHR(const*)::back_only()); }
 
         RebchrPtr next_only()
-          { return m_cast(REBYTE*, REBCHR(const*)::next_only().bp); }
+          { return nonconst(REBCHR(const*)::next_only()); }
 
         RebchrPtr skip(REBUNI *out, REBINT delta)
-          { return m_cast(REBYTE*, REBCHR(const*)::skip(out, delta).bp); }
+          { return nonconst(REBCHR(const*)::skip(out, delta)); }
 
         RebchrPtr write(REBUNI codepoint) {
-            return m_cast(REBYTE*, bp)
-                + Encode_UTF8_Char(m_cast(REBYTE*, bp), codepoint);
+            return cast(
+                REBCHR(*),
+                m_cast(REBYTE*, bp)
+                    + Encode_UTF8_Char(m_cast(REBYTE*, bp), codepoint)
+            );
         }
 
         operator void * () { return m_cast(REBYTE*, bp); }
 
-        static const REBYTE *as_rebyte_ptr(RebchrPtr<const REBYTE*> cp)
-          { return cp.bp; }
-
-        static REBYTE *as_rebyte_ptr(RebchrPtr<REBYTE *> cp)
-          { return m_cast(REBYTE*, cp.bp); }
-
-        static RebchrPtr<const REBYTE*> as_rebchr(const REBYTE *bp)
-          { return bp; }
-
-        static RebchrPtr<REBYTE *> as_rebchr(REBYTE *bp)
-          { return bp; }
+        operator REBYTE*() { return m_cast(REBYTE*, bp); }  // implicit cast
     };
 
     #define NEXT_CHR(out, cp)               (cp).next(out)
@@ -291,12 +287,6 @@
     #define SKIP_CHR(out,cp,delta)          (cp).skip((out), (delta))
     #define CHR_CODE(cp)                    (cp).code()
     #define WRITE_CHR(cp, codepoint)        (cp).write(codepoint)
-
-    #define AS_REBYTE_PTR(cp) \
-        RebchrPtr<REBYTE *>::as_rebyte_ptr(cp)
-
-    #define AS_REBCHR(bp) \
-        RebchrPtr<REBYTE *>::as_rebchr(bp)
 #endif
 
 
@@ -464,13 +454,13 @@ inline static void TERM_UNI_LEN_USED(REBSER *s, REBCNT len, REBSIZ used) {
 }
 
 #define UNI_HEAD(s) \
-    SER_HEAD(REBYTE, (s))
+    cast(REBCHR(*), SER_HEAD(REBYTE, (s)))
 
 #define UNI_TAIL(s) \
-    SER_TAIL(REBYTE, (s))
+    cast(REBCHR(*), SER_TAIL(REBYTE, (s)))
 
 #define UNI_LAST(s) \
-    SER_LAST(REBYTE, (s))
+    cast(REBCHR(*), SER_LAST(REBYTE, (s)))
 
 inline static REBCHR(*) UNI_AT(REBSER *s, REBCNT n) {
     REBCHR(*) cp = UNI_HEAD(s);
