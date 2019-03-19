@@ -163,7 +163,7 @@ inline static const REBYTE *VAL_BYTES_LIMIT_AT(
 
     if (ANY_STRING(v)) {    
         *size_out = VAL_SIZE_LIMIT_AT(NULL, v, limit);
-        return VAL_STR_AT(v);
+        return VAL_STRING_AT(v);
     }
 
     assert(ANY_WORD(v));
@@ -188,7 +188,7 @@ inline static const REBYTE *VAL_UTF8_AT(REBSIZ *size_out, const RELVAL *v)
     REBSIZ utf8_size;
     if (ANY_STRING(v)) {
         utf8_size = VAL_SIZE_LIMIT_AT(NULL, v, UNKNOWN);
-        utf8 = VAL_STR_AT(v);
+        utf8 = VAL_STRING_AT(v);
     }
     else {
         assert(ANY_WORD(v));

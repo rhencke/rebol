@@ -1038,7 +1038,7 @@ unsigned int RL_rebSpellIntoWide(
     REBCHR(const*) cp; 
     REBCNT len;
     if (ANY_STRING(v)) {
-        cp = VAL_STR_AT(v);
+        cp = VAL_STRING_AT(v);
         len = VAL_LEN_AT(v);
     }
     else if (ANY_WORD(v)) {

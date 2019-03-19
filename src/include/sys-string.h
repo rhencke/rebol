@@ -37,7 +37,7 @@
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// REBCHR(*) + REBCHR(const *): "ITERATOR" TYPE FOR KNOWN GOOD UTF-8 DATA
+// REBCHR(*) + REBCHR(const*): "ITERATOR" TYPE FOR KNOWN GOOD UTF-8 DATA
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
@@ -526,25 +526,13 @@ inline static REBCHR(*) STR_AT(REBSER *s, REBCNT n) {
     return cp;
 }
 
-#define VAL_STR_HEAD(v) \
+#define VAL_STRING_HEAD(v) \
     STR_HEAD(VAL_SERIES(v))
 
-#define VAL_STR_TAIL(v) \
+#define VAL_STRING_TAIL(v) \
     STR_TAIL(VAL_SERIES(v))
 
-// This should be an updating operation, which may refresh the cache in the
-// value.  It would look something like:
-//
-//     if (s->stamp == v->extra.utfcache.stamp)
-//          return v->extra.utfcache.offset;
-//     ...else calculate...
-//    m_cast(REBVAL*, v)->extra.utfcache.stamp = s->stamp;
-//    m_cast(REBVAL*, v)->extra.utfcache.offset = offset;
-//
-// One should thus always prefer to use VAL_STR_AT() if possible, over trying
-// to calculate a position from scratch.
-//
-inline static REBCHR(*) VAL_STR_AT(const REBCEL *v) {
+inline static REBCHR(*) VAL_STRING_AT(const REBCEL *v) {
     assert(ANY_STRING_KIND(CELL_KIND(v)));
     return STR_AT(VAL_SERIES(v), VAL_INDEX(v));
 }
@@ -556,13 +544,13 @@ inline static REBSIZ VAL_SIZE_LIMIT_AT(
 ){
     assert(ANY_STRING_KIND(CELL_KIND(v)));
 
-    REBCHR(const *) at = VAL_STR_AT(v); // !!! update cache if needed
-    REBCHR(const *) tail;
+    REBCHR(const*) at = VAL_STRING_AT(v); // !!! update cache if needed
+    REBCHR(const*) tail;
 
     if (limit == -1) {
         if (length != NULL)
             *length = VAL_LEN_AT(v);
-        tail = VAL_STR_TAIL(v); // byte count known (fast)
+        tail = VAL_STRING_TAIL(v); // byte count known (fast)
     }
     else {
         if (length != NULL)
@@ -579,18 +567,18 @@ inline static REBSIZ VAL_SIZE_LIMIT_AT(
     VAL_SIZE_LIMIT_AT(NULL, v, -1)
 
 inline static REBSIZ VAL_OFFSET(const RELVAL *v) {
-    return VAL_STR_AT(v) - VAL_STR_HEAD(v);
+    return VAL_STRING_AT(v) - VAL_STRING_HEAD(v);
 }
 
 inline static REBSIZ VAL_OFFSET_FOR_INDEX(const REBCEL *v, REBCNT index) {
     assert(ANY_STRING_KIND(CELL_KIND(v)));
 
-    REBCHR(const *) at;
+    REBCHR(const*) at;
 
     if (index == VAL_INDEX(v))
-        at = VAL_STR_AT(v); // !!! update cache if needed
+        at = VAL_STRING_AT(v); // !!! update cache if needed
     else if (index == VAL_LEN_HEAD(v))
-        at = VAL_STR_TAIL(v);
+        at = VAL_STRING_TAIL(v);
     else {
         // !!! arbitrary seeking...this technique needs to be tuned, e.g.
         // to look from the head or the tail depending on what's closer
@@ -598,7 +586,7 @@ inline static REBSIZ VAL_OFFSET_FOR_INDEX(const REBCEL *v, REBCNT index) {
         at = STR_AT(VAL_SERIES(v), index);
     }
 
-    return at - VAL_STR_HEAD(v);
+    return at - VAL_STRING_HEAD(v);
 }
 
 
@@ -616,7 +604,7 @@ inline static REBSIZ VAL_OFFSET_FOR_INDEX(const REBCEL *v, REBCNT index) {
 
 inline static REBUNI GET_ANY_CHAR(REBSER *s, REBCNT n) {
     assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
-    REBCHR(const *) up = STR_AT(s, n);
+    REBCHR(const*) up = STR_AT(s, n);
     REBUNI c;
     NEXT_CHR(&c, up);
     return c;

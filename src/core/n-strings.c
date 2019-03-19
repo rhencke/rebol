@@ -525,7 +525,7 @@ REBNATIVE(enhex)
     Push_Mold (mo);
 
     REBCNT len = VAL_LEN_AT(ARG(string));
-    REBCHR(const *) cp = VAL_STR_AT(ARG(string));
+    REBCHR(const*) cp = VAL_STRING_AT(ARG(string));
 
     REBUNI c;
     cp = NEXT_CHR(&c, cp);
@@ -671,7 +671,7 @@ REBNATIVE(dehex)
     REBSIZ scan_size = 0;
 
     REBCNT len = VAL_LEN_AT(ARG(string));
-    REBCHR(const *) cp = VAL_STR_AT(ARG(string));
+    REBCHR(const*) cp = VAL_STRING_AT(ARG(string));
 
     REBUNI c;
     cp = NEXT_CHR(&c, cp);
@@ -793,8 +793,8 @@ REBNATIVE(deline)
 
     REBCNT len_at = VAL_LEN_AT(val);
 
-    REBCHR(*) dest = VAL_STR_AT(val);
-    REBCHR(const *) src = dest;
+    REBCHR(*) dest = VAL_STRING_AT(val);
+    REBCHR(const*) src = dest;
 
     REBCNT n;
     for (n = 0; n < len_at;) {
@@ -813,7 +813,7 @@ REBNATIVE(deline)
         dest = WRITE_CHR(dest, c);
     }
 
-    TERM_STR_LEN_USED(s, len_head, dest - VAL_STR_AT(val));
+    TERM_STR_LEN_USED(s, len_head, dest - VAL_STRING_AT(val));
 
     RETURN (ARG(string));
 }
@@ -927,7 +927,7 @@ REBNATIVE(entab)
 
     REBCNT len = VAL_LEN_AT(val);
 
-    REBCHR(const *) up = VAL_STR_AT(val);
+    REBCHR(const*) up = VAL_STRING_AT(val);
     REBCNT index = VAL_INDEX(val);
 
     REBINT n = 0;
@@ -1007,7 +1007,7 @@ REBNATIVE(detab)
 
     // Estimate new length based on tab expansion:
 
-    REBCHR(const *) cp = VAL_STR_AT(val);
+    REBCHR(const*) cp = VAL_STRING_AT(val);
     REBCNT index = VAL_INDEX(val);
 
     REBCNT n = 0;

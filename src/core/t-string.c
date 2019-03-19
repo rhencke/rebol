@@ -196,7 +196,7 @@ REBCNT find_string(
         }
         else {
             *len = VAL_LEN_AT(pattern);
-            bp2 = VAL_STR_AT(pattern);
+            bp2 = VAL_STRING_AT(pattern);
             size2 = VAL_SIZE_LIMIT_AT(NULL, pattern, *len);
         }
 
@@ -766,7 +766,7 @@ void Mold_Text_Series_At(
     REBCNT chr1e = 0;
     REBCNT malign = 0;
 
-    REBCHR(const *) up = STR_AT(series, index);
+    REBCHR(const*) up = STR_AT(series, index);
 
     REBCNT x;
     for (x = index; x < len; x++) {
@@ -888,7 +888,7 @@ static void Mold_File(REB_MOLD *mo, const REBCEL *v)
 
     Append_Codepoint(mo->series, '%');
 
-    REBCHR(const *) cp = VAL_STR_AT(v);
+    REBCHR(const*) cp = VAL_STRING_AT(v);
 
     REBCNT n;
     for (n = 0; n < len; ++n) {
@@ -1159,7 +1159,7 @@ REBTYPE(String)
         if (REF(part))
             Init_Any_Series(D_OUT, VAL_TYPE(v), Copy_String_At_Limit(v, len));
         else
-            Init_Char_Unchecked(D_OUT, CHR_CODE(VAL_STR_AT(v)));
+            Init_Char_Unchecked(D_OUT, CHR_CODE(VAL_STRING_AT(v)));
 
 
         Remove_Series_Len(ser, VAL_INDEX(v), len);

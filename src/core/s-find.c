@@ -199,8 +199,8 @@ REBINT Compare_String_Vals(const REBCEL *v1, const REBCEL *v2, bool uncase)
     REBCNT len = MIN(l1, l2);
 
     REBINT n = Compare_Uni_Str(
-        VAL_STR_AT(v1),  // as a REBYTE* (can't put REBCHR(*) in %sys-core.h)
-        VAL_STR_AT(v2),
+        VAL_STRING_AT(v1),  // as a REBYTE* (can't put REBCHR(*) in %sys-core.h)
+        VAL_STRING_AT(v2),
         len,
         uncase
     );

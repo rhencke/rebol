@@ -120,7 +120,7 @@ REBCNT find_binary(
         }
         else {
             len2 = VAL_LEN_AT(pattern);
-            bp2 = VAL_STR_AT(pattern);
+            bp2 = VAL_STRING_AT(pattern);
             *size = VAL_SIZE_LIMIT_AT(NULL, pattern, len2);
         }
 

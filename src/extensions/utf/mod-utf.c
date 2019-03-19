@@ -215,11 +215,11 @@ REBNATIVE(encode_text)
 
 
 static REBSER *Encode_Utf16(
-    REBCHR(const *) data,
+    REBCHR(const*) data,
     REBCNT len,
     bool little_endian
 ){
-    REBCHR(const *) cp = data;
+    REBCHR(const*) cp = data;
 
     REBSER *bin = Make_Binary(sizeof(uint16_t) * len);
     uint16_t* up = cast(uint16_t*, BIN_HEAD(bin));
@@ -327,7 +327,7 @@ REBNATIVE(encode_utf16le)
     Init_Binary(
         D_OUT,
         Encode_Utf16(
-            VAL_STR_AT(ARG(text)),
+            VAL_STRING_AT(ARG(text)),
             VAL_LEN_AT(ARG(text)),
             little_endian
         )
@@ -414,7 +414,7 @@ REBNATIVE(encode_utf16be)
     Init_Binary(
         D_OUT,
         Encode_Utf16(
-            VAL_STR_AT(ARG(text)),
+            VAL_STRING_AT(ARG(text)),
             VAL_LEN_AT(ARG(text)),
             little_endian
         )

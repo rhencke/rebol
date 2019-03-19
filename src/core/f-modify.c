@@ -463,7 +463,7 @@ REBCNT Modify_String(
         if (VAL_SERIES(dst) == VAL_SERIES(src))
             goto form;
 
-        src_ptr = VAL_STR_AT(src);
+        src_ptr = VAL_STRING_AT(src);
         src_size = VAL_SIZE_LIMIT_AT(&src_len, src, limit);
     }
     else {

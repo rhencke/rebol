@@ -141,7 +141,7 @@ REBSER *Copy_String_At_Limit(const RELVAL *src, REBINT limit)
     assert(length_limit <= size);
 
     REBSER *dst = Make_String(size);
-    memcpy(STR_AT(dst, 0), VAL_STR_AT(src), size);
+    memcpy(STR_AT(dst, 0), VAL_STRING_AT(src), size);
     TERM_STR_LEN_USED(dst, length_limit, size);
 
     return dst;

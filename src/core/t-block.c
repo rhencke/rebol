@@ -86,7 +86,7 @@ REB_R MAKE_Array(
         Init_Any_Array(
             out,
             kind,
-            Scan_UTF8_Managed(filename, VAL_STR_AT(arg), size)
+            Scan_UTF8_Managed(filename, VAL_STRING_AT(arg), size)
         );
         return out;
     }
