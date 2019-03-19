@@ -83,27 +83,6 @@ inline static REBSTR *Get_Type_Name(const RELVAL *value)
 #define EQUAL_TYPESET(v,w) \
     (VAL_TYPESET_BITS(v) == VAL_TYPESET_BITS(w))
 
-// !!! R3-Alpha made frequent use of these predefined typesets.  In Ren-C
-// they have been called into question, as to exactly how copying mechanics
-// should work.
- 
-#define TS_NOT_COPIED \
-    (FLAGIT_KIND(REB_IMAGE) \
-    | FLAGIT_KIND(REB_VECTOR) \
-    | FLAGIT_KIND(REB_PORT))
-
-#define TS_STD_SERIES \
-    (TS_SERIES & ~TS_NOT_COPIED)
-
-#define TS_SERIES_OBJ \
-    ((TS_SERIES | TS_CONTEXT | TS_PATH) & ~TS_NOT_COPIED)
-
-#define TS_ARRAYS_OBJ \
-    ((TS_ARRAY | TS_CONTEXT | TS_PATH) & ~TS_NOT_COPIED)
-
-#define TS_CLONE \
-    (TS_SERIES & ~TS_NOT_COPIED) // currently same as TS_NOT_COPIED
-
 
 //=//// PARAMETER CLASS ///////////////////////////////////////////////////=//
 //
@@ -343,7 +322,40 @@ inline static REBVAL *Init_Param(
 // was then used to make an ACTION! out of it...which is a conceptual idea
 // for the "real way to make actions":
 //
-// 
+// https://forum.rebol.info/t/1002
 //
 #define Init_Context_Key(out,spelling) \
     Init_Param((out), REB_P_NORMAL, (spelling), TS_VALUE)
+
+
+// !!! Temporary workaround--there were natives that depend on type checking
+// LIT-WORD! and LIT-PATH! or would crash.  We could change those to use
+// QUOTED! and force them to manually check in the native dispatcher, but
+// instead keep it going with the hopes that in the future typesets will
+// become more sophisticated and be able to expand beyond their 64-bit limit
+// to account for generic quoting.
+//
+// !!! Extended to also support checking for "refinement-style" paths, which
+// we consider anything starting with a slash (/foo, /foo/bar, /1234, etc.)
+//
+inline static bool Typecheck_Including_Quoteds(
+    const RELVAL *param,
+    const RELVAL *v
+){
+    if (TYPE_CHECK(param, VAL_TYPE(v)))
+        return true;
+
+    if (KIND_BYTE(v) == REB_WORD + REB_64)  // what was a "lit word"
+        if (TYPE_CHECK(param, REB_TS_QUOTED_WORD))
+            return true;
+
+    if (KIND_BYTE(v) == REB_PATH + REB_64) // what was a "lit path"
+        if (TYPE_CHECK(param, REB_TS_QUOTED_PATH))
+            return true;
+
+    if (KIND_BYTE(v) == REB_PATH and IS_BLANK(ARR_HEAD(VAL_ARRAY(v))))
+        if (TYPE_CHECK(param, REB_TS_REFINEMENT))
+            return true;
+
+    return false;
+}

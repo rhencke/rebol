@@ -573,11 +573,10 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 
 #include "sys-series.h"
 
+#include "sys-array.h"  // REBARR used by bookmark code in UTF-8 strings
+
 #include "sys-binary.h" // BYTE_SIZE(), BIN_HEAD(), etc. used by strings
 #include "sys-string.h" // REBSYM needed for typeset datatype symbols
-#include "sys-typeset.h" // TS_XXX needed for array copying inline functions
-#include "sys-bitset.h"
-#include "sys-array.h"
 
 #include "sys-quoted.h" // requires singular arrays for cell storage
 
@@ -585,6 +584,9 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "sys-context.h" // needs actions defined for FRAME! contexts
 
 #include "sys-word.h"
+
+#include "sys-typeset.h"
+#include "sys-bitset.h"
 
 #include "sys-stack.h"
 #include "sys-bind.h" // needs DS_PUSH() and DS_TOP from %sys-stack.h

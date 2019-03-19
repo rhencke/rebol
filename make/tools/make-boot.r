@@ -532,6 +532,30 @@ for-each [ts types] typeset-sets [
     }  ; !!! TS_ANY_XXX is wordy, considering TS_XXX denotes a typeset
 ]
 
+e-types/emit {
+    /* !!! R3-Alpha made frequent use of these predefined typesets.  In Ren-C
+     * they have been called into question, as to exactly how copying
+     * mechanics should work.
+     */
+
+    #define TS_NOT_COPIED \
+        (FLAGIT_KIND(REB_IMAGE) \
+        | FLAGIT_KIND(REB_VECTOR) \
+        | FLAGIT_KIND(REB_PORT))
+
+    #define TS_STD_SERIES \
+        (TS_SERIES & ~TS_NOT_COPIED)
+
+    #define TS_SERIES_OBJ \
+        ((TS_SERIES | TS_CONTEXT | TS_PATH) & ~TS_NOT_COPIED)
+
+    #define TS_ARRAYS_OBJ \
+        ((TS_ARRAY | TS_CONTEXT | TS_PATH) & ~TS_NOT_COPIED)
+
+    #define TS_CLONE \
+        (TS_SERIES & ~TS_NOT_COPIED) // currently same as TS_NOT_COPIED
+}
+
 e-types/write-emitted
 
 
