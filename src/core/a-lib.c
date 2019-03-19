@@ -1038,17 +1038,17 @@ unsigned int RL_rebSpellIntoWide(
     REBCHR(const*) cp; 
     REBCNT len;
     if (ANY_STRING(v)) {
-        cp = VAL_UNI_AT(v);
+        cp = VAL_STR_AT(v);
         len = VAL_LEN_AT(v);
     }
     else if (ANY_WORD(v)) {
         REBSTR *spelling = VAL_WORD_SPELLING(v);
-        cp = UNI_HEAD(spelling);
+        cp = STR_HEAD(spelling);
 
         // !!! Inefficient way of asking "how long is this UTF-8 series", fix!
         //
         REBSER *s = Make_Sized_String_UTF8(
-            STR_HEAD(spelling),
+            STR_UTF8(spelling),
             STR_SIZE(spelling)
         );
         len = SER_LEN(s);

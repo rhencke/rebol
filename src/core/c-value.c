@@ -229,7 +229,7 @@ void* Probe_Core_Debug(
             Append_Ascii(mo->series, "(");
             Append_Utf8(
                 mo->series,
-                STR_HEAD(spelling),
+                STR_UTF8(spelling),
                 STR_SIZE(spelling)
             );
             Append_Ascii(mo->series, ") ");

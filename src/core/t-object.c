@@ -645,7 +645,7 @@ void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
         New_Indented_Line(mo);
 
         REBSTR *spelling = VAL_KEY_SPELLING(key);
-        Append_Utf8(s, STR_HEAD(spelling), STR_SIZE(spelling));
+        Append_Utf8(s, STR_UTF8(spelling), STR_SIZE(spelling));
 
         Append_Ascii(s, ": ");
 

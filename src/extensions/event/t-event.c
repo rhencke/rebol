@@ -455,7 +455,7 @@ void MF_Event(REB_MOLD *mo, const REBCEL *v, bool form)
         New_Indented_Line(mo);
 
         REBSTR *canon = Canon(fields[field]);
-        Append_Utf8(mo->series, STR_HEAD(canon), STR_SIZE(canon));
+        Append_Utf8(mo->series, STR_UTF8(canon), STR_SIZE(canon));
         Append_Ascii(mo->series, ": ");
         if (IS_WORD(var))
             Append_Codepoint(mo->series, '\'');

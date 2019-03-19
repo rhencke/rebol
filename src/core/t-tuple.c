@@ -112,7 +112,7 @@ REB_R MAKE_Tuple(
 
     if (IS_ISSUE(arg)) {
         REBSTR *spelling = VAL_WORD_SPELLING(arg);
-        const REBYTE *ap = cb_cast(STR_HEAD(spelling));
+        const REBYTE *ap = STR_HEAD(spelling);
         size_t size = STR_SIZE(spelling); // UTF-8 len
         if (size & 1)
             fail (arg); // must have even # of chars

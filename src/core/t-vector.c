@@ -788,8 +788,8 @@ void MF_Vector(REB_MOLD *mo, const REBCEL *v, bool form)
         //
         // remove final space (overwritten with terminator)
         //
-        TERM_UNI_LEN_USED(
-            mo->series, UNI_LEN(mo->series) - 1, SER_USED(mo->series) - 1
+        TERM_STR_LEN_USED(
+            mo->series, STR_LEN(mo->series) - 1, SER_USED(mo->series) - 1
         );
     }
 

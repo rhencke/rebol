@@ -264,7 +264,7 @@ void Value_To_Int64(REBVAL *out, const REBVAL *value, bool no_sign)
         // who rarely do 2s-complement math in their head.
 
         REBSTR *spelling = VAL_WORD_SPELLING(value);
-        const REBYTE *bp = cb_cast(STR_HEAD(spelling));
+        const REBYTE *bp = STR_HEAD(spelling);
         size_t size = STR_SIZE(spelling);
 
         if (size > MAX_HEX_LEN) {

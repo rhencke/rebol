@@ -163,9 +163,7 @@ REB_R TO_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 inline static void Mold_Word(REB_MOLD *mo, const REBCEL *v)
 {
     REBSTR *spelling = VAL_WORD_SPELLING(v);
-    const char *head = STR_HEAD(spelling); // UTF-8
-    size_t size = STR_SIZE(spelling); // number of UTF-8 bytes
-    Append_Utf8(mo->series, head, size);
+    Append_Utf8(mo->series, STR_UTF8(spelling), STR_SIZE(spelling));
 }
 
 
@@ -252,7 +250,7 @@ REB_R PD_Word(
                 return nullptr;
 
             REBSIZ size = SER_LEN(str);
-            const REBYTE *bp = cb_cast(STR_HEAD(str));
+            const REBYTE *bp = STR_HEAD(str);
             REBUNI c;
             do {
                 if (size == 0)
@@ -301,7 +299,7 @@ REBTYPE(Word)
         switch (property) {
         case SYM_LENGTH: {
             REBSTR *spelling = VAL_WORD_SPELLING(v);
-            const REBYTE *bp = cb_cast(STR_HEAD(spelling));
+            const REBYTE *bp = STR_HEAD(spelling);
             REBSIZ size = STR_SIZE(spelling);
             REBCNT len = 0;
             for (; size > 0; ++bp, --size) {

@@ -57,7 +57,7 @@ const REBYTE *Analyze_String_For_Scan(
     const REBVAL *any_string,
     REBCNT max_len // maximum length in *codepoints*
 ){
-    REBCHR(const *) up = VAL_UNI_AT(any_string);
+    REBCHR(const *) up = VAL_STR_AT(any_string);
     REBCNT index = VAL_INDEX(any_string);
     REBCNT len = VAL_LEN_AT(any_string);
     if (len == 0)
@@ -264,7 +264,7 @@ void Trim_Tail(REB_MOLD *mo, REBYTE ascii)
             break;
     }
 
-    TERM_UNI_LEN_USED(mo->series, len, used);
+    TERM_STR_LEN_USED(mo->series, len, used);
 }
 
 
@@ -305,7 +305,7 @@ void Change_Case(
     // be possible, only contractions (is that true?)  Review when UTF-8
     // Everywhere is more mature to the point this is worth worrying about.
     //
-    REBCHR(*) up = VAL_UNI_AT(val);
+    REBCHR(*) up = VAL_STR_AT(val);
     REBCHR(*) dp;
     if (upper) {
         REBCNT n;
@@ -364,7 +364,7 @@ REBARR *Split_Lines(const REBVAL *str)
     DECLARE_MOLD (mo);
     Push_Mold(mo);
 
-    REBCHR(const *) cp = VAL_UNI_AT(str);
+    REBCHR(const *) cp = VAL_STR_AT(str);
 
     REBUNI c;
     cp = NEXT_CHR(&c, cp);

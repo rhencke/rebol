@@ -114,13 +114,13 @@ REBCNT find_binary(
         REBCNT len2;
         if (not IS_TEXT(pattern)) { // !!! for TAG!, but what about FILE! etc?
             formed = Copy_Form_Value(pattern, 0);
-            len2 = UNI_LEN(formed);
-            bp2 = UNI_HEAD(formed);
+            len2 = STR_LEN(formed);
+            bp2 = STR_HEAD(formed);
             *size = SER_USED(formed);
         }
         else {
             len2 = VAL_LEN_AT(pattern);
-            bp2 = VAL_UNI_AT(pattern);
+            bp2 = VAL_STR_AT(pattern);
             *size = VAL_SIZE_LIMIT_AT(NULL, pattern, len2);
         }
 

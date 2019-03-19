@@ -49,12 +49,12 @@
 //
 // So for instance: instead of simply saying:
 //
-//     REBUNI *ptr = UNI_HEAD(string_series);
+//     REBUNI *ptr = STR_HEAD(string_series);
 //     REBUNI c = *ptr++;
 //
 // ...one must instead write:
 //
-//     REBCHR(*) ptr = UNI_HEAD(string_series);
+//     REBCHR(*) ptr = STR_HEAD(string_series);
 //     ptr = NEXT_CHR(&c, ptr);  // ++ptr or ptr[n] will error in C++ build
 //
 // The code that runs behind the scenes is typical UTF-8 forward and backward
@@ -395,25 +395,29 @@ inline static bool SAME_SYM_NONZERO(REBSYM a, REBSYM b) {
 #define STR(p) \
     SER(p)  // !!! Enhance with more checks, like SER(), NOD(), etc.
 
-inline static const char *STR_HEAD(REBSTR *str) {
-    return cs_cast(BIN_HEAD(str));
+inline static const char *STR_UTF8(REBSTR *s) {
+    return cast(const char*, BIN_HEAD(s));
 }
 
-inline static REBSTR *STR_CANON(REBSTR *str) {
-    assert(SER_WIDE(str) == 1);
-    while (NOT_SERIES_INFO(str, STRING_CANON))
-        str = LINK(str).synonym; // circularly linked list
-    return str;
+inline static REBSTR *STR_CANON(REBSTR *s) {
+    assert(NOT_SERIES_FLAG(s, UTF8_NONWORD));
+    assert(SER_WIDE(s) == 1);
+    while (NOT_SERIES_INFO(s, STRING_CANON))
+        s = LINK(s).synonym; // circularly linked list
+    return s;
 }
 
-inline static OPT_REBSYM STR_SYMBOL(REBSTR *str) {
-    uint16_t sym = SECOND_UINT16(str->header);
-    assert(sym == SECOND_UINT16(STR_CANON(str)->header));
+inline static OPT_REBSYM STR_SYMBOL(REBSTR *s) {
+    assert(NOT_SERIES_FLAG(s, UTF8_NONWORD));
+    assert(SER_WIDE(s) == 1);
+    uint16_t sym = SECOND_UINT16(s->header);
+    assert(sym == SECOND_UINT16(STR_CANON(s)->header));
     return cast(REBSYM, sym);
 }
 
-inline static size_t STR_SIZE(REBSTR *str) {
-    return SER_LEN(str); // number of bytes in seris is series length, ATM
+inline static size_t STR_SIZE(REBSTR *s) {
+    assert(SER_WIDE(s) == 1);
+    return SER_USED(s); // number of bytes in series is the UTF-8 size
 }
 
 inline static REBSTR *Canon(REBSYM sym) {
@@ -431,14 +435,14 @@ inline static bool SAME_STR(REBSTR *s1, REBSTR *s2) {
 
 
 //
-// UNI_XXX: These are for dealing with the series behind an ANY-STRING!
+// STR_XXX: These are for dealing with the series behind an ANY-STRING!
 // Currently they are slightly different than the STR_XXX functions, because
-// the ANY-WORD! series don't store lengths or modification stamps.  (This
-// makes sense because an interned word is immutable, so it wouldn't need
-// a modification stamp.)
-//
+// the ANY-WORD! series don't store their lengths in codepoints.
+// They need the slot in their series node for maintaining a linked list
+// to other canons.  They're usually short, so calculating the size is
+// not too bad.
 
-inline static REBCNT UNI_LEN(REBSER *s) {
+inline static REBCNT STR_LEN(REBSER *s) {
     assert(SER_WIDE(s) == sizeof(REBYTE));
     assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
 
@@ -449,7 +453,7 @@ inline static REBCNT UNI_LEN(REBSER *s) {
     return MISC(s).length;
 }
 
-inline static void SET_UNI_LEN_USED(REBSER *s, REBCNT len, REBSIZ used) {
+inline static void SET_STR_LEN_USED(REBSER *s, REBCNT len, REBSIZ used) {
     assert(SER_WIDE(s) == sizeof(REBYTE));
     assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
 
@@ -457,33 +461,76 @@ inline static void SET_UNI_LEN_USED(REBSER *s, REBCNT len, REBSIZ used) {
     MISC(s).length = len;
 }
 
-inline static void TERM_UNI_LEN_USED(REBSER *s, REBCNT len, REBSIZ used) {
-    SET_UNI_LEN_USED(s, len, used);
+inline static void TERM_STR_LEN_USED(REBSER *s, REBCNT len, REBSIZ used) {
+    SET_STR_LEN_USED(s, len, used);
     TERM_SEQUENCE(s);
 }
 
-#define UNI_HEAD(s) \
+#define STR_HEAD(s) \
     cast(REBCHR(*), SER_HEAD(REBYTE, (s)))
 
-#define UNI_TAIL(s) \
+#define STR_TAIL(s) \
     cast(REBCHR(*), SER_TAIL(REBYTE, (s)))
 
-#define UNI_LAST(s) \
-    cast(REBCHR(*), SER_LAST(REBYTE, (s)))
-
-inline static REBCHR(*) UNI_AT(REBSER *s, REBCNT n) {
-    REBCHR(*) cp = UNI_HEAD(s);
-    REBCNT i = n;
-    for (; i != 0; --i)
-        cp = NEXT_STR(cp); // !!! crazy slow
+inline static REBCHR(*) STR_LAST(REBSTR *s) {
+    REBCHR(*) cp = STR_TAIL(s);
+    REBUNI c;
+    cp = BACK_CHR(&c, cp);
+    assert(c == '\0');
+    UNUSED(c);
     return cp;
 }
 
-#define VAL_UNI_HEAD(v) \
-    UNI_HEAD(VAL_SERIES(v))
 
-#define VAL_UNI_TAIL(v) \
-    UNI_TAIL(VAL_SERIES(v))
+#define Is_Definitely_Ascii(s) false
+
+// UTF-8 cannot in the general case provide O(1) access for indexing.  We
+// attack the problem two ways: monitoring strings if they are ASCII only
+// and using that to make an optimized jump, and maintaining caches that
+// map from codepoint indexes to byte offsets for larger strings.  (These
+// caches must be updated whenever the string is modified.)
+//
+inline static REBCHR(*) STR_AT(REBSER *s, REBCNT n) {
+    if (Is_Definitely_Ascii(s))
+        return cast(REBCHR(*), cast(REBYTE*, STR_HEAD(s)) + n);
+
+    REBCNT len = STR_LEN(s);
+
+    // Theoretically, a large UTF-8 string could have multiple "bookmarks".
+    // That would complicate this logic by having to decide which one was
+    // closest to be using.  For simplicity we just use one right now to
+    // track the last access--which speeds up the most common case of an
+    // iteration.  Improve as time permits!
+    //
+    REBBMK *bookmark = LINK(s).bookmark;
+    UNUSED(bookmark);  // !!! TBD
+
+    // In the absence of hinting, go character by character.  Start from
+    // whichever is closest to what we're looking for--head or tail.
+    //
+    REBCHR(*) cp;
+    if (n > (len / 2)) {
+        cp = STR_TAIL(s);
+
+        REBCNT i = len - n;
+        for (; i != 0; --i)
+            cp = BACK_STR(cp);
+    }
+    else {
+        cp = STR_HEAD(s);
+
+        REBCNT i = n;
+        for (; i != 0; --i)
+            cp = NEXT_STR(cp);
+    }
+    return cp;
+}
+
+#define VAL_STR_HEAD(v) \
+    STR_HEAD(VAL_SERIES(v))
+
+#define VAL_STR_TAIL(v) \
+    STR_TAIL(VAL_SERIES(v))
 
 // This should be an updating operation, which may refresh the cache in the
 // value.  It would look something like:
@@ -494,12 +541,12 @@ inline static REBCHR(*) UNI_AT(REBSER *s, REBCNT n) {
 //    m_cast(REBVAL*, v)->extra.utfcache.stamp = s->stamp;
 //    m_cast(REBVAL*, v)->extra.utfcache.offset = offset;
 //
-// One should thus always prefer to use VAL_UNI_AT() if possible, over trying
+// One should thus always prefer to use VAL_STR_AT() if possible, over trying
 // to calculate a position from scratch.
 //
-inline static REBCHR(*) VAL_UNI_AT(const REBCEL *v) {
+inline static REBCHR(*) VAL_STR_AT(const REBCEL *v) {
     assert(ANY_STRING_KIND(CELL_KIND(v)));
-    return UNI_AT(VAL_SERIES(v), VAL_INDEX(v));
+    return STR_AT(VAL_SERIES(v), VAL_INDEX(v));
 }
 
 inline static REBSIZ VAL_SIZE_LIMIT_AT(
@@ -509,13 +556,13 @@ inline static REBSIZ VAL_SIZE_LIMIT_AT(
 ){
     assert(ANY_STRING_KIND(CELL_KIND(v)));
 
-    REBCHR(const *) at = VAL_UNI_AT(v); // !!! update cache if needed
+    REBCHR(const *) at = VAL_STR_AT(v); // !!! update cache if needed
     REBCHR(const *) tail;
 
     if (limit == -1) {
         if (length != NULL)
             *length = VAL_LEN_AT(v);
-        tail = VAL_UNI_TAIL(v); // byte count known (fast)
+        tail = VAL_STR_TAIL(v); // byte count known (fast)
     }
     else {
         if (length != NULL)
@@ -532,7 +579,7 @@ inline static REBSIZ VAL_SIZE_LIMIT_AT(
     VAL_SIZE_LIMIT_AT(NULL, v, -1)
 
 inline static REBSIZ VAL_OFFSET(const RELVAL *v) {
-    return VAL_UNI_AT(v) - VAL_UNI_HEAD(v);
+    return VAL_STR_AT(v) - VAL_STR_HEAD(v);
 }
 
 inline static REBSIZ VAL_OFFSET_FOR_INDEX(const REBCEL *v, REBCNT index) {
@@ -541,17 +588,17 @@ inline static REBSIZ VAL_OFFSET_FOR_INDEX(const REBCEL *v, REBCNT index) {
     REBCHR(const *) at;
 
     if (index == VAL_INDEX(v))
-        at = VAL_UNI_AT(v); // !!! update cache if needed
+        at = VAL_STR_AT(v); // !!! update cache if needed
     else if (index == VAL_LEN_HEAD(v))
-        at = VAL_UNI_TAIL(v);
+        at = VAL_STR_TAIL(v);
     else {
         // !!! arbitrary seeking...this technique needs to be tuned, e.g.
         // to look from the head or the tail depending on what's closer
         //
-        at = UNI_AT(VAL_SERIES(v), index);
+        at = STR_AT(VAL_SERIES(v), index);
     }
 
-    return at - VAL_UNI_HEAD(v);
+    return at - VAL_STR_HEAD(v);
 }
 
 
@@ -569,7 +616,7 @@ inline static REBSIZ VAL_OFFSET_FOR_INDEX(const REBCEL *v, REBCNT index) {
 
 inline static REBUNI GET_ANY_CHAR(REBSER *s, REBCNT n) {
     assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
-    REBCHR(const *) up = UNI_AT(s, n);
+    REBCHR(const *) up = STR_AT(s, n);
     REBUNI c;
     NEXT_CHR(&c, up);
     return c;
@@ -578,7 +625,7 @@ inline static REBUNI GET_ANY_CHAR(REBSER *s, REBCNT n) {
 inline static void SET_ANY_CHAR(REBSER *s, REBCNT n, REBUNI c) {
     assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
     assert(n < SER_LEN(s));
-    REBCHR(*) up = UNI_AT(s, n);
+    REBCHR(*) up = STR_AT(s, n);
     WRITE_CHR(up, c);
 }
 
@@ -626,7 +673,7 @@ inline static REBSER *Make_Sized_String_UTF8(const char *utf8, size_t size)
 
 
 inline static REBINT Hash_String(REBSTR *str)
-    { return Hash_UTF8(cb_cast(STR_HEAD(str)), STR_SIZE(str)); }
+    { return Hash_UTF8(STR_HEAD(str), STR_SIZE(str)); }
 
 inline static REBINT First_Hash_Candidate_Slot(
     REBCNT *skip_out,

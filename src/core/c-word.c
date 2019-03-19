@@ -228,7 +228,7 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
         assert(GET_SERIES_INFO(canon, STRING_CANON));
 
         REBINT cmp;
-        cmp = Compare_UTF8(cb_cast(STR_HEAD(canon)), utf8, size);
+        cmp = Compare_UTF8(STR_HEAD(canon), utf8, size);
         if (cmp == 0)
             return canon; // was a case-sensitive match
         if (cmp < 0)
@@ -244,7 +244,7 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
         while (synonym != canon) {
             assert(NOT_SERIES_INFO(synonym, STRING_CANON));
 
-            cmp = Compare_UTF8(cb_cast(STR_HEAD(synonym)), utf8, size);
+            cmp = Compare_UTF8(STR_HEAD(synonym), utf8, size);
             if (cmp == 0)
                 return synonym; // exact spelling match means no new interning
 
@@ -435,8 +435,8 @@ void GC_Kill_Interning(REBSTR *intern)
 //
 REBINT Compare_Word(const REBCEL *s, const REBCEL *t, bool strict)
 {
-    const REBYTE *sp = cb_cast(STR_HEAD(VAL_WORD_SPELLING(s)));
-    const REBYTE *tp = cb_cast(STR_HEAD(VAL_WORD_SPELLING(t)));
+    const REBYTE *sp = STR_HEAD(VAL_WORD_SPELLING(s));
+    const REBYTE *tp = STR_HEAD(VAL_WORD_SPELLING(t));
 
     if (strict)
         return COMPARE_BYTES(sp, tp); // must match byte-for-byte
@@ -557,13 +557,13 @@ void Startup_Symbols(REBARR *words)
 
     // Do some sanity checks.  !!! Fairly critical, is debug-only appropriate?
 
-    if (0 != strcmp("blank!", STR_HEAD(Canon(SYM_BLANK_X))))
+    if (0 != strcmp("blank!", STR_UTF8(Canon(SYM_BLANK_X))))
         panic (Canon(SYM_BLANK_X));
 
-    if (0 != strcmp("true", STR_HEAD(Canon(SYM_TRUE))))
+    if (0 != strcmp("true", STR_UTF8(Canon(SYM_TRUE))))
         panic (Canon(SYM_TRUE));
 
-    if (0 != strcmp("open", STR_HEAD(Canon(SYM_OPEN))))
+    if (0 != strcmp("open", STR_UTF8(Canon(SYM_OPEN))))
         panic (Canon(SYM_OPEN));
 
     PG_Bar_Canon = Canon(SYM_BAR);  // used by PARSE for speedup

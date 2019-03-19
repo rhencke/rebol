@@ -36,7 +36,7 @@ static bool Check_Char_Range(const REBVAL *val, REBCNT limit)
     assert(ANY_STRING(val));
 
     REBCNT len = VAL_LEN_AT(val);
-    REBCHR(const *) up = VAL_UNI_AT(val);
+    REBCHR(const *) up = VAL_STR_AT(val);
 
     for (; len > 0; len--) {
         REBUNI c;
@@ -1126,7 +1126,7 @@ REBNATIVE(as)
         if (ANY_WORD(v)) {
             REBSTR *spelling = VAL_WORD_SPELLING(v);
             REBSER *string = Make_Sized_String_UTF8(
-                STR_HEAD(spelling),
+                STR_UTF8(spelling),
                 STR_SIZE(spelling)
             );
             SET_SERIES_INFO(string, FROZEN);

@@ -289,16 +289,16 @@ void Remove_Series_Units(REBSER *s, REBSIZ offset, REBINT quantity)
 void Remove_Series_Len(REBSER *s, REBCNT index, REBINT len)
 {
     if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
-        REBCHR(*) cp = UNI_AT(s, index);
-        REBCHR(*) ep = UNI_AT(s, index + len);
+        REBCHR(*) cp = STR_AT(s, index);
+        REBCHR(*) ep = STR_AT(s, index + len);
 
-        REBINT len_old = UNI_LEN(s);
+        REBINT len_old = STR_LEN(s);
         REBSIZ used_old = SER_USED(s);
 
         assert(len <= len_old);
 
-        Remove_Series_Units(s, cp - UNI_HEAD(s), ep - cp);
-        SET_UNI_LEN_USED(s, len_old - len, used_old - (ep - cp));
+        Remove_Series_Units(s, cp - STR_HEAD(s), ep - cp);
+        SET_STR_LEN_USED(s, len_old - len, used_old - (ep - cp));
     }
     else
         Remove_Series_Units(s, index, len);

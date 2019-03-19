@@ -57,7 +57,7 @@ REBSER *To_REBOL_Path(const RELVAL *string, REBFLGS flags)
     bool last_was_slash = false; // was last character appended a slash?
 
 restart:;
-    REBCHR(const *) up = VAL_UNI_AT(string);
+    REBCHR(const *) up = VAL_STR_AT(string);
     REBCNT len = VAL_LEN_AT(string);
 
     REBUNI c = '\0'; // for test after loop (in case loop does not run)
@@ -78,7 +78,7 @@ restart:;
                 //
                 // Drop mold so far, and change C:/ to /C/ (and C:X to /C/X)
                 //
-                TERM_UNI_LEN_USED(mo->series, mo->index, mo->offset);
+                TERM_STR_LEN_USED(mo->series, mo->index, mo->offset);
                 Append_Codepoint(mo->series, '/');
                 lead_slash = true; // don't do this the second time around
                 goto restart;
@@ -136,7 +136,7 @@ restart:;
 void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
     assert(IS_FILE(file));
 
-    REBCHR(const *) up = VAL_UNI_AT(file);
+    REBCHR(const *) up = VAL_STR_AT(file);
     REBCNT len = VAL_LEN_AT(file);
 
     REBCNT i = 0;
@@ -241,9 +241,9 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
                     // Seek back to the previous slash in the mold buffer and
                     // truncate it there, to trim off one path segment.
                     //
-                    REBCNT n = UNI_LEN(mo->series);
+                    REBCNT n = STR_LEN(mo->series);
                     if (n > mo->index) {
-                        REBCHR(*) tp = UNI_LAST(mo->series);
+                        REBCHR(*) tp = STR_LAST(mo->series);
 
                         --n;
                         tp = BACK_CHR(&c, tp);
@@ -261,10 +261,10 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
 
                         // Terminate, loses '/' (or '\'), but added back below
                         //
-                        TERM_UNI_LEN_USED(
+                        TERM_STR_LEN_USED(
                             mo->series,
                             n,
-                            tp - UNI_HEAD(mo->series) + 1
+                            tp - STR_HEAD(mo->series) + 1
                         );
                     }
 
@@ -334,7 +334,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
     if (flags & REB_FILETOLOCAL_NO_TAIL_SLASH) {
         REBSIZ n = SER_USED(mo->series);
         if (n > mo->offset and *BIN_AT(mo->series, n - 1) == OS_DIR_SEP)
-            TERM_UNI_LEN_USED(mo->series, UNI_LEN(mo->series) - 1, n - 1);
+            TERM_STR_LEN_USED(mo->series, STR_LEN(mo->series) - 1, n - 1);
     }
 
     // If one is to list a directory's contents, you might want the name to

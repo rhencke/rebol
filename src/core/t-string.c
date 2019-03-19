@@ -115,7 +115,7 @@ static void reverse_string(REBVAL *v, REBCNT len)
         REBCNT val_len_head = VAL_LEN_HEAD(v);
 
         REBSER *ser = VAL_SERIES(v);
-        REBCHR(const *) up = UNI_LAST(ser); // last exists due to len != 0
+        REBCHR(const*) up = STR_LAST(ser);  // last exists due to len != 0
         REBCNT n;
         for (n = 0; n < len; ++n) {
             REBUNI c;
@@ -190,13 +190,13 @@ REBCNT find_string(
         REBSIZ size2;
         if (not IS_TEXT(pattern)) { // !!! for TAG!, but what about FILE! etc?
             formed = Copy_Form_Value(pattern, 0);
-            *len = UNI_LEN(formed);
-            bp2 = UNI_HEAD(formed);
+            *len = STR_LEN(formed);
+            bp2 = STR_HEAD(formed);
             size2 = SER_USED(formed);
         }
         else {
             *len = VAL_LEN_AT(pattern);
-            bp2 = VAL_UNI_AT(pattern);
+            bp2 = VAL_STR_AT(pattern);
             size2 = VAL_SIZE_LIMIT_AT(NULL, pattern, *len);
         }
 
@@ -286,7 +286,7 @@ REBCNT find_string(
             return index;  // empty binaries / strings are matches
 
         const REBYTE *pbytes = VAL_BIN_AT(pattern);
-        REBSIZ offset = cast(REBYTE*, UNI_AT(str, index)) - BIN_HEAD(str);
+        REBSIZ offset = cast(REBYTE*, STR_AT(str, index)) - BIN_HEAD(str);
         REBCNT result = Find_Bin_In_Bin(
             str,
             offset,
@@ -708,13 +708,13 @@ void Mold_Uni_Char(REB_MOLD *mo, REBUNI c, bool parened)
             REBCNT len_old = SER_LEN(mo->series);
             REBSIZ used_old = SER_USED(mo->series);
             EXPAND_SERIES_TAIL(mo->series, 7); // worst case: ^(1234)
-            TERM_UNI_LEN_USED(mo->series, len_old, used_old);
+            TERM_STR_LEN_USED(mo->series, len_old, used_old);
 
             Append_Ascii(mo->series, "^\"");
 
             REBYTE *bp = BIN_TAIL(mo->series);
             REBYTE *ep = Form_Uni_Hex(bp, c); // !!! Make a mold...
-            TERM_UNI_LEN_USED(
+            TERM_STR_LEN_USED(
                 mo->series,
                 len_old + (ep - bp),
                 SER_USED(mo->series) + (ep - bp)
@@ -766,7 +766,7 @@ void Mold_Text_Series_At(
     REBCNT chr1e = 0;
     REBCNT malign = 0;
 
-    REBCHR(const *) up = UNI_AT(series, index);
+    REBCHR(const *) up = STR_AT(series, index);
 
     REBCNT x;
     for (x = index; x < len; x++) {
@@ -812,7 +812,7 @@ void Mold_Text_Series_At(
     if (NOT_MOLD_FLAG(mo, MOLD_FLAG_NON_ANSI_PARENED))
         paren = 0;
 
-    up = UNI_AT(series, index);
+    up = STR_AT(series, index);
 
     // If it is a short quoted string, emit it as "string"
     //
@@ -820,7 +820,7 @@ void Mold_Text_Series_At(
         Append_Codepoint(mo->series, '"');
 
         REBCNT n;
-        for (n = index; n < UNI_LEN(series); n++) {
+        for (n = index; n < STR_LEN(series); n++) {
             REBUNI c;
             up = NEXT_CHR(&c, up);
             Mold_Uni_Char(mo, c, parened);
@@ -837,7 +837,7 @@ void Mold_Text_Series_At(
     Append_Codepoint(mo->series, '{');
 
     REBCNT n;
-    for (n = index; n < UNI_LEN(series); n++) {
+    for (n = index; n < STR_LEN(series); n++) {
         REBUNI c;
         up = NEXT_CHR(&c, up);
 
@@ -888,7 +888,7 @@ static void Mold_File(REB_MOLD *mo, const REBCEL *v)
 
     Append_Codepoint(mo->series, '%');
 
-    REBCHR(const *) cp = VAL_UNI_AT(v);
+    REBCHR(const *) cp = VAL_STR_AT(v);
 
     REBCNT n;
     for (n = 0; n < len; ++n) {
@@ -1011,7 +1011,7 @@ REBTYPE(String)
         REBSIZ used_old = SER_USED(ser);
 
         Remove_Series_Units(ser, offset, size); // should keep terminator
-        SET_UNI_LEN_USED(ser, tail - len, used_old - size); // no term needed
+        SET_STR_LEN_USED(ser, tail - len, used_old - size); // no term needed
 
         RETURN (v); }
 
@@ -1113,7 +1113,7 @@ REBTYPE(String)
 
         return Init_Char_Unchecked(
             D_OUT,
-            CHR_CODE(UNI_AT(VAL_SERIES(v), ret))
+            CHR_CODE(STR_AT(VAL_SERIES(v), ret))
         ); }
 
     case SYM_TAKE_P: {
@@ -1159,7 +1159,7 @@ REBTYPE(String)
         if (REF(part))
             Init_Any_Series(D_OUT, VAL_TYPE(v), Copy_String_At_Limit(v, len));
         else
-            Init_Char_Unchecked(D_OUT, CHR_CODE(VAL_UNI_AT(v)));
+            Init_Char_Unchecked(D_OUT, CHR_CODE(VAL_STR_AT(v)));
 
 
         Remove_Series_Len(ser, VAL_INDEX(v), len);
@@ -1180,7 +1180,7 @@ REBTYPE(String)
             Unbias_Series(ser, false);
 
         REBSIZ offset = VAL_OFFSET_FOR_INDEX(v, index);
-        TERM_UNI_LEN_USED(ser, cast(REBCNT, index), offset);
+        TERM_STR_LEN_USED(ser, cast(REBCNT, index), offset);
         RETURN (v); }
 
     //-- Creation:

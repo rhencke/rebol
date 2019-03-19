@@ -662,7 +662,7 @@ void Push_Mold(REB_MOLD *mo)
 
     REBSER *s = mo->series = MOLD_BUF;
     mo->offset = SER_USED(s);
-    mo->index = UNI_LEN(s);
+    mo->index = STR_LEN(s);
 
     ASSERT_SERIES_TERM(s);
 
@@ -692,7 +692,7 @@ void Push_Mold(REB_MOLD *mo)
             SER_WIDE(s),
             NODE_FLAG_NODE // NODE_FLAG_NODE means preserve the data
         );
-        TERM_UNI_LEN_USED(s, len, SER_USED(s));
+        TERM_STR_LEN_USED(s, len, SER_USED(s));
     }
 
     if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL))
@@ -745,11 +745,11 @@ void Throttle_Mold(REB_MOLD *mo) {
         assert(mo->limit >= 3);
         overage += 3;  // subtract out characters for ellipsis
 
-        REBCHR(*) tail = UNI_TAIL(mo->series);
+        REBCHR(*) tail = STR_TAIL(mo->series);
         REBUNI dummy;
         REBCHR(*) cp = SKIP_CHR(&dummy, tail, -overage);
 
-        SET_UNI_LEN_USED(
+        SET_STR_LEN_USED(
             mo->series,
             SER_LEN(mo->series) - overage,
             SER_USED(mo->series) - (tail - cp)
@@ -791,7 +791,7 @@ REBSER *Pop_Molded_String(REB_MOLD *mo)
         and GET_SERIES_FLAG(popped, UTF8_NONWORD)
     );
     memcpy(BIN_HEAD(popped), BIN_AT(mo->series, mo->offset), size);
-    TERM_UNI_LEN_USED(popped, len, size);
+    TERM_STR_LEN_USED(popped, len, size);
 
     // Though the protocol of Mold_Value does terminate, it only does so if
     // it adds content to the buffer.  If we did not terminate when we
@@ -799,7 +799,7 @@ REBSER *Pop_Molded_String(REB_MOLD *mo)
     // whatever value in the terminator spot was there.  This could be
     // addressed by making no-op molds terminate.
     //
-    TERM_UNI_LEN_USED(mo->series, mo->index, mo->offset);
+    TERM_STR_LEN_USED(mo->series, mo->index, mo->offset);
 
     mo->series = NULL; // indicates mold is not currently pushed
     return popped;
@@ -830,7 +830,7 @@ REBSER *Pop_Molded_Binary(REB_MOLD *mo)
     // whatever value in the terminator spot was there.  This could be
     // addressed by making no-op molds terminate.
     //
-    TERM_UNI_LEN_USED(mo->series, mo->index, mo->offset);
+    TERM_STR_LEN_USED(mo->series, mo->index, mo->offset);
 
     mo->series = NULL; // indicates mold is not currently pushed
     return bin;
@@ -875,7 +875,7 @@ void Drop_Mold_Core(REB_MOLD *mo, bool not_pushed_ok)
 
     // see notes in Pop_Molded_String()
     //
-    TERM_UNI_LEN_USED(mo->series, mo->index, mo->offset);
+    TERM_STR_LEN_USED(mo->series, mo->index, mo->offset);
 
     mo->series = NULL; // indicates mold is not currently pushed
 }

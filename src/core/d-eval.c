@@ -267,7 +267,7 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
 
   #ifdef DEBUG_UTF8_EVERYWHERE
     if (ANY_STRING(f->out)) {
-        REBCNT len = UNI_LEN(VAL_SERIES(f->out));
+        REBCNT len = STR_LEN(VAL_SERIES(f->out));
         UNUSED(len); // just one invariant for now, SER_LEN checks it
     }
   #endif

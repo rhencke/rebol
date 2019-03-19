@@ -98,7 +98,7 @@ REBSER *Decode_UTF16(
 
     REBCNT num_chars = 0;
 
-    REBCHR(*) dp = UNI_HEAD(s);
+    REBCHR(*) dp = STR_HEAD(s);
 
     for (; len > 0; len--, src++) {
         //
@@ -143,7 +143,7 @@ REBSER *Decode_UTF16(
     //
     UNUSED(ascii);
 
-    TERM_UNI_LEN_USED(s, num_chars, dp - UNI_HEAD(s));
+    TERM_STR_LEN_USED(s, num_chars, dp - STR_HEAD(s));
     return s;
 }
 
@@ -327,7 +327,7 @@ REBNATIVE(encode_utf16le)
     Init_Binary(
         D_OUT,
         Encode_Utf16(
-            VAL_UNI_AT(ARG(text)),
+            VAL_STR_AT(ARG(text)),
             VAL_LEN_AT(ARG(text)),
             little_endian
         )
@@ -414,7 +414,7 @@ REBNATIVE(encode_utf16be)
     Init_Binary(
         D_OUT,
         Encode_Utf16(
-            VAL_UNI_AT(ARG(text)),
+            VAL_STR_AT(ARG(text)),
             VAL_LEN_AT(ARG(text)),
             little_endian
         )

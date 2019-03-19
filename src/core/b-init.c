@@ -779,7 +779,7 @@ static REBARR *Startup_Generics(const REBVAL *boot_generics)
 
     // Sanity check the symbol transformation
     //
-    if (0 != strcmp("open", STR_HEAD(Canon(SYM_OPEN))))
+    if (0 != strcmp("open", STR_UTF8(Canon(SYM_OPEN))))
         panic (Canon(SYM_OPEN));
 
     REBDSP dsp_orig = DSP;
@@ -896,9 +896,9 @@ static void Init_Root_Vars(void)
 
   #if !defined(NDEBUG)
     REBUNI test_nul;
-    NEXT_CHR(&test_nul, UNI_AT(nulled_uni, 0));
+    NEXT_CHR(&test_nul, STR_AT(nulled_uni, 0));
     assert(test_nul == '\0');
-    assert(UNI_LEN(nulled_uni) == 0);
+    assert(STR_LEN(nulled_uni) == 0);
   #endif
 
     Root_Empty_Text = Init_Text(Alloc_Value(), nulled_uni);

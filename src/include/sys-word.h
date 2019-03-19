@@ -163,7 +163,7 @@ inline static const REBYTE *VAL_BYTES_LIMIT_AT(
 
     if (ANY_STRING(v)) {    
         *size_out = VAL_SIZE_LIMIT_AT(NULL, v, limit);
-        return VAL_UNI_AT(v);
+        return VAL_STR_AT(v);
     }
 
     assert(ANY_WORD(v));
@@ -171,7 +171,7 @@ inline static const REBYTE *VAL_BYTES_LIMIT_AT(
 
     REBSTR *spelling = VAL_WORD_SPELLING(v);
     *size_out = STR_SIZE(spelling);
-    return cast(const REBYTE*, STR_HEAD(spelling)); 
+    return STR_HEAD(spelling); 
 }
 
 #define VAL_BYTES_AT(size_out,v) \
@@ -188,14 +188,14 @@ inline static const REBYTE *VAL_UTF8_AT(REBSIZ *size_out, const RELVAL *v)
     REBSIZ utf8_size;
     if (ANY_STRING(v)) {
         utf8_size = VAL_SIZE_LIMIT_AT(NULL, v, UNKNOWN);
-        utf8 = VAL_UNI_AT(v);
+        utf8 = VAL_STR_AT(v);
     }
     else {
         assert(ANY_WORD(v));
 
         REBSTR *spelling = VAL_WORD_SPELLING(v);
         utf8_size = STR_SIZE(spelling);
-        utf8 = cast(const REBYTE*, STR_HEAD(spelling));
+        utf8 = STR_HEAD(spelling);
     }
 
     // A STRING! can contain embedded '\0', so it's not very safe for callers

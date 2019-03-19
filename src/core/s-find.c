@@ -199,8 +199,8 @@ REBINT Compare_String_Vals(const REBCEL *v1, const REBCEL *v2, bool uncase)
     REBCNT len = MIN(l1, l2);
 
     REBINT n = Compare_Uni_Str(
-        VAL_UNI_AT(v1),  // as a REBYTE* (can't put REBCHR(*) in %sys-core.h)
-        VAL_UNI_AT(v2),
+        VAL_STR_AT(v1),  // as a REBYTE* (can't put REBCHR(*) in %sys-core.h)
+        VAL_STR_AT(v2),
         len,
         uncase
     );
@@ -447,12 +447,12 @@ REBCNT Find_Str_In_Str(
     bool uncase = not (flags & AM_FIND_CASE); // case insenstive
 
     REBUNI c2_canon; // calculate first char lowercase once, vs. each step
-    REBCHR(const*) next2 = UNI_AT(ser2, index2);
+    REBCHR(const*) next2 = STR_AT(ser2, index2);
     next2 = NEXT_CHR(&c2_canon, next2);
     if (uncase)
         c2_canon = LO_CASE(c2_canon);
 
-    REBCHR(const*) cp1 = UNI_AT(ser1, index);
+    REBCHR(const*) cp1 = STR_AT(ser1, index);
     REBUNI c1;
     if (skip > 0)
         cp1 = NEXT_CHR(&c1, cp1);
@@ -656,7 +656,7 @@ REBCNT Find_Str_Bitset(
 
     bool uncase = not (flags & AM_FIND_CASE); // case insensitive
 
-    REBCHR(const*) cp1 = UNI_AT(str, index);
+    REBCHR(const*) cp1 = STR_AT(str, index);
     REBUNI c1;
     if (skip > 0)
         cp1 = NEXT_CHR(&c1, cp1);

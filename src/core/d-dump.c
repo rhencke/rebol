@@ -137,12 +137,12 @@ void Dump_Stack(REBFRM *f, REBCNT level)
         if (IS_NULLED(arg))
             printf(
                 "    %s:\n",
-                STR_HEAD(VAL_PARAM_SPELLING(param))
+                STR_UTF8(VAL_PARAM_SPELLING(param))
             );
         else
             printf(
                 "    %s: %p\n",
-                STR_HEAD(VAL_PARAM_SPELLING(param)),
+                STR_UTF8(VAL_PARAM_SPELLING(param)),
                 cast(void*, arg)
             );
     }

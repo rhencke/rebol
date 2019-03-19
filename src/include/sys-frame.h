@@ -90,7 +90,7 @@ inline static const char* FRM_FILE_UTF8(REBFRM *f) {
     // !!! Note: Too early in boot at the moment to use Canon(__ANONYMOUS__).
     //
     REBSTR *str = FRM_FILE(f);
-    return str ? STR_HEAD(str) : "(anonymous)"; 
+    return str ? STR_UTF8(str) : "(anonymous)"; 
 }
 
 inline static int FRM_LINE(REBFRM *f) {
@@ -166,7 +166,7 @@ inline static void Get_Frame_Label_Or_Blank(RELVAL *out, REBFRM *f) {
 inline static const char* Frame_Label_Or_Anonymous_UTF8(REBFRM *f) {
     assert(Is_Action_Frame(f));
     if (f->opt_label != NULL)
-        return STR_HEAD(f->opt_label);
+        return STR_UTF8(f->opt_label);
     return "[anonymous]";
 }
 

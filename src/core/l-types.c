@@ -1028,7 +1028,7 @@ const REBYTE *Scan_Email(
     TRASH_CELL_IF_DEBUG(out);
 
     REBSER *s = Make_Unicode(len);
-    REBCHR(*) up = UNI_HEAD(s);
+    REBCHR(*) up = STR_HEAD(s);
 
     REBCNT num_chars = 0;
 
@@ -1062,7 +1062,7 @@ const REBYTE *Scan_Email(
     if (not found_at)
         return_NULL;
 
-    TERM_UNI_LEN_USED(s, num_chars, up - UNI_HEAD(s));
+    TERM_STR_LEN_USED(s, num_chars, up - STR_HEAD(s));
 
     Init_Email(out, s);
     return cp;
@@ -1401,7 +1401,7 @@ REBNATIVE(scan_net_header)
         // in the loop above.  Better to convert to usermode.
 
         REBSER *string = Make_Unicode(len);
-        REBCHR(*) str = UNI_HEAD(string);
+        REBCHR(*) str = STR_HEAD(string);
         cp = start;
 
         // "Code below *MUST* mirror that above:"
@@ -1420,7 +1420,7 @@ REBNATIVE(scan_net_header)
             while (!ANY_CR_LF_END(*cp))
                 str = WRITE_CHR(str, *cp++);
         }
-        TERM_UNI_LEN_USED(string, len, str - UNI_HEAD(string));
+        TERM_STR_LEN_USED(string, len, str - STR_HEAD(string));
         Init_Text(val, string);
     }
 

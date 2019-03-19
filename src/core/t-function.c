@@ -290,7 +290,7 @@ REBTYPE(Action)
             if (property == SYM_FILE) {
                 Scan_File( // !!! How to tell whether it's a URL! or a FILE! ?
                     D_OUT,
-                    cb_cast(STR_HEAD(LINK(a).file)),
+                    STR_HEAD(LINK(a).file),
                     SER_LEN(LINK(a).file)
                 );
             }

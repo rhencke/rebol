@@ -444,8 +444,8 @@ REBCNT Modify_String(
         // and not character units from the generated string.
         //
         formed = Form_Tight_Block(src);
-        src_ptr = UNI_HEAD(formed);
-        src_len = UNI_LEN(formed);
+        src_ptr = STR_HEAD(formed);
+        src_len = STR_LEN(formed);
         src_size = SER_USED(formed);
     }
     else if (
@@ -463,14 +463,14 @@ REBCNT Modify_String(
         if (VAL_SERIES(dst) == VAL_SERIES(src))
             goto form;
 
-        src_ptr = VAL_UNI_AT(src);
+        src_ptr = VAL_STR_AT(src);
         src_size = VAL_SIZE_LIMIT_AT(&src_len, src, limit);
     }
     else {
       form:
         formed = Copy_Form_Value(src, 0);
-        src_ptr = UNI_HEAD(formed);
-        src_len = UNI_LEN(formed);
+        src_ptr = STR_HEAD(formed);
+        src_len = STR_LEN(formed);
         src_size = SER_USED(formed);
     }
 
@@ -520,13 +520,13 @@ REBCNT Modify_String(
     }
 
     if (sym == SYM_CHANGE)
-        TERM_UNI_LEN_USED(
+        TERM_STR_LEN_USED(
             dst_ser,
             tail + (src_len * dups) - dst_len,
             dst_used + size - dst_size
         );
     else
-        TERM_UNI_LEN_USED(
+        TERM_STR_LEN_USED(
             dst_ser,
             tail + src_len * dups,
             dst_used + size

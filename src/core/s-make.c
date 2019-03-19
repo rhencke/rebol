@@ -141,8 +141,8 @@ REBSER *Copy_String_At_Limit(const RELVAL *src, REBINT limit)
     assert(length_limit <= size);
 
     REBSER *dst = Make_String(size);
-    memcpy(UNI_AT(dst, 0), VAL_UNI_AT(src), size);
-    TERM_UNI_LEN_USED(dst, length_limit, size);
+    memcpy(STR_AT(dst, 0), VAL_STR_AT(src), size);
+    TERM_STR_LEN_USED(dst, length_limit, size);
 
     return dst;
 }
@@ -165,7 +165,7 @@ REBSER *Append_Codepoint(REBSER *dst, REBUNI codepoint)
     assert(SER_WIDE(dst) == sizeof(REBYTE));
     assert(GET_SERIES_FLAG(dst, UTF8_NONWORD));
 
-    REBCNT old_len = UNI_LEN(dst);
+    REBCNT old_len = STR_LEN(dst);
 
     // 4 bytes maximum for UTF-8 encoded character (6 is a lie)
     //
@@ -177,7 +177,7 @@ REBSER *Append_Codepoint(REBSER *dst, REBUNI codepoint)
 
     // "length" grew by 1 codepoint, but "size" grew by 1 to 4 bytes
     //
-    TERM_UNI_LEN_USED(dst, old_len + 1, tail);
+    TERM_STR_LEN_USED(dst, old_len + 1, tail);
 
     return dst;
 }
@@ -193,7 +193,7 @@ REBSER *Make_Ser_Codepoint(REBUNI codepoint)
     assert(codepoint <= MAX_UNI);
 
     REBSER *s = Make_Unicode(1);
-    TERM_UNI_LEN_USED(s, 1, Encode_UTF8_Char(BIN_HEAD(s), codepoint));
+    TERM_STR_LEN_USED(s, 1, Encode_UTF8_Char(BIN_HEAD(s), codepoint));
     return s;
 }
 
@@ -221,13 +221,13 @@ REBSER *Append_Ascii_Len(REBSER *dst, const char *ascii, REBCNT len)
     }
     else {
         old_size = SER_USED(dst);
-        old_len = UNI_LEN(dst);
+        old_len = STR_LEN(dst);
         EXPAND_SERIES_TAIL(dst, len);
     }
 
     memcpy(BIN_AT(dst, old_size), ascii, len);
 
-    TERM_UNI_LEN_USED(dst, old_len + len, old_size + len);
+    TERM_STR_LEN_USED(dst, old_len + len, old_size + len);
     return dst;
 }
 
@@ -265,7 +265,7 @@ REBSER *Append_Utf8(REBSER *dst, const char *utf8, size_t size)
 //
 void Append_Spelling(REBSER *dst, REBSTR *spelling)
 {
-    Append_Utf8(dst, STR_HEAD(spelling), STR_SIZE(spelling));
+    Append_Utf8(dst, STR_UTF8(spelling), STR_SIZE(spelling));
 }
 
 
@@ -294,7 +294,7 @@ void Append_String(REBSER *dst, const REBCEL *src, REBCNT limit)
     Expand_Series(dst, tail, size); // series USED changes too
 
     memcpy(BIN_AT(dst, tail), BIN_AT(VAL_SERIES(src), offset), size);
-    TERM_UNI_LEN_USED(dst, old_len + len, old_used + size);
+    TERM_STR_LEN_USED(dst, old_len + len, old_used + size);
 }
 
 
@@ -405,7 +405,7 @@ REBSER *Append_UTF8_May_Fail(
         SER_USED(mo->series) - mo->offset
     );
 
-    TERM_UNI_LEN_USED(
+    TERM_STR_LEN_USED(
         dst,
         old_len + num_codepoints,
         old_size + SER_USED(mo->series) - mo->offset
