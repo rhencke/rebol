@@ -41,7 +41,7 @@ struct Reb_Action {
         | ARRAY_FLAG_IS_PARAMLIST)
 
 
-#if !defined(DEBUG_CHECK_CASTS) || !defined(CPLUSPLUS_11)
+#if !defined(DEBUG_CHECK_CASTS)
 
     #define ACT(p) \
         cast(REBACT*, (p))
@@ -65,16 +65,16 @@ struct Reb_Action {
             "ACT() works on void/REBNOD/REBSER/REBARR/REBACT/nullptr"
         );
 
-        if (base and p)  // ACT(nullptr) won't be tested here
-            assert(
-                SERIES_MASK_ACTION == (cast(REBSER*, p)->header.bits & (
-                    SERIES_MASK_ACTION
-                        | NODE_FLAG_FREE
-                        | NODE_FLAG_CELL
-                        | ARRAY_FLAG_IS_VARLIST
-                        | ARRAY_FLAG_IS_PAIRLIST
-                ))
-            );
+        if (base and p and (cast(REBSER*, p)->header.bits & (
+            NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
+                | SERIES_MASK_ACTION
+                | ARRAY_FLAG_IS_VARLIST
+                | ARRAY_FLAG_IS_PAIRLIST
+        )) != (
+            NODE_FLAG_NODE | SERIES_MASK_ACTION
+        )){
+            panic (p);
+        }
 
         // !!! This uses a regular C cast because the `cast()` macro has not
         // been written in such a way as to tolerate nullptr, and C++ will

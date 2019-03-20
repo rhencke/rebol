@@ -28,10 +28,10 @@
 //
 
 
-#if !defined(DEBUG_CHECK_CASTS) || !defined(CPLUSPLUS_11)
+#if !defined(DEBUG_CHECK_CASTS)
 
     #define NOD(p) \
-        ((REBNOD*)p)  // Note: reinterpret_cast<> won't work w/nullptr (!)
+        ((REBNOD*)p)  // Note: cast() currently won't work w/nullptr (!)
 
 #else
 
@@ -56,14 +56,13 @@
                "/REBMAP/REBFRM or nullptr"
         );
 
-        if (base and p)  // NOD(nullptr) won't be tested here
-            assert(
-                (((REBNOD*)p)->header.bits & (
-                    NODE_FLAG_NODE | NODE_FLAG_FREE
-                )) == (
-                    NODE_FLAG_NODE
-                )
-            );
+        if (base and p and (((REBNOD*)p)->header.bits & (
+            NODE_FLAG_NODE | NODE_FLAG_FREE
+        )) != (
+            NODE_FLAG_NODE
+        )){
+            panic (p);
+        }
 
         // !!! This uses a regular C cast because the `cast()` macro has not
         // been written in such a way as to tolerate nullptr, and C++ will

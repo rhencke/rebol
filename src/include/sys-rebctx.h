@@ -39,12 +39,12 @@ struct Reb_Context {
 };
 
 
-#if !defined(DEBUG_CHECK_CASTS) || !defined(CPLUSPLUS_11)
+#if !defined(DEBUG_CHECK_CASTS)
 
     #define CTX(p) \
         cast(REBCTX*, (p))
 
-#elif defined(CPLUSPLUS_11)
+#else
 
     template<typename T>
     inline static REBCTX *CTX(T *p) {
@@ -60,18 +60,16 @@ struct Reb_Context {
             "CTX() works on REBNOD/REBSER/REBARR/REBCTX"
         );
 
-        if (base)
-            assert(
-                (reinterpret_cast<REBNOD*>(p)->header.bits & (
-                    NODE_FLAG_NODE | ARRAY_FLAG_IS_VARLIST
-                        | NODE_FLAG_FREE
-                        | NODE_FLAG_CELL
-                        | ARRAY_FLAG_IS_PARAMLIST
-                        | ARRAY_FLAG_IS_PAIRLIST
-                )) == (
-                    NODE_FLAG_NODE | ARRAY_FLAG_IS_VARLIST
-                )
-            );
+        if (base and (reinterpret_cast<REBNOD*>(p)->header.bits & (
+            NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
+                | ARRAY_FLAG_IS_VARLIST
+                | ARRAY_FLAG_IS_PARAMLIST
+                | ARRAY_FLAG_IS_PAIRLIST
+        )) != (
+            NODE_FLAG_NODE | ARRAY_FLAG_IS_VARLIST
+        )){
+            panic (p);
+        }
 
         return reinterpret_cast<REBCTX*>(p);
     }

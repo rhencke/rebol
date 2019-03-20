@@ -438,13 +438,16 @@ Special internal defines used by RT, not Host-Kit developers:
     #define DEBUG_UTF8_EVERYWHERE
 #endif
 
-// Cast checks in SER(), NOD(), ARR() are expensive--they make sure that
-// when you have a void pointer and cast it to a REBSER, that the header
-// actually is for a REBSER (etc.)  Disable this by default unless you are
-// using address sanitizer, where you expect your executable to be slow.
-//
 #ifdef __SANITIZE_ADDRESS__
-    #define DEBUG_CHECK_CASTS
+    #ifdef CPLUSPLUS_11
+        //
+        // Cast checks in SER(), NOD(), ARR() are expensive--they ensure that
+        // when you cast a void pointer to a REBSER, that the header actually
+        // is for a REBSER (etc.)  Disable this by default unless you are
+        // using address sanitizer, where you expect things to be slow.
+        //
+        #define DEBUG_CHECK_CASTS
+    #endif
 
     // Both Valgrind and Address Sanitizer can provide the call stack at
     // the moment of allocation when a freed pointer is used.  This is

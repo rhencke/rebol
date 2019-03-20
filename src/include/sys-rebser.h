@@ -1056,7 +1056,7 @@ struct Reb_Array {
     struct Reb_Series series; // http://stackoverflow.com/a/9747062
 };
 
-#if !defined(DEBUG_CHECK_CASTS) || !defined(CPLUSPLUS_11)
+#if !defined(DEBUG_CHECK_CASTS)
 
     #define SER(p) \
         cast(REBSER*, (p))
@@ -1082,14 +1082,13 @@ struct Reb_Array {
             "SER() works on void/REBNOD/REBSER/REBSTR/REBARR/REBCTX/REBACT"
         );
 
-        if (base)
-            assert(
-                (reinterpret_cast<REBNOD*>(p)->header.bits & (
-                    NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
-                )) == (
-                    NODE_FLAG_NODE
-                )
-            );
+        if (base and (reinterpret_cast<REBNOD*>(p)->header.bits & (
+            NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
+        )) != (
+            NODE_FLAG_NODE
+        )){
+            panic (p);
+        }
 
         return reinterpret_cast<REBSER*>(p);
     }
@@ -1107,17 +1106,15 @@ struct Reb_Array {
             "ARR works on void/REBNOD/REBSER/REBARR"
         );
 
-        if (base)
-            assert(WIDE_BYTE_OR_0(reinterpret_cast<REBSER*>(p)) == 0);
-            assert(
-                (reinterpret_cast<REBSER*>(p)->header.bits & (
-                    NODE_FLAG_NODE
-                        | NODE_FLAG_FREE
-                        | NODE_FLAG_CELL
-                )) == (
-                    NODE_FLAG_NODE
-                )
-           );
+        if (base and (reinterpret_cast<REBSER*>(p)->header.bits & (
+            NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
+        )) != (
+            NODE_FLAG_NODE
+        )){
+            panic (p);
+        }
+
+        assert(WIDE_BYTE_OR_0(reinterpret_cast<REBSER*>(p)) == 0);
 
         return reinterpret_cast<REBARR*>(p);
     }

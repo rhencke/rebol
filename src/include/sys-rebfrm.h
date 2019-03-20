@@ -987,7 +987,7 @@ typedef bool (*REBEVL)(REBFRM * const);
     m_cast(REBVAL*, EMPTY_BLOCK)
 
 
-#if !defined(DEBUG_CHECK_CASTS) || !defined(CPLUSPLUS_11)
+#if !defined(DEBUG_CHECK_CASTS)
 
     #define FRM(p) \
         cast(REBFRM*, (p)) // FRM() just does a cast (maybe with added checks)
@@ -1002,14 +1002,13 @@ typedef bool (*REBEVL)(REBFRM * const);
 
         static_assert(base, "FRM() works on void/REBNOD/REBFRM");
 
-        if (base)
-            assert(
-                (reinterpret_cast<REBNOD*>(p)->header.bits & (
-                    NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
-                )) == (
-                    NODE_FLAG_NODE | NODE_FLAG_CELL
-                )
-            );
+        if (base and (reinterpret_cast<REBNOD*>(p)->header.bits & (
+            NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
+        )) != (
+            NODE_FLAG_NODE | NODE_FLAG_CELL
+        )){
+            panic (p);
+        }
 
         return reinterpret_cast<REBFRM*>(p);
     }
