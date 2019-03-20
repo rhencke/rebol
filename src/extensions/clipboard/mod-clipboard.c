@@ -121,23 +121,10 @@ static REB_R Clipboard_Actor(
         GlobalUnlock(h);
         CloseClipboard();
 
-        // !!! We got wide character data back, which had to be made into a
-        // string.  But READ wants BINARY! data.  With UTF-8 Everywhere, the
-        // byte representation of the string could be locked + aliased
-        // as a UTF-8 binary series.  Conversion is needed for the moment.
-
-        size_t size = rebSpellIntoQ(nullptr, 0, str, rebEND);  // size query
-        char *utf8 = rebAllocN(char, size + 1);
-        size_t check_size = rebSpellIntoQ(utf8, size, str, rebEND);  // fetch
-        assert(check_size == size);
-        UNUSED(check_size);
-
+        REBVAL *binary = rebRunQ("as binary!", str, rebEND);  // READ -> UTF-8
         rebRelease(str);
 
-        // See notes on how rebRepossess reclaims the memory of a rebMalloc()
-        // (which is used by rebSpell()) as a BINARY!.
-        //
-        return rebRepossess(utf8, size); }
+        return binary; }
 
     case SYM_WRITE: {
         INCLUDE_PARAMS_OF_WRITE;

@@ -109,15 +109,15 @@ void *Alloc_Mem(size_t size)
     //
     // Use a 64-bit quantity to preserve DEBUG_MEMORY_ALIGN invariant.
 
-    void *p_extra = malloc(size + sizeof(REBI64));
-    if (p_extra == NULL)
-        return NULL;
-    *cast(REBI64 *, p_extra) = size;
-    void *p = cast(char*, p_extra) + sizeof(REBI64);
+    void *p_extra = malloc(size + ALIGN_SIZE);
+    if (not p_extra)
+        return nullptr;
+    *cast(REBI64*, p_extra) = size;
+    void *p = cast(char*, p_extra) + ALIGN_SIZE;
   #endif
 
   #ifdef DEBUG_MEMORY_ALIGN
-    assert(cast(uintptr_t, p) % sizeof(REBI64) == 0);
+    assert(cast(uintptr_t, p) % ALIGN_SIZE == 0);
   #endif
 
     return p;
@@ -144,7 +144,7 @@ void Free_Mem(void *mem, size_t size)
   #ifdef NDEBUG
     free(mem);
   #else
-    assert(mem != NULL);
+    assert(mem);
     char *ptr = cast(char *, mem) - sizeof(REBI64);
     assert(*cast(REBI64*, ptr) == cast(REBI64, size));
     free(ptr);
@@ -1508,13 +1508,11 @@ REBU64 Inspect_Series(bool show)
     REBCNT tot = 0;
     REBCNT blks = 0;
     REBCNT strs = 0;
-    REBCNT unis = 0;
     REBCNT odds = 0;
     REBCNT fre = 0;
 
     REBCNT seg_size = 0;
     REBCNT str_size = 0;
-    REBCNT uni_size = 0;
     REBCNT blk_size = 0;
     REBCNT odd_size = 0;
 
@@ -1549,10 +1547,6 @@ REBU64 Inspect_Series(bool show)
             else if (SER_WIDE(s) == 1) {
                 strs++;
                 str_size += SER_TOTAL_IF_DYNAMIC(s);
-            }
-            else if (SER_WIDE(s) == sizeof(REBUNI)) {
-                unis++;
-                uni_size += SER_TOTAL_IF_DYNAMIC(s);
             }
             else if (SER_WIDE(s)) {
                 odds++;
@@ -1589,11 +1583,6 @@ REBU64 Inspect_Series(bool show)
             "  %-6d strs = %-7d bytes - byte strings\n",
             cast(int, strs),
             cast(int, str_size)
-        );
-        printf(
-            "  %-6d unis = %-7d bytes - uni strings\n",
-            cast(int, unis),
-            cast(int, uni_size)
         );
         printf(
             "  %-6d odds = %-7d bytes - odd series\n",
