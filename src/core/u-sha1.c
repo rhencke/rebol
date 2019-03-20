@@ -410,7 +410,7 @@ void SHA1_Update(void *c_opaque, unsigned char *data, size_t len)
     while (len >= SHA_CBLOCK)
         {
 #if defined(ENDIAN_BIG) || defined(ENDIAN_LITTLE)
-        if (p != (SHA_LONG *)data)
+        if (p != (const SHA_LONG *)data)
             memcpy(p,data,SHA_CBLOCK);
         data+=SHA_CBLOCK;
 #  ifdef ENDIAN_LITTLE
