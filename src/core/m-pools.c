@@ -600,10 +600,12 @@ void Free_Pairing(REBVAL *paired) {
     assert(NOT_CELL_FLAG(paired, MANAGED));
     Free_Node(SER_POOL, NOD(paired));
 
-  #if !defined(NDEBUG)
-    #if defined(DEBUG_COUNT_TICKS)
-        SER(NOD(paired))->tick = TG_Tick;  // tick where node was freed
-    #endif
+  #if defined(DEBUG_COUNT_TICKS)
+    //
+    // This wasn't actually a REBSER, so can't cast with SER().  But poke the
+    // tick where the node was freed into the memory spot so panic finds it.
+    //
+    ((REBSER*)(paired))->tick = TG_Tick;
   #endif
 }
 
