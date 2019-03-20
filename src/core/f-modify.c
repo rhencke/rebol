@@ -535,5 +535,19 @@ REBCNT Modify_String(
     if (formed)  // !!! TBD: Use mold buffer, don't make entire new series
         Free_Unmanaged_Series(formed);  // !!! should just be Drop_Mold()
 
+    REBBMK *bookmark = LINK(dst_ser).bookmarks;
+    if (bookmark) {
+        assert(not LINK(bookmark).bookmarks);
+        RELVAL *mark = ARR_SINGLE(bookmark);
+        if (PAYLOAD(Bookmark, mark).index >= dst_idx)
+            PAYLOAD(Bookmark, mark).offset += src_size * dups;
+    }
+    else {
+        // We should have generated a bookmark in the process of this
+        // modification in most cases where the size is notable.  If we had
+        // not, we might add a new bookmark pertinent to the end of the
+        // insertion for longer series--since we know the width.
+    }
+
     return (sym == SYM_APPEND) ? 0 : dst_idx;
 }

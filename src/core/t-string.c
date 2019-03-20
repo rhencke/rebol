@@ -1011,6 +1011,7 @@ REBTYPE(String)
         REBSIZ used_old = SER_USED(ser);
 
         Remove_Series_Units(ser, offset, size); // should keep terminator
+        Free_Bookmarks_Maybe_Null(ser);
         SET_STR_LEN_USED(ser, tail - len, used_old - size); // no term needed
 
         RETURN (v); }
@@ -1179,7 +1180,10 @@ REBTYPE(String)
         if (index == 0 and IS_SER_DYNAMIC(ser))
             Unbias_Series(ser, false);
 
+        Free_Bookmarks_Maybe_Null(ser);  // review!
         REBSIZ offset = VAL_OFFSET_FOR_INDEX(v, index);
+        Free_Bookmarks_Maybe_Null(ser);
+
         TERM_STR_LEN_USED(ser, cast(REBCNT, index), offset);
         RETURN (v); }
 

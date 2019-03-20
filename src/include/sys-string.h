@@ -433,7 +433,6 @@ inline static bool SAME_STR(REBSTR *s1, REBSTR *s2) {
 }
 
 
-
 //
 // STR_XXX: These are for dealing with the series behind an ANY-STRING!
 // Currently they are slightly different than the STR_XXX functions, because
@@ -484,17 +483,76 @@ inline static REBCHR(*) STR_LAST(REBSTR *s) {
 
 #define Is_Definitely_Ascii(s) false
 
+inline static REBBMK* Alloc_Bookmark(void) {
+    REBARR *bookmark = Alloc_Singular(SERIES_FLAG_MANAGED);
+    CLEAR_SERIES_FLAG(bookmark, MANAGED);  // so it's manual but untracked
+    LINK(bookmark).bookmarks = nullptr;
+    RESET_CELL(ARR_SINGLE(bookmark), REB_X_BOOKMARK, CELL_MASK_NONE);
+    return bookmark;
+}
+
+inline static void Free_Bookmarks_Maybe_Null(REBSTR *s) {
+    assert(SER_WIDE(s) == 1);  // call on the string, not a bookmark
+    assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
+    if (LINK(s).bookmarks)
+        GC_Kill_Series(SER(LINK(s).bookmarks));  // recursive free whole list
+    LINK(s).bookmarks = nullptr;
+}
+
+
 // UTF-8 cannot in the general case provide O(1) access for indexing.  We
 // attack the problem two ways: monitoring strings if they are ASCII only
 // and using that to make an optimized jump, and maintaining caches that
 // map from codepoint indexes to byte offsets for larger strings.  (These
 // caches must be updated whenever the string is modified.)
 //
-inline static REBCHR(*) STR_AT(REBSER *s, REBCNT n) {
-    if (Is_Definitely_Ascii(s))
-        return cast(REBCHR(*), cast(REBYTE*, STR_HEAD(s)) + n);
+// Note that we only ever create caches for strings that have had STR_AT()
+// run on them.  So the more operations that avoid STR_AT(), the better!
+// Using STR_HEAD() and STR_TAIL() will give a REBCHR(*) that can be used to
+// iterate much faster, and most of the strings in the system might be able
+// to get away with not having any bookmarks at all.
+//
+inline static REBCHR(*) STR_AT(REBSER *s, REBCNT at) {
+    assert(at <= STR_LEN(s));
+
+    if (Is_Definitely_Ascii(s)) {  // can't have any false positives
+        assert(not LINK(s).bookmarks);  // mutations must ensure this
+        return cast(REBCHR(*), cast(REBYTE*, STR_HEAD(s)) + at);
+    }
+
+    REBCHR(*) cp;  // can be used to calculate offset (relative to STR_HEAD())
+    REBCNT index;
+
+    REBBMK *bookmark = LINK(s).bookmarks;  // updated at end if not nulled out
+
+  #if defined(DEBUG_SPORADICALLY_DROP_BOOKMARKS)
+    if (bookmark and SPORADICALLY(100)) {
+        Free_Bookmarks_Maybe_Null(s);
+        bookmark = nullptr;
+    }
+  #endif
 
     REBCNT len = STR_LEN(s);
+    if (at < len / 2) {
+        if (len < sizeof(REBVAL)) {
+            assert(not bookmark);  // mutations must ensure this
+            goto scan_from_head;  // good locality, avoid bookmark logic
+        }
+        if (not bookmark) {
+            LINK(s).bookmarks = bookmark = Alloc_Bookmark();
+            goto scan_from_head;  // will fill in bookmark
+        }
+    }
+    else {
+        if (len < sizeof(REBVAL)) {
+            assert(not bookmark);  // mutations must ensure this
+            goto scan_from_tail;  // good locality, avoid bookmark logic
+        }
+        if (not bookmark) {
+            LINK(s).bookmarks = bookmark = Alloc_Bookmark();
+            goto scan_from_tail;  // will fill in bookmark
+        }
+    }
 
     // Theoretically, a large UTF-8 string could have multiple "bookmarks".
     // That would complicate this logic by having to decide which one was
@@ -502,27 +560,75 @@ inline static REBCHR(*) STR_AT(REBSER *s, REBCNT n) {
     // track the last access--which speeds up the most common case of an
     // iteration.  Improve as time permits!
     //
-    REBBMK *bookmark = LINK(s).bookmark;
-    UNUSED(bookmark);  // !!! TBD
+    assert(not LINK(bookmark).bookmarks);  // only one for now
 
-    // In the absence of hinting, go character by character.  Start from
-    // whichever is closest to what we're looking for--head or tail.
-    //
-    REBCHR(*) cp;
-    if (n > (len / 2)) {
-        cp = STR_TAIL(s);
+    blockscope {
+        REBCNT booked = PAYLOAD(Bookmark, ARR_SINGLE(bookmark)).index;
 
-        REBCNT i = len - n;
-        for (; i != 0; --i)
-            cp = BACK_STR(cp);
+        if (at < booked / 2) {  // !!! when faster to seek from head?
+            bookmark = nullptr;
+            goto scan_from_head;
+        }
+        if (at > len - (booked / 2)) {  // !!! when faster to seek from tail?
+            bookmark = nullptr;
+            goto scan_from_tail;
+        }
+
+        index = booked;
+        cp = cast(
+            REBCHR(*),
+            SER_DATA_RAW(s) + PAYLOAD(Bookmark, ARR_SINGLE(bookmark)).offset
+        );
     }
-    else {
-        cp = STR_HEAD(s);
 
-        REBCNT i = n;
-        for (; i != 0; --i)
-            cp = NEXT_STR(cp);
-    }
+    if (index > at)
+        goto scan_backward;
+
+    goto scan_forward;
+
+  scan_from_head:
+
+    cp = STR_HEAD(s);
+    index = 0;
+
+  scan_forward:
+
+    assert(index <= at);
+    for (; index != at; ++index)
+        cp = NEXT_STR(cp);
+
+    if (not bookmark)
+        return cp;
+
+    goto update_bookmark;
+
+  scan_from_tail:
+
+    cp = STR_TAIL(s);
+    index = len;
+
+  scan_backward:
+
+    assert(index >= at);
+    for (; index != at; --index)
+        cp = BACK_STR(cp);
+
+    if (not bookmark)
+        return cp;
+
+  update_bookmark:
+
+    PAYLOAD(Bookmark, ARR_SINGLE(bookmark)).index = index;
+    PAYLOAD(Bookmark, ARR_SINGLE(bookmark)).offset = cp - STR_HEAD(s);
+
+  #if defined(DEBUG_VERIFY_STR_AT)
+    REBCHR(*) check_cp = STR_HEAD(s);
+    REBCNT check_index = 0;
+    for (; check_index != at; ++check_index)
+        check_cp = NEXT_STR(check_cp);
+    assert(check_cp == cp);
+  #endif
+
     return cp;
 }
 
@@ -534,6 +640,8 @@ inline static REBCHR(*) STR_AT(REBSER *s, REBCNT n) {
 
 inline static REBCHR(*) VAL_STRING_AT(const REBCEL *v) {
     assert(ANY_STRING_KIND(CELL_KIND(v)));
+    if (VAL_INDEX(v) == 0)
+        return STR_HEAD(VAL_SERIES(v));  // common case, try and be fast
     return STR_AT(VAL_SERIES(v), VAL_INDEX(v));
 }
 
@@ -604,6 +712,8 @@ inline static REBSIZ VAL_OFFSET_FOR_INDEX(const REBCEL *v, REBCNT index) {
 
 inline static REBUNI GET_ANY_CHAR(REBSER *s, REBCNT n) {
     assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
+    if (n == 0)
+        return CHR_CODE(STR_HEAD(s));  // !!! hunting for STR_AT(s, 0) uses
     REBCHR(const*) up = STR_AT(s, n);
     REBUNI c;
     NEXT_CHR(&c, up);
@@ -613,8 +723,32 @@ inline static REBUNI GET_ANY_CHAR(REBSER *s, REBCNT n) {
 inline static void SET_ANY_CHAR(REBSER *s, REBCNT n, REBUNI c) {
     assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
     assert(n < SER_LEN(s));
-    REBCHR(*) up = STR_AT(s, n);
-    WRITE_CHR(up, c);
+
+    REBCHR(*) cp;
+    if (n == 0)
+        cp = STR_HEAD(s);
+    else
+        cp = STR_AT(s, n);
+
+    // If the codepoint we are writing is the same size as the codepoint that
+    // is already there, then we can just ues WRITE_CHR() and be done.
+    //
+    REBCNT size_old = 1 + trailingBytesForUTF8[*cast(REBYTE*, cp)];
+    REBCNT size_new = Encoded_Size_For_Codepoint(c);
+    if (size_new == size_old) {
+        // common case... no memory shuffling needed
+    }
+    else if (size_old > size_new) {  // shuffle forward, not memcpy, overlaps!
+        REBYTE *later = cast(REBYTE*, cp) + (size_old - size_new);
+        memmove(cp, later, SER_TAIL(REBYTE, s) - later);  // not memcpy()!
+    }
+    else {  // need backward, may need series expansion, not memcpy, overlaps!
+        EXPAND_SERIES_TAIL(s, size_new - size_old);
+        REBYTE *later = cast(REBYTE*, cp) + (size_new - size_old);
+        memmove(cp, later, SER_TAIL(REBYTE, s) - later);  // not memcpy()!
+    }
+
+    WRITE_CHR(cp, c);
 }
 
 #define VAL_ANY_CHAR(v) \

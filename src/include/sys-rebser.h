@@ -798,7 +798,7 @@ union Reb_Series_Link {
     // should be reigned in proportionally to the length of the series.  As
     // a first try of this strategy, singular arrays are being used.
     //
-    REBBMK *bookmark;
+    REBBMK *bookmarks;
 
     // REBACT uses this.  It can hold either the varlist of a frame containing
     // specialized values (e.g. an "exemplar"), with ARRAY_FLAG_IS_VARLIST set.

@@ -77,28 +77,31 @@ inline static const REBYTE *VAL_CHAR_ENCODED(const REBCEL *v) {
 
 extern const uint_fast8_t firstByteMark[7];  // defined in %s-unicode.c
 
+inline static uint_fast8_t Encoded_Size_For_Codepoint(REBUNI c) {
+    if (c < cast(uint32_t, 0x80))
+        return 1;
+    if (c < cast(uint32_t, 0x800))
+        return 2;
+    if (c < cast(uint32_t, 0x10000))
+        return 3;
+   if (c <= UNI_MAX_LEGAL_UTF32)
+        return 4;
+
+    /*len = 3;
+    c = UNI_REPLACEMENT_CHAR; */  // previous code could tolerate
+
+    fail ("Codepoint is greater than maximum legal UTF-32 value");        
+}
+
 // Converts a single char to UTF8 code-point.
 // Returns length of char stored in dst.
 // Be sure dst has at least 4 bytes available.
 //
 inline static uint_fast8_t Encode_UTF8_Char(REBYTE *dst, REBUNI c) {
-    uint_fast8_t len = 0;
     const uint32_t mask = 0xBF;
     const uint32_t mark = 0x80;
 
-    if (c < cast(uint32_t, 0x80))
-        len = 1;
-    else if (c < cast(uint32_t, 0x800))
-        len = 2;
-    else if (c < cast(uint32_t, 0x10000))
-        len = 3;
-    else if (c <= UNI_MAX_LEGAL_UTF32)
-        len = 4;
-    else {  // !!! Should this fail() instead of pick a replacement char?
-        len = 3;
-        c = UNI_REPLACEMENT_CHAR;
-    }
-
+    uint_fast8_t len = Encoded_Size_For_Codepoint(c);
     dst += len;
 
     switch (len) {

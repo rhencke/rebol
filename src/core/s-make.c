@@ -64,6 +64,7 @@ REBSER *Make_String_Core(REBSIZ encoded_capacity, REBFLGS flags)
     );
     SET_SERIES_FLAG(s, UTF8_NONWORD);
     MISC(s).length = 0;
+    LINK(s).bookmarks = nullptr;  // generated on demand
     TERM_SERIES(s);
 
     // !!! Can the current codebase get away with single-byte termination of
@@ -141,7 +142,7 @@ REBSER *Copy_String_At_Limit(const RELVAL *src, REBINT limit)
     assert(length_limit <= size);
 
     REBSER *dst = Make_String(size);
-    memcpy(STR_AT(dst, 0), VAL_STRING_AT(src), size);
+    memcpy(STR_HEAD(dst), VAL_STRING_AT(src), size);
     TERM_STR_LEN_USED(dst, length_limit, size);
 
     return dst;

@@ -505,10 +505,15 @@ struct Reb_Any_Payload  // generic, for adding payloads after-the-fact
     union Reb_Any second;
 };
 
-struct Reb_Partial_Payload // see %c-specialize.c (used with REB_X_PARTIAL)
+struct Reb_Partial_Payload  // see %c-specialize.c (used w/REB_X_PARTIAL)
 {
     REBDSP dsp;  // the DSP of this partial slot (if ordered on the stack)
     REBINT signed_index;  // index in the paramlist, negative if not "in use"
+};
+
+struct Reb_Bookmark_Payload {   // see %sys-string.h (used w/REB_X_BOOKMARK)
+    REBCNT index;
+    REBSIZ offset;
 };
 
 union Reb_Bytes_Payload  // IMPORTANT: Do not cast, use `Pointers` instead
@@ -564,6 +569,7 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     struct Reb_Library_Payload Library;
 
     struct Reb_Partial_Payload Partial;  // internal (see REB_X_PARTIAL)
+    struct Reb_Bookmark_Payload Bookmark;  // internal (see REB_X_BOOKMARK)
 
     union Reb_Bytes_Payload Bytes;
 

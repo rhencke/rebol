@@ -1043,6 +1043,9 @@ void Decay_Series(REBSER *s)
     if (GET_SERIES_FLAG(s, IS_UTF8_STRING))
         GC_Kill_Interning(s); // needs special handling to adjust canons
 
+    if (GET_SERIES_FLAG(s, UTF8_NONWORD))
+        Free_Bookmarks_Maybe_Null(s);
+
     // Remove series from expansion list, if found:
     REBCNT n;
     for (n = 1; n < MAX_EXPAND_LIST; n++) {

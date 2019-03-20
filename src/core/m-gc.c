@@ -557,6 +557,15 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
             ASSERT_SERIES_TERM(s);
             Mark_Rebser_Only(s);
         }
+        REBBMK *bookmark = LINK(s).bookmarks;
+        if (bookmark) {
+            assert(not LINK(bookmark).bookmarks);  // just one for now
+            //
+            // The intent is that bookmarks are unmanaged REBSERs, which
+            // get freed when the string GCs.  This mechanic could be a by
+            // product of noticing that the SERIES_INFO_LINK_IS_NODE is true
+            // but that the managed bit on the node is false.
+        }
         break; }
 
       case REB_BINARY: {
@@ -813,6 +822,9 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         // no need for a unique type, but it may help in debugging if these
         // values somehow escape their "details" arrays.
         //
+        break;
+
+      case REB_X_BOOKMARK:  // ANY-STRING! index and offset cache
         break;
 
       default:

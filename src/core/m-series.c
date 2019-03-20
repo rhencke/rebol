@@ -144,8 +144,8 @@ REBSER *Copy_Sequence_Core(REBSER *s, REBFLGS flags)
         copy = Make_String_Core(used, flags);
         SET_SERIES_USED(copy, used);
         TERM_SERIES(copy);
-        MISC(copy) = MISC(s); // !!! SET_SERIES_USED trashes in debug
-        LINK(copy) = LINK(s);
+        LINK(copy).bookmarks = nullptr;  // !!! Review: copy these?
+        MISC(copy).length = MISC(s).length;
     }
     else {
         copy = Make_Series_Core(used + 1, SER_WIDE(s), flags);
@@ -298,6 +298,7 @@ void Remove_Series_Len(REBSER *s, REBCNT index, REBINT len)
         assert(len <= len_old);
 
         Remove_Series_Units(s, cp - STR_HEAD(s), ep - cp);
+        Free_Bookmarks_Maybe_Null(s);
         SET_STR_LEN_USED(s, len_old - len, used_old - (ep - cp));
     }
     else

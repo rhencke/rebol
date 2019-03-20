@@ -438,6 +438,30 @@ Special internal defines used by RT, not Host-Kit developers:
     #define DEBUG_UTF8_EVERYWHERE
 #endif
 
+#ifdef DEBUG_VERIFY_STR_AT
+    //
+    // The caching strategy for UTF-8 strings involves keeping "bookmarks"
+    // and doing calculations relative to those bookmarks.  Without this, the
+    // inability to do O(1) seeks in non-pure-ASCII strings is crippling.
+    // It's good to check this to be sure it's working, but as the check then
+    // runs on top of the bookmark code it's too slow to be used reasonably
+    // in most debug builds.  Enable only when trying to find cache bugs.
+    //
+    #if !defined(DEBUG_UTF8_EVERYWHERE)
+        #error "DEBUG_UTF8_EVERYWHERE <- DEBUG_VERIFY_STR_AT"
+    #endif
+#endif
+
+#ifdef DEBUG_SPORADICALLY_DROP_BOOKMARKS
+    //
+    // It may be useful to debug bookmarks by throwing them away and making
+    // them again, but this slows things down.
+    //
+    #if !defined(DEBUG_UTF8_EVERYWHERE)
+        #error "DEBUG_UTF8_EVERYWHERE <- DEBUG_SPORADICALLY_DROP_BOOKMARKS"
+    #endif
+#endif
+
 #ifdef __SANITIZE_ADDRESS__
     #ifdef CPLUSPLUS_11
         //
