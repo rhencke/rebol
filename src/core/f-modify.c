@@ -495,19 +495,44 @@ REBCNT Modify_String(
 
     REBSIZ dst_size = 0xDECAFBAD; // !!! Only calculated for SYM_CHANGE (??)
 
-    if (sym != SYM_CHANGE) {  // Always expand dst_ser for INSERT and APPEND
+    REBBMK *bookmark = LINK(dst_ser).bookmarks;
+
+    // We should have generated a bookmark in the process of this modification
+    // in most cases where the size is notable.  If we had not, we might add a
+    // new bookmark pertinent to the end of the insertion for longer series--
+    // since we know the width.
+
+    if (sym == SYM_APPEND) {  // Expand, all bookmarks will still be vaild
         Expand_Series(dst_ser, dst_off, size);
     }
+    else if (sym == SYM_INSERT) {  // Expand, adjust bookmarks after insertion
+        Expand_Series(dst_ser, dst_off, size);
+        if (bookmark and BMK_INDEX(bookmark) >= dst_idx)
+            BMK_OFFSET(bookmark) += src_size * dups;
+    }
     else {  // CHANGE only expands if more content added than overwritten
+        assert(sym == SYM_CHANGE);
+
         dst_size = VAL_SIZE_LIMIT_AT(NULL, dst, dst_len);
 
-        if (size > dst_size)
-            Expand_Series(dst_ser, dst_off, size - dst_size);
-        else if (size < dst_size and (flags & AM_PART))
-            Remove_Series_Units(dst_ser, dst_off, dst_size - size);
-        else if (size + dst_off > dst_used) {
-            EXPAND_SERIES_TAIL(dst_ser, size - (dst_used - dst_off));
+        // CHANGE can do arbitrary changes to what index maps to what offset
+        // in the region of interest.  The manipulations here would be
+        // complicated--but just assume that the start of the change is as
+        // good a cache as any to be relevant for the next operation.
+        //
+        if (bookmark and BMK_INDEX(bookmark) > dst_idx) {
+            BMK_INDEX(bookmark) = dst_idx;
+            BMK_OFFSET(bookmark) = dst_off;
         }
+
+        if (size > dst_size) {
+            Expand_Series(dst_ser, dst_off, size - dst_size);
+        }
+        else if (size < dst_size and (flags & AM_PART)) {
+            Remove_Series_Units(dst_ser, dst_off, dst_size - size);
+        }
+        else if (size + dst_off > dst_used)
+            EXPAND_SERIES_TAIL(dst_ser, size - (dst_used - dst_off));
     }
 
     REBYTE *dst_ptr = SER_SEEK(REBYTE, dst_ser, dst_off);
@@ -535,18 +560,19 @@ REBCNT Modify_String(
     if (formed)  // !!! TBD: Use mold buffer, don't make entire new series
         Free_Unmanaged_Series(formed);  // !!! should just be Drop_Mold()
 
-    REBBMK *bookmark = LINK(dst_ser).bookmarks;
     if (bookmark) {
-        assert(not LINK(bookmark).bookmarks);
-        RELVAL *mark = ARR_SINGLE(bookmark);
-        if (PAYLOAD(Bookmark, mark).index >= dst_idx)
-            PAYLOAD(Bookmark, mark).offset += src_size * dups;
-    }
-    else {
-        // We should have generated a bookmark in the process of this
-        // modification in most cases where the size is notable.  If we had
-        // not, we might add a new bookmark pertinent to the end of the
-        // insertion for longer series--since we know the width.
+        if (BMK_INDEX(bookmark) > SER_LEN(dst_ser)) {  // past active area
+            assert(sym == SYM_CHANGE); // only change removes material
+            Free_Bookmarks_Maybe_Null(dst_ser);
+        }
+        else {
+          #if defined(DEBUG_BOOKMARKS_ON_MODIFY)
+            Check_Bookmarks_Debug(dst_ser);
+          #endif
+
+            if (SER_LEN(dst_ser) < sizeof(REBVAL))  // not kept if small
+                Free_Bookmarks_Maybe_Null(dst_ser);
+        }
     }
 
     return (sym == SYM_APPEND) ? 0 : dst_idx;

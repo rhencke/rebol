@@ -49,7 +49,7 @@
 //   use the evaluator for a single step.
 //
 // * See %sys-do.h for wrappers that make it easier to run multiple evaluator
-//   steps in a frame and return the final result.
+//   steps in a frame and return the final result, giving VOID! by default.
 //
 // * Eval_Internal_Maybe_Stale_Throws() is LONG.  That's largely on purpose.
 //   Breaking it into functions would add overhead (in the debug build if not
@@ -66,50 +66,18 @@
 #include "sys-core.h"
 
 
-#if defined(DEBUG_COUNT_TICKS)  // <-- THIS IS VERY USEFUL, READ THIS SECTION!
+#if defined(DEBUG_COUNT_TICKS)  // <-- THIS IS VERY USEFUL, SEE %sys-eval.h!
     //
-    //      *** DON'T COMMIT THIS v-- KEEP IT AT ZERO! ***
-    #define TICK_BREAKPOINT        0
-    //      *** DON'T COMMIT THIS --^ KEEP IT AT ZERO! ***
+    // This counter is incremented each time a function dispatcher is run
+    // or a parse rule is executed.  See UPDATE_TICK_COUNT().
     //
-    // The evaluator `tick` should be visible in the C debugger watchlist as a
-    // local variable on each evaluator stack level.  So if a fail() happens
-    // at a deterministic moment in a run, capture the number from the level
-    // of interest and recompile for a breakpoint at that tick.
-    //
-    // If the tick is AFTER command line processing is done, you can request
-    // a tick breakpoint that way with `--breakpoint NNN`
-    //
-    // The debug build carries ticks many other places.  Series contain the
-    // `REBSER.tick` where they were created, frames have a `REBFRM.tick`,
-    // and the DEBUG_TRACK_EXTEND_CELLS switch will double the size of cells
-    // so they can carry the tick, file, and line where they were initialized.
-    // (Even without TRACK_EXTEND, cells that don't have their EXTRA() field
-    // in use carry the tick--it's in end cells, nulls, blanks, and trash.)
-    //
-    // For custom updating of stored ticks to help debugging some scenarios,
-    // see TOUCH_SERIES() and TOUCH_CELL().  Note also that BREAK_NOW() can be
-    // called to pause and dump state at any moment.
+    REBTCK TG_Tick;
 
-    #define UPDATE_TICK_DEBUG(v) \
-        do { \
-            if (TG_Tick < INTPTR_MAX)  /* avoid rollover (may be 32-bit!) */ \
-                tick = f->tick = ++TG_Tick; \
-            else \
-                tick = f->tick = INTPTR_MAX;  /* see tick for why signed! */ \
-            if ( \
-                (TG_Break_At_Tick != 0 and tick >= TG_Break_At_Tick) \
-                or tick == TICK_BREAKPOINT \
-            ){ \
-                printf("TICK_BREAKPOINT at %u\n", cast(unsigned int, tick)); \
-                Dump_Frame_Location((v), f); \
-                debug_break();  /* see %debug_break.h */ \
-                TG_Break_At_Tick = 0; \
-            } \
-        } while (false)  // macro so that breakpoint is at right stack level!
-#else
-    #define UPDATE_TICK_DEBUG(v) NOOP
-#endif
+    //      *** DON'T COMMIT THIS v-- KEEP IT AT ZERO! ***
+    REBTCK TG_Break_At_Tick =      0;
+    //      *** DON'T COMMIT THIS --^ KEEP IT AT ZERO! ***
+
+#endif  // ^-- SERIOUSLY: READ ABOUT C-DEBUG-BREAK AND PLACES TICKS ARE STORED
 
 
 //
@@ -147,8 +115,8 @@ REB_R Dispatch_Internal(REBFRM * const f)
 // means `++f->special` can be done without checking for null values.
 //
 // Additionally, in the f->param state, f->special will never register as
-// anything other than a typeset.  This increases performance of some checks,
-// e.g. `IS_NULLED(f->special)` can only match the other two cases.
+// anything other than a parameter.  This can speed up some checks, such as
+// where `IS_NULLED(f->special)` can only match the other two cases.
 //
 // Done with macros for speed in the debug build (which does not inline).
 // The name of the trigger condition is included since reinforcing what's true
@@ -385,7 +353,7 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 //     ]
 //
 // If the first time the THEN was seen was not after the 1, but when the
-// quote ran, it would get deferred until after the RETURN.  This is not
+// LIT ran, it would get deferred until after the RETURN.  This is not
 // consistent with the pattern people expect.
 //
 void Lookahead_To_Sync_Enfix_Defer_Flag(struct Reb_Feed *feed) {
@@ -643,7 +611,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
     UPDATE_TICK_DEBUG(v);
 
-    // v-- This is the TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
+    // v-- This is the TG_Break_At_Tick or C-DEBUG-BREAK landing spot --v
 
     if (KIND_BYTE(*next) != REB_WORD) // right's kind - END would be REB_0
         goto give_up_backward_quote_priority;

@@ -1345,12 +1345,6 @@ REBNATIVE(subparse)
         /* Print_Parse_Index(f); */
         UPDATE_EXPRESSION_START(f);
 
-      #if defined(DEBUG_COUNT_TICKS)
-        ++TG_Tick;
-        tick = TG_Tick;
-        cast(void, tick); // suppress unused warning (but UNUSED() corrupts)
-      #endif
-
     //==////////////////////////////////////////////////////////////////==//
     //
     // PRE-RULE PROCESSING SECTION
@@ -1421,6 +1415,8 @@ REBNATIVE(subparse)
                 assert(IS_END(P_CELL));
             }
         }
+
+        UPDATE_TICK_DEBUG(nullptr);  // wait after GC to identify *last* tick
 
     //=//// ANY-WORD!/ANY-PATH! PROCESSING ////////////////////////////////=//
 

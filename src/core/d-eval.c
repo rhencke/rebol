@@ -81,10 +81,10 @@ void Dump_Frame_Location(const RELVAL *v, REBFRM *f)
 
         if (FRM_IS_VALIST(f)) {
             //
-            // NOTE: This reifies the va_list in the frame, and hence has side
-            // effects.  It may need to be commented out if the problem you
-            // are trapping with TICK_BREAKPOINT or C-DEBUG-BREAK was
-            // specifically related to va_list frame processing.
+            // NOTE: This reifies the va_list in the frame, which should not
+            // affect procssing.  But it is a side-effect and may need to be
+            // avoided if the problem you are debugging was specifically
+            // related to va_list frame processing.
             //
             const bool truncated = true;
             Reify_Va_To_Array_In_Frame(f, truncated);

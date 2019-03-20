@@ -23,40 +23,45 @@
 // Panics are the equivalent of the "blue screen of death" and should never
 // happen in normal operation.  Generally, it is assumed nothing under the
 // user's control could fix or work around the issue, hence the main goal is
-// to provide the most diagnostic information possible.
+// to provide the most diagnostic information possible to devleopers.
 //
-// So the best thing to do is to pass in whatever REBVAL* or REBSER* subclass
+// The best thing to do is to pass in whatever REBVAL* or REBSER* subclass
 // (including REBARR*, REBCTX*, REBACT*...) is the most useful "smoking gun":
 //
 //     if (VAL_TYPE(value) == REB_VOID)
-//         panic (value);
+//         panic (value);  // debug build points out this file and line
 //
 //     if (ARR_LEN(array) < 2)
-//         panic (array);
+//         panic (array);  // panic is polymorphic, see Detect_Rebol_Pointer()
 //
-// Both the debug and release builds will spit out diagnostics of the item,
-// along with the file and line number of the problem.  The diagnostics are
-// written in such a way that they give the "more likely to succeed" output
-// first, and then get more aggressive to the point of possibly crashing by
-// dereferencing corrupt memory which triggered the panic.  The debug build
-// diagnostics will be more exhaustive, but the release build gives some info.
+// But if no smoking gun is available, a UTF-8 string can also be passed to
+// panic...and it will terminate with that as a message:
 //
-// The most useful argument to panic is going to be a problematic value or
-// series vs. a message (especially given that the file and line number are
-// included in the report).  But if no relevant smoking gun is available, a
-// UTF-8 string can also be passed to panic...and it will terminate with that
-// as a message:
+//     if (sizeof(foo) != 42)
+//         panic ("invalid foo size");  // kind of redundant with file + line
 //
-//     if (sizeof(foo) != 42) {
-//         panic ("invalid foo size");
+//=//// NOTES /////////////////////////////////////////////////////////////=//
 //
-//         /* this line will never be reached, because it
-//            immediately exited the process with a message */
-//     }
+// * It's desired that there be a space in `panic (...)` to make it look
+//   more "keyword-like" and draw attention that it's a `noreturn` call.
 //
-// NOTE: It's desired that there be a space in `panic (...)` to make it look
-// more "keyword-like" and draw attention to the fact it is a `noreturn` call.
+// * The diagnostics are written in such a way that they give the "more likely
+//   to succeed" output first, and then get more aggressive to the point of
+//   possibly crashing by dereferencing corrupt memory which triggered the
+//   panic.  The debug build diagnostics will be more exhaustive, but the
+//   release build gives some info.
 //
+
+#if defined(DEBUG_COUNT_TICKS)
+    //
+    // !!! The TG_Tick gets used in inline functions, and as a result it must
+    // be defined earlier than when the %sys-globals.h file can be included.
+    // This may be worked around by making sure all the types used in that
+    // file are present in %reb-defs.h ... review.
+    //
+    extern REBTCK TG_Tick;
+    extern REBTCK TG_Break_At_Tick;
+#endif
 
 #if defined(DEBUG_COUNT_TICKS)
     #ifdef NDEBUG

@@ -483,6 +483,12 @@ inline static REBCHR(*) STR_LAST(REBSTR *s) {
 
 #define Is_Definitely_Ascii(s) false
 
+#define BMK_INDEX(b) \
+    PAYLOAD(Bookmark, ARR_SINGLE(b)).index
+
+#define BMK_OFFSET(b) \
+    PAYLOAD(Bookmark, ARR_SINGLE(b)).offset
+
 inline static REBBMK* Alloc_Bookmark(void) {
     REBARR *bookmark = Alloc_Singular(SERIES_FLAG_MANAGED);
     CLEAR_SERIES_FLAG(bookmark, MANAGED);  // so it's manual but untracked
@@ -499,6 +505,26 @@ inline static void Free_Bookmarks_Maybe_Null(REBSTR *s) {
     LINK(s).bookmarks = nullptr;
 }
 
+#if !defined(NDEBUG)
+    inline static void Check_Bookmarks_Debug(REBSTR *s) {
+        REBBMK *bookmark = LINK(s).bookmarks;
+        if (not bookmark)
+            return;
+
+        assert(not LINK(SER(bookmark)).bookmarks);
+
+        REBCNT index = BMK_INDEX(bookmark);
+        REBSIZ offset = BMK_OFFSET(bookmark);
+
+        REBCHR(*) cp = STR_HEAD(s);
+        REBCNT i;
+        for (i = 0; i != index; ++i)
+            cp = NEXT_STR(cp);
+
+        REBSIZ actual = cast(REBYTE*, cp) - SER_DATA_RAW(s);
+        assert(actual == offset);
+    }
+#endif
 
 // UTF-8 cannot in the general case provide O(1) access for indexing.  We
 // attack the problem two ways: monitoring strings if they are ASCII only
@@ -563,7 +589,7 @@ inline static REBCHR(*) STR_AT(REBSER *s, REBCNT at) {
     assert(not LINK(bookmark).bookmarks);  // only one for now
 
     blockscope {
-        REBCNT booked = PAYLOAD(Bookmark, ARR_SINGLE(bookmark)).index;
+        REBCNT booked = BMK_INDEX(bookmark);
 
         if (at < booked / 2) {  // !!! when faster to seek from head?
             bookmark = nullptr;
@@ -575,10 +601,7 @@ inline static REBCHR(*) STR_AT(REBSER *s, REBCNT at) {
         }
 
         index = booked;
-        cp = cast(
-            REBCHR(*),
-            SER_DATA_RAW(s) + PAYLOAD(Bookmark, ARR_SINGLE(bookmark)).offset
-        );
+        cp = cast(REBCHR(*), SER_DATA_RAW(s) + BMK_OFFSET(bookmark));
     }
 
     if (index > at)
@@ -618,8 +641,8 @@ inline static REBCHR(*) STR_AT(REBSER *s, REBCNT at) {
 
   update_bookmark:
 
-    PAYLOAD(Bookmark, ARR_SINGLE(bookmark)).index = index;
-    PAYLOAD(Bookmark, ARR_SINGLE(bookmark)).offset = cp - STR_HEAD(s);
+    BMK_INDEX(bookmark) = index;
+    BMK_OFFSET(bookmark) = cp - STR_HEAD(s);
 
   #if defined(DEBUG_VERIFY_STR_AT)
     REBCHR(*) check_cp = STR_HEAD(s);
