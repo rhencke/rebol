@@ -65,13 +65,11 @@
 // IF or CATCH or PRINT to have an opportunity, they would need to be changed
 // to include a PUSH_TRAP() call.
 //
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// NOTES /////////////////////////////////////////////////////////////=//
 //
-// NOTE: If you are integrating with C++ and a longjmp crosses a constructed
-// object, abandon all hope...UNLESS you use Ren-cpp.  It is careful to
-// avoid this trap, and you don't want to redo that work.
-//
-//     http://stackoverflow.com/questions/1376085/
+// * Mixing C++ and C code using longjmp is a recipe for disaster.  The plan
+//   is that API primitives like rebRescue() will be able to abstract the
+//   mechanism for fail, but for the moment only longjmp is implemented.
 //
 
 
@@ -293,83 +291,5 @@ inline static void DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(struct Reb_State *s) {
             do { \
                 Fail_Core(error); \
             } while (0)
-    #endif
-#endif
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// PANIC (Force System Exit with Diagnostic Info)
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Panics are the equivalent of the "blue screen of death" and should never
-// happen in normal operation.  Generally, it is assumed nothing under the
-// user's control could fix or work around the issue, hence the main goal is
-// to provide the most diagnostic information possible.
-//
-// So the best thing to do is to pass in whatever REBVAL* or REBSER* subclass
-// (including REBARR*, REBCTX*, REBACT*...) is the most useful "smoking gun":
-//
-//     if (VAL_TYPE(value) == REB_VOID)
-//         panic (value);
-//
-//     if (ARR_LEN(array) < 2)
-//         panic (array);
-//
-// Both the debug and release builds will spit out diagnostics of the item,
-// along with the file and line number of the problem.  The diagnostics are
-// written in such a way that they give the "more likely to succeed" output
-// first, and then get more aggressive to the point of possibly crashing by
-// dereferencing corrupt memory which triggered the panic.  The debug build
-// diagnostics will be more exhaustive, but the release build gives some info.
-//
-// The most useful argument to panic is going to be a problematic value or
-// series vs. a message (especially given that the file and line number are
-// included in the report).  But if no relevant smoking gun is available, a
-// UTF-8 string can also be passed to panic...and it will terminate with that
-// as a message:
-//
-//     if (sizeof(foo) != 42) {
-//         panic ("invalid foo size");
-//
-//         /* this line will never be reached, because it
-//            immediately exited the process with a message */
-//     }
-//
-// NOTE: It's desired that there be a space in `panic (...)` to make it look
-// more "keyword-like" and draw attention to the fact it is a `noreturn` call.
-//
-#if defined(DEBUG_COUNT_TICKS)
-    #ifdef NDEBUG
-        #define panic(v) \
-            Panic_Core((v), TG_Tick, NULL, 0)
-
-        #define panic_at(v,file,line) \
-            UNUSED(file); \
-            UNUSED(line); \
-            panic(v)
-    #else
-        #define panic(v) \
-            Panic_Core((v), TG_Tick, __FILE__, __LINE__)
-
-        #define panic_at(v,file,line) \
-            Panic_Core((v), TG_Tick, (file), (line))
-    #endif
-#else
-    #ifdef NDEBUG
-        #define panic(v) \
-            Panic_Core((v), 0, NULL, 0)
-
-        #define panic_at(v,file,line) \
-            UNUSED(file); \
-            UNUSED(line); \
-            panic(v)
-    #else
-        #define panic(v) \
-            Panic_Core((v), 0, __FILE__, __LINE__)
-
-        #define panic_at(v,file,line) \
-            Panic_Core((v), 0, (file), (line))
     #endif
 #endif
