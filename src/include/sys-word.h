@@ -21,17 +21,133 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // The ANY-WORD! is the fundamental symbolic concept of Rebol.  It is
-// implemented as a REBSTR UTF-8 string (see %sys-string.h), and can act as
-// a variable when it is bound specifically to a context (see %sys-context.h)
-// or when bound relatively to a function (see %sys-action.h).
+// implemented as a REBSTR UTF-8 string (see %sys-string.h), but rather than
+// hold "bookmark" caches of indexing positions into its data (which is
+// generally quite short and not iterated), it stores links to "synonyms"
+// of alternate spellings which share the same symbol ID.
+//
+// ANY-WORD! can act as a variable when bound specifically to a context
+// (see %sys-context.h) or bound relatively to an action (see %sys-action.h).
 //
 // For routines that manage binding, see %sys-bind.h.
 //
-// !!! Today's words are different from ANY-STRING! values.  This is because
-// they are interned (only one copy of the UTF-8 data for all instances).
-// Binding is allowed on them, while it is not on regular strings.  There are
-// open questions about whether the categories can (or should) be merged.
+
+
+//=//// SAFE COMPARISONS WITH BUILT-IN SYMBOLS ////////////////////////////=//
 //
+// A SYM refers to one of the built-in words and can be used in C switch
+// statements.  A canon STR is used to identify everything else.
+// 
+// R3-Alpha's concept was that all words got persistent integer values, which
+// prevented garbage collection.  Ren-C only gives built-in words integer
+// values--or SYMs--while others must be compared by pointers to their
+// name or canon-name pointers.  A non-built-in symbol will return SYM_0 as
+// its symbol, allowing it to fall through to defaults in case statements.
+//
+// Though it works fine for switch statements, it creates a problem if someone
+// writes `VAL_WORD_SYM(a) == VAL_WORD_SYM(b)`, because all non-built-ins
+// will appear to be equal.  It's a tricky enough bug to catch to warrant an
+// extra check in C++ that disallows comparing SYMs with ==
+
+#if defined(NDEBUG) || !defined(CPLUSPLUS_11)
+    //
+    // Trivial definition for C build or release builds: symbols are just a C
+    // enum value and an OPT_REBSYM acts just like a REBSYM.
+    //
+    typedef enum Reb_Symbol REBSYM;
+    typedef enum Reb_Symbol OPT_REBSYM;
+#else
+    struct REBSYM;
+
+    struct OPT_REBSYM {  // may only be converted to REBSYM, no comparisons
+        enum Reb_Symbol n;
+        OPT_REBSYM (const REBSYM& sym);
+        bool operator==(enum Reb_Symbol other) const
+          { return n == other; }
+        bool operator!=(enum Reb_Symbol other) const
+          { return n != other; }
+
+        bool operator==(OPT_REBSYM &&other) const = delete;
+        bool operator!=(OPT_REBSYM &&other) const = delete;
+
+        operator unsigned int() const
+          { return cast(unsigned int, n); }
+    };
+
+    struct REBSYM {  // acts like a REBOL_Symbol with no OPT_REBSYM compares
+        enum Reb_Symbol n;
+        REBSYM () {}
+        REBSYM (int n) : n (cast(enum Reb_Symbol, n)) {}
+        REBSYM (OPT_REBSYM opt_sym) : n (opt_sym.n) {}
+        operator unsigned int() const
+          { return cast(unsigned int, n); }
+
+        bool operator>=(enum Reb_Symbol other) const {
+            assert(other != SYM_0);
+            return n >= other;
+        }
+        bool operator<=(enum Reb_Symbol other) const {
+            assert(other != SYM_0);
+            return n <= other;
+        }
+        bool operator>(enum Reb_Symbol other) const {
+            assert(other != SYM_0);
+            return n > other;
+        }
+        bool operator<(enum Reb_Symbol other) const {
+            assert(other != SYM_0);
+            return n < other;
+        }
+        bool operator==(enum Reb_Symbol other) const
+          { return n == other; }
+        bool operator!=(enum Reb_Symbol other) const
+          { return n != other; }
+
+        bool operator==(REBSYM &other) const = delete;  // may be SYM_0
+        void operator!=(REBSYM &other) const = delete;  // ...same
+        bool operator==(const OPT_REBSYM &other) const = delete;  // ...same
+        void operator!=(const OPT_REBSYM &other) const = delete;  // ...same
+    };
+
+    inline OPT_REBSYM::OPT_REBSYM(const REBSYM &sym) : n (sym.n) {}
+#endif
+
+inline static bool SAME_SYM_NONZERO(REBSYM a, REBSYM b) {
+    assert(a != SYM_0 and b != SYM_0);
+    return cast(REBCNT, a) == cast(REBCNT, b);
+}
+
+inline static REBSTR *STR_CANON(REBSTR *s) {
+    assert(NOT_SERIES_FLAG(s, UTF8_NONWORD));
+    assert(SER_WIDE(s) == 1);
+    while (NOT_SERIES_INFO(s, STRING_CANON))
+        s = LINK(s).synonym; // circularly linked list
+    return s;
+}
+
+inline static OPT_REBSYM STR_SYMBOL(REBSTR *s) {
+    assert(NOT_SERIES_FLAG(s, UTF8_NONWORD));
+    assert(SER_WIDE(s) == 1);
+    uint16_t sym = SECOND_UINT16(s->header);
+    assert(sym == SECOND_UINT16(STR_CANON(s)->header));
+    return cast(REBSYM, sym);
+}
+
+inline static REBSTR *Canon(REBSYM sym) {
+    assert(cast(REBCNT, sym) != 0);
+    assert(cast(REBCNT, sym) < SER_LEN(PG_Symbol_Canons));
+    return *SER_AT(REBSTR*, PG_Symbol_Canons, cast(REBCNT, sym));
+}
+
+inline static bool SAME_STR(REBSTR *s1, REBSTR *s2) {
+    assert(NOT_SERIES_FLAG(s1, UTF8_NONWORD));
+    assert(NOT_SERIES_FLAG(s2, UTF8_NONWORD));
+
+    if (s1 == s2)
+        return true; // !!! does this check speed things up or not?
+    return STR_CANON(s1) == STR_CANON(s2); // canon check, quite fast
+}
+
 
 inline static bool IS_WORD_UNBOUND(const REBCEL *v) {
     assert(ANY_WORD_KIND(CELL_KIND(v)));

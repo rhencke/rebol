@@ -507,13 +507,13 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 
 #include "sys-binary.h" // BYTE_SIZE(), BIN_HEAD(), etc. used by strings
 #include "sys-string.h" // REBSYM needed for typeset datatype symbols
+#include "sys-word.h"
 
 #include "sys-quoted.h" // requires singular arrays for cell storage
 
 #include "sys-action.h"
 #include "sys-context.h" // needs actions defined for FRAME! contexts
 
-#include "sys-word.h"
 
 #include "sys-typeset.h"
 #include "sys-bitset.h"

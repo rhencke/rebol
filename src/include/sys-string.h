@@ -20,18 +20,32 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// R3-Alpha and Red worked with strings in their decoded form, in series with
-// fixed-size elements of varying width (Latin1, UTF-16).  Ren-C goes instead
-// with the idea of "UTF-8 everywhere", storing all words and strings as
-// UTF-8, and only converting at I/O points if the platform requires it
-// (e.g. Windows).  Rationale for this methodlogy is outlined here:
+// The ANY-STRING! and ANY-WORD! data types follows "UTF-8 everywhere", and
+// stores all words and strings as UTF-8.  Then it only converts to other
+// encodings at I/O points if the platform requires it (e.g. Windows):
 //
 // http://utf8everywhere.org/
 //
-// UTF-8 strings are "byte-sized series", which is also true of BINARY!
-// datatypes.  However, the series used to store UTF-8 strings also store
-// information about their length in codepoints in their series nodes (the
-// main "number of bytes used" in the series conveys bytes, not codepoints).
+// UTF-8 cannot in the general case provide O(1) access for indexing.  We
+// attack the problem three ways:
+//
+// * Avoiding loops which try to access by index, and instead make it easier
+//   to smoothly traverse known good UTF-8 data using REBCHR(*).
+//
+// * Monitoring strings if they are ASCII only and using that to make an
+//   optimized jump.  !!! Work in progress, see notes below.
+//
+// * Maintaining caches (called "Bookmarks") that map from codepoint indexes
+//   to byte offsets for larger strings.  These caches must be updated
+//   whenever the string is modified.   !!! Only one bookmark per string ATM
+//
+//=//// NOTES /////////////////////////////////////////////////////////////=//
+//
+// * UTF-8 strings are "byte-sized series", which is also true of BINARY!
+//   datatypes.  However, the series used to store UTF-8 strings also store
+//   information about their length in codepoints in their series nodes (the
+//   main "number of bytes used" in the series conveys bytes, not codepoints).
+//   See the distinction between SER_USED() and SER_LEN()
 //
 
 
@@ -63,12 +77,12 @@
 // !!! Error handling is still included due to running common routines, but
 // should be factored out for efficiency.
 //
-#if !defined(CPLUSPLUS_11) /* or !defined(NDEBUG) */
+#if !defined(CPLUSPLUS_11) or !defined(DEBUG_UTF8_EVERYWHERE)
     //
     // Plain C build uses trivial expansion of REBCHR() and REBCHR(const*)
     //
-    // REBCHR(*) cp; => REBYTE * cp;
-    // REBCHR(const*) cp; => REBYTE const* cp;
+    //          REBCHR(*) cp;   =>   REBYTE * cp;
+    //     REBCHR(const*) cp;   =>   REBYTE const* cp;
     //
     #define REBCHR(star_or_const_star) \
         REBYTE star_or_const_star
@@ -149,12 +163,13 @@
     // incompatible runtime interface between C and C++ builds of cores and
     // extensions using the internal API--which we want to avoid!
     //
-    // NOTE: THIS IS EXTREMELY SLOW IN UNOPTIMIZED BUILDS!  They do not do
-    // inlining so traversing strings involves a lot of constructing objects
-    // and calling methods that call methods.  Hence these classes are used
-    // only in non-debug (and hopefully) optimized builds, where the inlining
-    // makes it equivalent to the C version.  That allows for the compile-time
-    // type checking but no runtime overhead.
+    // NOTE: THE NON-INLINED OVERHEAD IS EXTREME IN UNOPTIMIZED BUILDS!  A
+    // debug build does not inline these classes and functions.  So traversing
+    // strings involves a lot of constructing objects and calling methods that
+    // call methods.  Hence these classes are used only in non-debug (and
+    // hopefully) optimized builds, where the inlining makes it equivalent to
+    // the C version.  That allows for the compile-time type checking but no
+    // added runtime overhead.
     //
     template<typename T> struct RebchrPtr;
     #define REBCHR(star_or_const_star) \
@@ -299,98 +314,7 @@
 #endif
 
 
-//=//// SAFE COMPARISONS WITH BUILT-IN SYMBOLS ////////////////////////////=//
-//
-// R3-Alpha's concept was that all words got persistent integer values, which
-// prevented garbage collection.  Ren-C only gives built-in words integer
-// values--or SYMs--while others must be compared by pointers to their
-// name or canon-name pointers.  A non-built-in symbol will return SYM_0 as
-// its symbol, allowing it to fall through to defaults in case statements.
-//
-// Though it works fine for switch statements, it creates a problem if someone
-// writes `VAL_WORD_SYM(a) == VAL_WORD_SYM(b)`, because all non-built-ins
-// will appear to be equal.  It's a tricky enough bug to catch to warrant an
-// extra check in C++ that disallows comparing SYMs with ==
-
-#if defined(NDEBUG) || !defined(CPLUSPLUS_11)
-    //
-    // Trivial definition for C build or release builds: symbols are just a C
-    // enum value and an OPT_REBSYM acts just like a REBSYM.
-    //
-    typedef enum Reb_Symbol REBSYM;
-    typedef enum Reb_Symbol OPT_REBSYM;
-#else
-    struct REBSYM;
-
-    struct OPT_REBSYM {  // may only be converted to REBSYM, no comparisons
-        enum Reb_Symbol n;
-        OPT_REBSYM (const REBSYM& sym);
-        bool operator==(enum Reb_Symbol other) const
-          { return n == other; }
-        bool operator!=(enum Reb_Symbol other) const
-          { return n != other; }
-
-        bool operator==(OPT_REBSYM &&other) const = delete;
-        bool operator!=(OPT_REBSYM &&other) const = delete;
-
-        operator unsigned int() const
-          { return cast(unsigned int, n); }
-    };
-
-    struct REBSYM {  // acts like a REBOL_Symbol with no OPT_REBSYM compares
-        enum Reb_Symbol n;
-        REBSYM () {}
-        REBSYM (int n) : n (cast(enum Reb_Symbol, n)) {}
-        REBSYM (OPT_REBSYM opt_sym) : n (opt_sym.n) {}
-        operator unsigned int() const
-          { return cast(unsigned int, n); }
-
-        bool operator>=(enum Reb_Symbol other) const {
-            assert(other != SYM_0);
-            return n >= other;
-        }
-        bool operator<=(enum Reb_Symbol other) const {
-            assert(other != SYM_0);
-            return n <= other;
-        }
-        bool operator>(enum Reb_Symbol other) const {
-            assert(other != SYM_0);
-            return n > other;
-        }
-        bool operator<(enum Reb_Symbol other) const {
-            assert(other != SYM_0);
-            return n < other;
-        }
-        bool operator==(enum Reb_Symbol other) const
-          { return n == other; }
-        bool operator!=(enum Reb_Symbol other) const
-          { return n != other; }
-
-        bool operator==(REBSYM &other) const = delete;  // may be SYM_0
-        void operator!=(REBSYM &other) const = delete;  // ...same
-        bool operator==(const OPT_REBSYM &other) const = delete;  // ...same
-        void operator!=(const OPT_REBSYM &other) const = delete;  // ...same
-    };
-
-    inline OPT_REBSYM::OPT_REBSYM(const REBSYM &sym) : n (sym.n) {}
-#endif
-
-inline static bool SAME_SYM_NONZERO(REBSYM a, REBSYM b) {
-    assert(a != SYM_0 and b != SYM_0);
-    return cast(REBCNT, a) == cast(REBCNT, b);
-}
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  REBSTR series for UTF-8 strings
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// The concept is that a SYM refers to one of the built-in words and can
-// be used in C switch statements.  A canon STR is used to identify
-// everything else.
-//
+//=//// REBSTR SERIES FOR UTF8 STRINGS ////////////////////////////////////=//
 
 #define STR(p) \
     SER(p)  // !!! Enhance with more checks, like SER(), NOD(), etc.
@@ -399,48 +323,16 @@ inline static const char *STR_UTF8(REBSTR *s) {
     return cast(const char*, BIN_HEAD(s));
 }
 
-inline static REBSTR *STR_CANON(REBSTR *s) {
-    assert(NOT_SERIES_FLAG(s, UTF8_NONWORD));
-    assert(SER_WIDE(s) == 1);
-    while (NOT_SERIES_INFO(s, STRING_CANON))
-        s = LINK(s).synonym; // circularly linked list
-    return s;
-}
-
-inline static OPT_REBSYM STR_SYMBOL(REBSTR *s) {
-    assert(NOT_SERIES_FLAG(s, UTF8_NONWORD));
-    assert(SER_WIDE(s) == 1);
-    uint16_t sym = SECOND_UINT16(s->header);
-    assert(sym == SECOND_UINT16(STR_CANON(s)->header));
-    return cast(REBSYM, sym);
-}
-
 inline static size_t STR_SIZE(REBSTR *s) {
     assert(SER_WIDE(s) == 1);
     return SER_USED(s); // number of bytes in series is the UTF-8 size
 }
 
-inline static REBSTR *Canon(REBSYM sym) {
-    assert(cast(REBCNT, sym) != 0);
-    assert(cast(REBCNT, sym) < SER_LEN(PG_Symbol_Canons));
-    return *SER_AT(REBSTR*, PG_Symbol_Canons, cast(REBCNT, sym));
-}
-
-inline static bool SAME_STR(REBSTR *s1, REBSTR *s2) {
-    if (s1 == s2)
-        return true; // !!! does this check speed things up or not?
-    return STR_CANON(s1) == STR_CANON(s2); // canon check, quite fast
-}
-
-
+// Note that STR_LEN() is not currently available on ANY-WORD! data REBSTRs.
+// That's because they need the slot in their series node for maintaining a
+// linked list to other canons.  They're usually short, so calculating the
+// size is not too bad.
 //
-// STR_XXX: These are for dealing with the series behind an ANY-STRING!
-// Currently they are slightly different than the STR_XXX functions, because
-// the ANY-WORD! series don't store their lengths in codepoints.
-// They need the slot in their series node for maintaining a linked list
-// to other canons.  They're usually short, so calculating the size is
-// not too bad.
-
 inline static REBCNT STR_LEN(REBSER *s) {
     assert(SER_WIDE(s) == sizeof(REBYTE));
     assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
@@ -481,7 +373,35 @@ inline static REBCHR(*) STR_LAST(REBSTR *s) {
 }
 
 
+//=//// STRING ALL-ASCII FLAG /////////////////////////////////////////////=//
+//
+// One of the best optimizations that can be done on strings is to keep track
+// of if they contain only ASCII codepoints.  Such a flag would likely have
+// false negatives, unless all removals checked the removed portion for if
+// the ASCII flag is true.  It could be then refreshed by any routine that
+// walks an entire string for some other reason (like molding or printing).
+//
+// For the moment, we punt on this optimization.  The main reason is that it
+// means the non-ASCII code is exercised on every code path, which is a good
+// substitute for finding high-codepoint data to pass through to places that
+// would not receive it otherwise.
+//
+// But ultimately this optimization will be necessary, and decisions on how
+// up-to-date the flag should be kept would need to be made.
+
 #define Is_Definitely_Ascii(s) false
+
+inline static bool Is_String_Definitely_ASCII(const RELVAL *str) {
+    UNUSED(str);
+    return false;
+}
+
+
+//=//// CACHED ACCESSORS AND BOOKMARKS ////////////////////////////////////=//
+//
+// A "bookmark" in this terminology is simply a small REBSER-sized node which
+// holds a mapping from an index to an offset in a string.  It is pointed to
+// by the string's LINK() field in the series node.
 
 #define BMK_INDEX(b) \
     PAYLOAD(Bookmark, ARR_SINGLE(b)).index
@@ -526,12 +446,6 @@ inline static void Free_Bookmarks_Maybe_Null(REBSTR *s) {
     }
 #endif
 
-// UTF-8 cannot in the general case provide O(1) access for indexing.  We
-// attack the problem two ways: monitoring strings if they are ASCII only
-// and using that to make an optimized jump, and maintaining caches that
-// map from codepoint indexes to byte offsets for larger strings.  (These
-// caches must be updated whenever the string is modified.)
-//
 // Note that we only ever create caches for strings that have had STR_AT()
 // run on them.  So the more operations that avoid STR_AT(), the better!
 // Using STR_HEAD() and STR_TAIL() will give a REBCHR(*) that can be used to
@@ -539,6 +453,8 @@ inline static void Free_Bookmarks_Maybe_Null(REBSTR *s) {
 // to get away with not having any bookmarks at all.
 //
 inline static REBCHR(*) STR_AT(REBSER *s, REBCNT at) {
+    assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
+
     assert(at <= STR_LEN(s));
 
     if (Is_Definitely_Ascii(s)) {  // can't have any false positives
@@ -766,45 +682,36 @@ inline static void SET_CHAR_AT(REBSER *s, REBCNT n, REBUNI c) {
 }
 
 
+//=//// ANY-STRING! CONVENIENCE MACROS ////////////////////////////////////=//
 
-//=////////////////////////////////////////////////////////////////////////=//
+#define Init_Text(v,s)      Init_Any_Series((v), REB_TEXT, (s))
+#define Init_File(v,s)      Init_Any_Series((v), REB_FILE, (s))
+#define Init_Email(v,s)     Init_Any_Series((v), REB_EMAIL, (s))
+#define Init_Tag(v,s)       Init_Any_Series((v), REB_TAG, (s))
+#define Init_Url(v,s)       Init_Any_Series((v), REB_URL, (s))
+
+
+//=//// REBSTR CREATION HELPERS ///////////////////////////////////////////=//
 //
-//  ANY-STRING! (uses `struct Reb_Any_Series`)
-//
-//=////////////////////////////////////////////////////////////////////////=//
-
-#define Init_Text(v,s) \
-    Init_Any_Series((v), REB_TEXT, (s))
-
-#define Init_File(v,s) \
-    Init_Any_Series((v), REB_FILE, (s))
-
-#define Init_Email(v,s) \
-    Init_Any_Series((v), REB_EMAIL, (s))
-
-#define Init_Tag(v,s) \
-    Init_Any_Series((v), REB_TAG, (s))
-
-#define Init_Url(v,s) \
-    Init_Any_Series((v), REB_URL, (s))
-
-
-// Basic string initialization from UTF8.  (Most clients should be using the
-// rebStringXXX() APIs for this).  Note that these routines may fail() if the
+// Note that most clients should be using the rebStringXXX() APIs for this
+// and generate REBVAL*.  Note also that these routines may fail() if the
 // data they are given is not UTF-8.
 
-inline static REBSER *Make_String_UTF8(const char *utf8)
-{
+#define Make_String(encoded_capacity) \
+    Make_String_Core((encoded_capacity), SERIES_FLAGS_NONE)
+
+inline static REBSER *Make_String_UTF8(const char *utf8) {
     const bool crlf_to_lf = false;
     return Append_UTF8_May_Fail(NULL, utf8, strsize(utf8), crlf_to_lf);
 }
 
-inline static REBSER *Make_Sized_String_UTF8(const char *utf8, size_t size)
-{
+inline static REBSER *Make_Sized_String_UTF8(const char *utf8, size_t size) {
     const bool crlf_to_lf = false;
     return Append_UTF8_May_Fail(NULL, utf8, size, crlf_to_lf);
 }
 
+
+//=//// REBSTR HASHING ////////////////////////////////////////////////////=//
 
 inline static REBINT Hash_String(REBSTR *str)
     { return Hash_UTF8(STR_HEAD(str), STR_SIZE(str)); }
@@ -821,14 +728,10 @@ inline static REBINT First_Hash_Candidate_Slot(
 }
 
 
-//
-// Copy helpers
-//
+//=//// REBSTR COPY HELPERS ///////////////////////////////////////////////=//
 
-inline static REBSER *Copy_String_At(const RELVAL *v)
-{
-    return Copy_String_At_Limit(v, -1);
-}
+#define Copy_String_At(v) \
+    Copy_String_At_Limit((v), -1)
 
 inline static REBSER *Copy_Sequence_At_Len(
     REBSER *s,
@@ -837,17 +740,3 @@ inline static REBSER *Copy_Sequence_At_Len(
 ){
     return Copy_Sequence_At_Len_Extra(s, index, len, 0);
 }
-
-
-// This is a speculative routine, which is based on the idea that it will be
-// common for UTF-8 anywhere strings to cache a bit saying whether they are
-// in ASCII range and fixed size.  If this is the case, different algorithms
-// might be applied, for instance a standard C qsort() to sort the characters.
-//
-inline static bool Is_String_Definitely_ASCII(const RELVAL *str) {
-    UNUSED(str);
-    return false;
-}
-
-#define Make_String(encoded_capacity) \
-    Make_String_Core((encoded_capacity), SERIES_FLAGS_NONE)
