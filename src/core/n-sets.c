@@ -190,7 +190,7 @@ REBSER *Make_Set_Operation_Series(
             //
             i = VAL_INDEX(val1);
             for (; i < SER_LEN(ser); i += skip) {
-                uc = GET_ANY_CHAR(ser, i);
+                uc = GET_CHAR_AT(ser, i);
                 if (flags & SOP_FLAG_CHECK) {
                     h = (NOT_FOUND != Find_Char_In_Str(
                         uc,
@@ -262,7 +262,7 @@ REBSER *Make_Set_Operation_Series(
             //
             i = VAL_INDEX(val1);
             for (; i < SER_LEN(ser); i += skip) {
-                uc = GET_ANY_CHAR(ser, i);
+                uc = GET_CHAR_AT(ser, i);
                 if (flags & SOP_FLAG_CHECK) {
                     h = (NOT_FOUND != Find_Char_In_Bin(
                         uc,

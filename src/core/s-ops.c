@@ -239,9 +239,9 @@ void Shuffle_String(REBVAL *value, bool secure)
     for (n = VAL_LEN_AT(value); n > 1;) {
         k = idx + (REBCNT)Random_Int(secure) % n;
         n--;
-        swap = GET_ANY_CHAR(series, k);
-        SET_ANY_CHAR(series, k, GET_ANY_CHAR(series, n + idx));
-        SET_ANY_CHAR(series, n + idx, swap);
+        swap = GET_CHAR_AT(series, k);
+        SET_CHAR_AT(series, k, GET_CHAR_AT(series, n + idx));
+        SET_CHAR_AT(series, n + idx, swap);
     }
 }
 

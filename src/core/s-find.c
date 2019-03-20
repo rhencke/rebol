@@ -125,8 +125,8 @@ bool Match_Sub_Path(REBSER *s1, REBSER *s2)
 
     REBCNT n;
     for (n = 0; n < len1; n++) { // includes terminator
-        c1 = GET_ANY_CHAR(s1, n);
-        c2 = GET_ANY_CHAR(s2, n);
+        c1 = GET_CHAR_AT(s1, n);
+        c2 = GET_CHAR_AT(s2, n);
 
         if (LO_CASE(c1) != LO_CASE(c2))
             return false; // all chars must match
@@ -134,7 +134,7 @@ bool Match_Sub_Path(REBSER *s1, REBSER *s2)
 
     // a/b matches: a/b, a/b/, a/b/c
     //
-    c2 = GET_ANY_CHAR(s2, n);
+    c2 = GET_CHAR_AT(s2, n);
     return did (
             n >= len1 // all chars matched
             and  // Must be at end or at dir sep:

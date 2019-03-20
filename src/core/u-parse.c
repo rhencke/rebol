@@ -704,13 +704,13 @@ static REBIXO Parse_One_Rule(
             // !!! Could this unify with above method for binary, somehow?
 
             if (P_HAS_CASE) {
-                if (VAL_CHAR(rule) != GET_ANY_CHAR(P_INPUT, P_POS))
+                if (VAL_CHAR(rule) != GET_CHAR_AT(P_INPUT, P_POS))
                     return END_FLAG;
             }
             else {
                 if (
                     UP_CASE(VAL_CHAR(rule))
-                    != UP_CASE(GET_ANY_CHAR(P_INPUT, P_POS))
+                    != UP_CASE(GET_CHAR_AT(P_INPUT, P_POS))
                 ){
                     return END_FLAG;
                 }
@@ -741,7 +741,7 @@ static REBIXO Parse_One_Rule(
             if (P_TYPE == REB_BINARY)
                 uni = *BIN_AT(P_INPUT, P_POS);
             else
-                uni = GET_ANY_CHAR(P_INPUT, P_POS);
+                uni = GET_CHAR_AT(P_INPUT, P_POS);
 
             if (Check_Bit(VAL_BITSET(rule), uni, not P_HAS_CASE))
                 return P_POS + 1;
@@ -852,24 +852,16 @@ static REBIXO To_Thru_Block_Rule(
                     }
                 }
                 else if (IS_BINARY(rule)) {
-                    if (ch1 == *VAL_BIN_AT(rule)) {
-                        REBCNT len = VAL_LEN_AT(rule);
-                        if (len == 1) {
-                            if (is_thru)
-                                return pos + 1;
-                            return pos;
-                        }
-
-                        if (0 == Compare_Bytes(
-                            BIN_AT(P_INPUT, pos),
-                            VAL_BIN_AT(rule),
-                            len,
-                            false
-                        )) {
-                            if (is_thru)
-                                return pos + 1;
-                            return pos;
-                        }
+                    REBCNT len = VAL_LEN_AT(rule);
+                    if (0 == Compare_Bytes(
+                        BIN_AT(P_INPUT, pos),
+                        VAL_BIN_AT(rule),
+                        len,
+                        false
+                    )) {
+                        if (is_thru)
+                            return pos + 1;
+                        return pos;
                     }
                 }
                 else if (IS_INTEGER(rule)) {
@@ -885,15 +877,16 @@ static REBIXO To_Thru_Block_Rule(
                 else
                     fail (Error_Parse_Rule());
             }
-            else { // String
-                REBUNI ch_unadjusted = GET_ANY_CHAR(P_INPUT, pos);
+            else {
+                assert(ANY_STRING_KIND(P_TYPE));
+
+                REBUNI ch_unadjusted = GET_CHAR_AT(P_INPUT, pos);
                 REBUNI ch;
                 if (!P_HAS_CASE)
                     ch = UP_CASE(ch_unadjusted);
                 else
                     ch = ch_unadjusted;
 
-                // Handle special string types:
                 if (IS_CHAR(rule)) {
                     REBUNI ch2 = VAL_CHAR(rule);
                     if (!P_HAS_CASE)
@@ -904,7 +897,6 @@ static REBIXO To_Thru_Block_Rule(
                         return pos;
                     }
                 }
-                // bitset
                 else if (IS_BITSET(rule)) {
                     if (Check_Bit(VAL_SERIES(rule), ch, not P_HAS_CASE)) {
                         if (is_thru)
@@ -940,34 +932,23 @@ static REBIXO To_Thru_Block_Rule(
                     }
                 }
                 else if (ANY_STRING(rule)) {
-                    REBUNI ch2 = VAL_ANY_CHAR(rule);
-                    if (!P_HAS_CASE) ch2 = UP_CASE(ch2);
+                    REBCNT len = VAL_LEN_AT(rule);
+                    const REBINT skip = 1;
+                    REBCNT i = Find_Str_In_Str(
+                        P_INPUT,
+                        pos,
+                        SER_LEN(P_INPUT),
+                        skip,
+                        VAL_SERIES(rule),
+                        VAL_INDEX(rule),
+                        len,
+                        AM_FIND_MATCH | P_FIND_FLAGS
+                    );
 
-                    if (ch == ch2) {
-                        REBCNT len = VAL_LEN_AT(rule);
-                        if (len == 1) {
-                            if (is_thru)
-                                return pos + 1;
-                            return pos;
-                        }
-
-                        const REBINT skip = 1;
-                        REBCNT i = Find_Str_In_Str(
-                            P_INPUT,
-                            pos,
-                            SER_LEN(P_INPUT),
-                            skip,
-                            VAL_SERIES(rule),
-                            VAL_INDEX(rule),
-                            len,
-                            AM_FIND_MATCH | P_FIND_FLAGS
-                        );
-
-                        if (i != NOT_FOUND) {
-                            if (is_thru)
-                                return i + len;
-                            return i;
-                        }
+                    if (i != NOT_FOUND) {
+                        if (is_thru)
+                            return i + len;
+                        return i;
                     }
                 }
                 else if (IS_INTEGER(rule)) {
@@ -981,7 +962,7 @@ static REBIXO To_Thru_Block_Rule(
                     fail (Error_Parse_Rule());
             }
 
-          next_alternate_rule:; // alternates are BAR! separated `[a | b | c]`
+          next_alternate_rule:  // alternates are BAR! separated `[a | b | c]`
 
             do {
                 ++blk;
@@ -2401,7 +2382,7 @@ REBNATIVE(subparse)
                         else
                             Init_Char_Unchecked(
                                 var,
-                                GET_ANY_CHAR(P_INPUT, begin)
+                                GET_CHAR_AT(P_INPUT, begin)
                             );
                     }
                 }

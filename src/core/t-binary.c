@@ -63,11 +63,11 @@ static void swap_chars(REBVAL *val1, REBVAL *val2)
     REBSER *s1 = VAL_SERIES(val1);
     REBSER *s2 = VAL_SERIES(val2);
 
-    REBUNI c1 = GET_ANY_CHAR(s1, VAL_INDEX(val1));
-    REBUNI c2 = GET_ANY_CHAR(s2, VAL_INDEX(val2));
+    REBUNI c1 = GET_CHAR_AT(s1, VAL_INDEX(val1));
+    REBUNI c2 = GET_CHAR_AT(s2, VAL_INDEX(val2));
 
-    SET_ANY_CHAR(s1, VAL_INDEX(val1), c2);
-    SET_ANY_CHAR(s2, VAL_INDEX(val2), c1);
+    SET_CHAR_AT(s1, VAL_INDEX(val1), c2);
+    SET_CHAR_AT(s2, VAL_INDEX(val2), c1);
 }
 
 static void reverse_binary(REBVAL *v, REBCNT len)
@@ -516,7 +516,7 @@ REB_R PD_Binary(
         if (i >= VAL_LEN_HEAD(opt_setval))
             fail (opt_setval);
 
-        c = GET_ANY_CHAR(VAL_SERIES(opt_setval), i);
+        c = GET_CHAR_AT(VAL_SERIES(opt_setval), i);
     }
     else
         return R_UNHANDLED;

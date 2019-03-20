@@ -124,7 +124,7 @@ void Insert_Char(REBSER *dst, REBCNT index, REBCNT chr)
     if (index > SER_LEN(dst))
         index = SER_LEN(dst);
     Expand_Series(dst, index, 1);
-    SET_ANY_CHAR(dst, index, chr);
+    SET_CHAR_AT(dst, index, chr);
 }
 
 

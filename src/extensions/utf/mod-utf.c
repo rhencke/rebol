@@ -301,7 +301,7 @@ REBNATIVE(decode_utf16le)
     //
     if (
         VAL_LEN_AT(D_OUT) > 0
-        && GET_ANY_CHAR(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT)) == 0xFEFF
+        && GET_CHAR_AT(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT)) == 0xFEFF
     ){
         Remove_Series_Len(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT), 1);
     }
@@ -388,7 +388,7 @@ REBNATIVE(decode_utf16be)
     //
     if (
         VAL_LEN_AT(D_OUT) > 0
-        && GET_ANY_CHAR(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT)) == 0xFEFF
+        && GET_CHAR_AT(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT)) == 0xFEFF
     ){
         Remove_Series_Len(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT), 1);
     }

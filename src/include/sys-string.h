@@ -721,37 +721,28 @@ inline static REBSIZ VAL_OFFSET_FOR_INDEX(const REBCEL *v, REBCNT index) {
 }
 
 
+//=//// INEFFICIENT SINGLE GET-AND-SET CHARACTER OPERATIONS //////////////=//
 //
-// Get or set a unit in a binary series or a string series.  Used by routines
-// that do searching/etc. and want to apply to both BINARY! and ANY-STRING!,
-// so it can't be converted to purely UTF-8 as written.
+// These should generally be avoided by routines that are iterating, which
+// should instead be using the REBCHR(*)-based APIs to maneuver through the
+// UTF-8 data in a continuous way.
 //
-// !!! String logic will get more complex with UTF8-Everywhere; it may have to
-// shift bytes out of the way.  Or it may not even be possible to set a
-// character if there aren't characters established before it.  Any
-// algorithm using these should likely instead be using the mold buffer to
-// create new strings, if possible.
-//
+// !!! At time of writing, PARSE is still based on this method.  Instead, it
+// should probably lock the input series against modification...or at least
+// hold a cache that it throws away whenever it runs a GROUP!.
 
-inline static REBUNI GET_ANY_CHAR(REBSER *s, REBCNT n) {
-    assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
-    if (n == 0)
-        return CHR_CODE(STR_HEAD(s));  // !!! hunting for STR_AT(s, 0) uses
+inline static REBUNI GET_CHAR_AT(REBSER *s, REBCNT n) {
     REBCHR(const*) up = STR_AT(s, n);
     REBUNI c;
     NEXT_CHR(&c, up);
     return c;
 }
 
-inline static void SET_ANY_CHAR(REBSER *s, REBCNT n, REBUNI c) {
+inline static void SET_CHAR_AT(REBSER *s, REBCNT n, REBUNI c) {
     assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
     assert(n < SER_LEN(s));
 
-    REBCHR(*) cp;
-    if (n == 0)
-        cp = STR_HEAD(s);
-    else
-        cp = STR_AT(s, n);
+    REBCHR(*) cp = STR_AT(s, n);
 
     // If the codepoint we are writing is the same size as the codepoint that
     // is already there, then we can just ues WRITE_CHR() and be done.
@@ -774,8 +765,6 @@ inline static void SET_ANY_CHAR(REBSER *s, REBCNT n, REBUNI c) {
     WRITE_CHR(cp, c);
 }
 
-#define VAL_ANY_CHAR(v) \
-    GET_ANY_CHAR(VAL_SERIES(v), VAL_INDEX(v))
 
 
 //=////////////////////////////////////////////////////////////////////////=//

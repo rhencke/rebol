@@ -539,7 +539,7 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
               case REB_URL:
                 Init_Char_Unchecked(
                     var,
-                    GET_ANY_CHAR(les->data_ser, les->data_idx)
+                    GET_CHAR_AT(les->data_ser, les->data_idx)
                 );
                 if (++les->data_idx == les->data_len)
                     more_data = false;
@@ -1207,7 +1207,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         for (; res->start != orig_len; ++res->start) {
             Append_Codepoint(
                 res->mo->series,
-                GET_ANY_CHAR(res->series, res->start)
+                GET_CHAR_AT(res->series, res->start)
             );
         }
 
@@ -1269,7 +1269,7 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
                 Init_Integer(var, cast(REBI64, BIN_HEAD(res->series)[index]));
             else {
                 assert(ANY_STRING(res->data));
-                Init_Char_Unchecked(var, GET_ANY_CHAR(res->series, index));
+                Init_Char_Unchecked(var, GET_CHAR_AT(res->series, index));
             }
             ++index;
         }
@@ -1334,7 +1334,7 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
                 else {
                     Append_Codepoint(
                         res->mo->series,
-                        GET_ANY_CHAR(res->series, res->start)
+                        GET_CHAR_AT(res->series, res->start)
                     );
                 }
                 ++res->start;
