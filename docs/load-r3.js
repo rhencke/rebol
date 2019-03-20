@@ -12,14 +12,19 @@
 // THIRTY TIMES FASTER.  Hence, the emterpreter is not an approach that is
 // likely to stick around any longer than it has to.
 //
-var hasWasm = typeof WebAssembly === "object"
-console.log("Has WebAssembly => " + hasWasm)
+if (typeof WebAssembly !== "object") {
+    throw Error("Your browser doesn't support WebAssembly.")
+}
+
+if (typeof Promise !== "function") {
+    throw Error("Your browser doesn't support Promise.")
+}
 
 var hasShared = typeof SharedArrayBuffer !== "undefined"
 console.log("Has SharedArrayBuffer => " + hasShared)
 
 var hasThreads = false
-if (hasWasm && hasShared) {
+if (hasShared) {
     let test = new WebAssembly.Memory({
         "initial": 0, "maximum": 0, "shared": true
     });
@@ -27,7 +32,7 @@ if (hasWasm && hasShared) {
 }
 console.log("Has Threads => " + hasThreads)
 
-var use_emterpreter = ! (hasWasm && hasThreads)
+var use_emterpreter = ! hasThreads
 
 console.log("Use Emterpreter => " + use_emterpreter)
 
