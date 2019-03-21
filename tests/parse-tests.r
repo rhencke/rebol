@@ -446,3 +446,25 @@
     catchar: #"🐱"
     did parse "🐱" [catchar end]
 )
+
+[
+    (
+        bincat: to-binary {C😺T}
+        bincat = #{43F09F98BA54}
+    )
+
+    (did parse bincat [{C😺T} end])
+
+    (did parse bincat [{c😺t} end])
+
+    (not parse/case bincat [{c😺t} end])
+]
+
+(
+    test: to-binary {The C😺T Test}
+    did all [
+        parse test [to {c😺t} copy x to space to end]
+        x = #{43F09F98BA54}
+        "C😺T" = to-text x
+    ]
+)

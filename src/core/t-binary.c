@@ -133,7 +133,7 @@ REBCNT find_binary(
             bp2,
             len2,
             *size,
-            flags & AM_FIND_MATCH
+            flags & (AM_FIND_MATCH | AM_FIND_CASE)
         );
 
         if (formed)

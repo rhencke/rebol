@@ -407,7 +407,10 @@ static void Set_Parse_Series(
     if (VAL_INDEX(P_INPUT_VALUE) > VAL_LEN_HEAD(P_INPUT_VALUE))
         VAL_INDEX(P_INPUT_VALUE) = VAL_LEN_HEAD(P_INPUT_VALUE);
 
-    if (IS_BINARY(P_INPUT_VALUE) || (P_FIND_FLAGS & AM_FIND_CASE))
+    // It is possible to search case-sensitively for string material in a
+    // BINARY!, when it's being considered as UTF-8.
+    //
+    if (P_FIND_FLAGS & AM_FIND_CASE)
         P_FIND_FLAGS |= AM_FIND_CASE;
     else
         P_FIND_FLAGS &= ~AM_FIND_CASE;
