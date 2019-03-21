@@ -248,6 +248,7 @@
 %string/encode.test.reb
 %string/decompress.test.reb
 %string/dehex.test.reb
+%string/utf8.test.reb
 
 %system/system.test.reb
 %system/file.test.reb
