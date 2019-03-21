@@ -33,6 +33,7 @@ if (hasShared) {
 console.log("Has Threads => " + hasThreads)
 
 var use_emterpreter = ! hasThreads
+var os_id = (use_emterpreter ? "0.16.1" : "0.16.2")
 
 console.log("Use Emterpreter => " + use_emterpreter)
 
@@ -52,52 +53,46 @@ if (is_localhost) {
 }
 
 
-// GitHub is queried for this hash if it is not already set, unless running
-// on the local host.  (If you run locally and want to test the fetching,
-// you'll have to edit the code.)
+// THE NAME OF THIS VARIABLE MUST BE SYNCED WITH
+// http://metaeducation.s3.amazonaws.com/travis-builds/${OS_ID}/last_git_commit_short.js
+// that contains `last_git_commit_short = ${GIT_COMMIT_SHORT}`
+// See .travis.yml
 //
-var libr3_git_short_hash = null
+//var last_git_commit_short = "local" 
+//var last_git_commit_short = "remote"
+var last_git_commit_short = "mixed" // local for localhost, else remote
 
-// We're able to ask GitHub what the latest build's commit ID is, and then use
-// that to ask for the latest Travis build.  GitHub API returns responses via
-// JSON, and supports CORS so we can legally do the cross domain request in
-// the client (yay!)
-//
-// https://stackoverflow.com/a/15933109/211160
-//
 // Note these are "promiser" functions, because if they were done as a promise
 // it would need to have a .catch() clause attached to it here.  This way, it
 // can just use the catch of the promise chain it's put into.)
 
-var libr3_git_hash_promiser
-if (!libr3_git_short_hash && is_localhost)
-    libr3_git_hash_promiser = () => Promise.resolve(null)
-else {
-    libr3_git_hash_promiser = () => {
-        console.log("Making GitHub API CORS request for the latest commit ID")
+var load_js_promiser = (url) => new Promise(function(resolve, reject) {
+    let script = document.createElement('script')
+    script.src = url
+    script.onload = () => {resolve(url)}
+    script.onerror = () => {reject(url)}
+    if (document.body) {
+        document.body.appendChild(script)
+    } else { document.addEventListener(
+        'DOMContentLoaded',
+        ()=>{document.body.appendChild(script)}
+    )}
+})
 
-        let owner = "metaeducation"
-        let repo = "ren-c"
-        let branch = "master"
-
-        return fetch(
-            "https://api.github.com/repos/" + owner + "/" + repo
-                + "/git/refs/heads/" + branch
-
-          ).then(function (response) {
-
-            // https://www.tjvantoll.com/2015/09/13/fetch-and-errors/
-            if (!response.ok)
-                throw Error(response.statusText)  // handled by .catch() below
-
-            return response.json();
-
-          }).then(function (json) {
-
-            let hash = json["object"]["sha"];
-            console.log("GitHub says latest commit to master was " + hash)
-            return hash
-          })
+var last_git_commit_promiser = (os_id) => {
+    if (
+        last_git_commit_short == "local" ||
+        (last_git_commit_short == "mixed"
+        && is_localhost)
+    ) { // load from ./
+        last_git_commit_short = ""
+        return Promise.resolve(null)
+    } else { // load from amazonaws.com
+        return load_js_promiser(
+            "http://metaeducation.s3.amazonaws.com/travis-builds/"
+            + os_id
+            + "/last_git_commit_short.js"
+        )
     }
 }
 
@@ -158,14 +153,15 @@ function libRebolComponentURL(suffix) {  // suffix includes the dot
                 "Asking for " + suffix + " file "
                 + " in a non-debug build (only for debug builds)")
     }
-    let dir = libr3_git_short_hash  // empty string ("") is falsey in JS
-            ? "http://metaeducation.s3.amazonaws.com/travis-builds/"
-            : "./"
-    dir += use_emterpreter ? "0.16.1/" : "0.16.2/"
+    let dir = (
+        last_git_commit_short  // empty string ("") is falsey in JS
+        ? "http://metaeducation.s3.amazonaws.com/travis-builds/"
+        : "./"
+    ) + os_id
 
-    let opt_dash = libr3_git_short_hash ? "-" : "";
+    let opt_dash = last_git_commit_short ? "-" : "";
 
-    return dir + "libr3" + opt_dash + libr3_git_short_hash + suffix
+    return dir + "/libr3" + opt_dash + last_git_commit_short + suffix
 }
 
 
@@ -301,32 +297,12 @@ else {
 //
 // !!! Review use of Promise.all() for steps which could be run in parallel.
 //
-var r3_ready_promise = libr3_git_hash_promiser()  // don't ()-invoke other promisers, pass by value!
-  .then(function (hash) {
-    //
-    // We set a global vs. chain it, because the hash needs to be used by the
-    // Module.localFile() callback anyway.
-
-    if (hash)
-        libr3_git_short_hash = hash.substring(0,7)  // first 7 characters
-    else
-        libr3_git_short_hash = ""
-  })
-  .then(bytecode_promiser)  // needs short hash (now in global variable)
-  .then(() => dom_content_loaded_promise)  // to add <script> to document.body
+var r3_ready_promise = last_git_commit_promiser(os_id) // set last_git_commit_short
+  .then(bytecode_promiser)  // needs last_git_commit_short
   .then(function() {
-
-    // To avoid a race condition, we don't request the load of %libr3.js until
-    // we have the Module declared and the onRuntimeInitialized handler set up.
-    // Also, if we are using emscripten we need the bytecode.  Hence, we must
-    // use a dynamic `<script>` element, created here--instead of a `<script>`
-    // tag in the HTML.
-    //
-    let script = document.createElement('script')
-    script.src = libRebolComponentURL(".js")  // full name includes short hash
-
-    document.body.appendChild(script)
-
+      load_js_promiser(libRebolComponentURL(".js"))
+  })
+  .then(function() {
     // ^-- The above will eventually trigger runtime_init_promise, but don't
     // wait on that just yet.  Instead just get the loading process started,
     // then wait on the GUI (which 99.9% of the time should finish first) so we
