@@ -6,8 +6,8 @@
     ;
     ;     import codecs
     ;     with codecs.open('utf8-plain-text.txt', encoding='utf-8') as myfile:
-    ;     data = myfile.read()
-    ;     print(len(data))
+    ;         data = myfile.read()
+    ;         print(len(data))
     (
         t: to text! read %fixtures/utf8-plain-text.txt
         tlen: length of t
