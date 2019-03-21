@@ -688,6 +688,18 @@ inline static void SET_CHAR_AT(REBSER *s, REBCNT n, REBUNI c) {
     WRITE_CHR(cp, c);
 }
 
+inline static REBCNT Num_Codepoints_For_Bytes(
+    const REBYTE *start,
+    const REBYTE *end
+){
+    assert(end >= start);
+    REBCNT num_chars = 0;
+    REBCHR(*) cp = cast(REBCHR(*), start);
+    for (; cp != end; ++num_chars)
+        cp = NEXT_STR(cp);
+    return num_chars;
+}
+
 
 //=//// ANY-STRING! CONVENIENCE MACROS ////////////////////////////////////=//
 

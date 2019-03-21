@@ -153,15 +153,12 @@ load-header: function [
 
     ; get 'rebol keyword
 
-    keyrest: transcode/only data
-    line: line of keyrest
-    set [key: rest:] keyrest
+    line: 1
+    rest: transcode/only (lit key:) data 'line
 
     ; get header block
 
-    hdrrest: transcode/next/relax/line rest line
-    line: line of hdrrest
-    set [hdr: rest:] hdrrest
+    rest: transcode/next/relax/line (lit hdr:) rest 'line
 
     if not block? :hdr [
         return 'no-header  ; header block is incomplete
@@ -211,7 +208,8 @@ load-header: function [
                         ; uses transcode, leading whitespace and comments
                         ; are tolerated before the literal.
                         ;
-                        gunzip first transcode/next rest
+                        transcode/next (lit binary:) rest
+                        gunzip binary
                     ]
                 ] else [
                     return 'bad-compress
@@ -219,10 +217,11 @@ load-header: function [
             ]  ; else assumed not compressed
         ]
     ] else [
-        ; block-embedded script, only script compression, ignore hdr/length
+        ; block-embedded script, only script compression
 
-        ; decode embedded script
-        rest: skip first set [data: end:] transcode/next data 2
+        end: transcode/next (lit data:) data  ; decode embedded script
+        rest: skip data 2  ; !!! what is this skipping ("hdr/length" ??)
+        ; check end?
 
         if find hdr/options 'compress [  ; script encoded only
             rest: attempt [gunzip first rest] else [
@@ -370,12 +369,9 @@ load: function [
     ; Convert code to block, insert header if requested
 
     if not block? data [
-        if text? data [
-            data: to binary! data  ; !!! inefficient, might be UTF8
-        ]
-        assert [binary? data]
-        data: transcode/file/line data (opt file) (opt line)
-        take/last data  ; !!! always the residual, a #{}... why?
+        assert [match [binary! text!] data]  ; UTF-8
+        end: transcode/file/line (lit data:) data (opt file) 'line
+        assert [empty? end]  ; should have gone to completion
     ]
 
     if header [
@@ -581,8 +577,10 @@ load-module: function [
         ; then any strings passed in to loading have to be UTF-8 converted,
         ; which means making them into BINARY!.
         ;
-        binary! [data: source]
-        text! [data: to binary! source]
+        binary!  ; bytes are not known to be valid UTF-8
+        text! [  ; bytes are known to be valid UTF-8
+            data: source
+        ]
 
         file!
         url! [

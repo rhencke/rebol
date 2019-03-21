@@ -54,8 +54,9 @@
 )
 ; transcode...
 (
-    (unspaced ["<" mold transcode to binary! "a [b c]"  ">"])
-        = "<[a [b c] #{}]>"
+    transcode 'block to binary! "a [b c]"
+    (unspaced ["<" mold block ">"])
+        = "<[a [b c]]>"
 )
 ; ...
 (

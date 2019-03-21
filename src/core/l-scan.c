@@ -2521,22 +2521,34 @@ void Shutdown_Scanner(void)
 //
 //  transcode: native [
 //
-//  {Translates UTF-8 binary source to values. Returns [value binary].}
+//  {Translates UTF-8 source (from a text or binary) to values}
 //
+//      return: "New position after transcoding"
+//          [text! binary!]
+//      var "Variable to set"
+//          [any-word!]
 //      source "Must be Unicode UTF-8 encoded"
-//          [binary!]
+//          [text! binary!]
 //      /next "Translate next complete value (blocks as single value)"
 //      /only "Translate only a single value (blocks dissected)"
 //      /relax "Do not cause errors - return error object as value in place"
 //      /file
 //      file-name [file! url!]
 //      /line
-//      line-number [integer!]
+//      line-number [integer! any-word!]
 //  ]
 //
 REBNATIVE(transcode)
+//
+// R3-Alpha's TRANSCODE would return a length 2 BLOCK!.  Ren-C aims to unify
+// the PARSE interface and TRANSCODE, so it breaks the variable out into a
+// separate location to SET.  This is a step toward the goal:
+//
+// https://github.com/rebol/rebol-issues/issues/1916
 {
     INCLUDE_PARAMS_OF_TRANSCODE;
+
+    REBVAL *source = ARG(source);
 
     // !!! Should the base name and extension be stored, or whole path?
     //
@@ -2544,30 +2556,35 @@ REBNATIVE(transcode)
         ? Intern(ARG(file_name))
         : Canon(SYM___ANONYMOUS__);
 
-    REBLIN start_line = 1;
-    if (REF(line)) {
-        start_line = VAL_INT32(ARG(line_number));
+    const REBVAL *line_number;
+    if (ANY_WORD(ARG(line_number)))
+        line_number = Get_Opt_Var_May_Fail(ARG(line_number), SPECIFIED);
+    else
+        line_number = ARG(line_number);
+    UNUSED(ARG(line));
+
+    REBLIN start_line;
+    if (IS_INTEGER(line_number)) {
+        start_line = VAL_INT32(line_number);
         if (start_line <= 0)
             fail (PAR(line_number));
     }
-    else
+    else if (IS_NULLED_OR_BLANK(line_number)) {
         start_line = 1;
+    }
+    else
+        fail ("/LINE must be an INTEGER! or an ANY-WORD! integer variable");
+
+    REBSIZ size;
+    const REBYTE *bp = VAL_BYTES_AT(&size, source);
 
     SCAN_STATE ss;
-    Init_Scan_State(
-        &ss,
-        filename,
-        start_line,
-        VAL_BIN_AT(ARG(source)),
-        VAL_LEN_AT(ARG(source))
-    );
+    Init_Scan_State(&ss, filename, start_line, bp, size);
 
     if (REF(next))
         ss.opts |= SCAN_FLAG_NEXT;
     if (REF(only))
         ss.opts |= SCAN_FLAG_ONLY;
-    if (REF(relax))
-        ss.opts |= SCAN_FLAG_RELAX;
 
     // If the source data bytes are "1" then the scanner will push INTEGER! 1
     // if the source data is "[1]" then the scanner will push BLOCK! [1]
@@ -2582,27 +2599,59 @@ REBNATIVE(transcode)
     else
         Scan_To_Stack(&ss);
 
-    // Add a value to the tail of the result, representing the input
-    // with position advanced past the content consumed by the scan.
-    // (Returning a length 2 block is how TRANSCODE does a "multiple
-    // return value, but #1916 discusses a possible "revamp" of this.)
+    REBVAL *var = Sink_Var_May_Fail(ARG(var), SPECIFIED);
+    if (REF(next) or REF(only)) {
+        if (DSP == dsp_orig)
+            Init_Nulled(var);
+        else {
+            Move_Value(var, DS_TOP);
+            DS_DROP();
+        }
+        assert(DSP == dsp_orig);
+    }
+    else {
+        REBARR *a = Pop_Stack_Values_Core(
+            dsp_orig,
+            NODE_FLAG_MANAGED
+                | (ss.newline_pending ? ARRAY_FLAG_NEWLINE_AT_TAIL : 0)
+        );
+        MISC(a).line = ss.line;
+        LINK_FILE_NODE(a) = NOD(ss.file);
+        SER(a)->header.bits |= ARRAY_MASK_HAS_FILE_LINE;
+
+        Init_Block(Sink_Var_May_Fail(ARG(var), SPECIFIED), a);
+    }
+
+    if (ANY_WORD(ARG(line_number)))  // they wanted the line number updated
+        Init_Integer(Sink_Var_May_Fail(ARG(line_number), SPECIFIED), ss.line);
+
+    // Return the input BINARY! or TEXT! advanced by how much the transcode
+    // operation consumed.
     //
-    Move_Value(DS_PUSH(), ARG(source));
-    if (REF(next) or REF(only))
-        VAL_INDEX(DS_TOP) = ss.end - VAL_BIN_HEAD(ARG(source));
+    Move_Value(D_OUT, source);
+    if (not IS_NULLED(var) and (REF(next) or REF(only))) {
+        if (IS_BINARY(source))
+            VAL_INDEX(D_OUT) = ss.end - VAL_BIN_HEAD(source);
+        else {
+            assert(IS_TEXT(source));
+
+            // !!! The scanner does not currently keep track of how many
+            // codepoints it went past, it only advances bytes.  But the TEXT!
+            // we're returning here needs a codepoint-based index.
+            //
+            // Count characters by going backwards from the byte position of
+            // the finished scan until the byte we started at is found.
+            //
+            // (It would probably be better if the scanner kept count, though
+            // maybe that would make it slower when this isn't needed?)
+            //
+            VAL_INDEX(D_OUT) += Num_Codepoints_For_Bytes(bp, ss.end);
+        }
+    }
     else
-        VAL_INDEX(DS_TOP) = VAL_LEN_HEAD(ARG(source)); // ss.end is trash
+        VAL_INDEX(D_OUT) = VAL_LEN_HEAD(source);  // Note: ss.end is trash
 
-    REBARR *a = Pop_Stack_Values_Core(
-        dsp_orig,
-        NODE_FLAG_MANAGED
-            | (ss.newline_pending ? ARRAY_FLAG_NEWLINE_AT_TAIL : 0)
-    );
-    MISC(a).line = ss.line;
-    LINK_FILE_NODE(a) = NOD(ss.file);
-    SET_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED);
-
-    return Init_Block(D_OUT, a);
+    return D_OUT;
 }
 
 

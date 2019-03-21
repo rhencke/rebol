@@ -188,6 +188,7 @@ find-last: specialize 'find [
     last: true
 ]
 
+
 ; The bootstrap executable was picked without noticing it had an issue with
 ; reporting errors on file READ where it wouldn't tell you what file it was
 ; trying to READ.  It has been fixed, but won't be fixed until a new bootstrap
@@ -213,4 +214,26 @@ lib/read: read: enclose 'lib-read function [f [frame!]] [
         fail e
     ]
     bin
+]
+
+transcode: function [  ; !!! TBD: migrate this shim to redbol.reb
+    return: [text! binary!]
+    var [any-word!]
+    source [text! binary!]
+    /next
+    /only
+    /relax
+][
+    set [var pos:] lib/transcode/(next)/(only)/(relax)
+        either text? source [to binary! source] [source]
+
+    ; In order to return a text position in pre-UTF-8 everywhere, we fake it
+    ; by seeing how much binary was consumed and assume skipping that many
+    ; bytes will sync us.  (From @rgchris's LOAD-NEXT)
+    ;
+    if text? source [
+        pos: skip source subtract (length of source) (length of to text! pos)
+    ]
+
+    return pos
 ]

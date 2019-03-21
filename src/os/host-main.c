@@ -224,15 +224,16 @@ int main(int argc, char *argv_ansi[])
     //
     REBVAL *host_bin = rebRepossess(host_utf8_bytes, host_utf8_size);
 
-    // Use TRANSCODE to get a BLOCK! from the BINARY!, then release the binary
+    // Use TRANSCODE to get a BLOCK! from the BINARY!
     //
     REBVAL *host_code_group = rebRun(
-        "as group! lib/transcode/file", rebR(host_bin), "%tmp-host-start.inc",
+        "use [end code] [",
+            "end: lib/transcode/file 'code", rebR(host_bin),  // release bin
+                "%tmp-host-start.inc",
+            "assert [empty? end]",
+            "as group! code"
+        "]",
     rebEND); // turn into group so it can run without a DO in stack trace
-
-    rebElide(  // has an empty bin @ tail
-        "lib/ensure :lib/empty? lib/take/last", rebQ1(host_code_group),
-    rebEND);
 
     // Create a new context specifically for startup.  This way, changes
     // to the user context should hopefully not affect it...e.g. if the user

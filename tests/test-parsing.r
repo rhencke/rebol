@@ -38,7 +38,7 @@ make object! [
             ["{" | {"}] (
                 ; handle string using TRANSCODE
                 success-rule: trap [
-                    position: second transcode/next position
+                    position: transcode/next 'dummy position
                 ] then [
                     [end skip]
                 ] else [
@@ -123,7 +123,7 @@ make object! [
 
         single-value: parsing-at x [
             trap [
-                set [value: next-position:] transcode/next x
+                next-position: transcode/next (lit value:) x
             ] else [
                 type: in types 'val
                 next-position
@@ -230,7 +230,7 @@ make object! [
                 any whitespace
                 [
                     position: "%"
-                    (set [value: next-position:] transcode/next position)
+                    (next-position: transcode/next (lit value:) position)
                     :next-position
                         |
                     ; dialect failure?
