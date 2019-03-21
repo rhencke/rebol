@@ -35,3 +35,17 @@
     e: trap [load "/:"]
     (error? e) and [e/id = 'scan-invalid]
 )]
+
+; https://github.com/metaeducation/ren-c/issues/876
+[(
+    e: trap [1 x: ()]
+    e/id = 'need-non-end
+)(
+    2 = (x: comment "Hi" 2)
+)(
+    e: trap [x: comment "Hi"]
+    e/id = 'need-non-end
+)(
+    e: trap [x: print "Hi"]
+    e/id = 'need-non-void
+)]

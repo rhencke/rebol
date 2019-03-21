@@ -10,8 +10,8 @@
 (void! = type of (do []))
 (not void? 1)
 
-[#68 ;-- also, https://github.com/metaeducation/ren-c/issues/876
-    ('need-non-void = (trap [a: ()])/id)
+[#68  ; also, https://github.com/metaeducation/ren-c/issues/876
+    ('need-non-end = (trap [a: ()])/id)
 ]
 
 (error? trap [set* lit a: null a])
