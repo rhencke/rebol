@@ -71,18 +71,18 @@ remold: redescribe [
     ]
 )
 
-array: func [
-    "Makes and initializes a series of a given size."
+array: function [
+    {Makes and initializes a block of a given size}
     size [integer! block!] "Size or block of sizes for each dimension"
     /initial "Specify an initial value for all elements"
     value "Initial value (will be called each time if a function)"
         [any-value!]
-    <local> block rest
 ][
+    value: default [_]
     if block? size [
         if tail? rest: next size [rest: _]
         if not integer? size: first size [
-            cause-error 'script 'expect-arg reduce ['array 'size type of :size]
+            fail 'size ["Expected INTEGER! size in BLOCK!, not" type of :size]
         ]
     ]
     block: make block! size
@@ -94,10 +94,11 @@ array: func [
             loop size [block: insert/only block copy/deep value]
         ]
         action? :value [
-            loop size [block: insert/only block value] ; Called every time
+            loop size [block: insert/only block value]  ; Called every time
         ]
-    ] else [
-        insert/dup/only try get 'value size
+        default [
+            insert/dup/only block :value size
+        ]
     ]
     head of block
 ]

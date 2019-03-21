@@ -53,3 +53,16 @@
         [1 2 3 4 5] = make block! :make-one-thru-five
     ]
 )
+
+
+; ARRAY is poorly named (noun-ish), generates blocks
+; http://www.rebol.com/docs/words/warray.html
+
+([_ _ _ _ _] = array 5)
+([0 0 0 0 0] = array/initial 5 0)
+([[_ _ _] [_ _ _]] = array [2 3])
+([[0 0 0] [0 0 0]] = array/initial [2 3] 0)
+(
+    counter: function [<static> n (0)] [n: n + 1]
+    [1 2 3 4 5] = array/initial 5 :counter
+)
