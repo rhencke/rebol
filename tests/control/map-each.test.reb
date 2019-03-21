@@ -9,3 +9,13 @@
 (
      [[a 1] [b 1] [c 1]] = map-each x 'a/b/c [reduce [x 1]]
 )
+
+; BLANK! is legal for slots you don't want to name variables for:
+
+(
+    [5 11] = map-each [dummy a b] [1 2 3 4 5 6] [a + b]
+)(
+    sum: 0
+    for-each _ [a b c] [sum: sum + 1]
+    sum = 3
+)

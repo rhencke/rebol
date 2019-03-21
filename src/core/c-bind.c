@@ -425,7 +425,10 @@ void Virtual_Bind_Deep_To_New_Context(
 
         rebinding = false;
         for (; NOT_END(item); ++item) {
-            if (IS_WORD(item))
+            if (IS_BLANK(item)) {
+                // Will be transformed into dummy item, no rebinding needed
+            }
+            else if (IS_WORD(item))
                 rebinding = true;
             else if (not IS_QUOTED_WORD(item)) {
                 //
@@ -499,9 +502,19 @@ void Virtual_Bind_Deep_To_New_Context(
     REBVAL *key = CTX_KEYS_HEAD(c);
     REBVAL *var = CTX_VARS_HEAD(c);
 
+    REBSYM dummy_sym = SYM_DUMMY1;
+
     REBCNT index = 1;
     while (index <= num_vars) {
-        if (IS_WORD(item)) {
+        if (IS_BLANK(item)) {
+            if (dummy_sym == SYM_DUMMY9)
+                fail ("Current limitation: only up to 9 BLANK! keys");
+            Init_Context_Key(key, Canon(dummy_sym));
+            Init_Unreadable_Blank(var);  // all written here will be ignored
+            dummy_sym = cast(REBSYM, cast(int, dummy_sym) + 1);
+            goto add_to_binder;
+        }
+        else if (IS_WORD(item)) {
             Init_Context_Key(key, VAL_WORD_SPELLING(item));
 
             // !!! For loops, nothing should be able to be aware of this
@@ -514,6 +527,8 @@ void Virtual_Bind_Deep_To_New_Context(
             Init_Nulled(var);
 
             assert(rebinding); // shouldn't get here unless we're rebinding
+
+          add_to_binder:
 
             if (not Try_Add_Binder_Index(
                 &binder, VAL_PARAM_CANON(key), index

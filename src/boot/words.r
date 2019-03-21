@@ -209,6 +209,26 @@ into
 only
 end  ; must be last (SYM_END referred to by GET_VAR() in %u-parse.c)
 
+; It is convenient to be able to say `for-each [_ x y] [1 2 3 ...] [...]` and
+; let the blank indicate you are not interested in a value.  This might be
+; doable with a generalized "anonymous key" system.  But for now it is assumed
+; that all keys have unique symbols.
+;
+; To get the feature for today, we use some dummy symbols.  They cannot be
+; used alongside the actual names `dummy1`, `dummy2`, etc...but rather
+; than pick a more esoteric name then `map-each [_ dummy1] ...` is just an
+; error.  Using simple names makes the frame more legible.
+;
+dummy1
+dummy2
+dummy3
+dummy4
+dummy5
+dummy6
+dummy7
+dummy8
+dummy9
+
 ; properties for action TWEAK function (passed as ISSUE!)
 ;
 defer
