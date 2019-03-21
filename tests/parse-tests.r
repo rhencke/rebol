@@ -483,3 +483,16 @@
         "C😺T" = to-text x
     ]
 )
+
+
+; With UTF-8 Everywhere, all strings are kept in UTF-8 format all the time.
+; This makes it feasible to invoke the scanner during PARSE of a TEXT!.
+; The feature was added only as a quick demo and needs significant design,
+; testing, and development.  But it was added to show what kinds of things
+; are possible now.
+
+(did all [
+    parse "abc [d e f] {Hello}" ["abc" set b block! set s text!]
+    b = [d e f]
+    s = {Hello}
+])

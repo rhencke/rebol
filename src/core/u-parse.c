@@ -496,7 +496,7 @@ REB_R Process_Group_For_Parse(
 // Only in the case of THROWN_FLAG will f->out (aka P_OUT) be affected.
 // Otherwise, it should exit the routine as an END marker (as it started);
 //
-static REBIXO Parse_One_Rule(
+static REB_R Parse_One_Rule(
     REBFRM *f,
     REBCNT pos,
     const RELVAL *rule
@@ -507,11 +507,11 @@ static REBIXO Parse_One_Rule(
         rule = Process_Group_For_Parse(f, P_CELL, rule);
         if (rule == R_THROWN) {
             Move_Value(P_OUT, P_CELL);
-            return THROWN_FLAG;
+            return R_THROWN;
         }
         if (rule == R_INVISIBLE) { // !!! Should this be legal?
             assert(pos <= SER_LEN(P_INPUT)); // !!! Process_Group ensures
-            return pos;
+            return Init_Integer(P_OUT, pos);
         }
         // was a GET-GROUP! :(...), use result as rule
     }
@@ -529,15 +529,18 @@ static REBIXO Parse_One_Rule(
             // but we have to process the block to know for sure.
         }
         else
-            return END_FLAG; // Other cases below can assert if item is END
+            return R_UNHANDLED; // Other cases below can assert if item is END
     }
 
     switch (KIND_BYTE(rule)) { // handle rules w/same behavior for all P_INPUT
-      case REB_BLANK:
-        return pos; // blank rules "match" but don't affect the parse position
 
-      case REB_LOGIC: // true matches always, false matches never
-        return VAL_LOGIC(rule) ? pos : END_FLAG;
+      case REB_BLANK:  // blank rules "match" but don't affect parse position
+        return Init_Integer(P_OUT, pos);
+
+      case REB_LOGIC:
+        if (VAL_LOGIC(rule))
+            return Init_Integer(P_OUT, pos);  // true matches always
+        return R_UNHANDLED;  // false matches never
 
       case REB_INTEGER:
         fail ("Non-rule-count INTEGER! in PARSE must be literal, use QUOTE");
@@ -570,7 +573,7 @@ static REBIXO Parse_One_Rule(
             P_FIND_FLAGS & ~PF_ONE_RULE
         )){
             Move_Value(P_OUT, subresult);
-            return THROWN_FLAG;
+            return R_THROWN;
         }
 
         UNUSED(interrupted); // !!! ignore "interrupted" (ACCEPT or REJECT?)
@@ -578,11 +581,11 @@ static REBIXO Parse_One_Rule(
         P_POS = pos_before; // restore input position
 
         if (IS_NULLED(subresult))
-            return END_FLAG;
+            return R_UNHANDLED;
 
         REBINT index = VAL_INT32(subresult);
         assert(index >= 0);
-        return cast(REBCNT, index); }
+        return Init_Integer(P_OUT, index); }
 
       default:;
         // Other cases handled distinctly between blocks/strings/binaries...
@@ -600,29 +603,29 @@ static REBIXO Parse_One_Rule(
 
           case REB_DATATYPE:
             if (VAL_TYPE(item) == VAL_TYPE_KIND(rule))
-                return pos + 1; // specific datatype match
-            return END_FLAG;
+                return Init_Integer(P_OUT, pos + 1); // specific type match
+            return R_UNHANDLED;
 
           case REB_TYPESET:
             if (TYPE_CHECK(rule, VAL_TYPE(item)))
-                return pos + 1; // type was found in the typeset
-            return END_FLAG;
+                return Init_Integer(P_OUT, pos + 1); // type was in typeset
+            return R_UNHANDLED;
 
           case REB_WORD:
             if (VAL_WORD_SYM(rule) == SYM_LIT_WORD_X) { // hack for lit-word!
                 if (IS_QUOTED_WORD(item))
-                    return pos + 1;
-                return END_FLAG;
+                    return Init_Integer(P_OUT, pos + 1);
+                return R_UNHANDLED;
             }
             if (VAL_WORD_SYM(rule) == SYM_LIT_PATH_X) { // hack for lit-path!
                 if (IS_QUOTED_PATH(item))
-                    return pos + 1;
-                return END_FLAG;
+                    return Init_Integer(P_OUT, pos + 1);
+                return R_UNHANDLED;
             }
             if (VAL_WORD_SYM(rule) == SYM_REFINEMENT_X) { // another hack...
                 if (IS_REFINEMENT(item))
-                    return pos + 1;
-                return END_FLAG;
+                    return Init_Integer(P_OUT, pos + 1);
+                return R_UNHANDLED;
             }
             fail (Error_Parse_Rule());
 
@@ -634,9 +637,9 @@ static REBIXO Parse_One_Rule(
         // default?!
         //
         if (Cmp_Value(item, rule, P_HAS_CASE) == 0)
-            return pos + 1;
+            return Init_Integer(P_OUT, pos + 1);
 
-        return END_FLAG;
+        return R_UNHANDLED;
     }
     else {
         assert(ANY_STRING_KIND(P_TYPE) or P_TYPE == REB_BINARY);
@@ -648,17 +651,20 @@ static REBIXO Parse_One_Rule(
                 // See if current binary position matches UTF-8 encoded char
                 //
                 if (P_POS + VAL_CHAR_ENCODED_SIZE(rule) > BIN_LEN(P_INPUT))
-                    return END_FLAG;
+                    return R_UNHANDLED;
 
                 const REBYTE *ep = VAL_CHAR_ENCODED(rule);
                 assert(*ep != 0);
                 const REBYTE *bp = BIN_AT(P_INPUT, P_POS);
                 do {
                     if (*ep++ != *bp++)
-                        return END_FLAG;
+                        return R_UNHANDLED;
                 } while (*ep);
 
-                return P_POS + VAL_CHAR_ENCODED_SIZE(rule);
+                return Init_Integer(
+                    P_OUT,
+                    P_POS + VAL_CHAR_ENCODED_SIZE(rule)
+                );
             }
 
             // Otherwise it's a string and may have case sensitive behavior.
@@ -667,17 +673,17 @@ static REBIXO Parse_One_Rule(
 
             if (P_HAS_CASE) {
                 if (VAL_CHAR(rule) != GET_CHAR_AT(P_INPUT, P_POS))
-                    return END_FLAG;
+                    return R_UNHANDLED;
             }
             else {
                 if (
                     UP_CASE(VAL_CHAR(rule))
                     != UP_CASE(GET_CHAR_AT(P_INPUT, P_POS))
                 ){
-                    return END_FLAG;
+                    return R_UNHANDLED;
                 }
             }
-            return P_POS + 1;
+            return Init_Integer(P_OUT, P_POS + 1);
 
           case REB_TAG:
           case REB_FILE:
@@ -692,8 +698,8 @@ static REBIXO Parse_One_Rule(
                 P_FIND_FLAGS | AM_FIND_MATCH
             );
             if (index == NOT_FOUND)
-                return END_FLAG;
-            return index + len; }
+                return R_UNHANDLED;
+            return Init_Integer(P_OUT, index + len); }
 
           case REB_BITSET: {
             //
@@ -706,9 +712,64 @@ static REBIXO Parse_One_Rule(
                 uni = GET_CHAR_AT(P_INPUT, P_POS);
 
             if (Check_Bit(VAL_BITSET(rule), uni, not P_HAS_CASE))
-                return P_POS + 1;
+                return Init_Integer(P_OUT, P_POS + 1);
 
-            return END_FLAG; }
+            return R_UNHANDLED; }
+
+          case REB_TYPESET:
+          case REB_DATATYPE: {
+            REBSTR *filename = Canon(SYM___ANONYMOUS__);
+
+            REBLIN start_line = 1;
+
+            REBSIZ size;
+            const REBYTE *bp = VAL_BYTES_AT(&size, P_INPUT_VALUE);
+
+            SCAN_STATE ss;
+            Init_Scan_State(&ss, filename, start_line, bp, size);
+            ss.opts |= SCAN_FLAG_NEXT;  // _ONLY?
+            ss.opts |= SCAN_FLAG_RELAX;  // error is parse failure
+
+            REBDSP dsp_orig = DSP;
+            Scan_To_Stack_Relaxed(&ss);
+            if (DSP == dsp_orig)
+                return R_UNHANDLED;  // nothing was scanned
+
+            assert(DSP == dsp_orig + 1);  // only adds one value to stack
+
+            if (IS_ERROR(DS_TOP)) {
+                DS_DROP();
+                return R_UNHANDLED;
+            }
+
+            enum Reb_Kind kind = VAL_TYPE(DS_TOP);
+            if (IS_DATATYPE(rule)) {
+                if (kind != VAL_TYPE_KIND(rule)) {
+                    DS_DROP();
+                    return R_UNHANDLED;
+                }
+            }
+            else {
+                if (not TYPE_CHECK(rule, kind)) {
+                    DS_DROP();
+                    return R_UNHANDLED;
+                }
+            }
+
+            // !!! We need the caller to know both the updated position in
+            // the text string -and- be able to get the value.  It's already
+            // on the data stack, so use that as the method to pass it back,
+            // but put the position after the match in P_OUT.
+
+            if (IS_BINARY(P_INPUT_VALUE))
+                Init_Integer(P_OUT, P_POS + (ss.end - bp));
+            else
+                Init_Integer(
+                    P_OUT,
+                    P_POS + Num_Codepoints_For_Bytes(bp, ss.end)
+                );
+
+            return R_IMMEDIATE; }  // produced value in DS_TOP
 
           default:
             fail (Error_Parse_Rule());
@@ -788,15 +849,21 @@ static REBIXO To_Thru_Block_Rule(
                 if (ANY_ARRAY(rule))
                     fail (Error_Parse_Rule());
 
-                REBIXO i = Parse_One_Rule(f, pos, rule);
-                if (i == THROWN_FLAG)
+                REB_R r = Parse_One_Rule(f, pos, rule);
+                if (r == R_THROWN)
                     return THROWN_FLAG;
 
-                if (i != END_FLAG) {
-                    pos = cast(REBCNT, i); // passed it, so back up if only TO
+                if (r == R_UNHANDLED) {
+                    // fall through, keep looking
+                    SET_END(P_OUT);
+                }
+                else {  // P_OUT is pos we matched past, so back up if only TO
+                    assert(r == P_OUT);
+                    pos = VAL_INT32(P_OUT);
+                    SET_END(P_OUT);
                     if (is_thru)
-                        return pos; // don't back up
-                    return pos - 1; // back up
+                        return pos;  // don't back up
+                    return pos - 1;  // back up
                 }
             }
             else if (P_TYPE == REB_BINARY) {
@@ -1134,7 +1201,8 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
     // rather ad-hoc and hard to adapt.  The one rule parsing does not
     // advance the position, but it should.
     //
-    REBIXO n = Parse_One_Rule(f, P_POS, rule);
+    REB_R r = Parse_One_Rule(f, P_POS, rule);
+    assert(r != R_IMMEDIATE);  // parse "1" [integer!], only for string input
     FETCH_NEXT_RULE(f);
 
     // Restore the input series to what it was before parsing the temporary
@@ -1143,9 +1211,16 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
     Move_Value(P_INPUT_VALUE, saved_input);
     DROP_GC_GUARD(saved_input);
 
-    if (n == THROWN_FLAG)
+    if (r == R_THROWN)
         return THROWN_FLAG;
 
+    if (r == R_UNHANDLED) {
+        SET_END(P_OUT); // preserve invariant
+        return P_POS;  // as failure, hand back original, no advancement
+    }
+
+    REBCNT n = VAL_INT32(P_OUT);
+    SET_END(P_OUT);  // preserve invariant
     if (n == ARR_LEN(holder)) {
         //
         // Eval result reaching end means success, so return index advanced
@@ -2029,9 +2104,19 @@ REBNATIVE(subparse)
                 //
                 case SYM_LIT_WORD_X: // lit-word!
                 case SYM_LIT_PATH_X: // lit-path!
-                case SYM_REFINEMENT_X: // refinement!
-                    i = Parse_One_Rule(f, P_POS, rule);
-                    break;
+                case SYM_REFINEMENT_X: {  // refinement!
+                    REB_R r = Parse_One_Rule(f, P_POS, rule);
+                    assert(r != R_IMMEDIATE);
+                    if (r == R_THROWN)
+                        return R_THROWN;
+
+                    if (r == R_UNHANDLED)
+                        i = END_FLAG;
+                    else {
+                        assert(r == P_OUT);
+                        i = VAL_INT32(P_OUT);
+                    }
+                    break; }
 
                 // Because there are no LIT-XXX! datatypes, a special rule
                 // must be used if you want to match quoted types.  MATCH is
@@ -2218,13 +2303,25 @@ REBNATIVE(subparse)
             else {
                 // Parse according to datatype
 
-                i = Parse_One_Rule(f, P_POS, rule);
+                REB_R r = Parse_One_Rule(f, P_POS, rule);
+                if (r == R_THROWN)
+                    return R_THROWN;
 
-                // i may be THROWN_FLAG
+                if (r == R_UNHANDLED)
+                    i = END_FLAG;
+                else {
+                    assert(r == P_OUT or r == R_IMMEDIATE);
+                    if (r == R_IMMEDIATE) {
+                        assert(DSP == f->dsp_orig + 1);
+                        if (not (flags & PF_SET))  // only SET handles
+                            DS_DROP();
+                    }
+                    i = VAL_INT32(P_OUT);
+                }
+                SET_END(P_OUT);  // preserve invariant
             }
 
-            if (i == THROWN_FLAG)
-                return R_THROWN;
+            assert(i != THROWN_FLAG);
 
             // Necessary for special cases like: some [to end]
             // i: indicates new index or failure of the match, but
@@ -2405,7 +2502,13 @@ REBNATIVE(subparse)
                         );
                         */
 
-                        if (P_TYPE == REB_BINARY)
+                        if (DSP > f->dsp_orig) {
+                            Move_Value(var, DS_TOP);
+                            DS_DROP();
+                            if (DSP != f->dsp_orig)
+                                fail ("SET for datatype only allows 1 value");
+                        }
+                        else if (P_TYPE == REB_BINARY)
                             Init_Integer(var, *BIN_AT(P_INPUT, begin));
                         else
                             Init_Char_Unchecked(
