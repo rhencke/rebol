@@ -921,6 +921,15 @@ script:
     - rm r3-osx-x64-8994d23
     - rm -f CMakeLists.txt
     - rm -rf tcc
+
+    # upload load-r3.js, worker.js to travis-builds/
+    - |
+      if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]
+      then
+      cp ../docs/load-r3.js ../docs/worker.js .
+      fi
+    
+    # check what will be uploaded
     - ls
 
     # Name the executable based on the abbreviated commit, whether it is a
