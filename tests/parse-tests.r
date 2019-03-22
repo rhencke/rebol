@@ -54,26 +54,18 @@
     all [not res | val = "f" | pos = ser]
 )]
 
-; TO/THRU integer!
+; SEEK INTEGER! (replaces TO/THRU integer!
 
-(did parse "abcd" [to 3 "cd" end])
-(did parse "abcd" [to 5 end])
-(did parse "abcd" [to 128 end])
+(did parse "abcd" [seek 3 "cd" end])
+(did parse "abcd" [seek 5 end])
+(did parse "abcd" [seek 128 end])
 
 [#1965
-    (did parse "abcd" [thru 3 "d" end])
-]
-[#1965
-    (did parse "abcd" [thru 4 end])
-]
-[#1965
-    (did parse "abcd" [thru 128 end])
-]
-[#1965
-    (did parse "abcd" ["ab" to 1 "abcd" end])
-]
-[#1965
-    (did parse "abcd" ["ab" thru 1 "bcd" end])
+    (did parse "abcd" [seek 3 skip "d" end])
+    (did parse "abcd" [seek 4 skip end])
+    (did parse "abcd" [seek 128 end])
+    (did parse "abcd" ["ab" seek 1 "abcd" end])
+    (did parse "abcd" ["ab" seek 1 skip "bcd" end])
 ]
 
 ; parse THRU tag!

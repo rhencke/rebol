@@ -376,35 +376,6 @@ static void Print_Parse_Index(REBFRM *f) {
 }
 
 
-// Move to a new parse position, ensuring the index is not past the end.
-// Changing the series is not allowed, but it takes a series for convenience
-// in order to check that the right series is provided.
-//
-static void Seek_Parse_Position(
-    REBFRM *f,
-    const REBVAL *value  // checked to ensure it's the same series
-){
-    REBINT index;
-    if (IS_INTEGER(value)) {
-        index = VAL_INT32(value);
-        if (index < 1)
-            fail ("Cannot SEEK a PARSE to negative integer positions");
-        --index;  // Rebol is 1-based, C is 0 based...
-    }
-    else if (ANY_SERIES(value)) {
-        if (VAL_SERIES(value) != P_INPUT)
-            fail ("Changing PARSE series is not allowed, only the position");
-        index = VAL_INDEX(value);
-    }
-    else  // #1263
-        fail (Error_Parse_Series_Raw(value));
-
-    VAL_INDEX(P_INPUT_VALUE) = index;
-    if (VAL_INDEX(P_INPUT_VALUE) > VAL_LEN_HEAD(P_INPUT_VALUE))
-        VAL_INDEX(P_INPUT_VALUE) = VAL_LEN_HEAD(P_INPUT_VALUE);
-}
-
-
 //
 //  Get_Parse_Value: C
 //
@@ -1191,6 +1162,102 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
 }
 
 
+// This handles marking positions, either as plain `pos:` the SET-WORD! rule,
+// or the newer `mark pos` rule.  Handles WORD! and PATH!.
+//
+static void Handle_Mark_Rule(
+    REBFRM *f,
+    const RELVAL *rule,
+    REBSPC *specifier
+){
+    //
+    // !!! Experiment: Put the quote level of the original series back on when
+    // setting positions (then remove)
+    //
+    //     parse lit '''{abc} ["a" mark x:]` => '''{bc}
+
+    Quotify(P_INPUT_VALUE, P_NUM_QUOTES);
+
+    REBYTE k = KIND_BYTE(rule);  // REB_0_END ok
+    if (k == REB_WORD or k == REB_SET_WORD) {
+        Move_Value(
+            Sink_Var_May_Fail(rule, specifier),
+            P_INPUT_VALUE
+        );
+    }
+    else if (k == REB_PATH or k == REB_SET_PATH) {
+        if (Set_Path_Throws_Core(
+            P_OUT, rule, specifier, P_INPUT_VALUE
+        )){
+            fail (Error_No_Catch_For_Throw(P_OUT));
+        }
+    }
+    else
+        fail (Error_Parse_Variable(f));
+
+    Dequotify(P_INPUT_VALUE);  // go back to 0 quote level
+}
+
+
+static REB_R Handle_Seek_Rule_Dont_Update_Begin(
+    REBFRM *f,
+    const RELVAL *rule,
+    REBSPC *specifier
+){
+    REBYTE k = KIND_BYTE(rule);  // REB_0_END ok
+    if (k == REB_WORD or k == REB_GET_WORD) {
+        rule = Get_Opt_Var_May_Fail(rule, specifier);
+        k = KIND_BYTE(rule);
+    }
+    else if (k == REB_PATH) {
+        if (Get_Path_Throws_Core(P_CELL, rule, specifier))
+            fail (Error_No_Catch_For_Throw(P_CELL));
+        rule = P_CELL;
+        k = KIND_BYTE(rule);
+    }
+
+    REBINT index;
+    if (k == REB_INTEGER) {
+        index = VAL_INT32(rule);
+        if (index < 1)
+            fail ("Cannot SEEK a negative integer position");
+        --index;  // Rebol is 1-based, C is 0 based...
+    }
+    else if (ANY_SERIES_KIND(k)) {
+        if (VAL_SERIES(rule) != P_INPUT)
+            fail ("Switching PARSE series is not allowed");
+        index = VAL_INDEX(rule);
+    }
+    else {  // #1263
+        DECLARE_LOCAL (specific);
+        Derelativize(specific, rule, P_RULE_SPECIFIER);
+        fail (Error_Parse_Series_Raw(specific));
+    }
+
+    if (cast(REBCNT, index) > SER_LEN(P_INPUT))
+        P_POS = SER_LEN(P_INPUT);
+    else
+        P_POS = index;
+
+    return R_INVISIBLE;
+}
+
+// !!! Note callers will `continue` without any post-"match" processing, so
+// the only way `begin` will get set for the next rule is if they set it,
+// else commands like INSERT that follow will insert at the old location.
+//
+// https://github.com/rebol/rebol-issues/issues/2269
+//
+// Without known resolution on #2269, it isn't clear if there is legitimate
+// meaning to seeking a parse in mid rule or not.  So only reset the begin
+// position if the seek appears to be a "separate rule" in its own right.
+//
+#define HANDLE_SEEK_RULE_UPDATE_BEGIN(f,rule,specifier) \
+    Handle_Seek_Rule_Dont_Update_Begin((f), (rule), (specifier)); \
+    if (flags == 0) \
+        begin = P_POS;
+
+
 //
 //  subparse: native [
 //
@@ -1235,8 +1302,9 @@ REBNATIVE(subparse)
 {
     INCLUDE_PARAMS_OF_SUBPARSE;
 
-    UNUSED(ARG(find_flags)); // used via P_FIND_FLAGS
-    UNUSED(ARG(num_quotes)); // used via P_NUM_QUOTES_VALUE
+    UNUSED(ARG(input));  // used via P_INPUT
+    UNUSED(ARG(find_flags));  // used via P_FIND_FLAGS
+    UNUSED(ARG(num_quotes));  // used via P_NUM_QUOTES_VALUE
 
     REBFRM *f = frame_; // nice alias of implicit native parameter
 
@@ -1253,7 +1321,10 @@ REBNATIVE(subparse)
     Init_Integer(P_NUM_QUOTES_VALUE, VAL_NUM_QUOTES(P_INPUT_VALUE));
     Dequotify(P_INPUT_VALUE);
 
-    Seek_Parse_Position(f, ARG(input));  // make sure index not past END
+    // Make sure index position is not past END
+    //
+    if (VAL_INDEX(P_INPUT_VALUE) > VAL_LEN_HEAD(P_INPUT_VALUE))
+        VAL_INDEX(P_INPUT_VALUE) = VAL_LEN_HEAD(P_INPUT_VALUE);
 
     // Every time we hit an alternate rule match (with |), we have to reset
     // any of the collected values.  Remember the tail when we started.
@@ -1721,69 +1792,19 @@ REBNATIVE(subparse)
                   case SYM_RETURN:
                     fail ("RETURN removed from PARSE, use (THROW ...)");
 
-                  case SYM_MARK: {  // allows SET-WORD! or plain WORD!
-                    FETCH_NEXT_RULE(f);
-                    rule = P_RULE;  // !!! what about `mark @(first [x])` ?
-                    
-                    blockscope {
-                        REBYTE k = KIND_BYTE_UNCHECKED(rule);  // REB_0_END ok
-                        if (k != REB_WORD and k != REB_SET_WORD)
-                            fail (Error_Parse_Variable(f));
-                    }
-
-                  mark_rule:  // "legacy" lone SET-WORD! rule jumps here
-
-                    // !!! Review meaning of marking the parse in a slot that
-                    // is a target of a rule, e.g. `thru pos: xxx` #
-                    //
-                    // https://github.com/rebol/rebol-issues/issues/2269
-                    //
-                    // if (flags != 0) fail (Error_Parse_Rule());
-
-                    Quotify(
-                        Move_Value(
-                            Sink_Var_May_Fail(rule, P_RULE_SPECIFIER),
-                            P_INPUT_VALUE
-                        ),
-                        P_NUM_QUOTES
-                    );
-                    FETCH_NEXT_RULE(f);
-                    continue; }  // </SYM_MARK>
+                  case SYM_MARK: {
+                    FETCH_NEXT_RULE(f);  // skip the MARK word
+                    // !!! what about `mark @(first [x])` ?
+                    Handle_Mark_Rule(f, P_RULE, P_RULE_SPECIFIER);
+                    FETCH_NEXT_RULE(f);  // e.g. skip the `x` in `mark x`
+                    continue; }
 
                   case SYM_SEEK: {
-                    FETCH_NEXT_RULE(f);
-                    rule = P_RULE;  // !!! what about `seek @(first x)`
-                    
-                    blockscope {
-                        REBYTE k = KIND_BYTE_UNCHECKED(rule);  // REB_0_END ok
-                        if (k != REB_WORD)
-                            fail (Error_Parse_Variable(f));
-                    }
-
-                  seek_rule:  // "legacy" lone GET-WORD! rule jumps here
-
-                    Seek_Parse_Position(
-                        f,
-                        Get_Opt_Var_May_Fail(rule, P_RULE_SPECIFIER)
-                    );
-
-                    // !!! `continue` is used here without any post-"match"
-                    // processing, so the only way `begin` will get set for
-                    // the next rule is if it's set here, else commands like
-                    // INSERT that follow will insert at the old location.
-                    //
-                    // https://github.com/rebol/rebol-issues/issues/2269
-                    //
-                    // Without known resolution on #2269, it isn't clear if
-                    // there is legitimate meaning to seeking a parse in mid
-                    // rule or not.  So only reset the begin position if the
-                    // seek appears to be a "separate rule" in its own right.
-                    //
-                    if (flags == 0)
-                        begin = P_POS;
-
-                    FETCH_NEXT_RULE(f);
-                    continue; }  // </SYM_SEEK>
+                    FETCH_NEXT_RULE(f);  // skip the SEEK word
+                    // !!! what about `seek @(first x)` ?
+                    HANDLE_SEEK_RULE_UPDATE_BEGIN(f, P_RULE, P_RULE_SPECIFIER);
+                    FETCH_NEXT_RULE(f);  // e.g. skip the `x` in `seek x`
+                    continue; }
 
                   default:  // the list above should be exhaustive
                     assert(false);
@@ -1798,12 +1819,26 @@ REBNATIVE(subparse)
                 // It's not a PARSE command, get or set it
 
                 // word: - set a variable to the series at current index
-                if (IS_SET_WORD(rule))
-                    goto mark_rule;
+                if (IS_SET_WORD(rule)) {
+                    //
+                    // !!! Review meaning of marking the parse in a slot that
+                    // is a target of a rule, e.g. `thru pos: xxx`
+                    //
+                    // https://github.com/rebol/rebol-issues/issues/2269
+                    //
+                    // if (flags != 0) fail (Error_Parse_Rule());
+
+                    Handle_Mark_Rule(f, rule, P_RULE_SPECIFIER);
+                    FETCH_NEXT_RULE(f);
+                    continue;
+                }
 
                 // :word - change the index for the series to a new position
-                if (IS_GET_WORD(rule))
-                    goto seek_rule;
+                if (IS_GET_WORD(rule)) {
+                    HANDLE_SEEK_RULE_UPDATE_BEGIN(f, rule, P_RULE_SPECIFIER);
+                    FETCH_NEXT_RULE(f);
+                    continue;
+                }
 
                 assert(IS_WORD(rule));  // word - some other variable
 
@@ -1821,36 +1856,18 @@ REBNATIVE(subparse)
                     Move_Value(P_OUT, save);
                     return R_THROWN;
                 }
-
                 rule = save;
             }
             else if (IS_SET_PATH(rule)) {
-                if (Set_Path_Throws_Core(
-                    save, rule, P_RULE_SPECIFIER, P_INPUT_VALUE
-                )){
-                    Move_Value(P_OUT, save);
-                    return R_THROWN;
-                }
-
-                // Nothing left to do after storing the parse position in the
-                // path location...continue.
-                //
+                Handle_Mark_Rule(f, rule, P_RULE_SPECIFIER);
                 FETCH_NEXT_RULE(f);
                 continue;
             }
             else if (IS_GET_PATH(rule)) {
-                if (Get_Path_Throws_Core(save, rule, P_RULE_SPECIFIER)) {
-                    Move_Value(P_OUT, save);
-                    return R_THROWN;
-                }
-
-                Seek_Parse_Position(f, save);
+                HANDLE_SEEK_RULE_UPDATE_BEGIN(f, rule, P_RULE_SPECIFIER);
                 FETCH_NEXT_RULE(f);
                 continue;
             }
-
-            if (P_POS > SER_LEN(P_INPUT))
-                P_POS = SER_LEN(P_INPUT);
         }
         else if (IS_SET_GROUP(rule)) {
             //
