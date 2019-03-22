@@ -405,6 +405,29 @@
 ])
 
 
+; As alternatives to using SET-WORD! to set the parse position and GET-WORD!
+; to get the parse position, Ren-C has MARK and SEEK.  One ability this
+; gives is to mark a variable without having it be a SET-WORD! and thus
+; gathered by FUNCTION.  It also allows seeking to integer positions.
+;
+; Unlike R3-Alpha, changing the series being parsed is not allowed.
+;
+; !!! Feature does not currently allow marking a synthesized variable, or
+; seeking a synthesized variable, e.g. `mark @(...)` or `seek @(...)`
+(
+    did all [
+        parse "aabbcc" [some "a" mark x some "b" mark y: :x copy z to end]
+        x = "bbcc"
+        y = "cc"
+        z = "bbcc"
+    ]
+)(
+    pos: 5
+    parse "123456789" [seek pos copy nums to end]
+    nums = "56789"
+)
+
+
 ; KEEP without blocks
 ; https://github.com/metaeducation/ren-c/issues/935
 

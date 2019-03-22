@@ -376,44 +376,32 @@ static void Print_Parse_Index(REBFRM *f) {
 }
 
 
+// Move to a new parse position, ensuring the index is not past the end.
+// Changing the series is not allowed, but it takes a series for convenience
+// in order to check that the right series is provided.
 //
-//  Set_Parse_Series: C
-//
-// Change the series, ensuring the index is not past the end.
-//
-static void Set_Parse_Series(
+static void Seek_Parse_Position(
     REBFRM *f,
-    const RELVAL *any_series,
-    REBSPC *specifier
+    const REBVAL *value  // checked to ensure it's the same series
 ){
-    if (any_series != P_INPUT_VALUE) // we may just be checking, not setting
-        Derelativize(P_INPUT_VALUE, any_series, specifier);
+    REBINT index;
+    if (IS_INTEGER(value)) {
+        index = VAL_INT32(value);
+        if (index < 1)
+            fail ("Cannot SEEK a PARSE to negative integer positions");
+        --index;  // Rebol is 1-based, C is 0 based...
+    }
+    else if (ANY_SERIES(value)) {
+        if (VAL_SERIES(value) != P_INPUT)
+            fail ("Changing PARSE series is not allowed, only the position");
+        index = VAL_INDEX(value);
+    }
+    else  // #1263
+        fail (Error_Parse_Series_Raw(value));
 
-    // If the input is quoted, e.g. `parse lit ''''[...] [rules]`, we dequote
-    // it while we are processing the ARG().  This is because we are trying
-    // to update and maintain the value as we work in a way that can be shown
-    // in the debug stack frame.  Calling VAL_UNESCAPED() constantly would be
-    // slower, and also gives back a const value which may be shared with
-    // other quoted instances, so we couldn't update the VAL_INDEX() directly.
-    //
-    // But we save the number of quotes in a local variable.  This way we can
-    // put the quotes back on whenever doing a COPY etc.
-    //
-    Init_Integer(P_NUM_QUOTES_VALUE, VAL_NUM_QUOTES(P_INPUT_VALUE));
-    Dequotify(P_INPUT_VALUE);
-    if (not ANY_SERIES(P_INPUT_VALUE)) // #1263
-        fail (Error_Parse_Series_Raw(P_INPUT_VALUE));
-
+    VAL_INDEX(P_INPUT_VALUE) = index;
     if (VAL_INDEX(P_INPUT_VALUE) > VAL_LEN_HEAD(P_INPUT_VALUE))
         VAL_INDEX(P_INPUT_VALUE) = VAL_LEN_HEAD(P_INPUT_VALUE);
-
-    // It is possible to search case-sensitively for string material in a
-    // BINARY!, when it's being considered as UTF-8.
-    //
-    if (P_FIND_FLAGS & AM_FIND_CASE)
-        P_FIND_FLAGS |= AM_FIND_CASE;
-    else
-        P_FIND_FLAGS &= ~AM_FIND_CASE;
 }
 
 
@@ -1000,23 +988,6 @@ static REBIXO To_Thru_Non_Block_Rule(
     if (kind == REB_LOGIC) // no-op if true, match failure if false
         return VAL_LOGIC(rule) ? P_POS : END_FLAG;
 
-    if (kind == REB_INTEGER) {
-        //
-        // `TO/THRU (INTEGER!)` JUMPS TO SPECIFIC INDEX POSITION
-        //
-        // !!! This allows jumping backward to an index before the parse
-        // position, while TO generally only goes forward otherwise.  Should
-        // this be done by another operation?  (Like SEEK?)
-        //
-        // !!! Negative numbers get cast to large integers, needs error!
-        // But also, should there be an option for relative addressing?
-        //
-        REBCNT i = cast(REBCNT, Int32(rule)) - (is_thru ? 0 : 1);
-        if (i > SER_LEN(P_INPUT))
-            return SER_LEN(P_INPUT);
-        return i;
-    }
-
     if (kind == REB_WORD and VAL_WORD_SYM(rule) == SYM_END) {
         //
         // `TO/THRU END` JUMPS TO END INPUT SERIES (ANY SERIES TYPE)
@@ -1265,11 +1236,24 @@ REBNATIVE(subparse)
     INCLUDE_PARAMS_OF_SUBPARSE;
 
     UNUSED(ARG(find_flags)); // used via P_FIND_FLAGS
+    UNUSED(ARG(num_quotes)); // used via P_NUM_QUOTES_VALUE
 
     REBFRM *f = frame_; // nice alias of implicit native parameter
 
-    Set_Parse_Series(f, ARG(input), SPECIFIED); // doesn't reset, just checks
-    UNUSED(ARG(num_quotes)); // Set_Parse_Series sets this
+    // If the input is quoted, e.g. `parse lit ''''[...] [rules]`, we dequote
+    // it while we are processing the ARG().  This is because we are trying
+    // to update and maintain the value as we work in a way that can be shown
+    // in the debug stack frame.  Calling VAL_UNESCAPED() constantly would be
+    // slower, and also gives back a const value which may be shared with
+    // other quoted instances, so we couldn't update the VAL_INDEX() directly.
+    //
+    // But we save the number of quotes in a local variable.  This way we can
+    // put the quotes back on whenever doing a COPY etc.
+    //
+    Init_Integer(P_NUM_QUOTES_VALUE, VAL_NUM_QUOTES(P_INPUT_VALUE));
+    Dequotify(P_INPUT_VALUE);
+
+    Seek_Parse_Position(f, ARG(input));  // make sure index not past END
 
     // Every time we hit an alternate rule match (with |), we have to reset
     // any of the collected values.  Remember the tail when we started.
@@ -1737,21 +1721,18 @@ REBNATIVE(subparse)
                   case SYM_RETURN:
                     fail ("RETURN removed from PARSE, use (THROW ...)");
 
-                  default:  // the list above should be exhaustive
-                    assert(false);
-                }
+                  case SYM_MARK: {  // allows SET-WORD! or plain WORD!
+                    FETCH_NEXT_RULE(f);
+                    rule = P_RULE;  // !!! what about `mark @(first [x])` ?
+                    
+                    blockscope {
+                        REBYTE k = KIND_BYTE_UNCHECKED(rule);  // REB_0_END ok
+                        if (k != REB_WORD and k != REB_SET_WORD)
+                            fail (Error_Parse_Variable(f));
+                    }
 
-              skip_pre_rule:;
+                  mark_rule:  // "legacy" lone SET-WORD! rule jumps here
 
-                // Any other WORD! with VAL_CMD() is a parse keyword, but is
-                // a "match command", so proceed...
-            }
-            else {
-                // It's not a PARSE command, get or set it
-
-                // word: - set a variable to the series at current index
-                if (IS_SET_WORD(rule)) {
-                    //
                     // !!! Review meaning of marking the parse in a slot that
                     // is a target of a rule, e.g. `thru pos: xxx` #
                     //
@@ -1767,15 +1748,23 @@ REBNATIVE(subparse)
                         P_NUM_QUOTES
                     );
                     FETCH_NEXT_RULE(f);
-                    continue;
-                }
+                    continue; }  // </SYM_MARK>
 
-                // :word - change the index for the series to a new position
-                if (IS_GET_WORD(rule)) {
-                    Set_Parse_Series(
+                  case SYM_SEEK: {
+                    FETCH_NEXT_RULE(f);
+                    rule = P_RULE;  // !!! what about `seek @(first x)`
+                    
+                    blockscope {
+                        REBYTE k = KIND_BYTE_UNCHECKED(rule);  // REB_0_END ok
+                        if (k != REB_WORD)
+                            fail (Error_Parse_Variable(f));
+                    }
+
+                  seek_rule:  // "legacy" lone GET-WORD! rule jumps here
+
+                    Seek_Parse_Position(
                         f,
-                        Get_Opt_Var_May_Fail(rule, P_RULE_SPECIFIER),
-                        SPECIFIED
+                        Get_Opt_Var_May_Fail(rule, P_RULE_SPECIFIER)
                     );
 
                     // !!! `continue` is used here without any post-"match"
@@ -1794,8 +1783,27 @@ REBNATIVE(subparse)
                         begin = P_POS;
 
                     FETCH_NEXT_RULE(f);
-                    continue;
+                    continue; }  // </SYM_SEEK>
+
+                  default:  // the list above should be exhaustive
+                    assert(false);
                 }
+
+              skip_pre_rule:;
+
+                // Any other WORD! with VAL_CMD() is a parse keyword, but is
+                // a "match command", so proceed...
+            }
+            else {
+                // It's not a PARSE command, get or set it
+
+                // word: - set a variable to the series at current index
+                if (IS_SET_WORD(rule))
+                    goto mark_rule;
+
+                // :word - change the index for the series to a new position
+                if (IS_GET_WORD(rule))
+                    goto seek_rule;
 
                 assert(IS_WORD(rule));  // word - some other variable
 
@@ -1836,7 +1844,7 @@ REBNATIVE(subparse)
                     return R_THROWN;
                 }
 
-                Set_Parse_Series(f, save, SPECIFIED);
+                Seek_Parse_Position(f, save);
                 FETCH_NEXT_RULE(f);
                 continue;
             }

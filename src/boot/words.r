@@ -163,21 +163,21 @@ quit
 ;return ;-- covered by parse below
 continue
 
-subparse ;-- recursions of parse use this for REBNATIVE(subparse) in backtrace
+subparse  ; recursions of parse use this for REBNATIVE(subparse) in backtrace
 
 ; PARSE - These words must not be reserved above!!  The range of consecutive
 ; index numbers are used by PARSE to detect keywords.
 ;
 set  ; must be first first (SYM_SET referred to by GET_VAR() in %u-parse.c)
 copy
-collect  ; proposed as being SET-like, by @rgchris
+collect  ; Variant in Red, but Ren-C's acts SET-like, suggested by @rgchris
 keep
 some
 any
 opt
 not
 and
-ahead
+ahead  ; Ren-C addition (also in Red)
 then
 remove
 insert
@@ -186,13 +186,15 @@ fail
 reject
 while
 limit
+seek  ; Ren-C addition
+mark  ; Ren-C addition
 ??
 |
 accept
 break
 ; ^--prep words above
-    if ;; removed: https://forum.rebol.info/t/968/7
-    return ;; removed: https://github.com/metaeducation/ren-c/pull/898
+    if  ; removed: https://forum.rebol.info/t/968/7
+    return  ; removed: https://github.com/metaeducation/ren-c/pull/898
 ; v--match words below
 skip
 to
