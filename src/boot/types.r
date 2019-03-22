@@ -46,9 +46,14 @@ REBOL [
 ; of the name to indicate its zero-ness and C falsey-ness is intrinsic to the
 ; design--huge parts of the system would not work if it were not zero.
 
+#REB_0_END  "!!! End is not a datatype, this isn't exposed as END!"
+            0           0       0       0       []
 
 ; REB_NULLED takes value 1, but it being 1 is less intrinsic.  It is also not
 ; a "type"...but it is falsey, hence it has to be before LOGIC! in the table
+
+#REB_NULLED "!!! Nulled is not a datatype, this isn't exposed as NULL!"
+            0           0       0       0       []
 
 
 ; <ANY-UNIT> https://en.wikipedia.org/wiki/Unit_type

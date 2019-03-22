@@ -378,7 +378,7 @@ REBTYPE(Decimal)
             Move_Value(D_OUT, D_ARG(2));
             Move_Value(D_ARG(2), D_ARG(1));
             Move_Value(D_ARG(1), D_OUT);
-            GENERIC_HOOK hook = Generic_Hooks[VAL_TYPE(D_ARG(1))];
+            GENERIC_HOOK hook = Generic_Hooks(VAL_TYPE(D_ARG(1)));
             return hook(frame_, verb);
         }
 

@@ -414,7 +414,7 @@ REBTYPE(Integer)
                 Move_Value(D_OUT, val2);  // Use as temp workspace
                 Move_Value(val2, val);
                 Move_Value(val, D_OUT);
-                GENERIC_HOOK hook = Generic_Hooks[VAL_TYPE(val)];
+                GENERIC_HOOK hook = Generic_Hooks(VAL_TYPE(val));
                 return hook(frame_, verb); }
 
             // Only type valid to subtract from, divide into, is decimal/money:

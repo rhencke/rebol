@@ -144,7 +144,7 @@ bool Next_Path_Throws(REBPVS *pvs)
   redo:;
 
     enum Reb_Kind kind = VAL_TYPE(pvs->out);
-    PATH_HOOK hook = Path_Hooks[kind]; // &PD_Fail is used instead of NULL
+    PATH_HOOK hook = Path_Hooks(kind);  // &PD_Fail is used instead of NULL
 
     if (IS_END(*v) and PVS_IS_SET_PATH(pvs)) {
 
@@ -239,8 +239,8 @@ bool Next_Path_Throws(REBPVS *pvs)
           case REB_R_INVISIBLE:
             assert(PVS_IS_SET_PATH(pvs));
             if (
-                hook != Path_Hooks[REB_STRUCT]
-                and hook != Path_Hooks[REB_GOB]
+                hook != Path_Hooks(REB_STRUCT)
+                and hook != Path_Hooks(REB_GOB)
             ){
                 panic("SET-PATH! evaluation ran assignment before path end");
             }
@@ -632,7 +632,7 @@ REBNATIVE(pick)
 
   redo:;
     enum Reb_Kind kind = VAL_TYPE(D_OUT);
-    PATH_HOOK hook = Path_Hooks[kind];
+    PATH_HOOK hook = Path_Hooks(kind);
 
     REB_R r = hook(pvs, PVS_PICKER(pvs), NULL);
     if (not r or r == pvs->out or GET_CELL_FLAG(r, ROOT))
@@ -716,7 +716,7 @@ REBNATIVE(poke)
     pvs->special = ARG(value);
 
     enum Reb_Kind kind = VAL_TYPE(location);
-    PATH_HOOK hook = Path_Hooks[kind];
+    PATH_HOOK hook = Path_Hooks(kind);
 
     const REBVAL *r = hook(pvs, PVS_PICKER(pvs), ARG(value));
     switch (KIND_BYTE(r)) {

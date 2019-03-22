@@ -286,3 +286,76 @@ inline static enum Reb_Kind GETIFY_ANY_PLAIN_KIND(REBYTE k) {
     assert(ANY_PLAIN_KIND(k));
     return cast(enum Reb_Kind, k + 2);
 }
+
+
+//=//// TYPE HOOK ACCESS //////////////////////////////////////////////////=//
+//
+// Built-in types identify themselves as one of 64 fundamental "kinds".  When
+// that kind is combined with up to 3 levels of quoting, it uses up a byte
+// in the cell's header.  To access behaviors for that type, it is looked
+// up in the `Builtin_Type_Hooks` under their index.  Then, the entire rest
+// of the cell's bits--the "Payload" and the "Extra"--are available for the
+// data portion of the cell.
+//
+// Extension types all use the same builtin-type in their header: REB_UTYPE.
+// However, some bits in the cell must be surrendered in order for the full
+// type to be expressed.  They have to sacrifice their "Extra" bits.
+//
+// For efficiency, what's put in the extra is what would be like that type's
+// row in the `Builtin_Type_Hooks` if it had been built-in.  These table
+// rows are speculatively implemented as an untyped array of CFUNC* which is
+// null terminated (vs. a struct with typed fields) so that the protocol can
+// be expanded without breaking strict aliasing.
+//
+
+enum Reb_Type_Hook_Index {
+    IDX_GENERIC_HOOKS,
+    IDX_COMPARE_HOOKS,
+    IDX_PATH_HOOKS,
+    IDX_MAKE_HOOKS,
+    IDX_TO_HOOKS,
+    IDX_MOLD_HOOKS,
+    IDX_HOOK_NULLPTR,  // see notes on why null termination convention
+    IDX_HOOKS_MAX
+};
+
+
+// This table is generated from %types.r - the actual table is located in
+// %tmp-dispatch.c and linked in only once.
+//
+// No valid type has a null entry in the table.  Instead there is a hook in
+// the slot which will fail if it is ever called.
+//
+// !!! These used to be const, but the desire to move REB_STRUCT and REB_GOB
+// into extensions required the tables to be dynamically modified.  This
+// should likely be changed back.
+//
+extern CFUNC* Builtin_Type_Hooks[REB_MAX][IDX_HOOKS_MAX];
+
+inline static CFUNC *Type_Hooks(
+    enum Reb_Type_Hook_Index ihook,
+    enum Reb_Kind kind
+){
+    // For now, only handle builtin types.  Would need to do something
+    // special for a UTYPE.
+    //
+    return Builtin_Type_Hooks[kind][ihook];
+}
+
+#define Generic_Hooks(kind) \
+    cast(GENERIC_HOOK, Type_Hooks(IDX_GENERIC_HOOKS, (kind)))
+
+#define Path_Hooks(kind) \
+    cast(PATH_HOOK, Type_Hooks(IDX_PATH_HOOKS, (kind)))
+
+#define Compare_Hooks(kind) \
+    cast(COMPARE_HOOK, Type_Hooks(IDX_COMPARE_HOOKS, (kind)))
+    
+#define Make_Hooks(kind) \
+    cast(MAKE_HOOK, Type_Hooks(IDX_MAKE_HOOKS, (kind)))
+
+#define To_Hooks(kind) \
+    cast(TO_HOOK, Type_Hooks(IDX_TO_HOOKS, (kind)))
+
+#define Mold_Or_Form_Hooks(kind) \
+    cast(MOLD_HOOK, Type_Hooks(IDX_MOLD_HOOKS, (kind)))

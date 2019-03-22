@@ -602,29 +602,6 @@ enum {
 #endif
 
 
-//
-// Dispatch Table Prototypes
-//
-// These dispatch tables are generated and have data declarations in the
-// %tmp-dispatch.c file.  Those data declarations can only be included once,
-// yet the tables may be used in multiple modules.
-//
-// The tables never contain NULL values.  Instead there is a dispatcher in
-// the slot which will fail if it is ever called.
-//
-// !!! These used to be const, but the desire to move REB_STRUCT and REB_GOB
-// into extensions required the tables to be dynamically modified.  This
-// should likely be changed back in the future in case it helps performance,
-// as these will be "user defined types" that are more like a context than
-// a built-in "kind".
-
-extern GENERIC_HOOK Generic_Hooks[REB_MAX];
-extern PATH_HOOK Path_Hooks[REB_MAX];
-extern COMPARE_HOOK Compare_Hooks[REB_MAX];
-extern MAKE_HOOK Make_Hooks[REB_MAX];
-extern TO_HOOK To_Hooks[REB_MAX];
-extern MOLD_HOOK Mold_Or_Form_Hooks[REB_MAX];
-
 #include "sys-eval.h" // low-level single-step evaluation API
 #include "sys-do.h" // higher-level evaluate-until-end API
 

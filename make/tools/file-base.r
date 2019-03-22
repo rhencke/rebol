@@ -185,7 +185,7 @@ core: [
 ;
 generated: [
     tmp-boot-block.c
-    tmp-dispatchers.c
+    tmp-type-hooks.c
 ]
 
 made: [

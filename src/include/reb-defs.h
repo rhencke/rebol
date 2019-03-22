@@ -222,15 +222,47 @@ typedef uint_fast32_t REBDSP; // Note: 0 for empty stack ([0] entry is trash)
 typedef REBVAL *REB_R;
 
 
-//=//// DISPATCHERS ///////////////////////////////////////////////////////=//
+//=//// TYPE HOOKS ///////////////////////////////////////////////////////=//
+
+
+
+// PER-TYPE COMPARE HOOKS, to support GREATER?, EQUAL?, LESSER?...
+//
+// Every datatype should have a comparison function, because otherwise a
+// block containing an instance of that type cannot SORT.  Like the
+// generic dispatchers, compare hooks are done on a per-class basis, with
+// no overrides for individual types (only if they are the only type in
+// their class).
 //
 typedef REBINT (*COMPARE_HOOK)(const REBCEL *a, const REBCEL *b, REBINT s);
+
+
+// PER-TYPE MAKE HOOKS: for `make datatype def`
+//
+// These functions must return a REBVAL* to the type they are making
+// (either in the output cell given or an API cell)...or they can return
+// R_THROWN if they throw.  (e.g. `make object! [return]` can throw)
+//
 typedef REB_R (*MAKE_HOOK)(
     REBVAL *out,
     enum Reb_Kind kind,
     const REBVAL *opt_parent,
     const REBVAL *def
 );
+
+
+// PER-TYPE TO HOOKS: for `to datatype value`
+//
+// These functions must return a REBVAL* to the type they are making
+// (either in the output cell or an API cell).  They are NOT allowed to
+// throw, and are not supposed to make use of any binding information in
+// blocks they are passed...so no evaluations should be performed.
+//
+// !!! Note: It is believed in the future that MAKE would be constructor
+// like and decided by the destination type, while TO would be "cast"-like
+// and decided by the source type.  For now, the destination decides both,
+// which means TO-ness and MAKE-ness are a bit too similar.
+//
 typedef REB_R (*TO_HOOK)(REBVAL*, enum Reb_Kind, const REBVAL*);
 
 
@@ -238,6 +270,15 @@ typedef REB_R (*TO_HOOK)(REBVAL*, enum Reb_Kind, const REBVAL*);
 //
 struct rebol_mold;
 typedef struct rebol_mold REB_MOLD;
+
+
+// PER-TYPE MOLD HOOKS: for `mold value` and `form value`
+//
+// Note: ERROR! may be a context, but it has its own special FORM-ing
+// beyond the class (falls through to ANY-CONTEXT! for mold), and BINARY!
+// has a different handler than strings.  So not all molds are driven by
+// their class entirely.
+//
 typedef void (*MOLD_HOOK)(REB_MOLD *mo, const REBCEL *v, bool form);
 
 
@@ -260,22 +301,33 @@ typedef REB_R (*REBNAT)(REBFRM *frame_);
 #define REBNATIVE(n) \
     REB_R N_##n(REBFRM *frame_)
 
-// Generic hooks: implementing a "verb" ACTION! for a particular
-// type (or class of types).
+//
+// PER-TYPE GENERIC HOOKS: e.g. for `append value x` or `select value y`
+//
+// This is using the term in the sense of "generic functions":
+// https://en.wikipedia.org/wiki/Generic_function
+//
+// The current assumption (rightly or wrongly) is that the handler for
+// a generic action (e.g. APPEND) doesn't need a special hook for a
+// specific datatype, but that the class has a common function.  But note
+// any behavior for a specific type can still be accomplished by testing
+// the type passed into that common hook!
 //
 typedef REB_R (*GENERIC_HOOK)(REBFRM *frame_, const REBVAL *verb);
 #define REBTYPE(n) \
     REB_R T_##n(REBFRM *frame_, const REBVAL *verb)
 
-// Port hook: for implementing generic ACTION!s on a PORT! class
-//
-typedef REB_R (*PORT_HOOK)(REBFRM *frame_, REBVAL *port, const REBVAL *verb);
 
-// Path evaluator function
+// PER-TYPE PATH HOOKS: for `a/b`, `:a/b`, `a/b:`, `pick a b`, `poke a b`
 //
 typedef REB_R (*PATH_HOOK)(
     REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval
 );
+
+
+// Port hook: for implementing generic ACTION!s on a PORT! class
+//
+typedef REB_R (*PORT_HOOK)(REBFRM *frame_, REBVAL *port, const REBVAL *verb);
 
 
 //=//// VARIADIC OPERATIONS ///////////////////////////////////////////////=//

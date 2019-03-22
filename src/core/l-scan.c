@@ -1967,7 +1967,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             if (IS_KIND_SYM(sym)) {
                 enum Reb_Kind kind = KIND_FROM_SYM(sym);
 
-                MAKE_HOOK hook = Make_Hooks[kind];
+                MAKE_HOOK hook = Make_Hooks(kind);
 
                 if (not hook or ARR_LEN(array) != 2) {
                     DECLARE_LOCAL (temp);

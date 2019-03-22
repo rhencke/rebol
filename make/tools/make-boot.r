@@ -173,173 +173,26 @@ add-sym: function [
 add-sym 'nulled  ; make SYM_NULLED the first symbol (lines up with REB_NULLED)
 
 
-=== PROCESS %TYPES.R TABLE ===
+=== DATATYPE DEFINITIONS ===
 
 type-table: load %types.r
 
-e-dispatch: make-emitter "Dispatchers" core/tmp-dispatchers.c
-
-hookname: func [
-    return: [text!]
-    t [object!] "type record (e.g. a row out of %types.r)"
-    column [word!] "which column we are deriving the hook's name based on"
-][
-    propercase-of switch ensure word! t/(column) [
-        '+ [t/name]         ; type has its own unique hook
-        '* [t/class]        ; type uses common hook for class
-        '? ['unhooked]      ; datatype provided by extension
-        '- ['fail]          ; service unavailable for type
-        default [
-            t/(column)      ; override with word in column
-        ]
-    ]
-]
-
-generic-hooks: collect [
-    for-each-record t type-table [
-        keep cscape/with {T_${Hookname T 'Class} /* $<T/Name> */} [t]
-    ]
-]
-
-compare-hooks: collect [
-    for-each-record t type-table [
-        keep cscape/with {CT_${Hookname T 'Class} /* $<T/Name> */} [t]
-    ]
-]
-
-path-hooks: collect [
-    for-each-record t type-table [
-        keep cscape/with {PD_${Hookname T 'Path} /* $<T/Name> */} [t]
-    ]
-]
-
-make-hooks: collect [
-    for-each-record t type-table [
-        keep cscape/with {MAKE_${Hookname T 'Make} /* $<T/Name> */} [t]
-    ]
-]
-
-to-hooks: collect [
-    for-each-record t type-table [
-        keep cscape/with {TO_${Hookname T 'Make} /* $<T/Name> */} [t]
-    ]
-]
-
-mold-hooks: collect [
-    for-each-record t type-table [
-        keep cscape/with {MF_${Hookname T 'Mold} /* $<T/Name> */} [t]
-    ]
-]
-
-e-dispatch/emit {
-    #include "sys-core.h"
-
-    /*
-     * PER-TYPE GENERIC HOOKS: e.g. for `append value x` or `select value y`
-     *
-     * This is using the term in the sense of "generic functions":
-     * https://en.wikipedia.org/wiki/Generic_function
-     *
-     * The current assumption (rightly or wrongly) is that the handler for
-     * a generic action (e.g. APPEND) doesn't need a special hook for a
-     * specific datatype, but that the class has a common function.  But note
-     * any behavior for a specific type can still be accomplished by testing
-     * the type passed into that common hook!
-     */
-    GENERIC_HOOK Generic_Hooks[REB_MAX] = {
-        nullptr,  /* REB_0_END */
-        nullptr,  /* REB_NULLED */
-        $(Generic-Hooks),
-    };
-
-    /*
-     * PER-TYPE COMPARE HOOKS, to support GREATER?, EQUAL?, LESSER?...
-     *
-     * Every datatype should have a comparison function, because otherwise a
-     * block containing an instance of that type cannot SORT.  Like the
-     * generic dispatchers, compare hooks are done on a per-class basis, with
-     * no overrides for individual types (only if they are the only type in
-     * their class).
-     */
-    COMPARE_HOOK Compare_Hooks[REB_MAX] = {
-        nullptr,  /* REB_0_END */
-        nullptr,  /* REB_NULLED */
-        $(Compare-Hooks),
-    };
-
-    /*
-     * PER-TYPE PATH HOOKS: for `a/b`, `:a/b`, `a/b:`, `pick a b`, `poke a b`
-     */
-    PATH_HOOK Path_Hooks[REB_MAX] = {
-        nullptr,  /* REB_0_END */
-        nullptr,  /* REB_NULLED */
-        $(Path-Hooks),
-    };
-
-    /*
-     * PER-TYPE MAKE HOOKS: for `make datatype def`
-     *
-     * These functions must return a REBVAL* to the type they are making
-     * (either in the output cell given or an API cell)...or they can return
-     * R_THROWN if they throw.  (e.g. `make object! [return]` can throw)
-     */
-    MAKE_HOOK Make_Hooks[REB_MAX] = {
-        nullptr,  /* REB_0_END */
-        nullptr,  /* REB_NULLED */
-        $(Make-Hooks),
-    };
-
-    /*
-     * PER-TYPE TO HOOKS: for `to datatype value`
-     *
-     * These functions must return a REBVAL* to the type they are making
-     * (either in the output cell or an API cell).  They are NOT allowed to
-     * throw, and are not supposed to make use of any binding information in
-     * blocks they are passed...so no evaluations should be performed.
-     *
-     * !!! Note: It is believed in the future that MAKE would be constructor
-     * like and decided by the destination type, while TO would be "cast"-like
-     * and decided by the source type.  For now, the destination decides both,
-     * which means TO-ness and MAKE-ness are a bit too similar.
-     */
-    TO_HOOK To_Hooks[REB_MAX] = {
-        nullptr,  /* REB_0_END */
-        nullptr,  /* REB_NULLED */
-        $(To-Hooks),
-    };
-
-    /*
-     * PER-TYPE MOLD HOOKS: for `mold value` and `form value`
-     *
-     * Note: ERROR! may be a context, but it has its own special FORM-ing
-     * beyond the class (falls through to ANY-CONTEXT! for mold), and BINARY!
-     * has a different handler than strings.  So not all molds are driven by
-     * their class entirely.
-     */
-    MOLD_HOOK Mold_Or_Form_Hooks[REB_MAX] = {
-        nullptr,  /* REB_0_END */
-        nullptr,  /* REB_NULLED */
-        $(Mold-Hooks),
-    };
-}
-
-e-dispatch/write-emitted
-
-
-=== DATATYPE DEFINITIONS ===
-
 e-types: make-emitter "Datatype Definitions" inc/tmp-kinds.h
 
-n: 2  ; skip REB_0_END and REB_NULLED
+n: 0
 
 rebs: collect [
     for-each-record t type-table [
-        ensure word! t/name
-        ensure word! t/class
+        if issue? t/name [
+            assert [t/class = 0]  ; REB_0_END and REB_NULLED
+        ] else [
+            ensure word! t/name
+            ensure word! t/class
 
-        assert [sym-n == n]  ; SYM_XXX should equal REB_XXX value
-        add-sym to-word unspaced [ensure word! t/name "!"]
-        keep cscape/with {REB_${T/NAME} = $<n>} [n t]
+            assert [sym-n == n]  ; SYM_XXX should equal REB_XXX value
+            add-sym to-word unspaced [ensure word! t/name "!"]
+            keep cscape/with {REB_${T/NAME} = $<n>} [n t]
+        ]
         n: n + 1
     ]
 ]
@@ -476,6 +329,10 @@ e-types/emit newline
 boot-types: copy []
 n: 1
 for-each-record t type-table [
+    if issue? t/name [
+        continue  ; IS_END(), IS_NULLED(), special tests
+    ]
+
     if t/name != 'quoted [  ; see IS_QUOTED(), handled specially
         e-types/emit 't {
             #define IS_${T/NAME}(v) \
@@ -558,6 +415,61 @@ e-types/emit {
 }
 
 e-types/write-emitted
+
+
+=== BUILT-IN TYPE HOOKS TABLE ===
+
+e-hooks: make-emitter "Built-in Type Hooks" core/tmp-type-hooks.c
+
+hookname: enfix func [
+    return: [text!]
+    'prefix [text!] "quoted prefix, e.g. T_ for T_Action"
+    t [object!] "type record (e.g. a row out of %types.r)"
+    column [word!] "which column we are deriving the hook's name based on"
+][
+    if t/(column) = 0 [return "nullptr"]
+
+    unspaced [prefix propercase-of switch ensure word! t/(column) [
+        '+ [t/name]         ; type has its own unique hook
+        '* [t/class]        ; type uses common hook for class
+        '? ['unhooked]      ; datatype provided by extension
+        '- ['fail]          ; service unavailable for type
+        default [
+            t/(column)      ; override with word in column
+        ]
+    ]]
+]
+
+n: 0
+hook-list: collect [
+    for-each-record t type-table [
+        name: either issue? t/name [as word! t/name] [unspaced [t/name "!"]]
+
+        keep cscape/with {
+            {  /* $<NAME> = $<n> */
+                cast(CFUNC*, ${"T_" Hookname T 'Class}),  /* generic */
+                cast(CFUNC*, ${"CT_" Hookname T 'Class}),  /* compare */
+                cast(CFUNC*, ${"PD_" Hookname T 'Path}),  /* path */
+                cast(CFUNC*, ${"MAKE_" Hookname T 'Make}),  /* make */
+                cast(CFUNC*, ${"TO_" Hookname T 'Make}),  /* to */
+                cast(CFUNC*, ${"MF_" Hookname T 'Mold}),  /* mold */
+                nullptr
+            }} [t]
+
+        n: n + 1
+    ]
+]
+
+e-hooks/emit {
+    #include "sys-core.h"
+
+    /* See comments in %sys-ordered.h */
+    CFUNC* Builtin_Type_Hooks[REB_MAX][IDX_HOOKS_MAX] = {
+        $(Hook-List),
+    };
+}
+
+e-hooks/write-emitted
 
 
 === SYMBOLS FOR WORDS.R ===

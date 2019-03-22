@@ -489,25 +489,15 @@ void Hook_Datatype(
     TO_HOOK to_func,
     MOLD_HOOK mold_func
 ) {
-    if (Generic_Hooks[kind] != &T_Unhooked)
-        fail ("Generic dispatcher already hooked.");
-    if (Path_Hooks[kind] != &PD_Unhooked)
-        fail ("Path dispatcher already hooked.");
-    if (Compare_Hooks[kind] != &CT_Unhooked)
-        fail ("Comparison dispatcher already hooked.");
-    if (Make_Hooks[kind] != &MAKE_Unhooked)
-        fail ("Make dispatcher already hooked.");
-    if (To_Hooks[kind] != &TO_Unhooked)
-        fail ("To dispatcher already hooked.");
-    if (Mold_Or_Form_Hooks[kind] != &MF_Unhooked)
-        fail ("Mold or Form dispatcher already hooked.");
+    if (Generic_Hooks(kind) != &T_Unhooked)
+        fail ("Cannot hook already hooked type in Hook_Datatype()");
 
-    Generic_Hooks[kind] = gen;
-    Path_Hooks[kind] = pef;
-    Compare_Hooks[kind] = ctf;
-    Make_Hooks[kind] = make_func;
-    To_Hooks[kind] = to_func;
-    Mold_Or_Form_Hooks[kind] = mold_func;
+    Builtin_Type_Hooks[kind][IDX_GENERIC_HOOKS] = cast(CFUNC*, gen);
+    Builtin_Type_Hooks[kind][IDX_PATH_HOOKS] = cast(CFUNC*, pef);
+    Builtin_Type_Hooks[kind][IDX_COMPARE_HOOKS] = cast(CFUNC*, ctf);
+    Builtin_Type_Hooks[kind][IDX_MAKE_HOOKS] = cast(CFUNC*, make_func);
+    Builtin_Type_Hooks[kind][IDX_TO_HOOKS] = cast(CFUNC*, to_func);
+    Builtin_Type_Hooks[kind][IDX_MOLD_HOOKS] = cast(CFUNC*, mold_func);
 }
 
 
@@ -516,23 +506,13 @@ void Hook_Datatype(
 //
 void Unhook_Datatype(enum Reb_Kind kind)
 {
-    if (Generic_Hooks[kind] == &T_Unhooked)
-        fail ("Generic dispatcher is not hooked.");
-    if (Path_Hooks[kind] == &PD_Unhooked)
-        fail ("Path dispatcher is not hooked.");
-    if (Compare_Hooks[kind] == &CT_Unhooked)
-        fail ("Comparison dispatcher is not hooked.");
-    if (Make_Hooks[kind] == &MAKE_Unhooked)
-        fail ("Make dispatcher is not hooked.");
-    if (To_Hooks[kind] == &TO_Unhooked)
-        fail ("To dispatcher is not hooked.");
-    if (Mold_Or_Form_Hooks[kind] == &MF_Unhooked)
-        fail ("Mold or Form dispatcher is not hooked.");
+    if (Generic_Hooks(kind) == &T_Unhooked)
+        fail ("Cannot unhook already unhooked type in Unhook_Datatype()");
 
-    Generic_Hooks[kind] = &T_Unhooked;
-    Path_Hooks[kind] = &PD_Unhooked;
-    Compare_Hooks[kind] = &CT_Unhooked;
-    Make_Hooks[kind] = &MAKE_Unhooked;
-    To_Hooks[kind] = &TO_Unhooked;
-    Mold_Or_Form_Hooks[kind] = &MF_Unhooked;
+    Builtin_Type_Hooks[kind][IDX_GENERIC_HOOKS] = cast(CFUNC*, &T_Unhooked);
+    Builtin_Type_Hooks[kind][IDX_PATH_HOOKS] = cast(CFUNC*, &PD_Unhooked);
+    Builtin_Type_Hooks[kind][IDX_COMPARE_HOOKS] = cast(CFUNC*, &CT_Unhooked);
+    Builtin_Type_Hooks[kind][IDX_MAKE_HOOKS] = cast(CFUNC*, &MAKE_Unhooked);
+    Builtin_Type_Hooks[kind][IDX_TO_HOOKS] = cast(CFUNC*, &TO_Unhooked);
+    Builtin_Type_Hooks[kind][IDX_MOLD_HOOKS] = cast(CFUNC*, &MF_Unhooked);
 }
