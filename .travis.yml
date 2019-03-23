@@ -123,7 +123,60 @@ env:
 #
 matrix:
   include:
-    # [1] OSX x64, debug, clang++
+    # [1] Emscripten, wasm + pthread, release
+    #
+    # The job of this build is to create a JavaScript library that can be
+    # loaded into a web page or Node.JS.  For an example:
+    #
+    # https://github.com/hostilefork/replpad-js
+    #
+    - os: osx
+      osx_image: xcode10.1  # was originally using xcode9.3beta
+      language: c
+      env:
+        - NUMBER=12
+        - CONFIG=emscripten.r
+        - OS_ID=0.16.2
+        - DEBUG=none
+        - OPTIMIZE=z
+        - STANDARD=c
+        - RIGOROUS=no
+        - STATIC=no
+        - WITH_FFI=no
+        - ODBC_REQUIRES_LTDL=no
+        - EXTENSIONS=-  # requests inclusion of no extensions (default?)
+
+
+    # [2] Emscripten, wasm + emterpreter, release
+    #
+    # The "emtepreter" is a less-desirable way to achieve asynchronous code
+    # in a browser than using WebAssembly Threads.  However, some JavaScript
+    # hosts are missing that--or other features--which are needed for the
+    # "good" emscripten build.  (Alternatively they may have the features, but
+    # disable them by default, creating a usability barrier.)
+    #
+    # https://github.com/emscripten-core/emscripten/wiki/Emterpreter
+    #
+    # This build varation is created as a fallback.
+    #
+    - os: osx
+      osx_image: xcode10.1  # was originally using xcode9.3beta
+      language: c
+      env:
+        - NUMBER=13
+        - CONFIG=emterpreter.r
+        - OS_ID=0.16.1
+        - DEBUG=none
+        - OPTIMIZE=z
+        - STANDARD=c
+        - RIGOROUS=no
+        - STATIC=no
+        - WITH_FFI=no
+        - ODBC_REQUIRES_LTDL=no
+        - EXTENSIONS=-  # requests inclusion of no extensions (default?)
+
+
+    # [3] OSX x64, debug, clang++
     #
     # !!! Can't do all warnings as errors, because in clang the switch for
     # files that end in .c as c++ ("-x c++") is deprecated for some overly
@@ -147,7 +200,7 @@ matrix:
       # libraries (ODBC, ZeroMQ...) added via brew in `install` step below
       # Note: TCC extension has not been implemented for Mac
 
-    # [2] OSX x64, release, clang++
+    # [4] OSX x64, release, clang++
     #
     # Note that this build is a *release* C++ build (the only one currently
     # on Travis).  This exercises the cast macros which create template code,
@@ -178,7 +231,7 @@ matrix:
         - BREW=yes
       # libraries (ODBC, ZeroMQ...) added via brew in `install` step below
 
-    # [3] OSX x64, release, clang
+    # [5] OSX x64, release, clang
     #
     # This is the minimum bootstrap executable, built on the oldest image
     # (to get lowest common denominator library support).  To avoid dylib
@@ -203,7 +256,7 @@ matrix:
        # their service on this older system.  It hangs.  So just don't use it.
        # Note: TCC extension has not been implemented for Mac
 
-    # [4] Linux x86, release, gcc
+    # [6] Linux x86, release, gcc
     #
     - os: linux
       sudo: required  # "containers will be retired soon"
@@ -229,7 +282,7 @@ matrix:
             - texinfo  # for makeinfo, required to build FFI
             # Note: Must build its own TCC for the TCC extension to work
 
-    # [5] Linux x64, debug, g++
+    # [7] Linux x64, debug, g++
     #
     # !!! Note this distribution does not support c++11 completely, it's an
     # old gcc 4.6
@@ -262,7 +315,7 @@ matrix:
             - libtcc-dev  # for being able to `-ltcc` for compilation API
             - tcc  # tcc executable (unused), but gets libtcc1.a + tcc headers
 
-    # [6] Linux x64, release, gcc
+    # [8] Linux x64, release, gcc
     #
     # We try to create a bare-minimum Linux executable for bootstrap.  This
     # has the least dependencies and run on the oldest systems.
@@ -291,7 +344,7 @@ matrix:
           packages:
             - gcc-multilib  # !!! what was this for?
 
-    # [7] Windows x86, release, gcc
+    # [9] Windows x86, release, gcc
     #
     # !!! There was an issue where TCC is causing a panic on startup for this
     # configuration.  It should be tested to see if that has been fixed.
@@ -325,7 +378,7 @@ matrix:
             - texinfo  # for makeinfo, required to build FFI
             # Note: Must build its own TCC for the TCC extension to work
 
-    # [8] Windows x64, debug, gcc
+    # [10] Windows x64, debug, gcc
     #
     - os: linux
       sudo: false  # force new container-based infrastructure.
@@ -352,7 +405,7 @@ matrix:
             - mingw-w64
             # Note: Must build its own TCC for the TCC extension to work
 
-    # [9] Windows x64, debug, g++
+    # [11] Windows x64, debug, g++
     #
     # There is an issue where if you do a C++ build on this toolchain in the
     # "precise" image, that newer MinGW will give an EXE with a superfluous
@@ -389,7 +442,7 @@ matrix:
             - mingw-w64
             # Note: Must build its own tcc version
 
-    # [10] Android5, debug, gcc
+    # [12] Android5, debug, gcc
     #
     - os: linux
       dist: trusty
@@ -408,7 +461,7 @@ matrix:
         - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS=""
 
-    # [11] Android5, release, gcc
+    # [13] Android5, release, gcc
     #
     - os: linux
       dist: trusty
@@ -433,59 +486,6 @@ matrix:
         apt:
           packages:
             - gcc-multilib  # for cross-compiling
-
-    # [12] Emscripten, wasm + pthread, release
-    #
-    # The job of this build is to create a JavaScript library that can be
-    # loaded into a web page or Node.JS.  For an example:
-    #
-    # https://github.com/hostilefork/replpad-js
-    #
-    - os: osx
-      osx_image: xcode10.1  # was originally using xcode9.3beta
-      language: c
-      env:
-        - NUMBER=12
-        - CONFIG=emscripten.r
-        - OS_ID=0.16.2
-        - DEBUG=none
-        - OPTIMIZE=z
-        - STANDARD=c
-        - RIGOROUS=no
-        - STATIC=no
-        - WITH_FFI=no
-        - ODBC_REQUIRES_LTDL=no
-        - EXTENSIONS=-  # requests inclusion of no extensions (default?)
-
-
-    # [13] Emscripten, asm.js + emterpreter, release
-    #
-    # The "emtepreter" is a less-desirable way to achieve asynchronous code
-    # in a browser than using WebAssembly Threads.  However, some JavaScript
-    # hosts are missing that--or other features--which are needed for the
-    # "good" emscripten build.  (Alternatively they may have the features, but
-    # disable them by default, creating a usability barrier.)
-    #
-    # https://github.com/emscripten-core/emscripten/wiki/Emterpreter
-    #
-    # This build varation is created as a fallback.
-    #
-    - os: osx
-      osx_image: xcode10.1  # was originally using xcode9.3beta
-      language: c
-      env:
-        - NUMBER=13
-        - CONFIG=emterpreter.r
-        - OS_ID=0.16.1
-        - DEBUG=none
-        - OPTIMIZE=z
-        - STANDARD=c
-        - RIGOROUS=no
-        - STATIC=no
-        - WITH_FFI=no
-        - ODBC_REQUIRES_LTDL=no
-        - EXTENSIONS=-  # requests inclusion of no extensions (default?)
-
 
 # The install step occurs before the `script:` step runs.  The language that
 # was specified in the `matrix:` entry for each instance will guide certain
