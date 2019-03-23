@@ -198,12 +198,12 @@ inline static const REBYTE *Back_Scan_UTF8_Char(
 ){
     *out = 0;
 
-    const uint_fast8_t *source = bp;
-    REBCNT trail = trailingBytesForUTF8[*source];
+    const REBYTE *source = bp;
+    uint_fast8_t trail = trailingBytesForUTF8[*source];
 
     // Check that we have enough valid source bytes:
     if (size) {
-        if (trail + 1 > *size)
+        if (cast(uint_fast8_t, trail + 1) > *size)
             return nullptr;
     }
     else if (trail != 0) {
