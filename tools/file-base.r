@@ -42,6 +42,7 @@ core: [
     d-crash.c
     d-dump.c
     d-eval.c
+    d-gc.c
     d-print.c
     d-stack.c
     d-stats.c
