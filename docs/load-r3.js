@@ -136,12 +136,25 @@ function libRebolComponentURL(suffix) {  // suffix includes the dot
             )
     }
 
-    // Due to origin policy restrictions, you have to have the libr3.worker.js
-    // in the same place your page is coming from.  Fortunately this is a
-    // fixed file.
+    // When using pthread emulation, Emscripten generates `libr3.worker.js`.
+    // You tell it how many workers to "pre-spawn" so they are available
+    // at the moment you call `pthread_create()`, see PTHREAD_POOL_SIZE.  Each
+    // worker needs to load its own copy of the libr3.js interface to have
+    // the cwraps to the WASM heap available (since workers do not have access
+    // to variables on the GUI thread).
     //
-    if (suffix == ".worker.js")
-        return "libr3" + suffix
+    // Due to origin policy restrictions, you typically need to have a
+    // worker live in the same place your page is coming from.  To make Ren-C
+    // fully hostable remotely it uses a hack of fetching the JS file via
+    // CORS as a Blob, and running the worker from that.  An Emscripten change
+    // that would be better than patching libr3.js post-build discussed here:
+    //
+    // https://github.com/emscripten-core/emscripten/issues/8338
+    //
+    if (false) {  // page-relative location not enforced due to workaround
+        if (suffix == ".worker.js")
+            return "libr3" + suffix
+    }
 
     // !!! These files should only be generated if you are debugging, and
     // are optional.  But it seems locateFile() can be called to ask for

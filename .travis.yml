@@ -909,12 +909,13 @@ script:
       echo $R3_EXIT_STATUS
 
     # 0.16.x: patch libr3.js and upload
-    # load-r3.js, worker.js to travis-builds/
+    # copy load-r3.js to travis-builds/
+    # (it's not in subdir of 0.16.x because it needs to pick between them)
     - |
       if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]
       then
         "$R3_MAKE" libr3.js-workers-patch.reb libr3.js
-        cp ../docs/load-r3.js ../docs/worker.js .
+        cp ../docs/load-r3.js .
         rm libr3.js-workers-patch.reb
       fi
     
