@@ -116,7 +116,7 @@ static REB_R Clipboard_Actor(
         GlobalUnlock(h);
         CloseClipboard();
 
-        REBVAL *binary = rebRunQ("as binary!", str, rebEND);  // READ -> UTF-8
+        REBVAL *binary = rebValueQ("as binary!", str, rebEND);  // READ -> UTF-8
         rebRelease(str);
 
         return binary; }

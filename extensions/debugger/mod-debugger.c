@@ -77,7 +77,7 @@ bool Do_Breakpoint_Throws(
 ){
     UNUSED(interrupted); // not passed to the REPL, should it be?
 
-    REBVAL *inst = rebRun("console/resumable", rebEND);
+    REBVAL *inst = rebValue("console/resumable", rebEND);
 
     if (IS_INTEGER(inst)) {
         Init_Thrown_With_Label(out, inst, NAT_VALUE(quit));

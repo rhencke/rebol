@@ -105,8 +105,8 @@
 
 // There was significant deliberation over what the following code should do:
 //
-//     REBVAL *word = rebRun("'print");
-//     REBVAL *type = rebRun("type of", word);
+//     REBVAL *word = rebValue("'print");
+//     REBVAL *type = rebValue("type of", word);
 //
 // If the WORD! is simply spliced into the code and run, then that will be
 // an error.  It would be as if you had written:
@@ -120,11 +120,11 @@
 //
 //     REBVAL *x = rebInteger(10);
 //     REBVAL *y = rebInteger(20);
-//     REBVAL *coordinate = rebRun("[", x, y, "]");
+//     REBVAL *coordinate = rebValue("[", x, y, "]");
 //
 // You don't want to wind up with `['10 '20]` in that block.  So automatic
 // splicing with quotes is fraught with problems.  Still it might be useful
-// sometimes, so it is exposed via `rebRunQ()` and other `rebXxxQ()`.
+// sometimes, so it is exposed via `rebValueQ()` and other `rebXxxQ()`.
 //
 // These facilities are generalized so that one may add and drop quoting from
 // splices on a feed via ranges, countering any additions via rebQ() with a
@@ -276,7 +276,7 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
 
         if (DSP == dsp_orig) {
             //
-            // This happens when somone says rebRun(..., "", ...) or similar,
+            // This happens when somone says rebValue(..., "", ...) or similar,
             // and gets an empty array from a string scan.  It's not legal
             // to put an END in f->value, and it's unknown if the variadic
             // feed is actually over so as to put null... so get another

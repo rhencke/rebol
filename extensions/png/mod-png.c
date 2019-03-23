@@ -249,7 +249,7 @@ REBNATIVE(decode_png)
 
     REBVAL *binary = rebRepossess(image_bytes, (w * h) * 4);
 
-    REBVAL *image = rebRun(
+    REBVAL *image = rebValue(
         "make image! compose [",
             "(make pair! [", rebI(w), rebI(h), "])",
             binary,
@@ -310,7 +310,7 @@ REBNATIVE(encode_png)
     //
     state.encoder.auto_convert = 0;
 
-    REBVAL *size = rebRun("pick", image, "'size", rebEND);
+    REBVAL *size = rebValue("pick", image, "'size", rebEND);
     REBCNT width = rebUnboxInteger("pick", size, "'x", rebEND);
     REBCNT height = rebUnboxInteger("pick", size, "'y", rebEND);
     rebRelease(size);

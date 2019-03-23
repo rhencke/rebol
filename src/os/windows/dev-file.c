@@ -189,7 +189,7 @@ static int Read_Directory(REBREQ *dir_req, REBREQ *file_req)
     if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
         file->modes |= RFM_DIR;
 
-    ReqFile(file_req)->path = rebRun(
+    ReqFile(file_req)->path = rebValue(
         "applique 'local-to-file [",
             "path:", rebR(rebTextWide(info.cFileName)),
             "dir:", rebL(file->modes & RFM_DIR),

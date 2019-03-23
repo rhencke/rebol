@@ -127,7 +127,7 @@ REBNATIVE(map_event)
     Init_Gob(gob, g);  // !!! Efficiency hack: %reb-event.h has Init_Gob()
     PUSH_GC_GUARD(gob);
 
-    REBVAL *mapped = rebRun(
+    REBVAL *mapped = rebValue(
         "map-gob-offset", gob, "make pair! [", rebI(x), rebI(y), "]",
     rebEND);
 

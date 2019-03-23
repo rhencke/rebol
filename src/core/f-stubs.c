@@ -609,7 +609,7 @@ REBVAL *Setify(REBVAL *out) {
         // kind of logic to turn into a SET-WORD!  Calling through the
         // API is slow, but easy to do for a test.
         //
-        REBVAL *set = rebRunQ("to set-word!", out, rebEND);
+        REBVAL *set = rebValueQ("to set-word!", out, rebEND);
         Move_Value(out, set);
         rebRelease(set);
     }
@@ -662,7 +662,7 @@ REBVAL *Getify(REBVAL *out) {
     else {
         // !!! Experiment...see what happens if we fall back on GET-WORD!
         //
-        REBVAL *get = rebRunQ("to get-word!", out, rebEND);
+        REBVAL *get = rebValueQ("to get-word!", out, rebEND);
         Move_Value(out, get);
         rebRelease(get);
     }

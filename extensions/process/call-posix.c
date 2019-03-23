@@ -211,7 +211,7 @@ REB_R Call_Core(REBFRM *frame_) {
         // line out of argv[] parts if you pass an array).
         //
         if (not REF(shell)) {
-            REBVAL *block = rebRun(
+            REBVAL *block = rebValue(
                 "parse-command-to-argv*", ARG(command), rebEND
             );
             Move_Value(ARG(command), block);

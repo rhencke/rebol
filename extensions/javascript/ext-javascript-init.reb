@@ -34,7 +34,7 @@ js-native: js-native-mainthread [
     source "JavaScript code as a text string" [text!]
     /awaiter "implicit resolve()/reject() parameters signal return result"
 ]{
-    return reb.Run(
+    return reb.Value(
         "js-native-mainthread/(", reb.ArgR("awaiter"), ")",
         reb.ArgR("spec"), reb.ArgR("source")
     );

@@ -435,7 +435,7 @@ static REBVAL *Make_Sockopts_Table(void) {
     // REDUCE is used so the type words become datatypes.
     // ISSUE!s used instead of LIT-WORD!s for visibility.
 
-    REBVAL *table = rebRun("reduce [",
+    REBVAL *table = rebValue("reduce [",
         "#AFFINITY integer!", rebI(ZMQ_AFFINITY),
         "#BACKLOG integer!", rebI(ZMQ_BACKLOG),
       /*
@@ -534,7 +534,7 @@ REBNATIVE(zmq_setsockopt) {
     else {
         REBVAL *opts = Make_Sockopts_Table(); // !!! should cache on startup
 
-        REBVAL *pos = rebRun(
+        REBVAL *pos = rebValue(
             "(find", opts, "as issue!", ARG(name), ") else [",
                 "fail [{Couldn't find option for}", ARG(name), "]",
             "]");
@@ -607,12 +607,12 @@ REBNATIVE(zmq_getsockopt) {
 
         REBVAL *opts = Make_Sockopts_Table(); // !!! should cache on startup
 
-        REBVAL *pos = rebRun(
+        REBVAL *pos = rebValue(
             "(find", opts, "as issue!", ARG(name), ") else [",
                 "fail [{Couldn't find option for}", ARG(name), "]",
             "]");
 
-        datatype = rebRun("ensure datatype! second", pos);
+        datatype = rebValue("ensure datatype! second", pos);
         name = rebUnbox("ensure integer! third", pos);
 
         rebRelease(pos);
@@ -656,7 +656,7 @@ REBNATIVE(zmq_getsockopt) {
     }
 
     if (not REF(type))
-        rebRelease(datatype); // need to release if from a rebRun() call...
+        rebRelease(datatype); // need to release if from a rebValue() call...
 
     return result;
 }
@@ -744,9 +744,9 @@ REBNATIVE(zmq_send) {
 
     int errnum = zmq_errno();
     if (errnum == EINTR)
-        return rebRun("'EINTR");
+        return rebValue("'EINTR");
     if (errnum == EAGAIN)
-        return rebRun("'EAGAIN");
+        return rebValue("'EAGAIN");
 
     fail_ZeroMQ();
 }
@@ -779,9 +779,9 @@ REBNATIVE(zmq_recv) {
 
     int errnum = zmq_errno();
     if (errnum == EINTR)
-        return rebRun("'EINTR");
+        return rebValue("'EINTR");
     if (errnum == EAGAIN)
-        return rebRun("'EAGAIN");
+        return rebValue("'EAGAIN");
 
     fail_ZeroMQ();
 }
@@ -826,7 +826,7 @@ REBNATIVE(zmq_poll)
 
     int i;
     for (i = 0; i < nitems; ++i) {
-        REBVAL *socket = rebRun(
+        REBVAL *socket = rebValue(
             "(match handle! pick", spec, rebI(i * 2), ") else [",
                 "fail {Expected HANDLE! in spec position}",
             "]");
@@ -846,7 +846,7 @@ REBNATIVE(zmq_poll)
     // out all 0MQ socket handle!s (& their events integer!) for which no
     // event is ready.
 
-    REBVAL *result = rebRun("make block!", rebI(nready * 2));
+    REBVAL *result = rebValue("make block!", rebI(nready * 2));
 
     int check_nready = 0;
     for (i = 0; i < nitems; ++i) {
@@ -914,7 +914,7 @@ REBNATIVE(zmq_version) {
     int patch;
     zmq_version(&major, &minor, &patch);
 
-    return rebRun(
+    return rebValue(
         "make tuple! [", rebI(major), rebI(minor), rebI(patch), "]"
     );;
 }

@@ -276,14 +276,14 @@ REBTYPE(Pair)
     Move_Value(D_ARG(1), x1);
     if (x2)
         Move_Value(D_ARG(2), x2);  // use extracted arg x instead of pair arg
-    REBVAL *x_frame = rebRunQ("copy", frame, rebEND);
+    REBVAL *x_frame = rebValueQ("copy", frame, rebEND);
 
     Move_Value(D_ARG(1), y1);
     if (y2)
         Move_Value(D_ARG(2), y2);  // use extracted arg y instead of pair arg
-    REBVAL *y_frame = rebRunQ("copy", frame, rebEND);
+    REBVAL *y_frame = rebValueQ("copy", frame, rebEND);
 
-    return rebRun(
+    return rebValue(
         "make pair! reduce [",
             "do", rebR(x_frame),
             "do", rebR(y_frame),

@@ -590,7 +590,7 @@ REBVAL *Make_Native(
     else
         Init_Blank(ARR_AT(details, IDX_NATIVE_BODY));
 
-    // When code in the core calls APIs like `rebRun()`, it consults the
+    // When code in the core calls APIs like `rebValue()`, it consults the
     // stack and looks to see where the native function that is running
     // says its "module" is.  For natives, we default to Lib_Context.
     //

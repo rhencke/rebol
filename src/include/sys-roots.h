@@ -153,7 +153,7 @@ inline static void Free_Value(REBVAL *v)
 // (and tripping assert mechanisms).  So they can leak if used incorrectly.
 //
 // Instructions should be returned as a const void *, in order to discourage
-// using these anywhere besides as arguments to a variadic API like rebRun().
+// using these anywhere besides as arguments to a variadic API like rebValue().
 //
 inline static REBARR *Alloc_Instruction(enum Reb_Api_Opcode opcode) {
     REBSER *s = Alloc_Series_Node(
@@ -194,7 +194,7 @@ inline static REBVAL *rebSpecific(const RELVAL *v, REBSPC *specifier)
 // The evaluator accepts API handles back from action dispatchers, and the
 // path evaluator accepts them from path dispatch.  This code does common
 // checking used by both, which includes automatic release of the handle
-// so the dispatcher can write things like `return rebRun(...);` and not
+// so the dispatcher can write things like `return rebValue(...);` and not
 // encounter a leak.
 //
 // !!! There is no protocol in place yet for the external API to throw,

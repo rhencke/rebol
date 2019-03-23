@@ -259,7 +259,7 @@ REBNATIVE(request_file_p)
     }
     else {
         if (not REF(multi)) {
-            REBVAL *solo = rebRun(
+            REBVAL *solo = rebValue(
                 "local-to-file", rebR(rebTextWide(ofn.lpstrFile)),
                 rebEND
             );
@@ -276,7 +276,7 @@ REBNATIVE(request_file_p)
                 // When there's only one item in a multi-selection scenario,
                 // that item is the filename including path...the lone result.
                 //
-                REBVAL *solo = rebRun(
+                REBVAL *solo = rebValue(
                     "local-to-file", rebR(rebTextWide(item)),
                     rebEND
                 );
@@ -294,7 +294,7 @@ REBNATIVE(request_file_p)
                 // in embedded Rebol code.  Rewrite if and when this becomes
                 // a priority to update.
                 //
-                REBVAL *dir = rebRun(
+                REBVAL *dir = rebValue(
                     "local-to-file/dir", rebR(rebTextWide(item)),
                     rebEND
                 );
@@ -314,7 +314,7 @@ REBNATIVE(request_file_p)
                     wcscpy(buffer, dir_wide);
                     wcscat(buffer, item);
 
-                    REBVAL *file = rebRun(
+                    REBVAL *file = rebValue(
                         "local-to-file", rebR(rebTextWide(buffer)),
                         rebEND
                     );
@@ -423,7 +423,7 @@ REBNATIVE(request_file_p)
                     // there was code here that tried to add it (?)  If it
                     // becomes relevant, `folder` is available to prepend.
                     //
-                    REBVAL *file = rebRun(
+                    REBVAL *file = rebValue(
                         "as file!", rebT(item->data), // UTF-8
                         rebEND
                     );
@@ -438,7 +438,7 @@ REBNATIVE(request_file_p)
         else {
             // filename is in UTF-8, directory seems to be included.
             //
-            REBVAL *file = rebRun(
+            REBVAL *file = rebValue(
                 "as file!", rebT(gtk_file_chooser_get_filename(chooser)),
                 rebEND
             );
@@ -618,7 +618,7 @@ REBNATIVE(request_dir_p)
     else if (not SHGetPathFromIDList(pFolder, folder))
         error = Error_User("SHGetPathFromIDList failed");
     else {
-        REBVAL *file = rebRun("as file!", rebT(folder), rebEND);
+        REBVAL *file = rebValue("as file!", rebT(folder), rebEND);
         Move_Value(D_OUT, file);
         rebRelease(file);
     }

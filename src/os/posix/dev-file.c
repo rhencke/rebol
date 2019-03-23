@@ -299,7 +299,7 @@ static int Read_Directory(REBREQ *dir, REBREQ *file)
     if (Is_Dir(dir_utf8, file_utf8))
         file_req->modes |= RFM_DIR;
 
-    ReqFile(file)->path = rebRun(
+    ReqFile(file)->path = rebValue(
         "applique 'local-to-file [",
             "path:", rebT(file_utf8),
             "dir:", rebL(file_req->modes & RFM_DIR),

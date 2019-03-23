@@ -318,7 +318,7 @@ REBNATIVE(console)
         // Run_Sandboxed_Group().
         //
         REBVAL *trapped;  // Note: goto would cross initialization
-        trapped = rebRunQ(
+        trapped = rebValueQ(
             "entrap [",
                 "ext-console-impl",  // action! that takes 2 args, run it
                 code,  // group! or block! executed prior (or blank!)
@@ -345,13 +345,13 @@ REBNATIVE(console)
             if (no_recover)
                 rebJumpsQ("PANIC", trapped, rebEND);
 
-            code = rebRunQ("[#host-console-error]", rebEND);
+            code = rebValueQ("[#host-console-error]", rebEND);
             result = trapped;
             no_recover = true;  // no second chances until user code runs
             goto recover;
         }
 
-        code = rebRunQ("first", trapped, rebEND);  // entrap []'s the output
+        code = rebValueQ("first", trapped, rebEND);  // entrap []'s the output
         rebRelease(trapped); // don't need the outer block any more
 
       provoked:
@@ -368,10 +368,10 @@ REBNATIVE(console)
         REBVAL *group;
 
         if (is_console_instruction) {
-            group = rebRunQ("as group!", code, rebEND);  // to run without DO
+            group = rebValueQ("as group!", code, rebEND);  // to run without DO
         }
         else {
-            group = rebRunQ(code, rebEND);  // rebRelease() w/o affecting code
+            group = rebValueQ(code, rebEND);  // rebRelease() w/o affecting code
 
             // If they made it to a user mode instruction, the console skin
             // must not be broken beyond all repair.  So re-enable recovery.

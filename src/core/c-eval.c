@@ -695,7 +695,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 //==//// NULL ////////////////////////////////////////////////////////////==//
 //
 // Since nulled cells can't be in BLOCK!s, the evaluator shouldn't usually see
-// them.  Plus the API quotes spliced values, so `rebRun("null?", nullptr)`
+// them.  Plus the API quotes spliced values, so `rebValue("null?", nullptr)`
 // gets a QUOTED! that evaluates to null--it's not a null being evaluated.
 //
 // But one way the evaluator can see NULL is EVAL, such as `eval first []`.
@@ -1460,7 +1460,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         //
         // !!! Could get complicated if a manual lifetime is used and freed
         // during an evaluation.  Not currently possible since there's nothing
-        // like a rebRun() which targets a cell passed in by the user.  But if
+        // like a rebValue() which targets a cell passed in by the user.  But if
         // such a thing ever existed it would have that problem...and would
         // need to take a "hold" on the cell to prevent a rebFree() while the
         // evaluation was in progress.

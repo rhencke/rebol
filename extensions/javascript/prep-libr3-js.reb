@@ -145,13 +145,13 @@ e-cwrap/emit {
 === GENERATE C WRAPPER FUNCTIONS ===
 
 e-cwrap/emit {
-    /* The C API uses names like rebRun().  This is because calls from the
+    /* The C API uses names like rebValue().  This is because calls from the
      * core do not go through a struct, but inline directly...also some of
      * the helpers are macros.  However, Node.js does not permit libraries
      * to export "globals" like this... you must say e.g.:
      *
      *     var reb = require('rebol')
-     *     let val = reb.Run("1 + 2")
+     *     let val = reb.Value("1 + 2")
      *
      * Having browser calls match what would be used in Node rather than
      * trying to match C makes the most sense (also provides abbreviation by
@@ -427,6 +427,10 @@ e-cwrap/emit {
 
     reb.L = function(flag) {
         return reb.R(reb.Logic(flag))
+    }
+
+    reb.V = function() {  /* https://stackoverflow.com/a/3914600 */
+        return reb.R(reb.Value.apply(null, arguments));
     }
 
     reb.Startup = function() {

@@ -60,7 +60,7 @@ REBSER* Gob_To_Image(REBGOB *gob);
 //
 REBVAL *Convert_Date(long zone, const SYSTEMTIME *stime)
 {
-    return rebRun("ensure date! (make-date-ymdsnz",
+    return rebValue("ensure date! (make-date-ymdsnz",
         rebI(stime->wYear), // year
         rebI(stime->wMonth), // month
         rebI(stime->wDay), // day
@@ -135,7 +135,7 @@ REBVAL *OS_Get_Current_Dir(void)
     WCHAR *path = rebAllocN(WCHAR, len);
     GetCurrentDirectory(len, path);
 
-    REBVAL *result = rebRun(
+    REBVAL *result = rebValue(
         "local-to-file/dir", rebR(rebTextWide(path)),
     rebEND);
     rebFree(path);
@@ -278,7 +278,7 @@ REBVAL *OS_Get_Current_Exec(void)
     }
     path[r] = '\0'; // May not be NULL-terminated if buffer is not big enough
 
-    REBVAL *result = rebRun(
+    REBVAL *result = rebValue(
         "local-to-file", rebR(rebTextWide(path)),
     rebEND);
     rebFree(path);

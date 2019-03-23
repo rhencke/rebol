@@ -2189,7 +2189,7 @@ REBNATIVE(subparse)
                         // !!! Review faster way of sharing the AS transform.
                         //
                         Derelativize(P_CELL, into, P_INPUT_SPECIFIER);
-                        into = rebRunQ("as block!", P_CELL, rebEND);
+                        into = rebValueQ("as block!", P_CELL, rebEND);
                     }
                     else if (
                         not ANY_SERIES_KIND(CELL_KIND(VAL_UNESCAPED(into)))

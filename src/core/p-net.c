@@ -38,7 +38,7 @@ enum Transport_Types {
 //
 static void Query_Net(REBVAL *out, REBVAL *port, struct devreq_net *sock)
 {
-    REBVAL *info = rebRunQ(
+    REBVAL *info = rebValueQ(
         "copy ensure object! (", port, ")/scheme/info", rebEND
     ); // shallow copy
 
@@ -435,7 +435,7 @@ static REB_R Transport_Actor(
         if (not (req->modes & RST_LISTEN) or (req->modes & RST_UDP))
             fail ("TAKE is only available on TCP LISTEN ports");
 
-        return rebRunQ(
+        return rebValueQ(
             "take*/part/(", ARG(deep), ")/(", ARG(last), ")",
                 CTX_VAR(ctx, STD_PORT_CONNECTIONS),
                 ARG(part),

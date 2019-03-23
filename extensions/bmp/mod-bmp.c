@@ -565,7 +565,7 @@ REBNATIVE(decode_bmp)
   blockscope {
     REBVAL *binary = rebRepossess(image_bytes, (w * h) * 4);
 
-    REBVAL *image = rebRun(
+    REBVAL *image = rebValue(
         "make image! compose [",
             "(make pair! [", rebI(w), rebI(h), "])",
             binary,
@@ -603,7 +603,7 @@ REBNATIVE(encode_bmp)
     BITMAPFILEHEADER bmfh;
     BITMAPINFOHEADER bmih;
 
-    REBVAL *size = rebRunQ("pick", ARG(image), "'size", rebEND);
+    REBVAL *size = rebValueQ("pick", ARG(image), "'size", rebEND);
     int32_t w = rebUnboxIntegerQ("pick", size, "'x", rebEND);
     int32_t h = rebUnboxIntegerQ("pick", size, "'y", rebEND);
     rebRelease(size);

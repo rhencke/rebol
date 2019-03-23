@@ -543,7 +543,7 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                 break;
 
               case REB_ACTION: {
-                REBVAL *generated = rebRun(les->data, rebEND);
+                REBVAL *generated = rebValue(les->data, rebEND);
                 if (generated) {
                     if (var)
                         Move_Value(var, generated);

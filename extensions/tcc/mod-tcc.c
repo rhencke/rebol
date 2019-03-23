@@ -182,7 +182,7 @@ static void Process_Text_Helper(
     const REBVAL *config,
     const char *label
 ){
-    REBVAL *text = rebRun(
+    REBVAL *text = rebValue(
         "opt ensure [blank! text!] select", config, "as word!", rebT(label),
     rebEND);
 
@@ -204,7 +204,7 @@ static void Process_Block_Helper(
     const REBVAL *config,
     const char *label
 ){
-    REBVAL *block = rebRun(
+    REBVAL *block = rebValue(
         "ensure block! select", config, "as word!", rebT(label),
     rebEND);
 
@@ -333,7 +333,7 @@ REBNATIVE(make_native)
         );
     }
 
-    // !!! Natives on the stack can specify where APIs like rebRun() should
+    // !!! Natives on the stack can specify where APIs like rebValue() should
     // look for bindings.  For the moment, set user natives to use the user
     // context...it could be a parameter of some kind (?)
     //
@@ -360,7 +360,7 @@ REBNATIVE(make_native)
 
         REBARR *paramlist = ACT_PARAMLIST(native);  // unique for this action!
         intptr_t heapaddr = cast(intptr_t, paramlist);
-        REBVAL *linkname = rebRun(
+        REBVAL *linkname = rebValue(
             "unspaced [{N_} as text! to-hex", rebI(heapaddr), "]",
         rebEND);
 
@@ -385,7 +385,7 @@ REBNATIVE(make_native)
 //      compilables [block!] "Should be just TEXT! and user native ACTION!s"
 //      config [object!] "Vetted and simplified form of /OPTIONS block"
 //      /inspect "Return the C source code as text, but don't compile it"
-//      /librebol "Connect symbols to running EXE's libRebol (rebRun(), etc.)"
+//      /librebol "Connect symbols to running EXE's libRebol (rebValue(), etc.)"
 //  ]
 //
 REBNATIVE(compile_p)
@@ -539,7 +539,7 @@ REBNATIVE(compile_p)
     //
     if (REF(librebol)) {
         /* #include "tmp-librebol-table.inc" */
-        Add_Function_Symbol_Helper(state, "rebRun", cast(CFUNC*, &RL_rebRun));
+        Add_Function_Symbol_Helper(state, "rebValue", cast(CFUNC*, &RL_rebValue));
     }
 
     // Add library paths (same as using `-L` in the options)

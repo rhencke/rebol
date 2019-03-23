@@ -369,7 +369,7 @@ static bool Did_Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
       case SYM_IMAGE:
         CLR_GOB_OPAQUE(gob);
         if (IS_IMAGE(val)) {
-            REBVAL *size = rebRun("pick", val, "'size", rebEND);
+            REBVAL *size = rebValue("pick", val, "'size", rebEND);
             int32_t w = rebUnboxInteger("pick", size, "'x", rebEND);
             int32_t h = rebUnboxInteger("pick", size, "'y", rebEND);
             rebRelease(size);
@@ -830,7 +830,7 @@ REB_R PD_Gob(
     }
 
     if (IS_INTEGER(picker))
-        return rebRunQ(
+        return rebValueQ(
             rebU1(NAT_VALUE(pick)), ARR_AT(gob, IDX_GOB_PANE), picker,
         rebEND);
 
@@ -1027,7 +1027,7 @@ REBTYPE(Gob)
         // local, but its' good to exercise the API as much as possible).
         //
         REBVAL *pane = KNOWN(ARR_AT(gob, IDX_GOB_PANE));
-        return rebRun(
+        return rebValue(
             "applique :take* [",
                 "series: at", pane, rebI(index + 1),
                 "part:", ARG(part),
@@ -1053,7 +1053,7 @@ REBTYPE(Gob)
         return nullptr;
 
     case SYM_REVERSE:
-        return rebRunQ(
+        return rebValueQ(
             "reverse", ARR_AT(gob, IDX_GOB_PANE),
         rebEND);
 

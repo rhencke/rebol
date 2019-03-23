@@ -765,13 +765,13 @@ REBNATIVE(path_0)
     // into two pieces, as opposed to pieces of length 2.
     //
     if (ANY_STRING(left) or ANY_ARRAY(left))
-        return rebRunQ("split/into", left, right, rebEND);
+        return rebValueQ("split/into", left, right, rebEND);
 
     // Note: DIVIDE is historically a "type action", so technically it is the
     // left hand side type which gets to pick the behavior--consistent with
     // the plan for how 0-length paths would work.
     //
-    return rebRunQ("divide", left, right, rebEND);
+    return rebValueQ("divide", left, right, rebEND);
 }
 
 

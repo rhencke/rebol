@@ -271,7 +271,7 @@ REB_R MAKE_Array(
         //
         REBDSP dsp_orig = DSP;
         while (true) {
-            REBVAL *generated = rebRun(arg, rebEND);
+            REBVAL *generated = rebValue(arg, rebEND);
             if (not generated)
                 break;
             Move_Value(DS_PUSH(), generated);

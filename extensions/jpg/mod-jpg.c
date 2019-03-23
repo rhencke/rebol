@@ -94,7 +94,7 @@ REBNATIVE(decode_jpeg)
 
     REBVAL *binary = rebRepossess(image_bytes, (w * h) * 4);
 
-    REBVAL *image = rebRun(
+    REBVAL *image = rebValue(
         "make image! compose [",
             "(make pair! [", rebI(w), rebI(h), "])",
             binary,

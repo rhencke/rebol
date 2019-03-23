@@ -41,7 +41,7 @@
 //     REBVAL *item2 = ...;
 //     REBVAL *item3 = ...;
 //
-//     REBARR *result = rebRun(
+//     REBARR *result = rebValue(
 //         "if not", item1, "[\n",
 //             item2, "| print {Close brace separate from content}\n",
 //         "] else [\n",
@@ -450,7 +450,7 @@ long RL_rebTick(void)
 // * Routines with full written out names like `rebInteger()` return API
 //   handles which must be rebRelease()'d.  Shorter versions like rebI() don't
 //   return REBVAL* but are designed for transient use when evaluating, e.g.
-//   `rebRun("print [", rebI(count), "]");` does not need to rebRelease()
+//   `rebValue("print [", rebI(count), "]");` does not need to rebRelease()
 //   the resulting variable because the evaluator frees it after use.
 //
 //=////////////////////////////////////////////////////////////////////////=//
@@ -721,7 +721,7 @@ REBVAL *RL_rebArg(unsigned char quotes, const void *p, va_list *vaptr)
 // ones that extract C fundamental types out of Rebol values.  Hence you
 // don't have to say:
 //
-//      REBVAL *value = rebRun("1 +", some_rebol_integer);
+//      REBVAL *value = rebValue("1 +", some_rebol_integer);
 //      int sum = rebUnboxInteger(value);
 //      rebRelease(value);
 //
@@ -732,7 +732,7 @@ REBVAL *RL_rebArg(unsigned char quotes, const void *p, va_list *vaptr)
 // The default evaluators splice Rebol values "as-is" into the feed.  This
 // means that any evaluator active types (like WORD!, ACTION!, GROUP!...)
 // will run.  This can be mitigated with rebQ, but to make it easier for
-// some cases variants like `rebRunQ()` and `rebUnboxIntegerQ()` are provided
+// some cases variants like `rebValueQ()` and `rebUnboxIntegerQ()` are provided
 // which default to splicing with quotes.
 //
 // (see `#define FLAG_QUOTING_BYTE` for why splice quoting is not the default)
@@ -765,11 +765,11 @@ static void Run_Va_May_Fail(
 
 
 //
-//  rebRun: RL_API
+//  rebValue: RL_API
 //
 // Most basic evaluator that returns a REBVAL*, which must be rebRelease()'d.
 //
-REBVAL *RL_rebRun(unsigned char quotes, const void *p, va_list *vaptr)
+REBVAL *RL_rebValue(unsigned char quotes, const void *p, va_list *vaptr)
 {
     REBVAL *result = Alloc_Value();
     Run_Va_May_Fail(result, quotes, p, vaptr);  // calls va_end()
@@ -785,8 +785,8 @@ REBVAL *RL_rebRun(unsigned char quotes, const void *p, va_list *vaptr)
 //
 //  rebQuote: RL_API
 //
-// Variant of rebRun() that simply quotes its result.  So `rebQuote(...)` is
-// equivalent to `rebRun("quote", ...)`, with the advantage of being faster
+// Variant of rebValue() that simply quotes its result.  So `rebQuote(...)` is
+// equivalent to `rebValue("quote", ...)`, with the advantage of being faster
 // and not depending on what the QUOTE word looks up to.
 //
 // (It also has the advantage of not showing QUOTE on the call stack.  That
@@ -805,7 +805,7 @@ REBVAL *RL_rebQuote(unsigned char quotes, const void *p, va_list *vaptr)
 //
 //  rebElide: RL_API
 //
-// Variant of rebRun() which assumes you don't need the result.  This saves on
+// Variant of rebValue() which assumes you don't need the result.  This saves on
 // allocating an API handle, or the caller needing to manage its lifetime.
 //
 void RL_rebElide(unsigned char quotes, const void *p, va_list *vaptr)
@@ -1402,18 +1402,18 @@ void RL_rebHalt(void)
 //
 //     void *instruction = rebQ("stuff");  // not passed direct to evaluator
 //     rebElide("print {Hi!}");  // a RECYCLE could be triggered here
-//     rebRun(..., instruction, ...);  // the instruction may be corrupt now!
+//     rebValue(..., instruction, ...);  // the instruction may be corrupt now!
 //
 //=////////////////////////////////////////////////////////////////////////=//
 
 
-// The rebQ instruction is designed to work so that `rebRun(rebQ(...))` would
-// be the same as rebRunQ(...).  Hence it doesn't mean "quote", it means
+// The rebQ instruction is designed to work so that `rebValue(rebQ(...))` would
+// be the same as rebValueQ(...).  Hence it doesn't mean "quote", it means
 // "quote any value splices in this section".  And if you turned around and
-// said `rebRun(rebQ(rebU(...)))` that should undo your effect.  The two
+// said `rebValue(rebQ(rebU(...)))` that should undo your effect.  The two
 // operations share a mostly common implementation.
 //
-// Note that `rebRun("print {One}", rebQ("print {Two}", ...), ...)` should not
+// Note that `rebValue("print {One}", rebQ("print {Two}", ...), ...)` should not
 // execute rebQ()'s code right when C runs it.  If it did, then `Two` would
 // print before `One`.  It has to give back something that provides more than
 // one value when the feed visits it.

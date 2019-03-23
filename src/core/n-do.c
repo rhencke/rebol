@@ -192,8 +192,8 @@ REBNATIVE(shove)
         }
         else if (IS_SET_PATH(left)) {
             f->feed->gotten = nullptr;  // calling arbitrary code, may disrupt
-            composed_set_path = rebRunQ("compose", left, rebEND);
-            REBVAL *temp = rebRunQ("get/hard", composed_set_path, rebEND);
+            composed_set_path = rebValueQ("compose", left, rebEND);
+            REBVAL *temp = rebValueQ("get/hard", composed_set_path, rebEND);
             Move_Value(D_OUT, temp);
             rebRelease(temp);
         }

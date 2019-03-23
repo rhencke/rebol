@@ -94,7 +94,7 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         // Give back a BINARY! which is as large as the portion of the buffer
         // that was used, and clear the buffer for reuse.
         //
-        return rebRunQ("copy", data, "elide clear", data, rebEND); }
+        return rebValueQ("copy", data, "elide clear", data, rebEND); }
 
       case SYM_OPEN:
         Req(req)->flags |= RRF_OPEN;

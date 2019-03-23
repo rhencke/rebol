@@ -119,7 +119,7 @@ REB_R Call_Core(REBFRM *frame_) {
         //
         // https://github.com/rebol/rebol-issues/issues/2225
 
-        REBVAL *text = rebRun(
+        REBVAL *text = rebValue(
             "argv-block-to-command*", ARG(command),
         rebEND);
         Move_Value(ARG(command), text);
