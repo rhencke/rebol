@@ -80,3 +80,30 @@ https://github.com/hostilefork/replpad-js/
 (Note: At time of writing, integration with Node.JS is untested--and would
 have to run the emterpreted build, as emscripten does not yet implement
 pthreads on Node.)
+
+### License
+
+Though Rebol itself is released under an Apache 2.0 License, the JavaScript
+extension represents a significant independent effort, which was designed to
+stand separate from the interpreter.  A "stronger" share-alike license was
+chosen for this extension: the LGPL v3.  The extension represents significant
+work that will likely continue to be extended, and any reasonable fork/clone
+shouldn't have a problem sharing their improvements.
+
+Any snippets here that were taken from free sources on the web cite their
+original links.  If a small portion of *original* code is of interest, then
+permission would almost certainly be granted to borrow it under an MIT license.
+Just ask.  Or if you don't feel like asking, use common sense; it's not like
+we're Oracle.  9 lines of code doth not a lawsuit make.  *(Unless you ARE
+Oracle...in which case, heck yeah we'll sue you!)*
+
+In time, the license might be weakened to something more liberal.  Until such
+time as a truly principled significant contributor demands that the project
+*not* be relicensed, it's asked that all contributors agree that a more liberal
+license could be chosen.  The only rule is that there won't be any "special
+treatment" licenses--e.g. a more liberal license for people who pay.  Any
+license change will be applicable to everyone.  *(Except, maybe...Oracle.)*
+
+Note: This doesn't preclude someone making a donation in order to ask that
+the license be loosened.  It just means that everyone gets the result--not
+just the donor.

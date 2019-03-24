@@ -1,18 +1,51 @@
-'use strict'  // <-- FIRST statement! https://stackoverflow.com/q/1335851
-
-// https://github.com/metaeducation/ren-c/blob/master/docs/load-r3.js
-
-// There are two possibilities for how the REPL can accomplish I/O in a way
-// that appears synchronous: using pthreads or using the "Emterpreter":
+//
+// File: %load-r3.js
+// Summary: "Single-File script for detecting and loading libRebol JS"
+// Project: "JavaScript REPLpad for Ren-C branch of Rebol 3"
+// Homepage: https://github.com/hostilefork/replpad-js/
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// Copyright (c) 2018-2019 hostilefork.com
+//
+// See README.md and CREDITS.md for more information
+//
+// Licensed under the Lesser GPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://www.gnu.org/licenses/lgpl-3.0.html
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// The nature of WebAssembly and worker threads is such that the build
+// products of emscripten produce more than one file.  The details of doing
+// a load of those emscripten products can be somewhat daunting...so this file
+// makes it possible to get everything taken care of by including only a
+// single `<script>` tag on a page.
+//
+// Adding to the complexity is that the JavaScript extension is designed to be
+// able to build versions of the code.  Both versions can accomplish I/O in
+// a way that appears synchronous: using pthreads or using the "Emterpreter":
 //
 // https://emscripten.org/docs/porting/pthreads.html
 // https://github.com/kripken/emscripten/wiki/Emterpreter
 //
 // pthreads rely on SharedArrayBuffer and WASM threading, and hence aren't
 // ready in quite all JS environments yet.  However, the resulting build
-// products are half the size of what the emterpreter makes, and around
+// products are half the size of what the emterpreter makes--and around
 // THIRTY TIMES FASTER.  Hence, the emterpreter is not an approach that is
 // likely to stick around any longer than it has to.
+//
+// But for the foreseeable future, support for both is included, and this
+// loader does the necessary detection to decide which version the host
+// environment is capable of running.
+//
+
+'use strict'  // <-- FIRST statement! https://stackoverflow.com/q/1335851
+
+// https://github.com/metaeducation/ren-c/blob/master/docs/load-r3.js
+
 //
 if (typeof WebAssembly !== "object") {
     throw Error("Your browser doesn't support WebAssembly.")
@@ -39,7 +72,7 @@ var os_id = (use_emterpreter ? "0.16.1" : "0.16.2")
 
 console.log("Use Emterpreter => " + use_emterpreter)
 
-var is_localhost = (  // helpful to put certain debug behaviors under this flag
+var is_localhost = (  // helps to put certain debug behaviors under this flag
     location.hostname === "localhost"
     || location.hostname === "127.0.0.1"
     //|| location.hostname.startsWith("192.168")

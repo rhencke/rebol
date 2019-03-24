@@ -913,7 +913,7 @@ script:
     - |
       if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]
       then
-        cp ../docs/load-r3.js .
+        cp ../src/extensions/javascript/load-r3.js .
       fi
 
     # By default a web worker cannot be loaded cross-domain.  We want to be
