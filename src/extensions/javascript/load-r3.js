@@ -72,11 +72,19 @@ var os_id = (use_emterpreter ? "0.16.1" : "0.16.2")
 
 console.log("Use Emterpreter => " + use_emterpreter)
 
+var base_dir = document.querySelector('script[src$="load-r3.js"]').src
+base_dir = base_dir.substring(0, base_dir.indexOf("load-r3.js"))
+// simulate remote url
+// base_dir = "http://metaeducation.s3.amazonaws.com/travis-builds/"
+if (base_dir == "http://metaeducation.s3.amazonaws.com/travis-builds/") {
+    // correct http => https
+    base_dir = "https://metaeducation.s3.amazonaws.com/travis-builds/"
+}
+
 var is_localhost = (  // helps to put certain debug behaviors under this flag
     location.hostname === "localhost"
     || location.hostname === "127.0.0.1"
-    //|| location.hostname.startsWith("192.168")
-    // disabled, so you can test 'remote' behavior from local net
+    || location.hostname.startsWith("192.168")
 )
 if (is_localhost) {
     var old_alert = window.alert
@@ -93,9 +101,7 @@ if (is_localhost) {
 // that contains `last_git_commit_short = ${GIT_COMMIT_SHORT}`
 // See .travis.yml
 //
-//var last_git_commit_short = "local" 
-//var last_git_commit_short = "remote"
-var last_git_commit_short = "mixed" // local for localhost, else remote
+var last_git_commit_short = ""
 
 // Note these are "promiser" functions, because if they were done as a promise
 // it would need to have a .catch() clause attached to it here.  This way, it
@@ -115,20 +121,12 @@ var load_js_promiser = (url) => new Promise(function(resolve, reject) {
 })
 
 var last_git_commit_promiser = (os_id) => {
-    if (
-        last_git_commit_short == "local" ||
-        (last_git_commit_short == "mixed"
-        && is_localhost)
-    ) { // load from ./
-        last_git_commit_short = ""
-        return Promise.resolve(null)
-    } else { // load from amazonaws.com
+    if (base_dir == "https://metaeducation.s3.amazonaws.com/travis-builds/"
+    ) { // load from amazonaws.com
         return load_js_promiser(
-            "https://metaeducation.s3.amazonaws.com/travis-builds/"
-            + os_id
-            + "/last_git_commit_short.js"
+            base_dir + os_id + "/last_git_commit_short.js"
         )
-    }
+    } else { return Promise.resolve(null)}
 }
 
 var lib_suffixes = [
@@ -155,7 +153,7 @@ function libRebolComponentURL(suffix) {  // suffix includes the dot
         throw Error("Unknown libRebol component extension: " + suffix)
 
     if (use_emterpreter) {
-        if (suffix == ".worker.js")
+        if (suffix == ".worker.js" || suffix == ".js.mem")
             throw Error(
                 "Asking for " + suffix + " file "
                 + " in an emterpreter build (should only be for pthreads)"
@@ -201,15 +199,9 @@ function libRebolComponentURL(suffix) {  // suffix includes the dot
                 "Asking for " + suffix + " file "
                 + " in a non-debug build (only for debug builds)")
     }
-    let dir = (
-        last_git_commit_short  // empty string ("") is falsey in JS
-        ? "https://metaeducation.s3.amazonaws.com/travis-builds/"
-        : "./"
-    ) + os_id
 
     let opt_dash = last_git_commit_short ? "-" : "";
-
-    return dir + "/libr3" + opt_dash + last_git_commit_short + suffix
+    return base_dir + os_id + "/libr3" + opt_dash + last_git_commit_short + suffix
 }
 
 
