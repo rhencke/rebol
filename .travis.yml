@@ -908,15 +908,27 @@ script:
       fi
       echo $R3_EXIT_STATUS
 
-    # 0.16.x: patch libr3.js and upload
-    # copy load-r3.js to travis-builds/
-    # (it's not in subdir of 0.16.x because it needs to pick between them)
+    # Esmcripten build: copy load-r3.js to travis-builds/
+    # (it's not in subdir of 0.16.x because loader needs to pick between them)
     - |
       if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]
       then
-        "$R3_MAKE" libr3.js-workers-patch.reb libr3.js
         cp ../docs/load-r3.js .
-        rm libr3.js-workers-patch.reb
+      fi
+
+    # By default a web worker cannot be loaded cross-domain.  We want to be
+    # able to host pthread-enabled build (0.16.2), so we use a workaround that
+    # uses CORS-enabled fetch() to get the worker JS as a Blob, and runs that.
+    # This requires a crude patch of the libr3.js build product, but the
+    # suggestion has been made to Emscripten to allow a newWorker() hook:
+    #
+    # https://github.com/emscripten-core/emscripten/issues/8338
+    #
+    # Note: Patcher starts in directory of the script, not current dir (!)
+    - |
+      if [[ $OS_ID = 0.16.2 ]]
+      then
+        "$R3_MAKE" tools/libr3.js-workers-patch.reb ../libr3.js
       fi
     
     # Delete the obj and prep file directory so we don't upload those to S3

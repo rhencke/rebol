@@ -1,3 +1,10 @@
+; Quick and dirty hack that post-processes a generated libr3.js in order to
+; get it to fetch() a Blob from a CORS-enabled server to create a worker,
+; since the way the emscripten pthread emulation does it (`new Worker(url)`)
+; won't work cross-domain.
+;
+; https://github.com/emscripten-core/emscripten/issues/8338
+
 find1: "var worker = new Worker(pthreadMainJs);"
 patch1: {
    //<ren-c-modification>
@@ -37,6 +44,7 @@ patch1: {
    //
    //</ren-c-modification>
 }
+
 find2: "PThread.unusedWorkerPool.push(worker);"
 patch2:{
    //<ren-c-modification>
@@ -47,10 +55,25 @@ patch2:{
 file: to-file system/options/args/1
 text: read/string file
 
-if not parse text [
-  to find1 remove find1 insert patch1
-  thru find2 insert patch2
+parse text [
+  to find1 remove find1
+  insert patch1
+
+  ; There are two occurrences of "PThread.unusedWorkerPool.push(worker);" at
+  ; time of writing.  We don't want the first one, skip until after the
+  ; `PthreadWorkerInit: PthreadWorkerInit`
+  ;
+  thru "PthreadWorkerInit: PthreadWorkerInit"
+
+  thru find2
+  insert patch2
+
   to end
-] [print "failed" quit/with 255]
+] else [
+    fail [
+        "Could not perform patch for"
+        https://github.com/emscripten-core/emscripten/issues/8338
+    ]
+]
 
 write file text
