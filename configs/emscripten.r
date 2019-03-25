@@ -1,10 +1,16 @@
-REBOL []
+REBOL [
+    File: %emscripten.r
+]
 
 ; Right now, either #web or #node
 ;
 javascript-environment: default [#web]
 
-; true or false
+; If WebAssembly is not used, then `asm.js` will be produced instead.  It is
+; usable in more browsers, but is slower to load.  Given the features that
+; are expected to work in %load-r3.js (e.g. `fetch()` and Promises), we tend
+; to assume WebAssembly as a lowest common denominator.
+;
 use-wasm: default [true]
 
 ; The inability to communicate synchronously between the worker and GUI in

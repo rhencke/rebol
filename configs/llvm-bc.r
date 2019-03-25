@@ -1,4 +1,7 @@
-REBOL []
+REBOL [
+    File: %llvm-bc.r
+]
+
 toolset: [
     clang
     llvm-link
@@ -7,5 +10,7 @@ toolset: [
 extensions: [
     - ODBC _
 ]
+
 with-ffi: no
+
 cflags: ["-emit-llvm"]

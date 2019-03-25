@@ -187,3 +187,30 @@ find-last: specialize 'find [
     ;
     last: true
 ]
+
+; The bootstrap executable was picked without noticing it had an issue with
+; reporting errors on file READ where it wouldn't tell you what file it was
+; trying to READ.  It has been fixed, but won't be fixed until a new bootstrap
+; executable is picked--which might be a while since UTF-8 Everywhere has to
+; stabilize and speed up.
+;
+; So augment the READ with a bit more information.
+;
+lib-read: copy :lib/read
+lib/read: read: enclose 'lib-read function [f [frame!]] [
+    saved-source: :f/source
+    if e: trap [bin: do f] [
+        parse e/message [
+            [
+                {The system cannot find the } ["file" | "path"] { specified.}
+                | "No such file or directory"  ; Linux
+            ]
+            to end
+        ] then [
+            fail/where ["READ could not find file" saved-source] 'f
+        ]
+        print "Some READ error besides FILE-NOT-FOUND?"
+        fail e
+    ]
+    bin
+]

@@ -1,6 +1,18 @@
-REBOL []
+REBOL [
+    Title: "Top-Level Script for building Rebol"
+    File: %make.r
+    Rights: {
+        Rebol 3 Language Interpreter and Run-time Environment
+        "Ren-C" branch @ https://github.com/metaeducation/ren-c
 
-;;;; DO & IMPORT ;;;;
+        Copyright 2012-2019 Rebol Open Source Contributors
+        REBOL is a trademark of REBOL Technologies
+    }
+    Description: {
+        See notes on building in README.md
+    }
+]
+
 do %tools/bootstrap-shim.r
 do %tools/common.r
 do %tools/systems.r
@@ -9,31 +21,59 @@ file-base: make object! load %tools/file-base.r
 ; See notes on %rebmake.r for why it is not a module at this time, due to the
 ; need to have it inherit the shim behaviors of IF, CASE, FILE-TO-LOCAL, etc.
 ;
-; rebmake: import %tools/rebmake.r
-do %tools/rebmake.r
+if false [
+    rebmake: import %tools/rebmake.r
+]
+else [
+    do %tools/rebmake.r
+]
 
-;;;; GLOBALS
+=== GLOBALS ===
 
-make-dir: system/options/current-path
-tools-dir: make-dir/tools
-change-dir output-dir: system/options/path 
-src-dir: append copy make-dir %../src
-src-dir: relative-to-path src-dir output-dir
-user-config: make object! load make-dir/default-config.r
+; When you run a Rebol script, the `current-path` is the directory where the
+; script is.  We assume that the Rebol source enlistment's root directory is
+; where %make.r is found.
+;
+repo-dir: system/options/current-path
 
-;;;; PROCESS ARGS
+; However, we assume the output directory where build products will be put
+; is wherever the path is that the shell was in when %make.r was invoked.
+; (unless it's run in the same directory as %make.r--then default to %build/)
+;
+output-dir: system/options/path 
+if output-dir = repo-dir [
+    output-dir: join repo-dir %build/
+    make-dir output-dir
+    print ["Launched from root dir, so building in:" output-dir]
+]
+change-dir output-dir
+
+tools-dir: repo-dir/tools
+src-dir: join repo-dir %src/
+; src-dir: relative-to-path src-dir output-dir
+user-config: make object! load repo-dir/configs/default-config.r
+
+=== PROCESS ARGS ===
+
 ; args are:
 ; [OPTION | COMMAND] ...
 ; COMMAND = WORD
 ; OPTION = 'NAME=VALUE' | 'NAME: VALUE'
+;
 args: parse-args system/options/args
+
 ; now args are ordered and separated by bar:
 ; [NAME VALUE ... '| COMMAND ...]
-either commands: try find args '| [
+;
+if commands: try find args '| [
     options: copy/part args commands
     commands: next commands
-] [options: args]
-; now args are splitted in options and commands
+]
+else [
+    options: args
+]
+
+; now args are split into options and commands
 
 for-each [name value] options [
     switch name [
@@ -78,10 +118,12 @@ for-each [name value] options [
     ]
 ]
 
-; process commands
-if not empty? commands [user-config/target: load commands]
+=== PROCESS COMMANDS ===
 
-;;;; MODULES & EXTENSIONS
+if commands [user-config/target: load commands]
+
+=== MODULES AND EXTENSIONS ===
+
 system-config: config-system user-config/os-id
 rebmake/set-target-platform system-config/os-base
 
@@ -269,9 +311,10 @@ use [extension-dir entry][
 
 extension-names: map-each x available-extensions [to-lit-word x/name]
 
-;;;; TARGETS
-; I need targets here, for gathering names
-; and use they with --help targets ...
+=== TARGETS ===
+
+; Collected here so they can be used with `--help targets`
+
 targets: [
     'clean [
         rebmake/execution/run make rebmake/solution-class [
@@ -338,6 +381,7 @@ targets: [
         rebmake/vs2015/generate/(x86) %. solution
     ]
 ]
+
 target-names: make block! 16
 for-each x targets [
     if lit-word? x [
@@ -349,7 +393,8 @@ for-each x targets [
     ]
 ]
 
-;;;; HELP ;;;;
+=== HELP ===
+
 indent: func [
     text [text!]
     /space
@@ -360,7 +405,8 @@ indent: func [
 ]
 
 help-topics: reduce [
-;; !! Only 1 indentation level in help strings !!
+
+; Note: Use only 1 indentation level in help strings
 
 'usage copy {=== USAGE ===^/
     > PATH/TO/r3-make PATH/TO/make.r [CONFIG | OPTION | TARGET ...]^/
@@ -383,7 +429,7 @@ MORE HELP:^/
 FILES IN %make/configs/ SUBFOLDER:^/
     }
     indent/space form sort map-each x ;\
-        load make-dir/configs/%
+        load repo-dir/configs/%
         [to-text x]
     newline ]
 
@@ -464,7 +510,7 @@ iterate commands [
     ]
 ]
 
-;;;; GO!
+=== GO! ===
 
 set-exec-path: func [
     return: <void>
@@ -1366,9 +1412,9 @@ vars: reduce [
             'file = exists? value: system/options/boot
             all [
                 user-config/rebol-tool
-                'file = exists? value: join make-dir user-config/rebol-tool
+                'file = exists? value: join repo-dir user-config/rebol-tool
             ]
-            'file = exists? value: join make-dir unspaced [
+            'file = exists? value: join repo-dir unspaced [
                 {r3-make}
                 rebmake/target-platform/exe-suffix
             ]

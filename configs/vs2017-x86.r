@@ -1,6 +1,9 @@
-REBOL []
+REBOL [
+    File: %vs2017-x86.r
+]
 
 os-id: 0.3.1
+
 target: 'visual-studio
 
 toolset: [
@@ -9,10 +12,16 @@ toolset: [
 ]
 
 with-ffi: [
-    definitions: ["FFI_BUILDING"] ;the prebuilt library is static
+    definitions: ["FFI_BUILDING"]  ; The prebuilt library is static
+
     includes: [%../external/ffi-prebuilt/msvc/lib32/libffi-3.2.1/include]
-    searches: [%../external/ffi-prebuilt/msvc/lib32/Release] ;Change to .../Debug for debugging build
+
+    ; Change to .../Debug for debugging build
+    ;
+    searches: [%../external/ffi-prebuilt/msvc/lib32/Release]
+
     libraries: reduce [make rebmake/ext-static-class [output: %libffi.lib]]
 ]
+
 rebol-tool: %r3-make.exe
 

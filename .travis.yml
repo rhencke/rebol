@@ -134,7 +134,7 @@ matrix:
       osx_image: xcode10.1  # was originally using xcode9.3beta
       language: c
       env:
-        - NUMBER=12
+        - NUMBER=1
         - CONFIG=emscripten.r
         - OS_ID=0.16.2
         - DEBUG=none
@@ -163,7 +163,7 @@ matrix:
       osx_image: xcode10.1  # was originally using xcode9.3beta
       language: c
       env:
-        - NUMBER=13
+        - NUMBER=2
         - CONFIG=emterpreter.r
         - OS_ID=0.16.1
         - DEBUG=none
@@ -186,7 +186,7 @@ matrix:
       osx_image: xcode8.2  # try an older XCode (on OS X 10.12)
       language: cpp
       env:
-        - NUMBER=1
+        - NUMBER=3
         - CONFIG=generic-c++.r
         - OS_ID=0.2.40
         - DEBUG=asserts
@@ -218,7 +218,7 @@ matrix:
       osx_image: xcode9.1 # try a newer XCode (on OS X 10.12)
       language: cpp
       env:
-        - NUMBER=2
+        - NUMBER=4
         - CONFIG=generic-c++.r
         - OS_ID=0.2.40
         - DEBUG=none  # see notes, release C++ exercises cast() macros
@@ -241,7 +241,7 @@ matrix:
       osx_image: xcode7.3  # try an older XCode and OS X image (OS X 10.11)
       language: c
       env:
-        - NUMBER=3
+        - NUMBER=5
         - CONFIG=generic.r
         - OS_ID=0.2.40
         - DEBUG=none
@@ -262,7 +262,7 @@ matrix:
       sudo: required  # "containers will be retired soon"
       language: c
       env:
-        - NUMBER=4
+        - NUMBER=6
         - CONFIG=generic.r
         - OS_ID=0.4.4
         - DEBUG=none
@@ -292,7 +292,7 @@ matrix:
       sudo: false  # force new container-based infrastructure.
       language: cpp
       env:
-        - NUMBER=5
+        - NUMBER=7
         - CONFIG=generic-c++.r
         - OS_ID=0.4.40
         - DEBUG=asserts
@@ -330,7 +330,7 @@ matrix:
       sudo: false # force new container-based infrastructure
       language: c
       env:
-        - NUMBER=6
+        - NUMBER=8
         - CONFIG=generic.r
         - OS_ID=0.4.40
         - DEBUG=none
@@ -355,7 +355,7 @@ matrix:
       sudo: false # force new container-based infrastructure.
       language: c
       env:
-        - NUMBER=7
+        - NUMBER=9
         - CONFIG=mingw-x86.r
         - OS_ID=0.3.1
         - DEBUG=none
@@ -384,7 +384,7 @@ matrix:
       sudo: false  # force new container-based infrastructure.
       language: c
       env:
-        - NUMBER=8
+        - NUMBER=10
         - CONFIG=mingw-x64.r
         - OS_ID=0.3.40
         - DEBUG=asserts
@@ -421,7 +421,7 @@ matrix:
       sudo: false  # force new container-based infrastructure
       language: cpp
       env:
-        - NUMBER=9
+        - NUMBER=11
         - CONFIG=mingw-x64-c++.r
         - OS_ID=0.3.40
         - DEBUG=asserts
@@ -449,7 +449,7 @@ matrix:
       sudo: false  # force new container-based infrastructure
       language: c
       env:
-        - NUMBER=10
+        - NUMBER=12
         - CONFIG=android5-arm.r
         - OS_ID=0.13.2
         - DEBUG=asserts
@@ -468,7 +468,7 @@ matrix:
       sudo: false  # force new container-based infrastructure
       language: c
       env:
-        - NUMBER=11
+        - NUMBER=13
         - CONFIG=android5-arm.r
         - OS_ID=0.13.2
         - DEBUG=none
@@ -510,7 +510,7 @@ matrix:
 install:
   - |
     if [[ $TRAVIS_OS_NAME = linux ]]; then
-      export R3_MAKE=./r3-linux-x64-8994d23
+      export R3_MAKE=../prebuilt/r3-linux-x64-8994d23
     fi
 
   - |
@@ -535,7 +535,7 @@ install:
         brew install unixodbc  # for ODBC extension
         brew install zmq  # for ZeroMQ extension
 
-        export R3_MAKE=./r3-osx-x64-8994d23
+        export R3_MAKE=../prebuilt/r3-osx-x64-8994d23
       else
         # Brew was being installed even on minimal release builds, making it
         # unnoticed that there was a .dylib dependency from the bootstrap
@@ -543,9 +543,11 @@ install:
         # captured at the same version number as the bootstrap executables.
         # Use it for now until the next capture for the old OS X.
         #
+        cd prebuilt
         wget http://hostilefork.com/media/shared/ren-c/r3-osx-x64-8994d23-debug
         chmod +x ./r3-osx-x64-8994d23-debug
-        export R3_MAKE="$(pwd)/r3-osx-x64-8994d23-debug"
+        cd ..
+        export R3_MAKE="../prebuilt/r3-osx-x64-8994d23-debug"
       fi
     fi
 
@@ -620,10 +622,10 @@ script:
     # on 64-bit (other than to use a consistent version committed in the repo)
     - |
       if [[ (-z $WITH_FFI) || ($WITH_FFI != no) ]]; then
-          mkdir build
+          mkdir ffi-build
           cd external/libffi
           ./autogen.sh
-          cd "${TOP_DIR}/build"
+          cd "${TOP_DIR}/ffi-build"
           if [[ -z $HOST ]]; then
               "${TOP_DIR}/external/libffi/configure" --prefix="$(pwd)/fakeroot" CFLAGS="$ARCH_CFLAGS"
           else #cross-compiling
@@ -649,7 +651,8 @@ script:
           echo "Revisit when time permits - not currently being used"
       fi
 
-    - cd "${TOP_DIR}/make/"
+    - mkdir "${TOP_DIR}/build"
+    - cd "${TOP_DIR}/build"
 
     # For building the TCC extension, it requires both the TCC library (API
     # you can link in to pass a string of code and compile it), as well as
@@ -760,7 +763,7 @@ script:
               objdump -a libtcc.a
           fi
           make
-          cd "${TOP_DIR}/make"
+          cd "${TOP_DIR}/build"
       fi
 
     # Grab the abbreviated and full git commit ID into environment variables.
@@ -797,7 +800,7 @@ script:
           # we do not apply it to any of the binaries which are uploaded to s3
           # -- not even debug ones.
           #
-          "$R3_MAKE" make.r CONFIG="configs/${CONFIG}" TARGET=makefile STANDARD="$STANDARD" OS_ID="$OS_ID" RIGOROUS="$RIGOROUS" DEBUG=sanitize OPTIMIZE=2 STATIC=no ODBC_REQUIRES_LTDL="$ODBC_REQUIRES_LTDL" EXTENSIONS="$EXTENSIONS" $EXTRA
+          "$R3_MAKE" ../make.r CONFIG="../configs/${CONFIG}" TARGET=makefile STANDARD="$STANDARD" OS_ID="$OS_ID" RIGOROUS="$RIGOROUS" DEBUG=sanitize OPTIMIZE=2 STATIC=no ODBC_REQUIRES_LTDL="$ODBC_REQUIRES_LTDL" EXTENSIONS="$EXTENSIONS" $EXTRA
           make clean prep folders
           make -j "$MAKE_JOBS"
 
@@ -823,11 +826,11 @@ script:
     #
     - |
       if [[ -z $TCC ]]; then
-          "$R3_MAKE" make.r CONFIG="configs/${CONFIG}" TARGET=makefile STANDARD="$STANDARD" OS_ID="$OS_ID" DEBUG="$DEBUG" GIT_COMMIT="{$GIT_COMMIT}" RIGOROUS="$RIGOROUS" STATIC="$STATIC" WITH_FFI="$WITH_FFI" WITH_TCC="no" ODBC_REQUIRES_LTDL="$ODBC_REQUIRES_LTDL" EXTENSIONS="$EXTENSIONS" $EXTRA
+          "$R3_MAKE" ../make.r CONFIG="../configs/${CONFIG}" TARGET=makefile STANDARD="$STANDARD" OS_ID="$OS_ID" DEBUG="$DEBUG" GIT_COMMIT="{$GIT_COMMIT}" RIGOROUS="$RIGOROUS" STATIC="$STATIC" WITH_FFI="$WITH_FFI" WITH_TCC="no" ODBC_REQUIRES_LTDL="$ODBC_REQUIRES_LTDL" EXTENSIONS="$EXTENSIONS" $EXTRA
           make clean prep folders
           make -j "$MAKE_JOBS"
       else
-          "$R3_MAKE" make.r CONFIG="configs/${CONFIG}" TARGET=makefile STANDARD="$STANDARD" OS_ID="$OS_ID" DEBUG="$DEBUG" GIT_COMMIT="{$GIT_COMMIT}" RIGOROUS="$RIGOROUS" STATIC="$STATIC" WITH_FFI="$WITH_FFI" WITH_TCC="%${PWD}/tcc/${TCC}" ODBC_REQUIRES_LTDL="$ODBC_REQUIRES_LTDL" EXTENSIONS="$EXTENSIONS" $EXTRA
+          "$R3_MAKE" ../make.r CONFIG="../configs/${CONFIG}" TARGET=makefile STANDARD="$STANDARD" OS_ID="$OS_ID" DEBUG="$DEBUG" GIT_COMMIT="{$GIT_COMMIT}" RIGOROUS="$RIGOROUS" STATIC="$STATIC" WITH_FFI="$WITH_FFI" WITH_TCC="%${PWD}/tcc/${TCC}" ODBC_REQUIRES_LTDL="$ODBC_REQUIRES_LTDL" EXTENSIONS="$EXTENSIONS" $EXTRA
           make clean prep folders
           make -j "$MAKE_JOBS"
       fi
@@ -886,7 +889,7 @@ script:
       # (export is so that the child process can see the environment variable)
       #
       echo "Note: CONFIG_TCCDIR is ${CONFIG_TCCDIR}"
-      export LIBREBOL_INCLUDE_DIR="${TOP_DIR}/make/prep/include"
+      export LIBREBOL_INCLUDE_DIR="${TOP_DIR}/build/prep/include"
       if [[ (! -z $TCC) && ($TCC != no) ]]; then
         if [[ $OS_ID = 0.4.40 ]]; then
           ./r3 ../tests/misc/fib.r
@@ -928,7 +931,7 @@ script:
     - |
       if [[ $OS_ID = 0.16.2 ]]
       then
-        "$R3_MAKE" tools/libr3.js-workers-patch.reb ../libr3.js
+        "$R3_MAKE" ../tools/libr3.js-workers-patch.reb ../build/libr3.js
       fi
     
     # Delete the obj and prep file directory so we don't upload those to S3
@@ -938,11 +941,6 @@ script:
     - rm -f makefile*
     - rm -f Toolchain*
     - rm -f r3-make*  # `-f` for success even when r3-make* doesn't exist
-    - rm r3-android-arm-8994d23
-    - rm r3-windows-x86-8994d23.exe
-    - rm r3-linux-x64-8994d23
-    - rm r3-osx-x64-8994d23
-    - rm -f CMakeLists.txt
     - rm -rf tcc
 
     # check what will be uploaded

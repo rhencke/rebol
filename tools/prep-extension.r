@@ -53,7 +53,7 @@ args: parse-args system/options/args
 src: fix-win32-path to file! :args/SRC
 set [in-dir file-name] split-path src
 output-dir: system/options/path/prep/:in-dir
-insert src %../../src/
+insert src %../src/
 mkdir/deep output-dir
 
 
@@ -64,7 +64,7 @@ m-name: mod
 l-m-name: lowercase copy m-name
 u-m-name: uppercase copy m-name
 
-c-src: join %../../src/ fix-win32-path to file! ensure text! args/SRC
+c-src: join %../src/ fix-win32-path to file! ensure text! args/SRC
 
 print ["building" m-name "from" c-src]
 

@@ -35,18 +35,18 @@
 ## REBOL R3
 #################
 
-make/makefile
-make/r3*
-make/objs/
-make/prep/
-
+# It is possible to build Rebol in any directory via an "out-of-source build"
+# https://softwareengineering.stackexchange.com/questions/365460/
+# But by default %make.r chooses the %build/ subdirectory.
+#
 # It can be convenient if you are doing multiple builds of the same Rebol
-# codebase for different platforms to put them in separate make
-# directories (such as make-win32 or make-osx-x64) so they don't erase
+# codebase for different platforms to put them in separate build
+# directories (such as build-win32 or build-osx-x64) so they don't erase
 # each other's state
 #
-!tests/**/make-*
-!scripts/**/make-*
+build/*
+build-*/*
+
 
 #################
 ## Eclipse

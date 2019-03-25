@@ -26,7 +26,7 @@ output-dir: system/options/path/prep
 output-dir: output-dir/include
 mkdir/deep output-dir
 
-ver: load %../../src/boot/version.r
+ver: load %../src/boot/version.r
 
 
 === PROCESS %a-lib.h TO PRODUCE DESCRIPTION OBJECTS FOR EACH API ===
@@ -154,7 +154,7 @@ process: func [file] [
     proto-parser/process data
 ]
 
-src-dir: %../../src/core/
+src-dir: %../src/core/
 
 process src-dir/a-lib.c
 

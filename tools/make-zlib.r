@@ -39,9 +39,9 @@ do %c-lexicals.r
 ;
 ; Target paths+filenames for the generated include and source file
 ;
-path-include: %../../src/include/
+path-include: %../src/include/
 file-include: %sys-zlib.h
-path-source: %../../src/core/
+path-source: %../src/core/
 file-source: %u-zlib.c
 
 

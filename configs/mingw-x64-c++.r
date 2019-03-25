@@ -1,7 +1,13 @@
-REBOL []
+REBOL [
+    File: %mingw-x64-c++r
+
+    Inherit: %default-config.r
+]
 
 os-id: 0.3.40
+
 standard: default ['c++]
+
 toolset: [
     gcc %x86_64-w64-mingw32-g++
     ld %x86_64-w64-mingw32-g++; linking is done via calling g++, not ld
