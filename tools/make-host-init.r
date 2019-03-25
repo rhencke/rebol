@@ -20,7 +20,6 @@ REBOL [
     }
 ]
 
-do %bootstrap-shim.r
 do %common.r
 do %common-emitter.r
 

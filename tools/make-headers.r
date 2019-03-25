@@ -14,7 +14,6 @@ REBOL [
     Needs: 2.100.100
 ]
 
-do %bootstrap-shim.r
 do %common.r
 do %common-emitter.r
 do %common-parsers.r

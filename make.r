@@ -13,8 +13,7 @@ REBOL [
     }
 ]
 
-do %tools/bootstrap-shim.r
-do %tools/common.r
+do %tools/common.r  ; sets up `repo` object
 do %tools/systems.r
 file-base: make object! load %tools/file-base.r
 
@@ -50,7 +49,7 @@ change-dir output-dir
 
 tools-dir: repo-dir/tools
 src-dir: join repo-dir %src/
-; src-dir: relative-to-path src-dir output-dir
+src-dir: relative-to-path src-dir output-dir
 user-config: make object! load repo-dir/configs/default-config.r
 
 === PROCESS ARGS ===

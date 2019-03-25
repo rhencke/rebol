@@ -317,7 +317,6 @@ fix-const-char: func [
     source
 ]
 
-do %bootstrap-shim.r
 do %common.r
 
 ;;

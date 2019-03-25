@@ -31,14 +31,14 @@ REBOL [
 
 change-dir %../../../
 
-do %make/tools/r2r3-future.r
+do %tools/r2r3-future.r
 
-do %make/tools/common.r
+do %tools/common.r
 args: parse-args system/options/args
 
-do %make/tools/common-emitter.r
+do %tools/common-emitter.r
 
-do %make/tools/systems.r
+do %tools/systems.r
 system-config: config-system args/OS_ID
 
 all [

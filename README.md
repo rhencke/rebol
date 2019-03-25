@@ -27,11 +27,11 @@ them to avoid the  low-level concerns of the interpreter and just run snippets
 of code mixed with values, as easily as:
 
     int x = 1020;
-    REBVAL *negate = rebRun("get 'negate", END);
+    REBVAL *negate = rebValue("get 'negate");  // runs code, returns value
 
-    rebRun("print [", rebInteger(x), "+ (2 *", negate_function, "358)]");
+    rebElide("print [", rebI(x), "+ (2 *", negate_function, "358)]");
 
-    // Would print 304--e.g. `1020 + (2 * -358)`
+    // Would print 304--e.g. `1020 + (2 * -358)`, rebElide() returns C void.
 
 The other API (libRebolCore) would offer nearly the full range of power that
 is internally offered to the core.  It would allow one to pick apart value

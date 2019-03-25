@@ -2,7 +2,7 @@ REBOL [
     System: "Ren-C Core Extraction of the Rebol System"
     Title: "Common Routines for Tools"
     Rights: {
-        Copyright 2012-2017 Rebol Open Source Contributors
+        Copyright 2012-2019 Rebol Open Source Contributors
         REBOL is a trademark of REBOL Technologies
     }
     License: {
@@ -17,29 +17,14 @@ REBOL [
     }
 ]
 
-; !!! This file does not include the backwards compatibility %r2r3-future.r.
-; The reason is that some code assumes it is running Ren-C, and that file
-; disables features which are not backward compatible, which shouldn't be
-; disabled if you *are* running Ren-C (e.g. the tests)
+do %bootstrap-shim.r
 
-
-; Simple "divider-style" thing for remarks.  At a certain verbosity level,
-; it could dump those remarks out...perhaps based on how many == there are.
-; (This is a good reason for retaking ==, as that looks like a divider.)
+; When you run a Rebol script, the `current-path` is the directory where the
+; script is.  We assume that the Rebol source enlistment's root directory is
+; one level above this file (which should be %tools/common.r)
 ;
-===: func [:remarks [any-value! <...>]] [
-    until [
-        equal? '=== take remarks
-    ]
-]
-
-
-;; Repository meta data.
-;; - Good for keeping fixed paths out of scripts.
-;;
-
 repo: context [
-    root: clean-path %../../
+    root: clean-path %../
     source-root: root
     tools: what-dir
 ]
@@ -388,4 +373,3 @@ relative-to-path: func [
     append base target
     to-file delimit "/" base
 ]
-
