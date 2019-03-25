@@ -108,7 +108,7 @@ REB_R PD_Quoted(
     UNUSED(opt_setval);
 
     if (KIND_BYTE(pvs->out) == REB_QUOTED)
-        Move_Value(pvs->out, KNOWN(PAYLOAD(Quoted, pvs->out).cell));
+        Move_Value(pvs->out, VAL_QUOTED_PAYLOAD_CELL(pvs->out));
     else {
         assert(KIND_BYTE(pvs->out) >= REB_MAX);
         mutable_KIND_BYTE(pvs->out) %= REB_64;

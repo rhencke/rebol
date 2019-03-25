@@ -350,19 +350,29 @@ inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
     EXTRA(Binding, out).node = binding; // payload and header should be valid
 
     if (KIND_BYTE(out) == REB_QUOTED) {
-        RELVAL *old = PAYLOAD(Quoted, out).cell;
+        RELVAL *old = VAL_QUOTED_PAYLOAD_CELL(out);
         if (EXTRA(Binding, old).node == binding)
             return; // it's okay to reuse the payload
 
-        REBARR *a = Alloc_Singular(
-            NODE_FLAG_MANAGED | ARRAY_FLAG_NULLEDS_LEGAL
-        );
-        RELVAL *cell = ARR_SINGLE(a);
-        cell->header = old->header;
-        EXTRA(Binding, cell).node = binding;
-        cell->payload = old->payload;
+        REBVAL *paired = Alloc_Pairing();
+        paired->header = old->header;
+        EXTRA(Binding, paired).node = binding;
+        paired->payload = old->payload;
 
-        PAYLOAD(Quoted, out).cell = cell; // update to new binding
+        Init_Unreadable_Blank(PAIRING_KEY(paired));
+
+      #if !defined(NDEBUG)
+        paired->header.bits &= ~CELL_FLAG_PROTECTED;  // need to manage it
+      #endif
+
+        Manage_Pairing(paired);
+
+      #if !defined(NDEBUG)
+        SET_CELL_FLAG(paired, PROTECTED); // maybe shared; can't change
+      #endif
+
+        PAYLOAD(Any, out).first.node = NOD(paired);  // update to new binding
+        assert(GET_CELL_FLAG(out, FIRST_IS_NODE));  // should have been set
     }
 
     if (

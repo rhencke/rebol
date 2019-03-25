@@ -538,30 +538,14 @@ REBNOD *Try_Find_Containing_Node_Debug(const void *p)
 // Because pairings are created in large numbers and left outstanding, they
 // are not put into any tracking lists by default.  This means that if there
 // is a fail(), they will leak--unless whichever API client that is using
-// them ensures they are cleaned up.  So in C++, this is done with exception
-// handling.
-//
-// However, untracked/unmanaged pairings have a special ability.  It's
-// possible for them to be "owned" by a FRAME!, which sits in the first cell.
-// This provides an alternate mechanism for plain C code to do cleanup besides
-// handlers based on PUSH_TRAP().
+// them ensures they are cleaned up.
 //
 REBVAL *Alloc_Pairing(void) {
-    REBVAL *paired = cast(REBVAL*, Make_Node(PAR_POOL)); // 2x REBVAL size
-    REBVAL *key = PAIRING_KEY(paired);
-
+    REBVAL *paired = cast(REBVAL*, Make_Node(PAR_POOL));  // 2x REBVAL size
     Prep_Non_Stack_Cell(paired);
-    TRASH_CELL_IF_DEBUG(paired);
 
-    // Client will need to put *something* in the key slot (accessed with
-    // PAIRING_KEY).  Whatever they end up writing should be acceptable
-    // to avoid a GC, since the header is not purely 0...and it works out
-    // that all "ordinary" values will just act as unmanaged metadata.
-    //
-    // Init_Pairing_Key_Owner is one option.
-    //
+    REBVAL *key = PAIRING_KEY(paired);
     Prep_Non_Stack_Cell(key);
-    TRASH_CELL_IF_DEBUG(key);
 
     return paired;
 }

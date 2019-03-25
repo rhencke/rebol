@@ -509,7 +509,8 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "sys-string.h" // REBSYM needed for typeset datatype symbols
 #include "sys-word.h"
 
-#include "sys-quoted.h" // requires singular arrays for cell storage
+#include "sys-pair.h"
+#include "sys-quoted.h"  // requires pairings for cell storage
 
 #include "sys-action.h"
 #include "sys-context.h" // needs actions defined for FRAME! contexts
@@ -530,7 +531,6 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 
 #include "sys-time.h"
 #include "sys-handle.h"
-#include "sys-pair.h"
 #include "sys-map.h"
 #include "sys-varargs.h"
 

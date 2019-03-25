@@ -201,8 +201,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 ) {
     assert(IS_BLOCK(spec));
 
-    uintptr_t header_bits = 0;
-
     REBDSP dsp_orig = DSP;
     assert(DS_TOP == DS_AT(dsp_orig));
 
@@ -605,7 +603,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         REBVAL *archetype = RESET_CELL(
             ARR_HEAD(paramlist),
             REB_ACTION,
-            header_bits
+            CELL_FLAG_FIRST_IS_NODE
         );
         PAYLOAD(Action, archetype).paramlist = paramlist;
         INIT_BINDING(archetype, UNBOUND);

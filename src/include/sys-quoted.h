@@ -21,13 +21,16 @@
 //
 // In Ren-C, any value can be "quote" escaped, any number of times.  As there
 // is no limit to how many levels of escaping there can be, the general case
-// of the escaping cannot fit in a value cell, so a "singular" array is used
-// (a compact form with only a series tracking node, sizeof(REBVAL)*2)
+// of the escaping cannot fit in a value cell, so a "pairing" array is used.
+// (a compact form with only a series tracking node, sizeof(REBVAL)*2).  This
+// is the smallest size of a GC'able entity--the same size as a singular
+// array, but a pairing is used so the GC picks up from a cell pointer that
+// it is a pairing and be placed as a REBVAL* in the cell.
 //
 // The depth is the number of apostrophes, e.g. ''''X is a depth of 4.  It is
-// stored in the cell payload and not the MISC() or LINK() of the singular,
-// so that when you add or remove quote levels to the same value a new series
-// isn't required...the cell just has a different count.
+// stored in the cell payload and not pairing node, so that when you add or
+// remove quote levels to the same value a new node isn't required...the cell
+// just has a different count.
 //
 // HOWEVER... there is an efficiency trick, which uses the KIND_BYTE() div 4
 // as the "lit level" of a value.  Then the byte mod 4 becomes the actual
@@ -42,11 +45,22 @@
 // against the unquoted REB_WORD value they are interested in.
 //
 
-inline static REBCNT VAL_QUOTED_DEPTH(const RELVAL *v) {
-    if (KIND_BYTE(v) >= REB_64) // shallow enough to use type byte trick...
-        return KIND_BYTE(v) / REB_64; // ...see explanation above
+inline static REBVAL* VAL_QUOTED_PAYLOAD_CELL(const RELVAL *v) {
     assert(KIND_BYTE(v) == REB_QUOTED);
-    return PAYLOAD(Quoted, v).depth;
+    assert(PAYLOAD(Any, v).second.u > 3);  // else quote fits entirely in cell
+    return VAL(VAL_NODE(v));
+}
+
+inline static REBCNT VAL_QUOTED_PAYLOAD_DEPTH(const RELVAL *v) {
+    assert(KIND_BYTE(v) == REB_QUOTED);
+    assert(PAYLOAD(Any, v).second.u > 3);  // else quote fits entirely in cell
+    return PAYLOAD(Any, v).second.u;
+}
+
+inline static REBCNT VAL_QUOTED_DEPTH(const RELVAL *v) {
+    if (KIND_BYTE(v) >= REB_64)  // shallow enough to use type byte trick...
+        return KIND_BYTE(v) / REB_64;  // ...see explanation above
+    return VAL_QUOTED_PAYLOAD_DEPTH(v);
 }
 
 inline static REBCNT VAL_NUM_QUOTES(const RELVAL *v) {
@@ -62,9 +76,9 @@ inline static RELVAL *Quotify_Core(
     RELVAL *v,
     REBCNT depth
 ){
-    if (KIND_BYTE(v) == REB_QUOTED) { // reuse payload, bump count
-        assert(PAYLOAD(Quoted, v).depth > 3); // or should've used kind byte
-        PAYLOAD(Quoted, v).depth += depth;
+    if (KIND_BYTE(v) == REB_QUOTED) {  // reuse payload, bump count
+        assert(PAYLOAD(Any, v).second.u > 3);  // or should've used kind byte
+        PAYLOAD(Any, v).second.u += depth;
         return v;
     }
 
@@ -75,16 +89,9 @@ inline static RELVAL *Quotify_Core(
         mutable_KIND_BYTE(v) = kind + (REB_64 * depth);
     }
     else {
-        // No point having ARRAY_HAS_FILE_LINE when only deep levels of a
-        // literal would have it--wastes time/storage to save it.
-        //
         // An efficiency trick here could point to VOID_VALUE, BLANK_VALUE,
         // NULLED_CELL, etc. in those cases, so long as GC knew.  (But how
         // efficient do 4-level-deep-quoted nulls need to be, really?)
-        //
-        REBARR *a = Alloc_Singular(
-            NODE_FLAG_MANAGED | ARRAY_FLAG_NULLEDS_LEGAL
-        );
 
         // This is an uncomfortable situation of moving values without a
         // specifier; but it needs to be done otherwise you could not have
@@ -93,29 +100,34 @@ inline static RELVAL *Quotify_Core(
         // about specifiers and such.  The format bits of this cell are
         // essentially noise, and only the literal's specifier should be used.
 
-        RELVAL *cell = ARR_SINGLE(a);
-        Move_Value_Header(cell, v);
-        mutable_KIND_BYTE(cell) = kind; // escaping only in literal
-        cell->extra = v->extra;
-        cell->payload = v->payload;
-      #if !defined(NDEBUG)
-        SET_CELL_FLAG(cell, PROTECTED); // maybe shared; can't change
-      #endif
+        REBVAL *paired = Alloc_Pairing();
+        Move_Value_Header(paired, v);
+        mutable_KIND_BYTE(paired) = kind; // escaping only in literal
+        paired->extra = v->extra;
+        paired->payload = v->payload;
  
-        RESET_VAL_HEADER(v, REB_QUOTED, CELL_MASK_NONE);
-        if (Is_Bindable(cell))
-            v->extra = cell->extra; // must be in sync with cell (if binding)
+        Init_Unreadable_Blank(PAIRING_KEY(paired));  // Key not used ATM
+
+        Manage_Pairing(paired);
+
+      #if !defined(NDEBUG)
+        SET_CELL_FLAG(paired, PROTECTED); // maybe shared; can't change
+      #endif
+
+        RESET_VAL_HEADER(v, REB_QUOTED, CELL_FLAG_FIRST_IS_NODE);
+        if (Is_Bindable(paired))
+            v->extra = paired->extra; // must sync with cell (if binding)
         else {
             // We say all REB_QUOTED cells are bindable, so their binding gets
             // checked even if the contained cell isn't bindable.  By setting
-            // the binding to null if the contained cell isn't bindable, that
+            // the binding to UNBOUND if the contained cell isn't bindable, it
             // prevents needing to make Is_Bindable() a more complex check,
-            // we can just say yes always but have the binding null if not.
+            // we can just say yes always but have it unbound if not.
             //
-            EXTRA(Binding, v).node = nullptr;
+            EXTRA(Binding, v).node = UNBOUND;
         }
-        PAYLOAD(Quoted, v).cell = cell;
-        PAYLOAD(Quoted, v).depth = depth;
+        PAYLOAD(Any, v).first.node = NOD(paired);
+        PAYLOAD(Any, v).second.u = depth;
     }
 
     return v;
@@ -162,11 +174,11 @@ inline static RELVAL *Unquotify_Core(RELVAL *v, REBCNT unquotes) {
     if (KIND_BYTE(v) != REB_QUOTED)
         return Unquotify_In_Situ(v, unquotes);
 
-    REBCNT depth = PAYLOAD(Quoted, v).depth;
+    REBCNT depth = VAL_QUOTED_PAYLOAD_DEPTH(v);
     assert(depth > 3 and depth >= unquotes);
     depth -= unquotes;
 
-    RELVAL *cell = PAYLOAD(Quoted, v).cell;
+    REBVAL *cell = VAL_QUOTED_PAYLOAD_CELL(v);
     assert(
         KIND_BYTE(cell) != REB_0
         and KIND_BYTE(cell) != REB_QUOTED
@@ -174,7 +186,7 @@ inline static RELVAL *Unquotify_Core(RELVAL *v, REBCNT unquotes) {
     );
 
     if (depth > 3) // still can't do in-situ escaping within a single cell
-        PAYLOAD(Quoted, v).depth = depth;
+        PAYLOAD(Any, v).second.u = depth;
     else {
         Move_Value_Header(v, cell);
         mutable_KIND_BYTE(v) += (REB_64 * depth);
@@ -200,14 +212,14 @@ inline static RELVAL *Unquotify_Core(RELVAL *v, REBCNT unquotes) {
 
 inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v) {
     if (KIND_BYTE(v) != REB_QUOTED)
-        return v; // kind byte may be > 64
+        return v;  // Note: kind byte may be > 64
 
     // The reason this routine returns `const` is because you can't modify
     // the contained value without affecting other views of it, if it is
     // shared in an escaping.  Modifications must be done with awareness of
     // the original RELVAL, and that it might be a QUOTED!.
     //
-    return PAYLOAD(Quoted, v).cell;
+    return VAL_QUOTED_PAYLOAD_CELL(v);
 }
 
 
@@ -218,8 +230,8 @@ inline static REBCNT Dequotify(RELVAL *v) {
         return depth;
     }
 
-    REBCNT depth = PAYLOAD(Quoted, v).depth;
-    RELVAL *cell = PAYLOAD(Quoted, v).cell;
+    REBCNT depth = VAL_QUOTED_PAYLOAD_DEPTH(v);
+    RELVAL *cell = VAL_QUOTED_PAYLOAD_CELL(v);
     assert(KIND_BYTE(cell) != REB_QUOTED and KIND_BYTE(cell) < REB_64);
 
     Move_Value_Header(v, cell);

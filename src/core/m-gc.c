@@ -386,9 +386,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         v = quotable;
     }
     else {
-        assert(PAYLOAD(Quoted, quotable).depth > 3);
-
-        v = PAYLOAD(Quoted, quotable).cell;
+        v = VAL_QUOTED_PAYLOAD_CELL(quotable);
       #if !defined(NDEBUG)
         if (Is_Bindable(v))
             assert(EXTRA(Binding, v).node == EXTRA(Binding, quotable).node);

@@ -438,12 +438,6 @@ union Reb_Value_Extra { //=/////////////////// ACTUAL EXTRA DEFINITION ////=//
 // and only read back from the exact field written to.
 //
 
-struct Reb_Quoted_Payload  // see %sys-quoted.h
-{
-    RELVAL *cell;  // lives in singular array, find with Singular_From_Cell()
-    REBCNT depth;  // kept in payload so allocation shares across quote levels
-};
-
 struct Reb_Logic_Payload { bool flag; };  // see %sys-logic.h
 
 struct Reb_Character_Payload {  // see %sys-char.h
@@ -552,9 +546,12 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     //     REBSER *rebser;  // vector/double-ended-queue of equal-sized items
     //     REBCNT index;  // 0-based position (e.g. 0 means Rebol index 1)
     //
+    // QUOTED!  // see %sys-quoted.h
+    //     REBVAL *paired;  // paired value handle
+    //     REBCNT depth;  // how deep quoting level is (> 3 if payload needed)
+    //
     struct Reb_Any_Payload Any;
 
-    struct Reb_Quoted_Payload Quoted;
     struct Reb_Logic_Payload Logic;
     struct Reb_Character_Payload Character;
     struct Reb_Integer_Payload Integer;
