@@ -351,14 +351,16 @@ static REB_R Loop_Number_Common(
 //
 //     x: 10
 //     for-each 'x [20 30 40] [...]
-//     ;-- The 10 will be overwritten, and x will be equal to 40, here
+//     ; The 10 will be overwritten, and x will be equal to 40, here
 //
 // It accomplishes this by putting a word into the "variable" slot, and having
 // a flag to indicate a dereference is necessary.
 //
 REBVAL *Real_Var_From_Pseudo(REBVAL *pseudo_var) {
-    if (NOT_CELL_FLAG(pseudo_var, VAR_MARKED_REUSE))
+    if (NOT_CELL_FLAG(pseudo_var, BIND_MARKED_REUSE))
         return pseudo_var;
+    if (IS_BLANK(pseudo_var))  // e.g. `for-each _ [1 2 3] [...]`
+        return nullptr;  // signal to throw generated quantity away
 
     // Note: these variables are fetched across running arbitrary user code.
     // So the address cannot be cached...e.g. the object it lives in might
@@ -426,21 +428,23 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
               case REB_PATH:
               case REB_SET_PATH:
               case REB_GET_PATH:
-                Derelativize(
-                    var,
-                    ARR_AT(ARR(les->data_ser), les->data_idx),
-                    VAL_SPECIFIER(les->data)
-                );
+                if (var)
+                    Derelativize(
+                        var,
+                        ARR_AT(ARR(les->data_ser), les->data_idx),
+                        VAL_SPECIFIER(les->data)
+                    );
                 if (++les->data_idx == les->data_len)
                     more_data = false;
                 break;
 
               case REB_DATATYPE:
-                Derelativize(
-                    var,
-                    ARR_AT(ARR(les->data_ser), les->data_idx),
-                    SPECIFIED  // array generated via data stack, all specific
-                );
+                if (var)
+                    Derelativize(
+                        var,
+                        ARR_AT(ARR(les->data_ser), les->data_idx),
+                        SPECIFIED  // array generated via data stack, all specific
+                    );
                 if (++les->data_idx == les->data_len)
                     more_data = false;
                 break;
@@ -465,13 +469,14 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                         goto finished;
                 }
 
-                Init_Any_Word_Bound(  // key is typeset, user wants word
-                    var,
-                    REB_WORD,
-                    VAL_PARAM_SPELLING(key),
-                    VAL_CONTEXT(les->data),
-                    bind_index
-                );
+                if (var)
+                    Init_Any_Word_Bound(  // key is typeset, user wants word
+                        var,
+                        REB_WORD,
+                        VAL_PARAM_SPELLING(key),
+                        VAL_CONTEXT(les->data),
+                        bind_index
+                    );
 
                 if (CTX_LEN(les->pseudo_vars_ctx) == 1) {
                     //
@@ -507,7 +512,8 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                         goto finished;
                 } while (IS_NULLED(val));
 
-                Move_Value(var, key);
+                if (var)
+                    Move_Value(var, key);
 
                 if (CTX_LEN(les->pseudo_vars_ctx) == 1) {
                     //
@@ -527,7 +533,8 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                 break; }
 
               case REB_BINARY:
-                Init_Integer(var, BIN_HEAD(les->data_ser)[les->data_idx]);
+                if (var)
+                    Init_Integer(var, BIN_HEAD(les->data_ser)[les->data_idx]);
                 if (++les->data_idx == les->data_len)
                     more_data = false;
                 break;
@@ -537,10 +544,11 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
               case REB_FILE:
               case REB_EMAIL:
               case REB_URL:
-                Init_Char_Unchecked(
-                    var,
-                    GET_CHAR_AT(les->data_ser, les->data_idx)
-                );
+                if (var)
+                    Init_Char_Unchecked(
+                        var,
+                        GET_CHAR_AT(les->data_ser, les->data_idx)
+                    );
                 if (++les->data_idx == les->data_len)
                     more_data = false;
                 break;
@@ -548,7 +556,8 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
               case REB_ACTION: {
                 REBVAL *generated = rebRun(les->data, rebEND);
                 if (generated) {
-                    Move_Value(var, generated);
+                    if (var)
+                        Move_Value(var, generated);
                     rebRelease(generated);
                 }
                 else {
@@ -560,7 +569,8 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                         //
                         goto finished;
                     }
-                    Init_Nulled(var);
+                    if (var)
+                        Init_Nulled(var);
                 }
                 break; }
 

@@ -510,9 +510,14 @@ void Virtual_Bind_Deep_To_New_Context(
             if (dummy_sym == SYM_DUMMY9)
                 fail ("Current limitation: only up to 9 BLANK! keys");
             Init_Context_Key(key, Canon(dummy_sym));
-            Init_Unreadable_Blank(var);  // all written here will be ignored
+            TYPE_SET(key, REB_TS_HIDDEN);
             dummy_sym = cast(REBSYM, cast(int, dummy_sym) + 1);
-            goto add_to_binder;
+
+            Init_Blank(var);
+            SET_CELL_FLAG(var, BIND_MARKED_REUSE);
+            SET_CELL_FLAG(var, PROTECTED);
+
+            goto add_binding_for_check;
         }
         else if (IS_WORD(item)) {
             Init_Context_Key(key, VAL_WORD_SPELLING(item));
@@ -527,8 +532,6 @@ void Virtual_Bind_Deep_To_New_Context(
             Init_Nulled(var);
 
             assert(rebinding); // shouldn't get here unless we're rebinding
-
-          add_to_binder:
 
             if (not Try_Add_Binder_Index(
                 &binder, VAL_PARAM_CANON(key), index
@@ -563,6 +566,8 @@ void Virtual_Bind_Deep_To_New_Context(
             Derelativize(var, item, specifier);
             SET_CELL_FLAG(var, BIND_MARKED_REUSE);
             SET_CELL_FLAG(var, PROTECTED);
+
+          add_binding_for_check:
 
             // We don't want to stop `for-each ['x 'x] ...` necessarily,
             // because if we're saying we're using the existing binding they
