@@ -58,7 +58,7 @@ REBREQ *Ensure_Port_State(REBVAL *port, REBCNT device)
     else {
         assert(IS_BLANK(state));
         req = OS_MAKE_DEVREQ(device);
-        ReqPortCtx(req) = ctx;  // Guarded: SERIES_INFO_MISC_IS_CUSTOM_NODE
+        ReqPortCtx(req) = ctx;  // Guarded: SERIES_INFO_MISC_NODE_NEEDS_MARK
 
         Init_Binary(state, SER(req));
     }
@@ -369,7 +369,7 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
     }
 
     TERM_ARRAY_LEN(code_arr, code - ARR_HEAD(code_arr));
-    MANAGE_ARRAY(code_arr);
+    Manage_Array(code_arr);
 
     DECLARE_LOCAL (first);
     if (DSP == dsp_orig + 1) { // no refinements, just use ACTION!

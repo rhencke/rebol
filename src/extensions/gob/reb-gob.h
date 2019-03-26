@@ -61,8 +61,8 @@
 //     LINK.custom is the "parent GOB or window ptr"
 //     MISC.custom is the "owner" (seemingly unused?)
 //
-// The GC knows to mark these because of SERIES_INFO_LINK_IS_CUSTOM_NODE
-// and SERIES_INFO_MISC_IS_CUSTOM_NODE.
+// The GC knows to mark these because of SERIES_INFO_LINK_NODE_NEEDS_MARK
+// and SERIES_INFO_MISC_NODE_NEEDS_MARK.
 //
 // The offset, size, old_offset and old_size cells are REB_G_XYF cells that
 // are GC-inert.  They use their payloads for x and y coordinates, but the

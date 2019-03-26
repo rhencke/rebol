@@ -752,7 +752,7 @@ REBNATIVE(applique)
         &binder,
         CELL_MASK_STACK
     );
-    MANAGE_ARRAY(CTX_VARLIST(exemplar)); // binding code into it
+    Manage_Array(CTX_VARLIST(exemplar)); // binding code into it
 
     // Bind any SET-WORD!s in the supplied code block into the FRAME!, so
     // e.g. APPLY 'APPEND [VALUE: 10]` will set VALUE in exemplar to 10.

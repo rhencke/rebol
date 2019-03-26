@@ -120,7 +120,7 @@ inline static REBVAL *Init_Image_Black_Opaque(RELVAL *out, REBCNT w, REBCNT h)
     REBBIN *bin = Make_Binary(size);
     SET_SERIES_LEN(bin, size);
     TERM_SERIES(bin);
-    MANAGE_SERIES(bin);
+    Manage_Series(bin);
 
     RESET_IMAGE(SER_DATA_RAW(bin), (w * h));  // length in 'pixels'
 

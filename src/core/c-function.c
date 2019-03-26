@@ -668,7 +668,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         }
 
         TERM_ARRAY_LEN(paramlist, num_slots);
-        MANAGE_ARRAY(paramlist);
+        Manage_Array(paramlist);
     }
 
     //=///////////////////////////////////////////////////////////////////=//
@@ -1694,7 +1694,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     // won't free it if there are outstanding references.
     //
     // Note that since varlists aren't added to the manual series list, the
-    // bit must be tweaked vs. using ENSURE_ARRAY_MANAGED.
+    // bit must be tweaked vs. using Ensure_Array_Managed.
     //
     SET_SERIES_FLAG(f->varlist, MANAGED);
 

@@ -1147,43 +1147,6 @@ void GC_Kill_Series(REBSER *s)
 }
 
 
-inline static void Untrack_Manual_Series(REBSER *s)
-{
-    REBSER ** const last_ptr
-        = &cast(REBSER**, GC_Manuals->content.dynamic.data)[
-            GC_Manuals->content.dynamic.used - 1
-        ];
-
-    assert(GC_Manuals->content.dynamic.used >= 1);
-    if (*last_ptr != s) {
-        //
-        // If the series is not the last manually added series, then
-        // find where it is, then move the last manually added series
-        // to that position to preserve it when we chop off the tail
-        // (instead of keeping the series we want to free).
-        //
-        REBSER **current_ptr = last_ptr - 1;
-        while (*current_ptr != s) {
-          #if !defined(NDEBUG)
-            if (
-                current_ptr
-                <= cast(REBSER**, GC_Manuals->content.dynamic.data)
-            ){
-                printf("Series not in list of last manually added series\n");
-                panic(s);
-            }
-          #endif
-            --current_ptr;
-        }
-        *current_ptr = *last_ptr;
-    }
-
-    // !!! Should GC_Manuals ever shrink or save memory?
-    //
-    --GC_Manuals->content.dynamic.used;
-}
-
-
 //
 //  Free_Unmanaged_Series: C
 //
@@ -1205,38 +1168,6 @@ void Free_Unmanaged_Series(REBSER *s)
 
     Untrack_Manual_Series(s);
     GC_Kill_Series(s); // with bookkeeping done, use same routine as GC
-}
-
-
-//
-//  Manage_Series: C
-//
-// If NODE_FLAG_MANAGED is not explicitly passed to Make_Series_Core, a
-// series will be manually memory-managed by default.  Thus, you don't need
-// to worry about the series being freed out from under you while building it,
-// and can call Free_Unmanaged_Series() on it if you are done with it.
-//
-// Rather than free a series, this function can be used--which will transition
-// a manually managed series to be one managed by the GC.  There is no way to
-// transition back--once a series has become managed, only the GC can free it.
-//
-// Putting series into a value cell (by using Init_String(), etc.) will
-// implicitly ensure it is managed, as it is generally the case that all
-// series in user-visible cells should be managed.  Doing otherwise requires
-// careful hooks into Move_Value() and Derelativize().
-//
-void Manage_Series(REBSER *s)
-{
-  #if !defined(NDEBUG)
-    if (GET_SERIES_FLAG(s, MANAGED)) {
-        printf("Attempt to manage already managed series\n");
-        panic (s);
-    }
-  #endif
-
-    s->header.bits |= NODE_FLAG_MANAGED;
-
-    Untrack_Manual_Series(s);
 }
 
 

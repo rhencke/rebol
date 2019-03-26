@@ -123,8 +123,7 @@ REB_R MAKE_Bitset(
         fail (arg);
 
     REBBIN *bin = Make_Bitset(len);
-    MANAGE_SERIES(bin);
-    Init_Bitset(out, bin);
+    Init_Bitset(out, Manage_Series(bin));
 
     if (IS_INTEGER(arg))
         return out; // allocated at a size, no contents.
@@ -713,8 +712,7 @@ REBTYPE(Bitset)
         REBBIN *bits = Xandor_Binary(verb, v, arg);
         INIT_BITS_NOT(bits, false);
         Trim_Tail_Zeros(bits);
-        MANAGE_SERIES(bits);
-        return Init_Bitset(D_OUT, bits); }
+        return Init_Bitset(D_OUT, Manage_Series(bits)); }
 
       default:
         break;

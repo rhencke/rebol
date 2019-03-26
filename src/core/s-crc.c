@@ -412,9 +412,9 @@ REBSER *Make_Hash_Sequence(REBCNT len)
 REBVAL *Init_Map(RELVAL *out, REBMAP *map)
 {
     if (MAP_HASHLIST(map))
-        ENSURE_SERIES_MANAGED(MAP_HASHLIST(map));
+        Ensure_Series_Managed(MAP_HASHLIST(map));
 
-    ENSURE_ARRAY_MANAGED(MAP_PAIRLIST(map));
+    Ensure_Array_Managed(MAP_PAIRLIST(map));
 
     RESET_CELL(out, REB_MAP, CELL_FLAG_FIRST_IS_NODE);
     INIT_VAL_NODE(out, MAP_PAIRLIST(map));

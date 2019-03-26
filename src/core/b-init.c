@@ -1381,7 +1381,7 @@ void Startup_Core(void)
     REBARR *datatypes_catalog = Startup_Datatypes(
         VAL_ARRAY(&boot->types), VAL_ARRAY(&boot->typespecs)
     );
-    MANAGE_ARRAY(datatypes_catalog);
+    Manage_Array(datatypes_catalog);
     PUSH_GC_GUARD(datatypes_catalog);
 
     // !!! REVIEW: Startup_Typesets() uses symbols, data stack, and
@@ -1405,13 +1405,13 @@ void Startup_Core(void)
     // by scanning comments in the C sources for `native: ...` declarations.
     //
     REBARR *natives_catalog = Startup_Natives(KNOWN(&boot->natives));
-    MANAGE_ARRAY(natives_catalog);
+    Manage_Array(natives_catalog);
     PUSH_GC_GUARD(natives_catalog);
 
     // boot->generics is the list in %generics.r
     //
     REBARR *generics_catalog = Startup_Generics(KNOWN(&boot->generics));
-    MANAGE_ARRAY(generics_catalog);
+    Manage_Array(generics_catalog);
     PUSH_GC_GUARD(generics_catalog);
 
     // boot->errors is the error definition list from %errors.r

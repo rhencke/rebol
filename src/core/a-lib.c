@@ -1944,7 +1944,7 @@ REBREQ *RL_rebMake_Rebreq(int device) {
 
     REBREQ *req = Make_Binary_Core(
         dev->req_size,
-        SERIES_FLAG_LINK_IS_CUSTOM_NODE | SERIES_FLAG_MISC_IS_CUSTOM_NODE
+        SERIES_FLAG_LINK_NODE_NEEDS_MARK | SERIES_FLAG_MISC_NODE_NEEDS_MARK
     );
     memset(BIN_HEAD(req), 0, dev->req_size);
     TERM_BIN_LEN(req, dev->req_size);
@@ -1964,8 +1964,8 @@ REBREQ *RL_rebMake_Rebreq(int device) {
 #else
     inline static void ASSERT_REBREQ(REBREQ *req) {  // basic sanity check
         assert(BYTE_SIZE(req) and BIN_LEN(req) >= sizeof(struct rebol_devreq));
-        assert(GET_SERIES_FLAG(req, LINK_IS_CUSTOM_NODE));
-        assert(GET_SERIES_FLAG(req, MISC_IS_CUSTOM_NODE));
+        assert(GET_SERIES_FLAG(req, LINK_NODE_NEEDS_MARK));
+        assert(GET_SERIES_FLAG(req, MISC_NODE_NEEDS_MARK));
     }
 #endif
 
@@ -2023,7 +2023,7 @@ void **RL_rebAddrOfReqPortCtx(REBREQ *req) {
 //
 void RL_rebEnsure_Req_Managed(REBREQ *req) {
     ASSERT_REBREQ(req);
-    ENSURE_SERIES_MANAGED(req);
+    Ensure_Series_Managed(req);
 }
 
 

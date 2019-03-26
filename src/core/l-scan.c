@@ -2176,7 +2176,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 MISC(a).line = ss->line;
                 SER_LINK_FILE(a) = NOD(ss->file);
                 SET_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED);
-                SET_SERIES_FLAG(a, LINK_IS_CUSTOM_NODE);
+                SET_SERIES_FLAG(a, LINK_NODE_NEEDS_MARK);
 
                 Append_Value(a, DS_TOP);  // may be BLANK!
                 Init_Blank(Alloc_Tail_Array(a));
@@ -2206,7 +2206,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 MISC(a).line = ss->line;
                 SER_LINK_FILE(a) = NOD(ss->file);
                 SET_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED);
-                SET_SERIES_FLAG(a, LINK_IS_CUSTOM_NODE);
+                SET_SERIES_FLAG(a, LINK_NODE_NEEDS_MARK);
 
                 DS_PUSH();
 
@@ -2400,7 +2400,7 @@ static REBARR *Scan_Child_Array(SCAN_STATE *ss, REBYTE mode_char)
     MISC(a).line = ss->line;
     SER_LINK_FILE(a) = NOD(ss->file);
     SET_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED);
-    SET_SERIES_FLAG(a, LINK_IS_CUSTOM_NODE);
+    SET_SERIES_FLAG(a, LINK_NODE_NEEDS_MARK);
 
     // The only variables that should actually be written back into the
     // parent ss are those reflecting an update in the "feed" of data.
@@ -2459,7 +2459,7 @@ REBARR *Scan_UTF8_Managed(REBSTR *filename, const REBYTE *utf8, REBSIZ size)
     MISC(a).line = ss.line;
     SER_LINK_FILE(a) = NOD(ss.file);
     SET_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED);
-    SET_SERIES_FLAG(a, LINK_IS_CUSTOM_NODE);
+    SET_SERIES_FLAG(a, LINK_NODE_NEEDS_MARK);
 
     return a;
 }

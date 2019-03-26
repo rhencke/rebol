@@ -1338,12 +1338,10 @@ REB_R MAKE_Struct(
                 FLD_LEN_BYTES_TOTAL(schema), raw_size, raw_addr
             );
     }
-    else {
-        MANAGE_SERIES(data_bin);
-        stu = mutable_VAL_STRUCT_DATA(out) = data_bin;
-    }
+    else
+        stu = mutable_VAL_STRUCT_DATA(out) = Manage_Series(data_bin);
 
-    MANAGE_ARRAY(schema);
+    Manage_Array(schema);
     LINK(stu).schema = schema;
 
     RESET_CELL(out, REB_STRUCT, CELL_FLAG_FIRST_IS_NODE);
@@ -1518,12 +1516,10 @@ REBSTU *Copy_Struct_Managed(REBSTU *src)
     REBSER *bin_copy = Make_Binary(STU_DATA_LEN(src));
     memcpy(BIN_HEAD(bin_copy), STU_DATA_HEAD(src), STU_DATA_LEN(src));
     TERM_BIN_LEN(bin_copy, STU_DATA_LEN(src));
-    mutable_VAL_STRUCT_DATA(STU_VALUE(copy)) = bin_copy;
+    mutable_VAL_STRUCT_DATA(STU_VALUE(copy)) = Manage_Series(bin_copy);
     assert(STU_DATA_HEAD(copy) == BIN_HEAD(bin_copy));
 
-    MANAGE_SERIES(bin_copy);
-    MANAGE_ARRAY(copy);
-    return copy;
+    return Manage_Array(copy);
 }
 
 

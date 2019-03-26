@@ -154,7 +154,7 @@ bool Expand_Context_Keylist_Core(REBCTX *context, REBCNT delta)
         else
             LINK(copy).ancestor = LINK(keylist).ancestor;
 
-        MANAGE_ARRAY(copy);
+        Manage_Array(copy);
         INIT_CTX_KEYLIST_UNIQUE(context, copy);
 
         return true;

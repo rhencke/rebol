@@ -331,34 +331,95 @@ inline static void TERM_SEQUENCE_LEN(REBSER *s, REBCNT len) {
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// When a series is allocated by the Make_Series() routine, it is not initially
-// visible to the garbage collector.  To keep from leaking it, then it must
-// be either freed with Free_Unmanaged_Series or delegated to the GC to manage
-// with MANAGE_SERIES.
+// If NODE_FLAG_MANAGED is not explicitly passed to Make_Series_Core, a
+// series will be manually memory-managed by default.  Thus, you don't need
+// to worry about the series being freed out from under you while building it.
+// But to keep from leaking it, must be freed with Free_Unmanaged_Series() or
+// delegated to the GC to manage with Manage_Series().
 //
 // (In debug builds, there is a test at the end of every Rebol function
 // dispatch that checks to make sure one of those two things happened for any
 // series allocated during the call.)
 //
-// The implementation of MANAGE_SERIES is shallow--it only sets a bit on that
-// *one* series, not any series referenced by values inside of it.  This
-// means that you cannot build a hierarchical structure that isn't visible
-// to the GC and then do a single MANAGE_SERIES call on the root to hand it
-// over to the garbage collector.  While it would be technically possible to
-// deeply walk the structure, the efficiency gained from pre-building the
-// structure with the managed bit set is significant...so that's how deep
-// copies and the scanner/load do it.
+// Manual series will be automatically freed in the case of a fail().  But
+// there are several cases in the system where series are not GC managed, but
+// also not in the manuals tracking list.  These are particularly tricky and
+// done for efficiency...so they must have their cleanup in the case of fail()
+// through other means.
+//
+// Manage_Series() is shallow--it only sets a bit on that *one* series, not
+// any series referenced by values inside of it.  This means that you cannot
+// build a hierarchical structure that isn't visible to the GC and then do a
+// single Manage_Series() call on the root to hand it over to the garbage
+// collector.  While it would be technically possible to deeply walk the
+// structure, the efficiency gained from pre-building the structure with the
+// managed bit set is significant...so that's how deep copies and the
+// scanner/load do it.
 //
 // (In debug builds, if any unmanaged series are found inside of values
 // reachable by the GC, it will raise an alert.)
 //
 
-#define MANAGE_SERIES(s) \
-    Manage_Series(s)
+inline static void Untrack_Manual_Series(REBSER *s)
+{
+    REBSER ** const last_ptr
+        = &cast(REBSER**, GC_Manuals->content.dynamic.data)[
+            GC_Manuals->content.dynamic.used - 1
+        ];
 
-inline static void ENSURE_SERIES_MANAGED(void *s) {
-    if (NOT_SERIES_FLAG(SER(s), MANAGED))
-        MANAGE_SERIES(SER(s));
+    assert(GC_Manuals->content.dynamic.used >= 1);
+    if (*last_ptr != s) {
+        //
+        // If the series is not the last manually added series, then
+        // find where it is, then move the last manually added series
+        // to that position to preserve it when we chop off the tail
+        // (instead of keeping the series we want to free).
+        //
+        REBSER **current_ptr = last_ptr - 1;
+        while (*current_ptr != s) {
+          #if !defined(NDEBUG)
+            if (
+                current_ptr
+                <= cast(REBSER**, GC_Manuals->content.dynamic.data)
+            ){
+                printf("Series not in list of last manually added series\n");
+                panic(s);
+            }
+          #endif
+            --current_ptr;
+        }
+        *current_ptr = *last_ptr;
+    }
+
+    // !!! Should GC_Manuals ever shrink or save memory?
+    //
+    --GC_Manuals->content.dynamic.used;
+}
+
+// Rather than free a series, this function can be used--which will transition
+// a manually managed series to be one managed by the GC.  There is no way to
+// transition back--once a series has become managed, only the GC can free it.
+//
+inline static REBSER *Manage_Series(REBSER *s)
+{
+  #if !defined(NDEBUG)
+    if (GET_SERIES_FLAG(s, MANAGED)) {
+        printf("Attempt to manage already managed series\n");
+        panic (s);
+    }
+  #endif
+
+    s->header.bits |= NODE_FLAG_MANAGED;
+
+    Untrack_Manual_Series(s);
+    return s;
+}
+
+inline static REBSER *Ensure_Series_Managed(void *p) {
+    REBSER *s = SER(p);
+    if (NOT_SERIES_FLAG(s, MANAGED))
+        Manage_Series(s);
+    return s;
 }
 
 #ifdef NDEBUG
@@ -366,8 +427,8 @@ inline static void ENSURE_SERIES_MANAGED(void *s) {
         NOOP
 #else
     inline static void ASSERT_SERIES_MANAGED(void *s) {
-        if (NOT_SERIES_FLAG(SER(s), MANAGED))
-            panic (SER(s));
+        if (NOT_SERIES_FLAG(s, MANAGED))
+            panic (s);
     }
 #endif
 
@@ -477,7 +538,7 @@ inline static void FAIL_IF_READ_ONLY_SER(REBSER *s) {
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // The garbage collector can run anytime the evaluator runs (and also when
-// ports are used).  So if a series has had MANAGE_SERIES run on it, the
+// ports are used).  So if a series has had Manage_Series() run on it, the
 // potential exists that any C pointers that are outstanding may "go bad"
 // if the series wasn't reachable from the root set.  This is important to
 // remember any time a pointer is held across a call that runs arbitrary

@@ -471,7 +471,7 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
         // !!! Scans that produce only one value (which are likely very
         // common) can go into feed->fetched and not make an array at all.
         //
-        MANAGE_ARRAY(reified);
+        Manage_Array(reified);
 
         feed->value = ARR_HEAD(reified);
         feed->pending = feed->value + 1;  // may be END

@@ -373,7 +373,7 @@ union Reb_Header {
 // still manually managed...and during the GC's sweeping phase the simple fact
 // that it isn't NODE_FLAG_MARKED won't be enough to consider it for freeing.
 //
-// See MANAGE_SERIES for details on the lifecycle of a series (how it starts
+// See Manage_Series() for details on the lifecycle of a series (how it starts
 // out manually managed, and then must either become managed or be freed
 // before the evaluation that created it ends).
 //

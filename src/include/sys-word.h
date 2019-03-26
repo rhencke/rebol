@@ -121,7 +121,7 @@ inline static REBSTR *STR_CANON(REBSTR *s) {
     assert(NOT_SERIES_FLAG(s, UTF8_NONWORD));
     assert(SER_WIDE(s) == 1);
     while (NOT_SERIES_INFO(s, STRING_CANON))
-        s = LINK(s).synonym; // circularly linked list
+        s = STR(SER_LINK_SYNONYM(s));  // circularly linked list
     return s;
 }
 

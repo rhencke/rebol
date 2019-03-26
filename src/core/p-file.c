@@ -205,7 +205,7 @@ static void Write_File_Port(REBREQ *file, REBVAL *data, REBCNT len, bool lines)
 
     if (IS_TEXT(data)) {
         ser = Make_UTF8_From_Any_String(data, len);
-        MANAGE_SERIES(ser);
+        Manage_Series(ser);
         req->common.data = BIN_HEAD(ser);
         len = SER_LEN(ser);
         req->modes |= RFM_TEXT; // do LF => CR LF, e.g. on Windows

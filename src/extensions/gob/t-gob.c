@@ -71,8 +71,8 @@ REBGOB *Make_Gob(void)
     REBGOB *a = Make_Array_Core(
         IDX_GOB_MAX,
         SERIES_FLAG_FIXED_SIZE
-            | SERIES_FLAG_LINK_IS_CUSTOM_NODE
-            | SERIES_FLAG_MISC_IS_CUSTOM_NODE
+            | SERIES_FLAG_LINK_NODE_NEEDS_MARK
+            | SERIES_FLAG_MISC_NODE_NEEDS_MARK
     );
 
     SET_GOB_PARENT(a, nullptr);  // in LINK(), is a REBNOD*, GC must mark
@@ -729,8 +729,7 @@ REB_R MAKE_Gob(
     if (not IS_GOB(arg)) { // call Extend() on an empty GOB with BLOCK!, etc.
         REBGOB *gob = Make_Gob();
         Extend_Gob_Core(gob, arg);
-        MANAGE_ARRAY(gob);
-        return Init_Gob(out, gob);
+        return Init_Gob(out, Manage_Array(gob));
     }
 
     if (opt_parent) {
@@ -758,8 +757,7 @@ REB_R MAKE_Gob(
     REBGOB *gob = Copy_Array_Shallow(VAL_GOB(arg), SPECIFIED);
     Init_Blank(GOB_PANE_VALUE(gob));
     SET_GOB_PARENT(gob, nullptr);
-    MANAGE_ARRAY(gob);
-    return Init_Gob(out, gob);
+    return Init_Gob(out, Manage_Array(gob));
 }
 
 

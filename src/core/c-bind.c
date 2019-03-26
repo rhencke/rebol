@@ -625,7 +625,7 @@ void Virtual_Bind_Deep_To_New_Context(
     // things unless they are stack-based.  Virtual bindings will be, but
     // contexts like this won't.
     //
-    MANAGE_ARRAY(CTX_VARLIST(c));
+    Manage_Array(CTX_VARLIST(c));
 
     if (not rebinding)
         return; // nothing else needed to do

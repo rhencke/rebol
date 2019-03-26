@@ -150,9 +150,9 @@ static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
     if (GET_SERIES_FLAG(a, MARKED))
         return; // may not be finished marking yet, but has been queued
 
-    if (GET_SERIES_INFO(a, LINK_IS_CUSTOM_NODE))
+    if (GET_SERIES_FLAG(a, LINK_NODE_NEEDS_MARK))
         Queue_Mark_Node_Deep(LINK(a).custom.node);
-    if (GET_SERIES_INFO(a, MISC_IS_CUSTOM_NODE))
+    if (GET_SERIES_FLAG(a, MISC_NODE_NEEDS_MARK))
         Queue_Mark_Node_Deep(MISC(a).custom.node);
 
     Mark_Rebser_Only(cast(REBSER*, a));
@@ -700,7 +700,7 @@ void Reify_Va_To_Array_In_Frame(
     assert(not f->feed->vaptr); // feeding forward should have called va_end
 
     f->feed->array = Pop_Stack_Values(dsp_orig);
-    MANAGE_ARRAY(f->feed->array); // held alive while frame running
+    Manage_Array(f->feed->array); // held alive while frame running
 
     // The array just popped into existence, and it's tied to a running
     // frame...so safe to say we're holding it.  (This would be more complex
@@ -863,9 +863,9 @@ static void Mark_Root_Series(void)
                     and NOT_ARRAY_FLAG(s, IS_PAIRLIST)
                 );
 
-                if (GET_SERIES_FLAG(s, LINK_IS_CUSTOM_NODE))
+                if (GET_SERIES_FLAG(s, LINK_NODE_NEEDS_MARK))
                     Queue_Mark_Node_Deep(LINK(s).custom.node);
-                if (GET_SERIES_FLAG(s, MISC_IS_CUSTOM_NODE))
+                if (GET_SERIES_FLAG(s, MISC_NODE_NEEDS_MARK))
                     Queue_Mark_Node_Deep(MISC(s).custom.node);
 
                 RELVAL *item = ARR_HEAD(cast(REBARR*, s));
@@ -1156,7 +1156,7 @@ static void Mark_Frame_Stack_Deep(void)
 //
 // Scans all series nodes (REBSER structs) in all segments that are part of
 // the SER_POOL.  If a series had its lifetime management delegated to the
-// garbage collector with MANAGE_SERIES(), then if it didn't get "marked" as
+// garbage collector with Manage_Series(), then if it didn't get "marked" as
 // live during the marking phase then free it.
 //
 static REBCNT Sweep_Series(void)
@@ -1640,7 +1640,7 @@ static void Mark_Devices_Deep(void)
         // mark the port pointers internal to the REBREQ.  Following the
         // links and marking the contexts is now done automatically, because
         // REBREQ is a REBSER node and has those fields in LINK()/MISC() with
-        // SERIES_FLAG_LINK_IS_CUSTOM_NODE/SERIES_FLAG_MISC_IS_CUSTOM_NODE
+        // SERIES_FLAG_LINK_NODE_NEEDS_MARK/SERIES_FLAG_MISC_NODE_NEEDS_MARK
         //
         Queue_Mark_Node_Deep(NOD(dev->pending));
     }

@@ -340,7 +340,7 @@ REBCTX *Make_Context_For_Action(
         CELL_MASK_NON_STACK
     );
 
-    MANAGE_ARRAY(CTX_VARLIST(exemplar)); // !!! was needed before, review
+    Manage_Array(CTX_VARLIST(exemplar)); // !!! was needed before, review
     DS_DROP_TO(lowest_ordered_dsp);
     return exemplar;
 }
@@ -403,7 +403,7 @@ bool Specialize_Action_Throws(
         opt_def ? &binder : nullptr,
         CELL_MASK_NON_STACK
     );
-    MANAGE_ARRAY(CTX_VARLIST(exemplar)); // destined to be managed, guarded
+    Manage_Array(CTX_VARLIST(exemplar)); // destined to be managed, guarded
 
     if (opt_def) { // code that fills the frame...fully or partially
         //
@@ -693,7 +693,7 @@ bool Specialize_Action_Throws(
         SERIES_MASK_ACTION
             | (SER(unspecialized)->header.bits & PARAMLIST_MASK_INHERIT)
     );
-    MANAGE_ARRAY(paramlist);
+    Manage_Array(paramlist);
     RELVAL *rootparam = ARR_HEAD(paramlist);
     PAYLOAD(Action, rootparam).paramlist = paramlist;
 
@@ -1458,7 +1458,7 @@ REBNATIVE(does)
         // is optimized to not run the block with the DO native...hence a
         // HIJACK of DO won't be triggered by invocations of the first form.
         //
-        MANAGE_ARRAY(paramlist);
+        Manage_Array(paramlist);
         REBACT *doer = Make_Action(
             paramlist,
             &Block_Dispatcher, // **SEE COMMENTS**, not quite like plain DO!
@@ -1543,7 +1543,7 @@ REBNATIVE(does)
     }
 
     TERM_ARRAY_LEN(paramlist, num_slots);
-    MANAGE_ARRAY(paramlist);
+    Manage_Array(paramlist);
 
     // This code parallels Specialize_Action_Throws(), see comments there
 

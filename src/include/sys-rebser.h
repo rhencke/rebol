@@ -61,7 +61,7 @@
 //
 // REBSERs may be either manually memory managed or delegated to the garbage
 // collector.  Free_Unmanaged_Series() may only be called on manual series.
-// See MANAGE_SERIES()/PUSH_GC_GUARD() for remarks on how to work safely
+// See Manage_Series()/PUSH_GC_GUARD() for remarks on how to work safely
 // with pointers to garbage-collected series, to avoid having them be GC'd
 // out from under the code while working with them.
 //
@@ -217,21 +217,27 @@
     FLAG_LEFT_BIT(13)
 
 
-//=//// SERIES_FLAG_LINK_IS_CUSTOM_NODE ///////////////////////////////////=//
+//=//// SERIES_FLAG_LINK_NODE_NEEDS_MARK //////////////////////////////////=//
 //
 // This indicates that a series's LINK() field is the `custom` node element,
 // and should be marked (if not null).
 //
-#define SERIES_FLAG_LINK_IS_CUSTOM_NODE \
+// Note: Even if this flag is not set, *link.custom might still be a node*...
+// just not one that should be marked.
+//
+#define SERIES_FLAG_LINK_NODE_NEEDS_MARK \
     FLAG_LEFT_BIT(14)
 
 
-//=//// SERIES_FLAG_MISC_IS_CUSTOM_NODE ///////////////////////////////////=//
+//=//// SERIES_FLAG_MISC_NODE_NEEDS_MARK //////////////////////////////////=//
 //
 // This indicates that a series's MISC() field is the `custom` node element,
 // and should be marked (if not null).
 //
-#define SERIES_FLAG_MISC_IS_CUSTOM_NODE \
+// Note: Even if this flag is not set, *misc.custom might still be a node*...
+// just not one that should be marked.
+//
+#define SERIES_FLAG_MISC_NODE_NEEDS_MARK \
     FLAG_LEFT_BIT(15)
 
 
@@ -266,7 +272,7 @@
     FLAG_LEFT_BIT(16)
 
 #define ARRAY_MASK_HAS_FILE_LINE \
-    (ARRAY_FLAG_HAS_FILE_LINE_UNMASKED | SERIES_FLAG_LINK_IS_CUSTOM_NODE)
+    (ARRAY_FLAG_HAS_FILE_LINE_UNMASKED | SERIES_FLAG_LINK_NODE_NEEDS_MARK)
 
 
 //=//// ARRAY_FLAG_NULLEDS_LEGAL //////////////////////////////////////////=//
@@ -787,12 +793,6 @@ union Reb_Series_Link {
     //
     REBACT *underlying;
 
-    // For a *read-only* REBSTR, circularly linked list of othEr-CaSed string
-    // forms.  It should be relatively quick to find the canon form on
-    // average, since many-cased forms are somewhat rare.
-    //
-    REBSTR *synonym;
-
     // For a writable REBSTR, a list of entities that cache the mapping from
     // index to character offset is maintained.  Without some help, it would
     // be necessary to search from the head or tail of the string, character
@@ -833,20 +833,33 @@ union Reb_Series_Link {
 
     // If a REBSER is used by a custom cell type, it can use the LINK()
     // field how it likes.  But if it is a node and needs to be GC-marked,
-    // it has to tell the system with SERIES_INFO_LINK_IS_CUSTOM_NODE.
+    // it has to tell the system with SERIES_INFO_LINK_NODE_NEEDS_MARK.
     //
     // Notable uses by extensions:
     // 1. `parent` GOB of GOB! details
     // 2. `next_req` REBREQ* of a REBREQ
     //
-    // Ordinary source series use their ->link field to point to an
-    // interned file name string from which the code was loaded.  If a
-    // series was not created from a file, then the information from the
-    // source that was running at the time is propagated into the new
-    // second-generation series.
-    //
     union Reb_Any custom;
 };
+
+// Ordinary source arrays use their ->link field to point to an interned file
+// name string (or URL string) from which the code was loaded.  If a series
+// was not created from a file, then the information from the source that was
+// running at the time is propagated into the new second-generation series.
+//
+#define SER_LINK_FILE(s) \
+    LINK(s).custom.node
+
+// For a *read-only* REBSTR, circularly linked list of othEr-CaSed string
+// forms.  It should be relatively quick to find the canon form on
+// average, since many-cased forms are somewhat rare.
+//
+// Note: String series using this don't have SERIES_FLAG_LINK_NODE_NEEDS_MARK.
+// One synonym need not keep another alive, because the process of freeing
+// string nodes unlinks them from the list.  (Hence the canon can change!)
+//
+#define SER_LINK_SYNONYM(s) \
+    LINK(s).custom.node
 
 
 // The `misc` field is an extra pointer-sized piece of data which is resident
@@ -950,7 +963,7 @@ union Reb_Series_Misc {
 
     // If a REBSER is used by a custom cell type, it can use the MISC()
     // field how it likes.  But if it is a node and needs to be GC-marked,
-    // it has to tell the system with SERIES_INFO_MISC_IS_CUSTOM_NODE.
+    // it has to tell the system with SERIES_INFO_MISC_NODE_NEEDS_MARK.
     //
     // Notable uses by extensions:
     // 1. `owner` of GOB! node
@@ -1045,8 +1058,6 @@ struct Reb_Series {
 #define LINK(s) \
     SER(s)->link_private
 
-#define SER_LINK_FILE(s) \
-    LINK(s).custom.node
 
 // Currently only the C++ build does the check that ->misc is not being used
 // at a time when it is forwarded out for copying.  If the C build were to

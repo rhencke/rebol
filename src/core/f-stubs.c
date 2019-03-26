@@ -285,7 +285,7 @@ REBVAL *Init_Any_Series_At_Core(
     REBNOD *binding
 ){
     assert(ANY_SERIES_KIND(type));
-    ENSURE_SERIES_MANAGED(s);
+    Ensure_Series_Managed(s);
 
     // Note: a R3-Alpha Make_Binary() comment said:
     //

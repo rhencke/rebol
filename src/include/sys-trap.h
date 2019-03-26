@@ -33,7 +33,7 @@
 // layer.  These allow Rebol to clean up after itself for some kinds of
 // "dangling" state--such as manually memory managed series that have been
 // made with Make_Series() but never passed to either Free_Unmanaged_Series()
-// or MANAGE_SERIES().  This covers several potential leaks known-to-Rebol,
+// or Manage_Series().  This covers several potential leaks known-to-Rebol,
 // but custom interception code is needed for any generalized resource
 // that might be leaked in the case of a longjmp().
 //

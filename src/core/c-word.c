@@ -227,41 +227,43 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
 
         assert(GET_SERIES_INFO(canon, STRING_CANON));
 
-        REBINT cmp;
-        cmp = Compare_UTF8(STR_HEAD(canon), utf8, size);
-        if (cmp == 0)
-            return canon; // was a case-sensitive match
-        if (cmp < 0)
-            goto next_candidate_slot; // wasn't an alternate casing
+        blockscope {
+            REBINT cmp = Compare_UTF8(STR_HEAD(canon), utf8, size);
+            if (cmp == 0)
+                return canon;  // was a case-sensitive match
+            if (cmp < 0)
+                goto next_candidate_slot;  // wasn't an alternate casing
+        }
 
         // The > 0 result means that the canon word that was found is an
         // alternate casing ("synonym") for the string we're interning.  The
         // synonyms are attached to the canon form with a circularly linked
         // list.  Walk the list to see if any of the synonyms are a match.
         //
-        REBSTR *synonym;
-        synonym = LINK(canon).synonym;
-        while (synonym != canon) {
-            assert(NOT_SERIES_INFO(synonym, STRING_CANON));
+        blockscope {
+            REBSTR *synonym = STR(SER_LINK_SYNONYM(canon));
+            while (synonym != canon) {
+                assert(NOT_SERIES_INFO(synonym, STRING_CANON));
 
-            cmp = Compare_UTF8(STR_HEAD(synonym), utf8, size);
-            if (cmp == 0)
-                return synonym; // exact spelling match means no new interning
+                REBINT cmp = Compare_UTF8(STR_HEAD(synonym), utf8, size);
+                if (cmp == 0)
+                    return synonym;  // exact match means no new interning
 
-            assert(cmp > 0); // should be at least a synonym if in this list
-            synonym = LINK(synonym).synonym; // check until cycle is found
+                assert(cmp > 0);  // at least a synonym if in this list
+                synonym = STR(SER_LINK_SYNONYM(synonym));  // look until cycle
+            }
         }
 
-        goto new_interning; // no synonyms matched, make new synonym for canon
+        goto new_interning;  // no synonym matched, make new synonym for canon
 
-      next_candidate_slot:; // https://en.wikipedia.org/wiki/Linear_probing
+      next_candidate_slot:  // https://en.wikipedia.org/wiki/Linear_probing
 
         slot += skip;
         if (slot >= num_slots)
             slot -= num_slots;
     }
 
-    assert(not canon); // loop exits when it finds a vacant canon slot
+    assert(not canon);  // loop exits when it finds a vacant canon slot
 
   new_interning:;
 
@@ -281,11 +283,11 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
     memcpy(BIN_HEAD(intern), utf8, size);
     TERM_BIN_LEN(intern, size);
 
-    if (not canon) { // no canon found, so this interning must become canon
+    if (not canon) {  // no canon found, so this interning must become canon
         if (deleted_slot) {
-            *deleted_slot = intern; // reuse the deleted slot
+            *deleted_slot = intern;  // reuse the deleted slot
           #if !defined(NDEBUG)
-            --PG_Num_Canon_Deleteds; // note slot "usage" count stays constant
+            --PG_Num_Canon_Deleteds;  // note slot usage count stays constant
           #endif
         }
         else {
@@ -295,7 +297,7 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
 
         SET_SERIES_INFO(intern, STRING_CANON);
 
-        LINK(intern).synonym = intern; // circularly linked list, empty state
+        SER_LINK_SYNONYM(intern) = NOD(intern);  // 1-item in circular list
 
         // Canon symbols don't need to cache a canon pointer to themselves.
         // So instead that slot is reserved for tracking associated information
@@ -317,9 +319,9 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
         // This is a synonym for an existing canon.  Link it into the synonyms
         // circularly linked list, and direct link the canon form.
         //
-        MISC(intern).length = 0; // !!! TBD: codepoint count
-        LINK(intern).synonym = LINK(canon).synonym;
-        LINK(canon).synonym = intern;
+        MISC(intern).length = 0;  // !!! TBD: codepoint count
+        SER_LINK_SYNONYM(intern) = SER_LINK_SYNONYM(canon);
+        SER_LINK_SYNONYM(canon) = NOD(intern);
 
         // If the canon form had a SYM_XXX for quick comparison of %words.r
         // words in C switch statements, the synonym inherits that number.
@@ -331,15 +333,14 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
   #if !defined(NDEBUG)
     uint16_t sym_canon = cast(uint16_t, STR_SYMBOL(STR_CANON(intern)));
     uint16_t sym = cast(uint16_t, STR_SYMBOL(intern));
-    assert(sym == sym_canon); // C++ build disallows compare w/o cast
+    assert(sym == sym_canon);  // C++ build disallows compare w/o cast
   #endif
 
     // Created series must be managed, because if they were not there could
     // be no clear contract on the return result--as it wouldn't be possible
     // to know if a shared instance had been managed by someone else or not.
     //
-    MANAGE_SERIES(intern);
-    return intern;
+    return Manage_Series(intern);
 }
 
 
@@ -352,19 +353,19 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
 //
 void GC_Kill_Interning(REBSTR *intern)
 {
-    REBSER *synonym = LINK(intern).synonym;
+    REBSTR *synonym = STR(SER_LINK_SYNONYM(intern));
 
     // Note synonym and intern may be the same here.
     //
-    REBSER *temp = synonym;
-    while (LINK(temp).synonym != intern)
-        temp = LINK(temp).synonym;
-    LINK(temp).synonym = synonym; // cut intern out of chain (or no-op)
+    REBSTR *temp = synonym;
+    while (STR(SER_LINK_SYNONYM(temp)) != intern)
+        temp = STR(SER_LINK_SYNONYM(temp));
+    SER_LINK_SYNONYM(temp) = NOD(synonym);  // cut the intern out (or no-op)
 
     if (NOT_SERIES_INFO(intern, STRING_CANON))
-        return; // for non-canon forms, removing from chain is all you need
+        return;  // for non-canon forms, removing from chain is all you need
 
-    assert(MISC(intern).bind_index.high == 0); // shouldn't GC during binds?
+    assert(MISC(intern).bind_index.high == 0);  // shouldn't GC during binds?
     assert(MISC(intern).bind_index.low == 0);
 
     REBCNT num_slots = SER_LEN(PG_Canons_By_Hash);
@@ -546,7 +547,7 @@ void Startup_Symbols(REBARR *words)
             SET_SECOND_UINT16(name->header, sym);
             assert(SAME_SYM_NONZERO(STR_SYMBOL(name), sym));
 
-            name = LINK(name).synonym;
+            name = STR(SER_LINK_SYNONYM(name));
         } while (name != canon); // circularly linked list, stop on a cycle
     }
 

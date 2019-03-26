@@ -144,11 +144,11 @@ inline static void TERM_SERIES(REBSER *s) {
 }
 
 
-#define MANAGE_ARRAY(a) \
-    MANAGE_SERIES(SER(a))
+#define Manage_Array(a) \
+    ARR(Manage_Series(SER(a)))
 
-#define ENSURE_ARRAY_MANAGED(a) \
-    ENSURE_SERIES_MANAGED(SER(a))
+#define Ensure_Array_Managed(a) \
+    ARR(Ensure_Series_Managed(SER(a)))
 
 
 //
@@ -282,7 +282,7 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
     // number from the array executing in the current frame.
     //
     if (flags & ARRAY_FLAG_HAS_FILE_LINE_UNMASKED) { // most callsites fold
-        assert(flags & SERIES_FLAG_LINK_IS_CUSTOM_NODE);
+        assert(flags & SERIES_FLAG_LINK_NODE_NEEDS_MARK);
         if (
             FS_TOP->feed->array and
             GET_ARRAY_FLAG(FS_TOP->feed->array, HAS_FILE_LINE_UNMASKED)
@@ -292,7 +292,7 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
         }
         else {
             CLEAR_ARRAY_FLAG(s, HAS_FILE_LINE_UNMASKED);
-            CLEAR_SERIES_FLAG(s, LINK_IS_CUSTOM_NODE);
+            CLEAR_SERIES_FLAG(s, LINK_NODE_NEEDS_MARK);
         }
     }
 
