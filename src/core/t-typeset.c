@@ -128,8 +128,6 @@ bool Add_Typeset_Bits_Core(
     REBSPC *specifier
 ) {
     assert(IS_TYPESET(typeset) or IS_PARAM(typeset));
-    if (VAL_TYPESET_BITS(typeset) != 0)
-        head = head;
 
     const RELVAL *maybe_word = head;
     for (; NOT_END(maybe_word); ++maybe_word) {
@@ -200,7 +198,8 @@ bool Add_Typeset_Bits_Core(
             if (num_quotes != 0)
                 fail ("General typeset quoting not supported, use QUOTED!");
 
-            VAL_TYPESET_BITS(typeset) |= VAL_TYPESET_BITS(item);
+            VAL_TYPESET_LOW_BITS(typeset) |= VAL_TYPESET_LOW_BITS(item);
+            VAL_TYPESET_HIGH_BITS(typeset) |= VAL_TYPESET_HIGH_BITS(item);
         }
         else if (IS_QUOTED(item)) {
             const REBCEL *cell = VAL_UNESCAPED(item);
@@ -359,24 +358,36 @@ REBTYPE(Typeset)
       case SYM_UNION:
       case SYM_DIFFERENCE:
         if (IS_DATATYPE(arg)) {
-            VAL_TYPESET_BITS(arg) = FLAGIT_KIND(VAL_TYPE(arg));
+            REBYTE n = cast(REBYTE, VAL_TYPE(arg));
+            if (n < 32)
+                VAL_TYPESET_LOW_BITS(arg) = FLAGIT_KIND(n);
+            else {
+                assert(n < REB_MAX_PLUS_MAX);
+                VAL_TYPESET_HIGH_BITS(arg) = FLAGIT_KIND(n - 32);
+            }
         }
         else if (not IS_TYPESET(arg))
             fail (arg);
 
-        if (VAL_WORD_SYM(verb) == SYM_UNION)
-            VAL_TYPESET_BITS(val) |= VAL_TYPESET_BITS(arg);
-        else if (VAL_WORD_SYM(verb) == SYM_INTERSECT)
-            VAL_TYPESET_BITS(val) &= VAL_TYPESET_BITS(arg);
+        if (VAL_WORD_SYM(verb) == SYM_UNION) {
+            VAL_TYPESET_LOW_BITS(val) |= VAL_TYPESET_LOW_BITS(arg);
+            VAL_TYPESET_HIGH_BITS(val) |= VAL_TYPESET_HIGH_BITS(arg);
+        }
+        else if (VAL_WORD_SYM(verb) == SYM_INTERSECT) {
+            VAL_TYPESET_LOW_BITS(val) &= VAL_TYPESET_LOW_BITS(arg);
+            VAL_TYPESET_HIGH_BITS(val) &= VAL_TYPESET_HIGH_BITS(arg);
+        }
         else {
             assert(VAL_WORD_SYM(verb) == SYM_DIFFERENCE);
-            VAL_TYPESET_BITS(val) ^= VAL_TYPESET_BITS(arg);
+            VAL_TYPESET_LOW_BITS(val) ^= VAL_TYPESET_LOW_BITS(arg);
+            VAL_TYPESET_HIGH_BITS(val) ^= VAL_TYPESET_HIGH_BITS(arg);
         }
         RETURN (val);
 
-      case SYM_COMPLEMENT:
-        VAL_TYPESET_BITS(val) = ~VAL_TYPESET_BITS(val);
-        RETURN (val);
+      case SYM_COMPLEMENT: {
+        VAL_TYPESET_LOW_BITS(val) = ~VAL_TYPESET_LOW_BITS(val);
+        VAL_TYPESET_HIGH_BITS(val) = ~VAL_TYPESET_HIGH_BITS(val);
+        RETURN (val); }
 
       case SYM_COPY:
         RETURN (val);

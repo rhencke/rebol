@@ -348,20 +348,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
     if (GET_CELL_FLAG(v, SECOND_IS_NODE))
         Queue_Mark_Node_Deep(PAYLOAD(Any, v).second.node);
 
-    switch (kind) {
-      case REB_P_NORMAL:
-      case REB_P_HARD_QUOTE:
-      case REB_P_SOFT_QUOTE:
-      case REB_P_REFINEMENT:
-      case REB_P_LOCAL:
-      case REB_P_RETURN:
-        Mark_Rebser_Only(EXTRA(Key, v).spelling);
-        break;
-
-      default:
-        break;
-    }
-
   #if !defined(NDEBUG)
     in_mark = false;
     Assert_Cell_Marked_Correctly(v);

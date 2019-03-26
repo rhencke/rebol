@@ -1012,8 +1012,11 @@ REBTYPE(Array)
         if (REF(types)) {
             if (IS_DATATYPE(ARG(kinds)))
                 types |= FLAGIT_KIND(VAL_TYPE(ARG(kinds)));
-            else
-                types |= VAL_TYPESET_BITS(ARG(kinds));
+            else {
+                types |= VAL_TYPESET_LOW_BITS(ARG(kinds));
+                types |= cast(REBU64, VAL_TYPESET_HIGH_BITS(ARG(kinds)))
+                    << 32;
+            }
         }
 
         REBFLGS flags = ARRAY_MASK_HAS_FILE_LINE;

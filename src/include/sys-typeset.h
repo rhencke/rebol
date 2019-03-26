@@ -68,20 +68,64 @@ inline static REBSTR *Get_Type_Name(const RELVAL *value)
 //
 // Operations when typeset is done with a bitset (currently all typesets)
 
-#define VAL_TYPESET_BITS(v) \
-    PAYLOAD(Typeset, (v)).bits
+#define VAL_TYPESET_STRING_NODE(v) \
+    PAYLOAD(Any, (v)).first.node
 
-#define TYPE_CHECK(v,n) \
-    (did (VAL_TYPESET_BITS(v) & FLAGIT_KIND(n)))
+#define VAL_TYPESET_STRING(v) \
+    STR(VAL_TYPESET_STRING_NODE(v))
 
-#define TYPE_SET(v,n) \
-    (VAL_TYPESET_BITS(v) |= FLAGIT_KIND(n))
 
-#define TYPE_CLEAR(v,n) \
-    (VAL_TYPESET_BITS(v) &= ~FLAGIT_KIND(n))
+#define VAL_TYPESET_LOW_BITS(v) \
+    PAYLOAD(Any, (v)).second.u32
 
-#define EQUAL_TYPESET(v,w) \
-    (VAL_TYPESET_BITS(v) == VAL_TYPESET_BITS(w))
+#define VAL_TYPESET_HIGH_BITS(v) \
+    EXTRA(Typeset, (v)).high_bits
+
+inline static bool TYPE_CHECK(const REBCEL *v, REBYTE n) {
+    if (n < 32)
+        return did (VAL_TYPESET_LOW_BITS(v) & FLAGIT_KIND(n));
+
+    assert(n < REB_MAX_PLUS_MAX);
+    return did (VAL_TYPESET_HIGH_BITS(v) & FLAGIT_KIND(n - 32));
+}
+
+inline static bool TYPE_CHECK_BITS(const REBCEL *v, REBU64 bits) {
+    uint_fast32_t low = bits & cast(uint32_t, 0xFFFFFFFF);
+    if (low & VAL_TYPESET_LOW_BITS(v))
+        return true;
+
+    uint_fast32_t high = bits >> 32;
+    if (high & VAL_TYPESET_HIGH_BITS(v))
+        return true;
+
+    return false;
+}
+
+inline static void TYPE_SET(REBCEL *v, REBYTE n) {
+    if (n < 32) {
+        VAL_TYPESET_LOW_BITS(v) |= FLAGIT_KIND(n);
+        return;
+    }
+    assert(n < REB_MAX_PLUS_MAX);
+    VAL_TYPESET_HIGH_BITS(v) |= FLAGIT_KIND(n - 32);
+}
+
+inline static void TYPE_CLEAR(REBCEL *v, REBYTE n) {
+    if (n < 32) {
+        VAL_TYPESET_HIGH_BITS(v) &= ~FLAGIT_KIND(n);
+        return;
+    }
+    assert(n < REB_MAX_PLUS_MAX);
+    VAL_TYPESET_HIGH_BITS(v) &= ~FLAGIT_KIND(n - 32);
+}
+
+inline static bool EQUAL_TYPESET(const REBCEL *v1, const REBCEL *v2) {
+    if (VAL_TYPESET_LOW_BITS(v1) != VAL_TYPESET_LOW_BITS(v2))
+        return false;
+    if (VAL_TYPESET_HIGH_BITS(v1) != VAL_TYPESET_HIGH_BITS(v2))
+        return false;
+    return true;
+}
 
 
 //=//// PARAMETER CLASS ///////////////////////////////////////////////////=//
@@ -95,10 +139,6 @@ inline static REBSTR *Get_Type_Name(const RELVAL *value)
 //
 // Yet there needed to be a place to put the parameter's class.  So it is
 // packed in with the TYPESET_FLAG_XXX bits.
-//
-// Note: It was checked to see if giving the VAL_PARAM_CLASS() the entire byte
-// and not need to mask out the flags would make a difference, but performance
-// wasn't affected much.
 //
 
 typedef enum Reb_Kind Reb_Param_Class;
@@ -138,25 +178,6 @@ typedef enum Reb_Kind Reb_Param_Class;
     //
 
     // `REB_P_REFINEMENT`
-    //
-
-    // `REB_P_TIGHT` makes enfixed first arguments "lazy" and other
-    // arguments will use the EVAL_FLAG_NO_LOOKAHEAD.
-    //
-    // R3-Alpha's notion of infix OP!s changed the way parameters were
-    // gathered.  On the right hand side, the argument was evaluated in a
-    // special mode in which further infix processing was not done.  This
-    // meant that `1 + 2 * 3`, when fulfilling the 2 for the right side of +,
-    // would "blind" itself so that it would not chain forward and see the
-    // `* 3`.  This gave rise to a distinct behavior from `1 + multiply 2 3`.
-    // A similar kind of "tightness" would happen with the left hand side,
-    // where `add 1 2 * 3` would be aggressive and evaluate it as
-    // `add 1 (2 * 3)` and not `(add 1 2) * 3`.
-    //
-    // Ren-C decouples this property so that it may be applied to any
-    // parameter, and calls it "tight".  By default, however, expressions are
-    // completed as far as they can be on both the left and right hand side of
-    // enfixed expressions.
     //
 
     // REB_P_RETURN acts like a pure local, but is pre-filled with a
@@ -272,10 +293,9 @@ inline static Reb_Param_Class VAL_PARAM_CLASS(const RELVAL *v) {
 //
 // Name should be NULL unless typeset in object keylist or func paramlist
 
-
 inline static REBSTR *VAL_KEY_SPELLING(const REBCEL *v) {
     assert(IS_PARAM_KIND(CELL_KIND(v)));
-    return EXTRA(Key, v).spelling;
+    return VAL_TYPESET_STRING(v);
 }
 
 inline static REBSTR *VAL_KEY_CANON(const REBCEL *v) {
@@ -295,7 +315,8 @@ inline static OPT_REBSYM VAL_KEY_SYM(const REBCEL *v) {
 inline static REBVAL *Init_Typeset(RELVAL *out, REBU64 bits)
 {
     RESET_CELL(out, REB_TYPESET, CELL_MASK_NONE);
-    VAL_TYPESET_BITS(out) = bits;
+    VAL_TYPESET_LOW_BITS(out) = bits & cast(uint32_t, 0xFFFFFFFF);
+    VAL_TYPESET_HIGH_BITS(out) = bits >> 32;
     return cast(REBVAL*, out);
 }
 
@@ -306,9 +327,10 @@ inline static REBVAL *Init_Param(
     REBSTR *spelling,
     REBU64 bits
 ){
-    RESET_CELL(out, pclass, CELL_MASK_NONE);
-    EXTRA(Key, out).spelling = spelling;
-    VAL_TYPESET_BITS(out) = bits;
+    RESET_CELL(out, pclass, CELL_FLAG_FIRST_IS_NODE);
+    VAL_TYPESET_STRING_NODE(out) = NOD(spelling);
+    VAL_TYPESET_LOW_BITS(out) = bits & cast(uint32_t, 0xFFFFFFFF);
+    VAL_TYPESET_HIGH_BITS(out) = bits >> 32;
     assert(IS_PARAM(out));
     return cast(REBVAL*, out);
 }

@@ -266,7 +266,9 @@ REBTYPE(Action)
             REBVAL *typeset = KNOWN(ARR_HEAD(copy));
             for (; NOT_END(param); ++param, ++typeset) {
                 assert(IS_PARAM(param));
-                Init_Typeset(typeset, VAL_TYPESET_BITS(param));
+                RESET_CELL(typeset, REB_TYPESET, CELL_MASK_NONE);
+                VAL_TYPESET_LOW_BITS(typeset) = VAL_TYPESET_LOW_BITS(param);
+                VAL_TYPESET_HIGH_BITS(typeset) = VAL_TYPESET_HIGH_BITS(param);
             }
             TERM_ARRAY_LEN(copy, VAL_ACT_NUM_PARAMS(value));
             assert(IS_END(typeset));

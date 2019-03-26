@@ -452,8 +452,8 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
       case REB_P_REFINEMENT:
       case REB_P_LOCAL:
       case REB_P_RETURN: {
-        REBSTR *s = EXTRA(Key, v).spelling;
-        assert(SER_WIDE(s) == 1); // UTF-8 REBSTR
+        REBSTR *s = VAL_TYPESET_STRING(v);
+        assert(SER_WIDE(s) == 1);  // UTF-8 REBSTR
         assert(Is_Marked(s));
         break; }
 

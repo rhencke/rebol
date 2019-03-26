@@ -336,11 +336,6 @@ struct Reb_Binding_Extra  // see %sys-bind.h
     REBNOD* node;
 };
 
-struct Reb_Key_Extra  // see %sys-action.h, %sys-context.h
-{
-    REBSTR *spelling;  // UTF-8 byte series, name of parameter / context key
-};
-
 struct Reb_Datatype_Extra  // see %sys-datatype.h
 {
     enum Reb_Kind kind;
@@ -349,6 +344,11 @@ struct Reb_Datatype_Extra  // see %sys-datatype.h
 struct Reb_Date_Extra  // see %sys-time.h
 {
     REBYMD ymdz;  // month/day/year/zone (time payload *may* hold nanoseconds) 
+};
+
+struct Reb_Typeset_Extra  // see %sys-typeset.h
+{
+    uint_fast32_t high_bits;  // 64 typeflags, can't all fit in payload second
 };
 
 struct Reb_Partial_Extra  // see %c-specialize.c (used with REB_X_PARTIAL)
@@ -395,9 +395,9 @@ union Reb_Value_Extra { //=/////////////////// ACTUAL EXTRA DEFINITION ////=//
 
     struct Reb_Character_Extra Character;
     struct Reb_Binding_Extra Binding;
-    struct Reb_Key_Extra Key;
     struct Reb_Datatype_Extra Datatype;
     struct Reb_Date_Extra Date;
+    struct Reb_Typeset_Extra Typeset;
     struct Reb_Partial_Extra Partial;
 
     union Reb_Any Any;
@@ -452,11 +452,6 @@ struct Reb_Character_Payload {  // see %sys-char.h
 struct Reb_Integer_Payload { REBI64 i64; };  // see %sys-integer.h
 
 struct Reb_Decimal_Payload { REBDEC dec; };  // see %sys-decimal.h
-
-struct Reb_Typeset_Payload  // see %sys-typeset.h
-{
-    REBU64 bits;  // One bit for each DATATYPE! (use with FLAGIT_KIND)
-};
 
 struct Reb_Time_Payload {  // see %sys-time.h
     REBI64 nanoseconds;
@@ -533,7 +528,6 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     struct Reb_Character_Payload Character;
     struct Reb_Integer_Payload Integer;
     struct Reb_Decimal_Payload Decimal;
-    struct Reb_Typeset_Payload Typeset;
     struct Reb_Time_Payload Time;
 
     struct Reb_Partial_Payload Partial;  // internal (see REB_X_PARTIAL)

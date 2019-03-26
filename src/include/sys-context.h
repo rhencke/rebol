@@ -218,7 +218,7 @@ inline static REBVAL *CTX_VAR(REBCTX *c, REBCNT n) {
 }
 
 inline static REBSTR *CTX_KEY_SPELLING(REBCTX *c, REBCNT n) {
-    return EXTRA(Key, CTX_KEY(c, n)).spelling;
+    return VAL_TYPESET_STRING(CTX_KEY(c, n));
 }
 
 inline static REBSTR *CTX_KEY_CANON(REBCTX *c, REBCNT n) {

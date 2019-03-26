@@ -822,17 +822,17 @@ REBTYPE(Context)
             fail (Error_Bad_Refines_Raw());
         }
 
-        REBU64 types;
+        REBU64 types = 0;
         if (REF(types)) {
             if (IS_DATATYPE(ARG(kinds)))
                 types = FLAGIT_KIND(VAL_TYPE_KIND(ARG(kinds)));
-            else
-                types = VAL_TYPESET_BITS(ARG(kinds));
+            else {
+                types |= VAL_TYPESET_LOW_BITS(ARG(kinds));
+                types |= cast(REBU64, VAL_TYPESET_HIGH_BITS(ARG(kinds))) << 32;
+            }
         }
         else if (REF(deep))
             types = TS_STD_SERIES;
-        else
-            types = 0;
 
         return Init_Any_Context(
             D_OUT,

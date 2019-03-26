@@ -127,7 +127,7 @@ static bool Typesets_Of_Hook(
     //
     Move_Value(s->dest, param);
     assert(IS_TYPESET(s->dest));
-    EXTRA(Key, s->dest).spelling = nullptr;
+    VAL_TYPESET_STRING_NODE(s->dest) = nullptr;
     ++s->dest;
 
     return true;
@@ -356,7 +356,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // Leaves VAL_TYPESET_SYM as-is.
             //
             REBSPC *derived = Derive_Specifier(VAL_SPECIFIER(spec), item);
-            PAYLOAD(Typeset, param).bits = 0;
+            VAL_TYPESET_LOW_BITS(param) = 0;
+            VAL_TYPESET_HIGH_BITS(param) = 0;
             Add_Typeset_Bits_Core(
                 param,
                 VAL_ARRAY_HEAD(item),
@@ -962,7 +963,9 @@ REBACT *Make_Action(
     if (GET_ACTION_FLAG(act, HAS_RETURN)) {
         REBVAL *param = ACT_PARAM(act, ACT_NUM_PARAMS(act));
         assert(VAL_PARAM_SYM(param) == SYM_RETURN);
-        if ((VAL_TYPESET_BITS(param) & TS_OPT_VALUE) == 0) // e.g. `return []`
+        REBU64 bits = VAL_TYPESET_LOW_BITS(param);
+        bits |= cast(REBU64, VAL_TYPESET_HIGH_BITS(param)) << 32;
+        if ((bits & TS_OPT_VALUE) == 0)  // e.g. `return []`
             SET_ACTION_FLAG(act, IS_INVISIBLE);
         if (TYPE_CHECK(param, REB_TS_DEQUOTE_REQUOTE))
             SET_ACTION_FLAG(act, RETURN_REQUOTES);

@@ -513,10 +513,9 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "sys-quoted.h"  // requires pairings for cell storage
 
 #include "sys-action.h"
+#include "sys-typeset.h"  // needed for keys in contexts
 #include "sys-context.h" // needs actions defined for FRAME! contexts
 
-
-#include "sys-typeset.h"
 #include "sys-bitset.h"
 
 #include "sys-stack.h"

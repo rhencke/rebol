@@ -971,7 +971,8 @@ REBNATIVE(reskinned)
 
         switch (sym) {
           case SYM_0: // completely override type bits
-            PAYLOAD(Typeset, param).bits = 0;
+            VAL_TYPESET_LOW_BITS(param) = 0;
+            VAL_TYPESET_HIGH_BITS(param) = 0;
             Add_Typeset_Bits_Core(param, VAL_ARRAY_AT(item), specifier);
             TYPE_SET(param, REB_TS_SKIN_EXPANDED);
             need_skin_phase = true; // !!! Worth it to check for expansion?
@@ -988,7 +989,8 @@ REBNATIVE(reskinned)
             Init_Typeset(temp, 0);
             Add_Typeset_Bits_Core(temp, VAL_ARRAY_AT(item), specifier);
 
-            PAYLOAD(Typeset, param).bits &= ~PAYLOAD(Typeset, temp).bits;
+            VAL_TYPESET_LOW_BITS(param) &= ~VAL_TYPESET_LOW_BITS(temp);
+            VAL_TYPESET_HIGH_BITS(param) &= ~VAL_TYPESET_HIGH_BITS(temp);
 
             // ENCLOSE doesn't type check the return result by default.  So
             // if you constrain the return types, there will have to be a

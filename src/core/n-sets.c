@@ -356,7 +356,8 @@ REBNATIVE(exclude)
             fail (Error_Unexpected_Type(VAL_TYPE(val1), VAL_TYPE(val2)));
 
         Move_Value(D_OUT, val1);
-        VAL_TYPESET_BITS(D_OUT) &= ~VAL_TYPESET_BITS(val2);
+        VAL_TYPESET_LOW_BITS(D_OUT) &= ~VAL_TYPESET_LOW_BITS(val2);
+        VAL_TYPESET_HIGH_BITS(D_OUT) &= ~VAL_TYPESET_HIGH_BITS(val2);
         return D_OUT;
     }
 

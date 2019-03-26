@@ -788,8 +788,10 @@ REBTYPE(Map)
         if (REF(types)) {
             if (IS_DATATYPE(ARG(kinds)))
                 types |= FLAGIT_KIND(VAL_TYPE(ARG(kinds)));
-            else
-                types |= VAL_TYPESET_BITS(ARG(kinds));
+            else {
+                types |= VAL_TYPESET_LOW_BITS(ARG(kinds));
+                types |= cast(REBU64, VAL_TYPESET_HIGH_BITS(ARG(kinds))) << 32;
+            }
         }
 
         return Init_Map(D_OUT, Copy_Map(map, types)); }
