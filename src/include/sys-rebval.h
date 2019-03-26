@@ -121,29 +121,21 @@
     FLAG_LEFT_BIT(16)
 
 
-//=//// CELL_FLAG_17 //////////////////////////////////////////////////////=//
+//=//// CELL_FLAG_FIRST_IS_NODE ///////////////////////////////////////////=//
 //
-#define CELL_FLAG_17 \
+// This flag is used on cells to indicate that they use the "Any" Payload,
+// and `PAYLOAD(Any, v).first.node` should be marked as a node by the GC.
+//
+#define CELL_FLAG_FIRST_IS_NODE \
     FLAG_LEFT_BIT(17)
 
 
-//=//// CELL_FLAG_NEWLINE_BEFORE //////////////////////////////////////////=//
+//=//// CELL_FLAG_SECOND_IS_NODE //////////////////////////////////////////=//
 //
-// When the array containing a value with this flag set is molding, that will
-// output a new line *before* molding the value.  This flag works in tandem
-// with a flag on the array itself which manages whether there should be a
-// newline before the closing array delimiter: ARRAY_FLAG_NEWLINE_AT_TAIL.
+// This flag is used on cells to indicate that they use the "Any" Payload,
+// and `PAYLOAD(Any, v).second.node` should be marked as a node by the GC.
 //
-// The bit is set initially by what the scanner detects, and then left to the
-// user's control after that.
-//
-// !!! The native `new-line` is used set this, which has a somewhat poor
-// name considering its similarity to `newline` the line feed char.
-//
-// !!! Currently, ANY-PATH! rendering just ignores this bit.  Some way of
-// representing paths with newlines in them may be needed.
-//
-#define CELL_FLAG_NEWLINE_BEFORE \
+#define CELL_FLAG_SECOND_IS_NODE \
     FLAG_LEFT_BIT(18)
 
 
@@ -189,15 +181,23 @@
     FLAG_LEFT_BIT(20)
 
 
-//=//// CELL_FLAG_FIRST_IS_NODE ///////////////////////////////////////////=//
+//=//// CELL_FLAG_NEWLINE_BEFORE //////////////////////////////////////////=//
 //
-// This flag is used on cells to indicate that their EXTRA() field should
-// be marked as a node by the GC.  It is used by GOB! and STRUCT! to indicate
-// that their "details" REBARR* need to be marked, without needing to hook
-// the garbage collector in a more invasive way.  Some EVENT! use this when
-// they wish to refer to a series, but others can use it as a raw data.
+// When the array containing a value with this flag set is molding, that will
+// output a new line *before* molding the value.  This flag works in tandem
+// with a flag on the array itself which manages whether there should be a
+// newline before the closing array delimiter: ARRAY_FLAG_NEWLINE_AT_TAIL.
 //
-#define CELL_FLAG_FIRST_IS_NODE \
+// The bit is set initially by what the scanner detects, and then left to the
+// user's control after that.
+//
+// !!! The native `new-line` is used set this, which has a somewhat poor
+// name considering its similarity to `newline` the line feed char.
+//
+// !!! Currently, ANY-PATH! rendering just ignores this bit.  Some way of
+// representing paths with newlines in them may be needed.
+//
+#define CELL_FLAG_NEWLINE_BEFORE \
     FLAG_LEFT_BIT(21)
 
 

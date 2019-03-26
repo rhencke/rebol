@@ -467,7 +467,7 @@ void Set_Location_Of_Error(
     Init_Near_For_Frame(&vars->nearest, where);
 
     // Try to fill in the file and line information of the error from the
-    // stack, looking for arrays with ARRAY_FLAG_HAS_FILE_LINE.
+    // stack, looking for arrays with ARRAY_HAS_FILE_LINE.
     //
     f = where;
     for (; f != FS_BOTTOM; f = f->prior) {
@@ -480,12 +480,12 @@ void Set_Location_Of_Error(
             //
             continue;
         }
-        if (NOT_ARRAY_FLAG(f->feed->array, HAS_FILE_LINE))
+        if (NOT_ARRAY_FLAG(f->feed->array, HAS_FILE_LINE_UNMASKED))
             continue;
         break;
     }
     if (f != FS_BOTTOM) {
-        REBSTR *file = LINK(f->feed->array).file;
+        REBSTR *file = STR(SER_LINK_FILE(f->feed->array));
         REBLIN line = MISC(f->feed->array).line;
 
         REBSYM file_sym = STR_SYMBOL(file);

@@ -174,9 +174,6 @@ inline static void Queue_Mark_Array_Deep(REBARR *a) {  // plain/custom array
     assert(NOT_ARRAY_FLAG(a, IS_PARAMLIST));
     assert(NOT_ARRAY_FLAG(a, IS_PAIRLIST));
 
-    if (GET_ARRAY_FLAG(a, HAS_FILE_LINE))
-        LINK(a).file->header.bits |= NODE_FLAG_MARKED;
-
     Queue_Mark_Array_Subclass_Deep(a);  // may mark LINK() and MISC()
 }
 
@@ -188,7 +185,7 @@ inline static void Queue_Mark_Context_Deep(REBCTX *c) {
             SERIES_MASK_CONTEXT // these should be set, not the others
                 | ARRAY_FLAG_IS_PAIRLIST
                 | ARRAY_FLAG_IS_PARAMLIST
-                | ARRAY_FLAG_HAS_FILE_LINE
+                | ARRAY_FLAG_HAS_FILE_LINE_UNMASKED
         ))
     );
 
@@ -202,7 +199,7 @@ inline static void Queue_Mark_Action_Deep(REBACT *a) {
             SERIES_MASK_ACTION // these should be set, not the others
                 | ARRAY_FLAG_IS_PAIRLIST
                 | ARRAY_FLAG_IS_VARLIST
-                | ARRAY_FLAG_HAS_FILE_LINE
+                | ARRAY_FLAG_HAS_FILE_LINE_UNMASKED
         ))
     );
 
@@ -216,7 +213,7 @@ inline static void Queue_Mark_Map_Deep(REBMAP *m) {
             ARRAY_FLAG_IS_PAIRLIST
                 | ARRAY_FLAG_IS_VARLIST
                 | ARRAY_FLAG_IS_PARAMLIST
-                | ARRAY_FLAG_HAS_FILE_LINE
+                | ARRAY_FLAG_HAS_FILE_LINE_UNMASKED
         ))
     );
 
@@ -233,7 +230,7 @@ inline static void Queue_Mark_Singular_Array(REBARR *a) {
             0   | ARRAY_FLAG_IS_VARLIST
                 | ARRAY_FLAG_IS_PAIRLIST
                 | ARRAY_FLAG_IS_PARAMLIST
-                | ARRAY_FLAG_HAS_FILE_LINE
+                | ARRAY_FLAG_HAS_FILE_LINE_UNMASKED
         ))
     );
 
@@ -280,6 +277,8 @@ inline static void Queue_Mark_Value_Deep(const RELVAL *v)
 //
 static void Queue_Mark_Pairing_Deep(REBVAL *paired)
 {
+    // !!! Hack doesn't work generically, review
+
   #if !defined(NDEBUG)
     bool was_in_mark = in_mark;
     in_mark = false;  // would assert about the recursion otherwise
@@ -319,7 +318,9 @@ static void Queue_Mark_Node_Deep(REBNOD *n)
         return;  // it's 2 cells, sizeof(REBSER), but no room for REBSER data
     }
     REBSER *s = SER(n);
-    if (IS_SER_ARRAY(s))
+    if (GET_SERIES_INFO(s, INACCESSIBLE))
+        Mark_Rebser_Only(s);  // TBD: clear out reference and GC `s`?
+    else if (IS_SER_ARRAY(s))
         Queue_Mark_Array_Subclass_Deep(ARR(s));
     else
         Mark_Rebser_Only(s);
@@ -343,45 +344,19 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
 
     REBNOD *binding = IS_BINDABLE_KIND(kind)
         ? EXTRA(Binding, v).node  // VAL_BINDING() macro checks bind again
-        : nullptr;
+        : UNBOUND;
 
-    if (binding and (binding->header.bits & NODE_FLAG_MANAGED))
+    if (binding != UNBOUND and (binding->header.bits & NODE_FLAG_MANAGED))
         Queue_Mark_Array_Subclass_Deep(ARR(binding));
 
+    // A word marks the specific spelling it uses, but not the canon
+    // value.  That's because if the canon value gets GC'd, then
+    // another value might become the new canon during that sweep.
+    //
+    if (v->header.bits & CELL_FLAG_FIRST_IS_NODE)  // may be END, use &
+        Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);
+
     switch (kind) {
-      case REB_ACTION: {
-        Queue_Mark_Action_Deep(VAL_ACTION(v));
-        break; }
-
-      case REB_WORD:
-      case REB_SET_WORD:
-      case REB_GET_WORD:
-      case REB_ISSUE: {
-        REBSTR *spelling = STR(PAYLOAD(Any, v).first.node);
-
-        // A word marks the specific spelling it uses, but not the canon
-        // value.  That's because if the canon value gets GC'd, then
-        // another value might become the new canon during that sweep.
-        //
-        Mark_Rebser_Only(spelling);
-        break; }
-
-      case REB_QUOTED:
-      #if !defined(NDEBUG)
-        in_mark = false;
-      #endif
-        Queue_Mark_Pairing_Deep(VAL_QUOTED_PAYLOAD_CELL(v));
-      #if !defined(NDEBUG)
-        in_mark = false;
-      #endif
-        break;
-
-      case REB_PATH:
-      case REB_SET_PATH:
-      case REB_GET_PATH:
-        Queue_Mark_Array_Deep(ARR(PAYLOAD(Any, v).first.node));
-        break;
-
       case REB_GET_GROUP:
       case REB_SET_GROUP:
       case REB_GROUP:
@@ -393,34 +368,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
             Mark_Rebser_Only(SER(a));
         else
             Queue_Mark_Array_Deep(a);
-        break; }
-
-      case REB_TEXT:
-      case REB_FILE:
-      case REB_EMAIL:
-      case REB_URL:
-      case REB_TAG: {
-        REBSER *s = SER(PAYLOAD(Any, v).first.node);
-        if (GET_SERIES_INFO(s, INACCESSIBLE))
-            Mark_Rebser_Only(s);  // TBD: clear out reference and GC `s`?
-        else
-            Mark_Rebser_Only(s);
-        break; }
-
-      case REB_BINARY: {
-        REBBIN *s = SER(PAYLOAD(Any, v).first.node);
-        if (GET_SERIES_INFO(s, INACCESSIBLE))
-            Mark_Rebser_Only(s);  // TBD: clear out reference and GC `s`?
-        else
-            Mark_Rebser_Only(s);
-        break; }
-
-      case REB_BITSET: {
-        REBSER *s = SER(PAYLOAD(Any, v).first.node);
-        if (GET_SERIES_INFO(s, INACCESSIBLE))
-            Mark_Rebser_Only(s);  // TBD: clear out reference and GC `s`?
-        else
-            Mark_Rebser_Only(s);
         break; }
 
       case REB_HANDLE: {  // See %sys-handle.h
@@ -472,26 +419,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         break; }
 
     //=//// CUSTOM EXTENSION TYPES ////////////////////////////////////////=//
-
-      case REB_IMAGE:  // currently a 3-element array (could be a pairing)
-        Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);
-        break;
-
-      case REB_VECTOR:  // currently a pairing (BINARY! and an info cell)
-        Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);
-        break;
-
-      case REB_GOB:  // 7-element REBARR
-        Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);
-        break;
-
-      case REB_EVENT:  // packed cell structure with one GC-able slot
-        Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);
-        break;
-
-      case REB_STRUCT:  // like an OBJECT!, but the "varlist" can be binary
-        Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);
-        break;
 
       case REB_LIBRARY: {
         Queue_Mark_Array_Deep(VAL_LIBRARY(v));
@@ -936,11 +863,10 @@ static void Mark_Root_Series(void)
                     and NOT_ARRAY_FLAG(s, IS_PAIRLIST)
                 );
 
-                // Note: Arrays which are using their LINK() or MISC() for
-                // other purposes than file and line will not be marked here!
-                //
-                if (GET_ARRAY_FLAG(s, HAS_FILE_LINE))
-                    LINK(s).file->header.bits |= NODE_FLAG_MARKED;
+                if (GET_SERIES_FLAG(s, LINK_IS_CUSTOM_NODE))
+                    Queue_Mark_Node_Deep(LINK(s).custom.node);
+                if (GET_SERIES_FLAG(s, MISC_IS_CUSTOM_NODE))
+                    Queue_Mark_Node_Deep(MISC(s).custom.node);
 
                 RELVAL *item = ARR_HEAD(cast(REBARR*, s));
                 for (; NOT_END(item); ++item)
@@ -1714,7 +1640,7 @@ static void Mark_Devices_Deep(void)
         // mark the port pointers internal to the REBREQ.  Following the
         // links and marking the contexts is now done automatically, because
         // REBREQ is a REBSER node and has those fields in LINK()/MISC() with
-        // SERIES_INFO_LINK_IS_CUSTOM_NODE/SERIES_INFO_MISC_IS_CUSTOM_NODE
+        // SERIES_FLAG_LINK_IS_CUSTOM_NODE/SERIES_FLAG_MISC_IS_CUSTOM_NODE
         //
         Queue_Mark_Node_Deep(NOD(dev->pending));
     }

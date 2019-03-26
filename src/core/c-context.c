@@ -72,7 +72,7 @@
 //
 REBCTX *Alloc_Context_Core(enum Reb_Kind kind, REBCNT capacity, REBFLGS flags)
 {
-    assert(not (flags & ARRAY_FLAG_HAS_FILE_LINE)); // LINK+MISC are taken
+    assert(not (flags & ARRAY_FLAG_HAS_FILE_LINE_UNMASKED));  // LINK is taken
 
     REBARR *varlist = Make_Array_Core(
         capacity + 1, // size + room for ROOTVAR

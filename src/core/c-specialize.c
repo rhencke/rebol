@@ -1195,10 +1195,10 @@ REB_R Block_Dispatcher(REBFRM *f)
 
         // Preserve file and line information from the original, if present.
         //
-        if (GET_ARRAY_FLAG(VAL_ARRAY(block), HAS_FILE_LINE)) {
-            LINK(body_array).file = LINK(VAL_ARRAY(block)).file;
+        if (GET_ARRAY_FLAG(VAL_ARRAY(block), HAS_FILE_LINE_UNMASKED)) {
+            SER_LINK_FILE(body_array) = SER_LINK_FILE(VAL_ARRAY(block));
             MISC(body_array).line = MISC(VAL_ARRAY(block)).line;
-            SET_ARRAY_FLAG(body_array, HAS_FILE_LINE);
+            SET_ARRAY_FLAG(body_array, HAS_FILE_LINE_UNMASKED);
         }
 
         // Need to do a raw initialization of this block RELVAL because it is

@@ -203,7 +203,7 @@ REBNATIVE(bind)
             VAL_SPECIFIER(v),
             ARR_LEN(VAL_ARRAY(v)), // tail
             0, // extra
-            ARRAY_FLAG_HAS_FILE_LINE, // flags
+            ARRAY_MASK_HAS_FILE_LINE, // flags
             TS_ARRAY // types to copy deeply
         );
         at = ARR_HEAD(copy);

@@ -82,22 +82,17 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
         case SYM_FILE: {
             REBSER *s = VAL_SERIES(value);
-            if (IS_SER_ARRAY(s) and GET_ARRAY_FLAG(s, HAS_FILE_LINE)) {
-                //
-                // !!! How to tell whether it's a URL! or a FILE! ?
-                //
-                Scan_File(
-                    D_OUT,
-                    STR_HEAD(LINK(s).file),
-                    SER_LEN(LINK(s).file)
-                );
-                return D_OUT;
-            }
-            return nullptr; }
+            if (not IS_SER_ARRAY(s))
+                return nullptr;
+            if (NOT_ARRAY_FLAG(s, HAS_FILE_LINE_UNMASKED))
+                return nullptr;
+
+            Init_File(D_OUT, STR(SER_LINK_FILE(s)));
+            return D_OUT; }
 
         case SYM_LINE: {
             REBSER *s = VAL_SERIES(value);
-            if (IS_SER_ARRAY(s) and GET_ARRAY_FLAG(s, HAS_FILE_LINE))
+            if (IS_SER_ARRAY(s) and GET_ARRAY_FLAG(s, HAS_FILE_LINE_UNMASKED))
                 return Init_Integer(D_OUT, MISC(s).line);
             return nullptr; }
 

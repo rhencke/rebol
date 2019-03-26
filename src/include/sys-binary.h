@@ -95,3 +95,20 @@ inline static REBBIN *VAL_BINARY(const REBCEL* v) {
     assert(CELL_KIND(v) == REB_BINARY);
     return VAL_SERIES(v);
 }
+
+
+// Make a byte series of length 0 with the given capacity.  The length will
+// be increased by one in order to allow for a null terminator.  Binaries are
+// given enough capacity to have a null terminator in case they are aliased
+// as UTF-8 data later, e.g. `as word! binary`, since it would be too late
+// to give them that capacity after-the-fact to enable this.
+//
+inline static REBSER *Make_Binary_Core(REBCNT capacity, REBFLGS flags)
+{
+    REBSER *bin = Make_Series_Core(capacity + 1, sizeof(REBYTE), flags);
+    TERM_SEQUENCE(bin);
+    return bin;
+}
+
+#define Make_Binary(capacity) \
+    Make_Binary_Core(capacity, SERIES_FLAGS_NONE)

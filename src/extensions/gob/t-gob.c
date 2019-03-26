@@ -68,13 +68,15 @@ REBINT CT_Gob(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 REBGOB *Make_Gob(void)
 {
-    REBGOB *a = Make_Array_Core(IDX_GOB_MAX, SERIES_FLAG_FIXED_SIZE);
+    REBGOB *a = Make_Array_Core(
+        IDX_GOB_MAX,
+        SERIES_FLAG_FIXED_SIZE
+            | SERIES_FLAG_LINK_IS_CUSTOM_NODE
+            | SERIES_FLAG_MISC_IS_CUSTOM_NODE
+    );
 
     SET_GOB_PARENT(a, nullptr);  // in LINK(), is a REBNOD*, GC must mark
-    SET_SERIES_INFO(a, LINK_IS_CUSTOM_NODE);
-
     SET_GOB_OWNER(a, nullptr);  // in MISC(), is a REBNOD*, GC must mark
-    SET_SERIES_INFO(a, MISC_IS_CUSTOM_NODE);
 
     Init_Blank(ARR_AT(a, IDX_GOB_PANE));
     Init_Blank(ARR_AT(a, IDX_GOB_CONTENT));

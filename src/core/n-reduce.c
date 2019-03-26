@@ -102,7 +102,7 @@ REBNATIVE(reduce)
         if (Reduce_To_Stack_Throws(D_OUT, v, VAL_SPECIFIER(v)))
             return R_THROWN;
 
-        REBFLGS pop_flags = NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE;
+        REBFLGS pop_flags = NODE_FLAG_MANAGED | ARRAY_MASK_HAS_FILE_LINE;
         if (GET_ARRAY_FLAG(VAL_ARRAY(v), NEWLINE_AT_TAIL))
             pop_flags |= ARRAY_FLAG_NEWLINE_AT_TAIL;
 
@@ -335,7 +335,7 @@ REB_R Compose_To_Stack_Core(
                 continue;
             }
 
-            REBFLGS pop_flags = NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE;
+            REBFLGS pop_flags = NODE_FLAG_MANAGED | ARRAY_MASK_HAS_FILE_LINE;
             if (GET_ARRAY_FLAG(VAL_ARRAY(cell), NEWLINE_AT_TAIL))
                 pop_flags |= ARRAY_FLAG_NEWLINE_AT_TAIL;
 
@@ -433,7 +433,7 @@ REBNATIVE(compose)
     // The stack values contain N NEWLINE_BEFORE flags, and we need N + 1
     // flags.  Borrow the one for the tail directly from the input REBARR.
     //
-    REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE;
+    REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_MASK_HAS_FILE_LINE;
     if (GET_ARRAY_FLAG(VAL_ARRAY(ARG(value)), NEWLINE_AT_TAIL))
         flags |= ARRAY_FLAG_NEWLINE_AT_TAIL;
 

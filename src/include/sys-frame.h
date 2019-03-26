@@ -80,9 +80,11 @@ inline static REBCNT FRM_EXPR_INDEX(REBFRM *f) {
 }
 
 inline static REBSTR* FRM_FILE(REBFRM *f) { // https://trello.com/c/K3vntyPx
-    if (not f->feed->array or NOT_ARRAY_FLAG(f->feed->array, HAS_FILE_LINE))
+    if (not f->feed->array)
         return nullptr;
-    return LINK(f->feed->array).file;
+    if (NOT_ARRAY_FLAG(f->feed->array, HAS_FILE_LINE_UNMASKED))
+        return nullptr;
+    return STR(LINK(f->feed->array).custom.node);
 }
 
 inline static const char* FRM_FILE_UTF8(REBFRM *f) {
@@ -94,7 +96,9 @@ inline static const char* FRM_FILE_UTF8(REBFRM *f) {
 }
 
 inline static int FRM_LINE(REBFRM *f) {
-    if (not f->feed->array or NOT_ARRAY_FLAG(f->feed->array, HAS_FILE_LINE))
+    if (not f->feed->array)
+        return 0;
+    if (NOT_ARRAY_FLAG(f->feed->array, HAS_FILE_LINE_UNMASKED))
         return 0;
     return MISC(SER(f->feed->array)).line;
 }

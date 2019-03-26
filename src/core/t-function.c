@@ -284,16 +284,11 @@ REBTYPE(Action)
                 return nullptr;
 
             REBARR *a = VAL_ARRAY(ARR_HEAD(details));
-            if (NOT_ARRAY_FLAG(a, HAS_FILE_LINE))
+            if (NOT_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED))
                 return nullptr;
 
-            if (property == SYM_FILE) {
-                Scan_File( // !!! How to tell whether it's a URL! or a FILE! ?
-                    D_OUT,
-                    STR_HEAD(LINK(a).file),
-                    SER_LEN(LINK(a).file)
-                );
-            }
+            if (property == SYM_FILE)  // !!! How to tell URL! vs FILE! ?
+                Init_File(D_OUT, STR(SER_LINK_FILE(a)));
             else
                 Init_Integer(D_OUT, MISC(a).line);
 

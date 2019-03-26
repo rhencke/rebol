@@ -190,8 +190,8 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
       case REB_GOB: {  // 7-element REBARR
         assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
         REBARR *gob = ARR(PAYLOAD(Any, v).first.node);
-        assert(GET_SERIES_INFO(gob, LINK_IS_CUSTOM_NODE));
-        assert(GET_SERIES_INFO(gob, MISC_IS_CUSTOM_NODE));
+        assert(GET_SERIES_FLAG(gob, LINK_IS_CUSTOM_NODE));
+        assert(GET_SERIES_FLAG(gob, MISC_IS_CUSTOM_NODE));
         assert(Is_Marked(PAYLOAD(Any, v).first.node));
         break; }
 
@@ -213,8 +213,8 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
         assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
         REBARR *arr = ARR(PAYLOAD(Any, v).first.node);
         assert(ARR_LEN(arr) == 1);
-        assert(NOT_SERIES_INFO(arr, LINK_IS_CUSTOM_NODE));  // stores width
-        assert(NOT_SERIES_INFO(arr, MISC_IS_CUSTOM_NODE));  // stores hieght
+        assert(NOT_SERIES_FLAG(arr, LINK_IS_CUSTOM_NODE));  // stores width
+        assert(NOT_SERIES_FLAG(arr, MISC_IS_CUSTOM_NODE));  // stores hieght
         assert(Is_Marked(PAYLOAD(Any, v).first.node));
         break; }
 

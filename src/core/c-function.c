@@ -950,8 +950,8 @@ REBACT *Make_Action(
         or GET_ARRAY_FLAG(CTX_VARLIST(MISC(paramlist).meta), IS_VARLIST)
     );
 
-    assert(NOT_ARRAY_FLAG(paramlist, HAS_FILE_LINE));
-    assert(NOT_ARRAY_FLAG(details, HAS_FILE_LINE));
+    assert(NOT_ARRAY_FLAG(paramlist, HAS_FILE_LINE_UNMASKED));
+    assert(NOT_ARRAY_FLAG(details, HAS_FILE_LINE_UNMASKED));
 
     REBACT *act = ACT(paramlist); // now it's a legitimate REBACT
 
@@ -1273,15 +1273,15 @@ REBACT *Make_Interpreted_Action_May_Fail(
 
     // Favor the spec first, then the body, for file and line information.
     //
-    if (GET_ARRAY_FLAG(VAL_ARRAY(spec), HAS_FILE_LINE)) {
-        LINK(copy).file = LINK(VAL_ARRAY(spec)).file;
+    if (GET_ARRAY_FLAG(VAL_ARRAY(spec), HAS_FILE_LINE_UNMASKED)) {
+        SER_LINK_FILE(copy) = SER_LINK_FILE(VAL_ARRAY(spec));
         MISC(copy).line = MISC(VAL_ARRAY(spec)).line;
-        SET_ARRAY_FLAG(copy, HAS_FILE_LINE);
+        SET_ARRAY_FLAG(copy, HAS_FILE_LINE_UNMASKED);
     }
-    else if (GET_ARRAY_FLAG(VAL_ARRAY(body), HAS_FILE_LINE)) {
-        LINK(copy).file = LINK(VAL_ARRAY(body)).file;
+    else if (GET_ARRAY_FLAG(VAL_ARRAY(body), HAS_FILE_LINE_UNMASKED)) {
+        SER_LINK_FILE(copy) = SER_LINK_FILE(VAL_ARRAY(body));
         MISC(copy).line = MISC(VAL_ARRAY(body)).line;
-        SET_ARRAY_FLAG(copy, HAS_FILE_LINE);
+        SET_ARRAY_FLAG(copy, HAS_FILE_LINE_UNMASKED);
     }
     else {
         // Ideally all source series should have a file and line numbering

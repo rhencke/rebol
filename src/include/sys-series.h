@@ -735,7 +735,7 @@ inline static REBSER *Make_Series_Core(
     REBYTE wide,
     REBFLGS flags
 ){
-    assert(not (flags & ARRAY_FLAG_HAS_FILE_LINE));
+    assert(not (flags & ARRAY_FLAG_HAS_FILE_LINE_UNMASKED));
 
     if (cast(REBU64, capacity) * wide > INT32_MAX)
         fail (Error_No_Memory(cast(REBU64, capacity) * wide));

@@ -1942,14 +1942,14 @@ REBREQ *RL_rebMake_Rebreq(int device) {
     REBDEV *dev = Devices[device];
     assert(dev != NULL);
 
-    REBREQ *req = Make_Binary(dev->req_size);
+    REBREQ *req = Make_Binary_Core(
+        dev->req_size,
+        SERIES_FLAG_LINK_IS_CUSTOM_NODE | SERIES_FLAG_MISC_IS_CUSTOM_NODE
+    );
     memset(BIN_HEAD(req), 0, dev->req_size);
     TERM_BIN_LEN(req, dev->req_size);
 
-    SET_SERIES_INFO(req, LINK_IS_CUSTOM_NODE);
     LINK(req).custom.node = nullptr;
-
-    SET_SERIES_INFO(req, MISC_IS_CUSTOM_NODE);
     MISC(req).custom.node = nullptr;
 
     Req(req)->device = device;
@@ -1964,8 +1964,8 @@ REBREQ *RL_rebMake_Rebreq(int device) {
 #else
     inline static void ASSERT_REBREQ(REBREQ *req) {  // basic sanity check
         assert(BYTE_SIZE(req) and BIN_LEN(req) >= sizeof(struct rebol_devreq));
-        assert(GET_SERIES_INFO(req, LINK_IS_CUSTOM_NODE));
-        assert(GET_SERIES_INFO(req, MISC_IS_CUSTOM_NODE));
+        assert(GET_SERIES_FLAG(req, LINK_IS_CUSTOM_NODE));
+        assert(GET_SERIES_FLAG(req, MISC_IS_CUSTOM_NODE));
     }
 #endif
 

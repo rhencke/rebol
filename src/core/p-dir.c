@@ -204,7 +204,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
                     VAL_SPECIFIER(state),
                     VAL_ARRAY_LEN_AT(state), // tail
                     0, // extra
-                    ARRAY_FLAG_HAS_FILE_LINE, // flags
+                    ARRAY_MASK_HAS_FILE_LINE, // flags
                     TS_STRING // types
                 )
             );

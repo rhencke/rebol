@@ -217,8 +217,23 @@
     FLAG_LEFT_BIT(13)
 
 
-#define SERIES_FLAG_14 FLAG_LEFT_BIT(14)
-#define SERIES_FLAG_15 FLAG_LEFT_BIT(15)
+//=//// SERIES_FLAG_LINK_IS_CUSTOM_NODE ///////////////////////////////////=//
+//
+// This indicates that a series's LINK() field is the `custom` node element,
+// and should be marked (if not null).
+//
+#define SERIES_FLAG_LINK_IS_CUSTOM_NODE \
+    FLAG_LEFT_BIT(14)
+
+
+//=//// SERIES_FLAG_MISC_IS_CUSTOM_NODE ///////////////////////////////////=//
+//
+// This indicates that a series's MISC() field is the `custom` node element,
+// and should be marked (if not null).
+//
+#define SERIES_FLAG_MISC_IS_CUSTOM_NODE \
+    FLAG_LEFT_BIT(15)
+
 
 
 //=/////// ^-- STOP GENERIC SERIES FLAGS AT FLAG_LEFT_BIT(15) --^ /////////=//
@@ -236,7 +251,7 @@
 // UTF-8 symbol string whose symbol number uses that bit (!).
 
 
-//=//// ARRAY_FLAG_HAS_FILE_LINE //////////////////////////////////////////=//
+//=//// ARRAY_FLAG_HAS_FILE_LINE_UNMASKED /////////////////////////////////=//
 //
 // The Reb_Series node has two pointers in it, ->link and ->misc, which are
 // used for a variety of purposes (pointing to the keylist for an object,
@@ -247,8 +262,11 @@
 // Only arrays preserve file and line info, as UTF-8 strings need to use the
 // ->misc and ->link fields for caching purposes in strings.
 //
-#define ARRAY_FLAG_HAS_FILE_LINE \
+#define ARRAY_FLAG_HAS_FILE_LINE_UNMASKED \
     FLAG_LEFT_BIT(16)
+
+#define ARRAY_MASK_HAS_FILE_LINE \
+    (ARRAY_FLAG_HAS_FILE_LINE_UNMASKED | SERIES_FLAG_LINK_IS_CUSTOM_NODE)
 
 
 //=//// ARRAY_FLAG_NULLEDS_LEGAL //////////////////////////////////////////=//
@@ -570,21 +588,15 @@ STATIC_ASSERT(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
     FLAG_LEFT_BIT(28)
 
 
-//=//// SERIES_INFO_LINK_IS_CUSTOM_NODE ///////////////////////////////////=//
+//=//// SERIES_INFO_29 ////////////////////////////////////////////////////=//
 //
-// This indicates that a series's LINK() field is the `custom` node element,
-// and should be marked (if not null).
-//
-#define SERIES_INFO_LINK_IS_CUSTOM_NODE \
+#define SERIES_INFO_29 \
     FLAG_LEFT_BIT(29)
 
 
-//=//// SERIES_INFO_MISC_IS_CUSTOM_NODE ///////////////////////////////////=//
+//=//// SERIES_INFO_30 ////////////////////////////////////////////////////=//
 //
-// This indicates that a series's MISC() field is the `custom` node element,
-// and should be marked (if not null).
-//
-#define SERIES_INFO_MISC_IS_CUSTOM_NODE \
+#define SERIES_INFO_30 \
     FLAG_LEFT_BIT(30)
 
 
@@ -733,14 +745,6 @@ union Reb_Series_Link {
     //
     REBNOD *owner;
 
-    // Ordinary source series use their ->link field to point to an
-    // interned file name string from which the code was loaded.  If a
-    // series was not created from a file, then the information from the
-    // source that was running at the time is propagated into the new
-    // second-generation series.
-    //
-    REBSTR *file;
-
     // REBCTX types use this field of their varlist (which is the identity of
     // an ANY-CONTEXT!) to find their "keylist".  It is stored in the REBSER
     // node of the varlist REBARR vs. in the REBVAL of the ANY-CONTEXT! so
@@ -834,6 +838,12 @@ union Reb_Series_Link {
     // Notable uses by extensions:
     // 1. `parent` GOB of GOB! details
     // 2. `next_req` REBREQ* of a REBREQ
+    //
+    // Ordinary source series use their ->link field to point to an
+    // interned file name string from which the code was loaded.  If a
+    // series was not created from a file, then the information from the
+    // source that was running at the time is propagated into the new
+    // second-generation series.
     //
     union Reb_Any custom;
 };
@@ -1035,6 +1045,8 @@ struct Reb_Series {
 #define LINK(s) \
     SER(s)->link_private
 
+#define SER_LINK_FILE(s) \
+    LINK(s).custom.node
 
 // Currently only the C++ build does the check that ->misc is not being used
 // at a time when it is forwarded out for copying.  If the C build were to

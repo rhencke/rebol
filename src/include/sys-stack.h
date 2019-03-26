@@ -136,7 +136,7 @@ inline static REBVAL *DS_AT(REBDSP d) {
 // this, because the ->link and ->misc fields have other uses.
 //
 #define Pop_Stack_Values(dsp) \
-    Pop_Stack_Values_Core((dsp), ARRAY_FLAG_HAS_FILE_LINE)
+    Pop_Stack_Values_Core((dsp), ARRAY_MASK_HAS_FILE_LINE)
 
 
 //=////////////////////////////////////////////////////////////////////////=//

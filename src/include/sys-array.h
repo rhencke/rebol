@@ -281,16 +281,19 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
     // Arrays created at runtime default to inheriting the file and line
     // number from the array executing in the current frame.
     //
-    if (flags & ARRAY_FLAG_HAS_FILE_LINE) { // most callsites const fold
+    if (flags & ARRAY_FLAG_HAS_FILE_LINE_UNMASKED) { // most callsites fold
+        assert(flags & SERIES_FLAG_LINK_IS_CUSTOM_NODE);
         if (
             FS_TOP->feed->array and
-            GET_ARRAY_FLAG(FS_TOP->feed->array, HAS_FILE_LINE)
+            GET_ARRAY_FLAG(FS_TOP->feed->array, HAS_FILE_LINE_UNMASKED)
         ){
-            LINK(s).file = LINK(FS_TOP->feed->array).file;
+            SER_LINK_FILE(s) = SER_LINK_FILE(FS_TOP->feed->array);
             MISC(s).line = MISC(FS_TOP->feed->array).line;
         }
-        else
-            CLEAR_ARRAY_FLAG(s, HAS_FILE_LINE);
+        else {
+            CLEAR_ARRAY_FLAG(s, HAS_FILE_LINE_UNMASKED);
+            CLEAR_SERIES_FLAG(s, LINK_IS_CUSTOM_NODE);
+        }
     }
 
   #if !defined(NDEBUG)
@@ -302,7 +305,7 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
 }
 
 #define Make_Array(capacity) \
-    Make_Array_Core((capacity), ARRAY_FLAG_HAS_FILE_LINE)
+    Make_Array_Core((capacity), ARRAY_MASK_HAS_FILE_LINE)
 
 // !!! Currently, many bits of code that make copies don't specify if they are
 // copying an array to turn it into a paramlist or varlist, or to use as the
@@ -325,15 +328,16 @@ inline static REBARR *Make_Array_For_Copy(
     }
 
     if (
-        (flags & ARRAY_FLAG_HAS_FILE_LINE)
-        and (original and GET_ARRAY_FLAG(original, HAS_FILE_LINE))
+        (flags & ARRAY_FLAG_HAS_FILE_LINE_UNMASKED)
+        and (original and GET_ARRAY_FLAG(original, HAS_FILE_LINE_UNMASKED))
     ){
-        flags &= ~ARRAY_FLAG_HAS_FILE_LINE;
-
-        REBARR *a = Make_Array_Core(capacity, flags);
-        LINK(a).file = LINK(original).file;
+        REBARR *a = Make_Array_Core(
+            capacity,
+            flags & ~ARRAY_FLAG_HAS_FILE_LINE_UNMASKED
+        );
+        SER_LINK_FILE(a) = SER_LINK_FILE(original);
         MISC(a).line = MISC(original).line;
-        SET_ARRAY_FLAG(a, HAS_FILE_LINE);
+        SET_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED);
         return a;
     }
 

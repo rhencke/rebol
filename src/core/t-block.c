@@ -1016,7 +1016,7 @@ REBTYPE(Array)
                 types |= VAL_TYPESET_BITS(ARG(kinds));
         }
 
-        REBFLGS flags = ARRAY_FLAG_HAS_FILE_LINE;
+        REBFLGS flags = ARRAY_MASK_HAS_FILE_LINE;
 
         // We shouldn't be returning a const value from the copy, but if the
         // input value was const and we don't copy some types deeply, those
@@ -1208,7 +1208,7 @@ REBNATIVE(blockify)
 
     REBARR *a = Make_Array_Core(
         1,
-        NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE
+        NODE_FLAG_MANAGED | ARRAY_MASK_HAS_FILE_LINE
     );
 
     if (IS_NULLED(v)) {
@@ -1241,7 +1241,7 @@ REBNATIVE(groupify)
 
     REBARR *a = Make_Array_Core(
         1,
-        NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE
+        NODE_FLAG_MANAGED | ARRAY_MASK_HAS_FILE_LINE
     );
 
     if (IS_NULLED(v)) {
@@ -1272,7 +1272,7 @@ REBNATIVE(enblock)
 
     REBARR *a = Make_Array_Core(
         1,
-        NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE
+        NODE_FLAG_MANAGED | ARRAY_MASK_HAS_FILE_LINE
     );
 
     if (IS_NULLED(v)) {
@@ -1303,7 +1303,7 @@ REBNATIVE(engroup)
 
     REBARR *a = Make_Array_Core(
         1,
-        NODE_FLAG_MANAGED | ARRAY_FLAG_HAS_FILE_LINE
+        NODE_FLAG_MANAGED | ARRAY_MASK_HAS_FILE_LINE
     );
 
     if (IS_NULLED(v)) {

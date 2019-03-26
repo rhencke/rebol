@@ -25,22 +25,6 @@
 #include "sys-core.h"
 
 
-//
-//  Make_Binary: C
-//
-// Make a byte series of length 0 with the given capacity.  The length will
-// be increased by one in order to allow for a null terminator.  Binaries are
-// given enough capacity to have a null terminator in case they are aliased
-// as UTF-8 data later, e.g. `as word! binary`, since it would be too late
-// to give them that capacity after-the-fact to enable this.
-//
-REBSER *Make_Binary(REBCNT capacity)
-{
-    REBSER *bin = Make_Series(capacity + 1, sizeof(REBYTE));
-    TERM_SEQUENCE(bin);
-    return bin;
-}
-
 
 //
 //  Make_String_Core: C

@@ -270,7 +270,7 @@ REBARR *Copy_And_Bind_Relative_Deep_Managed(
         VAL_SPECIFIER(body),
         VAL_LEN_AT(body), // tail
         0, // extra
-        ARRAY_FLAG_HAS_FILE_LINE, // ask to preserve file and line info
+        ARRAY_MASK_HAS_FILE_LINE, // ask to preserve file and line info
         (TS_SERIES | TS_PATH) & ~TS_NOT_COPIED // types to copy deeply
     );
 
@@ -469,7 +469,7 @@ void Virtual_Bind_Deep_To_New_Context(
                 VAL_SPECIFIER(body_in_out),
                 ARR_LEN(VAL_ARRAY(body_in_out)), // tail
                 0, // extra
-                ARRAY_FLAG_HAS_FILE_LINE, // flags
+                ARRAY_MASK_HAS_FILE_LINE, // flags
                 TS_ARRAY | TS_PATH // types to copy deeply
             )
         );
