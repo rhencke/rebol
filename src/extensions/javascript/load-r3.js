@@ -72,7 +72,9 @@ var os_id = (use_emterpreter ? "0.16.1" : "0.16.2")
 
 console.log("Use Emterpreter => " + use_emterpreter)
 
-var base_dir = document.querySelector('script[src$="load-r3.js"]').src
+// WARNING: load-r3.js URL MUST CONTAIN '/':
+// USE './load-r3.js' INSTEAD OF 'load-r3.js'"
+var base_dir = document.querySelector('script[src$="/load-r3.js"]').src
 base_dir = base_dir.substring(0, base_dir.indexOf("load-r3.js"))
 // simulate remote url
 // base_dir = "http://metaeducation.s3.amazonaws.com/travis-builds/"
@@ -81,12 +83,21 @@ if (base_dir == "http://metaeducation.s3.amazonaws.com/travis-builds/") {
     base_dir = "https://metaeducation.s3.amazonaws.com/travis-builds/"
 }
 
-var is_localhost = (  // helps to put certain debug behaviors under this flag
-    location.hostname === "localhost"
-    || location.hostname === "127.0.0.1"
-    || location.hostname.startsWith("192.168")
+
+var is_debug = false
+
+// 'load' args from
+var args = (location.search
+    ? location.search.substring(1).split('&')
+    : []
 )
-if (is_localhost) {
+// process args
+for (let i = 0; i < args.length; i++) {
+    args[i] = decodeURIComponent(args[i])
+    if (args[i] == 'debug') is_debug = true
+}
+
+if (is_debug) {
     var old_alert = window.alert
     window.alert = function(message) {
         console.error(message)
@@ -94,7 +105,6 @@ if (is_localhost) {
         debugger
     }
 }
-
 
 // THE NAME OF THIS VARIABLE MUST BE SYNCED WITH
 // https://metaeducation.s3.amazonaws.com/travis-builds/${OS_ID}/last_git_commit_short.js
