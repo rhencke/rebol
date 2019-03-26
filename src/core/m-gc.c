@@ -386,6 +386,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         v = quotable;
     }
     else {
+        Queue_Mark_Pairing_Deep(VAL_QUOTED_PAYLOAD_CELL(quotable));
         v = VAL_QUOTED_PAYLOAD_CELL(quotable);
       #if !defined(NDEBUG)
         if (Is_Bindable(v))
@@ -396,7 +397,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         }
       #endif
 
-        Mark_Rebser_Only(SER(Singular_From_Cell(v)));
 
         assert(KIND_BYTE_UNCHECKED(v) < REB_MAX);
         kind = cast(enum Reb_Kind, KIND_BYTE_UNCHECKED(v));
