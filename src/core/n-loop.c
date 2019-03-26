@@ -438,17 +438,6 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                     more_data = false;
                 break;
 
-              case REB_DATATYPE:
-                if (var)
-                    Derelativize(
-                        var,
-                        ARR_AT(ARR(les->data_ser), les->data_idx),
-                        SPECIFIED  // array generated via data stack, all specific
-                    );
-                if (++les->data_idx == les->data_len)
-                    more_data = false;
-                break;
-
               case REB_OBJECT:
               case REB_ERROR:
               case REB_PORT:
@@ -685,26 +674,6 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         else if (IS_MAP(les.data)) {
             les.data_ser = SER(MAP_PAIRLIST(VAL_MAP(les.data)));
             les.data_idx = 0;
-        }
-        else if (IS_DATATYPE(les.data)) {
-            //
-            // !!! e.g. `for-each act action! [...]` enumerating the list of
-            // all actions in the system.  This is not something that it's
-            // safe to expose in a general sense (subverts hidden/protected
-            // information) but it's an experiment for helping with stats and
-            // debugging...as well as showing a case where the enumerated
-            // data has to be snapshotted and freed.
-            //
-            switch (VAL_TYPE_KIND(les.data)) {
-              case REB_ACTION:
-                les.data_ser = SER(Snapshot_All_Actions());
-                assert(NOT_SERIES_FLAG(les.data_ser, MANAGED));
-                les.data_idx = 0;
-                break;
-
-              default:
-                fail ("ACTION! is the only type with global enumeration");
-            }
         }
         else
             panic ("Illegal type passed to Loop_Each()");
@@ -1053,7 +1022,7 @@ REBNATIVE(cycle)
 //          [blank! word! 'word! block!]
 //      data "The series to traverse"
 //          [<blank> any-series! any-context! map! any-path!
-//           datatype! action!] ;-- experimental
+//           action!]  ; experimental
 //      body "Block to evaluate each time"
 //          [<const> block! action!]
 //  ]

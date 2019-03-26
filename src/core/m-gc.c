@@ -1290,10 +1290,10 @@ static void Mark_Root_Series(void)
 static void Mark_Data_Stack(void)
 {
     REBVAL *head = KNOWN(ARR_HEAD(DS_Array));
-    ASSERT_UNREADABLE_IF_DEBUG(head);
+    ASSERT_UNREADABLE_IF_DEBUG(head);  // DS_AT(0) is deliberately invalid
 
     REBVAL *stackval = DS_TOP;
-    for (; stackval != head; --stackval)
+    for (; stackval != head; --stackval)  // stop before DS_AT(0)
         Queue_Mark_Value_Deep(stackval);
 
     Propagate_All_GC_Marks();
@@ -1310,7 +1310,7 @@ static void Mark_Data_Stack(void)
 static void Mark_Symbol_Series(void)
 {
     REBSTR **canon = SER_HEAD(REBSTR*, PG_Symbol_Canons);
-    assert(IS_POINTER_TRASH_DEBUG(*canon)); // SYM_0 is for all non-builtin words
+    assert(IS_POINTER_TRASH_DEBUG(*canon)); // SYM_0 for all non-builtin words
     ++canon;
     for (; *canon != NULL; ++canon)
         Mark_Rebser_Only(*canon);
@@ -1743,13 +1743,13 @@ REBCNT Recycle_Core(bool shutdown, REBSER *sweeplist)
     // could cause a recursion.  Be tolerant of such recursions to make that
     // debugging easier...but make a note that it's not ordinarily legal.
     //
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     if (GC_Recycling) {
         printf("Recycle re-entry; should only happen in debug scenarios.\n");
         SET_SIGNAL(SIG_RECYCLE);
         return 0;
     }
-#endif
+  #endif
 
     // It is currently assumed that no recycle will happen while in a thrown
     // state.  Debug calls that do evaluation (or even Recycle() directly)
@@ -1849,7 +1849,7 @@ REBCNT Recycle_Core(bool shutdown, REBSER *sweeplist)
     // Do not adjust task variables or boot strings in shutdown when they
     // are being freed.
     //
-    if (!shutdown) {
+    if (not shutdown) {
         //
         // !!! This code was added by Atronix to deal with frequent garbage
         // collection, but the logic is not correct.  The issue has been
@@ -1967,52 +1967,9 @@ void Push_Guard_Node(const REBNOD *node)
     if (SER_FULL(GC_Guarded))
         Extend_Series(GC_Guarded, 8);
 
-    *SER_AT(
-        const REBNOD*,
-        GC_Guarded,
-        SER_LEN(GC_Guarded)
-    ) = node;
+    *SER_AT(const REBNOD*, GC_Guarded, SER_LEN(GC_Guarded)) = node;
 
     SET_SERIES_LEN(GC_Guarded, SER_LEN(GC_Guarded) + 1);
-}
-
-
-//
-//  Snapshot_All_Actions: C
-//
-// This routine can be used to get a list of all the functions in the system
-// at a given moment in time.  Be sure to protect this array from GC when
-// enumerating if there is any chance the GC might run (e.g. if user code
-// is called to process the function list)
-//
-REBARR *Snapshot_All_Actions(void)
-{
-    REBDSP dsp_orig = DSP;
-
-    REBSEG *seg;
-    for (seg = Mem_Pools[SER_POOL].segs; seg != NULL; seg = seg->next) {
-        REBSER *s = cast(REBSER*, seg + 1);
-        REBCNT n;
-        for (n = Mem_Pools[SER_POOL].units; n > 0; --n, ++s) {
-            switch (s->header.bits & 0x7) {
-            case 5:
-                // A managed REBSER which has no cell mask and is marked as
-                // *not* an END.  This is the typical signature of what one
-                // would call an "ordinary managed REBSER".  (For the meanings
-                // of other bits, see Sweep_Series.)
-                //
-                ASSERT_SERIES_MANAGED(s);
-                if (GET_ARRAY_FLAG(s, IS_PARAMLIST)) {
-                    REBVAL *v = KNOWN(ARR_HEAD(ARR(s)));
-                    assert(IS_ACTION(v));
-                    Move_Value(DS_PUSH(), v);
-                }
-                break;
-            }
-        }
-    }
-
-    return Pop_Stack_Values(dsp_orig);
 }
 
 
