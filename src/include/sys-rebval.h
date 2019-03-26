@@ -341,9 +341,9 @@ struct Reb_Key_Extra  // see %sys-action.h, %sys-context.h
     REBSTR *spelling;  // UTF-8 byte series, name of parameter / context key
 };
 
-struct Reb_Handle_Extra  // see %sys-handle.h
+struct Reb_Datatype_Extra  // see %sys-datatype.h
 {
-    REBARR *singular;
+    enum Reb_Kind kind;
 };
 
 struct Reb_Date_Extra  // see %sys-time.h
@@ -357,13 +357,18 @@ struct Reb_Partial_Extra  // see %c-specialize.c (used with REB_X_PARTIAL)
 };
 
 union Reb_Any {  // needed to beat strict aliasing, used in payload
-    void *p;
-    uintptr_t u;
+    bool flag;  // "wasteful" to just use for one flag, but fast to read/write
+
     intptr_t i;
     int_fast32_t i32;
+
+    uintptr_t u;
     uint_fast32_t u32;
+
     REBD32 d32;  // 32-bit float not in C standard, typically just `float`
-    bool flag;  // "wasteful" to just use for one flag, but fast to read/write
+
+    void *p;
+    CFUNC *cfunc;  // C function/data pointers pointers may differ in size
 
     // This is not legal to use in an EXTRA(), only the `PAYLOAD().first` slot
     // (and perhaps in the future, the payload second slot).  If you do use
@@ -391,7 +396,7 @@ union Reb_Value_Extra { //=/////////////////// ACTUAL EXTRA DEFINITION ////=//
     struct Reb_Character_Extra Character;
     struct Reb_Binding_Extra Binding;
     struct Reb_Key_Extra Key;
-    struct Reb_Handle_Extra Handle;
+    struct Reb_Datatype_Extra Datatype;
     struct Reb_Date_Extra Date;
     struct Reb_Partial_Extra Partial;
 
@@ -412,8 +417,8 @@ union Reb_Value_Extra { //=/////////////////// ACTUAL EXTRA DEFINITION ////=//
     // initialization.  Rather than disable the warning, this can be used to
     // put some junk into it, but TRASH_POINTER_IF_DEBUG() won't subvert the
     // warning.  So just poke whatever pointer is at hand that is likely to
-    // already be in a register and not meaningful (e.g. nullptr is a bad
-    // value, because that could look like a valid non-binding)
+    // already be in a register and not meaningful (e.g. nullptr is a poor
+    // choice, because that could look like a valid non-binding)
     //
     void *trash;
 };
@@ -448,38 +453,13 @@ struct Reb_Integer_Payload { REBI64 i64; };  // see %sys-integer.h
 
 struct Reb_Decimal_Payload { REBDEC dec; };  // see %sys-decimal.h
 
-struct Reb_Datatype_Payload  // see %sys-datatype.h
-{
-    enum Reb_Kind kind;
-    REBARR *spec;
-};
-
 struct Reb_Typeset_Payload  // see %sys-typeset.h
 {
     REBU64 bits;  // One bit for each DATATYPE! (use with FLAGIT_KIND)
 };
 
-struct Reb_Varargs_Payload  // see %sys-varargs.h
-{
-    REBINT signed_param_index;  // if negative, consider the arg enfixed
-    REBACT *phase;  // where to look up parameter by its offset
-};
-
 struct Reb_Time_Payload {  // see %sys-time.h
     REBI64 nanoseconds;
-};
-
-struct Reb_Handle_Payload {  // see %sys-handle.h
-    union {
-        void *pointer;
-        CFUNC *cfunc;  // C function/data pointers pointers may differ in size
-    } data;
-    uintptr_t length;  // will be 0 if a cfunc, and nonzero otherwise
-};
-
-struct Reb_Library_Payload  // see %sys-library.h
-{
-    REBARR *singular;  // File discriptor in LINK.fd, meta in MISC.meta 
 };
 
 struct Reb_Any_Payload  // generic, for adding payloads after-the-fact
@@ -540,8 +520,12 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     //     REBCNT depth;  // how deep quoting level is (> 3 if payload needed)
     //
     // ACTION!  // see %sys-action.h
-    //      REBARR *paramlist;  // has MISC.meta, LINK.underlying
-    //      REBARR *details;  // has MISC.dispatcher, LINK.specialty 
+    //     REBARR *paramlist;  // has MISC.meta, LINK.underlying
+    //     REBARR *details;  // has MISC.dispatcher, LINK.specialty 
+    //
+    // VARARGS!  // see %sys-varargs.h
+    //     REBINT signed_param_index;  // if negative, consider arg enfixed
+    //     REBACT *phase;  // where to look up parameter by its offset
 
     struct Reb_Any_Payload Any;
 
@@ -549,12 +533,8 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     struct Reb_Character_Payload Character;
     struct Reb_Integer_Payload Integer;
     struct Reb_Decimal_Payload Decimal;
-    struct Reb_Datatype_Payload Datatype;
     struct Reb_Typeset_Payload Typeset;
-    struct Reb_Varargs_Payload Varargs;
     struct Reb_Time_Payload Time;
-    struct Reb_Handle_Payload Handle;
-    struct Reb_Library_Payload Library;
 
     struct Reb_Partial_Payload Partial;  // internal (see REB_X_PARTIAL)
     struct Reb_Bookmark_Payload Bookmark;  // internal (see REB_X_BOOKMARK)
@@ -573,8 +553,7 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
   #endif
 
   #if !defined(NDEBUG) // unsafe "puns" for easy debug viewing in C watchlist
-    int64_t i;
-    void *p;
+    int64_t int64_pun;
   #endif
 };
 

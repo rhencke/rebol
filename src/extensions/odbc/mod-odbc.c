@@ -1316,7 +1316,7 @@ REBNATIVE(close_statement)
             rebRelease(columns[col].title_word);
 
         free(columns);
-        SET_HANDLE_POINTER(columns_value, NULL); // avoid GC cleanup
+        SET_HANDLE_CDATA(columns_value, NULL); // avoid GC cleanup
         rebElide("poke", statement, "'columns", "blank", rebEND);
 
         rebRelease(columns_value);
@@ -1330,7 +1330,7 @@ REBNATIVE(close_statement)
         assert(hstmt);
 
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-        SET_HANDLE_POINTER(hstmt_value, SQL_NULL_HANDLE); // avoid GC cleanup
+        SET_HANDLE_CDATA(hstmt_value, SQL_NULL_HANDLE); // avoid GC cleanup
         rebElide("poke", statement, "'hstmt blank", rebEND);
 
         rebRelease(hstmt_value);
@@ -1365,7 +1365,7 @@ REBNATIVE(close_connection)
 
         SQLDisconnect(hdbc);
         SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
-        SET_HANDLE_POINTER(hdbc_value, SQL_NULL_HANDLE); // avoid GC cleanup
+        SET_HANDLE_CDATA(hdbc_value, SQL_NULL_HANDLE); // avoid GC cleanup
 
         rebElide("poke", connection, "'hdbc", "blank", rebEND);
         rebRelease(hdbc_value);
@@ -1381,7 +1381,7 @@ REBNATIVE(close_connection)
         assert(henv);
 
         SQLFreeHandle(SQL_HANDLE_ENV, henv);
-        SET_HANDLE_POINTER(henv_value, SQL_NULL_HANDLE); // avoid GC cleanup
+        SET_HANDLE_CDATA(henv_value, SQL_NULL_HANDLE); // avoid GC cleanup
 
         rebElide("poke", connection, "'henv", "blank", rebEND);
         rebRelease(henv_value);

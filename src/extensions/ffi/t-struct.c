@@ -668,7 +668,7 @@ static REBSER *make_ext_storage(
     }
 
     DECLARE_LOCAL (handle);
-    Init_Handle_Managed(handle, cast(REBYTE*, raw_addr), len, &cleanup_noop);
+    Init_Handle_Cdata_Managed(handle, cast(REBYTE*, raw_addr), len, &cleanup_noop);
 
     return SER(handle->extra.singular);
 }
@@ -723,7 +723,7 @@ static void Prepare_Field_For_FFI(REBFLD *schema)
         // The FFType pointers returned by Get_FFType_For_Sym should not be
         // freed, so a "simple" handle is used that just holds the pointer.
         //
-        Init_Handle_Simple(FLD_AT(schema, IDX_FIELD_FFTYPE), fftype, 0);
+        Init_Handle_Cdata(FLD_AT(schema, IDX_FIELD_FFTYPE), fftype, 0);
         return;
     }
 
@@ -760,7 +760,7 @@ static void Prepare_Field_For_FFI(REBFLD *schema)
 
     fftype->elements[j] = NULL;
 
-    Init_Handle_Managed(
+    Init_Handle_Cdata_Managed(
         FLD_AT(schema, IDX_FIELD_FFTYPE),
         fftype,
         dimensionality + 1,

@@ -140,24 +140,22 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
         break; }
 
       case REB_HANDLE: { // See %sys-handle.h
-        REBARR *a = EXTRA(Handle, v).singular;
-        if (not a) {
-            //
-            // This HANDLE! was created with Init_Handle_Simple.  There is
-            // no GC interaction.
+        REBARR *a = VAL_HANDLE_SINGULAR(v);
+        if (not a) {  // simple handle, no GC interaction
+            assert(not (v->header.bits & CELL_FLAG_FIRST_IS_NODE));
         }
         else {
-            // Handle was created with Init_Handle_Managed.  It holds a
+            // Handle was created with Init_Handle_XXX_Managed.  It holds a
             // REBSER node that contains exactly one handle, and the actual
             // data for the handle lives in that shared location.  There is
             // nothing the GC needs to see inside a handle.
             //
+            assert(v->header.bits & CELL_FLAG_FIRST_IS_NODE);
             assert(Is_Marked(a));
 
-            assert(ARR_LEN(a) == 1);
             RELVAL *single = ARR_SINGLE(a);
             assert(IS_HANDLE(single));
-            assert(EXTRA(Handle, single).singular == a);
+            assert(VAL_HANDLE_SINGULAR(single) == a);
             if (v != single) {
                 //
                 // In order to make it clearer that individual handles do not
@@ -166,13 +164,9 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
                 // shared singular value are NULL.
                 //
                 if (Is_Handle_Cfunc(v))
-                    assert(
-                        IS_CFUNC_TRASH_DEBUG(PAYLOAD(Handle,v).data.cfunc)
-                    );
+                    assert(IS_CFUNC_TRASH_DEBUG(VAL_HANDLE_CFUNC_P(v)));
                 else
-                    assert(
-                        IS_POINTER_TRASH_DEBUG(PAYLOAD(Handle,v).data.pointer)
-                    );
+                    assert(IS_POINTER_TRASH_DEBUG(VAL_HANDLE_CDATA_P(v)));
             }
         }
         break; }
@@ -332,6 +326,8 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
         break; }
 
       case REB_VARARGS: {
+        assert((v->header.bits & CELL_MASK_VARARGS) == CELL_MASK_VARARGS);
+
         REBNOD *binding = VAL_BINDING(v);
         assert(IS_SER_ARRAY(binding));
         assert(
@@ -339,8 +335,9 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
             or not IS_SER_DYNAMIC(binding)  // singular
         );
 
-        if (PAYLOAD(Varargs, v).phase)  // null if came from MAKE VARARGS!
-            assert(Is_Marked(PAYLOAD(Varargs, v).phase));
+        REBACT *phase = VAL_VARARGS_PHASE(v);
+        if (phase)  // null if came from MAKE VARARGS!
+            assert(Is_Marked(phase));
         break; }
 
       case REB_BLOCK:
@@ -423,6 +420,8 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
         break; }
 
       case REB_ACTION: {
+        assert((v->header.bits & CELL_MASK_ACTION) == CELL_MASK_ACTION);
+
         REBACT *a = VAL_ACTION(v);
 
         REBARR *paramlist = ACT_PARAMLIST(a);

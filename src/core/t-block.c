@@ -220,7 +220,7 @@ REB_R MAKE_Array(
         // If there's any chance that the argument could produce nulls, we
         // can't guarantee an array can be made out of it.
         //
-        if (not PAYLOAD(Varargs, arg).phase) {
+        if (not VAL_VARARGS_PHASE(arg)) {
             //
             // A vararg created from a block AND never passed as an argument
             // so no typeset or quoting settings available.  Can't produce
@@ -235,10 +235,10 @@ REB_R MAKE_Array(
             REBVAL *param = KNOWN(
                 ARR_HEAD(ACT_PARAMLIST(FRM_PHASE(param_frame)))
             );
-            if (PAYLOAD(Varargs, arg).signed_param_index < 0)
-                param += -(PAYLOAD(Varargs, arg).signed_param_index);
+            if (VAL_VARARGS_SIGNED_PARAM_INDEX(arg) < 0)
+                param += - VAL_VARARGS_SIGNED_PARAM_INDEX(arg);
             else
-                param += PAYLOAD(Varargs, arg).signed_param_index;
+                param += VAL_VARARGS_SIGNED_PARAM_INDEX(arg);
 
             if (TYPE_CHECK(param, REB_NULLED))
                 fail (Error_Null_Vararg_Array_Raw());

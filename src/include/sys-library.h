@@ -38,15 +38,22 @@ inline static bool IS_LIB_CLOSED(REBLIB *l) {
     return LINK(l).fd == NULL;
 }
 
-inline static REBCTX *VAL_LIBRARY_META(const REBCEL *v) {
-    assert(CELL_KIND(v) == REB_LIBRARY);
-    return MISC_META(PAYLOAD(Library, v).singular);
-}
+#define VAL_LIBRARY_SINGULAR_NODE(v) \
+    PAYLOAD(Any, (v)).first.node
 
 inline static REBLIB *VAL_LIBRARY(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_LIBRARY);
-    return PAYLOAD(Library, v).singular;
+    return ARR(VAL_LIBRARY_SINGULAR_NODE(v));
 }
+
+#define VAL_LIBRARY_META_NODE(v) \
+    MISC_META_NODE(VAL_LIBRARY_SINGULAR_NODE(v))
+
+inline static REBCTX *VAL_LIBRARY_META(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_LIBRARY);
+    return CTX(VAL_LIBRARY_META_NODE(v));
+}
+
 
 inline static void *VAL_LIBRARY_FD(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_LIBRARY);

@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -51,6 +51,19 @@
 //   the function frame at any point.  Despite this, we proxy the
 //   CELL_FLAG_UNEVALUATED from the last TAKE to reflect its status.
 //
+
+#define CELL_MASK_VARARGS \
+    CELL_FLAG_SECOND_IS_NODE
+
+#define VAL_VARARGS_SIGNED_PARAM_INDEX(v) \
+    PAYLOAD(Any, (v)).first.i
+
+#define VAL_VARARGS_PHASE_NODE(v) \
+    PAYLOAD(Any, (v)).second.node
+
+#define VAL_VARARGS_PHASE(v) \
+    ACT(VAL_VARARGS_PHASE_NODE(v))
+
 
 inline static bool Is_Block_Style_Varargs(
     REBVAL **shared_out,
@@ -126,23 +139,23 @@ inline static bool Is_Frame_Style_Varargs_May_Fail(
 // they can be offered to any userspace routine.
 //
 #define Is_Varargs_Enfix(v) \
-    (PAYLOAD(Varargs, (v)).signed_param_index < 0)
+    (VAL_VARARGS_SIGNED_PARAM_INDEX(v) < 0)
 
 
 inline static const REBVAL *Param_For_Varargs_Maybe_Null(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_VARARGS);
 
-    REBACT *phase = PAYLOAD(Varargs, v).phase;
+    REBACT *phase = VAL_VARARGS_PHASE(v);
     if (phase) {
         REBARR *paramlist = ACT_PARAMLIST(phase);
-        if (PAYLOAD(Varargs, v).signed_param_index < 0) // e.g. enfix
+        if (VAL_VARARGS_SIGNED_PARAM_INDEX(v) < 0) // e.g. enfix
             return KNOWN(ARR_AT(
                 paramlist,
-                -(PAYLOAD(Varargs, v).signed_param_index)
+                - VAL_VARARGS_SIGNED_PARAM_INDEX(v)
             ));
         return KNOWN(ARR_AT(
             paramlist,
-            PAYLOAD(Varargs, v).signed_param_index
+            VAL_VARARGS_SIGNED_PARAM_INDEX(v)
         ));
     }
 

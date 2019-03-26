@@ -561,7 +561,7 @@ REBNATIVE(compile_p)
         fail ("TCC failed to relocate the code");
 
     DECLARE_LOCAL (handle);
-    Init_Handle_Managed(
+    Init_Handle_Cdata_Managed(
         handle,
         state, // "data" pointer
         1,  // unused length (can't be 0, reserved for CFUNC)

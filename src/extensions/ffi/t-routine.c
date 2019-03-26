@@ -1192,7 +1192,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
             fail ("FFI: Couldn't prep CIF");
         }
 
-        Init_Handle_Managed(
+        Init_Handle_Cdata_Managed(
             RIN_AT(r, IDX_ROUTINE_CIF),
             cif,
             0,
@@ -1202,7 +1202,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
         if (args_fftypes == NULL)
             Init_Blank(RIN_AT(r, IDX_ROUTINE_ARG_FFTYPES));
         else
-            Init_Handle_Managed(
+            Init_Handle_Cdata_Managed(
                 RIN_AT(r, IDX_ROUTINE_ARG_FFTYPES),
                 args_fftypes,
                 num_fixed,

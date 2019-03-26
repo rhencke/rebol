@@ -184,7 +184,7 @@ REBNATIVE(rc4)
             VAL_LEN_AT(ARG(crypt_key))
         );
 
-        return Init_Handle_Managed(
+        return Init_Handle_Cdata_Managed(
             D_OUT,
             rc4_ctx,
             sizeof(RC4_CTX),
@@ -585,7 +585,7 @@ REBNATIVE(aes)
         if (REF(decrypt))
             AES_convert_key(aes_ctx);
 
-        return Init_Handle_Managed(
+        return Init_Handle_Cdata_Managed(
             D_OUT,
             aes_ctx,
             sizeof(AES_CTX),

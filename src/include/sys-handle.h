@@ -49,27 +49,43 @@
 //   kind that's just raw data and no callback, ->extra is null.
 //
 
+#define VAL_HANDLE_SINGULAR_NODE(v) \
+    PAYLOAD(Any, (v)).first.node
+
+#define VAL_HANDLE_SINGULAR(v) \
+    ARR(PAYLOAD(Any, (v)).first.node)
+
+#define VAL_HANDLE_LENGTH_U(v) \
+    PAYLOAD(Any, (v)).second.u
+
+#define VAL_HANDLE_CDATA_P(v) \
+    EXTRA(Any, (v)).p
+
+#define VAL_HANDLE_CFUNC_P(v) \
+    EXTRA(Any, (v)).cfunc
+
+
 inline static bool Is_Handle_Cfunc(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_HANDLE);
-    return PAYLOAD(Handle, v).length == 0;
+    return VAL_HANDLE_LENGTH_U(v) == 0;
 }
 
 inline static uintptr_t VAL_HANDLE_LEN(const REBCEL *v) {
     assert(not Is_Handle_Cfunc(v));
-    REBARR *a = EXTRA(Handle, v).singular;
+    REBARR *a = VAL_HANDLE_SINGULAR(v);
     if (a)
-        return PAYLOAD(Handle, ARR_SINGLE(a)).length;
+        return VAL_HANDLE_LENGTH_U(ARR_SINGLE(a));
     else
-        return PAYLOAD(Handle, v).length;
+        return VAL_HANDLE_LENGTH_U(v);
 }
 
 inline static void *VAL_HANDLE_VOID_POINTER(const REBCEL *v) {
     assert(not Is_Handle_Cfunc(v));
-    REBARR *a = EXTRA(Handle, v).singular;
+    REBARR *a = VAL_HANDLE_SINGULAR(v);
     if (a)
-        return PAYLOAD(Handle, ARR_SINGLE(a)).data.pointer;
+        return VAL_HANDLE_CDATA_P(ARR_SINGLE(a));
     else
-        return PAYLOAD(Handle, v).data.pointer;
+        return VAL_HANDLE_CDATA_P(v);
 }
 
 #define VAL_HANDLE_POINTER(t, v) \
@@ -77,16 +93,16 @@ inline static void *VAL_HANDLE_VOID_POINTER(const REBCEL *v) {
 
 inline static CFUNC *VAL_HANDLE_CFUNC(const REBCEL *v) {
     assert(Is_Handle_Cfunc(v));
-    REBARR *a = EXTRA(Handle, v).singular;
+    REBARR *a = VAL_HANDLE_SINGULAR(v);
     if (a)
-        return PAYLOAD(Handle, ARR_SINGLE(a)).data.cfunc;
+        return VAL_HANDLE_CFUNC_P(ARR_SINGLE(a));
     else
-        return PAYLOAD(Handle, v).data.cfunc;
+        return VAL_HANDLE_CFUNC_P(v);
 }
 
 inline static CLEANUP_CFUNC *VAL_HANDLE_CLEANER(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_HANDLE);
-    REBARR *a = EXTRA(Handle, v).singular;
+    REBARR *a = VAL_HANDLE_SINGULAR(v);
     if (not a)
         return nullptr;
     return MISC(a).cleaner;
@@ -94,41 +110,49 @@ inline static CLEANUP_CFUNC *VAL_HANDLE_CLEANER(const REBCEL *v) {
 
 inline static void SET_HANDLE_LEN(REBCEL *v, uintptr_t length) {
     assert(CELL_KIND(v) == REB_HANDLE);
-    REBARR *a = EXTRA(Handle, v).singular;
+    REBARR *a = VAL_HANDLE_SINGULAR(v);
     if (a)
-        PAYLOAD(Handle, ARR_SINGLE(a)).length = length;
+        VAL_HANDLE_LENGTH_U(ARR_SINGLE(a)) = length;
     else
-        PAYLOAD(Handle, v).length = length;
+        VAL_HANDLE_LENGTH_U(v) = length;
 }
 
-inline static void SET_HANDLE_POINTER(REBCEL *v, void *pointer) {
-    assert(not Is_Handle_Cfunc(v));
-    REBARR *a = EXTRA(Handle, v).singular;
-    if (a)
-        PAYLOAD(Handle, ARR_SINGLE(a)).data.pointer = pointer;
-    else
-        PAYLOAD(Handle, v).data.pointer = pointer;
+inline static void SET_HANDLE_CDATA(REBCEL *v, void *cdata) {
+    assert(CELL_KIND(v) == REB_HANDLE);
+    REBARR *a = VAL_HANDLE_SINGULAR(v);
+    if (a) {
+        assert(VAL_HANDLE_LENGTH_U(ARR_SINGLE(a)) != 0);
+        VAL_HANDLE_CDATA_P(ARR_SINGLE(a)) = cdata;
+    }
+    else {
+        assert(VAL_HANDLE_LENGTH_U(v) != 0);
+        VAL_HANDLE_CDATA_P(v) = cdata;
+    }
 }
 
 inline static void SET_HANDLE_CFUNC(REBCEL *v, CFUNC *cfunc) {
     assert(Is_Handle_Cfunc(v));
-    REBARR *a = EXTRA(Handle, v).singular;
-    if (a)
-        PAYLOAD(Handle, ARR_SINGLE(a)).data.cfunc = cfunc;
-    else
-        PAYLOAD(Handle, v).data.cfunc = cfunc;
+    REBARR *a = VAL_HANDLE_SINGULAR(v);
+    if (a) {
+        assert(VAL_HANDLE_LENGTH_U(ARR_SINGLE(a)) == 0);
+        VAL_HANDLE_CFUNC_P(ARR_SINGLE(a)) = cfunc;
+    }
+    else {
+        assert(VAL_HANDLE_LENGTH_U(v) == 0);
+        VAL_HANDLE_CFUNC_P(v) = cfunc;
+    }
 }
 
-inline static REBVAL *Init_Handle_Simple(
+inline static REBVAL *Init_Handle_Cdata(
     RELVAL *out,
-    void *pointer,
+    void *cdata,
     uintptr_t length
 ){
-    assert(length != 0); // can't be 0 unless cfunc (see also malloc(0))
-    RESET_CELL(out, REB_HANDLE, CELL_MASK_NONE);
-    EXTRA(Handle, out).singular = nullptr;
-    PAYLOAD(Handle, out).data.pointer = pointer;
-    PAYLOAD(Handle, out).length = length;
+    assert(length != 0);  // can't be 0 unless cfunc (see also malloc(0))
+    RESET_CELL(out, REB_HANDLE, CELL_MASK_NONE);  // payload first is not node
+    VAL_HANDLE_SINGULAR_NODE(out) = nullptr;
+    VAL_HANDLE_CDATA_P(out) = cdata;
+    VAL_HANDLE_LENGTH_U(out) = length;  // non-zero signals cdata
     return KNOWN(out);
 }
 
@@ -136,14 +160,14 @@ inline static REBVAL *Init_Handle_Cfunc(
     RELVAL *out,
     CFUNC *cfunc
 ){
-    RESET_CELL(out, REB_HANDLE, CELL_MASK_NONE);
-    EXTRA(Handle, out).singular = nullptr;
-    PAYLOAD(Handle, out).data.cfunc = cfunc;
-    PAYLOAD(Handle, out).length = 0; // signals cfunc
+    RESET_CELL(out, REB_HANDLE, CELL_MASK_NONE);  // payload first is not node
+    VAL_HANDLE_SINGULAR_NODE(out) = nullptr;
+    VAL_HANDLE_CFUNC_P(out) = cfunc;
+    VAL_HANDLE_LENGTH_U(out) = 0;  // signals cfunc
     return KNOWN(out);
 }
 
-inline static void Init_Handle_Managed_Common(
+inline static void Init_Handle_Cdata_Managed_Common(
     RELVAL *out,
     uintptr_t length,
     CLEANUP_CFUNC *cleaner
@@ -151,59 +175,48 @@ inline static void Init_Handle_Managed_Common(
     REBARR *singular = Alloc_Singular(NODE_FLAG_MANAGED);
     MISC(singular).cleaner = cleaner;
 
-    RELVAL *v = ARR_SINGLE(singular);
-    EXTRA(Handle, v).singular = singular; 
-    PAYLOAD(Handle, v).length = length;
-
-    // Caller will fill in whichever field is needed.  Note these are both
-    // the same union member, so trashing them both is semi-superfluous, but
-    // serves a commentary purpose here.
-    //
-    TRASH_POINTER_IF_DEBUG(PAYLOAD(Handle, v).data.pointer);
-    TRASH_CFUNC_IF_DEBUG(PAYLOAD(Handle, v).data.cfunc);
+    RELVAL *single = ARR_SINGLE(singular);
+    RESET_VAL_HEADER(single, REB_HANDLE, CELL_FLAG_FIRST_IS_NODE);
+    VAL_HANDLE_SINGULAR_NODE(single) = NOD(singular); 
+    VAL_HANDLE_LENGTH_U(single) = length;
+    // caller fills in VAL_HANDLE_CDATA_P or VAL_HANDLE_CFUNC_P
 
     // Don't fill the handle properties in the instance if it's the managed
     // form.  This way, you can set the properties in the canon value and
     // effectively update all instances...since the bits live in the shared
     // series component.
     //
-    RESET_CELL(out, REB_HANDLE, CELL_MASK_NONE);
-    EXTRA(Handle, out).singular = singular;
-    TRASH_POINTER_IF_DEBUG(PAYLOAD(Handle, out).data.pointer);
+    RESET_CELL(out, REB_HANDLE, CELL_FLAG_FIRST_IS_NODE);
+    VAL_HANDLE_SINGULAR_NODE(out) = NOD(singular);
+    VAL_HANDLE_LENGTH_U(out) = 0xDECAFBAD;  // trash to avoid compiler warning
+    VAL_HANDLE_CFUNC_P(out) = nullptr;  // or complains about not initializing
 }
 
-inline static REBVAL *Init_Handle_Managed(
+inline static REBVAL *Init_Handle_Cdata_Managed(
     RELVAL *out,
-    void *pointer,
+    void *cdata,
     uintptr_t length,
     CLEANUP_CFUNC *cleaner
 ){
-    Init_Handle_Managed_Common(out, length, cleaner);
+    Init_Handle_Cdata_Managed_Common(out, length, cleaner);
 
     // Leave the non-singular cfunc as trash; clients should not be using
-    //
-    RESET_VAL_HEADER(out, REB_HANDLE, CELL_MASK_NONE);
 
-    REBARR *a = EXTRA(Handle, out).singular;
-    RESET_VAL_HEADER(ARR_SINGLE(a), REB_HANDLE, CELL_MASK_NONE);
-    PAYLOAD(Handle, ARR_SINGLE(a)).data.pointer = pointer;
+    REBARR *a = VAL_HANDLE_SINGULAR(out);
+    VAL_HANDLE_CDATA_P(ARR_SINGLE(a)) = cdata;
     return KNOWN(out);
 }
 
-inline static REBVAL *Init_Handle_Managed_Cfunc(
+inline static REBVAL *Init_Handle_Cdata_Managed_Cfunc(
     RELVAL *out,
     CFUNC *cfunc,
     CLEANUP_CFUNC *cleaner
 ){
-    Init_Handle_Managed_Common(out, 0, cleaner);
+    Init_Handle_Cdata_Managed_Common(out, 0, cleaner);
 
     // Leave the non-singular cfunc as trash; clients should not be using
-    //
-    RESET_VAL_HEADER(out, REB_HANDLE, CELL_MASK_NONE);
     
-    REBARR *a = EXTRA(Handle, out).singular;
-    RESET_VAL_HEADER(ARR_HEAD(a), REB_HANDLE, CELL_MASK_NONE);
-    PAYLOAD(Handle, ARR_HEAD(a)).data.cfunc = cfunc;
-    PAYLOAD(Handle, ARR_HEAD(a)).length = 0;
+    REBARR *a = VAL_HANDLE_SINGULAR(out);
+    VAL_HANDLE_CFUNC_P(ARR_SINGLE(a)) = cfunc;
     return KNOWN(out);
 }

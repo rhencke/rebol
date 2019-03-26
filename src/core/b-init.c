@@ -204,9 +204,11 @@ static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
         assert(n < REB_MAX);
 
         REBVAL *value = Append_Context(Lib_Context, KNOWN(word), NULL);
-        RESET_CELL(value, REB_DATATYPE, CELL_MASK_NONE);
+        RESET_CELL(value, REB_DATATYPE, CELL_FLAG_FIRST_IS_NODE);
         VAL_TYPE_KIND(value) = cast(enum Reb_Kind, n);
-        VAL_TYPE_SPEC(value) = VAL_ARRAY(ARR_AT(boot_typespecs, n - 2));
+        VAL_TYPE_SPEC_NODE(value) = NOD(
+            VAL_ARRAY(ARR_AT(boot_typespecs, n - 2))
+        );
 
         // !!! The system depends on these definitions, as they are used by
         // Get_Type and Type_Of.  Lock it for safety...though consider an

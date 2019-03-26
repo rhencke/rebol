@@ -283,12 +283,12 @@ inline static void Finalize_Variadic_Arg_Core(REBFRM *f, bool enfix) {
     // be recovered, while using only a single slot in the REBVAL.  But make
     // the sign denote whether the parameter was enfixed or not.
     //
-    PAYLOAD(Varargs, f->arg).signed_param_index =
+    VAL_VARARGS_SIGNED_PARAM_INDEX(f->arg) =
         enfix
             ? -(f->arg - FRM_ARGS_HEAD(f) + 1)
             : f->arg - FRM_ARGS_HEAD(f) + 1;
 
-    PAYLOAD(Varargs, f->arg).phase = FRM_PHASE(f);
+    VAL_VARARGS_PHASE_NODE(f->arg) = NOD(FRM_PHASE(f));
     SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
 }
 
@@ -1177,7 +1177,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                     // from the global empty array.
                     //
                     if (Is_Param_Variadic(f->param)) {
-                        RESET_CELL(f->arg, REB_VARARGS, CELL_MASK_NONE);
+                        RESET_CELL(f->arg, REB_VARARGS, CELL_MASK_VARARGS);
                         INIT_BINDING(f->arg, EMPTY_ARRAY); // feed finished
 
                         Finalize_Enfix_Variadic_Arg(f);
@@ -1216,7 +1216,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                         Init_Block(ARR_SINGLE(array1), feed); // index 0
                     }
 
-                    RESET_CELL(f->arg, REB_VARARGS, CELL_MASK_NONE);
+                    RESET_CELL(f->arg, REB_VARARGS, CELL_MASK_VARARGS);
                     INIT_BINDING(f->arg, array1);
                     Finalize_Enfix_Variadic_Arg(f);
                 }
@@ -1304,7 +1304,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             // consume additional arguments during the function run.
             //
             if (Is_Param_Variadic(f->param)) {
-                RESET_CELL(f->arg, REB_VARARGS, CELL_MASK_NONE);
+                RESET_CELL(f->arg, REB_VARARGS, CELL_MASK_VARARGS);
                 INIT_BINDING(f->arg, f->varlist); // frame-based VARARGS!
 
                 Finalize_Variadic_Arg(f);

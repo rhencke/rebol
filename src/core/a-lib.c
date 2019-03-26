@@ -638,7 +638,7 @@ REBVAL *RL_rebTextWide(const REBWCHAR *wstr)
 // cleanup function the GC may call when references to the handle are gone.
 //
 REBVAL *RL_rebHandle(void *data, size_t length, CLEANUP_CFUNC *cleaner)
- { return Init_Handle_Managed(Alloc_Value(), data, length, cleaner); }
+ { return Init_Handle_Cdata_Managed(Alloc_Value(), data, length, cleaner); }
 
 
 //

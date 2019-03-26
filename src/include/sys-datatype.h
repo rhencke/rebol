@@ -33,7 +33,10 @@
 //
 
 #define VAL_TYPE_KIND(v) \
-    PAYLOAD(Datatype, (v)).kind
+    EXTRA(Datatype, (v)).kind
+
+#define VAL_TYPE_SPEC_NODE(v) \
+    PAYLOAD(Any, (v)).first.node
 
 #define VAL_TYPE_SPEC(v) \
-    PAYLOAD(Datatype, (v)).spec
+    ARR(VAL_TYPE_SPEC_NODE(v))

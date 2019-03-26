@@ -310,7 +310,7 @@ REBNATIVE(wrap_callback)
     memcpy(&cfunc_thunk, &thunk, sizeof(cfunc_thunk));
 
     Init_Handle_Cfunc(RIN_AT(r, IDX_ROUTINE_CFUNC), cfunc_thunk, 0);
-    Init_Handle_Managed(
+    Init_Handle_Cdata_Managed(
         RIN_AT(r, IDX_ROUTINE_CLOSURE),
         closure,
         0,

@@ -57,7 +57,7 @@ inline static enum Reb_Kind KIND_FROM_SYM(REBSYM s) {
     cast(REBSYM, cast(enum Reb_Kind, (k)))
 
 #define VAL_TYPE_SYM(v) \
-    SYM_FROM_KIND(PAYLOAD(Datatype, (v)).kind)
+    SYM_FROM_KIND(EXTRA(Datatype, (v)).kind)
 
 inline static REBSTR *Get_Type_Name(const RELVAL *value)
     { return Canon(SYM_FROM_KIND(VAL_TYPE(value))); }

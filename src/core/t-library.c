@@ -60,7 +60,7 @@ REB_R MAKE_Library(
 
     REBARR *singular = Alloc_Singular(NODE_FLAG_MANAGED);
     RESET_CELL(ARR_SINGLE(singular), REB_LIBRARY, CELL_MASK_NONE);
-    PAYLOAD(Library, ARR_SINGLE(singular)).singular = singular;
+    VAL_LIBRARY_SINGULAR_NODE(ARR_SINGLE(singular)) = NOD(singular);
 
     LINK(singular).fd = fd;
     MISC_META_NODE(singular) = nullptr;  // !!! build from spec, e.g. arg?

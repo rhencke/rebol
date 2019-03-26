@@ -1093,7 +1093,7 @@ REBNATIVE(js_native_mainthread)
         Get_System(SYS_CONTEXTS, CTX_USER)
     );
 
-    Init_Handle_Managed(
+    Init_Handle_Cdata_Managed(
         ARR_AT(details, IDX_JS_NATIVE_HANDLE),
         ACT_PARAMLIST(native),
         0,

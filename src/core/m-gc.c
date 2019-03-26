@@ -349,41 +349,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         Queue_Mark_Node_Deep(PAYLOAD(Any, v).second.node);
 
     switch (kind) {
-      case REB_HANDLE: {  // See %sys-handle.h
-        REBARR *a = EXTRA(Handle, v).singular;
-        if (not a) {
-            //
-            // This HANDLE! was created with Init_Handle_Simple.  There is
-            // no GC interaction.
-        }
-        else {
-            // Handle was created with Init_Handle_Managed.  It holds a
-            // REBSER node that contains exactly one handle, and the actual
-            // data for the handle lives in that shared location.  There is
-            // nothing the GC needs to see inside a handle.
-            //
-            SER(a)->header.bits |= NODE_FLAG_MARKED;
-        }
-        break; }
-
-      case REB_DATATYPE:
-        // Type spec is allowed to be NULL.  See %typespec.r file
-        if (VAL_TYPE_SPEC(v))
-            Queue_Mark_Array_Deep(VAL_TYPE_SPEC(v));
-        break;
-
-      case REB_VARARGS: {
-        if (PAYLOAD(Varargs, v).phase)  // null if came from MAKE VARARGS!
-            Queue_Mark_Action_Deep(PAYLOAD(Varargs, v).phase);
-        break; }
-
-      case REB_LIBRARY: {
-        Queue_Mark_Array_Deep(VAL_LIBRARY(v));
-        REBCTX *meta = VAL_LIBRARY_META(v);
-        if (meta != NULL)
-            Queue_Mark_Context_Deep(meta);
-        break; }
-
       case REB_P_NORMAL:
       case REB_P_HARD_QUOTE:
       case REB_P_SOFT_QUOTE:
@@ -882,7 +847,7 @@ static void Mark_Symbol_Series(void)
 //
 //  Mark_Natives: C
 //
-// For each native C implemenation, a REBVAL is created during init to
+// For each native C implementation, a REBVAL is created during init to
 // represent it as an ACTION!.  These are kept in a global array and are
 // protected from GC.  It might not technically be necessary to do so for
 // all natives, but at least some have their paramlists referenced by the

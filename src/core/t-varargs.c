@@ -245,10 +245,10 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
         assert(not Is_Varargs_Enfix(vararg));
 
         opt_vararg_frame = f;
-        if (PAYLOAD(Varargs, vararg).signed_param_index < 0)
-            arg = FRM_ARG(f, -(PAYLOAD(Varargs, vararg).signed_param_index));
+        if (VAL_VARARGS_SIGNED_PARAM_INDEX(vararg) < 0)
+            arg = FRM_ARG(f, - VAL_VARARGS_SIGNED_PARAM_INDEX(vararg));
         else
-            arg = FRM_ARG(f, PAYLOAD(Varargs, vararg).signed_param_index);
+            arg = FRM_ARG(f, VAL_VARARGS_SIGNED_PARAM_INDEX(vararg));
 
         if (Vararg_Op_If_No_Advance_Handled(
             out,
@@ -367,9 +367,9 @@ REB_R MAKE_Varargs(
         else
             Move_Value(ARR_SINGLE(array1), arg);
 
-        RESET_CELL(out, REB_VARARGS, CELL_MASK_NONE);
-        PAYLOAD(Varargs, out).phase = nullptr;
-        UNUSED(PAYLOAD(Varargs, out).signed_param_index); // trashes in C++11
+        RESET_CELL(out, REB_VARARGS, CELL_MASK_VARARGS);
+        VAL_VARARGS_PHASE_NODE(out) = nullptr;
+        UNUSED(VAL_VARARGS_SIGNED_PARAM_INDEX(out));  // trashes in C++11
         INIT_BINDING(out, array1);
 
         return out;

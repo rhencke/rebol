@@ -1087,7 +1087,7 @@ void Decay_Series(REBSER *s)
         if (IS_SER_ARRAY(s)) {
             RELVAL *v = ARR_HEAD(ARR(s));
             if (CELL_KIND_UNCHECKED(v) == REB_HANDLE) {
-                if (EXTRA(Handle, v).singular == ARR(s)) {
+                if (VAL_HANDLE_SINGULAR(v) == ARR(s)) {
                     //
                     // Some handles use the managed form just because they
                     // want changes to the pointer in one instance to be seen

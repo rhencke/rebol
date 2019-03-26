@@ -448,17 +448,17 @@ REBVAL *rebCollateExtension_internal(
 ) {
 
     REBARR *a = Make_Array(IDX_COLLATOR_MAX); // details
-    Init_Handle_Simple(
+    Init_Handle_Cdata(
         ARR_AT(a, IDX_COLLATOR_SCRIPT),
         m_cast(REBYTE*, script_compressed), // !!! by contract, don't change!
         script_compressed_len
     );
-    Init_Handle_Simple(
+    Init_Handle_Cdata(
         ARR_AT(a, IDX_COLLATOR_SPECS),
         m_cast(REBYTE*, specs_compressed), // !!! by contract, don't change!
         specs_compressed_len
     );
-    Init_Handle_Simple(
+    Init_Handle_Cdata(
         ARR_AT(a, IDX_COLLATOR_DISPATCHERS),
         dispatchers,
         dispatchers_len
