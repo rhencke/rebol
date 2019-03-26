@@ -485,7 +485,7 @@ void Set_Location_Of_Error(
         break;
     }
     if (f != FS_BOTTOM) {
-        REBSTR *file = STR(SER_LINK_FILE(f->feed->array));
+        REBSTR *file = LINK_FILE(f->feed->array);
         REBLIN line = MISC(f->feed->array).line;
 
         REBSYM file_sym = STR_SYMBOL(file);

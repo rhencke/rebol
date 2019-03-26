@@ -104,15 +104,15 @@ void Startup_Frame_Stack(void)
         1,
         NODE_FLAG_MANAGED | SERIES_MASK_ACTION
     );
-    MISC(paramlist).meta = nullptr;
+    MISC_META_NODE(paramlist) = nullptr;
 
     REBVAL *archetype = RESET_CELL(
         ARR_HEAD(paramlist),
         REB_ACTION,
-        CELL_FLAG_FIRST_IS_NODE
+        CELL_MASK_ACTION
     );
     EXTRA(Binding, archetype).node = UNBOUND;
-    PAYLOAD(Action, archetype).paramlist = paramlist;
+    VAL_ACT_PARAMLIST_NODE(archetype) = NOD(paramlist);
     TERM_ARRAY_LEN(paramlist, 1);
 
     PG_Dummy_Action = Make_Action(

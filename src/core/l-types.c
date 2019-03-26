@@ -1152,7 +1152,7 @@ const REBYTE *Scan_Pair(
     Manage_Pairing(paired);
 
     RESET_CELL(out, REB_PAIR, CELL_FLAG_FIRST_IS_NODE);
-    PAYLOAD(Pair, out).paired = paired;
+    VAL_PAIR_NODE(out) = NOD(paired);
     return xp;
 }
 

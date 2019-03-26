@@ -31,11 +31,13 @@
 //
 #define SERIES_MASK_CONTEXT \
     (NODE_FLAG_NODE | SERIES_FLAG_ALWAYS_DYNAMIC \
+        | SERIES_FLAG_LINK_NODE_NEEDS_MARK  /* keysource */ \
+        | SERIES_FLAG_MISC_NODE_NEEDS_MARK  /* meta */ \
         | ARRAY_FLAG_IS_VARLIST)
 
 
 struct Reb_Context {
-    struct Reb_Array varlist; // keylist is held in ->link.keylist
+    struct Reb_Array varlist;  // keylist is held in ->link.keysource
 };
 
 

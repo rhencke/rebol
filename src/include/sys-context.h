@@ -69,6 +69,10 @@
 //   the module's contents (e.g. the processed header)
 //
 
+#define CELL_MASK_CONTEXT \
+    (CELL_FLAG_FIRST_IS_NODE  /* varlist */ \
+        | CELL_FLAG_SECOND_IS_NODE  /* phase (for FRAME!) */)
+
 
 //=//// SERIES_FLAG_VARLIST_FRAME_FAILED //////////////////////////////////=//
 //
@@ -96,8 +100,11 @@
 #define CTX_VARLIST(c) \
     (&(c)->varlist)
 
+#define VAL_PHASE_NODE(v) \
+    PAYLOAD(Any, (v)).second.node
+
 #define VAL_PHASE_UNCHECKED(v) \
-    cast(REBACT*, PAYLOAD(Any, (v)).second.node)
+    ACT(VAL_PHASE_NODE(v))
 
 inline static REBACT *VAL_PHASE(REBVAL *frame) {
     assert(IS_FRAME(frame));
@@ -126,8 +133,8 @@ inline static REBVAL *CTX_ARCHETYPE(REBCTX *c) {
 // possible--even in an unoptimized build.
 //
 inline static REBARR *CTX_KEYLIST(REBCTX *c) {
-    if (not (LINK(c).keysource->header.bits & NODE_FLAG_CELL))
-        return ARR(LINK(c).keysource); // not a REBFRM, so use keylist
+    if (not (LINK_KEYSOURCE(c)->header.bits & NODE_FLAG_CELL))
+        return ARR(LINK_KEYSOURCE(c)); // not a REBFRM, so use keylist
 
     // If the context in question is a FRAME! value, then the ->phase
     // of the frame presents the "view" of which keys should be visible at
@@ -142,12 +149,12 @@ inline static REBARR *CTX_KEYLIST(REBCTX *c) {
 
 static inline void INIT_CTX_KEYLIST_SHARED(REBCTX *c, REBARR *keylist) {
     SET_SERIES_INFO(keylist, KEYLIST_SHARED);
-    LINK(c).keysource = NOD(keylist);
+    LINK_KEYSOURCE(c) = NOD(keylist);
 }
 
 static inline void INIT_CTX_KEYLIST_UNIQUE(REBCTX *c, REBARR *keylist) {
     assert(NOT_SERIES_INFO(keylist, KEYLIST_SHARED));
-    LINK(c).keysource = NOD(keylist);
+    LINK_KEYSOURCE(c) = NOD(keylist);
 }
 
 // Navigate from context to context components.  Note that the context's
@@ -173,7 +180,7 @@ static inline void INIT_CTX_KEYLIST_UNIQUE(REBCTX *c, REBARR *keylist) {
     SER_AT(REBVAL, SER(CTX_KEYLIST(c)), 1) // a CTX_KEY can't hold a RELVAL
 
 inline static REBFRM *CTX_FRAME_IF_ON_STACK(REBCTX *c) {
-    REBNOD *keysource = LINK(c).keysource;
+    REBNOD *keysource = LINK_KEYSOURCE(c);
     if (not (keysource->header.bits & NODE_FLAG_CELL))
         return nullptr; // e.g. came from MAKE FRAME! or Encloser_Dispatcher
 
@@ -450,9 +457,9 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
         FLAG_WIDE_BYTE_OR_0(0) // implicit termination, and indicates array
             | FLAG_LEN_BYTE_OR_255(255) // indicates dynamic (varlist rule)
     );
-    TRASH_POINTER_IF_DEBUG(copy->link_private.keysource); // needs update
+    TRASH_POINTER_IF_DEBUG(LINK_KEYSOURCE(copy)); // needs update
     memcpy(&copy->content, &stub->content, sizeof(union Reb_Series_Content));
-    copy->misc_private.meta = nullptr; // let stub have the meta
+    MISC_META_NODE(copy) = nullptr;  // let stub have the meta
 
     REBVAL *rootvar = cast(REBVAL*, copy->content.dynamic.data);
 
@@ -472,7 +479,9 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
 
     REBVAL *single = cast(REBVAL*, &stub->content.fixed);
     single->header.bits =
-        NODE_FLAG_NODE | NODE_FLAG_CELL | FLAG_KIND_BYTE(REB_FRAME);
+        NODE_FLAG_NODE | NODE_FLAG_CELL
+            | FLAG_KIND_BYTE(REB_FRAME)
+            | CELL_MASK_CONTEXT;
     INIT_BINDING(single, VAL_BINDING(rootvar));
     INIT_VAL_CONTEXT_VARLIST(single, ARR(stub));
     TRASH_POINTER_IF_DEBUG(PAYLOAD(Any, single).second.node);  // phase
@@ -482,7 +491,7 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     // Disassociate the stub from the frame, by degrading the link field
     // to a keylist.  !!! Review why this was needed, vs just nullptr
     //
-    LINK(stub).keysource = keysource;
+    LINK_KEYSOURCE(stub) = keysource;
 
     return CTX(copy);
 }

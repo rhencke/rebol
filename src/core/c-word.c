@@ -241,7 +241,7 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
         // list.  Walk the list to see if any of the synonyms are a match.
         //
         blockscope {
-            REBSTR *synonym = STR(SER_LINK_SYNONYM(canon));
+            REBSTR *synonym = LINK_SYNONYM(canon);
             while (synonym != canon) {
                 assert(NOT_SERIES_INFO(synonym, STRING_CANON));
 
@@ -250,7 +250,7 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
                     return synonym;  // exact match means no new interning
 
                 assert(cmp > 0);  // at least a synonym if in this list
-                synonym = STR(SER_LINK_SYNONYM(synonym));  // look until cycle
+                synonym = LINK_SYNONYM(synonym);  // look until cycle
             }
         }
 
@@ -297,7 +297,7 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
 
         SET_SERIES_INFO(intern, STRING_CANON);
 
-        SER_LINK_SYNONYM(intern) = NOD(intern);  // 1-item in circular list
+        LINK_SYNONYM_NODE(intern) = NOD(intern);  // 1-item in circular list
 
         // Canon symbols don't need to cache a canon pointer to themselves.
         // So instead that slot is reserved for tracking associated information
@@ -320,8 +320,8 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
         // circularly linked list, and direct link the canon form.
         //
         MISC(intern).length = 0;  // !!! TBD: codepoint count
-        SER_LINK_SYNONYM(intern) = SER_LINK_SYNONYM(canon);
-        SER_LINK_SYNONYM(canon) = NOD(intern);
+        LINK_SYNONYM_NODE(intern) = LINK_SYNONYM_NODE(canon);
+        LINK_SYNONYM_NODE(canon) = NOD(intern);
 
         // If the canon form had a SYM_XXX for quick comparison of %words.r
         // words in C switch statements, the synonym inherits that number.
@@ -353,14 +353,14 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
 //
 void GC_Kill_Interning(REBSTR *intern)
 {
-    REBSTR *synonym = STR(SER_LINK_SYNONYM(intern));
+    REBSTR *synonym = LINK_SYNONYM(intern);
 
     // Note synonym and intern may be the same here.
     //
     REBSTR *temp = synonym;
-    while (STR(SER_LINK_SYNONYM(temp)) != intern)
-        temp = STR(SER_LINK_SYNONYM(temp));
-    SER_LINK_SYNONYM(temp) = NOD(synonym);  // cut the intern out (or no-op)
+    while (LINK_SYNONYM(temp) != intern)
+        temp = LINK_SYNONYM(temp);
+    LINK_SYNONYM_NODE(temp) = NOD(synonym);  // cut the intern out (or no-op)
 
     if (NOT_SERIES_INFO(intern, STRING_CANON))
         return;  // for non-canon forms, removing from chain is all you need
@@ -547,7 +547,7 @@ void Startup_Symbols(REBARR *words)
             SET_SECOND_UINT16(name->header, sym);
             assert(SAME_SYM_NONZERO(STR_SYMBOL(name), sym));
 
-            name = STR(SER_LINK_SYNONYM(name));
+            name = LINK_SYNONYM(name);
         } while (name != canon); // circularly linked list, stop on a cycle
     }
 
@@ -628,7 +628,7 @@ void INIT_WORD_INDEX_Extra_Checks_Debug(RELVAL *v, REBCNT i)
     REBNOD *binding = VAL_BINDING(v);
     REBARR *keysource;
     if (NOT_SERIES_FLAG(binding, MANAGED))
-        keysource = ACT_PARAMLIST(FRM_PHASE(FRM(LINK(binding).keysource)));
+        keysource = ACT_PARAMLIST(FRM_PHASE(FRM(LINK_KEYSOURCE(binding))));
     else if (GET_ARRAY_FLAG(binding, IS_PARAMLIST))
         keysource = ACT_PARAMLIST(ACT(binding));
     else

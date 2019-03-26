@@ -263,9 +263,9 @@ REBNATIVE(typechecker)
     REBVAL *archetype = RESET_CELL(
         Alloc_Tail_Array(paramlist),
         REB_ACTION,
-        CELL_FLAG_FIRST_IS_NODE
+        CELL_MASK_ACTION
     );
-    PAYLOAD(Action, archetype).paramlist = paramlist;
+    VAL_ACT_PARAMLIST_NODE(archetype) = NOD(paramlist);
     INIT_BINDING(archetype, UNBOUND);
 
     Init_Param(
@@ -275,7 +275,7 @@ REBNATIVE(typechecker)
         TS_OPT_VALUE // Allow null (e.g. <opt>), returns false
     );
 
-    MISC(paramlist).meta = NULL; // !!! auto-generate info for HELP?
+    MISC_META_NODE(paramlist) = nullptr;  // !!! auto-generate info for HELP?
 
     REBACT *typechecker = Make_Action(
         paramlist,
@@ -346,7 +346,7 @@ REBNATIVE(chain)
         SPECIFIED,
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED // flags not auto-copied
     );
-    PAYLOAD(Action, ARR_HEAD(paramlist)).paramlist = paramlist;
+    VAL_ACT_PARAMLIST_NODE(ARR_HEAD(paramlist)) = NOD(paramlist);
 
     // Initialize the "meta" information, which is used by HELP.  Because it
     // has a link to the "chainees", it is not necessary to copy parameter
@@ -363,14 +363,14 @@ REBNATIVE(chain)
     Init_Nulled(CTX_VAR(meta, STD_CHAINED_META_DESCRIPTION)); // default
     Init_Block(CTX_VAR(meta, STD_CHAINED_META_CHAINEES), chainees);
     Init_Nulled(CTX_VAR(meta, STD_CHAINED_META_CHAINEE_NAMES));
-    MISC(paramlist).meta = meta; // must initialize before Make_Action
+    MISC_META_NODE(paramlist) = NOD(meta);  // must init before Make_Action
 
     REBACT *chain = Make_Action(
         paramlist,
         &Chainer_Dispatcher,
-        ACT_UNDERLYING(VAL_ACTION(first)), // same underlying as first action
-        ACT_EXEMPLAR(VAL_ACTION(first)), // same exemplar as first action
-        1 // details array capacity
+        ACT_UNDERLYING(VAL_ACTION(first)),  // same underlying as first action
+        ACT_EXEMPLAR(VAL_ACTION(first)),  // same exemplar as first action
+        1  // details array capacity
     );
     Init_Block(ARR_HEAD(ACT_DETAILS(chain)), chainees);
 
@@ -423,7 +423,7 @@ REBNATIVE(adapt)
             | (SER(VAL_ACTION(adaptee))->header.bits & PARAMLIST_MASK_INHERIT)
             | NODE_FLAG_MANAGED
     );
-    PAYLOAD(Action, ARR_HEAD(paramlist)).paramlist = paramlist;
+    VAL_ACT_PARAMLIST_NODE(ARR_HEAD(paramlist)) = NOD(paramlist);
 
     // See %sysobj.r for `adapted-meta:` object template
 
@@ -440,16 +440,16 @@ REBNATIVE(adapt)
             opt_adaptee_name
         );
 
-    MISC(paramlist).meta = meta;
+    MISC_META_NODE(paramlist) = NOD(meta);
 
     REBACT *underlying = ACT_UNDERLYING(VAL_ACTION(adaptee));
 
     REBACT *adaptation = Make_Action(
         paramlist,
         &Adapter_Dispatcher,
-        underlying, // same underlying as adaptee
-        ACT_EXEMPLAR(VAL_ACTION(adaptee)), // same exemplar as adaptee
-        2 // details array capacity => [prelude, adaptee]
+        underlying,  // same underlying as adaptee
+        ACT_EXEMPLAR(VAL_ACTION(adaptee)),  // same exemplar as adaptee
+        2  // details array capacity => [prelude, adaptee]
     );
 
     // !!! In a future branch it may be possible that specific binding allows
@@ -538,7 +538,7 @@ REBNATIVE(enclose)
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED
     );
     REBVAL *rootparam = KNOWN(ARR_HEAD(paramlist));
-    PAYLOAD(Action, rootparam).paramlist = paramlist;
+    VAL_ACT_PARAMLIST_NODE(rootparam) = NOD(paramlist);
 
     // See %sysobj.r for `enclosed-meta:` object template
 
@@ -563,14 +563,14 @@ REBNATIVE(enclose)
             opt_outer_name
         );
 
-    MISC(paramlist).meta = meta;
+    MISC_META_NODE(paramlist) = NOD(meta);
 
     REBACT *enclosure = Make_Action(
         paramlist,
         &Encloser_Dispatcher,
-        ACT_UNDERLYING(VAL_ACTION(inner)), // same underlying as inner
-        ACT_EXEMPLAR(VAL_ACTION(inner)), // same exemplar as inner
-        2 // details array capacity => [inner, outer]
+        ACT_UNDERLYING(VAL_ACTION(inner)),  // same underlying as inner
+        ACT_EXEMPLAR(VAL_ACTION(inner)),  // same exemplar as inner
+        2  // details array capacity => [inner, outer]
     );
 
     REBARR *details = ACT_DETAILS(enclosure);
@@ -654,7 +654,8 @@ REBNATIVE(hijack)
         // reasonably common case, and especially common when putting the
         // originally hijacked function back.
 
-        LINK(victim_paramlist).underlying = LINK(hijacker_paramlist).underlying;
+        LINK_UNDERLYING_NODE(victim_paramlist)
+            = LINK_UNDERLYING_NODE(hijacker_paramlist);
         if (LINK(hijacker_details).specialty == hijacker_paramlist)
             LINK(victim_details).specialty = victim_paramlist;
         else
@@ -1038,14 +1039,14 @@ REBNATIVE(reskinned)
 
     RELVAL *rootparam = ARR_HEAD(paramlist);
     SER(paramlist)->header.bits &= ~PARAMLIST_MASK_CACHED;
-    PAYLOAD(Action, rootparam).paramlist = paramlist;
+    VAL_ACT_PARAMLIST_NODE(rootparam) = NOD(paramlist);
     INIT_BINDING(rootparam, UNBOUND);
 
     // !!! This does not make a unique copy of the meta information context.
     // Hence updates to the title/parameter-descriptions/etc. of the tightened
     // function will affect the original, and vice-versa.
     //
-    MISC(paramlist).meta = ACT_META(original);
+    MISC_META_NODE(paramlist) = NOD(ACT_META(original));
 
     Manage_Array(paramlist);
 
@@ -1198,9 +1199,9 @@ REBNATIVE(n_shot)
     REBVAL *archetype = RESET_CELL(
         Alloc_Tail_Array(paramlist),
         REB_ACTION,
-        CELL_FLAG_FIRST_IS_NODE
+        CELL_MASK_ACTION
     );
-    PAYLOAD(Action, archetype).paramlist = paramlist;
+    VAL_ACT_PARAMLIST_NODE(archetype) = NOD(paramlist);
     INIT_BINDING(archetype, UNBOUND);
 
     // !!! Should anything DO would accept be legal, as DOES would run?
@@ -1212,7 +1213,7 @@ REBNATIVE(n_shot)
         FLAGIT_KIND(REB_BLOCK) | FLAGIT_KIND(REB_ACTION)
     );
 
-    MISC(paramlist).meta = NULL; // !!! auto-generate info for HELP?
+    MISC_META_NODE(paramlist) = nullptr;  // !!! auto-generate info for HELP?
 
     REBACT *n_shot = Make_Action(
         paramlist,

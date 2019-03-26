@@ -130,8 +130,8 @@
 //
 inline static bool Is_Overriding_Context(REBCTX *stored, REBCTX *override)
 {
-    REBNOD *stored_source = LINK(stored).keysource;
-    REBNOD *temp = LINK(override).keysource;
+    REBNOD *stored_source = LINK_KEYSOURCE(stored);
+    REBNOD *temp = LINK_KEYSOURCE(override);
 
     // FRAME! "keylists" are actually paramlists, and the LINK.underlying
     // field is used in paramlists (precluding a LINK.ancestor).  Plus, since
@@ -385,7 +385,7 @@ inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
 
     assert(GET_SERIES_FLAG(binding, STACK_LIFETIME));
  
-    REBFRM *f = FRM(LINK(binding).keysource);
+    REBFRM *f = FRM(LINK_KEYSOURCE(binding));
     assert(IS_END(f->param)); // cannot manage frame varlist in mid fulfill!
     UNUSED(f); // !!! not actually used yet, coming soon
 

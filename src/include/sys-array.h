@@ -46,6 +46,15 @@
 //
 
 
+// Ordinary source arrays use their ->link field to point to an interned file
+// name string (or URL string) from which the code was loaded.  If a series
+// was not created from a file, then the information from the source that was
+// running at the time is propagated into the new second-generation series.
+//
+#define LINK_FILE_NODE(s)       LINK(s).custom.node
+#define LINK_FILE(s)            STR(LINK_FILE_NODE(s))
+
+
 // These token-pasting based macros allow the callsites to be shorter, since
 // they don't have to say ARRAY and FLAG twice.
 
@@ -287,7 +296,7 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
             FS_TOP->feed->array and
             GET_ARRAY_FLAG(FS_TOP->feed->array, HAS_FILE_LINE_UNMASKED)
         ){
-            SER_LINK_FILE(s) = SER_LINK_FILE(FS_TOP->feed->array);
+            LINK_FILE_NODE(s) = LINK_FILE_NODE(FS_TOP->feed->array);
             MISC(s).line = MISC(FS_TOP->feed->array).line;
         }
         else {
@@ -335,7 +344,7 @@ inline static REBARR *Make_Array_For_Copy(
             capacity,
             flags & ~ARRAY_FLAG_HAS_FILE_LINE_UNMASKED
         );
-        SER_LINK_FILE(a) = SER_LINK_FILE(original);
+        LINK_FILE_NODE(a) = LINK_FILE_NODE(original);
         MISC(a).line = MISC(original).line;
         SET_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED);
         return a;

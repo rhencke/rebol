@@ -107,8 +107,8 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
         break;
 
       case REB_PAIR: {
-        REBVAL *p = PAYLOAD(Pair, v).paired;
-        assert(Is_Marked(p));
+        REBVAL *paired = VAL(VAL_NODE(v));
+        assert(Is_Marked(paired));
         break; }
 
       case REB_TUPLE:
@@ -276,8 +276,9 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
       case REB_ERROR:
       case REB_FRAME:
       case REB_PORT: {  // Note: VAL_CONTEXT() fails on SER_INFO_INACCESSIBLE
+        assert((v->header.bits & CELL_MASK_CONTEXT) == CELL_MASK_CONTEXT);
+
         REBCTX *context = CTX(PAYLOAD(Any, v).first.node);
-        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
         assert(Is_Marked(context));
 
         // Currently the "binding" in a context is only used by FRAME! to
@@ -423,14 +424,18 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
 
       case REB_ACTION: {
         REBACT *a = VAL_ACTION(v);
-        assert(Is_Marked(a));
+
+        REBARR *paramlist = ACT_PARAMLIST(a);
+        assert(Is_Marked(paramlist));
+        REBARR *details = ACT_DETAILS(a);
+        assert(Is_Marked(details));
 
         // Make sure the [0] slot of the paramlist holds an archetype that is
         // consistent with the paramlist itself.
         //
         REBVAL *archetype = ACT_ARCHETYPE(a);
-        assert(ACT_PARAMLIST(a) == VAL_ACT_PARAMLIST(archetype));
-        assert(ACT_DETAILS(a) == VAL_ACT_DETAILS(archetype));
+        assert(paramlist == VAL_ACT_PARAMLIST(archetype));
+        assert(details == VAL_ACT_DETAILS(archetype));
         break; }
 
       case REB_QUOTED:

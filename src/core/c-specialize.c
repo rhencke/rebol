@@ -130,8 +130,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     REBVAL *rootvar = RESET_CELL(
         ARR_HEAD(varlist),
         REB_FRAME,
-        CELL_FLAG_FIRST_IS_NODE
-            /* | CELL_FLAG_SECOND_IS_NODE */  // !!! TBD, implicit
+        CELL_MASK_CONTEXT
     );
     INIT_VAL_CONTEXT_VARLIST(rootvar, varlist);
     INIT_VAL_CONTEXT_PHASE(rootvar, VAL_ACTION(action));
@@ -306,9 +305,9 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     }
 
     TERM_ARRAY_LEN(varlist, num_slots);
-    MISC(varlist).meta = NULL; // GC sees this, we must initialize
+    MISC_META_NODE(varlist) = nullptr;  // GC sees this, we must initialize
 
-    // !!! Can't currently pass SERIES_FLAG_STACK_LIFETIME into Make_Array_Core(),
+    // !!! Can't pass SERIES_FLAG_STACK_LIFETIME into Make_Array_Core(),
     // because TERM_ARRAY_LEN won't let it set stack array lengths.
     //
     if (prep & CELL_FLAG_STACK_LIFETIME)
@@ -695,7 +694,7 @@ bool Specialize_Action_Throws(
     );
     Manage_Array(paramlist);
     RELVAL *rootparam = ARR_HEAD(paramlist);
-    PAYLOAD(Action, rootparam).paramlist = paramlist;
+    VAL_ACT_PARAMLIST_NODE(rootparam) = NOD(paramlist);
 
     // REB_P_REFINEMENT slots which started partially specialized (or
     // unspecialized) in the exemplar now all contain REB_X_PARTIAL, but we
@@ -842,7 +841,7 @@ bool Specialize_Action_Throws(
             opt_specializee_name
         );
 
-    MISC(paramlist).meta = meta;
+    MISC_META_NODE(paramlist) = NOD(meta);
 
     REBACT *specialized = Make_Action(
         paramlist,
@@ -1196,7 +1195,7 @@ REB_R Block_Dispatcher(REBFRM *f)
         // Preserve file and line information from the original, if present.
         //
         if (GET_ARRAY_FLAG(VAL_ARRAY(block), HAS_FILE_LINE_UNMASKED)) {
-            SER_LINK_FILE(body_array) = SER_LINK_FILE(VAL_ARRAY(block));
+            LINK_FILE_NODE(body_array) = LINK_FILE_NODE(VAL_ARRAY(block));
             MISC(body_array).line = MISC(VAL_ARRAY(block)).line;
             SET_ARRAY_FLAG(body_array, HAS_FILE_LINE_UNMASKED);
         }
@@ -1394,7 +1393,7 @@ bool Make_Frame_From_Varargs_Throws(
     REBCTX *exemplar = Steal_Context_Vars(CTX(f->varlist), NOD(act));
     assert(ACT_NUM_PARAMS(act) == CTX_LEN(exemplar));
 
-    LINK(exemplar).keysource = NOD(act);
+    LINK_KEYSOURCE(exemplar) = NOD(act);
 
     SET_SERIES_FLAG(f->varlist, MANAGED); // is inaccessible
     f->varlist = nullptr; // just let it GC, for now
@@ -1442,15 +1441,14 @@ REBNATIVE(does)
         REBVAL *archetype = RESET_CELL(
             Alloc_Tail_Array(paramlist),
             REB_ACTION,
-            CELL_FLAG_FIRST_IS_NODE
+            CELL_MASK_ACTION
         );
-        PAYLOAD(Action, archetype).paramlist = paramlist;
+        VAL_ACT_PARAMLIST_NODE(archetype) = NOD(paramlist);
         INIT_BINDING(archetype, UNBOUND);
         TERM_ARRAY_LEN(paramlist, 1);
 
-        MISC(paramlist).meta = nullptr; // REDESCRIBE can be used to add help
+        MISC_META_NODE(paramlist) = nullptr;  // REDESCRIBE can add help
 
-        //
         // `does [...]` and `does do [...]` are not exactly the same.  The
         // generated ACTION! of the first form uses Block_Dispatcher() and
         // does on-demand relativization, so it's "kind of like" a `func []`
@@ -1526,13 +1524,13 @@ REBNATIVE(does)
     RELVAL *archetype = RESET_CELL(
         ARR_HEAD(paramlist),
         REB_ACTION,
-        CELL_FLAG_FIRST_IS_NODE
+        CELL_MASK_ACTION
     );
-    PAYLOAD(Action, archetype).paramlist = paramlist;
+    VAL_ACT_PARAMLIST_NODE(archetype) = NOD(paramlist);
     INIT_BINDING(archetype, UNBOUND);
     TERM_ARRAY_LEN(paramlist, 1);
 
-    MISC(paramlist).meta = nullptr; // REDESCRIBE can be used to add help
+    MISC_META_NODE(paramlist) = nullptr;  // REDESCRIBE can add help
 
     REBVAL *param = ACT_PARAMS_HEAD(unspecialized);
     RELVAL *alias = archetype + 1;

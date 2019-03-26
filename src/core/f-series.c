@@ -87,8 +87,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
             if (NOT_ARRAY_FLAG(s, HAS_FILE_LINE_UNMASKED))
                 return nullptr;
 
-            Init_File(D_OUT, STR(SER_LINK_FILE(s)));
-            return D_OUT; }
+            return Init_File(D_OUT, LINK_FILE(s)); }
 
         case SYM_LINE: {
             REBSER *s = VAL_SERIES(value);

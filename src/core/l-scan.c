@@ -2174,7 +2174,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 //
                 REBARR *a = Make_Array_Core(2, NODE_FLAG_MANAGED);
                 MISC(a).line = ss->line;
-                SER_LINK_FILE(a) = NOD(ss->file);
+                LINK_FILE_NODE(a) = NOD(ss->file);
                 SET_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED);
                 SET_SERIES_FLAG(a, LINK_NODE_NEEDS_MARK);
 
@@ -2204,7 +2204,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                     flags
                 );
                 MISC(a).line = ss->line;
-                SER_LINK_FILE(a) = NOD(ss->file);
+                LINK_FILE_NODE(a) = NOD(ss->file);
                 SET_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED);
                 SET_SERIES_FLAG(a, LINK_NODE_NEEDS_MARK);
 
@@ -2398,7 +2398,7 @@ static REBARR *Scan_Child_Array(SCAN_STATE *ss, REBYTE mode_char)
     // Tag array with line where the beginning bracket/group/etc. was found
     //
     MISC(a).line = ss->line;
-    SER_LINK_FILE(a) = NOD(ss->file);
+    LINK_FILE_NODE(a) = NOD(ss->file);
     SET_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED);
     SET_SERIES_FLAG(a, LINK_NODE_NEEDS_MARK);
 
@@ -2457,7 +2457,7 @@ REBARR *Scan_UTF8_Managed(REBSTR *filename, const REBYTE *utf8, REBSIZ size)
     );
 
     MISC(a).line = ss.line;
-    SER_LINK_FILE(a) = NOD(ss.file);
+    LINK_FILE_NODE(a) = NOD(ss.file);
     SET_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED);
     SET_SERIES_FLAG(a, LINK_NODE_NEEDS_MARK);
 
@@ -2597,7 +2597,7 @@ REBNATIVE(transcode)
             | (ss.newline_pending ? ARRAY_FLAG_NEWLINE_AT_TAIL : 0)
     );
     MISC(a).line = ss.line;
-    SER_LINK_FILE(a) = NOD(ss.file);
+    LINK_FILE_NODE(a) = NOD(ss.file);
     SET_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED);
 
     return Init_Block(D_OUT, a);

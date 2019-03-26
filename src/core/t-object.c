@@ -442,9 +442,7 @@ REB_R PD_Context(
 //      value [<blank> action! any-context!]
 //  ]
 //
-REBNATIVE(meta_of)
-//
-// See notes accompanying the `meta` field in the REBSER definition.
+REBNATIVE(meta_of)  // see notes on MISC_META()
 {
     INCLUDE_PARAMS_OF_META_OF;
 
@@ -455,7 +453,7 @@ REBNATIVE(meta_of)
         meta = VAL_ACT_META(v);
     else {
         assert(ANY_CONTEXT(v));
-        meta = MISC(VAL_CONTEXT(v)).meta;
+        meta = MISC_META(VAL_CONTEXT(v));
     }
 
     if (not meta)
@@ -496,11 +494,9 @@ REBNATIVE(set_meta)
     REBVAL *v = ARG(value);
 
     if (IS_ACTION(v))
-        MISC(VAL_ACT_PARAMLIST(v)).meta = meta;
-    else {
-        assert(ANY_CONTEXT(v));
-        MISC(VAL_CONTEXT(v)).meta = meta;
-    }
+        MISC_META_NODE(VAL_ACT_PARAMLIST(v)) = NOD(meta);
+    else
+        MISC_META_NODE(VAL_CONTEXT(v)) = NOD(meta);
 
     if (not meta)
         return nullptr;
@@ -566,12 +562,12 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
     // If we're copying a frame here, we know it's not running.
     //
     if (CTX_TYPE(original) == REB_FRAME)
-        MISC(varlist).meta = NULL;
+        MISC_META_NODE(varlist) = nullptr;
     else {
         // !!! Should the meta object be copied for other context types?
         // Deep copy?  Shallow copy?  Just a reference to the same object?
         //
-        MISC(varlist).meta = NULL;
+        MISC_META_NODE(varlist) = nullptr;
     }
 
     return copy;

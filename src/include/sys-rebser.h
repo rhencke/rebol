@@ -751,34 +751,6 @@ union Reb_Series_Link {
     //
     REBNOD *owner;
 
-    // REBCTX types use this field of their varlist (which is the identity of
-    // an ANY-CONTEXT!) to find their "keylist".  It is stored in the REBSER
-    // node of the varlist REBARR vs. in the REBVAL of the ANY-CONTEXT! so
-    // that the keylist can be changed without needing to update all the
-    // REBVALs for that object.
-    //
-    // It may be a simple REBARR* -or- in the case of the varlist of a running
-    // FRAME! on the stack, it points to a REBFRM*.  If it's a FRAME! that
-    // is not running on the stack, it will be the function paramlist of the
-    // actual phase that function is for.  Since REBFRM* all start with a
-    // REBVAL cell, this means NODE_FLAG_CELL can be used on the node to
-    // discern the case where it can be cast to a REBFRM* vs. REBARR*.
-    //
-    // (Note: FRAME!s used to use a field `misc.f` to track the associated
-    // frame...but that prevented the ability to SET-META on a frame.  While
-    // that feature may not be essential, it seems awkward to not allow it
-    // since it's allowed for other ANY-CONTEXT!s.  Also, it turns out that
-    // heap-based FRAME! values--such as those that come from MAKE FRAME!--
-    // have to get their keylist via the specifically applicable ->phase field
-    // anyway, and it's a faster test to check this for NODE_FLAG_CELL than to
-    // separately extract the CTX_TYPE() and treat frames differently.)
-    //
-    // It is done as a base-class REBNOD* as opposed to a union in order to
-    // not run afoul of C's rules, by which you cannot assign one member of
-    // a union and then read from another.
-    //
-    REBNOD *keysource;
-
     // On the keylist of an object, this points at a keylist which has the
     // same number of keys or fewer, which represents an object which this
     // object is derived from.  Note that when new object instances are
@@ -786,12 +758,6 @@ union Reb_Series_Link {
     // be the same as the object they are derived from.
     //
     REBARR *ancestor;
-
-    // An underlying function is one whose frame is compatible with a
-    // derived function (e.g. the underlying function of a specialization or
-    // an adaptation).
-    //
-    REBACT *underlying;
 
     // For a writable REBSTR, a list of entities that cache the mapping from
     // index to character offset is maintained.  Without some help, it would
@@ -841,25 +807,6 @@ union Reb_Series_Link {
     //
     union Reb_Any custom;
 };
-
-// Ordinary source arrays use their ->link field to point to an interned file
-// name string (or URL string) from which the code was loaded.  If a series
-// was not created from a file, then the information from the source that was
-// running at the time is propagated into the new second-generation series.
-//
-#define SER_LINK_FILE(s) \
-    LINK(s).custom.node
-
-// For a *read-only* REBSTR, circularly linked list of othEr-CaSed string
-// forms.  It should be relatively quick to find the canon form on
-// average, since many-cased forms are somewhat rare.
-//
-// Note: String series using this don't have SERIES_FLAG_LINK_NODE_NEEDS_MARK.
-// One synonym need not keep another alive, because the process of freeing
-// string nodes unlinks them from the list.  (Hence the canon can change!)
-//
-#define SER_LINK_SYNONYM(s) \
-    LINK(s).custom.node
 
 
 // The `misc` field is an extra pointer-sized piece of data which is resident
@@ -911,12 +858,6 @@ union Reb_Series_Misc {
         int high:16;
         int low:16;
     } bind_index;
-
-    // ACTION! paramlists and ANY-CONTEXT! varlists can store a "meta"
-    // object.  It's where information for HELP is saved, and it's how modules
-    // store out-of-band information that doesn't appear in their body.
-    //
-    REBCTX *meta;
 
     // When copying arrays, it's necessary to keep a map from source series
     // to their corresponding new copied series.  This allows multiple

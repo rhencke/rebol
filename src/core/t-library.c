@@ -63,7 +63,7 @@ REB_R MAKE_Library(
     PAYLOAD(Library, ARR_SINGLE(singular)).singular = singular;
 
     LINK(singular).fd = fd;
-    MISC(singular).meta = NULL; // build from spec, e.g. arg?
+    MISC_META_NODE(singular) = nullptr;  // !!! build from spec, e.g. arg?
 
     return Move_Value(out, KNOWN(ARR_HEAD(singular)));
 }

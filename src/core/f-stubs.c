@@ -350,8 +350,8 @@ void Extra_Init_Any_Context_Checks_Debug(enum Reb_Kind kind, REBCTX *c) {
     assert(NOT_ARRAY_FLAG(keylist, HAS_FILE_LINE_UNMASKED));
 
     assert(
-        not MISC(varlist).meta
-        or ANY_CONTEXT(CTX_ARCHETYPE(MISC(varlist).meta)) // current rule
+        not MISC_META(varlist)
+        or ANY_CONTEXT(CTX_ARCHETYPE(MISC_META(varlist)))  // current rule
     );
 
     // FRAME!s must always fill in the phase slot, but that piece of the
@@ -394,8 +394,8 @@ void Extra_Init_Action_Checks_Debug(REBACT *a) {
     // though the interface may expand.
     //
     assert(
-        MISC(paramlist).meta == NULL
-        or ANY_CONTEXT(CTX_ARCHETYPE(MISC(paramlist).meta))
+        not MISC_META(paramlist)
+        or ANY_CONTEXT(CTX_ARCHETYPE(MISC_META(paramlist)))
     );
 }
 

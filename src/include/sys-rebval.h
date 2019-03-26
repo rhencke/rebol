@@ -459,12 +459,6 @@ struct Reb_Typeset_Payload  // see %sys-typeset.h
     REBU64 bits;  // One bit for each DATATYPE! (use with FLAGIT_KIND)
 };
 
-struct Reb_Action_Payload  // see %sys-action.h
-{
-    REBARR *paramlist;  // see MISC.meta, LINK.underlying in %sys-rebser.h
-    REBARR *details;  // see MISC.dispatcher, LINK.specialty in %sys-rebser.h
-};
-
 struct Reb_Varargs_Payload  // see %sys-varargs.h
 {
     REBINT signed_param_index;  // if negative, consider the arg enfixed
@@ -473,11 +467,6 @@ struct Reb_Varargs_Payload  // see %sys-varargs.h
 
 struct Reb_Time_Payload {  // see %sys-time.h
     REBI64 nanoseconds;
-};
-
-struct Reb_Pair_Payload  // see %sys-pair.h
-{
-    REBVAL *paired;  // 2 values packed in a series node, see Alloc_Pairing()
 };
 
 struct Reb_Handle_Payload {  // see %sys-handle.h
@@ -539,8 +528,8 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     //     REBINT index;  // index of word in context (if binding is not null)
     //
     // ANY-CONTEXT!  // see %sys-context.h
-    //     REBARR *varlist;  // see MISC.meta, LINK.keysource in %sys-rebser.h
-    //     REBACT *phase;  // only used by FRAME! contexts, see %sys-frame.h
+    //     REBARR *varlist;  // has MISC.meta, LINK.keysource
+    //     REBACT *phase;  // used by FRAME! contexts, see %sys-frame.h
     //
     // ANY-SERIES!  // see %sys-series.h
     //     REBSER *rebser;  // vector/double-ended-queue of equal-sized items
@@ -550,6 +539,10 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     //     REBVAL *paired;  // paired value handle
     //     REBCNT depth;  // how deep quoting level is (> 3 if payload needed)
     //
+    // ACTION!  // see %sys-action.h
+    //      REBARR *paramlist;  // has MISC.meta, LINK.underlying
+    //      REBARR *details;  // has MISC.dispatcher, LINK.specialty 
+
     struct Reb_Any_Payload Any;
 
     struct Reb_Logic_Payload Logic;
@@ -558,10 +551,8 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     struct Reb_Decimal_Payload Decimal;
     struct Reb_Datatype_Payload Datatype;
     struct Reb_Typeset_Payload Typeset;
-    struct Reb_Action_Payload Action;
     struct Reb_Varargs_Payload Varargs;
     struct Reb_Time_Payload Time;
-    struct Reb_Pair_Payload Pair;
     struct Reb_Handle_Payload Handle;
     struct Reb_Library_Payload Library;
 

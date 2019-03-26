@@ -38,6 +38,8 @@ struct Reb_Action {
 //
 #define SERIES_MASK_ACTION \
     (NODE_FLAG_NODE | SERIES_FLAG_ALWAYS_DYNAMIC | SERIES_FLAG_FIXED_SIZE \
+        | SERIES_FLAG_LINK_NODE_NEEDS_MARK  /* underlying */ \
+        | SERIES_FLAG_MISC_NODE_NEEDS_MARK  /* meta */ \
         | ARRAY_FLAG_IS_PARAMLIST)
 
 

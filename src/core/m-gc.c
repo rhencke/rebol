@@ -150,12 +150,12 @@ static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
     if (GET_SERIES_FLAG(a, MARKED))
         return; // may not be finished marking yet, but has been queued
 
+    Mark_Rebser_Only(cast(REBSER*, a));
+
     if (GET_SERIES_FLAG(a, LINK_NODE_NEEDS_MARK))
         Queue_Mark_Node_Deep(LINK(a).custom.node);
     if (GET_SERIES_FLAG(a, MISC_NODE_NEEDS_MARK))
         Queue_Mark_Node_Deep(MISC(a).custom.node);
-
-    Mark_Rebser_Only(cast(REBSER*, a));
 
     // Add series to the end of the mark stack series.  The length must be
     // maintained accurately to know when the stack needs to grow.
@@ -204,20 +204,6 @@ inline static void Queue_Mark_Action_Deep(REBACT *a) {
     );
 
     Queue_Mark_Array_Subclass_Deep(paramlist); // see Propagate_All_GC_Marks()
-}
-
-inline static void Queue_Mark_Map_Deep(REBMAP *m) {
-    REBARR *pairlist = MAP_PAIRLIST(m);
-    assert(
-        ARRAY_FLAG_IS_PAIRLIST == (SER(pairlist)->header.bits & (
-            ARRAY_FLAG_IS_PAIRLIST
-                | ARRAY_FLAG_IS_VARLIST
-                | ARRAY_FLAG_IS_PARAMLIST
-                | ARRAY_FLAG_HAS_FILE_LINE_UNMASKED
-        ))
-    );
-
-    Queue_Mark_Array_Subclass_Deep(pairlist); // see Propagate_All_GC_Marks()
 }
 
 
@@ -314,7 +300,12 @@ static void Queue_Mark_Node_Deep(REBNOD *n)
         return;  // nulls are allowed by generic marking
 
     if (n->header.bits & NODE_FLAG_CELL) {  // e.g. a pairing
-        Queue_Mark_Pairing_Deep(VAL(n));
+        if (n->header.bits & NODE_FLAG_MANAGED)
+            Queue_Mark_Pairing_Deep(VAL(n));
+        else {
+            // !!! It's a frame?  API handle?  Skip frame case (keysource)
+            // for now, but revisit as technique matures.
+        }
         return;  // it's 2 cells, sizeof(REBSER), but no room for REBSER data
     }
     REBSER *s = SER(n);
@@ -335,12 +326,14 @@ static void Queue_Mark_Node_Deep(REBNOD *n)
 //
 static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
 {
-    assert(not in_mark);
+    enum Reb_Kind kind = CELL_KIND_UNCHECKED(v);  // unescaped ('''a => WORD!)
+    if (kind == REB_0)
+        return;
+
   #if !defined(NDEBUG)
+    assert(not in_mark);
     in_mark = true;
   #endif
-
-    enum Reb_Kind kind = CELL_KIND_UNCHECKED(v);  // unescaped ('''a => WORD!)
 
     REBNOD *binding = IS_BINDABLE_KIND(kind)
         ? EXTRA(Binding, v).node  // VAL_BINDING() macro checks bind again
@@ -349,27 +342,13 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
     if (binding != UNBOUND and (binding->header.bits & NODE_FLAG_MANAGED))
         Queue_Mark_Array_Subclass_Deep(ARR(binding));
 
-    // A word marks the specific spelling it uses, but not the canon
-    // value.  That's because if the canon value gets GC'd, then
-    // another value might become the new canon during that sweep.
-    //
-    if (v->header.bits & CELL_FLAG_FIRST_IS_NODE)  // may be END, use &
+    if (GET_CELL_FLAG(v, FIRST_IS_NODE))
         Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);
 
-    switch (kind) {
-      case REB_GET_GROUP:
-      case REB_SET_GROUP:
-      case REB_GROUP:
-      case REB_GET_BLOCK:
-      case REB_SET_BLOCK:
-      case REB_BLOCK: {
-        REBARR *a = ARR(PAYLOAD(Any, v).first.node);
-        if (GET_SERIES_INFO(a, INACCESSIBLE))
-            Mark_Rebser_Only(SER(a));
-        else
-            Queue_Mark_Array_Deep(a);
-        break; }
+    if (GET_CELL_FLAG(v, SECOND_IS_NODE))
+        Queue_Mark_Node_Deep(PAYLOAD(Any, v).second.node);
 
+    switch (kind) {
       case REB_HANDLE: {  // See %sys-handle.h
         REBARR *a = EXTRA(Handle, v).singular;
         if (not a) {
@@ -387,14 +366,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         }
         break; }
 
-      case REB_PAIR:
-        Queue_Mark_Pairing_Deep(PAYLOAD(Pair, v).paired);
-        break;
-
-      case REB_MAP:
-        Queue_Mark_Map_Deep(VAL_MAP(v));
-        break;
-
       case REB_DATATYPE:
         // Type spec is allowed to be NULL.  See %typespec.r file
         if (VAL_TYPE_SPEC(v))
@@ -405,20 +376,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         if (PAYLOAD(Varargs, v).phase)  // null if came from MAKE VARARGS!
             Queue_Mark_Action_Deep(PAYLOAD(Varargs, v).phase);
         break; }
-
-      case REB_OBJECT:
-      case REB_FRAME:
-      case REB_MODULE:
-      case REB_ERROR:
-      case REB_PORT: {  // Note: VAL_CONTEXT() fails on SER_INFO_INACCESSIBLE
-        Queue_Mark_Context_Deep(CTX(PAYLOAD(Any, v).first.node));
-
-        REBACT *phase = ACT(PAYLOAD(Any, v).second.node);
-        if (phase)
-            Queue_Mark_Action_Deep(phase);
-        break; }
-
-    //=//// CUSTOM EXTENSION TYPES ////////////////////////////////////////=//
 
       case REB_LIBRARY: {
         Queue_Mark_Array_Deep(VAL_LIBRARY(v));
@@ -508,10 +465,10 @@ static void Propagate_All_GC_Marks(void)
             // because of the potential for overflowing the C stack with calls
             // to Queue_Mark_Function_Deep.
 
-            REBARR *details = PAYLOAD(Action, v).details;
+            REBARR *details = VAL_ACT_DETAILS(v);
             Queue_Mark_Array_Deep(details);
 
-            REBACT *underlying = LINK(a).underlying;
+            REBACT *underlying = LINK_UNDERLYING(a);
             Queue_Mark_Action_Deep(underlying);
 
             REBARR *specialty = LINK(details).specialty;
@@ -519,10 +476,6 @@ static void Propagate_All_GC_Marks(void)
                 Queue_Mark_Context_Deep(CTX(specialty));
             else
                 assert(specialty == a);
-
-            REBCTX *meta = MISC(a).meta;
-            if (meta)
-                Queue_Mark_Context_Deep(meta);
 
             // Functions can't currently be freed by FREE...
             //
@@ -542,7 +495,7 @@ static void Propagate_All_GC_Marks(void)
             // because of the potential for overflowing the C stack with calls
             // to Queue_Mark_Context_Deep.
 
-            REBNOD *keysource = LINK(a).keysource;
+            REBNOD *keysource = LINK_KEYSOURCE(a);
             if (keysource->header.bits & NODE_FLAG_CELL) {
                 //
                 // Must be a FRAME! and it must be on the stack running.  If
@@ -571,10 +524,6 @@ static void Propagate_All_GC_Marks(void)
                 }
                 Queue_Mark_Array_Subclass_Deep(keylist);
             }
-
-            REBCTX *meta = MISC(a).meta;
-            if (meta != NULL)
-                Queue_Mark_Context_Deep(meta);
 
             // Stack-based frames will be inaccessible if they are no longer
             // running, so there's no data to mark...

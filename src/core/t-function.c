@@ -191,11 +191,12 @@ REBTYPE(Action)
 
         REBARR *proxy_paramlist = Copy_Array_Deep_Flags_Managed(
             ACT_PARAMLIST(act),
-            SPECIFIED, // !!! Note: not actually "deep", just typesets
+            SPECIFIED,  // !!! Note: not actually "deep", just typesets
             SERIES_MASK_ACTION
         );
-        PAYLOAD(Action, ARR_HEAD(proxy_paramlist)).paramlist = proxy_paramlist;
-        MISC(proxy_paramlist).meta = ACT_META(act);
+        VAL_ACT_PARAMLIST_NODE(ARR_HEAD(proxy_paramlist))
+            = NOD(proxy_paramlist);
+        MISC_META_NODE(proxy_paramlist) = NOD(ACT_META(act));
 
         // If the function had code, then that code will be bound relative
         // to the original paramlist that's getting hijacked.  So when the
@@ -207,9 +208,9 @@ REBTYPE(Action)
         REBACT *proxy = Make_Action(
             proxy_paramlist,
             ACT_DISPATCHER(act),
-            ACT_UNDERLYING(act), // !!! ^-- see notes above RE: frame pushing
-            ACT_EXEMPLAR(act), // not changing the specialization
-            details_len // details array capacity
+            ACT_UNDERLYING(act),  // !!! ^-- see notes above RE: frame pushing
+            ACT_EXEMPLAR(act),  // not changing the specialization
+            details_len  // details array capacity
         );
 
         // A new body_holder was created inside Make_Action().  Rare case
@@ -288,7 +289,7 @@ REBTYPE(Action)
                 return nullptr;
 
             if (property == SYM_FILE)  // !!! How to tell URL! vs FILE! ?
-                Init_File(D_OUT, STR(SER_LINK_FILE(a)));
+                Init_File(D_OUT, LINK_FILE(a));
             else
                 Init_Integer(D_OUT, MISC(a).line);
 

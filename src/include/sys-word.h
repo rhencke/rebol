@@ -33,6 +33,48 @@
 //
 
 
+
+// REBCTX types use this field of their varlist (which is the identity of
+// an ANY-CONTEXT!) to find their "keylist".  It is stored in the REBSER
+// node of the varlist REBARR vs. in the REBVAL of the ANY-CONTEXT! so
+// that the keylist can be changed without needing to update all the
+// REBVALs for that object.
+//
+// It may be a simple REBARR* -or- in the case of the varlist of a running
+// FRAME! on the stack, it points to a REBFRM*.  If it's a FRAME! that
+// is not running on the stack, it will be the function paramlist of the
+// actual phase that function is for.  Since REBFRM* all start with a
+// REBVAL cell, this means NODE_FLAG_CELL can be used on the node to
+// discern the case where it can be cast to a REBFRM* vs. REBARR*.
+//
+// (Note: FRAME!s used to use a field `misc.f` to track the associated
+// frame...but that prevented the ability to SET-META on a frame.  While
+// that feature may not be essential, it seems awkward to not allow it
+// since it's allowed for other ANY-CONTEXT!s.  Also, it turns out that
+// heap-based FRAME! values--such as those that come from MAKE FRAME!--
+// have to get their keylist via the specifically applicable ->phase field
+// anyway, and it's a faster test to check this for NODE_FLAG_CELL than to
+// separately extract the CTX_TYPE() and treat frames differently.)
+//
+// It is done as a base-class REBNOD* as opposed to a union in order to
+// not run afoul of C's rules, by which you cannot assign one member of
+// a union and then read from another.
+//
+#define LINK_KEYSOURCE(s)       LINK(s).custom.node
+
+
+// For a *read-only* REBSTR, circularly linked list of othEr-CaSed string
+// forms.  It should be relatively quick to find the canon form on
+// average, since many-cased forms are somewhat rare.
+//
+// Note: String series using this don't have SERIES_FLAG_LINK_NODE_NEEDS_MARK.
+// One synonym need not keep another alive, because the process of freeing
+// string nodes unlinks them from the list.  (Hence the canon can change!)
+//
+#define LINK_SYNONYM_NODE(s)    LINK(s).custom.node
+#define LINK_SYNONYM(s)         STR(LINK_SYNONYM_NODE(s))
+
+
 //=//// SAFE COMPARISONS WITH BUILT-IN SYMBOLS ////////////////////////////=//
 //
 // A SYM refers to one of the built-in words and can be used in C switch
@@ -121,7 +163,7 @@ inline static REBSTR *STR_CANON(REBSTR *s) {
     assert(NOT_SERIES_FLAG(s, UTF8_NONWORD));
     assert(SER_WIDE(s) == 1);
     while (NOT_SERIES_INFO(s, STRING_CANON))
-        s = STR(SER_LINK_SYNONYM(s));  // circularly linked list
+        s = LINK_SYNONYM(s);  // circularly linked list
     return s;
 }
 
@@ -192,7 +234,7 @@ inline static REBCTX *VAL_WORD_CONTEXT(const REBVAL *v) {
     REBNOD *binding = VAL_BINDING(v);
     assert(
         GET_SERIES_FLAG(binding, MANAGED)
-        or IS_END(FRM(LINK(binding).keysource)->param)  // not "fulfilling"
+        or IS_END(FRM(LINK_KEYSOURCE(binding))->param)  // not "fulfilling"
     );
     binding->header.bits |= NODE_FLAG_MANAGED;  // !!! review managing needs
     return CTX(binding);

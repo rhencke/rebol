@@ -603,9 +603,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         REBVAL *archetype = RESET_CELL(
             ARR_HEAD(paramlist),
             REB_ACTION,
-            CELL_FLAG_FIRST_IS_NODE
+            CELL_MASK_ACTION
         );
-        PAYLOAD(Action, archetype).paramlist = paramlist;
+        VAL_ACT_PARAMLIST_NODE(archetype) = NOD(paramlist);
         INIT_BINDING(archetype, UNBOUND);
 
         REBVAL *dest = archetype + 1;
@@ -684,7 +684,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     if (has_description or has_types or has_notes)
         meta = Copy_Context_Shallow_Managed(VAL_CONTEXT(Root_Action_Meta));
 
-    MISC(paramlist).meta = meta;
+    MISC_META_NODE(paramlist) = NOD(meta);
 
     // If a description string was gathered, it's sitting in the first string
     // slot, the third cell we pushed onto the stack.  Extract it if so.
@@ -704,14 +704,13 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             num_slots,
             SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED
         );
-        MISC(types_varlist).meta = NULL; // GC sees this, must initialize
+        MISC_META_NODE(types_varlist) = nullptr;  // GC sees, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(types_varlist), paramlist);
 
         REBVAL *rootvar = RESET_CELL(
             ARR_HEAD(types_varlist),
             REB_FRAME,
-            CELL_FLAG_FIRST_IS_NODE
-                /* | CELL_FLAG_SECOND_IS_NODE */  // !!! TBD, implicit
+            CELL_MASK_CONTEXT
         );
         INIT_VAL_CONTEXT_VARLIST(rootvar, types_varlist);  // "canon FRAME!"
         INIT_VAL_CONTEXT_PHASE(rootvar, ACT(paramlist));
@@ -769,14 +768,13 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             num_slots,
             SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED
         );
-        MISC(notes_varlist).meta = NULL; // GC sees this, must initialize
+        MISC_META_NODE(notes_varlist) = nullptr;  // GC sees, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(notes_varlist), paramlist);
 
         REBVAL *rootvar = RESET_CELL(
             ARR_HEAD(notes_varlist),
             REB_FRAME,
-            CELL_FLAG_FIRST_IS_NODE
-                /* | CELL_FLAG_SECOND_IS_NODE */  // !!! TBD, implicit
+            CELL_MASK_CONTEXT
         );
         INIT_VAL_CONTEXT_VARLIST(rootvar, notes_varlist); // canon FRAME!
         INIT_VAL_CONTEXT_PHASE(rootvar, ACT(paramlist));
@@ -891,7 +889,7 @@ REBACT *Make_Action(
 
     RELVAL *rootparam = ARR_HEAD(paramlist);
     assert(KIND_BYTE(rootparam) == REB_ACTION); // !!! not fully formed...
-    assert(PAYLOAD(Action, rootparam).paramlist == paramlist);
+    assert(VAL_ACT_PARAMLIST(rootparam) == paramlist);
     assert(EXTRA(Binding, rootparam).node == UNBOUND); // archetype
 
     // "details" for an action is an array of cells which can be anything
@@ -901,14 +899,14 @@ REBACT *Make_Action(
     REBARR *details = Make_Array_Core(details_capacity, NODE_FLAG_MANAGED);
     TERM_ARRAY_LEN(details, details_capacity);
 
-    PAYLOAD(Action, rootparam).details = details;
+    VAL_ACT_DETAILS_NODE(rootparam) = NOD(details);
 
     MISC(details).dispatcher = dispatcher; // level of indirection, hijackable
 
     assert(IS_POINTER_TRASH_DEBUG(LINK(paramlist).trash));
 
     if (opt_underlying) {
-        LINK(paramlist).underlying = opt_underlying;
+        LINK_UNDERLYING_NODE(paramlist) = NOD(opt_underlying);
 
         // Note: paramlist still incomplete, don't use SET_ACTION_FLAG....
         //
@@ -919,7 +917,7 @@ REBACT *Make_Action(
         // To avoid NULL checking when a function is called and looking for
         // underlying, just use the action's own paramlist if needed.
         //
-        LINK(paramlist).underlying = ACT(paramlist);
+        LINK_UNDERLYING_NODE(paramlist) = NOD(paramlist);
     }
 
     if (not opt_exemplar) {
@@ -946,8 +944,8 @@ REBACT *Make_Action(
     // used by HELP.  If so, it must be a valid REBCTX*.  Otherwise NULL.
     //
     assert(
-        not MISC(paramlist).meta
-        or GET_ARRAY_FLAG(CTX_VARLIST(MISC(paramlist).meta), IS_VARLIST)
+        not MISC_META(paramlist)
+        or GET_ARRAY_FLAG(CTX_VARLIST(MISC_META(paramlist)), IS_VARLIST)
     );
 
     assert(NOT_ARRAY_FLAG(paramlist, HAS_FILE_LINE_UNMASKED));
@@ -1017,13 +1015,12 @@ REBCTX *Make_Expired_Frame_Ctx_Managed(REBACT *a)
     REBARR *varlist = Alloc_Singular(NODE_FLAG_STACK | NODE_FLAG_MANAGED);
     SER(varlist)->header.bits |= SERIES_MASK_CONTEXT;
     SET_SERIES_INFO(varlist, INACCESSIBLE);
-    MISC(varlist).meta = nullptr;
+    MISC_META_NODE(varlist) = nullptr;
 
     RELVAL *rootvar = RESET_CELL(
         ARR_SINGLE(varlist),
         REB_FRAME,
-        CELL_FLAG_FIRST_IS_NODE
-            /* | CELL_FLAG_SECOND_IS_NODE */  // !!! TBD, implicit
+        CELL_MASK_CONTEXT
     );
     INIT_VAL_CONTEXT_VARLIST(rootvar, varlist);
     INIT_VAL_CONTEXT_PHASE(rootvar, a);
@@ -1274,12 +1271,12 @@ REBACT *Make_Interpreted_Action_May_Fail(
     // Favor the spec first, then the body, for file and line information.
     //
     if (GET_ARRAY_FLAG(VAL_ARRAY(spec), HAS_FILE_LINE_UNMASKED)) {
-        SER_LINK_FILE(copy) = SER_LINK_FILE(VAL_ARRAY(spec));
+        LINK_FILE_NODE(copy) = LINK_FILE_NODE(VAL_ARRAY(spec));
         MISC(copy).line = MISC(VAL_ARRAY(spec)).line;
         SET_ARRAY_FLAG(copy, HAS_FILE_LINE_UNMASKED);
     }
     else if (GET_ARRAY_FLAG(VAL_ARRAY(body), HAS_FILE_LINE_UNMASKED)) {
-        SER_LINK_FILE(copy) = SER_LINK_FILE(VAL_ARRAY(body));
+        LINK_FILE_NODE(copy) = LINK_FILE_NODE(VAL_ARRAY(body));
         MISC(copy).line = MISC(VAL_ARRAY(body)).line;
         SET_ARRAY_FLAG(copy, HAS_FILE_LINE_UNMASKED);
     }
@@ -1667,7 +1664,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     // user handles on it...so just take it.  Otherwise, "steal" its vars.
     //
     REBCTX *c = Steal_Context_Vars(CTX(f->varlist), NOD(FRM_PHASE(f)));
-    LINK(c).keysource = NOD(VAL_ACTION(inner));
+    LINK_KEYSOURCE(c) = NOD(VAL_ACTION(inner));
     CLEAR_SERIES_FLAG(c, STACK_LIFETIME);
 
     assert(GET_SERIES_INFO(f->varlist, INACCESSIBLE));  // look dead

@@ -37,14 +37,19 @@ inline static REBVAL *PAIRING_KEY(REBVAL *paired) {
 }
 
 
-#define VAL_PAIRING(v) \
-    (PAYLOAD(Pair, (v)).paired)
+#define VAL_PAIR_NODE(v) \
+    PAYLOAD(Any, (v)).first.node 
+
+inline static REBVAL *VAL_PAIRING(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_PAIR);
+    return VAL(VAL_NODE(v));
+}
 
 #define VAL_PAIR_X(v) \
-    PAIRING_KEY(VAL_PAIRING(v))
+    PAIRING_KEY(VAL(VAL_PAIRING(v)))
 
 #define VAL_PAIR_Y(v) \
-    VAL_PAIRING(v)
+    VAL(VAL_PAIRING(v))
 
 inline static REBDEC VAL_PAIR_X_DEC(const REBCEL *v) {
     if (IS_INTEGER(VAL_PAIR_X(v)))
@@ -83,7 +88,7 @@ inline static REBVAL *Init_Pair(
     Move_Value(PAIRING_KEY(p), KNOWN(x));
     Move_Value(p, KNOWN(y));
     Manage_Pairing(p);
-    PAYLOAD(Pair, out).paired = p;
+    VAL_PAIR_NODE(out) = NOD(p);
     return KNOWN(out);
 }
 
@@ -93,7 +98,7 @@ inline static REBVAL *Init_Pair_Int(RELVAL *out, REBI64 x, REBI64 y) {
     Init_Integer(PAIRING_KEY(p), x);
     Init_Integer(p, y);
     Manage_Pairing(p);
-    PAYLOAD(Pair, out).paired = p;
+    VAL_PAIR_NODE(out) = NOD(p);
     return KNOWN(out);
 }
 
@@ -103,7 +108,7 @@ inline static REBVAL *Init_Pair_Dec(RELVAL *out, REBDEC x, REBDEC y) {
     Init_Decimal(PAIRING_KEY(p), x);
     Init_Decimal(p, y);
     Manage_Pairing(p);
-    PAYLOAD(Pair, out).paired = p;
+    VAL_PAIR_NODE(out) = NOD(p);
     return KNOWN(out);
 }
 

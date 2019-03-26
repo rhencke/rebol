@@ -647,6 +647,27 @@ inline static RELVAL *Prep_Stack_Cell_Core(
 //
 
 
+#if defined(NDEBUG)
+    #define INIT_VAL_NODE(v,n) \
+        (PAYLOAD(Any, (v)).first.node = NOD(n))
+#else
+    inline static void INIT_VAL_NODE(RELVAL *v, void *p) {
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
+        REBNOD *node = NOD(p);
+        assert(
+            node == nullptr
+            or (node->header.bits
+                & (NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_MANAGED)
+            ) == (NODE_FLAG_NODE | NODE_FLAG_MANAGED)
+        );
+        PAYLOAD(Any, v).first.node = node;
+    }
+#endif
+
+#define VAL_NODE(v) \
+    PAYLOAD(Any, (v)).first.node
+
+
 // An ANY-WORD! is relative if it refers to a local or argument of a function,
 // and has its bits resident in the deep copy of that function's body.
 //
@@ -668,9 +689,8 @@ inline static bool IS_RELATIVE(const REBCEL *v) {
     // should be, but it's a pretty good trick so it subverts debug checks.
     // Review if this category of trick can be checked for more cleanly.
     if (
-        KIND_BYTE_UNCHECKED(v) == REB_ACTION
-        and PAYLOAD(Action, &Natives[N_skinner_return_helper_ID]).paramlist
-            == PAYLOAD(Action, v).paramlist
+        KIND_BYTE_UNCHECKED(v) == REB_ACTION  // v-- VAL_NODE() is paramlist
+        and VAL_NODE(&Natives[N_skinner_return_helper_ID]) == VAL_NODE(v)
     ){
         return false;
     }
@@ -948,24 +968,3 @@ inline static REBVAL *Constify(REBVAL *v) {
     Prep_Stack_Cell(cast(REBVAL*, &name##_pair)); /* tbd: FS_TOP FRAME! */ \
     REBVAL * const name = cast(REBVAL*, &name##_pair) + 1; \
     Prep_Stack_Cell(name)
-
-
-#if defined(NDEBUG)
-    #define INIT_VAL_NODE(v,n) \
-        (PAYLOAD(Any, (v)).first.node = NOD(n))
-#else
-    inline static void INIT_VAL_NODE(RELVAL *v, void *p) {
-        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
-        REBNOD *node = NOD(p);
-        assert(
-            node == nullptr
-            or (node->header.bits
-                & (NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_MANAGED)
-            ) == (NODE_FLAG_NODE | NODE_FLAG_MANAGED)
-        );
-        PAYLOAD(Any, v).first.node = node;
-    }
-#endif
-
-#define VAL_NODE(v) \
-    PAYLOAD(Any, (v)).first.node

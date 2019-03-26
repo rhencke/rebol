@@ -208,7 +208,7 @@ inline static void Reuse_Varlist_If_Available(REBFRM *f) {
         f->varlist = TG_Reuse;
         TG_Reuse = LINK(TG_Reuse).reuse;
         f->rootvar = cast(REBVAL*, SER(f->varlist)->content.dynamic.data);
-        LINK(f->varlist).keysource = NOD(f);
+        LINK_KEYSOURCE(f->varlist) = NOD(f);
     }
 }
 
@@ -1056,8 +1056,8 @@ inline static void Push_Action(
             FLAG_WIDE_BYTE_OR_0(0) // signals array, also implicit terminator
                 | FLAG_LEN_BYTE_OR_255(255) // signals dynamic
         );
-        s->link_private.keysource = NOD(f); // maps varlist back to f
-        s->misc_private.meta = nullptr; // GC will sees this
+        LINK_KEYSOURCE(s) = NOD(f); // maps varlist back to f
+        MISC_META_NODE(s) = nullptr; // GC will sees this
         f->varlist = ARR(s);
     }
     else {
@@ -1081,8 +1081,7 @@ inline static void Push_Action(
             | NODE_FLAG_CELL
             | NODE_FLAG_STACK
             | CELL_FLAG_PROTECTED  // payload/binding tweaked, but not by user
-            | CELL_FLAG_FIRST_IS_NODE
-            /* | CELL_FLAG_SECOND_IS_NODE */  // !!! TBD: implicit
+            | CELL_MASK_CONTEXT
             | FLAG_KIND_BYTE(REB_FRAME);
     TRACK_CELL_IF_DEBUG(f->rootvar, __FILE__, __LINE__);
     INIT_VAL_CONTEXT_VARLIST(f->rootvar, f->varlist);
@@ -1164,7 +1163,7 @@ inline static void Drop_Action(REBFRM *f) {
 
     assert(
         GET_SERIES_INFO(f->varlist, INACCESSIBLE)
-        or LINK(f->varlist).keysource == NOD(f)
+        or LINK_KEYSOURCE(f->varlist) == NOD(f)
     );
 
     if (GET_SERIES_INFO(f->varlist, INACCESSIBLE)) {
@@ -1205,7 +1204,7 @@ inline static void Drop_Action(REBFRM *f) {
             )
         );
         assert(NOT_SERIES_FLAG(f->varlist, MANAGED));
-        LINK(f->varlist).keysource = NOD(f);
+        LINK_KEYSOURCE(f->varlist) = NOD(f);
     }
     else {
         // We can reuse the varlist and its data allocation, which may be

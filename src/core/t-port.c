@@ -88,8 +88,7 @@ REB_R TO_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     RESET_VAL_HEADER(
         CTX_ARCHETYPE(context),
         REB_PORT,
-        CELL_FLAG_FIRST_IS_NODE
-            /* | CELL_FLAG_SECOND_IS_NODE */  // !!! TBD, implicit
+        CELL_MASK_CONTEXT
     );
 
     return Init_Port(out, context);

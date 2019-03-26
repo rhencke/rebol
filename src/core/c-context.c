@@ -79,7 +79,7 @@ REBCTX *Alloc_Context_Core(enum Reb_Kind kind, REBCNT capacity, REBFLGS flags)
         SERIES_MASK_CONTEXT // includes assurance of dynamic allocation
             | flags // e.g. NODE_FLAG_MANAGED
     );
-    MISC(varlist).meta = nullptr; // GC sees meta object, must init
+    MISC_META_NODE(varlist) = nullptr; // GC sees meta object, must init
 
     // varlist[0] is a value instance of the OBJECT!/MODULE!/PORT!/ERROR! we
     // are building which contains this context.
@@ -87,8 +87,7 @@ REBCTX *Alloc_Context_Core(enum Reb_Kind kind, REBCNT capacity, REBFLGS flags)
     REBVAL *rootvar = RESET_CELL(
         Alloc_Tail_Array(varlist),
         kind,
-        CELL_FLAG_FIRST_IS_NODE
-            /* | CELL_FLAG_SECOND_IS_NODE */  // !!! currently implied
+        CELL_MASK_CONTEXT
     );
     INIT_VAL_CONTEXT_VARLIST(rootvar, varlist);
     INIT_VAL_CONTEXT_PHASE(rootvar, nullptr);
@@ -311,7 +310,7 @@ REBCTX *Copy_Context_Shallow_Extra_Managed(REBCTX *src, REBCNT extra) {
     // have to copy that manually?  If it's copied would it be a shallow or
     // a deep copy?
     //
-    MISC(varlist).meta = NULL;
+    MISC_META_NODE(varlist) = nullptr;
 
     return dest;
 }
@@ -802,7 +801,7 @@ REBCTX *Make_Selfish_Context_Detect_Managed(
             | NODE_FLAG_MANAGED // Note: Rebind below requires managed context
     );
     TERM_ARRAY_LEN(varlist, len);
-    MISC(varlist).meta = NULL; // clear meta object (GC sees this)
+    MISC_META_NODE(varlist) = nullptr;  // clear meta object (GC sees this)
 
     REBCTX *context = CTX(varlist);
 
@@ -835,8 +834,7 @@ REBCTX *Make_Selfish_Context_Detect_Managed(
     REBVAL *var = RESET_CELL(
         ARR_HEAD(varlist),
         kind,
-        CELL_FLAG_FIRST_IS_NODE
-            /* | CELL_FLAG_SECOND_IS_NODE */  // !!! currently implied
+        CELL_MASK_CONTEXT
     );
     INIT_VAL_CONTEXT_VARLIST(var, varlist);
     INIT_VAL_CONTEXT_PHASE(var, nullptr);
@@ -1067,7 +1065,7 @@ REBCTX *Merge_Contexts_Selfish_Managed(REBCTX *parent1, REBCTX *parent2)
         SERIES_MASK_CONTEXT
             | NODE_FLAG_MANAGED // rebind below requires managed context
     );
-    MISC(varlist).meta = NULL; // GC sees this, it must be initialized
+    MISC_META_NODE(varlist) = nullptr;  // GC sees, it must be initialized
 
     REBCTX *merged = CTX(varlist);
     INIT_CTX_KEYLIST_UNIQUE(merged, keylist);
@@ -1080,8 +1078,7 @@ REBCTX *Merge_Contexts_Selfish_Managed(REBCTX *parent1, REBCTX *parent2)
     REBVAL *rootvar = RESET_CELL(
         ARR_HEAD(varlist),
         CTX_TYPE(parent1),
-        CELL_FLAG_FIRST_IS_NODE
-            /* | CELL_FLAG_SECOND_IS_NODE */  // !!! currently implied
+        CELL_MASK_CONTEXT
     );
     INIT_VAL_CONTEXT_VARLIST(rootvar, varlist);
     INIT_VAL_CONTEXT_PHASE(rootvar, nullptr);

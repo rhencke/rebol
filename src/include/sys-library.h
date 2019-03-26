@@ -40,7 +40,7 @@ inline static bool IS_LIB_CLOSED(REBLIB *l) {
 
 inline static REBCTX *VAL_LIBRARY_META(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_LIBRARY);
-    return MISC(PAYLOAD(Library, v).singular).meta;
+    return MISC_META(PAYLOAD(Library, v).singular);
 }
 
 inline static REBLIB *VAL_LIBRARY(const REBCEL *v) {

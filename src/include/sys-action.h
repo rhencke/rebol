@@ -67,6 +67,22 @@
 //
 
 
+// An underlying function is one whose frame is compatible with a
+// derived function (e.g. the underlying function of a specialization or
+// an adaptation).
+//
+#define LINK_UNDERLYING_NODE(s)  LINK(s).custom.node
+#define LINK_UNDERLYING(s)       ACT(LINK_UNDERLYING_NODE(s))
+
+
+// ACTION! paramlists and ANY-CONTEXT! varlists can store a "meta"
+// object.  It's where information for HELP is saved, and it's how modules
+// store out-of-band information that doesn't appear in their body.
+//
+#define MISC_META_NODE(s)       SER(s)->misc_private.custom.node
+#define MISC_META(s)            CTX(MISC_META_NODE(s))
+
+
 //=//// PARAMLIST_FLAG_HAS_RETURN /////////////////////////////////////////=//
 //
 // Has a definitional RETURN in the last paramlist slot.
@@ -269,19 +285,36 @@
     cast(REBVAL*, &PG_End_Node)
 
 
+#define CELL_MASK_ACTION \
+    (CELL_FLAG_FIRST_IS_NODE | CELL_FLAG_SECOND_IS_NODE)
+
+#define VAL_ACT_PARAMLIST_NODE(v) \
+    PAYLOAD(Any, (v)).first.node  // lvalue, but a node
+
+#define VAL_ACT_DETAILS_NODE(v) \
+    PAYLOAD(Any, (v)).second.node  // lvalue, but a node
+
+inline static REBARR *VAL_ACT_DETAILS(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_ACTION);
+    return ARR(VAL_ACT_DETAILS_NODE(v));
+}
+
 inline static REBARR *ACT_PARAMLIST(REBACT *a) {
     assert(GET_ARRAY_FLAG(&a->paramlist, IS_PARAMLIST));
     return &a->paramlist;
 }
 
 #define ACT_ARCHETYPE(a) \
-    cast(REBVAL*, cast(REBSER*, ACT_PARAMLIST(a))->content.dynamic.data)
+    VAL(SER(ACT_PARAMLIST(a))->content.dynamic.data)
 
-#define ACT_DISPATCHER(a) \
-    (MISC(PAYLOAD(Action, ACT_ARCHETYPE(a)).details).dispatcher)
+#define ACT_DETAILS_NODE(a) \
+    PAYLOAD(Any, ACT_ARCHETYPE(a)).second.node  // assignable, but is a node
 
 #define ACT_DETAILS(a) \
-    PAYLOAD(Action, ACT_ARCHETYPE(a)).details
+    ARR(ACT_DETAILS_NODE(a))  // array, but is unassignable
+
+#define ACT_DISPATCHER(a) \
+    (MISC(VAL_ACT_DETAILS(ACT_ARCHETYPE(a))).dispatcher)
 
 // These are indices into the details array agreed upon by actions which have
 // the PARAMLIST_FLAG_IS_NATIVE set.
@@ -299,7 +332,7 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
     (cast(REBSER*, ACT_PARAMLIST(a))->content.dynamic.used - 1) // dynamic
 
 #define ACT_META(a) \
-    MISC(a).meta
+    MISC_META(a)
 
 
 // The concept of the "underlying" function is the one which has the actual
@@ -310,7 +343,7 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
 // parameter list would write variables the adapted code wouldn't read.
 //
 #define ACT_UNDERLYING(a) \
-    (LINK(a).underlying)
+    LINK_UNDERLYING(a)
 
 
 // An efficiency trick makes functions that do not have exemplars NOT store
@@ -318,7 +351,7 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
 // This makes Push_Action() slightly faster in assigning f->special.
 //
 inline static REBCTX *ACT_EXEMPLAR(REBACT *a) {
-    REBARR *details = PAYLOAD(Action, ACT_ARCHETYPE(a)).details;
+    REBARR *details = VAL_ACT_DETAILS(ACT_ARCHETYPE(a));
     REBARR *specialty = LINK(details).specialty;
     if (GET_ARRAY_FLAG(specialty, IS_VARLIST))
         return CTX(specialty);
@@ -327,7 +360,7 @@ inline static REBCTX *ACT_EXEMPLAR(REBACT *a) {
 }
 
 inline static REBVAL *ACT_SPECIALTY_HEAD(REBACT *a) {
-    REBARR *details = PAYLOAD(Action, ACT_ARCHETYPE(a)).details;
+    REBARR *details = VAL_ACT_DETAILS(ACT_ARCHETYPE(a));
     REBSER *s = SER(LINK(details).specialty);
     return cast(REBVAL*, s->content.dynamic.data) + 1; // skip archetype/root
 }
@@ -339,10 +372,9 @@ inline static REBVAL *ACT_SPECIALTY_HEAD(REBACT *a) {
 #define ACT_PARAMS_HEAD(a) \
     (cast(REBVAL*, SER(ACT_PARAMLIST(a))->content.dynamic.data) + 1)
 
-
 inline static REBACT *VAL_ACTION(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_ACTION); // so it works on literals
-    REBSER *s = SER(PAYLOAD(Action, v).paramlist);
+    REBSER *s = SER(VAL_ACT_PARAMLIST_NODE(v));
     if (GET_SERIES_INFO(s, INACCESSIBLE))
         fail (Error_Series_Data_Freed_Raw());
     return ACT(s);
@@ -360,19 +392,15 @@ inline static REBACT *VAL_ACTION(const REBCEL *v) {
 #define VAL_ACT_PARAM(v,n) \
     ACT_PARAM(VAL_ACTION(v), n)
 
-inline static REBARR *VAL_ACT_DETAILS(const REBCEL *v) {
-    assert(CELL_KIND(v) == REB_ACTION);
-    return PAYLOAD(Action, v).details;
-}
 
 inline static REBNAT VAL_ACT_DISPATCHER(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_ACTION);
-    return MISC(PAYLOAD(Action, v).details).dispatcher;
+    return MISC(VAL_ACT_DETAILS_NODE(v)).dispatcher;
 }
 
 inline static REBCTX *VAL_ACT_META(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_ACTION);
-    return MISC(PAYLOAD(Action, v).paramlist).meta;
+    return MISC_META(VAL_ACT_PARAMLIST_NODE(v));
 }
 
 

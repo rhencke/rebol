@@ -1119,9 +1119,9 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     REBVAL *rootparam = RESET_CELL(
         ARR_HEAD(paramlist),
         REB_ACTION,
-        CELL_FLAG_FIRST_IS_NODE
+        CELL_MASK_ACTION
     );
-    PAYLOAD(Action, rootparam).paramlist = paramlist;
+    VAL_ACT_PARAMLIST_NODE(rootparam) = NOD(paramlist);
     INIT_BINDING(rootparam, UNBOUND);
 
     MISC(paramlist).meta = nullptr;
