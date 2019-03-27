@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -45,74 +45,27 @@
 
 
 //
-//  Assert_Basics: C
+//  Ensure_Basics: C
 //
-static void Assert_Basics(void)
+// Initially these checks were in the debug build only.  However, they are so
+// foundational that it's probably worth getting a coherent crash in any build
+// where these tests don't work.
+//
+static void Ensure_Basics(void)
 {
-  #if !defined(NDEBUG) && defined(SHOW_SIZEOFS)
-    //
-    // For debugging ports to some systems
-    //
-  #if defined(__LP64__) || defined(__LLP64__)
-    const char *fmt = "%lu %s\n";
-  #else
-    const char *fmt = "%u %s\n";
-  #endif
+    //=//// CHECK REBVAL SIZE ////////////////////////////////////////////=//
 
-    union Reb_Value_Payload *dummy_payload;
-
-    printf(fmt, sizeof(dummy_payload->any_word), "any_word");
-    printf(fmt, sizeof(dummy_payload->any_series), "any_series");
-    printf(fmt, sizeof(dummy_payload->integer), "integer");
-    printf(fmt, sizeof(dummy_payload->decimal), "decimal");
-    printf(fmt, sizeof(dummy_payload->character), "char");
-    printf(fmt, sizeof(dummy_payload->datatype), "datatype");
-    printf(fmt, sizeof(dummy_payload->typeset), "typeset");
-    printf(fmt, sizeof(dummy_payload->time), "time");
-    printf(fmt, sizeof(dummy_payload->tuple), "tuple");
-    printf(fmt, sizeof(dummy_payload->function), "function");
-    printf(fmt, sizeof(dummy_payload->any_context), "any_context");
-    printf(fmt, sizeof(dummy_payload->pair), "pair");
-    printf(fmt, sizeof(dummy_payload->event), "event");
-    printf(fmt, sizeof(dummy_payload->library), "library");
-    printf(fmt, sizeof(dummy_payload->structure), "struct");
-    printf(fmt, sizeof(dummy_payload->gob), "gob");
-    printf(fmt, sizeof(dummy_payload->money), "money");
-    printf(fmt, sizeof(dummy_payload->handle), "handle");
-    printf(fmt, sizeof(dummy_payload->all), "all");
-    fflush(stdout);
-  #endif
-
-  #if !defined(NDEBUG)
+    // The system is designed with the intent that REBVAL is 4x(32-bit) on
+    // 32-bit platforms and 4x(64-bit) on 64-bit platforms.  It's a crtical
+    // performance point.  For the moment we consider it to be essential
+    // enough that the system that it refuses to run if not true.
     //
-    // Sanity check the platform byte-ordering sensitive flag macros
-    //
-    REBFLGS flags
-        = FLAG_LEFT_BIT(5) | FLAG_SECOND_BYTE(21) | FLAG_SECOND_UINT16(1975);
+    // But if someone is in an odd situation with a larger sized cell--and
+    // it's an even multiple of ALIGN_SIZE--it may still work.  For instance:
+    // the DEBUG_TRACK_EXTEND_CELLS mode doubles the cell size to carry the
+    // file, line, and tick of their initialization (or last TOUCH_CELL()).
+    // Define UNUSUAL_REBVAL_SIZE to bypass this check.
 
-    REBYTE m = FIRST_BYTE(flags); // 6th bit from left set (0b00000100 is 4)
-    REBYTE d = SECOND_BYTE(flags);
-    uint16_t y = SECOND_UINT16(flags);
-    if (m != 4 or d != 21 or y != 1975) {
-        printf("m = %u, d = %u, y = %u\n", m, d, y);
-        panic ("Bad composed integer assignment for byte-ordering macro.");
-    }
-  #endif
-
-    // !!! Should runtime debug be double-checking all of <stdint.h>?
-    //
-    assert(sizeof(uint32_t) == 4);
-
-    // Although the system is designed to be able to function with REBVAL at
-    // any size, the optimization of it being 4x(32-bit) on 32-bit platforms
-    // and 4x(64-bit) on 64-bit platforms is a rather important performance
-    // point.  For the moment we consider it to be essential enough to the
-    // intended function of the system that it refuses to run if not true.
-    //
-    // But if someone is in an odd situation and understands why the size did
-    // not work out as designed, defining UNUSUAL_REBVAL_SIZE should still
-    // work, so long as that size is an even multiple of ALIGN_SIZE.
-    //
     size_t sizeof_REBVAL = sizeof(REBVAL);
   #if defined(UNUSUAL_REBVAL_SIZE)
     if (sizeof_REBVAL % ALIGN_SIZE != 0)
@@ -128,91 +81,93 @@ static void Assert_Basics(void)
     #endif
   #endif
 
+    //=//// CHECK REBSER INFO PLACEMENT ///////////////////////////////////=//
+
     // The REBSER is designed to place the `info` bits exactly after a REBVAL
     // so they can do double-duty as also a terminator for that REBVAL when
     // enumerated as an ARRAY.  Put the offest into a variable to avoid the
     // constant-conditional-expression warning.
-    //
+
     size_t offsetof_REBSER_info = offsetof(REBSER, info);
     if (
         offsetof_REBSER_info - offsetof(REBSER, content) != sizeof(REBVAL)
     ){
         panic ("bad structure alignment for internal array termination");
     }
+
+    //=//// CHECK BYTE-ORDERING SENSITIVE FLAGS //////////////////////////=//
+
+    // See the %sys-node.h file for an explanation of what these are, and
+    // why having them work is fundamental to the API.
+
+    REBFLGS flags
+        = FLAG_LEFT_BIT(5) | FLAG_SECOND_BYTE(21) | FLAG_SECOND_UINT16(1975);
+
+    REBYTE m = FIRST_BYTE(flags);  // 6th bit from left set (0b00000100 is 4)
+    REBYTE d = SECOND_BYTE(flags);
+    uint16_t y = SECOND_UINT16(flags);
+    if (m != 4 or d != 21 or y != 1975) {
+      #if defined(DEBUG_STDIO_OK)
+        printf("m = %u, d = %u, y = %u\n", m, d, y);
+      #endif
+        panic ("Bad composed integer assignment for byte-ordering macro.");
+    }
 }
 
 
-//
-//  Startup_Base: C
-//
-// The code in "base" is the lowest level of Rebol initialization written as
-// Rebol code.  This is where things like `+` being an infix form of ADD is
-// set up, or FIRST being a specialization of PICK.  It's also where the
-// definition of the locals-gathering FUNCTION currently lives.
-//
-static void Startup_Base(REBARR *boot_base)
-{
-    RELVAL *head = ARR_HEAD(boot_base);
-
-    // By this point, the Lib_Context contains basic definitions for things
-    // like true, false, the natives, and the generics.  But before deeply
-    // binding the code in the base block to those definitions, add all the
-    // top-level SET-WORD! in the base block to Lib_Context as well.
+#if !defined(OS_STACK_GROWS_UP) && !defined(OS_STACK_GROWS_DOWN)
     //
-    // Without this shallow walk looking for set words, an assignment like
-    // `foo: func [...] [...]` would not have a slot in the Lib_Context
-    // for FOO to bind to.  So FOO: would be an unbound SET-WORD!,
-    // and give an error on the assignment.
+    // This is a naive guess with no guarantees.  If there *is* a "real"
+    // answer, it would be fairly nuts:
     //
-    Bind_Values_Set_Midstream_Shallow(head, Lib_Context);
-
-    // With the base block's definitions added to the mix, deep bind the code
-    // and execute it.  As a sanity check, it's expected the base block will
-    // return no value when executed...hence it should end in `()`.
-
-    Bind_Values_Deep(head, Lib_Context);
-
-    DECLARE_LOCAL (result);
-    if (Do_At_Mutable_Throws(result, boot_base, 0, SPECIFIED))
-        panic (result);
-
-    if (not IS_BLANK(result))
-        panic (result);
-}
-
-
-//
-//  Startup_Sys: C
-//
-// The SYS context contains supporting Rebol code for implementing "system"
-// features.  The code has natives, generics, and the definitions from
-// Startup_Base() available for its implementation.
-//
-// (Note: The SYS context should not be confused with "the system object",
-// which is a different thing.)
-//
-// The sys context has a #define constant for the index of every definition
-// inside of it.  That means that you can access it from the C code for the
-// core.  Any work the core C needs to have done that would be more easily
-// done by delegating it to Rebol can use a function in sys as a service.
-//
-static void Startup_Sys(REBARR *boot_sys) {
-    RELVAL *head = ARR_HEAD(boot_sys);
-
-    // Add all new top-level SET-WORD! found in the sys boot-block to Lib,
-    // and then bind deeply all words to Lib and Sys.  See Startup_Base() notes
-    // for why the top-level walk is needed first.
+    // http://stackoverflow.com/a/33222085/211160
     //
-    Bind_Values_Set_Midstream_Shallow(head, Sys_Context);
-    Bind_Values_Deep(head, Lib_Context);
-    Bind_Values_Deep(head, Sys_Context);
+    // Prefer using a build configuration #define, if possible (although
+    // emscripten doesn't necessarily guarantee up or down):
+    //
+    // https://github.com/kripken/emscripten/issues/5410
+    //
+    bool Guess_If_Stack_Grows_Up(int *p) {
+        int i;
+        if (not p)
+            return Guess_If_Stack_Grows_Up(&i); // RECURSION: avoids inlining
+        if (p < &i) // !!! this comparison is undefined behavior
+            return true; // upward
+        return false; // downward
+    }
+#endif
 
-    DECLARE_LOCAL (result);
-    if (Do_At_Mutable_Throws(result, boot_sys, 0, SPECIFIED))
-        panic (result);
 
-    if (not IS_BLANK(result))
-        panic (result);
+//
+//  Set_Stack_Limit: C
+//
+// See C_STACK_OVERFLOWING for remarks on this **non-standard** technique of
+// stack overflow detection.  Note that each thread would have its own stack
+// address limits, so this has to be updated for threading.
+//
+// Currently, this is called every time PUSH_TRAP() is called when Saved_State
+// is NULL, and hopefully only one instance of it per thread will be in effect
+// (otherwise, the bounds would add and be useless).
+//
+void Set_Stack_Limit(void *base) {
+    //
+    // !!! This could be made configurable.  However, it needs to be
+    // initialized early in the boot process.  It may be that some small limit
+    // is used enough for boot, that can be expanded by native calls later.
+    //
+    uintptr_t bounds = cast(uintptr_t, STACK_BOUNDS);
+
+  #if defined(OS_STACK_GROWS_UP)
+    TG_Stack_Limit = cast(uintptr_t, base) + bounds;
+  #elif defined(OS_STACK_GROWS_DOWN)
+    TG_Stack_Limit = cast(uintptr_t, base) - bounds;
+  #else
+    TG_Stack_Grows_Up = Guess_If_Stack_Grows_Up(NULL);
+    if (TG_Stack_Grows_Up)
+        TG_Stack_Limit = cast(uintptr_t, base) + bounds;
+    else
+        TG_Stack_Limit = cast(uintptr_t, base) - bounds;
+  #endif
 }
 
 
@@ -221,12 +176,7 @@ static void Startup_Sys(REBARR *boot_sys) {
 //
 // Create library words for each type, (e.g. make INTEGER! correspond to
 // the integer datatype value).  Returns an array of words for the added
-// datatypes to use in SYSTEM/CATALOG/DATATYPES
-//
-// Note the type enum starts at 1 (REB_ACTION), given that REB_0 is used
-// for special purposes and not correspond to a user-visible type.  REB_MAX is
-// used for NULL, and also not value type.  Hence the total number of types is
-// REB_MAX - 1.
+// datatypes to use in SYSTEM/CATALOG/DATATYPES.  See %boot/types.r
 //
 static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
 {
@@ -331,21 +281,20 @@ static void Startup_True_And_False(void)
 //
 //  generic: enfix native [
 //
-//  {Creates datatype action (for internal usage only).}
+//  {Creates datatype action (currently for internal use only)}
 //
-//      return: [action!]
-//      :verb [set-word! word!]
+//      return: [void!]
+//      :verb [set-word!]
 //      spec [block!]
 //  ]
 //
 REBNATIVE(generic)
 //
-// The `generics` native is searched for explicitly by %make-natives.r and put
+// The `generic` native is searched for explicitly by %make-natives.r and put
 // in second place for initialization (after the `native` native).
 //
 // It is designed to be an enfix function that quotes its first argument,
 // so when you write FOO: ACTION [...], the FOO: gets quoted to be the verb.
-// The SET/ENFIX is done by the bootstrap, after the natives are loaded.
 {
     INCLUDE_PARAMS_OF_GENERIC;
 
@@ -371,10 +320,10 @@ REBNATIVE(generic)
 
     REBACT *generic = Make_Action(
         paramlist,
-        &Generic_Dispatcher,  // Note: return type only checked in debug build
-        nullptr, // no underlying action (use paramlist)
-        nullptr, // no specialization exemplar (or inherited exemplar)
-        IDX_NATIVE_MAX // details array capacity
+        &Generic_Dispatcher,  // return type is only checked in debug build
+        nullptr,  // no underlying action (use paramlist)
+        nullptr,  // no specialization exemplar (or inherited exemplar)
+        IDX_NATIVE_MAX  // details array capacity
     );
 
     SET_ACTION_FLAG(generic, IS_NATIVE);
@@ -383,15 +332,10 @@ REBNATIVE(generic)
     Init_Word(ARR_AT(details, IDX_NATIVE_BODY), VAL_WORD_CANON(ARG(verb)));
     Init_Object(ARR_AT(details, IDX_NATIVE_CONTEXT), Lib_Context);
 
-    // A lookback quoting function that quotes a SET-WORD! on its left is
-    // responsible for setting the value if it wants it to change since the
-    // SET-WORD! is not actually active.  But if something *looks* like an
-    // assignment, it's good practice to evaluate the whole expression to
-    // the result the SET-WORD! was set to, so `x: y: op z` makes `x = y`.
-    //
-    Init_Action_Unbound(Sink_Var_May_Fail(ARG(verb), SPECIFIED), generic);
+    REBVAL *verb_var = Sink_Var_May_Fail(ARG(verb), SPECIFIED);
+    Init_Action_Unbound(verb_var, generic);  // set the word to the action
 
-    return Init_Action_Unbound(D_OUT, generic);
+    return Init_Void(D_OUT);  // see ENFIX for why evaluate to void
 }
 
 
@@ -1095,10 +1039,6 @@ void Startup_Task(void)
     TG_Ballast = MEM_BALLAST; // or overwritten by debug build below...
     TG_Max_Ballast = MEM_BALLAST;
 
-    // RECYCLE/TORTURE is a useful test, but we might want to be running it
-    // from the very beginning... before we can rebRun("recycle/torture")...
-    // and before command-line processing.  Make it an environment option.
-    //
   #ifndef NDEBUG
     const char *env_recycle_torture = getenv("R3_RECYCLE_TORTURE");
     if (env_recycle_torture and atoi(env_recycle_torture) != 0)
@@ -1110,6 +1050,8 @@ void Startup_Task(void)
             "** R3_RECYCLE_TORTURE is nonzero in environment variable!\n" \
             "** (or TG_Ballast is set to 0 manually in the init code)\n" \
             "** Recycling on EVERY evaluator step, *EXTREMELY* SLOW!...\n" \
+            "** Useful in finding bugs before you can run RECYCLE/TORTURE\n" \
+            "** But you might only want to do this with -O2 debug builds.\n"
             "**\n"
         );
         fflush(stdout);
@@ -1133,86 +1075,134 @@ void Startup_Task(void)
 }
 
 
-#if !defined(OS_STACK_GROWS_UP) && !defined(OS_STACK_GROWS_DOWN)
+#if !defined(NDEBUG)
     //
-    // This is a naive guess with no guarantees.  If there *is* a "real"
-    // answer, it would be fairly nuts:
+    // The C language initializes global variables to zero:
     //
-    // http://stackoverflow.com/a/33222085/211160
+    // https://stackoverflow.com/q/2091499
     //
-    // Prefer using a build configuration #define, if possible (although
-    // emscripten doesn't necessarily guarantee up or down):
+    // For some values this may risk them being consulted and interpreted as
+    // the 0 carrying information, as opposed to them not being ready yet.
+    // Any variables that should be trashed up front should do so here.
     //
-    // https://github.com/kripken/emscripten/issues/5410
-    //
-    bool Guess_If_Stack_Grows_Up(int *p) {
-        int i;
-        if (not p)
-            return Guess_If_Stack_Grows_Up(&i); // RECURSION: avoids inlining
-        if (p < &i) // !!! this comparison is undefined behavior
-            return true; // upward
-        return false; // downward
+    static void Startup_Trash_Debug(void) {
+        assert(not TG_Top_Frame);
+        TRASH_POINTER_IF_DEBUG(TG_Top_Frame);
+        assert(not TG_Bottom_Frame);
+        TRASH_POINTER_IF_DEBUG(TG_Bottom_Frame);
+
+        // ...add more on a case-by-case basis if the case seems helpful...
     }
 #endif
 
 
 //
-//  Set_Stack_Limit: C
+//  Startup_Base: C
 //
-// See C_STACK_OVERFLOWING for remarks on this **non-standard** technique of
-// stack overflow detection.  Note that each thread would have its own stack
-// address limits, so this has to be updated for threading.
+// The code in "base" is the lowest level of Rebol initialization written as
+// Rebol code.  This is where things like `+` being an infix form of ADD is
+// set up, or FIRST being a specialization of PICK.  It's also where the
+// definition of the locals-gathering FUNCTION currently lives.
 //
-// Currently, this is called every time PUSH_TRAP() is called when Saved_State
-// is NULL, and hopefully only one instance of it per thread will be in effect
-// (otherwise, the bounds would add and be useless).
-//
-void Set_Stack_Limit(void *base) {
-    //
-    // !!! This could be made configurable.  However, it needs to be
-    // initialized early in the boot process.  It may be that some small limit
-    // is used enough for boot, that can be expanded by native calls later.
-    //
-    uintptr_t bounds = cast(uintptr_t, STACK_BOUNDS);
-
-  #if defined(OS_STACK_GROWS_UP)
-    TG_Stack_Limit = cast(uintptr_t, base) + bounds;
-  #elif defined(OS_STACK_GROWS_DOWN)
-    TG_Stack_Limit = cast(uintptr_t, base) - bounds;
-  #else
-    TG_Stack_Grows_Up = Guess_If_Stack_Grows_Up(NULL);
-    if (TG_Stack_Grows_Up)
-        TG_Stack_Limit = cast(uintptr_t, base) + bounds;
-    else
-        TG_Stack_Limit = cast(uintptr_t, base) - bounds;
-  #endif
-}
-
-static REBVAL *Startup_Mezzanine(BOOT_BLK *boot);
-
-
-#if !defined(NDEBUG)
-//
-//  Startup_Trash_Debug: C
-//
-// The C language initializes global variables to 0.
-//
-// https://stackoverflow.com/q/2091499
-//
-// For some values this may risk them being consulted and interpreted as the
-// 0 carrying information, as opposed to them not being ready yet.  Any
-// variables that should be trashed up front should do so here.
-//
-static void Startup_Trash_Debug(void)
+static void Startup_Base(REBARR *boot_base)
 {
-    assert(not TG_Top_Frame);
-    TRASH_POINTER_IF_DEBUG(TG_Top_Frame);
-    assert(not TG_Bottom_Frame);
-    TRASH_POINTER_IF_DEBUG(TG_Bottom_Frame);
+    RELVAL *head = ARR_HEAD(boot_base);
 
-    // ...add more on a case-by-case basis if the case seems helpful...
+    // By this point, the Lib_Context contains basic definitions for things
+    // like true, false, the natives, and the generics.  But before deeply
+    // binding the code in the base block to those definitions, add all the
+    // top-level SET-WORD! in the base block to Lib_Context as well.
+    //
+    // Without this shallow walk looking for set words, an assignment like
+    // `foo: func [...] [...]` would not have a slot in the Lib_Context
+    // for FOO to bind to.  So FOO: would be an unbound SET-WORD!,
+    // and give an error on the assignment.
+    //
+    Bind_Values_Set_Midstream_Shallow(head, Lib_Context);
+
+    // With the base block's definitions added to the mix, deep bind the code
+    // and execute it.
+
+    Bind_Values_Deep(head, Lib_Context);
+
+    DECLARE_LOCAL (result);
+    if (Do_At_Mutable_Throws(result, boot_base, 0, SPECIFIED))
+        panic (result);
+
+    if (not IS_BLANK(result))  // sanity check...script ends with `_`
+        panic (result);
 }
-#endif
+
+
+//
+//  Startup_Sys: C
+//
+// The SYS context contains supporting Rebol code for implementing "system"
+// features.  The code has natives, generics, and the definitions from
+// Startup_Base() available for its implementation.
+//
+// (Note: The SYS context should not be confused with "the system object",
+// which is a different thing.)
+//
+// The sys context has a #define constant for the index of every definition
+// inside of it.  That means that you can access it from the C code for the
+// core.  Any work the core C needs to have done that would be more easily
+// done by delegating it to Rebol can use a function in sys as a service.
+//
+static void Startup_Sys(REBARR *boot_sys) {
+    RELVAL *head = ARR_HEAD(boot_sys);
+
+    // Add all new top-level SET-WORD! found in the sys boot-block to Lib,
+    // and then bind deeply all words to Lib and Sys.  See Startup_Base() notes
+    // for why the top-level walk is needed first.
+    //
+    Bind_Values_Set_Midstream_Shallow(head, Sys_Context);
+    Bind_Values_Deep(head, Lib_Context);
+    Bind_Values_Deep(head, Sys_Context);
+
+    DECLARE_LOCAL (result);
+    if (Do_At_Mutable_Throws(result, boot_sys, 0, SPECIFIED))
+        panic (result);
+
+    if (not IS_BLANK(result))
+        panic (result);
+}
+
+
+// By this point in the boot, it's possible to trap failures and exit in
+// a graceful fashion.  This is the routine protected by rebRescue() so that
+// initialization can handle exceptions.
+//
+static REBVAL *Startup_Mezzanine(BOOT_BLK *boot)
+{
+    Startup_Base(VAL_ARRAY(&boot->base));
+
+    Startup_Sys(VAL_ARRAY(&boot->sys));
+
+    REBVAL *finish_init = CTX_VAR(Sys_Context, SYS_CTX_FINISH_INIT_CORE);
+    assert(IS_ACTION(finish_init));
+
+    // The FINISH-INIT-CORE function should likely do very little.  But right
+    // now it is where the user context is created from the lib context (a
+    // copy with some omissions), and where the mezzanine definitions are
+    // bound to the lib context and DO'd.
+    //
+    DECLARE_LOCAL (result);
+    if (RunQ_Throws(
+        result,
+        true, // fully = true (error if all arguments aren't consumed)
+        rebU1(finish_init), // %sys-start.r function to call
+        KNOWN(&boot->mezz), // boot-mezz argument
+        rebEND
+    )){
+        fail (Error_No_Catch_For_Throw(result));
+    }
+
+    if (not IS_VOID(result))
+        panic (result); // FINISH-INIT-CORE is a PROCEDURE, returns void
+
+    return NULL;
+}
 
 
 //
@@ -1228,7 +1218,7 @@ static void Startup_Trash_Debug(void)
 // functions are unavailable at certain phases.
 //
 // Though most of the initialization is run as C code, some portions are run
-// in Rebol.  For instance, ACTION is a function registered very early on in
+// in Rebol.  For instance, GENERIC is a function registered very early on in
 // the boot process, which is run from within a block to register more
 // functions.
 //
@@ -1243,11 +1233,7 @@ void Startup_Core(void)
     Startup_Trash_Debug();
   #endif
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// INITIALIZE TICK COUNT
-//
-//==//////////////////////////////////////////////////////////////////////==//
+//=//// INITIALIZE TICK COUNT /////////////////////////////////////////////=//
 
     // The timer tick starts at 1, not 0.  This is because the debug build
     // uses signed timer ticks to double as an extra bit of information in
@@ -1257,11 +1243,7 @@ void Startup_Core(void)
     TG_Tick = 1;
   #endif
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// INITIALIZE STACK MARKER METRICS
-//
-//==//////////////////////////////////////////////////////////////////////==//
+//=//// INITIALIZE STACK MARKER METRICS ///////////////////////////////////=//
 
     // !!! See notes on Set_Stack_Limit() about the dodginess of this
     // approach.  Note also that even with a single evaluator used on multiple
@@ -1273,11 +1255,7 @@ void Startup_Core(void)
     int dummy; // variable whose address acts as base of stack for below code
     Set_Stack_Limit(&dummy);
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// INITIALIZE BASIC DIAGNOSTICS
-//
-//==//////////////////////////////////////////////////////////////////////==//
+//=//// INITIALIZE BASIC DIAGNOSTICS //////////////////////////////////////=//
 
   #if defined(TEST_EARLY_BOOT_PANIC)
     panic ("early panic test"); // should crash
@@ -1302,25 +1280,17 @@ void Startup_Core(void)
     CLEAR(Reb_Opts, sizeof(REB_OPTS));
     Saved_State = NULL;
 
-    Assert_Basics();
+    Ensure_Basics();
     PG_Boot_Time = OS_DELTA_TIME(0);
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// INITIALIZE MEMORY AND ALLOCATORS
-//
-//==//////////////////////////////////////////////////////////////////////==//
+//=//// INITIALIZE MEMORY AND ALLOCATORS //////////////////////////////////=//
 
-    Startup_Pools(0);          // Memory allocator
+    Startup_Pools(0);
     Startup_GC();
 
     Startup_StdIO();
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// INITIALIZE API
-//
-//==//////////////////////////////////////////////////////////////////////==//
+//=//// INITIALIZE API ////////////////////////////////////////////////////=//
 
     // The API is one means by which variables can be made whose lifetime is
     // indefinite until program shutdown.  In R3-Alpha this was done with
@@ -1343,33 +1313,21 @@ void Startup_Core(void)
 
     Startup_Api();
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// CREATE GLOBAL OBJECTS
-//
-//==//////////////////////////////////////////////////////////////////////==//
+//=//// CREATE GLOBAL OBJECTS /////////////////////////////////////////////=//
 
     Init_Root_Vars();    // Special REBOL values per program
 
   #if !defined(NDEBUG)
-    Assert_Pointer_Detection_Working(); // uses root series/values to test
+    Assert_Pointer_Detection_Working();  // uses root series/values to test
   #endif
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// INITIALIZE (SINGULAR) TASK
-//
-//==//////////////////////////////////////////////////////////////////////==//
+//=//// INITIALIZE (SINGULAR) TASK ////////////////////////////////////////=//
 
     Startup_Task();
 
     Init_Action_Spec_Tags(); // Note: uses MOLD_BUF, not available until here
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// LOAD BOOT BLOCK
-//
-//==//////////////////////////////////////////////////////////////////////==//
+//=//// LOAD BOOT BLOCK ///////////////////////////////////////////////////=//
 
     // The %make-boot.r process takes all the various definitions and
     // mezzanine code and packs it into one compressed string in
@@ -1403,11 +1361,7 @@ void Startup_Core(void)
 
     PG_Boot_Phase = BOOT_LOADED;
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// CREATE BASIC VALUES
-//
-//==//////////////////////////////////////////////////////////////////////==//
+//=//// CREATE BASIC VALUES ///////////////////////////////////////////////=//
 
     // Before any code can start running (even simple bootstrap code), some
     // basic words need to be defined.  For instance: You can't run %sysobj.r
@@ -1438,11 +1392,7 @@ void Startup_Core(void)
     Startup_True_And_False();
     Add_Lib_Keys_Bootstrap_R3_Cant_Make();
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// RUN CODE BEFORE ERROR HANDLING INITIALIZED
-//
-//==//////////////////////////////////////////////////////////////////////==//
+//=//// RUN CODE BEFORE ERROR HANDLING INITIALIZED ////////////////////////=//
 
     // Initialize eval handler and ACTION! dispatcher to the default internal
     // routines.  These routines have no tracing, no debug handling, etc.  If
@@ -1499,11 +1449,7 @@ void Startup_Core(void)
     //
     Startup_Stackoverflow();
 
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// RUN MEZZANINE CODE NOW THAT ERROR HANDLING IS INITIALIZED
-//
-//==//////////////////////////////////////////////////////////////////////==//
+//=//// RUN MEZZANINE CODE NOW THAT ERROR HANDLING IS INITIALIZED /////////=//
 
     PG_Boot_Phase = BOOT_MEZZ;
 
@@ -1541,42 +1487,6 @@ void Startup_Core(void)
   #endif
 
     Recycle(); // necessary?
-}
-
-
-// By this point in the boot, it's possible to trap failures and exit in
-// a graceful fashion.  This is the routine protected by rebRescue() so that
-// initialization can handle exceptions.
-//
-static REBVAL *Startup_Mezzanine(BOOT_BLK *boot)
-{
-    Startup_Base(VAL_ARRAY(&boot->base));
-
-    Startup_Sys(VAL_ARRAY(&boot->sys));
-
-    REBVAL *finish_init = CTX_VAR(Sys_Context, SYS_CTX_FINISH_INIT_CORE);
-    assert(IS_ACTION(finish_init));
-
-    // The FINISH-INIT-CORE function should likely do very little.  But right
-    // now it is where the user context is created from the lib context (a
-    // copy with some omissions), and where the mezzanine definitions are
-    // bound to the lib context and DO'd.
-    //
-    DECLARE_LOCAL (result);
-    if (RunQ_Throws(
-        result,
-        true, // fully = true (error if all arguments aren't consumed)
-        rebU1(finish_init), // %sys-start.r function to call
-        KNOWN(&boot->mezz), // boot-mezz argument
-        rebEND
-    )){
-        fail (Error_No_Catch_For_Throw(result));
-    }
-
-    if (not IS_VOID(result))
-        panic (result); // FINISH-INIT-CORE is a PROCEDURE, returns void
-
-    return NULL;
 }
 
 
