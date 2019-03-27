@@ -64,11 +64,14 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
         kind = cast(enum Reb_Kind, KIND_BYTE_UNCHECKED(v));
     }
 
-    if (IS_BINDABLE_KIND(kind)) {
-        REBNOD *binding = VAL_BINDING(v);
+    REBNOD *binding;
+    if (
+        IS_BINDABLE_KIND(kind)
+        and (binding = VAL_BINDING(v))
+        and NOT_SERIES_INFO(binding, INACCESSIBLE)
+    ){
         if (
-            binding
-            and not (binding->header.bits & NODE_FLAG_MANAGED)
+            not (binding->header.bits & NODE_FLAG_MANAGED)
             and NOT_CELL_FLAG(v, STACK_LIFETIME)
             and NOT_CELL_FLAG(v, TRANSIENT)
         ){
@@ -77,6 +80,34 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
             // to be involved.  Only stack cells are allowed to do this.
             //
             panic (v);
+        }
+        if (not (binding->header.bits & NODE_FLAG_CELL)) {
+            assert(IS_SER_ARRAY(binding));
+            if (
+                GET_ARRAY_FLAG(binding, IS_VARLIST)
+                and (CTX_TYPE(CTX(binding)) == REB_FRAME)
+            ){
+                if (
+                    (binding->header.bits & SERIES_MASK_VARLIST)
+                    != SERIES_MASK_VARLIST
+                ){
+                    panic (binding);
+                }
+                REBNOD *keysource = LINK_KEYSOURCE(binding);
+                if (
+                    not (keysource->header.bits & NODE_FLAG_CELL)
+                    and GET_ARRAY_FLAG(keysource, IS_PARAMLIST)
+                ){
+                    if (
+                        (keysource->header.bits & SERIES_MASK_PARAMLIST)
+                        != SERIES_MASK_PARAMLIST
+                    ){
+                        panic (binding);
+                    }
+                    if (NOT_SERIES_FLAG(keysource, MANAGED))
+                        panic (keysource);
+                }
+            }
         }
     }
 
@@ -222,13 +253,12 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
 
       case REB_BINARY: {
         REBBIN *s = SER(PAYLOAD(Any, v).first.node);
-        assert(SER_WIDE(s) == sizeof(REBYTE));
         if (GET_SERIES_INFO(s, INACCESSIBLE))
-            assert(Is_Marked(s));  // TBD: clear out reference and GC `s`?
-        else {
-            ASSERT_SERIES_TERM(s);
-            assert(Is_Marked(s));
-        }
+            break;
+
+        assert(SER_WIDE(s) == sizeof(REBYTE));
+        ASSERT_SERIES_TERM(s);
+        assert(Is_Marked(s));
         break; }
 
       case REB_TEXT:
@@ -236,16 +266,16 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
       case REB_EMAIL:
       case REB_URL:
       case REB_TAG: {
+        if (GET_SERIES_INFO(PAYLOAD(Any, v).first.node, INACCESSIBLE))
+            break;
+
         assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
-        REBSER *s = SER(PAYLOAD(Any, v).first.node);
+        REBSER *s = VAL_SERIES(v);
+
         assert(SER_WIDE(s) == sizeof(REBYTE));
         assert(GET_SERIES_FLAG(s, UTF8_NONWORD));  // !!! temporary
-        if (GET_SERIES_INFO(s, INACCESSIBLE))
-            assert(Is_Marked(s));  // TBD: clear out reference and GC `s`?
-        else {
-            ASSERT_SERIES_TERM(s);
-            assert(Is_Marked(s));
-        }
+        assert(Is_Marked(s));
+
         REBBMK *bookmark = LINK(s).bookmarks;
         if (bookmark) {
             assert(not LINK(bookmark).bookmarks);  // just one for now
@@ -269,10 +299,12 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
       case REB_MODULE:
       case REB_ERROR:
       case REB_FRAME:
-      case REB_PORT: {  // Note: VAL_CONTEXT() fails on SER_INFO_INACCESSIBLE
-        assert((v->header.bits & CELL_MASK_CONTEXT) == CELL_MASK_CONTEXT);
+      case REB_PORT: {
+        if (GET_SERIES_INFO(PAYLOAD(Any, v).first.node, INACCESSIBLE))
+            break;
 
-        REBCTX *context = CTX(PAYLOAD(Any, v).first.node);
+        assert((v->header.bits & CELL_MASK_CONTEXT) == CELL_MASK_CONTEXT);
+        REBCTX *context = VAL_CONTEXT(v);
         assert(Is_Marked(context));
 
         // Currently the "binding" in a context is only used by FRAME! to
@@ -287,21 +319,9 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
         //
         if (EXTRA(Binding, v).node != UNBOUND) {
             assert(CTX_TYPE(context) == REB_FRAME);
-
-            if (GET_SERIES_INFO(context, INACCESSIBLE)) {
-                //
-                // !!! It seems a bit wasteful to keep alive the binding of a
-                // stack frame you can no longer get values out of.  But
-                // However, FUNCTION-OF still works on a FRAME! value after
-                // the function is finished, if the FRAME! value was kept.
-                // And that needs to give back a correct binding.
-                //
-            }
-            else {
-                struct Reb_Frame *f = CTX_FRAME_IF_ON_STACK(context);
-                if (f) // comes from execution, not MAKE FRAME!
-                    assert(VAL_BINDING(v) == FRM_BINDING(f));
-            }
+            struct Reb_Frame *f = CTX_FRAME_IF_ON_STACK(context);
+            if (f)  // comes from execution, not MAKE FRAME!
+                assert(VAL_BINDING(v) == FRM_BINDING(f));
         }
 
         REBACT *phase = ACT(PAYLOAD(Any, v).second.node);
@@ -327,14 +347,6 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
 
       case REB_VARARGS: {
         assert((v->header.bits & CELL_MASK_VARARGS) == CELL_MASK_VARARGS);
-
-        REBNOD *binding = VAL_BINDING(v);
-        assert(IS_SER_ARRAY(binding));
-        assert(
-            GET_ARRAY_FLAG(binding, IS_VARLIST)
-            or not IS_SER_DYNAMIC(binding)  // singular
-        );
-
         REBACT *phase = VAL_VARARGS_PHASE(v);
         if (phase)  // null if came from MAKE VARARGS!
             assert(Is_Marked(phase));
@@ -346,22 +358,12 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
       case REB_GROUP:
       case REB_SET_GROUP:
       case REB_GET_GROUP: {
+        if (GET_SERIES_INFO(PAYLOAD(Any, v).first.node, INACCESSIBLE))
+            break;
+
         assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
-        REBARR *a = ARR(PAYLOAD(Any, v).first.node);
-        if (GET_SERIES_INFO(a, INACCESSIBLE)) {
-            //
-            // !!! Review: preserving the identity of inaccessible array nodes
-            // is likely uninteresting--the only reason the node wasn't freed
-            // in the first place was so this code wouldn't crash trying to
-            // mark it.  So this should probably be used as an opportunity to
-            // update the pointer in the cell to some global inaccessible
-            // REBARR, and *not* mark the dead node at all.
-            //
-            assert(Is_Marked(a));
-        }
-        else {
-            assert(Is_Marked(a));
-        }
+        REBARR *a = VAL_ARRAY(v);
+        assert(Is_Marked(a));
         break; }
 
       case REB_PATH:
@@ -392,6 +394,8 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
       case REB_WORD:
       case REB_SET_WORD:
       case REB_GET_WORD: {
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
+
         REBSTR *spelling = STR(PAYLOAD(Any, v).first.node);
 
         // A word marks the specific spelling it uses, but not the canon
