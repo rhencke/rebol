@@ -62,7 +62,7 @@ do*: function [
     if tag? source [
         ; Convert value into a URL!
         source: switch source
-            load rebol/locale/library/utilities
+            (load rebol/locale/library/utilities)
         else [
             fail [
                 {Module} source {not in rebol/locale/library}
