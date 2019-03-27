@@ -159,12 +159,12 @@ inline static REBARR *CTX_KEYLIST(REBCTX *c) {
 
 static inline void INIT_CTX_KEYLIST_SHARED(REBCTX *c, REBARR *keylist) {
     SET_SERIES_INFO(keylist, KEYLIST_SHARED);
-    LINK_KEYSOURCE(c) = NOD(keylist);
+    INIT_LINK_KEYSOURCE(c, NOD(keylist));
 }
 
 static inline void INIT_CTX_KEYLIST_UNIQUE(REBCTX *c, REBARR *keylist) {
     assert(NOT_SERIES_INFO(keylist, KEYLIST_SHARED));
-    LINK_KEYSOURCE(c) = NOD(keylist);
+    INIT_LINK_KEYSOURCE(c, NOD(keylist));
 }
 
 // Navigate from context to context components.  Note that the context's
@@ -254,7 +254,7 @@ inline static REBSYM CTX_KEY_SYM(REBCTX *c, REBCNT n) {
 inline static void FAIL_IF_INACCESSIBLE_CTX(REBCTX *c) {
     if (GET_SERIES_INFO(c, INACCESSIBLE)) {
         if (CTX_TYPE(c) == REB_FRAME)
-            fail (Error_Do_Expired_Frame_Raw()); // !!! different error?
+            fail (Error_Expired_Frame_Raw()); // !!! different error?
         fail (Error_Series_Data_Freed_Raw());
     }
 }
@@ -265,6 +265,19 @@ inline static REBCTX *VAL_CONTEXT(const REBCEL *v) {
         (VAL_PHASE_UNCHECKED(v) != nullptr) == (CELL_KIND(v) == REB_FRAME)
     );
     REBCTX *c = CTX(PAYLOAD(Any, v).first.node);
+    FAIL_IF_INACCESSIBLE_CTX(c);
+    return c;
+}
+
+inline static REBCTX *VAL_WORD_CONTEXT(const REBVAL *v) {
+    assert(IS_WORD_BOUND(v));
+    REBNOD *binding = VAL_BINDING(v);
+    assert(
+        GET_SERIES_FLAG(binding, MANAGED)
+        or IS_END(FRM(LINK_KEYSOURCE(binding))->param)  // not "fulfilling"
+    );
+    binding->header.bits |= NODE_FLAG_MANAGED;  // !!! review managing needs
+    REBCTX *c = CTX(binding);
     FAIL_IF_INACCESSIBLE_CTX(c);
     return c;
 }
@@ -501,7 +514,7 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     // Disassociate the stub from the frame, by degrading the link field
     // to a keylist.  !!! Review why this was needed, vs just nullptr
     //
-    LINK_KEYSOURCE(stub) = keysource;
+    INIT_LINK_KEYSOURCE(CTX(stub), keysource);
 
     return CTX(copy);
 }

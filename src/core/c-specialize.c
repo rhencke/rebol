@@ -1393,7 +1393,7 @@ bool Make_Frame_From_Varargs_Throws(
     REBCTX *exemplar = Steal_Context_Vars(CTX(f->varlist), NOD(act));
     assert(ACT_NUM_PARAMS(act) == CTX_LEN(exemplar));
 
-    LINK_KEYSOURCE(exemplar) = NOD(act);
+    INIT_LINK_KEYSOURCE(exemplar, NOD(act));
 
     SET_SERIES_FLAG(f->varlist, MANAGED); // is inaccessible
     f->varlist = nullptr; // just let it GC, for now

@@ -1056,7 +1056,7 @@ inline static void Push_Action(
             FLAG_WIDE_BYTE_OR_0(0) // signals array, also implicit terminator
                 | FLAG_LEN_BYTE_OR_255(255) // signals dynamic
         );
-        LINK_KEYSOURCE(s) = NOD(f); // maps varlist back to f
+        INIT_LINK_KEYSOURCE(s, NOD(f)); // maps varlist back to f
         MISC_META_NODE(s) = nullptr; // GC will sees this
         f->varlist = ARR(s);
     }
@@ -1204,7 +1204,7 @@ inline static void Drop_Action(REBFRM *f) {
             )
         );
         assert(NOT_SERIES_FLAG(f->varlist, MANAGED));
-        LINK_KEYSOURCE(f->varlist) = NOD(f);
+        INIT_LINK_KEYSOURCE(f->varlist, NOD(f));
     }
     else {
         // We can reuse the varlist and its data allocation, which may be

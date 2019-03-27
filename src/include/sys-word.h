@@ -62,6 +62,9 @@
 //
 #define LINK_KEYSOURCE(s)       LINK(s).custom.node
 
+#define INIT_LINK_KEYSOURCE(a,keysource) \
+    LINK_KEYSOURCE(a) = (keysource)  // helpful macro for injecting debugging
+
 
 // For a *read-only* REBSTR, circularly linked list of othEr-CaSed string
 // forms.  It should be relatively quick to find the canon form on
@@ -227,17 +230,6 @@ inline static REBSTR *VAL_STORED_CANON(const REBCEL *v) {
 inline static OPT_REBSYM VAL_WORD_SYM(const REBCEL *v) {
     assert(ANY_WORD_KIND(CELL_KIND(v)));
     return STR_SYMBOL(STR(PAYLOAD(Any, v).first.node));
-}
-
-inline static REBCTX *VAL_WORD_CONTEXT(const REBVAL *v) {
-    assert(IS_WORD_BOUND(v));
-    REBNOD *binding = VAL_BINDING(v);
-    assert(
-        GET_SERIES_FLAG(binding, MANAGED)
-        or IS_END(FRM(LINK_KEYSOURCE(binding))->param)  // not "fulfilling"
-    );
-    binding->header.bits |= NODE_FLAG_MANAGED;  // !!! review managing needs
-    return CTX(binding);
 }
 
 #define INIT_WORD_INDEX_UNCHECKED(v,i) \

@@ -1670,7 +1670,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     // user handles on it...so just take it.  Otherwise, "steal" its vars.
     //
     REBCTX *c = Steal_Context_Vars(CTX(f->varlist), NOD(FRM_PHASE(f)));
-    LINK_KEYSOURCE(c) = NOD(VAL_ACTION(inner));
+    INIT_LINK_KEYSOURCE(c, NOD(VAL_ACTION(inner)));
     CLEAR_SERIES_FLAG(c, STACK_LIFETIME);
 
     assert(GET_SERIES_INFO(f->varlist, INACCESSIBLE));  // look dead

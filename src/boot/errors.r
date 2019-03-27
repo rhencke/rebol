@@ -105,7 +105,7 @@ Script: [
     bad-set-group:      {SET-GROUP! sets WORD!/PATH!/BLOCK!, arity-1 ACTION!}
 
     do-running-frame:   [{Must COPY a FRAME! that's RUNNING? before DOing it}]
-    do-expired-frame:   [{Cannot DO a FRAME! whose stack storage expired}]
+    expired-frame:      [{Cannot use a FRAME! whose stack storage expired}]
 
     apply-too-many:     {Too many values in processed argument block of APPLY.}
 

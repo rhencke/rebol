@@ -182,7 +182,9 @@ REBNATIVE(shove)
     // We quoted the argument on the left, but the ACTION! we are feeding
     // into may want it evaluative.  (Enfix handling itself does soft quoting)
     //
-    TRASH_CELL_IF_DEBUG(D_OUT); // make sure we reassign it
+  #if !defined(NDEBUG)
+    Init_Unreadable_Blank(D_OUT); // make sure we reassign it
+  #endif
 
     if (REF(set)) {
         if (IS_SET_WORD(left)) {
@@ -431,7 +433,7 @@ REBNATIVE(do)
         assert(CTX_KEYS_HEAD(c) == ACT_PARAMS_HEAD(phase));
         f->param = CTX_KEYS_HEAD(c);
         REBCTX *stolen = Steal_Context_Vars(c, NOD(phase));
-        LINK_KEYSOURCE(stolen) = NOD(f);  // changes CTX_KEYS_HEAD() result
+        INIT_LINK_KEYSOURCE(stolen, NOD(f));  // changes CTX_KEYS_HEAD()
 
         // Its data stolen, the context's node should now be GC'd when
         // references in other FRAME! value cells have all gone away.
@@ -796,7 +798,7 @@ REBNATIVE(applique)
         exemplar,
         NOD(VAL_ACTION(applicand))
     );
-    LINK_KEYSOURCE(stolen) = NOD(f);  // changes CTX_KEYS_HEAD result
+    INIT_LINK_KEYSOURCE(stolen, NOD(f));  // changes CTX_KEYS_HEAD result
 
     if (def_threw) {
         Free_Unmanaged_Array(CTX_VARLIST(stolen)); // could TG_Reuse it
