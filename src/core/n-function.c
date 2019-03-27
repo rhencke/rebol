@@ -656,10 +656,11 @@ REBNATIVE(hijack)
 
         LINK_UNDERLYING_NODE(victim_paramlist)
             = LINK_UNDERLYING_NODE(hijacker_paramlist);
-        if (LINK(hijacker_details).specialty == hijacker_paramlist)
-            LINK(victim_details).specialty = victim_paramlist;
+        if (LINK_SPECIALTY(hijacker_details) == hijacker_paramlist)
+            LINK_SPECIALTY_NODE(victim_details) = NOD(victim_paramlist);
         else
-            LINK(victim_details).specialty = LINK(hijacker_details).specialty;
+            LINK_SPECIALTY_NODE(victim_details)
+                = LINK_SPECIALTY_NODE(hijacker_details);
 
         MISC(victim_details).dispatcher = MISC(hijacker_details).dispatcher;
 

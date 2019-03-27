@@ -97,6 +97,16 @@
     #define ASSERT_CONTEXT(c) Assert_Context_Core(c)
 #endif
 
+// On the keylist of an object, this points at a keylist which has the
+// same number of keys or fewer, which represents an object which this
+// object is derived from.  Note that when new object instances are
+// created which do not require expanding the object, their keylist will
+// be the same as the object they are derived from.
+//
+#define LINK_ANCESTOR_NODE(s)       LINK(s).custom.node
+#define LINK_ANCESTOR(s)            ARR(LINK_ANCESTOR_NODE(s))
+
+
 #define CTX_VARLIST(c) \
     (&(c)->varlist)
 

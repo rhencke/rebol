@@ -50,8 +50,8 @@ REBINT CT_Map(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 REBMAP *Make_Map(REBCNT capacity)
 {
-    REBARR *pairlist = Make_Array_Core(capacity * 2, ARRAY_FLAG_IS_PAIRLIST);
-    LINK(pairlist).hashlist = Make_Hash_Sequence(capacity);
+    REBARR *pairlist = Make_Array_Core(capacity * 2, SERIES_MASK_PAIRLIST);
+    LINK_HASHLIST_NODE(pairlist) = NOD(Make_Hash_Sequence(capacity));
 
     return MAP(pairlist);
 }
@@ -430,17 +430,20 @@ REB_R MAKE_Map(
 
 
 inline static REBMAP *Copy_Map(REBMAP *map, REBU64 types) {
-    REBARR *copy = Copy_Array_Shallow(MAP_PAIRLIST(map), SPECIFIED);
-    SET_ARRAY_FLAG(copy, IS_PAIRLIST);
+    REBARR *copy = Copy_Array_Shallow_Flags(
+        MAP_PAIRLIST(map),
+        SPECIFIED,
+        SERIES_MASK_PAIRLIST
+    );
 
     // So long as the copied pairlist is the same array size as the original,
     // a literal copy of the hashlist can still be used, as a start (needs
     // its own copy so new map's hashes will reflect its own mutations)
     //
-    LINK(copy).hashlist = Copy_Sequence_Core(
+    LINK_HASHLIST_NODE(copy) = NOD(Copy_Sequence_Core(
         MAP_HASHLIST(map),
         SERIES_FLAGS_NONE // !!! No NODE_FLAG_MANAGED?
-    );
+    ));
 
     if (types == 0)
         return MAP(copy); // no types have deep copy requested, shallow is OK

@@ -897,7 +897,10 @@ REBACT *Make_Action(
     // the dispatcher understands it to be, by contract.  Terminate it
     // at the given length implicitly.
 
-    REBARR *details = Make_Array_Core(details_capacity, NODE_FLAG_MANAGED);
+    REBARR *details = Make_Array_Core(
+        details_capacity,
+        SERIES_MASK_DETAILS | NODE_FLAG_MANAGED
+    );
     TERM_ARRAY_LEN(details, details_capacity);
 
     VAL_ACT_DETAILS_NODE(rootparam) = NOD(details);
@@ -927,7 +930,7 @@ REBACT *Make_Action(
         // so that Push_Action() can assign f->special directly from it in
         // dispatch, and be equal to f->param.
         //
-        LINK(details).specialty = paramlist;
+        LINK_SPECIALTY_NODE(details) = NOD(paramlist);
     }
     else {
         // The parameters of the paramlist should line up with the slots of
@@ -937,7 +940,7 @@ REBACT *Make_Action(
         assert(GET_SERIES_FLAG(opt_exemplar, MANAGED));
         assert(CTX_LEN(opt_exemplar) == ARR_LEN(paramlist) - 1);
 
-        LINK(details).specialty = CTX_VARLIST(opt_exemplar);
+        LINK_SPECIALTY_NODE(details) = NOD(CTX_VARLIST(opt_exemplar));
     }
 
     // The meta information may already be initialized, since the native

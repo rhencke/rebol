@@ -423,7 +423,6 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
         assert((v->header.bits & CELL_MASK_ACTION) == CELL_MASK_ACTION);
 
         REBACT *a = VAL_ACTION(v);
-
         REBARR *paramlist = ACT_PARAMLIST(a);
         assert(Is_Marked(paramlist));
         REBARR *details = ACT_DETAILS(a);
@@ -482,6 +481,112 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
 
       default:
         panic (v);
+    }
+}
+
+
+//
+//  Assert_Array_Marked_Correctly: C
+//
+// This code used to be run in the GC because outside of the flags dictating
+// what type of array it was, it didn't know whether it needed to mark the
+// LINK() or MISC(), or which fields had been assigned to correctly use for
+// reading back what to mark.  This has been standardized.
+//
+void Assert_Array_Marked_Correctly(REBARR *a) {
+    assert(Is_Marked(a));
+
+    #ifdef HEAVY_CHECKS
+        //
+        // The GC is a good general hook point that all series which have been
+        // managed will go through, so it's a good time to assert properties
+        // about the array.
+        //
+        ASSERT_ARRAY(a);
+    #else
+        //
+        // For a lighter check, make sure it's marked as a value-bearing array
+        // and that it hasn't been freed.
+        //
+        assert(IS_SER_ARRAY(a));
+        assert(not IS_FREE_NODE(SER(a)));
+    #endif
+
+    if (GET_ARRAY_FLAG(a, IS_PARAMLIST)) {
+        RELVAL *archetype = ARR_HEAD(a);
+        assert(IS_ACTION(archetype));
+        assert(not EXTRA(Binding, archetype).node);
+
+        // These queueings cannot be done in Queue_Mark_Function_Deep
+        // because of the potential for overflowing the C stack with calls
+        // to Queue_Mark_Function_Deep.
+
+        REBARR *details = VAL_ACT_DETAILS(archetype);
+        assert(Is_Marked(details));
+
+        REBARR *specialty = LINK_SPECIALTY(details);
+        if (GET_ARRAY_FLAG(specialty, IS_VARLIST)) {
+            REBCTX *ctx_specialty = CTX(specialty);
+            UNUSED(ctx_specialty);
+        }
+        else
+            assert(specialty == a);
+    }
+    else if (GET_ARRAY_FLAG(a, IS_VARLIST)) {
+        REBVAL *archetype = CTX_ARCHETYPE(CTX(a));
+
+        // Currently only FRAME! archetypes use binding
+        //
+        assert(ANY_CONTEXT(archetype));
+        assert(
+            not EXTRA(Binding, archetype).node
+            or VAL_TYPE(archetype) == REB_FRAME
+        );
+
+        // These queueings cannot be done in Queue_Mark_Context_Deep
+        // because of the potential for overflowing the C stack with calls
+        // to Queue_Mark_Context_Deep.
+
+        REBNOD *keysource = LINK_KEYSOURCE(a);
+        if (keysource->header.bits & NODE_FLAG_CELL) {
+            //
+            // Must be a FRAME! and it must be on the stack running.  If
+            // it has stopped running, then the keylist must be set to
+            // UNBOUND which would not be a cell.
+            //
+            // There's nothing to mark for GC since the frame is on the
+            // stack, which should preserve the function paramlist.
+            //
+            assert(IS_FRAME(archetype));
+        }
+        else {
+            REBARR *keylist = ARR(keysource);
+            if (IS_FRAME(archetype)) {
+                assert(GET_ARRAY_FLAG(keylist, IS_PARAMLIST));
+
+                // Frames use paramlists as their "keylist", there is no
+                // place to put an ancestor link.
+            }
+            else {
+                assert(NOT_ARRAY_FLAG(keylist, IS_PARAMLIST));
+                ASSERT_UNREADABLE_IF_DEBUG(ARR_HEAD(keylist));
+
+                REBARR *ancestor = LINK_ANCESTOR(keylist);
+                UNUSED(ancestor);  // maybe keylist
+            }
+        }
+    }
+    else if (GET_ARRAY_FLAG(a, IS_PAIRLIST)) {
+        //
+        // There was once a "small map" optimization that wouldn't
+        // produce a hashlist for small maps and just did linear search.
+        // @giuliolunati deleted that for the time being because it
+        // seemed to be a source of bugs, but it may be added again...in
+        // which case the hashlist may be NULL.
+        //
+        REBSER *hashlist = LINK_HASHLIST(a);
+        assert(hashlist != nullptr);
+        UNUSED(hashlist);
     }
 }
 

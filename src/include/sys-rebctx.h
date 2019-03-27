@@ -35,6 +35,9 @@
         | SERIES_FLAG_MISC_NODE_NEEDS_MARK  /* meta */ \
         | ARRAY_FLAG_IS_VARLIST)
 
+#define SERIES_MASK_KEYLIST \
+    (NODE_FLAG_NODE | SERIES_FLAG_ALWAYS_DYNAMIC \
+        | SERIES_FLAG_LINK_NODE_NEEDS_MARK  /* ancestor */ )
 
 struct Reb_Context {
     struct Reb_Array varlist;  // keylist is held in ->link.keysource
@@ -67,6 +70,7 @@ struct Reb_Context {
                 | ARRAY_FLAG_IS_VARLIST
                 | ARRAY_FLAG_IS_PARAMLIST
                 | ARRAY_FLAG_IS_PAIRLIST
+                | ARRAY_FLAG_HAS_FILE_LINE_UNMASKED
         )) != (
             NODE_FLAG_NODE | ARRAY_FLAG_IS_VARLIST
         )){

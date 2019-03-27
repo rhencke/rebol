@@ -20,29 +20,25 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// This contains the struct definition for the "REBSER" struct Reb_Series.
-// It is a small-ish descriptor for a series (though if the amount of data
-// in the series is small enough, it is embedded into the structure itself.)
+// `struct Reb_Series` (or "REBSER") is a small-ish fixed-size descriptor for
+// series data.  Usually it contains a pointer to a larger allocation for the
+// actual contents.  But if the series is small enough, the contents are
+// embedded into the REBSER structure itself.
 //
-// Every string, block, path, etc. in Rebol has a REBSER.  The implementation
-// of them is reused in many places where Rebol needs a general-purpose
-// dynamically growing structure.  It is also used for fixed size structures
-// which would like to participate in garbage collection.
+// Every string, block, path, etc. in Rebol has a REBSER.  Since Rebol does
+// not depend on any data structure libraries--like C++'s std::vector--this
+// means that the REBSER is also used internally when there is a need for a
+// dynamically growable contiguous memory structure.
 //
-// A REBSER is a contiguous-memory structure with an optimization of behaving
-// like a kind of "double-ended queue".  It is able to reserve capacity at
-// both the tail and the head, and when data is taken from the head it will
-// retain that capacity...reusing it on later insertions at the head.
+// REBSER behaves something like a "double-ended queue".  It can reserve
+// capacity at both the tail and the head.  When data is taken from the head,
+// it will retain that capacity...reusing it on later insertions at the head.
 //
 // The space at the head is called the "bias", and to save on pointer math
 // per-access, the stored data pointer is actually adjusted to include the
 // bias.  This biasing is backed out upon insertions at the head, and also
 // must be subtracted completely to free the pointer using the address
 // originally given by the allocator.
-//
-// The element size in a REBSER is known as the "width".  It is designed
-// to support widths of elements up to 255 bytes.  (See note on SER_FREED
-// about accomodating 256-byte elements.)
 //
 // The REBSER is fixed-size, and is allocated as a "node" from a memory pool.
 // That pool quickly grants and releases memory ranges that are sizeof(REBSER)
@@ -85,6 +81,8 @@
 //   `->misc` field of the REBSER node.  Hence series are the basic building
 //   blocks of nearly all variable-size structures in the system.
 //
+// * The element size in a REBSER is known as the "width".  It is designed
+//   to support widths of elements up to 255 bytes.
 
 
 // While series are nodes, the token-pasting based GET_SERIES_FLAG() macros
@@ -751,14 +749,6 @@ union Reb_Series_Link {
     //
     REBNOD *owner;
 
-    // On the keylist of an object, this points at a keylist which has the
-    // same number of keys or fewer, which represents an object which this
-    // object is derived from.  Note that when new object instances are
-    // created which do not require expanding the object, their keylist will
-    // be the same as the object they are derived from.
-    //
-    REBARR *ancestor;
-
     // For a writable REBSTR, a list of entities that cache the mapping from
     // index to character offset is maintained.  Without some help, it would
     // be necessary to search from the head or tail of the string, character
@@ -769,18 +759,6 @@ union Reb_Series_Link {
     // a first try of this strategy, singular arrays are being used.
     //
     REBBMK *bookmarks;
-
-    // REBACT uses this.  It can hold either the varlist of a frame containing
-    // specialized values (e.g. an "exemplar"), with ARRAY_FLAG_IS_VARLIST set.
-    // Or just hold the paramlist.  This speeds up Push_Action() because
-    // if this were `REBCTX *exemplar;` then it would have to test it for null
-    // explicitly to default f->special to f->param.
-    //
-    REBARR *specialty;
-
-    // The MAP! datatype uses this.
-    //
-    REBSER *hashlist;
 
     // The REBFRM's `varlist` field holds a ready-made varlist for a frame,
     // which may be reused.  However, when a stack frame is dropped it can
@@ -916,18 +894,13 @@ union Reb_Series_Misc {
 
 struct Reb_Series {
     //
-    // The low 2 bits in the header must be 00 if this is an "ordinary" REBSER
-    // node.  This allows such nodes to implicitly terminate a "pairing"
-    // REBSER node, that is being used as storage for exactly 2 REBVALs.
-    // As long as there aren't two of those REBSERs sequentially in the pool,
-    // an unused node or a used ordinary one can terminate it.
+    // See the description of SERIES_FLAG_XXX for the bits in this header.
+    // It is designed in such a way as to have compatibility with REBVAL's
+    // header, but be wary of "Strict Aliasing" when making use of that:
+    // If a type is a REBSER* it cannot be safely read from a REBVAL*.
+    // Tricks have to be used:
     //
-    // The other bit that is checked in the header is the USED bit, which is
-    // bit #9.  This is set on all REBVALs and also in END marking headers,
-    // and should be set in used series nodes.
-    //
-    // The remaining bits are free, and used to hold SYM values for those
-    // words that have them.
+    // https://stackoverflow.com/q/51846048/
     //
     union Reb_Header header;
 

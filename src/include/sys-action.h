@@ -83,6 +83,16 @@
 #define MISC_META(s)            CTX(MISC_META_NODE(s))
 
 
+// REBACT uses this.  It can hold either the varlist of a frame containing
+// specialized values (e.g. an "exemplar"), with ARRAY_FLAG_IS_VARLIST set.
+// Or just hold the paramlist.  This speeds up Push_Action() because
+// if this were `REBCTX *exemplar;` then it would have to test it for null
+// explicitly to default f->special to f->param.
+//
+#define LINK_SPECIALTY_NODE(s)   LINK(s).custom.node
+#define LINK_SPECIALTY(s)        ARR(LINK_SPECIALTY_NODE(s))
+
+
 //=//// PARAMLIST_FLAG_HAS_RETURN /////////////////////////////////////////=//
 //
 // Has a definitional RETURN in the last paramlist slot.
@@ -347,12 +357,12 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
 
 
 // An efficiency trick makes functions that do not have exemplars NOT store
-// nullptr in the LINK(info).specialty node in that case--instead the params.
+// nullptr in the LINK_SPECIALTY(info) node in that case--instead the params.
 // This makes Push_Action() slightly faster in assigning f->special.
 //
 inline static REBCTX *ACT_EXEMPLAR(REBACT *a) {
     REBARR *details = VAL_ACT_DETAILS(ACT_ARCHETYPE(a));
-    REBARR *specialty = LINK(details).specialty;
+    REBARR *specialty = LINK_SPECIALTY(details);
     if (GET_ARRAY_FLAG(specialty, IS_VARLIST))
         return CTX(specialty);
 
@@ -361,7 +371,7 @@ inline static REBCTX *ACT_EXEMPLAR(REBACT *a) {
 
 inline static REBVAL *ACT_SPECIALTY_HEAD(REBACT *a) {
     REBARR *details = VAL_ACT_DETAILS(ACT_ARCHETYPE(a));
-    REBSER *s = SER(LINK(details).specialty);
+    REBSER *s = SER(LINK_SPECIALTY_NODE(details));
     return cast(REBVAL*, s->content.dynamic.data) + 1; // skip archetype/root
 }
 

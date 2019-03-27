@@ -152,10 +152,8 @@ static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
 
     Mark_Rebser_Only(cast(REBSER*, a));
 
-    if (GET_SERIES_FLAG(a, LINK_NODE_NEEDS_MARK))
-        Queue_Mark_Node_Deep(LINK(a).custom.node);
-    if (GET_SERIES_FLAG(a, MISC_NODE_NEEDS_MARK))
-        Queue_Mark_Node_Deep(MISC(a).custom.node);
+    if (GET_SERIES_INFO(a, INACCESSIBLE))
+        return;  // !!! Reference sites should be canonizing
 
     // Add series to the end of the mark stack series.  The length must be
     // maintained accurately to know when the stack needs to grow.
@@ -179,30 +177,11 @@ inline static void Queue_Mark_Array_Deep(REBARR *a) {  // plain/custom array
 
 inline static void Queue_Mark_Context_Deep(REBCTX *c) {
     REBARR *varlist = CTX_VARLIST(c);
-    assert(
-        GET_SERIES_INFO(varlist, INACCESSIBLE)
-        or SERIES_MASK_CONTEXT == (SER(varlist)->header.bits & (
-            SERIES_MASK_CONTEXT // these should be set, not the others
-                | ARRAY_FLAG_IS_PAIRLIST
-                | ARRAY_FLAG_IS_PARAMLIST
-                | ARRAY_FLAG_HAS_FILE_LINE_UNMASKED
-        ))
-    );
-
     Queue_Mark_Array_Subclass_Deep(varlist); // see Propagate_All_GC_Marks()
 }
 
 inline static void Queue_Mark_Action_Deep(REBACT *a) {
     REBARR *paramlist = ACT_PARAMLIST(a);
-    assert(
-        SERIES_MASK_ACTION == (SER(paramlist)->header.bits & (
-            SERIES_MASK_ACTION // these should be set, not the others
-                | ARRAY_FLAG_IS_PAIRLIST
-                | ARRAY_FLAG_IS_VARLIST
-                | ARRAY_FLAG_HAS_FILE_LINE_UNMASKED
-        ))
-    );
-
     Queue_Mark_Array_Subclass_Deep(paramlist); // see Propagate_All_GC_Marks()
 }
 
@@ -389,133 +368,13 @@ static void Propagate_All_GC_Marks(void)
          //
         assert(SER(a)->header.bits & NODE_FLAG_MARKED);
 
-    #ifdef HEAVY_CHECKS
-        //
-        // The GC is a good general hook point that all series which have been
-        // managed will go through, so it's a good time to assert properties
-        // about the array.
-        //
-        ASSERT_ARRAY(a);
-    #else
-        //
-        // For a lighter check, make sure it's marked as a value-bearing array
-        // and that it hasn't been freed.
-        //
-        assert(IS_SER_ARRAY(a));
-        assert(not IS_FREE_NODE(SER(a)));
-    #endif
+        if (GET_SERIES_FLAG(a, LINK_NODE_NEEDS_MARK))
+            Queue_Mark_Node_Deep(LINK(a).custom.node);
 
-        RELVAL *v;
+        if (GET_SERIES_FLAG(a, MISC_NODE_NEEDS_MARK))
+            Queue_Mark_Node_Deep(MISC(a).custom.node);
 
-        if (GET_ARRAY_FLAG(a, IS_PARAMLIST)) {
-            v = ARR_HEAD(a); // archetype
-            assert(IS_ACTION(v));
-            assert(not EXTRA(Binding, v).node); // archetypes have no binding
-
-            // These queueings cannot be done in Queue_Mark_Function_Deep
-            // because of the potential for overflowing the C stack with calls
-            // to Queue_Mark_Function_Deep.
-
-            REBARR *details = VAL_ACT_DETAILS(v);
-            Queue_Mark_Array_Deep(details);
-
-            REBACT *underlying = LINK_UNDERLYING(a);
-            Queue_Mark_Action_Deep(underlying);
-
-            REBARR *specialty = LINK(details).specialty;
-            if (GET_ARRAY_FLAG(specialty, IS_VARLIST))
-                Queue_Mark_Context_Deep(CTX(specialty));
-            else
-                assert(specialty == a);
-
-            // Functions can't currently be freed by FREE...
-            //
-            assert(NOT_SERIES_INFO(a, INACCESSIBLE));
-
-            ++v; // function archetype completely marked by this process
-        }
-        else if (GET_ARRAY_FLAG(a, IS_VARLIST)) {
-            v = CTX_ARCHETYPE(CTX(a)); // works if SERIES_INFO_INACCESSIBLE
-
-            // Currently only FRAME! uses binding
-            //
-            assert(ANY_CONTEXT(v));
-            assert(not EXTRA(Binding, v).node or VAL_TYPE(v) == REB_FRAME);
-
-            // These queueings cannot be done in Queue_Mark_Context_Deep
-            // because of the potential for overflowing the C stack with calls
-            // to Queue_Mark_Context_Deep.
-
-            REBNOD *keysource = LINK_KEYSOURCE(a);
-            if (keysource->header.bits & NODE_FLAG_CELL) {
-                //
-                // Must be a FRAME! and it must be on the stack running.  If
-                // it has stopped running, then the keylist must be set to
-                // UNBOUND which would not be a cell.
-                //
-                // There's nothing to mark for GC since the frame is on the
-                // stack, which should preserve the function paramlist.
-                //
-                assert(IS_FRAME(v));
-            }
-            else {
-                REBARR *keylist = ARR(keysource);
-                if (IS_FRAME(v)) {
-                    assert(GET_ARRAY_FLAG(keylist, IS_PARAMLIST));
-
-                    // Frames use paramlists as their "keylist", there is no
-                    // place to put an ancestor link.
-                }
-                else {
-                    assert(NOT_ARRAY_FLAG(keylist, IS_PARAMLIST));
-                    ASSERT_UNREADABLE_IF_DEBUG(ARR_HEAD(keylist));
-
-                    REBARR *ancestor = LINK(keylist).ancestor;
-                    Queue_Mark_Array_Subclass_Deep(ancestor); // maybe keylist
-                }
-                Queue_Mark_Array_Subclass_Deep(keylist);
-            }
-
-            // Stack-based frames will be inaccessible if they are no longer
-            // running, so there's no data to mark...
-            //
-            if (GET_SERIES_INFO(a, INACCESSIBLE))
-                continue;
-
-            ++v; // context archetype completely marked by this process
-        }
-        else if (GET_ARRAY_FLAG(a, IS_PAIRLIST)) {
-            //
-            // There was once a "small map" optimization that wouldn't
-            // produce a hashlist for small maps and just did linear search.
-            // @giuliolunati deleted that for the time being because it
-            // seemed to be a source of bugs, but it may be added again...in
-            // which case the hashlist may be NULL.
-            //
-            REBSER *hashlist = LINK(a).hashlist;
-            assert(hashlist != NULL);
-
-            Mark_Rebser_Only(hashlist);
-
-            // !!! Currently MAP! doesn't work with FREE, but probably should.
-            //
-            assert(NOT_SERIES_INFO(a, INACCESSIBLE));
-
-            v = ARR_HEAD(a);
-        }
-        else {
-            // Users can free the data of a plain array with FREE, leaving
-            // the array stub.
-            //
-            // !!! It could be possible to GC all these to a common freed
-            // array stub, though that wouldn't permit equality comparisons.
-            //
-            if (GET_SERIES_INFO(a, INACCESSIBLE))
-                continue;
-
-            v = ARR_HEAD(a);
-        }
-
+        RELVAL *v = ARR_HEAD(a);
         for (; NOT_END(v); ++v) {
             Queue_Mark_Opt_Value_Deep(v);
 
@@ -534,6 +393,10 @@ static void Propagate_All_GC_Marks(void)
             }
           #endif
         }
+
+      #if !defined(NDEBUG)
+        Assert_Array_Marked_Correctly(a);
+      #endif
     }
 }
 

@@ -37,9 +37,19 @@
 // objects with hidden fields, locals in paramlists, etc.
 //
 
+#define SERIES_MASK_PAIRLIST \
+    (ARRAY_FLAG_IS_PAIRLIST \
+        | SERIES_FLAG_LINK_NODE_NEEDS_MARK  /* hashlist */)
+
 struct Reb_Map {
-    struct Reb_Array pairlist; // hashlist is held in ->link.hashlist
+    struct Reb_Array pairlist;  // hashlist is held in ->link.hashlist
 };
+
+// The MAP! datatype uses this.
+//
+#define LINK_HASHLIST_NODE(s)       LINK(s).custom.node
+#define LINK_HASHLIST(s)            SER(LINK(s).custom.node)
+
 
 inline static REBARR *MAP_PAIRLIST(REBMAP *m) {
     assert(GET_ARRAY_FLAG(&(m)->pairlist, IS_PAIRLIST));
@@ -47,7 +57,7 @@ inline static REBARR *MAP_PAIRLIST(REBMAP *m) {
 }
 
 #define MAP_HASHLIST(m) \
-    (LINK(MAP_PAIRLIST(m)).hashlist)
+    LINK_HASHLIST(MAP_PAIRLIST(m))
 
 #define MAP_HASHES(m) \
     SER_HEAD(MAP_HASHLIST(m))

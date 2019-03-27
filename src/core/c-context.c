@@ -98,13 +98,13 @@ REBCTX *Alloc_Context_Core(enum Reb_Kind kind, REBCNT capacity, REBFLGS flags)
 
     REBARR *keylist = Make_Array_Core(
         capacity + 1, // size + room for ROOTKEY
-        NODE_FLAG_MANAGED // No keylist flag, but we don't want line numbers
+        SERIES_MASK_KEYLIST | NODE_FLAG_MANAGED
     );
     Init_Unreadable_Blank(Alloc_Tail_Array(keylist));
 
     // Default the ancestor link to be to this keylist itself.
     //
-    LINK(keylist).ancestor = keylist;
+    LINK_ANCESTOR_NODE(keylist) = NOD(keylist);
 
     // varlists link keylists via LINK().keysource, sharable hence managed
 
@@ -148,10 +148,10 @@ bool Expand_Context_Keylist_Core(REBCTX *context, REBCNT delta)
         // objects are essentially all new objects as far as derivation are
         // concerned, though they can still run against ancestor methods.
         //
-        if (LINK(keylist).ancestor == keylist)
-            LINK(copy).ancestor = copy;
+        if (LINK_ANCESTOR(keylist) == keylist)
+            LINK_ANCESTOR_NODE(copy) = NOD(copy);
         else
-            LINK(copy).ancestor = LINK(keylist).ancestor;
+            LINK_ANCESTOR_NODE(copy) = LINK_ANCESTOR_NODE(keylist);
 
         Manage_Array(copy);
         INIT_CTX_KEYLIST_UNIQUE(context, copy);
@@ -287,7 +287,7 @@ REBCTX *Copy_Context_Shallow_Extra_Managed(REBCTX *src, REBCNT extra) {
             0,
             SPECIFIED,
             extra,
-            NODE_FLAG_MANAGED
+            SERIES_MASK_KEYLIST | NODE_FLAG_MANAGED
         );
         varlist = Copy_Array_At_Extra_Shallow(
             CTX_VARLIST(src),
@@ -299,7 +299,7 @@ REBCTX *Copy_Context_Shallow_Extra_Managed(REBCTX *src, REBCNT extra) {
 
         dest = CTX(varlist);
 
-        LINK(keylist).ancestor = CTX_KEYLIST(src);
+        LINK_ANCESTOR_NODE(keylist) = NOD(CTX_KEYLIST(src));
 
         INIT_CTX_KEYLIST_UNIQUE(dest, keylist);
     }
@@ -342,8 +342,10 @@ void Collect_Start(struct Reb_Collector* collector, REBFLGS flags)
 //
 //  Grab_Collected_Array_Managed: C
 //
-REBARR *Grab_Collected_Array_Managed(struct Reb_Collector *collector)
-{
+REBARR *Grab_Collected_Array_Managed(
+    struct Reb_Collector *collector,
+    REBFLGS flags
+){
     UNUSED(collector); // not needed at the moment
 
     // We didn't terminate as we were collecting, so terminate now.
@@ -359,7 +361,7 @@ REBARR *Grab_Collected_Array_Managed(struct Reb_Collector *collector)
     return Copy_Array_Shallow_Flags(
         BUF_COLLECT,
         SPECIFIED,
-        NODE_FLAG_MANAGED
+        flags | NODE_FLAG_MANAGED
     );
 }
 
@@ -623,7 +625,7 @@ REBARR *Collect_Keylist_Managed(
     if (prior != NULL and ARR_LEN(CTX_KEYLIST(prior)) == ARR_LEN(BUF_COLLECT))
         keylist = CTX_KEYLIST(prior);
     else
-        keylist = Grab_Collected_Array_Managed(cl);
+        keylist = Grab_Collected_Array_Managed(cl, SERIES_MASK_KEYLIST);
 
     // !!! Usages of the rootkey for non-FRAME! contexts is open for future,
     // but it's set to an unreadable blank at the moment just to make sure it
@@ -709,7 +711,7 @@ REBARR *Collect_Unique_Words_Managed(
 
     Collect_Inner_Loop(cl, head);
 
-    REBARR *array = Grab_Collected_Array_Managed(cl);
+    REBARR *array = Grab_Collected_Array_Managed(cl, SERIES_FLAGS_NONE);
 
     if (IS_BLOCK(ignore)) {
         RELVAL *item = VAL_ARRAY_AT(ignore);
@@ -812,7 +814,7 @@ REBCTX *Make_Selfish_Context_Detect_Managed(
     //
     if (opt_parent == NULL) {
         INIT_CTX_KEYLIST_UNIQUE(context, keylist);
-        LINK(keylist).ancestor = keylist;
+        LINK_ANCESTOR_NODE(keylist) = NOD(keylist);
     }
     else {
         if (keylist == CTX_KEYLIST(opt_parent)) {
@@ -825,7 +827,7 @@ REBCTX *Make_Selfish_Context_Detect_Managed(
         }
         else {
             INIT_CTX_KEYLIST_UNIQUE(context, keylist);
-            LINK(keylist).ancestor = CTX_KEYLIST(opt_parent);
+            LINK_ANCESTOR_NODE(keylist) = NOD(CTX_KEYLIST(opt_parent));
         }
     }
 
@@ -1056,9 +1058,9 @@ REBCTX *Merge_Contexts_Selfish_Managed(REBCTX *parent1, REBCTX *parent2)
     Init_Unreadable_Blank(ARR_HEAD(keylist)); // Currently no rootkey usage
 
     if (parent1 == NULL)
-        LINK(keylist).ancestor = keylist;
+        LINK_ANCESTOR_NODE(keylist) = NOD(keylist);
     else
-        LINK(keylist).ancestor = CTX_KEYLIST(parent1);
+        LINK_ANCESTOR_NODE(keylist) = NOD(CTX_KEYLIST(parent1));
 
     REBARR *varlist = Make_Array_Core(
         ARR_LEN(keylist),

@@ -42,6 +42,10 @@ struct Reb_Action {
         | SERIES_FLAG_MISC_NODE_NEEDS_MARK  /* meta */ \
         | ARRAY_FLAG_IS_PARAMLIST)
 
+#define SERIES_MASK_DETAILS \
+    (NODE_FLAG_NODE | SERIES_FLAG_FIXED_SIZE \
+        | SERIES_FLAG_LINK_NODE_NEEDS_MARK  /* speciality */ \
+        /* dispatcher is a c function pointer, should not mark */ )
 
 #if !defined(DEBUG_CHECK_CASTS)
 
@@ -72,6 +76,7 @@ struct Reb_Action {
                 | SERIES_MASK_ACTION
                 | ARRAY_FLAG_IS_VARLIST
                 | ARRAY_FLAG_IS_PAIRLIST
+                | ARRAY_FLAG_HAS_FILE_LINE_UNMASKED
         )) != (
             NODE_FLAG_NODE | SERIES_MASK_ACTION
         )){

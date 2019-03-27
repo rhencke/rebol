@@ -153,10 +153,10 @@ inline static bool Is_Overriding_Context(REBCTX *stored, REBCTX *override)
         if (temp == stored_source)
             return true;
 
-        if (NOD(LINK(temp).ancestor) == temp)
+        if (LINK_ANCESTOR_NODE(temp) == temp)
             break;
 
-        temp = NOD(LINK(temp).ancestor);
+        temp = LINK_ANCESTOR_NODE(temp);
     }
 
     return false;

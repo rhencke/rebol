@@ -139,7 +139,7 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
         if (GET_ARRAY_FLAG(s, IS_VARLIST)) {
             printf("Series VARLIST detected.\n");
             REBCTX *context = CTX(s);
-            if (CTX_TYPE(context) == REB_ERROR) {
+            if (KIND_BYTE_UNCHECKED(CTX_ARCHETYPE(context)) == REB_ERROR) {
                 printf("...and that VARLIST is of an ERROR!...");
                 PROBE(context);
             }
