@@ -282,3 +282,11 @@
     void? eval :elide x: <after>
     x = <after>
 )
+
+
+; !!! Tests of invisibles interacting with functions should be in the file
+; where those functions are defined, when test file structure gets improved.
+;
+(null? spaced [])
+(null? spaced [comment "hi"])
+(null? spaced [()])

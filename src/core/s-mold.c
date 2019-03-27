@@ -576,8 +576,8 @@ bool Form_Reduce_Throws(
     DECLARE_FRAME (f, feed, EVAL_MASK_DEFAULT);
     Push_Frame(nullptr, f);
 
-    bool pending = false; // pending delimiter output, *if* more non-nulls
-    bool nothing = true; // any elements seen so far have been null or blank
+    bool pending = false;  // pending delimiter output, *if* more non-nulls
+    bool nothing = true;  // any elements seen so far have been null or blank
 
     while (NOT_END(f->feed->value)) {
         if (Eval_Step_Throws(out, f)) {
@@ -586,12 +586,17 @@ bool Form_Reduce_Throws(
             return true;
         }
 
+        if (IS_END(out)) {  // e.g. forming `[]`, `[()]`, `[comment "hi"]`
+            assert(nothing);
+            break;
+        }
+
         if (IS_NULLED_OR_BLANK(out))
-            continue; // opt-out and maybe keep option open to return NULL
+            continue;  // opt-out and maybe keep option open to return NULL
 
         nothing = false;
 
-        if (IS_CHAR(out)) { // not delimiting on CHAR! (e.g. space, newline)
+        if (IS_CHAR(out)) {  // don't delimit CHAR! (e.g. space, newline)
             Append_Codepoint(mo->series, VAL_CHAR(out));
             pending = false;
         }
