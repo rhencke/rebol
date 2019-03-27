@@ -42,11 +42,76 @@
 // environment is capable of running.
 //
 
+//=////////////////////////////////////////////////////////////////////////=//
+//
+//  Example:
+//  <body>
+//  <div id="console_out"></div>
+//  <!-- WARNING: load-r3.js URL MUST CONTAIN '/':
+//  USE './load-r3.js' INSTEAD OF 'load-r3.js'"
+//  -->
+//  <script src="./load-r3.js"></script>
+//  <script>
+//    load_r3.then(() => {
+//      console.log("Ready!")
+//    })
+//  </script>
+//  </body>
+//
+//=////////////////////////////////////////////////////////////////////////=//
 'use strict'  // <-- FIRST statement! https://stackoverflow.com/q/1335851
 
-// https://github.com/metaeducation/ren-c/blob/master/docs/load-r3.js
 
+// if exist a #console_out element, use it for console output
 //
+
+var try_set_console = function() {
+    var console_out = document.getElementById("console_out")
+    if (! console_out) return false
+    var old_console_info = console.info
+    console.info = (txt) => {
+      old_console_info(txt)
+      let p = document.createElement("p")
+      p.className = "info"
+      p.innerText = txt
+      console_out.appendChild(p)
+      console_out.scrollTop = console_out.scrollHeight
+    }
+    var old_console_log = console.log
+    console.log = (txt) => {
+      old_console_log(txt)
+      let p = document.createElement("p")
+      p.className = "log"
+      p.innerText = txt
+      console_out.appendChild(p)
+      console_out.scrollTop = console_out.scrollHeight
+    }
+    var old_console_warn = console.warn
+    console.warn = (txt) => {
+      old_console_warn(txt)
+      let p = document.createElement("p")
+      p.className = "warn"
+      p.innerText = txt
+      console_out.appendChild(p)
+      console_out.scrollTop = console_out.scrollHeight
+    }
+    var old_console_error = console.error
+    console.error = (txt) => {
+      old_console_error(txt)
+      let p = document.createElement("p")
+      p.className = "error"
+      p.innerText = txt
+      console_out.appendChild(p)
+      console_out.scrollTop = console_out.scrollHeight
+    }
+    return true
+}
+
+if (! try_set_console()) {document.addEventListener(
+        'DOMContentLoaded', try_set_console
+)}
+
+
 if (typeof WebAssembly !== "object") {
     throw Error("Your browser doesn't support WebAssembly.")
 }
@@ -56,7 +121,7 @@ if (typeof Promise !== "function") {
 }
 
 var hasShared = typeof SharedArrayBuffer !== "undefined"
-console.log("Has SharedArrayBuffer => " + hasShared)
+console.info("Has SharedArrayBuffer => " + hasShared)
 
 var hasThreads = false
 if (hasShared) {
@@ -65,12 +130,12 @@ if (hasShared) {
     });
     hasThreads = (test.buffer instanceof SharedArrayBuffer)
 }
-console.log("Has Threads => " + hasThreads)
+console.info("Has Threads => " + hasThreads)
 
 var use_emterpreter = ! hasThreads
 var os_id = (use_emterpreter ? "0.16.1" : "0.16.2")
 
-console.log("Use Emterpreter => " + use_emterpreter)
+console.info("Use Emterpreter => " + use_emterpreter)
 
 // WARNING: load-r3.js URL MUST CONTAIN '/':
 // USE './load-r3.js' INSTEAD OF 'load-r3.js'"
@@ -287,17 +352,7 @@ var dom_content_loaded_promise = new Promise(function(resolve, reject) {
     document.addEventListener('DOMContentLoaded', resolve)
 })
 
-var onGuiInitialized
-var gui_init_promise = new Promise(function(resolve, reject) {
-    //
-    // The GUI has to be initialized (DOM initialization, etc.) before we can
-    // even use HTML to show status text like "Running Mezzanine", etc.  When
-    // all the GUI's services are available it will call onGuiInitialized().
-    // This converts that into a promise so it can be used in a clearer-to-read
-    // linear .then() sequence.
-    //
-    onGuiInitialized = resolve
-})
+var onGuiInitialized = () => {} // back-compatibility
 
 var runtime_init_promise = new Promise(function(resolve, reject) {
     //
@@ -318,13 +373,13 @@ var runtime_init_promise = new Promise(function(resolve, reject) {
 var bytecode_promiser
 if (!use_emterpreter)
     bytecode_promiser = () => {
-        console.log("Not emterpreted libr3.js, not requesting bytecode")
+        console.info("Not emterpreted libr3.js, not requesting bytecode")
         return Promise.resolve()
     }
 else {
     bytecode_promiser = () => {
         let url = libRebolComponentURL(".bytecode")
-        console.log("Emterpreted libr3.js, requesting bytecode from:" + url)
+        console.info("Emterpreted libr3.js, requesting bytecode from:" + url)
 
         return fetch(url)
           .then(function(response) {
@@ -347,31 +402,22 @@ else {
 //
 // !!! Review use of Promise.all() for steps which could be run in parallel.
 //
-var r3_ready_promise = last_git_commit_promiser(os_id) // set last_git_commit_short
+var r3_ready_promise =
+  last_git_commit_promiser(os_id) // set last_git_commit_short
   .then(bytecode_promiser)  // needs last_git_commit_short
   .then(function() {
       load_js_promiser(libRebolComponentURL(".js"))
-  })
-  .then(function() {
-    // ^-- The above will eventually trigger runtime_init_promise, but don't
-    // wait on that just yet.  Instead just get the loading process started,
-    // then wait on the GUI (which 99.9% of the time should finish first) so we
-    // can display a "loading %libr3.js" message in the browser window.
-    //
-    return gui_init_promise
-
-  }).then(function() {  // our onGuiInitialized() message currently has no args
-    let msg = 'Loading/Running ' + libRebolComponentURL(".js") + '...'
+  }).then(function() {
+    console.info('Loading/Running ' + libRebolComponentURL(".js") + '...')
     if (use_emterpreter) {
-        msg +=("\nUsing Emterpreter is SLOW! Be patient...")
+      console.warn("Using Emterpreter is SLOW! Be patient...")
     }
-    console.log(msg)
 
     return runtime_init_promise
 
   }).then(function() {  // emscripten's onRuntimeInitialized() has no args
 
-    console.log('Executing Rebol boot code...')
+    console.info('Executing Rebol boot code...')
     reb.Startup()
 
     // There is currently no method to dynamically load extensions with
@@ -379,9 +425,11 @@ var r3_ready_promise = last_git_commit_promiser(os_id) // set last_git_commit_sh
     // to be built-in while compiling the lib.  The "JavaScript extension" is
     // essential--it contains JS-NATIVE and JS-AWAITER.
     //
-    console.log('Initializing extensions')
+    console.info('Initializing extensions')
     reb.Elide(
         "for-each collation builtin-extensions",
             "[load-extension collation]"
     )
   })
+
+var load_r3 = r3_ready_promise // alias
