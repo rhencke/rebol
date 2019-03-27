@@ -76,7 +76,7 @@ REBCTX *Alloc_Context_Core(enum Reb_Kind kind, REBCNT capacity, REBFLGS flags)
 
     REBARR *varlist = Make_Array_Core(
         capacity + 1, // size + room for ROOTVAR
-        SERIES_MASK_CONTEXT // includes assurance of dynamic allocation
+        SERIES_MASK_VARLIST // includes assurance of dynamic allocation
             | flags // e.g. NODE_FLAG_MANAGED
     );
     MISC_META_NODE(varlist) = nullptr; // GC sees meta object, must init
@@ -271,7 +271,7 @@ REBCTX *Copy_Context_Shallow_Extra_Managed(REBCTX *src, REBCNT extra) {
         varlist = Copy_Array_Shallow_Flags(
             CTX_VARLIST(src),
             SPECIFIED,
-            SERIES_MASK_CONTEXT // includes assurance of non-dynamic
+            SERIES_MASK_VARLIST // includes assurance of non-dynamic
                 | NODE_FLAG_MANAGED
         );
 
@@ -294,7 +294,7 @@ REBCTX *Copy_Context_Shallow_Extra_Managed(REBCTX *src, REBCNT extra) {
             0,
             SPECIFIED,
             extra,
-            SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED
+            SERIES_MASK_VARLIST | NODE_FLAG_MANAGED
         );
 
         dest = CTX(varlist);
@@ -799,7 +799,7 @@ REBCTX *Make_Selfish_Context_Detect_Managed(
     REBCNT len = ARR_LEN(keylist);
     REBARR *varlist = Make_Array_Core(
         len,
-        SERIES_MASK_CONTEXT
+        SERIES_MASK_VARLIST
             | NODE_FLAG_MANAGED // Note: Rebind below requires managed context
     );
     TERM_ARRAY_LEN(varlist, len);
@@ -1064,7 +1064,7 @@ REBCTX *Merge_Contexts_Selfish_Managed(REBCTX *parent1, REBCTX *parent2)
 
     REBARR *varlist = Make_Array_Core(
         ARR_LEN(keylist),
-        SERIES_MASK_CONTEXT
+        SERIES_MASK_VARLIST
             | NODE_FLAG_MANAGED // rebind below requires managed context
     );
     MISC_META_NODE(varlist) = nullptr;  // GC sees, it must be initialized
@@ -1384,8 +1384,8 @@ void Assert_Context_Core(REBCTX *c)
     REBARR *varlist = CTX_VARLIST(c);
 
     if (
-        (SER(varlist)->header.bits & SERIES_MASK_CONTEXT)
-        != SERIES_MASK_CONTEXT
+        (SER(varlist)->header.bits & SERIES_MASK_VARLIST)
+        != SERIES_MASK_VARLIST
     ){
         panic (varlist);
     }

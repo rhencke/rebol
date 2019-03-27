@@ -257,7 +257,7 @@ REBNATIVE(typechecker)
 
     REBARR *paramlist = Make_Array_Core(
         2,
-        SERIES_MASK_ACTION | NODE_FLAG_MANAGED
+        SERIES_MASK_PARAMLIST | NODE_FLAG_MANAGED
     );
 
     REBVAL *archetype = RESET_CELL(
@@ -344,7 +344,7 @@ REBNATIVE(chain)
     REBARR *paramlist = Copy_Array_Shallow_Flags(
         VAL_ACT_PARAMLIST(ARR_HEAD(chainees)),
         SPECIFIED,
-        SERIES_MASK_ACTION | NODE_FLAG_MANAGED // flags not auto-copied
+        SERIES_MASK_PARAMLIST | NODE_FLAG_MANAGED // flags not auto-copied
     );
     VAL_ACT_PARAMLIST_NODE(ARR_HEAD(paramlist)) = NOD(paramlist);
 
@@ -419,7 +419,7 @@ REBNATIVE(adapt)
     REBARR *paramlist = Copy_Array_Shallow_Flags(
         VAL_ACT_PARAMLIST(adaptee),
         SPECIFIED,
-        SERIES_MASK_ACTION
+        SERIES_MASK_PARAMLIST
             | (SER(VAL_ACTION(adaptee))->header.bits & PARAMLIST_MASK_INHERIT)
             | NODE_FLAG_MANAGED
     );
@@ -535,7 +535,7 @@ REBNATIVE(enclose)
     REBARR *paramlist = Copy_Array_Shallow_Flags(
         VAL_ACT_PARAMLIST(inner),
         SPECIFIED,
-        SERIES_MASK_ACTION | NODE_FLAG_MANAGED
+        SERIES_MASK_PARAMLIST | NODE_FLAG_MANAGED
     );
     REBVAL *rootparam = KNOWN(ARR_HEAD(paramlist));
     VAL_ACT_PARAMLIST_NODE(rootparam) = NOD(paramlist);
@@ -878,7 +878,7 @@ REBNATIVE(reskinned)
     REBARR *paramlist = Copy_Array_Shallow_Flags(
         ACT_PARAMLIST(original),
         SPECIFIED, // no relative values in parameter lists
-        SERIES_MASK_ACTION
+        SERIES_MASK_PARAMLIST
             | (SER(original)->header.bits & PARAMLIST_MASK_INHERIT)
     );
 
@@ -1196,7 +1196,7 @@ REBNATIVE(n_shot)
 
     REBARR *paramlist = Make_Array_Core(
         2,
-        SERIES_MASK_ACTION | NODE_FLAG_MANAGED
+        SERIES_MASK_PARAMLIST | NODE_FLAG_MANAGED
     );
 
     REBVAL *archetype = RESET_CELL(

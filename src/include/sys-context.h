@@ -459,7 +459,7 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     // etc.--use constant assignments and only copy the remaining fields.
     //
     REBSER *copy = Alloc_Series_Node(
-        SERIES_MASK_CONTEXT
+        SERIES_MASK_VARLIST
             | SERIES_FLAG_STACK_LIFETIME
             | SERIES_FLAG_FIXED_SIZE
     );

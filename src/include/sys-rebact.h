@@ -36,7 +36,7 @@ struct Reb_Action {
 // them (e.g. by APPENDing to a FRAME! value).  Also, no internal tricks
 // for function composition expand them either at this time.
 //
-#define SERIES_MASK_ACTION \
+#define SERIES_MASK_PARAMLIST \
     (NODE_FLAG_NODE | SERIES_FLAG_ALWAYS_DYNAMIC | SERIES_FLAG_FIXED_SIZE \
         | SERIES_FLAG_LINK_NODE_NEEDS_MARK  /* underlying */ \
         | SERIES_FLAG_MISC_NODE_NEEDS_MARK  /* meta */ \
@@ -73,12 +73,12 @@ struct Reb_Action {
 
         if (base and p and (cast(REBSER*, p)->header.bits & (
             NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
-                | SERIES_MASK_ACTION
+                | SERIES_MASK_PARAMLIST
                 | ARRAY_FLAG_IS_VARLIST
                 | ARRAY_FLAG_IS_PAIRLIST
                 | ARRAY_FLAG_HAS_FILE_LINE_UNMASKED
         )) != (
-            NODE_FLAG_NODE | SERIES_MASK_ACTION
+            NODE_FLAG_NODE | SERIES_MASK_PARAMLIST
         )){
             panic (p);
         }

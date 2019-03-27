@@ -333,7 +333,7 @@ REBVAL *Init_Any_Series_At_Core(
 //
 void Extra_Init_Any_Context_Checks_Debug(enum Reb_Kind kind, REBCTX *c) {
     assert(
-        (SER(c)->header.bits & SERIES_MASK_CONTEXT) == SERIES_MASK_CONTEXT
+        (SER(c)->header.bits & SERIES_MASK_VARLIST) == SERIES_MASK_VARLIST
     );
 
     REBVAL *archetype = CTX_ARCHETYPE(c);
@@ -382,7 +382,7 @@ void Extra_Init_Any_Context_Checks_Debug(enum Reb_Kind kind, REBCTX *c) {
 // !!! Overlaps with ASSERT_ACTION, review folding them together.
 //
 void Extra_Init_Action_Checks_Debug(REBACT *a) {
-    assert((SER(a)->header.bits & SERIES_MASK_ACTION) == SERIES_MASK_ACTION);
+    assert((SER(a)->header.bits & SERIES_MASK_PARAMLIST) == SERIES_MASK_PARAMLIST);
 
     REBVAL *archetype = ACT_ARCHETYPE(a);
     assert(VAL_ACTION(archetype) == a);

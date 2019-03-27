@@ -1048,7 +1048,7 @@ inline static void Push_Action(
     REBSER *s;
     if (not f->varlist) { // usually means first action call in the REBFRM
         s = Alloc_Series_Node(
-            SERIES_MASK_CONTEXT
+            SERIES_MASK_VARLIST
                 | SERIES_FLAG_STACK_LIFETIME
                 | SERIES_FLAG_FIXED_SIZE // FRAME!s don't expand ATM
         );

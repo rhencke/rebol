@@ -102,7 +102,7 @@ void Startup_Frame_Stack(void)
     //
     REBARR *paramlist = Make_Array_Core(
         1,
-        NODE_FLAG_MANAGED | SERIES_MASK_ACTION
+        NODE_FLAG_MANAGED | SERIES_MASK_PARAMLIST
     );
     MISC_META_NODE(paramlist) = nullptr;
 

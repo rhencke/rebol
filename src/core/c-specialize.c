@@ -124,7 +124,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     REBCNT num_slots = ACT_NUM_PARAMS(act) + 1;
     REBARR *varlist = Make_Array_Core(
         num_slots, // includes +1 for the CTX_ARCHETYPE() at [0]
-        SERIES_MASK_CONTEXT
+        SERIES_MASK_VARLIST
     );
 
     REBVAL *rootvar = RESET_CELL(
@@ -689,7 +689,7 @@ bool Specialize_Action_Throws(
 
     REBARR *paramlist = Pop_Stack_Values_Core(
         dsp_paramlist,
-        SERIES_MASK_ACTION
+        SERIES_MASK_PARAMLIST
             | (SER(unspecialized)->header.bits & PARAMLIST_MASK_INHERIT)
     );
     Manage_Array(paramlist);
@@ -1435,7 +1435,7 @@ REBNATIVE(does)
     if (IS_BLOCK(specializee)) {
         REBARR *paramlist = Make_Array_Core(
             1, // archetype only...DOES always makes action with no arguments
-            SERIES_MASK_ACTION
+            SERIES_MASK_PARAMLIST
         );
 
         REBVAL *archetype = RESET_CELL(
@@ -1519,7 +1519,7 @@ REBNATIVE(does)
     REBACT *unspecialized = ACT(CTX_KEYLIST(exemplar));
 
     REBCNT num_slots = ACT_NUM_PARAMS(unspecialized) + 1;
-    REBARR *paramlist = Make_Array_Core(num_slots, SERIES_MASK_ACTION);
+    REBARR *paramlist = Make_Array_Core(num_slots, SERIES_MASK_PARAMLIST);
 
     RELVAL *archetype = RESET_CELL(
         ARR_HEAD(paramlist),

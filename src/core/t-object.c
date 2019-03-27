@@ -521,7 +521,7 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
 
     REBARR *varlist = Make_Array_For_Copy(
         CTX_LEN(original) + 1,
-        SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED,
+        SERIES_MASK_VARLIST | NODE_FLAG_MANAGED,
         nullptr // original_array, N/A because LINK()/MISC() used otherwise
     );
     REBVAL *dest = KNOWN(ARR_HEAD(varlist)); // all context vars are SPECIFIED
@@ -547,7 +547,7 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
     }
 
     TERM_ARRAY_LEN(varlist, CTX_LEN(original) + 1);
-    SER(varlist)->header.bits |= SERIES_MASK_CONTEXT;
+    SER(varlist)->header.bits |= SERIES_MASK_VARLIST;
 
     REBCTX *copy = CTX(varlist); // now a well-formed context
 

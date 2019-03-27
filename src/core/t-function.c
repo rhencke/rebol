@@ -192,7 +192,7 @@ REBTYPE(Action)
         REBARR *proxy_paramlist = Copy_Array_Deep_Flags_Managed(
             ACT_PARAMLIST(act),
             SPECIFIED,  // !!! Note: not actually "deep", just typesets
-            SERIES_MASK_ACTION
+            SERIES_MASK_PARAMLIST
         );
         VAL_ACT_PARAMLIST_NODE(ARR_HEAD(proxy_paramlist))
             = NOD(proxy_paramlist);

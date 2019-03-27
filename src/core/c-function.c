@@ -591,7 +591,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     // Must make the function "paramlist" even if "empty", for identity.
     //
-    REBARR *paramlist = Make_Array_Core(num_slots, SERIES_MASK_ACTION);
+    REBARR *paramlist = Make_Array_Core(num_slots, SERIES_MASK_PARAMLIST);
 
     // Note: not a valid ACTION! paramlist yet, don't use SET_ACTION_FLAG()
     //
@@ -703,7 +703,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     if (has_types) {
         REBARR *types_varlist = Make_Array_Core(
             num_slots,
-            SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED
+            SERIES_MASK_VARLIST | NODE_FLAG_MANAGED
         );
         MISC_META_NODE(types_varlist) = nullptr;  // GC sees, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(types_varlist), paramlist);
@@ -767,7 +767,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     if (has_notes) {
         REBARR *notes_varlist = Make_Array_Core(
             num_slots,
-            SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED
+            SERIES_MASK_VARLIST | NODE_FLAG_MANAGED
         );
         MISC_META_NODE(notes_varlist) = nullptr;  // GC sees, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(notes_varlist), paramlist);
@@ -1014,12 +1014,12 @@ REBACT *Make_Action(
 //
 REBCTX *Make_Expired_Frame_Ctx_Managed(REBACT *a)
 {
-    // Since passing SERIES_MASK_CONTEXT includes SERIES_FLAG_ALWAYS_DYNAMIC,
+    // Since passing SERIES_MASK_VARLIST includes SERIES_FLAG_ALWAYS_DYNAMIC,
     // don't pass it in to the allocation...it needs to be set, but will be
     // overridden by SERIES_INFO_INACCESSIBLE.
     //
     REBARR *varlist = Alloc_Singular(NODE_FLAG_STACK | NODE_FLAG_MANAGED);
-    SER(varlist)->header.bits |= SERIES_MASK_CONTEXT;
+    SER(varlist)->header.bits |= SERIES_MASK_VARLIST;
     SET_SERIES_INFO(varlist, INACCESSIBLE);
     MISC_META_NODE(varlist) = nullptr;
 

@@ -1111,7 +1111,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
 
     REBARR *paramlist = Pop_Stack_Values_Core(
         dsp_orig,
-        SERIES_MASK_ACTION | NODE_FLAG_MANAGED
+        SERIES_MASK_PARAMLIST | NODE_FLAG_MANAGED
     );
 
     // Now fill in the canon value of the paramlist so it is an actual REBACT

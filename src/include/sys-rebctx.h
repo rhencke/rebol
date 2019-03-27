@@ -29,7 +29,7 @@
 // to reclaim the dynamic memory to make a singular cell...but that flag
 // can't be SERIES_FLAG_FIXED_SIZE, because most varlists can expand.
 //
-#define SERIES_MASK_CONTEXT \
+#define SERIES_MASK_VARLIST \
     (NODE_FLAG_NODE | SERIES_FLAG_ALWAYS_DYNAMIC \
         | SERIES_FLAG_LINK_NODE_NEEDS_MARK  /* keysource */ \
         | SERIES_FLAG_MISC_NODE_NEEDS_MARK  /* meta */ \
