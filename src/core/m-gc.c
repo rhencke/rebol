@@ -96,118 +96,10 @@ static void Mark_Devices_Deep(void);
     assert(SER_LEN(GC_Mark_Stack) == 0)
 
 
-// Private routines for dealing with the GC mark bit.  Note that not all
-// REBSERs are actually series at the present time, because some are
-// "pairings".  Plus the name Mark_Rebser_Only helps drive home that it's
-// not actually marking an "any_series" type (like array) deeply.
-//
-static inline void Mark_Rebser_Only(REBSER *s)
-{
-  #if !defined(NDEBUG)
-    if (IS_FREE_NODE(s))
-        panic (s);
-    if (NOT_SERIES_FLAG((s), MANAGED)) {
-        printf("Link to non-MANAGED item reached by GC\n");
-        panic (s);
-    }
-    if (GET_SERIES_INFO((s), INACCESSIBLE))
-        assert(not IS_SER_DYNAMIC(s));
-  #endif
-
-    s->header.bits |= NODE_FLAG_MARKED; // may be already set
-}
-
 static inline void Unmark_Rebser(REBSER *rebser) {
     rebser->header.bits &= ~NODE_FLAG_MARKED;
 }
 
-
-static void Queue_Mark_Node_Deep(REBNOD *n);
-
-
-//
-//  Queue_Mark_Array_Subclass_Deep: C
-//
-// Submits the array into the deferred stack to be processed later with
-// Propagate_All_GC_Marks().  If it were not queued and just used recursion
-// (as R3-Alpha did) then deeply nested arrays could overflow the C stack.
-//
-// Although there are subclasses of REBARR which have ->link and ->misc
-// and other properties that must be marked, the subclass processing is done
-// during the propagation.  This is to prevent recursion from within the
-// subclass queueing routine itself.  Hence this routine is the workhorse for
-// the subclasses, but there are type-checked specializations for clarity
-// if you have a REBACT*, REBCTX*, etc.
-//
-// (Note: The data structure used for this processing is a "stack" and not
-// a "queue".  But when you use 'queue' as a verb, it has more leeway than as
-// the CS noun, and can just mean "put into a list for later processing".)
-//
-static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
-{
-    assert(IS_SER_ARRAY(a));
-
-    if (GET_SERIES_FLAG(a, MARKED))
-        return; // may not be finished marking yet, but has been queued
-
-    Mark_Rebser_Only(cast(REBSER*, a));
-
-    if (GET_SERIES_INFO(a, INACCESSIBLE))
-        return;  // !!! Reference sites should be canonizing
-
-    // Add series to the end of the mark stack series.  The length must be
-    // maintained accurately to know when the stack needs to grow.
-    //
-    // !!! Should this use a "bumping a NULL at the end" technique to grow,
-    // like the data stack?
-    //
-    if (SER_FULL(GC_Mark_Stack))
-        Extend_Series(GC_Mark_Stack, 8);
-    *SER_AT(REBARR*, GC_Mark_Stack, SER_LEN(GC_Mark_Stack)) = a;
-    SET_SERIES_LEN(GC_Mark_Stack, SER_LEN(GC_Mark_Stack) + 1); // unterminated
-}
-
-inline static void Queue_Mark_Array_Deep(REBARR *a) {  // plain/custom array
-    assert(NOT_ARRAY_FLAG(a, IS_VARLIST));
-    assert(NOT_ARRAY_FLAG(a, IS_PARAMLIST));
-    assert(NOT_ARRAY_FLAG(a, IS_PAIRLIST));
-
-    Queue_Mark_Array_Subclass_Deep(a);  // may mark LINK() and MISC()
-}
-
-inline static void Queue_Mark_Context_Deep(REBCTX *c) {
-    REBARR *varlist = CTX_VARLIST(c);
-    Queue_Mark_Array_Subclass_Deep(varlist); // see Propagate_All_GC_Marks()
-}
-
-inline static void Queue_Mark_Action_Deep(REBACT *a) {
-    REBARR *paramlist = ACT_PARAMLIST(a);
-    Queue_Mark_Array_Subclass_Deep(paramlist); // see Propagate_All_GC_Marks()
-}
-
-
-// A singular array, if you know it to be singular, can be marked a little
-// faster by avoiding a queue step for the array node or walk.
-//
-inline static void Queue_Mark_Singular_Array(REBARR *a) {
-    assert(
-        0 == (SER(a)->header.bits & (
-            0   | ARRAY_FLAG_IS_VARLIST
-                | ARRAY_FLAG_IS_PAIRLIST
-                | ARRAY_FLAG_IS_PARAMLIST
-                | ARRAY_FLAG_HAS_FILE_LINE_UNMASKED
-        ))
-    );
-
-    assert(not IS_SER_DYNAMIC(a));
-
-    // While it would be tempting to just go ahead and try to queue the
-    // ARR_SINGLE() value here, that could keep recursing if that value had
-    // further singular array values to mark.  It's really no different for
-    // an array with one value than with many.
-    //
-    Queue_Mark_Array_Subclass_Deep(a);
-}
 
 
 static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v);
@@ -273,10 +165,15 @@ static void Queue_Mark_Pairing_Deep(REBVAL *paired)
 // series was created by an extension and poked nodes into the `custom`
 // fields of LINK() and MISC(), which is the only way to "hook" the GC.
 //
-static void Queue_Mark_Node_Deep(REBNOD *n)
+// (Note: The data structure used for this processing is a "stack" and not
+// a "queue".  But when you use 'queue' as a verb, it has more leeway than as
+// the CS noun, and can just mean "put into a list for later processing".)
+
+static void Queue_Mark_Node_Deep(void *p)
 {
-    if (not n)
-        return;  // nulls are allowed by generic marking
+    REBNOD *n = NOD(p);
+    if (n->header.bits & NODE_FLAG_MARKED)
+        return;  // may not be finished marking yet, but has been queued
 
     if (n->header.bits & NODE_FLAG_CELL) {  // e.g. a pairing
         if (n->header.bits & NODE_FLAG_MANAGED)
@@ -287,13 +184,60 @@ static void Queue_Mark_Node_Deep(REBNOD *n)
         }
         return;  // it's 2 cells, sizeof(REBSER), but no room for REBSER data
     }
+
     REBSER *s = SER(n);
-    if (GET_SERIES_INFO(s, INACCESSIBLE))
-        Mark_Rebser_Only(s);  // TBD: clear out reference and GC `s`?
-    else if (IS_SER_ARRAY(s))
-        Queue_Mark_Array_Subclass_Deep(ARR(s));
-    else
-        Mark_Rebser_Only(s);
+    if (GET_SERIES_INFO(s, INACCESSIBLE)) {
+        //
+        // !!! All inaccessible nodes should be collapsed and canonized into
+        // a universal inaccessible node so the stub can be freed.  For now,
+        // just collapse each stub to make it uniform like that canon form.
+        //
+        TRASH_POINTER_IF_DEBUG(MISC(s).trash);
+        TRASH_POINTER_IF_DEBUG(LINK(s).trash);
+        s->header.bits &= ~(
+            SERIES_FLAG_LINK_NODE_NEEDS_MARK
+                | SERIES_FLAG_MISC_NODE_NEEDS_MARK
+        );
+        s->header.bits |= NODE_FLAG_MARKED;
+        return;
+    }
+
+  #if !defined(NDEBUG)
+    if (IS_FREE_NODE(s))
+        panic (s);
+
+    if (NOT_SERIES_FLAG((s), MANAGED)) {
+        printf("Link to non-MANAGED item reached by GC\n");
+        panic (s);
+    }
+  #endif
+
+    s->header.bits |= NODE_FLAG_MARKED; // may be already set
+
+    if (GET_SERIES_FLAG(s, LINK_NODE_NEEDS_MARK) and LINK(s).custom.node)
+        Queue_Mark_Node_Deep(LINK(s).custom.node);
+
+    if (GET_SERIES_FLAG(s, MISC_NODE_NEEDS_MARK) and MISC(s).custom.node)
+        Queue_Mark_Node_Deep(MISC(s).custom.node);
+
+    if (IS_SER_ARRAY(s)) {
+        //
+        // Submits the array into the deferred stack to be processed later
+        // with Propagate_All_GC_Marks().  If it were not queued and just used
+        // recursion (as R3-Alpha did) then deeply nested arrays could
+        // overflow the C stack.
+        //
+        // !!! Could the amount of C stack space available be used for some
+        // amount of recursion, and only queue if running up against a limit?
+        //
+        // !!! Should this use a "bumping a NULL at the end" technique to
+        // grow, like the data stack?
+        //
+        if (SER_FULL(GC_Mark_Stack))
+            Extend_Series(GC_Mark_Stack, 8);
+        *SER_AT(REBARR*, GC_Mark_Stack, SER_LEN(GC_Mark_Stack)) = ARR(s);
+        SET_SERIES_LEN(GC_Mark_Stack, SER_LEN(GC_Mark_Stack) + 1);  // noterm
+    }
 }
 
 
@@ -319,12 +263,12 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         : UNBOUND;
 
     if (binding != UNBOUND and (binding->header.bits & NODE_FLAG_MANAGED))
-        Queue_Mark_Array_Subclass_Deep(ARR(binding));
+        Queue_Mark_Node_Deep(ARR(binding));
 
-    if (GET_CELL_FLAG(v, FIRST_IS_NODE))
+    if (GET_CELL_FLAG(v, FIRST_IS_NODE) and PAYLOAD(Any, v).first.node)
         Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);
 
-    if (GET_CELL_FLAG(v, SECOND_IS_NODE))
+    if (GET_CELL_FLAG(v, SECOND_IS_NODE) and PAYLOAD(Any, v).second.node)
         Queue_Mark_Node_Deep(PAYLOAD(Any, v).second.node);
 
   #if !defined(NDEBUG)
@@ -367,12 +311,6 @@ static void Propagate_All_GC_Marks(void)
         // being doubly added before the queue had a chance to be processed
          //
         assert(SER(a)->header.bits & NODE_FLAG_MARKED);
-
-        if (GET_SERIES_FLAG(a, LINK_NODE_NEEDS_MARK))
-            Queue_Mark_Node_Deep(LINK(a).custom.node);
-
-        if (GET_SERIES_FLAG(a, MISC_NODE_NEEDS_MARK))
-            Queue_Mark_Node_Deep(MISC(a).custom.node);
 
         RELVAL *v = ARR_HEAD(a);
         for (; NOT_END(v); ++v) {
@@ -627,9 +565,11 @@ static void Mark_Root_Series(void)
                 );
 
                 if (GET_SERIES_FLAG(s, LINK_NODE_NEEDS_MARK))
-                    Queue_Mark_Node_Deep(LINK(s).custom.node);
+                    if (LINK(s).custom.node)
+                        Queue_Mark_Node_Deep(LINK(s).custom.node);
                 if (GET_SERIES_FLAG(s, MISC_NODE_NEEDS_MARK))
-                    Queue_Mark_Node_Deep(MISC(s).custom.node);
+                    if (MISC(s).custom.node)
+                        Queue_Mark_Node_Deep(MISC(s).custom.node);
 
                 RELVAL *item = ARR_HEAD(cast(REBARR*, s));
                 for (; NOT_END(item); ++item)
@@ -686,8 +626,8 @@ static void Mark_Symbol_Series(void)
     REBSTR **canon = SER_HEAD(REBSTR*, PG_Symbol_Canons);
     assert(IS_POINTER_TRASH_DEBUG(*canon)); // SYM_0 for all non-builtin words
     ++canon;
-    for (; *canon != NULL; ++canon)
-        Mark_Rebser_Only(*canon);
+    for (; *canon != nullptr; ++canon)
+        (*canon)->header.bits |= NODE_FLAG_MARKED;
 
     ASSERT_NO_GC_MARKS_PENDING(); // doesn't ues any queueing
 }
@@ -731,14 +671,9 @@ static void Mark_Guarded_Nodes(void)
             //
             Queue_Mark_Opt_End_Cell_Deep(cast(REBVAL*, node));
         }
-        else { // a series
-            assert(node->header.bits & NODE_FLAG_MANAGED);
-            REBSER *s = cast(REBSER*, node);
-            if (IS_SER_ARRAY(s))
-                Queue_Mark_Array_Subclass_Deep(ARR(s));
-            else
-                Mark_Rebser_Only(s);
-        }
+        else  // a series
+            Queue_Mark_Node_Deep(node);
+
         Propagate_All_GC_Marks();
     }
 }
@@ -777,8 +712,7 @@ static void Mark_Frame_Stack_Deep(void)
         // Note: f->feed->pending should either live in f->feed->array, or
         // it may be trash (e.g. if it's an apply).  GC can ignore it.
         //
-        if (f->feed->array)
-            Queue_Mark_Array_Deep(f->feed->array);
+        Queue_Mark_Node_Deep(f->feed->array);
 
         // END is possible, because the frame could be sitting at the end of
         // a block when a function runs, e.g. `do [zero-arity]`.  That frame
@@ -802,10 +736,13 @@ static void Mark_Frame_Stack_Deep(void)
             f->feed->specifier != SPECIFIED
             and (f->feed->specifier->header.bits & NODE_FLAG_MANAGED)
         ){
-            Queue_Mark_Context_Deep(CTX(f->feed->specifier));
+            Queue_Mark_Node_Deep(CTX(f->feed->specifier));
         }
 
-        if (f->out)  // Initialized to null if each Eval_Step asks for new out
+        // f->out can be nullptr at the moment, when a frame is created that
+        // can ask for a different output each evaluation.
+        //
+        if (f->out)
             Queue_Mark_Opt_End_Cell_Deep(f->out);
 
         // Frame temporary cell should always contain initialized bits, as
@@ -824,9 +761,10 @@ static void Mark_Frame_Stack_Deep(void)
             goto propagate_and_continue;
         }
 
-        Queue_Mark_Action_Deep(f->original); // never NULL
-        if (f->opt_label) // will be null if no symbol
-            Mark_Rebser_Only(f->opt_label);
+        Queue_Mark_Node_Deep(f->original);  // never nullptr
+
+        if (f->opt_label)
+            Queue_Mark_Node_Deep(f->opt_label);  // nullptr if anonymous
 
         // refine and special can be used to GC protect an arbitrary value
         // while a function is running, currently.  nullptr is permitted as
@@ -845,7 +783,7 @@ static void Mark_Frame_Stack_Deep(void)
             // partial parameter traversal.
             //
             assert(IS_END(f->param)); // done walking
-            Queue_Mark_Context_Deep(CTX(f->varlist));
+            Queue_Mark_Node_Deep(CTX(f->varlist));
             goto propagate_and_continue;
         }
 
@@ -1396,8 +1334,12 @@ static void Mark_Devices_Deep(void)
     int d;
     for (d = 0; d != RDI_MAX; d++) {
         REBDEV *dev = devices[d];
-        if (!dev)
+        if (not dev)
             continue;
+        if (not dev->pending)
+            continue;
+
+        REBSER *req = SER(dev->pending);
 
         // This used to walk the ->next field of the REBREQ explicitly, and
         // mark the port pointers internal to the REBREQ.  Following the
@@ -1405,7 +1347,7 @@ static void Mark_Devices_Deep(void)
         // REBREQ is a REBSER node and has those fields in LINK()/MISC() with
         // SERIES_FLAG_LINK_NODE_NEEDS_MARK/SERIES_FLAG_MISC_NODE_NEEDS_MARK
         //
-        Queue_Mark_Node_Deep(NOD(dev->pending));
+        Queue_Mark_Node_Deep(req);
     }
 
     Propagate_All_GC_Marks();

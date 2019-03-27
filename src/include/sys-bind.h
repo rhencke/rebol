@@ -517,6 +517,7 @@ inline static REBCTX *Get_Var_Context(
       #endif
 
         c = CTX(specifier);
+        FAIL_IF_INACCESSIBLE_CTX(c);
 
         // The underlying function is used for all relative bindings.  If it
         // were not, then the same function body could not be repurposed for
@@ -684,12 +685,14 @@ inline static REBVAL *Derelativize(
         // such as when creating a new action using relative material, and
         // then adding in the new relativism).
         //
-        REBVAL *rootkey = CTX_ROOTKEY(CTX(specifier));
-        if (binding != NOD(ACT_UNDERLYING(VAL_ACTION(rootkey)))) {
-            printf("Function mismatch in specific binding, expected:\n");
-            PROBE(ACT_ARCHETYPE(ACT(binding)));
-            printf("Panic on relative value\n");
-            panic (v);
+        if (NOT_SERIES_INFO(specifier, INACCESSIBLE)) {
+            REBVAL *rootkey = CTX_ROOTKEY(CTX(specifier));
+            if (binding != NOD(ACT_UNDERLYING(VAL_ACTION(rootkey)))) {
+                printf("Function mismatch in specific binding, expected:\n");
+                PROBE(ACT_ARCHETYPE(ACT(binding)));
+                printf("Panic on relative value\n");
+                panic (v);
+            }
         }
       #endif
 
