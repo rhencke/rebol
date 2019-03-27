@@ -647,6 +647,9 @@ inline static REBYTE *VAL_RAW_DATA_AT(const REBCEL *v) {
 // is a particularly efficient default state, so separating the dynamic
 // allocation into a separate routine is not a huge cost.
 //
+// Note: This series will not participate in management tracking!
+// See NODE_FLAG_MANAGED handling in Make_Array_Core() and Make_Series_Core().
+//
 inline static REBSER *Alloc_Series_Node(REBFLGS flags) {
     assert(not (flags & NODE_FLAG_CELL));
 
@@ -656,22 +659,18 @@ inline static REBSER *Alloc_Series_Node(REBFLGS flags) {
 
     // Out of the 8 platform pointers that comprise a series node, only 3
     // actually need to be initialized to get a functional non-dynamic series
-    // or array of length 0!  Two are set here, the third (info) should be
-    // set by the caller.
-    //
-    s->header.bits = NODE_FLAG_NODE | flags | SERIES_FLAG_8_IS_TRUE; // #1
-    TRASH_POINTER_IF_DEBUG(LINK(s).trash); // #2
-  #if !defined(NDEBUG)
-    memset(&s->content.fixed, 0xBD, sizeof(s->content)); // #3 - #6
-    memset(&s->info, 0xAE, sizeof(s->info)); // #7, caller sets SER_WIDE()
-  #endif
-    TRASH_POINTER_IF_DEBUG(MISC(s).trash); // #8
+    // or array of length 0!  Only one is set here.  The info should be
+    // set by the caller, as should a terminator in the internal payload
 
-    // Note: This series will not participate in management tracking!
-    // See NODE_FLAG_MANAGED handling in Make_Array_Core() and Make_Series_Core().
+    s->header.bits = NODE_FLAG_NODE | flags | SERIES_FLAG_8_IS_TRUE;  // #1
 
   #if !defined(NDEBUG)
-    TOUCH_SERIES_IF_DEBUG(s); // tag current C stack as series origin in ASAN
+    SAFETRASH_POINTER_IF_DEBUG(s->link_private.trash);  // #2
+    memset(&s->content.fixed, 0xBD, sizeof(s->content));  // #3 - #6
+    memset(&s->info, 0xAE, sizeof(s->info));  // #7, caller sets SER_WIDE()
+    SAFETRASH_POINTER_IF_DEBUG(s->link_private.trash);  // #8
+
+    TOUCH_SERIES_IF_DEBUG(s);  // tag current C stack as series origin in ASAN
     PG_Reb_Stats->Series_Made++;
   #endif
 

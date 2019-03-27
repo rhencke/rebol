@@ -980,6 +980,7 @@ struct Reb_Series {
 //
 #ifdef CPLUSPLUS_11
     inline static union Reb_Series_Misc& Get_Series_Misc(REBSER *s) {
+        assert(not IS_POINTER_FREETRASH_DEBUG(s->misc_private.trash));
         return s->misc_private;
     }
 

@@ -551,7 +551,9 @@
 // Also, in order to overwrite a pointer with garbage, the historical method
 // of using 0xBADF00D or 0xDECAFBAD is formalized with TRASH_POINTER_IF_DEBUG.
 // This makes the instances easier to find and standardizes how it is done.
-//
+// Special choices are made for 0xF4EEF4EE to indicate a freed thing, and
+// 0x5AFE5AFE to indicate an allocated thing.
+
 #if __has_feature(address_sanitizer)
     #include <sanitizer/asan_interface.h>
 
@@ -601,6 +603,16 @@
         }
 
         template<class T>
+        inline static void SAFETRASH_POINTER_IF_DEBUG(T* &p) {
+            p = reinterpret_cast<T*>(static_cast<uintptr_t>(0x5AFE5AFE));
+        }
+
+        template<class T>
+        inline static void FREETRASH_POINTER_IF_DEBUG(T* &p) {
+            p = reinterpret_cast<T*>(static_cast<uintptr_t>(0xF4EEF4EEE));
+        }
+
+        template<class T>
         inline static bool IS_POINTER_TRASH_DEBUG(T* p) {
             return (
                 p == reinterpret_cast<T*>(static_cast<uintptr_t>(0xDECAFBAD))
@@ -611,6 +623,20 @@
         inline static bool IS_CFUNC_TRASH_DEBUG(T* p) {
             return (
                 p == reinterpret_cast<T*>(static_cast<uintptr_t>(0xDECAFBAD))
+            );
+        }
+
+        template<class T>
+        inline static bool IS_POINTER_SAFETRASH_DEBUG(T* p) {
+            return (
+                p == reinterpret_cast<T*>(static_cast<uintptr_t>(0x5AFE5AFE))
+            );
+        }
+
+        template<class T>
+        inline static bool IS_POINTER_FREETRASH_DEBUG(T* p) {
+            return (
+                p == reinterpret_cast<T*>(static_cast<uintptr_t>(0xF4EEF4EE))
             );
         }
 
@@ -633,12 +659,24 @@
 
         #define TRASH_CFUNC_IF_DEBUG(p) \
             ((p) = cast(CFUNC*, cast(uintptr_t, 0xDECAFBAD)))
-            
+
+        #define SAFETRASH_POINTER_IF_DEBUG(p) \
+            ((p) = cast(void*, cast(uintptr_t, 0x5AFE5AFE)))
+
+        #define FREETRASH_POINTER_IF_DEBUG(p) \
+            ((p) = cast(void*, cast(uintptr_t, 0xF4EEF4EE)))
+
         #define IS_POINTER_TRASH_DEBUG(p) \
             ((p) == cast(void*, cast(uintptr_t, 0xDECAFBAD)))
 
         #define IS_CFUNC_TRASH_DEBUG(p) \
             ((p) == cast(CFUNC*, cast(uintptr_t, 0xDECAFBAD)))
+
+        #define IS_POINTER_SAFETRASH_DEBUG(p) \
+            ((p) == cast(CFUNC*, cast(uintptr_t, 0x5AFE5AFE)))
+
+        #define IS_POINTER_FREETRASH_DEBUG(p) \
+            ((p) == cast(CFUNC*, cast(uintptr_t, 0xF4EEF4EE)))
     #endif
 #endif
 

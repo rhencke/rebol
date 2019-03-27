@@ -1126,16 +1126,15 @@ void GC_Kill_Series(REBSER *s)
         Decay_Series(s);
 
   #if !defined(NDEBUG)
-    s->info.bits = FLAG_WIDE_BYTE_OR_0(77); // corrupt SER_WIDE()
+    s->info.bits = FLAG_WIDE_BYTE_OR_0(77);  // corrupt SER_WIDE()
+    // The spot LINK occupies will be used by Free_Node() to link the freelist
+    FREETRASH_POINTER_IF_DEBUG(s->misc_private.trash);
   #endif
-
-    TRASH_POINTER_IF_DEBUG(MISC(s).trash);
-    TRASH_POINTER_IF_DEBUG(LINK(s).trash);
 
     Free_Node(SER_POOL, NOD(s));
 
-    // GC may no longer be necessary:
-    if (GC_Ballast > 0) CLR_SIGNAL(SIG_RECYCLE);
+    if (GC_Ballast > 0)
+        CLR_SIGNAL(SIG_RECYCLE);  // Enough space that requested GC can cancel
 
   #if !defined(NDEBUG)
     PG_Reb_Stats->Series_Freed++;

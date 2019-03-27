@@ -907,7 +907,7 @@ REBACT *Make_Action(
 
     MISC(details).dispatcher = dispatcher; // level of indirection, hijackable
 
-    assert(IS_POINTER_TRASH_DEBUG(LINK(paramlist).trash));
+    assert(IS_POINTER_SAFETRASH_DEBUG(LINK(paramlist).trash));
 
     if (opt_underlying) {
         LINK_UNDERLYING_NODE(paramlist) = NOD(opt_underlying);
