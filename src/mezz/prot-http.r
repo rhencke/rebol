@@ -71,6 +71,9 @@ sync-op: function [port body] [
         ]
     ]
 
+    ; !!! Note that this dispatches to the "port actor", not the COPY generic
+    ; action.  That has been overridden to copy PORT/DATA.  :-/
+    ;
     body: copy port
 
     if state/close? [close port]
@@ -143,7 +146,9 @@ http-awake: function [return: [logic!] event [event!]] [
                         state/error: make-http-error "Server closed connection"
                         awake make event! [type: 'error port: http-port]
                     ] [
-                        ;set state to CLOSE so the WAIT loop in 'sync-op can be interrupted --Richard
+                        ; set state to CLOSE so the WAIT loop in 'sync-op can
+                        ; be interrupted
+                        ;
                         state/state: 'close
                         any [
                             awake make event! [type: 'done port: http-port]
@@ -237,19 +242,22 @@ make-http-request: func [
     if content [append result content]
     result
 ]
-do-request: func [
-    "Perform an HTTP request"
+
+do-request: function [
+    {Queue an HTTP request to a port (response must be waited for)}
+
+    return: <void>
     port [port!]
-    <local> spec info req
-] [
+][
     spec: port/spec
     info: port/state/info
     spec/headers: body-of make make object! [
         Accept: "*/*"
         Accept-Charset: "utf-8"
-        Host: either not find [80 443] spec/port-id [
-            unspaced [form spec/host ":" spec/port-id]
-        ] [
+        Host: if not find [80 443] spec/port-id [
+            unspaced [spec/host ":" spec/port-id]
+        ]
+        else [
             form spec/host
         ]
         User-Agent: "REBOL"
@@ -263,17 +271,25 @@ do-request: func [
     net-log/C to text! req
 ]
 
-; if a no-redirect keyword is found in the write dialect after 'headers then 302 redirects will not be followed
-parse-write-dialect: func [port block <local> spec debug] [
+; if a no-redirect keyword is found in the write dialect after 'headers then
+; 302 redirects will not be followed
+;
+parse-write-dialect: function [
+    {Sets PORT/SPEC fields: DEBUG, FOLLOW, METHOD, PATH, HEADERS, CONTENT}
+
+    return: <void>
+    port [port!]
+    block [block!]
+][
     spec: port/spec
     parse block [
         opt ['headers (spec/debug: true)]
         opt ['no-redirect (spec/follow: 'ok)]
-        [set block word! (spec/method: block) | (spec/method: 'post)]
-        opt [set block [file! | url!] (spec/path: block)]
-        [set block block! (spec/headers: block) | (spec/headers: [])]
+        [set temp: word! (spec/method: temp) | (spec/method: 'post)]
+        opt [set temp: [file! | url!] (spec/path: temp)]
+        [set temp: block! (spec/headers: temp) | (spec/headers: [])]
         [
-            set block [any-string! | binary!] (spec/content: block)
+            set temp: [any-string! | binary!] (spec/content: temp)
             | (spec/content: blank)
         ]
         end
@@ -522,6 +538,7 @@ do-redirect: func [
     if #"/" = first new-uri [
         new-uri: as url! unspaced [spec/scheme "://" spec/host new-uri]
     ]
+    
     new-uri: decode-url new-uri
     if not find new-uri 'port-id [
         switch new-uri/scheme [
@@ -530,22 +547,27 @@ do-redirect: func [
             fail ["Unknown scheme:" new-uri/scheme]
         ]
     ]
+    
     new-uri: construct/with/only new-uri port/scheme/spec
     if not find [http https] new-uri/scheme [
-        state/error: make-http-error {Redirect to a protocol different from HTTP or HTTPS not supported}
+        state/error: make-http-error
+            {Redirect to a protocol different from HTTP or HTTPS not supported}
         return state/awake make event! [type: 'error port: port]
     ]
-    either all [
+
+    all [
         new-uri/host = spec/host
         new-uri/port-id = spec/port-id
-    ] [
+    ]
+    then [
         spec/path: new-uri/path
         ;we need to reset tcp connection here before doing a redirect
         close port/state/connection
         open port/state/connection
         do-request port
         false
-    ] [
+    ]
+    else [
         state/error: make-http-error/otherhost
             "Redirect to other host - requires custom handling"
             as url! unspaced [new-uri/scheme "://" new-uri/host new-uri/path] headers
@@ -782,12 +804,19 @@ sys/make-scheme [
         ]
 
         copy: func [
+            {Overrides the ANY-OBJECT! COPY (that copies a PORT! itself)}
+            ; !!! This R3-Alpha-ism seems like a questionable idea.  :-/
             port [port!]
         ][
-            either all [port/spec/method = 'HEAD | port/state] [
+            all [
+                port/spec/method = 'HEAD
+                port/state
+            ]
+            then [
                 reduce bind [name size date] port/state/info
-            ][
-                if port/data [copy port/data]
+            ]
+            else [
+                copy port/data  ; may be BLANK!, returns null
             ]
         ]
 

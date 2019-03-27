@@ -325,15 +325,23 @@ static REB_R Transport_Actor(
             Init_Binary(port_data, buffer);
         }
         else {
+            // In R3-Alpha, the client could leave data in the buffer of the
+            // port and just accumulate it, as in SYNC-OP from %prot-http.r:
+            //
+            //     while [not find [ready close] state/state] [
+            //         if not port? wait [state/connection port/spec/timeout] [
+            //             fail make-http-error "Timeout"
+            //         ]
+            //         if state/state = 'reading-data [
+            //             read state/connection
+            //         ]
+            //     ]
+            //
             buffer = VAL_BINARY(port_data);
 
-            // !!! Should the buffer be blanked between reads?  The previous
-            // assumption was that network reading would add to the tail of an
-            // existing binary, but the writing would blank the same port
-            // buffer between every write.
+            // !!! Port code doesn't skip the index, but what if user does?
             //
             assert(VAL_INDEX(port_data) == 0);
-            assert(VAL_LEN_AT(port_data) == 0);
 
             if (SER_AVAIL(buffer) < NET_BUF_SIZE / 2)
                 Extend_Series(buffer, NET_BUF_SIZE);

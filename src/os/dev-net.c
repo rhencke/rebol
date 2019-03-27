@@ -471,14 +471,14 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
     }
     else {
         assert(VAL_INDEX(req->common.binary) == 0);
-        assert(VAL_LEN_AT(req->common.binary) == 0);
 
         REBBIN *bin = VAL_BINARY(req->common.binary);
         assert(SER_AVAIL(bin) >= len);
+        REBCNT old_len = BIN_LEN(bin);
 
         result = recvfrom(
             req->requestee.socket,
-            s_cast(BIN_HEAD(bin)), len,
+            s_cast(BIN_AT(bin, old_len)), len,
             0, // Flags
             cast(struct sockaddr*, &remote_addr), &addr_len
         );
@@ -489,7 +489,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
                 ReqNet(sock)->remote_ip = remote_addr.sin_addr.s_addr;
                 ReqNet(sock)->remote_port = ntohs(remote_addr.sin_port);
             }
-            TERM_BIN_LEN(bin, result);
+            TERM_BIN_LEN(bin, old_len + result);
 
             rebElide(
                 "insert system/ports/system make event! [",
@@ -501,7 +501,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
             return DR_DONE;
         }
         if (result == 0) {      // The socket gracefully closed.
-            TERM_BIN_LEN(bin, 0);
+            TERM_BIN_LEN(bin, old_len);
             req->state &= ~RSM_CONNECT; // But, keep RRF_OPEN true
 
             rebElide(
