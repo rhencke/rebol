@@ -2037,7 +2037,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             nullptr,  // not requesting symbol means refinements not allowed
             VAL_ARRAY(v),
             VAL_INDEX(v),
-            *specifier,
+            Derive_Specifier(*specifier, v),
             f->out,
             EVAL_MASK_DEFAULT  // evaluating GROUP!s ok
         )){
