@@ -729,7 +729,8 @@ REB_R MAKE_Gob(
     if (not IS_GOB(arg)) { // call Extend() on an empty GOB with BLOCK!, etc.
         REBGOB *gob = Make_Gob();
         Extend_Gob_Core(gob, arg);
-        return Init_Gob(out, Manage_Array(gob));
+        Manage_Array(gob);
+        return Init_Gob(out, gob);
     }
 
     if (opt_parent) {
@@ -757,7 +758,8 @@ REB_R MAKE_Gob(
     REBGOB *gob = Copy_Array_Shallow(VAL_GOB(arg), SPECIFIED);
     Init_Blank(GOB_PANE_VALUE(gob));
     SET_GOB_PARENT(gob, nullptr);
-    return Init_Gob(out, Manage_Array(gob));
+    Manage_Array(gob);
+    return Init_Gob(out, gob);
 }
 
 
