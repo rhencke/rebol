@@ -1004,7 +1004,9 @@ script:
       fi
 
     # Keep note of GIT_COMMIT_SHORT
-    - echo "last_git_commit_short = '${GIT_COMMIT_SHORT}'" > ${OS_ID}/last_git_commit_short.js
+    - rm -f ${OS_ID}/zzz_git_commit.js
+    - echo "git_commit = '${GIT_COMMIT_SHORT}'" > ${OS_ID}/zzz_git_commit.js
+    # 'zzz' in the hope it will the latest uploaded file 
 
     # Return whether the build succeeded or not to Travis.  If this succeeded 
     # then the deploy step to S3 will run.  Parentheses create a "subshell"

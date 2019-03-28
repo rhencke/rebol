@@ -172,11 +172,11 @@ if (is_debug) {
 }
 
 // THE NAME OF THIS VARIABLE MUST BE SYNCED WITH
-// https://metaeducation.s3.amazonaws.com/travis-builds/${OS_ID}/last_git_commit_short.js
-// that contains `last_git_commit_short = ${GIT_COMMIT_SHORT}`
+// https://metaeducation.s3.amazonaws.com/travis-builds/${OS_ID}/zzz_git_commit.js
+// that contains `git_commit = ${GIT_COMMIT_SHORT}`
 // See .travis.yml
 //
-var last_git_commit_short = ""
+var git_commit = ""
 
 // Note these are "promiser" functions, because if they were done as a promise
 // it would need to have a .catch() clause attached to it here.  This way, it
@@ -195,11 +195,11 @@ var load_js_promiser = (url) => new Promise(function(resolve, reject) {
     )}
 })
 
-var last_git_commit_promiser = (os_id) => {
+var git_commit_promiser = (os_id) => {
     if (base_dir == "https://metaeducation.s3.amazonaws.com/travis-builds/"
     ) { // load from amazonaws.com
         return load_js_promiser(
-            base_dir + os_id + "/last_git_commit_short.js"
+            base_dir + os_id + "/zzz_git_commit.js"
         )
     } else { return Promise.resolve(null)}
 }
@@ -275,8 +275,8 @@ function libRebolComponentURL(suffix) {  // suffix includes the dot
                 + " in a non-debug build (only for debug builds)")
     }
 
-    let opt_dash = last_git_commit_short ? "-" : "";
-    return base_dir + os_id + "/libr3" + opt_dash + last_git_commit_short + suffix
+    let opt_dash = git_commit ? "-" : "";
+    return base_dir + os_id + "/libr3" + opt_dash + git_commit + suffix
 }
 
 
@@ -403,8 +403,8 @@ else {
 // !!! Review use of Promise.all() for steps which could be run in parallel.
 //
 var r3_ready_promise =
-  last_git_commit_promiser(os_id) // set last_git_commit_short
-  .then(bytecode_promiser)  // needs last_git_commit_short
+  git_commit_promiser(os_id) // set git_commit
+  .then(bytecode_promiser)  // needs git_commit
   .then(function() {
       load_js_promiser(libRebolComponentURL(".js"))
   }).then(function() {
