@@ -20,7 +20,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// See %src/extensions/image/README.md
+// See %extensions/image/README.md
 //
 //=//// NOTES /////////////////////////////////////////////////////////////=//
 //
@@ -30,10 +30,8 @@
 //   of tracking.  (Imagine if vector used MISC() for its signed flag, and
 //   you tried to `make image! bytes of my-vector`, overwriting the flag
 //   with the image width.)  Instead, a singular array to hold the binary
-//   is made, and the put into it.  A `make image!` that did not use a
-//   foreign source could optimize this and consider it the binary owner, and
-//   be the same cost as R3-Alpha.
-//
+//   is made.  A `make image!` that did not use a foreign source could
+//   optimize this and consider it the binary owner, at same cost as R3-Alpha.
 
 
 inline static REBVAL *VAL_IMAGE_BIN(const REBCEL *v) {

@@ -127,19 +127,19 @@ library     "external library reference"
 ; out of bits--perhaps it could be mandated that ->extra becomes the type
 ; and there is a single "utype!"
 
-gob         "graphical object"
+gob         "graphical object"  ; %extensions/gob/README.md
             ?           ?       ?       ?       []
 
-event       "user interface event (efficiently sized)"
+event       "user interface event"  ; %extensions/event/README.md
             ?           ?       ?       ?       []
 
-struct      "native structure definition"
+struct      "native structure definition"  ; %extensions/ffi/README.md
             ?           ?       ?       ?       []
 
-image       "RGB image with alpha channel"  ; %src/extensions/image/README.md
+image       "RGB image with alpha channel"  ; %extensions/image/README.md
             ?           ?       ?       ?       []
 
-vector      "compact scalar array"  ; %src/extensions/vector/README.md
+vector      "compact scalar array"  ; %extensions/vector/README.md
             ?           ?       ?       ?       []
 
 ; <BINARY>

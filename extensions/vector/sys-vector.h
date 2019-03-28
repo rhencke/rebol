@@ -29,7 +29,7 @@
 //
 //=//// NOTES /////////////////////////////////////////////////////////////=//
 //
-// * See %src/extensions/vector/README.md
+// * See %extensions/vector/README.md
 //
 
 #define VAL_VECTOR_BINARY(v) \

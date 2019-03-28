@@ -21,7 +21,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// See notes in %src/extensions/vector/README.md
+// See notes in %extensions/vector/README.md
 
 #include "sys-core.h"
 

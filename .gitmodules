@@ -1,3 +1,0 @@
-[submodule "external/libffi"]
-	path = external/libffi
-	url = git://github.com/metaeducation/libffi.git

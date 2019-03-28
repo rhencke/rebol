@@ -17,8 +17,8 @@ includes: [
 comment [
     hook: %prep-librebol-table.r
 
-    depends: [ ; !!! Directories appear to be relative to %src/extensions ?
-       ; %../../make/prep/extensions/tcc/tmp-librebol-table.c
+    depends: [ ; !!! Directories appear to be relative to %extensions ?
+       ; %../build/prep/extensions/tcc/tmp-librebol-table.c
     ]
 ]
 

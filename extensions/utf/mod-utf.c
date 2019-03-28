@@ -21,7 +21,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// See %src/extensions/utf/README.md
+// See %extensions/utf/README.md
 //
 // This is low-priority code that was moved into an extension, so that it
 // would not take up space in core builds.

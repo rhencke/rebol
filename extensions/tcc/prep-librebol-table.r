@@ -26,10 +26,10 @@ REBOL [
     Needs: 2.100.100
 ]
 
-; This script is run from %src/extensions/tcc
+; This script is run from %extensions/tcc
 ; For now, just go back up a few steps
 
-change-dir %../../../
+change-dir %../../
 
 do %tools/r2r3-future.r
 
@@ -62,7 +62,7 @@ all [
         "programs look for the runtime (see `tcc_set_lib_dir()`).  If the"
         "file %libtcc1.a is somewhere other than that directory, then"
         "TCC_LIBTCC1_FILE should be its location.  See the README:"
-        http://github.com/metaeducation/ren-c/src/extensions/tcc/README.md
+        http://github.com/metaeducation/ren-c/extensions/tcc/README.md
     ]
 ]
 

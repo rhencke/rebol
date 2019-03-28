@@ -605,16 +605,16 @@ script:
     - |
       if [[ ($OS_ID = 0.3.40) || ($OS_ID = 0.3.1) ]]; then  # Win32/Win64
           if [[ $OS_ID = 0.3.40 ]]; then
-              export PKG_CONFIG_PATH="${TOP_DIR}/external/ffi-prebuilt/lib64/pkgconfig"
+              export PKG_CONFIG_PATH="${TOP_DIR}/extensions/ffi/ffi-prebuilt/lib64/pkgconfig"
           else
-              export PKG_CONFIG_PATH="${TOP_DIR}/external/ffi-prebuilt/lib32/pkgconfig"
+              export PKG_CONFIG_PATH="${TOP_DIR}/extensions/ffi/ffi-prebuilt/lib32/pkgconfig"
           fi
 
           # Check cflags and libs
           # ("--define-prefix would be better, but it is not recognized")
           #
-          pkg-config --define-variable="prefix=\"${TOP_DIR}/external/ffi-prebuilt\"" --cflags libffi
-          pkg-config --define-variable="prefix=\"${TOP_DIR}/external/ffi-prebuilt\"" --libs libffi
+          pkg-config --define-variable="prefix=\"${TOP_DIR}/extensions/ffi/ffi-prebuilt\"" --cflags libffi
+          pkg-config --define-variable="prefix=\"${TOP_DIR}/extensions/ffi/ffi-prebuilt\"" --libs libffi
       fi
 
     # Linux needs to build FFI if it is cross-compiling to 32-bit.  It's not
@@ -916,7 +916,7 @@ script:
     - |
       if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]
       then
-        cp ../src/extensions/javascript/load-r3.js .
+        cp ../extensions/javascript/load-r3.js .
       fi
 
     # By default a web worker cannot be loaded cross-domain.  We want to be

@@ -49,7 +49,14 @@ change-dir output-dir
 
 tools-dir: repo-dir/tools
 src-dir: join repo-dir %src/
+
+; We relativize directories to the output directory, where the build process
+; is being run.  Using relative paths helps gloss over the Windows and Linux
+; differences on file paths.
+;
 src-dir: relative-to-path src-dir output-dir
+repo-dir: relative-to-path repo-dir output-dir
+
 user-config: make object! load repo-dir/configs/default-config.r
 
 === PROCESS ARGS ===
@@ -294,7 +301,7 @@ parse-ext-build-spec: function [
 
 ; Discover extensions:
 use [extension-dir entry][
-    extension-dir: src-dir/extensions/%
+    extension-dir: repo-dir/extensions/%
     for-each entry read extension-dir [
         ;print ["entry:" mold entry]
         all [
@@ -1281,7 +1288,7 @@ process-module: func [
         depends: map-each s (append reduce [mod/source] opt mod/depends) [
             case [
                 match [file! block!] s [
-                    gen-obj/dir s src-dir/extensions/%
+                    gen-obj/dir s repo-dir/extensions/%
                 ]
                 (object? s) and [find [#object-library #object-file] s/class] [
                     s
@@ -1468,7 +1475,7 @@ prep: make rebmake/entry-class [
                 ; functions to make available with `tcc_add_symbol()`)
                 ;
                 hook-script: file-to-local/full (
-                    src-dir/extensions/(ext/directory)/(ext/hook)
+                    repo-dir/extensions/(ext/directory)/(ext/hook)
                 )
                 keep [{$(REBOL)} hook-script
                     unspaced [{OS_ID=} system-config/id]
@@ -1612,7 +1619,7 @@ for-each ext dynamic-extensions [
     if ext/source [
         append mod-objs gen-obj/dir/I/D/F
             ext/source
-            src-dir/extensions/%
+            repo-dir/extensions/%
             opt ext/includes
             append copy ["EXT_DLL"] opt ext/definitions
             opt ext/cflags

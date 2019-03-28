@@ -21,7 +21,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// See notes in %src/extensions/gob/README.md
+// See notes in %extensions/event/README.md
 //
 
 #include "sys-core.h"

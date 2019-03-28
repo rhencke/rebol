@@ -3,6 +3,15 @@
 Extensions are like modules which can implement some of their functionality
 using native code.
 
+Currently extensions are kept in the main repository to make it easier to
+keep them updated, when the internal API or build mechanisms change.  Once
+those stabilize, they should be their own individual projects with their own
+issue trackers and maintainers.
+
+Extensions and the libraries they link to may have their own licenses 
+besides Rebol's Apache2, so see the LICENSE.txt file in the extension
+subdirectory for information.
+
 ### Building
 
 The build process offers three ways to build an extension, as specified in
@@ -28,13 +37,3 @@ to implement natives whose performance characteristics are identicial to
 natives which are implemented in the core.  (Though this is not recommended
 for most tasks, as the internal API changes frequently--and is easier to get
 wrong if one is not fairly well versed in how Rebol is implemented.)
-
-### Future Directions
-
-Currently extensions are kept in the main repository to make it easier to
-keep them updated, when the internal API or build mechanisms change.  Once
-those stabilize, they should be their own individual projects with their own
-issue trackers and maintainers.
-
-As the core is further streamlined to implement just the essentials of the
-language, more parts are expected to be factored out as extensions.
