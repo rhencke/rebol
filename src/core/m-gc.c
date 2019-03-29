@@ -96,12 +96,6 @@ static void Mark_Devices_Deep(void);
     assert(SER_LEN(GC_Mark_Stack) == 0)
 
 
-static inline void Unmark_Rebser(REBSER *rebser) {
-    rebser->header.bits &= ~NODE_FLAG_MARKED;
-}
-
-
-
 static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v);
 
 inline static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
@@ -168,16 +162,17 @@ static void Queue_Mark_Pairing_Deep(REBVAL *paired)
 // (Note: The data structure used for this processing is a "stack" and not
 // a "queue".  But when you use 'queue' as a verb, it has more leeway than as
 // the CS noun, and can just mean "put into a list for later processing".)
-
+//
 static void Queue_Mark_Node_Deep(void *p)
 {
-    REBNOD *n = NOD(p);
-    if (n->header.bits & NODE_FLAG_MARKED)
+    REBYTE *bp = cast(REBYTE*, p);
+    if (*bp & NODE_BYTEMASK_0x10_MARKED)
         return;  // may not be finished marking yet, but has been queued
 
-    if (n->header.bits & NODE_FLAG_CELL) {  // e.g. a pairing
-        if (n->header.bits & NODE_FLAG_MANAGED)
-            Queue_Mark_Pairing_Deep(VAL(n));
+    if (*bp & NODE_BYTEMASK_0x01_CELL) {  // e.g. a pairing
+        REBVAL *v = VAL(p);
+        if (GET_CELL_FLAG(v, MANAGED))
+            Queue_Mark_Pairing_Deep(v);
         else {
             // !!! It's a frame?  API handle?  Skip frame case (keysource)
             // for now, but revisit as technique matures.
@@ -185,7 +180,7 @@ static void Queue_Mark_Node_Deep(void *p)
         return;  // it's 2 cells, sizeof(REBSER), but no room for REBSER data
     }
 
-    REBSER *s = SER(n);
+    REBSER *s = SER(p);
     if (GET_SERIES_INFO(s, INACCESSIBLE)) {
         //
         // !!! All inaccessible nodes should be collapsed and canonized into
@@ -871,37 +866,41 @@ static REBCNT Sweep_Series(void)
 {
     REBCNT count = 0;
 
-    // Optimization here depends on SWITCH of a bank of 4 bits.
-    //
-    STATIC_ASSERT(NODE_FLAG_MARKED == FLAG_LEFT_BIT(3)); // 0x1 after shift
-    STATIC_ASSERT(NODE_FLAG_MANAGED == FLAG_LEFT_BIT(2)); // 0x2 after shift
-    STATIC_ASSERT(NODE_FLAG_FREE == FLAG_LEFT_BIT(1)); // 0x4 after shift
-    STATIC_ASSERT(NODE_FLAG_NODE == FLAG_LEFT_BIT(0)); // 0x8 after shift
+    REBSEG *seg = Mem_Pools[SER_POOL].segs;
+    for (; seg != nullptr; seg = seg->next) {
+        REBCNT n = Mem_Pools[SER_POOL].units;
+        
+        // We use a generic byte pointer (unsigned char*) to dodge the rules
+        // for strict aliasing, as the pool may contain pairs of REBVAL from
+        // Alloc_Pairing(), or a REBSER from Alloc_Series_Node().  The shared
+        // first byte node masks are defined and explained in %sys-rebnod.h
+        //
+        // NOTE: If you are using a build with UNUSUAL_REBVAL_SIZE such as
+        // DEBUG_TRACK_EXTEND_CELLS, then this will be processing the REBSER
+        // nodes only--see loop lower down for the pairing pool enumeration.
 
-    REBSEG *seg;
-    for (seg = Mem_Pools[SER_POOL].segs; seg != NULL; seg = seg->next) {
-        REBSER *s = cast(REBSER*, seg + 1);
-        REBCNT n;
-        for (n = Mem_Pools[SER_POOL].units; n > 0; --n, ++s) {
-            switch (FIRST_BYTE(s->header) >> 4) {
-            case 0:
-            case 1: // 0x1
-            case 2: // 0x2
-            case 3: // 0x2 + 0x1
-            case 4: // 0x4
-            case 5: // 0x4 + 0x1
-            case 6: // 0x4 + 0x2
-            case 7: // 0x4 + 0x2 + 0x1
+        REBYTE *bp = cast(REBYTE*, seg + 1);
+
+        for (; n > 0; --n, bp += sizeof(REBSER)) {
+            switch (*bp >> 4) {
+              case 0:
+              case 1:  // 0x1
+              case 2:  // 0x2
+              case 3:  // 0x2 + 0x1
+              case 4:  // 0x4
+              case 5:  // 0x4 + 0x1
+              case 6:  // 0x4 + 0x2
+              case 7:  // 0x4 + 0x2 + 0x1
                 //
                 // NODE_FLAG_NODE (0x8) is clear.  This signature is
                 // reserved for UTF-8 strings (corresponding to valid ASCII
                 // values in the first byte).
                 //
-                panic (s);
+                panic (bp);
 
             // v-- Everything below here has NODE_FLAG_NODE set (0x8)
 
-            case 8:
+              case 8:
                 // 0x8: unmanaged and unmarked, e.g. a series that was made
                 // with Make_Series() and hasn't been managed.  It doesn't
                 // participate in the GC.  Leave it as is.
@@ -914,33 +913,35 @@ static REBCNT Sweep_Series(void)
                 //
                 break;
 
-            case 9:
+              case 9:
                 // 0x8 + 0x1: marked but not managed, this can't happen,
                 // because the marking itself asserts nodes are managed.
                 //
-                panic (s);
+                panic (bp);
 
-            case 10:
+              case 10:
                 // 0x8 + 0x2: managed but didn't get marked, should be GC'd
                 //
                 // !!! It would be nice if we could have NODE_FLAG_CELL here
                 // as part of the switch, but see its definition for why it
                 // is at position 8 from left and not an earlier bit.
                 //
-                if (s->header.bits & NODE_FLAG_CELL) {
-                    assert(not (s->header.bits & NODE_FLAG_ROOT));
-                    Free_Node(SER_POOL, NOD(s));  // Free_Pairing for manuals
+                if (*bp & NODE_BYTEMASK_0x01_CELL) {
+                    assert(not (*bp & NODE_BYTEMASK_0x04_ROOT));
+                    Free_Node(SER_POOL, NOD(bp));  // Free_Pairing for manuals
                 }
-                else
+                else {
+                    REBSER *s = cast(REBSER*, bp);
                     GC_Kill_Series(s);
+                }
                 ++count;
                 break;
 
-            case 11:
+              case 11:
                 // 0x8 + 0x2 + 0x1: managed and marked, so it's still live.
                 // Don't GC it, just clear the mark.
                 //
-                s->header.bits &= ~NODE_FLAG_MARKED;
+                *bp &= ~NODE_BYTEMASK_0x10_MARKED;
                 break;
 
             // v-- Everything below this line has the two leftmost bits set
@@ -948,16 +949,16 @@ static REBCNT Sweep_Series(void)
             // first byte of a multi-byte sequence in UTF-8...so only the
             // special bit pattern of the free case uses this.
 
-            case 12:
+              case 12:
                 // 0x8 + 0x4: free node, uses special illegal UTF-8 byte
                 //
-                assert(FIRST_BYTE(s->header) == FREED_SERIES_BYTE);
+                assert(*bp == FREED_SERIES_BYTE);
                 break;
 
-            case 13:
-            case 14:
-            case 15:
-                panic (s); // 0x8 + 0x4 + ... reserved for UTF-8
+              case 13:
+              case 14:
+              case 15:
+                panic (bp);  // 0x8 + 0x4 + ... reserved for UTF-8
             }
         }
     }
@@ -970,20 +971,23 @@ static REBCNT Sweep_Series(void)
   #ifdef UNUSUAL_REBVAL_SIZE
     for (seg = Mem_Pools[PAR_POOL].segs; seg != NULL; seg = seg->next) {
         REBVAL *v = cast(REBVAL*, seg + 1);
-        if (v->header.bits & NODE_FLAG_FREE) {
-            assert(FIRST_BYTE(v->header) == FREED_SERIES_BYTE);
-            continue;
-        }
+        REBCNT n = Mem_Pools[PAR_POOL].units;
+        for (; n > 0; --n, v += 2) {
+            if (v->header.bits & NODE_FLAG_FREE) {
+                assert(FIRST_BYTE(v->header) == FREED_SERIES_BYTE);
+                continue;
+            }
 
-        assert(v->header.bits & NODE_FLAG_CELL);
+            assert(v->header.bits & NODE_FLAG_CELL);
 
-        if (v->header.bits & NODE_FLAG_MANAGED) {
-            assert(not (v->header.bits & NODE_FLAG_ROOT));
-            if (v->header.bits & NODE_FLAG_MARKED)
-                v->header.bits &= ~NODE_FLAG_MARKED;
-            else {
-                Free_Node(PAR_POOL, NOD(v));  // Free_Pairing is for manuals
-                ++count;
+            if (v->header.bits & NODE_FLAG_MANAGED) {
+                assert(not (v->header.bits & NODE_FLAG_ROOT));
+                if (v->header.bits & NODE_FLAG_MARKED)
+                    v->header.bits &= ~NODE_FLAG_MARKED;
+                else {
+                    Free_Node(PAR_POOL, NOD(v));  // Free_Pairing is for manuals
+                    ++count;
+                }
             }
         }
     }
@@ -1252,7 +1256,7 @@ REBCNT Recycle(void)
 void Push_Guard_Node(const REBNOD *node)
 {
   #if !defined(NDEBUG)
-    if (node->header.bits & NODE_FLAG_CELL) {
+    if (FIRST_BYTE(node->header) & NODE_BYTEMASK_0x01_CELL) {
         //
         // It is a value.  Cheap check: require that it already contain valid
         // data when the guard call is made (even if GC isn't necessarily

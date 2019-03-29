@@ -347,6 +347,7 @@ union Reb_Header {
 //
 #define NODE_FLAG_NODE \
     FLAG_LEFT_BIT(0)
+#define NODE_BYTEMASK_0x80_NODE 0x80
 
 
 //=//// NODE_FLAG_FREE (second-leftmost bit) //////////////////////////////=//
@@ -364,6 +365,7 @@ union Reb_Header {
 //
 #define NODE_FLAG_FREE \
     FLAG_LEFT_BIT(1)
+#define NODE_BYTEMASK_0x40_FREE 0x40
 
 
 //=//// NODE_FLAG_MANAGED (third-leftmost bit) ////////////////////////////=//
@@ -384,6 +386,7 @@ union Reb_Header {
 //
 #define NODE_FLAG_MANAGED \
     FLAG_LEFT_BIT(2)
+#define NODE_BYTEMASK_0x20_MANAGED 0x20
 
 
 //=//// NODE_FLAG_MARKED (fourth-leftmost bit) ////////////////////////////=//
@@ -402,6 +405,7 @@ union Reb_Header {
 //
 #define NODE_FLAG_MARKED \
     FLAG_LEFT_BIT(3)
+#define NODE_BYTEMASK_0x10_MARKED 0x10
 
 
 //=//// NODE_FLAG_TRANSIENT (fifth-leftmost bit) //////////////////////////=//
@@ -415,6 +419,7 @@ union Reb_Header {
 //
 #define NODE_FLAG_TRANSIENT \
     FLAG_LEFT_BIT(4)
+#define NODE_BYTEMASK_0x08_TRANSIENT 0x08
 
 
 //=//// NODE_FLAG_ROOT (sixth-leftmost bit) ///////////////////////////////=//
@@ -428,6 +433,7 @@ union Reb_Header {
 //
 #define NODE_FLAG_ROOT \
     FLAG_LEFT_BIT(5)
+#define NODE_BYTEMASK_0x04_ROOT 0x04
 
 
 //=//// NODE_FLAG_STACK (seventh-leftmost bit) ////////////////////////////=//
@@ -455,6 +461,7 @@ union Reb_Header {
 //
 #define NODE_FLAG_STACK \
     FLAG_LEFT_BIT(6)
+#define NODE_BYTEMASK_0x02_STACK 0x02
 
 
 //=//// NODE_FLAG_CELL (eighth-leftmost bit) //////////////////////////////=//
@@ -478,6 +485,7 @@ union Reb_Header {
 //
 #define NODE_FLAG_CELL \
     FLAG_LEFT_BIT(7)
+#define NODE_BYTEMASK_0x01_CELL 0x01
 
 
 // There are two special invalid bytes in UTF8 which have a leading "110"
