@@ -9,3 +9,69 @@
 [#9
     (equal? "tr" change/part "str" "" 1)
 ]
+
+(
+    s: copy "abc"
+    did all [
+        "bc" = change s "-"
+        s = "-bc"
+    ]
+)
+(
+    s: copy "abc"
+    did all [
+        "c" = change s "--"
+        s = "--c"
+    ]
+)
+(
+    s: copy "abc"
+    did all [
+        "" = change s "----"
+        s = "----"
+    ]
+)
+
+(
+    s: copy [a b c]
+    did all [
+        [b c] = change s [-]
+        s = [- b c]
+    ]
+)
+(
+    s: copy [a b c]
+    did all [
+        [c] = change s [- -]
+        s = [- - c]
+    ]
+)
+(
+    s: copy [a b c]
+    did all [
+        [] = change s [- - - -]
+        s = [- - - -]
+    ]
+)
+
+(
+    s: copy #{0A0B0C}
+    did all [
+        #{0B0C} = change s #{11}
+        s = #{110B0C}
+    ]
+)
+(
+    s: copy #{0A0B0C}
+    did all [
+        #{0C} = change s #{1111}
+        s = #{11110C}
+    ]
+)
+(
+    s: copy #{0A0B0C}
+    did all [
+        #{} = change s #{11111111}
+        s = #{11111111}
+    ]
+)

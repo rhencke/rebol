@@ -504,11 +504,21 @@ REBCNT Modify_String(
 
     if (sym == SYM_APPEND) {  // Expand, all bookmarks will still be vaild
         Expand_Series(dst_ser, dst_off, size);
+        TERM_STR_LEN_USED(
+            dst_ser,
+            tail + src_len * dups,
+            dst_used + size
+        );
     }
     else if (sym == SYM_INSERT) {  // Expand, adjust bookmarks after insertion
         Expand_Series(dst_ser, dst_off, size);
         if (bookmark and BMK_INDEX(bookmark) >= dst_idx)
             BMK_OFFSET(bookmark) += src_size * dups;
+        TERM_STR_LEN_USED(
+            dst_ser,
+            tail + src_len * dups,
+            dst_used + size
+        );
     }
     else {  // CHANGE only expands if more content added than overwritten
         assert(sym == SYM_CHANGE);
@@ -527,12 +537,31 @@ REBCNT Modify_String(
 
         if (size > dst_size) {
             Expand_Series(dst_ser, dst_off, size - dst_size);
+            TERM_STR_LEN_USED(
+                dst_ser,
+                tail + (src_len * dups) - dst_len,
+                dst_used + size - dst_size
+            );
         }
         else if (size < dst_size and (flags & AM_PART)) {
             Remove_Series_Units(dst_ser, dst_off, dst_size - size);
+            TERM_STR_LEN_USED(
+                dst_ser,
+                tail + (src_len * dups) - dst_len,
+                dst_used + size - dst_size
+            );
+
         }
-        else if (size + dst_off > dst_used)
+        else if (size + dst_off > dst_used) {
             EXPAND_SERIES_TAIL(dst_ser, size - (dst_used - dst_off));
+            TERM_STR_LEN_USED(
+                dst_ser,
+                tail + (src_len * dups) - dst_len,
+                dst_used + dst_size - size
+            );
+        }
+        else  // staying the same size (change "abc" "-" => "-bc")
+            ASSERT_SERIES_TERM(dst_ser);
     }
 
     REBYTE *dst_ptr = SER_SEEK(REBYTE, dst_ser, dst_off);
@@ -543,19 +572,6 @@ REBCNT Modify_String(
         dst_ptr += src_size;
         dst_idx += src_len;
     }
-
-    if (sym == SYM_CHANGE)
-        TERM_STR_LEN_USED(
-            dst_ser,
-            tail + (src_len * dups) - dst_len,
-            dst_used + size - dst_size
-        );
-    else
-        TERM_STR_LEN_USED(
-            dst_ser,
-            tail + src_len * dups,
-            dst_used + size
-        );
 
     if (formed)  // !!! TBD: Use mold buffer, don't make entire new series
         Free_Unmanaged_Series(formed);  // !!! should just be Drop_Mold()
