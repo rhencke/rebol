@@ -535,7 +535,34 @@ REBCNT Modify_String(
             BMK_OFFSET(bookmark) = dst_off;
         }
 
-        if (size > dst_size) {
+        // We are overwriting codepoints where the source codepoint sizes and
+        // the destination codepoint sizes may be different.  Hence if we
+        // were changing a four-codepoint sequence where all are 1 byte with
+        // a single-codepoint sequence with a 4-byte codepoint, you get:
+        //
+        //     src_len == 1
+        //     dst_len == 4
+        //     src_size == 4
+        //     dst_size == 4
+        //
+        // It deceptively seems there's enough capacity.  But since only one
+        // codepoint is being overwritten (with a larger one), three bytes
+        // have to be moved safely out of the way before being overwritten.
+
+        REBSIZ overwrite = VAL_SIZE_LIMIT_AT(NULL, dst, src_len * dups);
+        if (overwrite < size) {
+            //
+            // e.g. we're only wishing to overwrite one byte for a codepoint
+            // when planning to insert 4.  Capacity has to be inserted.
+
+            Expand_Series(dst_ser, dst_off, size - overwrite);
+            TERM_STR_LEN_USED(
+                dst_ser,
+                tail,
+                dst_used + size - overwrite
+            );
+        }
+        else if (size > dst_size) {
             Expand_Series(dst_ser, dst_off, size - dst_size);
             TERM_STR_LEN_USED(
                 dst_ser,
@@ -557,7 +584,7 @@ REBCNT Modify_String(
             TERM_STR_LEN_USED(
                 dst_ser,
                 tail + (src_len * dups) - dst_len,
-                dst_used + dst_size - size
+                dst_used + size - dst_size
             );
         }
         else  // staying the same size (change "abc" "-" => "-bc")

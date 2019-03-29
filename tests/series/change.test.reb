@@ -20,6 +20,13 @@
 (
     s: copy "abc"
     did all [
+        "bc" = change s "ò"
+        s = "òbc"
+    ]
+)
+(
+    s: copy "abc"
+    did all [
         "c" = change s "--"
         s = "--c"
     ]
