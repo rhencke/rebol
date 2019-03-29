@@ -414,6 +414,13 @@ inline static REBBMK* Alloc_Bookmark(void) {
     CLEAR_SERIES_FLAG(bookmark, MANAGED);  // so it's manual but untracked
     LINK(bookmark).bookmarks = nullptr;
     RESET_CELL(ARR_SINGLE(bookmark), REB_X_BOOKMARK, CELL_MASK_NONE);
+
+    // For the moment, REB_X_BOOKMARK is a high numbered type, which keeps
+    // it out of the type list *but* means it claims bindability.  Setting
+    // its mirror byte to claim it is REB_LOGIC preserves some debuggability
+    // (its main type is still bookmark) but makes Is_Bindable() false
+    //
+    mutable_MIRROR_BYTE(ARR_SINGLE(bookmark)) = REB_LOGIC;
     return bookmark;
 }
 

@@ -942,10 +942,9 @@ REBNATIVE(reskinned)
         // were just already in %words.r)
 
         if (pclass != KIND_BYTE(param)) {
+            assert(MIRROR_BYTE(param) == REB_TYPESET);
             if (change)
-                mutable_KIND_BYTE(param)
-                    = mutable_MIRROR_BYTE(param)
-                    = pclass;
+                mutable_KIND_BYTE(param) = pclass;
             else if (pclass != REB_P_NORMAL) // assume plain word is no change
                 fail ("If parameter convention is reskinned, use #change");
         }

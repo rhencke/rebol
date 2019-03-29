@@ -568,9 +568,11 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         }
         else {
             REBVAL *param = DS_AT(definitional_return_dsp);
+
             assert(VAL_PARAM_CLASS(param) == REB_P_LOCAL);
             mutable_KIND_BYTE(param) = REB_P_RETURN;
-            mutable_MIRROR_BYTE(param) = REB_P_RETURN;
+
+            assert(MIRROR_BYTE(param) == REB_TYPESET);
 
             // definitional_return handled specially when paramlist copied
             // off of the stack...

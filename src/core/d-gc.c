@@ -449,6 +449,7 @@ void Assert_Cell_Marked_Correctly(const RELVAL *v)
         REBSTR *s = VAL_TYPESET_STRING(v);
         assert(SER_WIDE(s) == 1);  // UTF-8 REBSTR
         assert(Is_Marked(s));
+        assert(MIRROR_BYTE(v) == REB_TYPESET);
         break; }
 
       case REB_G_XYF:

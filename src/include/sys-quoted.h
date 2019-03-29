@@ -82,12 +82,16 @@ inline static RELVAL *Quotify_Core(
         return v;
     }
 
-    enum Reb_Kind kind = cast(enum Reb_Kind, MIRROR_BYTE(v));
-    assert(kind == cast(enum Reb_Kind, KIND_BYTE(v) % REB_64));
+    // Note: Not CELL_KIND(), may differ from what MIRROR_BYTE() says
+    //
+    enum Reb_Kind type = cast(enum Reb_Kind, KIND_BYTE(v) % REB_64);
+    if (type >= REB_MAX)  // e.g. REB_P_XXX for params
+        assert(depth == 0);
+
     depth += KIND_BYTE(v) / REB_64;
 
     if (depth <= 3) { // can encode in a cell with no REB_QUOTED payload
-        mutable_KIND_BYTE(v) = kind + (REB_64 * depth);
+        mutable_KIND_BYTE(v) = type + (REB_64 * depth);
     }
     else {
         // An efficiency trick here could point to VOID_VALUE, BLANK_VALUE,
@@ -103,7 +107,7 @@ inline static RELVAL *Quotify_Core(
 
         REBVAL *paired = Alloc_Pairing();
         Move_Value_Header(paired, v);
-        mutable_KIND_BYTE(paired) = kind; // escaping only in literal
+        mutable_KIND_BYTE(paired) = type;  // escaping only in literal
         paired->extra = v->extra;
         paired->payload = v->payload;
  

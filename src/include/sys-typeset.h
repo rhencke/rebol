@@ -202,12 +202,6 @@ typedef enum Reb_Kind Reb_Param_Class;
     //
 
 
-inline static bool IS_PARAM_KIND(REBYTE k)
-    { return k >= REB_P_NORMAL and k <= REB_P_RETURN; }
-
-#define IS_PARAM(v) \
-    IS_PARAM_KIND(KIND_BYTE(v))
-
 inline static Reb_Param_Class VAL_PARAM_CLASS(const RELVAL *v) {
     assert(IS_PARAM(v));
     return cast(Reb_Param_Class, KIND_BYTE_UNCHECKED(v));
@@ -293,18 +287,18 @@ inline static Reb_Param_Class VAL_PARAM_CLASS(const RELVAL *v) {
 //
 // Name should be NULL unless typeset in object keylist or func paramlist
 
-inline static REBSTR *VAL_KEY_SPELLING(const REBCEL *v) {
-    assert(IS_PARAM_KIND(CELL_KIND(v)));
+inline static REBSTR *VAL_KEY_SPELLING(const RELVAL *v) {
+    assert(IS_PARAM_KIND(KIND_BYTE_UNCHECKED(v)));
     return VAL_TYPESET_STRING(v);
 }
 
-inline static REBSTR *VAL_KEY_CANON(const REBCEL *v) {
-    assert(IS_PARAM_KIND(CELL_KIND(v)));
+inline static REBSTR *VAL_KEY_CANON(const RELVAL *v) {
+    assert(IS_PARAM_KIND(KIND_BYTE_UNCHECKED(v)));
     return STR_CANON(VAL_KEY_SPELLING(v));
 }
 
-inline static OPT_REBSYM VAL_KEY_SYM(const REBCEL *v) {
-    assert(IS_PARAM_KIND(CELL_KIND(v)));
+inline static OPT_REBSYM VAL_KEY_SYM(const RELVAL *v) {
+    assert(IS_PARAM_KIND(KIND_BYTE_UNCHECKED(v)));
     return STR_SYMBOL(VAL_KEY_SPELLING(v)); // mirrors canon's symbol
 }
 
@@ -321,13 +315,21 @@ inline static REBVAL *Init_Typeset(RELVAL *out, REBU64 bits)
 }
 
 
+// For the moment, a param has a cell kind that is a REB_TYPESET, but then
+// overlays an actual kind as being a pseudotype for a parameter.  This would
+// be better done with bits in the typeset node...which requires making
+// typesets more complex (the original "64 bit flags" design is insufficient
+// for a generalized typeset!)
+//
 inline static REBVAL *Init_Param(
     RELVAL *out,
     Reb_Param_Class pclass,
     REBSTR *spelling,
     REBU64 bits
 ){
-    RESET_CELL(out, pclass, CELL_FLAG_FIRST_IS_NODE);
+    RESET_CELL(out, REB_TYPESET, CELL_FLAG_FIRST_IS_NODE);
+    mutable_KIND_BYTE(out) = pclass;
+
     VAL_TYPESET_STRING_NODE(out) = NOD(spelling);
     VAL_TYPESET_LOW_BITS(out) = bits & cast(uint32_t, 0xFFFFFFFF);
     VAL_TYPESET_HIGH_BITS(out) = bits >> 32;

@@ -62,15 +62,12 @@ inline static bool IS_QUOTED_KIND(REBYTE k)
 // ->extra field of the contained cell...so it comes off as "specified" in
 // those cases.
 //
-// !!! Right now REB_MAX has to be tested, otherwise pseudotypes would appear
-// to be bindable (e.g. REB_P_XXX paramlist elements).  This could be
-// sidestepped if pseudotypes were allowed to live in the middle of the range
-// of enum values.  This would mean making types like `pseudo32!` that the
-// user should not know about.  It may be worth it, considering bindability
-// is something that gets tested a lot.
+// Also note that the MIRROR_BYTE() is what is being tested--e.g. the type
+// that the cell payload and extra actually are *for*.  This is what gives
+// the CELL_KIND() as opposed to the VAL_TYPE
 
-inline static bool IS_BINDABLE_KIND(REBYTE k)
-    { return k < REB_MAX and k >= REB_ISSUE; }
+#define IS_BINDABLE_KIND(k) \
+    ((k) >= REB_ISSUE)
 
 #define Is_Bindable(v) \
     IS_BINDABLE_KIND(CELL_KIND_UNCHECKED(v))  // checked elsewhere
@@ -286,6 +283,22 @@ inline static enum Reb_Kind GETIFY_ANY_PLAIN_KIND(REBYTE k) {
     assert(ANY_PLAIN_KIND(k));
     return cast(enum Reb_Kind, k + 2);
 }
+
+
+//=//// "PARAM" CELLS /////////////////////////////////////////////////////=//
+//
+// !!! Due to the scarcity of bytes in cells, yet a desire to use them for
+// parameters, they are a kind of "container" class in the KIND_BYTE() while
+// the actual CELL_KIND (via MIRROR_BYTE()) is a REB_TYPESET.
+//
+// Making the typeset expression more sophisticated to clearly express a list
+// of parameter flags is something planned for the near future.
+
+inline static bool IS_PARAM_KIND(REBYTE k)
+    { return k >= REB_P_NORMAL and k <= REB_P_RETURN; }
+
+#define IS_PARAM(v) \
+    IS_PARAM_KIND(KIND_BYTE(v))
 
 
 //=//// TYPE HOOK ACCESS //////////////////////////////////////////////////=//
