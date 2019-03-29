@@ -342,7 +342,7 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
              continue; // don't add a callsite expression for it (can't)!
         }
 
-        if (pclass == REB_P_REFINEMENT) {
+        if (TYPE_CHECK(f->param, REB_TS_REFINEMENT)) {
             if (IS_BLANK(f->arg)) {
                 ignoring = true; // don't add to PATH!
                 continue;

@@ -443,7 +443,6 @@ void Assert_Cell_Marked_Correctly(const RELVAL *v)
       case REB_P_NORMAL:
       case REB_P_HARD_QUOTE:
       case REB_P_SOFT_QUOTE:
-      case REB_P_REFINEMENT:
       case REB_P_LOCAL:
       case REB_P_RETURN: {
         REBSTR *s = VAL_TYPESET_STRING(v);

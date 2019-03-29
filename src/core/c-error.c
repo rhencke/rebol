@@ -1160,7 +1160,7 @@ REBCTX *Error_Bad_Refine_Revoke(const RELVAL *param, const REBVAL *arg)
     DECLARE_LOCAL (param_name);
     Init_Word(param_name, VAL_PARAM_SPELLING(param));
 
-    while (VAL_PARAM_CLASS(param) != REB_P_REFINEMENT)
+    while (not TYPE_CHECK(param, REB_TS_REFINEMENT))
         --param;
 
     DECLARE_LOCAL (refine_name);

@@ -878,7 +878,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             // storing the parameter indices to revisit in the binding of the
             // REFINEMENT! words (e.g. /B and /C above) on the data stack.
 
-            if (pclass == REB_P_REFINEMENT) {
+            if (TYPE_CHECK(f->param, REB_TS_REFINEMENT)) {
                 if (GET_EVAL_FLAG(f, DOING_PICKUPS)) {
                     if (DSP != f->dsp_orig)
                         goto next_pickup;
@@ -1455,7 +1455,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             // this code which checks the typeset and also handles it when
             // a void arg signals the revocation of a refinement usage.
 
-            assert(pclass != REB_P_REFINEMENT);
+            assert(not TYPE_CHECK(f->param, REB_TS_REFINEMENT));
             assert(pclass != REB_P_LOCAL);
             assert(
                 not SPECIAL_IS_ARG_SO_TYPECHECKING  // was handled, unless...
@@ -1521,7 +1521,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             );
 
             assert(VAL_STORED_CANON(DS_TOP) == VAL_PARAM_CANON(f->param - 1));
-            assert(VAL_PARAM_CLASS(f->param - 1) == REB_P_REFINEMENT);
+            assert(TYPE_CHECK(f->param - 1, REB_TS_REFINEMENT));
 
             DS_DROP();
             SET_EVAL_FLAG(f, DOING_PICKUPS);

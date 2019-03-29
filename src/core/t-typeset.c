@@ -219,7 +219,7 @@ bool Add_Typeset_Bits_Core(
             // especially useful to combine with <skip>, e.g. `switch /equal?`
             //
             if (VAL_WORD_SYM(item) == SYM_REFINEMENT_X)
-                TYPE_SET(typeset, REB_TS_REFINEMENT);
+                TYPE_SET(typeset, REB_TS_REFINED_PATH);
         }
         else
             fail (Error_Bad_Value_Core(item, specifier));

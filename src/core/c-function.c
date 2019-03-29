@@ -60,10 +60,6 @@ static bool Params_Of_Hook(
         Init_Any_Word(s->dest, REB_WORD, spelling);
         break;
 
-      case REB_P_REFINEMENT:
-        Refinify(Init_Word(s->dest, spelling));
-        break;
-
       case REB_P_HARD_QUOTE:
         Init_Any_Word(s->dest, REB_GET_WORD, spelling);
         break;
@@ -76,6 +72,9 @@ static bool Params_Of_Hook(
         assert(false);
         DEAD_END;
     }
+
+    if (TYPE_CHECK(param, REB_TS_REFINEMENT))
+        Refinify(KNOWN(s->dest));
 
     ++s->dest;
     return true;
@@ -383,6 +382,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     //=//// ANY-WORD! PARAMETERS THEMSELVES (MAKE TYPESETS w/SYMBOL) //////=//
 
+        bool is_refinement = false;
+
         Reb_Param_Class pclass;
         REBSTR *spelling;
         switch (VAL_TYPE(item)) {
@@ -426,8 +427,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             mode = SPEC_MODE_NORMAL;
 
             refinement_seen = true;
+            is_refinement = true;
 
-            pclass = REB_P_REFINEMENT;
+            pclass = REB_P_NORMAL;
             spelling = VAL_WORD_SPELLING(VAL_ARRAY_AT_HEAD(item, 1));
 
             // !!! The typeset bits of a refinement are not currently used.
@@ -503,6 +505,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                     | FLAGIT_KIND(REB_VOID)
                 )
         );
+        if (is_refinement)
+            TYPE_SET(DS_TOP, REB_TS_REFINEMENT);
 
         // All these would cancel a definitional return (leave has same idea):
         //

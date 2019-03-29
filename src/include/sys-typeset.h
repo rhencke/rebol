@@ -378,7 +378,7 @@ inline static bool Typecheck_Including_Quoteds(
             return true;
 
     if (KIND_BYTE(v) == REB_PATH and IS_BLANK(ARR_HEAD(VAL_ARRAY(v))))
-        if (TYPE_CHECK(param, REB_TS_REFINEMENT))
+        if (TYPE_CHECK(param, REB_TS_REFINED_PATH))
             return true;
 
     return false;
