@@ -1177,7 +1177,7 @@ read-lines: function [
         if all [empty? data empty? buffer] [
             return null
         ]
-        (if not binary [[to text!]]) take/part buffer pos
+        ((if not binary [[to text!]])) take/part buffer pos
     ]
 ]
 
