@@ -75,9 +75,6 @@ logic       "boolean true or false"
 ; BEGIN TYPES THAT ARE ALWAYS "TRUTHY" - IS_TRUTHY()/IS_CONDITIONALLY_TRUE()
 ; ============================================================================
 
-integer     "64 bit integer"
-            integer     -       +       +       [number scalar]
-
 decimal     "64bit floating point number (IEEE standard)"
             decimal     -       *       +       [number scalar]
 
@@ -101,6 +98,16 @@ time        "time of day or duration"
 
 date        "day, month, year, time of day, and timezone"
             date        +       +       +       []
+
+integer     "64 bit integer"
+            integer     -       +       +       [number scalar]
+
+; ============================================================================
+; BEGIN TYPES THAT NEED TO BE GC-MARKED
+; ============================================================================
+;
+; !!! Note that INTEGER! may become arbitrary precision, and thus could have
+; a node in it to mark in some cases.
 
 ; </ANY_SCALAR>
 

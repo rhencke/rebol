@@ -399,6 +399,7 @@ static void Add_Lib_Keys_Bootstrap_R3_Cant_Make(void)
 static REBVAL *Make_Locked_Tag(const char *utf8) { // helper
     REBVAL *t = rebText(utf8);
     mutable_KIND_BYTE(t) = REB_TAG;
+    mutable_MIRROR_BYTE(t) = REB_TAG;
 
     REBSER *locker = nullptr;
     Ensure_Value_Frozen(t, locker);
@@ -674,6 +675,7 @@ static REBARR *Startup_Natives(const REBVAL *boot_natives)
 
         REBVAL *catalog_item = Move_Value(Alloc_Tail_Array(catalog), name);
         mutable_KIND_BYTE(catalog_item) = REB_WORD;
+        mutable_MIRROR_BYTE(catalog_item) = REB_WORD;
 
         if (VAL_WORD_SYM(name) == SYM_GENERIC)
             generic_word = name;
@@ -735,6 +737,7 @@ static REBARR *Startup_Generics(const REBVAL *boot_generics)
         if (IS_SET_WORD(item)) {
             Derelativize(DS_PUSH(), item, specifier);
             mutable_KIND_BYTE(DS_TOP) = REB_WORD; // change pushed to WORD!
+            mutable_MIRROR_BYTE(DS_TOP) = REB_WORD;
         }
 
     return Pop_Stack_Values(dsp_orig); // catalog of generics
@@ -973,9 +976,12 @@ static void Init_System_Object(
     REBVAL *std_error = Get_System(SYS_STANDARD, STD_ERROR);
     assert(IS_OBJECT(std_error));
     mutable_KIND_BYTE(std_error) = REB_ERROR;
+    mutable_MIRROR_BYTE(std_error) = REB_ERROR;
     mutable_KIND_BYTE(CTX_ARCHETYPE(VAL_CONTEXT(std_error))) = REB_ERROR;
+    mutable_MIRROR_BYTE(CTX_ARCHETYPE(VAL_CONTEXT(std_error))) = REB_ERROR;
     assert(CTX_KEY_SYM(VAL_CONTEXT(std_error), 1) == SYM_SELF);
     mutable_KIND_BYTE(VAL_CONTEXT_VAR(std_error, 1)) = REB_ERROR;
+    mutable_MIRROR_BYTE(VAL_CONTEXT_VAR(std_error, 1)) = REB_ERROR;
 }
 
 void Shutdown_System_Object(void)

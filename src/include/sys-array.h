@@ -212,7 +212,9 @@ inline static void Prep_Array(
         while (n < SER(a)->content.dynamic.rest) { // no -1 (n is 1-based)
             ++n;
             ++prep;
-            prep->header.bits = FLAG_KIND_BYTE(REB_T_TRASH); // unreadable
+            prep->header.bits =
+                FLAG_KIND_BYTE(REB_T_TRASH)
+                | FLAG_MIRROR_BYTE(REB_T_TRASH); // unreadable
             TRACK_CELL_IF_DEBUG(prep, __FILE__, __LINE__);
         }
       #endif

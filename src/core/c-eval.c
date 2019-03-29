@@ -1498,6 +1498,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
             if (not IS_WORD_BOUND(DS_TOP)) { // the loop didn't index it
                 mutable_KIND_BYTE(DS_TOP) = REB_WORD;
+                mutable_MIRROR_BYTE(DS_TOP) = REB_WORD;
                 fail (Error_Bad_Refine_Raw(DS_TOP)); // so duplicate or junk
             }
 
@@ -2091,11 +2092,20 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         }
 
         if (ANY_WORD(spare))
-            kind.byte = mutable_KIND_BYTE(spare) = REB_GET_WORD;
+            kind.byte
+                = mutable_KIND_BYTE(spare)
+                = mutable_MIRROR_BYTE(spare)
+                = REB_GET_WORD;
         else if (ANY_PATH(spare))
-            kind.byte = mutable_KIND_BYTE(spare) = REB_GET_PATH;
+            kind.byte
+                = mutable_KIND_BYTE(spare)
+                = mutable_MIRROR_BYTE(spare)
+                = REB_GET_PATH;
         else if (ANY_BLOCK(spare))
-            kind.byte = mutable_KIND_BYTE(spare) = REB_GET_BLOCK;
+            kind.byte
+                = mutable_KIND_BYTE(spare)
+                = mutable_MIRROR_BYTE(spare)
+                = REB_GET_BLOCK;
         else if (IS_ACTION(spare)) {
             if (Eval_Value_Throws(f->out, spare, SPECIFIED))  // only arity-0
                 goto return_thrown;
@@ -2156,15 +2166,24 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         v = spare;
 
         if (ANY_WORD(spare)) {
-            kind.byte = mutable_KIND_BYTE(spare) = REB_SET_WORD;
+            kind.byte
+                = mutable_KIND_BYTE(spare)
+                = mutable_MIRROR_BYTE(spare)
+                = REB_SET_WORD;
             goto set_word_with_out;
         }
         else if (ANY_PATH(spare)) {
-            kind.byte = mutable_KIND_BYTE(spare) = REB_SET_PATH;
+            kind.byte
+                = mutable_KIND_BYTE(spare)
+                = mutable_MIRROR_BYTE(spare)
+                = REB_SET_PATH;
             goto set_path_with_out;
         }
         else if (ANY_BLOCK(spare)) {
-            kind.byte = mutable_KIND_BYTE(spare) = REB_SET_BLOCK;
+            kind.byte
+                = mutable_KIND_BYTE(spare)
+                = mutable_MIRROR_BYTE(spare)
+                = REB_SET_BLOCK;
             goto set_block_with_out;
         }
 

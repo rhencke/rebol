@@ -504,6 +504,7 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     single->header.bits =
         NODE_FLAG_NODE | NODE_FLAG_CELL
             | FLAG_KIND_BYTE(REB_FRAME)
+            | FLAG_MIRROR_BYTE(REB_FRAME)
             | CELL_MASK_CONTEXT;
     INIT_BINDING(single, VAL_BINDING(rootvar));
     INIT_VAL_CONTEXT_VARLIST(single, ARR(stub));

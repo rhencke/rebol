@@ -2222,7 +2222,9 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                         REB_GET_PATH,
                         CELL_FLAG_FIRST_IS_NODE
                     );
-                    mutable_KIND_BYTE(head) = UNGETIFY_ANY_GET_KIND(kind_head);
+                    mutable_KIND_BYTE(head)
+                        = mutable_MIRROR_BYTE(head)
+                        = UNGETIFY_ANY_GET_KIND(kind_head);
                 }
                 else if (ss->begin and *ss->end == ':') {
                     RESET_VAL_HEADER(

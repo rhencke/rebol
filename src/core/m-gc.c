@@ -249,21 +249,28 @@ static void Queue_Mark_Node_Deep(void *p)
 //
 static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
 {
-    enum Reb_Kind kind = CELL_KIND_UNCHECKED(v);  // unescaped ('''a => WORD!)
-    if (kind == REB_0)
+    // We mark based on the type of payload in the cell, e.g. its "unescaped"
+    // form.  So if '''a fits in a WORD! (despite being a QUOTED!), we want
+    // to mark the cell as if it were a plain word.  Use the CELL_KIND.
+    //
+    // See %types.r for how all the scalar types are at the bottom.  These
+    // kinds that don't need marking include REB_0_END.  REB_INTEGER will
+    // need marking when it becomes arbitrary precision and has a node...
+    //
+    enum Reb_Kind kind = CELL_KIND_UNCHECKED(v);
+    if (kind <= REB_INTEGER)
         return;
 
-  #if !defined(NDEBUG)
+  #if !defined(NDEBUG)  // see Queue_Mark_Node_Deep() for notes on recursion
     assert(not in_mark);
     in_mark = true;
   #endif
 
-    REBNOD *binding = IS_BINDABLE_KIND(kind)
-        ? EXTRA(Binding, v).node  // VAL_BINDING() macro checks bind again
-        : UNBOUND;
-
-    if (binding != UNBOUND and (binding->header.bits & NODE_FLAG_MANAGED))
-        Queue_Mark_Node_Deep(ARR(binding));
+    if (IS_BINDABLE_KIND(kind)) {
+        REBNOD *binding = EXTRA(Binding, v).node;
+        if (binding != UNBOUND and (binding->header.bits & NODE_FLAG_MANAGED))
+            Queue_Mark_Node_Deep(ARR(binding));
+    }
 
     if (GET_CELL_FLAG(v, FIRST_IS_NODE) and PAYLOAD(Any, v).first.node)
         Queue_Mark_Node_Deep(PAYLOAD(Any, v).first.node);

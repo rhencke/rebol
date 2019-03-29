@@ -566,7 +566,9 @@ bool Specialize_Action_Throws(
 
         if (KIND_BYTE(refine) == REB_X_PARTIAL) {
             if (IS_NULLED(arg)) { // we *know* it's not completely fulfilled
-                mutable_KIND_BYTE(refine) = REB_X_PARTIAL_SAW_NULL_ARG;
+                mutable_KIND_BYTE(refine)
+                    = mutable_MIRROR_BYTE(refine)
+                    = REB_X_PARTIAL_SAW_NULL_ARG;
                 goto unspecialized_arg;
             }
 

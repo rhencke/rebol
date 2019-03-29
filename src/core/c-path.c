@@ -996,7 +996,7 @@ REB_R TO_Path(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         assert(kind != VAL_TYPE(arg));  // TO should have called COPY
 
         Move_Value(out, arg);
-        mutable_KIND_BYTE(out) = kind;
+        mutable_KIND_BYTE(out) = mutable_MIRROR_BYTE(out) = kind;
         return out;
     }
 

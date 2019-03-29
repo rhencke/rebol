@@ -82,7 +82,8 @@ inline static RELVAL *Quotify_Core(
         return v;
     }
 
-    enum Reb_Kind kind = cast(enum Reb_Kind, KIND_BYTE(v) % REB_64);
+    enum Reb_Kind kind = cast(enum Reb_Kind, MIRROR_BYTE(v));
+    assert(kind == cast(enum Reb_Kind, KIND_BYTE(v) % REB_64));
     depth += KIND_BYTE(v) / REB_64;
 
     if (depth <= 3) { // can encode in a cell with no REB_QUOTED payload
@@ -153,11 +154,7 @@ inline static RELVAL *Unquotify_In_Situ(RELVAL *v, REBCNT unquotes)
     assert(KIND_BYTE(v) >= REB_64); // not an in-situ quoted value otherwise
     assert(cast(REBCNT, KIND_BYTE(v) / REB_64) >= unquotes);
     mutable_KIND_BYTE(v) -= REB_64 * unquotes;
-    assert(
-        KIND_BYTE(v) % 64 != REB_0
-        and KIND_BYTE(v) % 64 != REB_QUOTED
-        and KIND_BYTE(v) % 64 < REB_MAX
-    );
+    assert(KIND_BYTE(v) % 64 == MIRROR_BYTE(v));
     return v;
 }
 

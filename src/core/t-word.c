@@ -82,7 +82,7 @@ REB_R MAKE_Word(
         // Rethink what it means to preserve the bits vs. not.
         //
         Move_Value(out, arg);
-        mutable_KIND_BYTE(out) = kind;
+        mutable_KIND_BYTE(out) = mutable_MIRROR_BYTE(out) = kind;
         return out;
     }
 

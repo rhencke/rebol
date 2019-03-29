@@ -483,8 +483,12 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
         a->payload = acell->payload;
         ta = CELL_KIND(acell);
     }
-    else
-        mutable_KIND_BYTE(a) = ta = CELL_KIND_UNCHECKED(a); // quoted or not
+    else {
+        mutable_KIND_BYTE(a)
+            = ta
+            = CELL_KIND_UNCHECKED(a); // quoted or not
+        assert(ta == MIRROR_BYTE(a));
+    }
 
     enum Reb_Kind tb;
     if (KIND_BYTE(b) == REB_QUOTED) { // 4 or more quote levels
@@ -494,8 +498,12 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
         b->payload = bcell->payload;
         tb = CELL_KIND(bcell);
     }
-    else
-        mutable_KIND_BYTE(b) = tb = CELL_KIND_UNCHECKED(b); // quoted or not
+    else {
+        mutable_KIND_BYTE(b)
+            = tb
+            = CELL_KIND_UNCHECKED(b); // quoted or not
+        assert(tb == MIRROR_BYTE(b));
+    }
 
     if (ta != tb) {
         if (strictness == 1)
@@ -969,7 +977,7 @@ REBNATIVE(zero_q)
 
     enum Reb_Kind type = VAL_TYPE(ARG(value));
 
-    if (type >= REB_INTEGER and type <= REB_TIME) {
+    if (ANY_SCALAR_KIND(type)) {
         DECLARE_LOCAL (zero);
         Init_Zeroed_Hack(zero, type);
 

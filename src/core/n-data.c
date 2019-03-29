@@ -1260,7 +1260,9 @@ REBNATIVE(as)
     // updating the quotes is enough.
     //
     Move_Value(D_OUT, v);
-    mutable_KIND_BYTE(D_OUT) = new_kind;
+    mutable_KIND_BYTE(D_OUT)
+        = mutable_MIRROR_BYTE(D_OUT)
+        = new_kind;
     return Trust_Const(Quotify(D_OUT, quotes));
 }
 

@@ -253,24 +253,24 @@
     (cast(REBU64, 1) << (t)) // makes a 64-bit bitflag
 
 // A cell may have a larger KIND_BYTE() than legal Reb_Kind to represent a
-// literal in-situ, and you may want to know its actual CELL_KIND().
+// literal in-situ...the actual kind comes from that byte % 64.  But if you
+// are interested in the kind of *cell* (for purposes of knowing its bit
+// layout expectations) that is stored in the MIRROR_BYTE().
 
 inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 
 #define CELL_KIND_UNCHECKED(cell) \
-    cast(enum Reb_Kind, KIND_BYTE_UNCHECKED(cell) % REB_64)
+    cast(enum Reb_Kind, MIRROR_BYTE(cell))
 
 #if defined(NDEBUG)
     #define CELL_KIND CELL_KIND_UNCHECKED
 #else
     #if !defined(CPLUSPLUS_11)
         #define CELL_KIND(cell) \
-            cast(enum Reb_Kind, KIND_BYTE(cast(const RELVAL*, cell)) % REB_64)
+            cast(enum Reb_Kind, MIRROR_BYTE(cast(const RELVAL*, cell)))
     #else
         inline static enum Reb_Kind CELL_KIND(const REBCEL *cell) {
-            return cast(enum Reb_Kind,
-                KIND_BYTE(cast(const RELVAL*, cell)) % REB_64
-            );
+            return cast(enum Reb_Kind, MIRROR_BYTE(cast(const RELVAL*, cell)));
         }
 
         // Don't want to ask an ordinary value cell its kind modulo 64 is;
@@ -308,7 +308,7 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 
         // Special messages for END and trash (as these are common)
         //
-        if (kind_byte % REB_64 == REB_0_END) {
+        if (kind_byte == REB_0_END) {
             printf("VAL_TYPE() on END marker (use IS_END() or KIND_BYTE())\n");
             panic_at (v, file, line);
         }
@@ -366,7 +366,7 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 
 inline static REBVAL *RESET_VAL_HEADER_at(
     RELVAL *v,
-    enum Reb_Kind kind,
+    enum Reb_Kind k,
     uintptr_t extra
 
   #if defined(DEBUG_CELL_WRITABILITY)
@@ -377,7 +377,7 @@ inline static REBVAL *RESET_VAL_HEADER_at(
     ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
     v->header.bits &= CELL_MASK_PERSIST;
-    v->header.bits |= FLAG_KIND_BYTE(kind) | extra;
+    v->header.bits |= FLAG_KIND_BYTE(k) | FLAG_MIRROR_BYTE(k) | extra;
     return cast(REBVAL*, v);
 }
 
@@ -441,7 +441,9 @@ inline static REBVAL *RESET_VAL_HEADER_at(
     (NODE_FLAG_NODE | NODE_FLAG_CELL)
 
 #define CELL_MASK_NON_STACK_END \
-    (CELL_MASK_NON_STACK | FLAG_KIND_BYTE(REB_0)) // same, but more explicit
+    (CELL_MASK_NON_STACK \
+        | FLAG_KIND_BYTE(REB_0) \
+        | FLAG_MIRROR_BYTE(REB_0))  // a more explicit CELL_MASK_NON_STACK
 
 inline static void Prep_Non_Stack_Cell_Core(
     RELVAL *c
@@ -482,9 +484,13 @@ inline static RELVAL *Prep_Stack_Cell_Core(
     ALIGN_CHECK_CELL_EVIL_MACRO(c, file, line);
   #endif
   #ifdef DEBUG_TRASH_MEMORY
-    c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_T_TRASH);
+    c->header.bits = CELL_MASK_STACK \
+        | FLAG_KIND_BYTE(REB_T_TRASH) \
+        | FLAG_MIRROR_BYTE(REB_T_TRASH);
   #else
-    c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_0);
+    c->header.bits = CELL_MASK_STACK \
+        | FLAG_KIND_BYTE(REB_0) \
+        | FLAG_MIRROR_BYTE(REB_0);
   #endif
     TRACK_CELL_IF_DEBUG(cast(RELVAL*, c), file, line);
     return c;
@@ -520,7 +526,9 @@ inline static RELVAL *Prep_Stack_Cell_Core(
         ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
         v->header.bits &= CELL_MASK_PERSIST;
-        v->header.bits |= FLAG_KIND_BYTE(REB_T_TRASH);
+        v->header.bits |=
+            FLAG_KIND_BYTE(REB_T_TRASH)
+                | FLAG_MIRROR_BYTE(REB_T_TRASH);
 
         TRACK_CELL_IF_DEBUG(v, file, line);
         return v;
@@ -569,7 +577,8 @@ inline static RELVAL *Prep_Stack_Cell_Core(
     ){
         ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
-        mutable_SECOND_BYTE(v->header) = REB_0_END; // release build behavior
+        mutable_KIND_BYTE(v) = REB_0_END; // release build behavior
+        mutable_MIRROR_BYTE(v) = REB_0_END;
 
         TRACK_CELL_IF_DEBUG(v, file, line);
         return cast(REBVAL*, v);
@@ -579,7 +588,8 @@ inline static RELVAL *Prep_Stack_Cell_Core(
         SET_END_Debug((v), __FILE__, __LINE__)
 #else
     inline static REBVAL *SET_END(RELVAL *v) {
-        mutable_SECOND_BYTE(v->header) = REB_0_END; // must be a prepared cell
+        mutable_KIND_BYTE(v) = REB_0_END; // must be a prepared cell
+        mutable_MIRROR_BYTE(v) = REB_0_END;
         return cast(REBVAL*, v);
     }
 #endif

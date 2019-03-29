@@ -43,26 +43,16 @@
 //
 // Note: We assume the binding was marked correctly if the type was bindable.
 //
-void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
+void Assert_Cell_Marked_Correctly(const RELVAL *v)
 {
-    const REBCEL *v;  // do GC work on this variable, not quoted
-    enum Reb_Kind kind;
-    if (KIND_BYTE_UNCHECKED(quotable) != REB_QUOTED) {
-        kind = CELL_KIND_UNCHECKED(cast(const REBCEL*, quotable)); // mod 64
-        v = quotable;
+    if (KIND_BYTE_UNCHECKED(v) == REB_QUOTED) {
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
+        assert(MIRROR_BYTE(v) == REB_QUOTED);
+        assert(Is_Marked(PAYLOAD(Any, v).first.node));
+        return;
     }
-    else {
-        v = VAL_QUOTED_PAYLOAD_CELL(quotable);
-        assert(v->header.bits & NODE_FLAG_MARKED);
-        if (Is_Bindable(v))
-            assert(EXTRA(Binding, v).node == EXTRA(Binding, quotable).node);
-        else {
-            assert(EXTRA(Binding, quotable).node == nullptr);
-            // Note: Unbindable cell bits can be used for whatever they like
-        }
-        assert(KIND_BYTE_UNCHECKED(v) < REB_MAX);
-        kind = cast(enum Reb_Kind, KIND_BYTE_UNCHECKED(v));
-    }
+    enum Reb_Kind kind = CELL_KIND_UNCHECKED(cast(const REBCEL*, v)); 
+    assert(kind == MIRROR_BYTE(v));
 
     REBNOD *binding;
     if (
@@ -148,8 +138,7 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
         break;
 
       case REB_DATATYPE:
-        // Type spec is allowed to be NULL.  See %typespec.r file
-        if (VAL_TYPE_SPEC(v))
+        if (VAL_TYPE_SPEC(v))  // currently allowed to be null, see %types.r
             assert(Is_Marked(VAL_TYPE_SPEC(v)));
         break;
 
@@ -166,8 +155,10 @@ void Assert_Cell_Marked_Correctly(const RELVAL *quotable)
         break; }
 
       case REB_MAP: {
+        assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
         REBMAP* map = VAL_MAP(v);
         assert(Is_Marked(map));
+        assert(IS_SER_ARRAY(map));
         break; }
 
       case REB_HANDLE: { // See %sys-handle.h
@@ -512,8 +503,8 @@ void Assert_Array_Marked_Correctly(REBARR *a) {
         // For a lighter check, make sure it's marked as a value-bearing array
         // and that it hasn't been freed.
         //
+        assert(not IS_FREE_NODE(a));
         assert(IS_SER_ARRAY(a));
-        assert(not IS_FREE_NODE(SER(a)));
     #endif
 
     if (GET_ARRAY_FLAG(a, IS_PARAMLIST)) {

@@ -238,11 +238,9 @@
 // !!! This is slated for an interesting feature of fitting an immutable
 // single element array into a cell.  The proposal is called "mirror bytes".
 
-#define MIRROR_BYTE(v) \
-    FOURTH_BYTE((v)->header)
-
-#define mutable_MIRROR_BYTE(v) \
-    mutable_FOURTH_BYTE((v)->header)
+#define FLAG_MIRROR_BYTE(b)         FLAG_FOURTH_BYTE(b)
+#define MIRROR_BYTE(v)              FOURTH_BYTE((v)->header)
+#define mutable_MIRROR_BYTE(v)      mutable_FOURTH_BYTE((v)->header)
 
 
 // Endlike headers have the second byte clear (to pass the IS_END() test).

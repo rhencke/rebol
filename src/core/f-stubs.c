@@ -560,16 +560,16 @@ REBVAL *Setify(REBVAL *out) {
 
     enum Reb_Kind kind = VAL_TYPE(out);
     if (ANY_PLAIN_GET_SET_WORD_KIND(kind)) {
-        mutable_KIND_BYTE(out) = REB_SET_WORD;
+        mutable_KIND_BYTE(out) = mutable_MIRROR_BYTE(out) = REB_SET_WORD;
     }
     else if (ANY_PATH_KIND(kind)) {
-        mutable_KIND_BYTE(out) = REB_SET_PATH;
+        mutable_KIND_BYTE(out) = mutable_MIRROR_BYTE(out) = REB_SET_PATH;
     }
     else if (ANY_BLOCK_KIND(kind)) {
-        mutable_KIND_BYTE(out) = REB_SET_BLOCK;
+        mutable_KIND_BYTE(out) = mutable_MIRROR_BYTE(out) = REB_SET_BLOCK;
     }
     else if (ANY_GROUP_KIND(kind)) {
-        mutable_KIND_BYTE(out) = REB_SET_GROUP;
+        mutable_KIND_BYTE(out) = mutable_MIRROR_BYTE(out) = REB_SET_GROUP;
     }
     else if (kind == REB_NULLED) {
         fail ("Cannot SETIFY a NULL");
@@ -615,16 +615,16 @@ REBVAL *Getify(REBVAL *out) {
 
     enum Reb_Kind kind = VAL_TYPE(out);
     if (ANY_BLOCK_KIND(kind)) {
-        mutable_KIND_BYTE(out) = REB_GET_BLOCK;
+        mutable_KIND_BYTE(out) = mutable_MIRROR_BYTE(out) = REB_GET_BLOCK;
     }
     else if (ANY_GROUP_KIND(kind)) {
-        mutable_KIND_BYTE(out) = REB_GET_GROUP;
+        mutable_KIND_BYTE(out) = mutable_MIRROR_BYTE(out) = REB_GET_GROUP;
     }
     else if (ANY_PATH_KIND(kind)) {
-        mutable_KIND_BYTE(out) = REB_GET_PATH;
+        mutable_KIND_BYTE(out) = mutable_MIRROR_BYTE(out) = REB_GET_PATH;
     }
     else if (ANY_PLAIN_GET_SET_WORD_KIND(kind)) {
-        mutable_KIND_BYTE(out) = REB_GET_WORD;
+        mutable_KIND_BYTE(out) = mutable_MIRROR_BYTE(out) = REB_GET_WORD;
     }
     else if (kind == REB_NULLED) {
         fail ("Cannot GETIFY a NULL");
