@@ -68,32 +68,39 @@
 #define MAX_ZONE \
     (15 * (60 / ZONE_MINS))
 
-// There is a difference between a time zone of 0 (explicitly GMT) and
-// choosing to be an agnostic local time.  This bad value means no time zone.
-//
-#define NO_DATE_ZONE -64
-
-inline static bool Does_Date_Have_Zone(const REBCEL *v)
-{
-    return VAL_DATE(v).zone != NO_DATE_ZONE; // 7-bit field
-}
-
-inline static int VAL_ZONE(const REBCEL *v) {
-    assert(Does_Date_Have_Zone(v));
-    return VAL_DATE(v).zone;
-}
-
-
 // All dates have REBYMD information in their ->extra field, but not all
 // of them also have associated time information.  This value for the nano
 // means there is no time.
 //
 #define NO_DATE_TIME INT64_MIN
 
+// There is a difference between a time zone of 0 (explicitly GMT) and
+// choosing to be an agnostic local time.  This bad value means no time zone.
+//
+#define NO_DATE_ZONE -64
+
 inline static bool Does_Date_Have_Time(const REBCEL *v)
 {
     assert(CELL_KIND(v) == REB_DATE);
-    return PAYLOAD(Time, v).nanoseconds != NO_DATE_TIME;
+    if (PAYLOAD(Time, v).nanoseconds == NO_DATE_TIME) {
+        assert(VAL_DATE(v).zone == NO_DATE_ZONE);
+        return false;
+    }
+    return true;
+}
+
+inline static bool Does_Date_Have_Zone(const REBCEL *v)
+{
+    assert(CELL_KIND(v) == REB_DATE);
+    if (VAL_DATE(v).zone == NO_DATE_ZONE)  // out of band of 7-bit field
+        return false;
+    assert(PAYLOAD(Time, v).nanoseconds != NO_DATE_TIME);
+    return true;
+}
+
+inline static int VAL_ZONE(const REBCEL *v) {
+    assert(Does_Date_Have_Zone(v));
+    return VAL_DATE(v).zone;
 }
 
 

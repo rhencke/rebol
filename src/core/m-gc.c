@@ -869,7 +869,7 @@ static REBCNT Sweep_Series(void)
     REBSEG *seg = Mem_Pools[SER_POOL].segs;
     for (; seg != nullptr; seg = seg->next) {
         REBCNT n = Mem_Pools[SER_POOL].units;
-        
+
         // We use a generic byte pointer (unsigned char*) to dodge the rules
         // for strict aliasing, as the pool may contain pairs of REBVAL from
         // Alloc_Pairing(), or a REBSER from Alloc_Series_Node().  The shared

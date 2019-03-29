@@ -38,3 +38,17 @@
         (load "1/11/0") = (load "1/11/00")
     ]
 )]
+
+[#213 (
+    d: 28-Mar-2019/17:25:40-4:00
+    d: d/date
+    (d + 1) == 29-Mar-2019
+)]
+
+[#1637 (
+    d: now/date
+    did all [
+        null? :d/time
+        null? :d/zone
+    ]
+)]

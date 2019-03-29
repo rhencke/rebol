@@ -538,7 +538,7 @@ do-redirect: func [
     if #"/" = first new-uri [
         new-uri: as url! unspaced [spec/scheme "://" spec/host new-uri]
     ]
-    
+
     new-uri: decode-url new-uri
     if not find new-uri 'port-id [
         switch new-uri/scheme [
@@ -547,7 +547,7 @@ do-redirect: func [
             fail ["Unknown scheme:" new-uri/scheme]
         ]
     ]
-    
+
     new-uri: construct/with/only new-uri port/scheme/spec
     if not find [http https] new-uri/scheme [
         state/error: make-http-error

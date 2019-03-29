@@ -1035,7 +1035,7 @@ unsigned int RL_rebSpellIntoWide(
     DECLARE_LOCAL (v);
     Run_Va_May_Fail(v, quotes, p, vaptr);  // calls va_end()
 
-    REBCHR(const*) cp; 
+    REBCHR(const*) cp;
     REBCNT len;
     if (ANY_STRING(v)) {
         cp = VAL_STRING_AT(v);

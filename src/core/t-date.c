@@ -1043,6 +1043,8 @@ fixDate:
 setDate:
     VAL_DATE(D_OUT) = date;
     PAYLOAD(Time, D_OUT).nanoseconds = secs; // may be NO_DATE_TIME
+    if (secs == NO_DATE_TIME)
+        VAL_DATE(D_OUT).zone = NO_DATE_ZONE;
     return D_OUT;
 }
 
