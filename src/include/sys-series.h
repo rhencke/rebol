@@ -186,21 +186,15 @@ inline static REBYTE *SER_DATA_RAW(REBSER *s) {
 }
 
 inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBCNT i) {
-    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
-        assert(SER_WIDE(s) == 1);
+  #if !defined(NDEBUG)
+    if (w != SER_WIDE(s)) {  // will be "unusual" value if free
+        if (IS_FREE_NODE(s))
+            printf("SER_SEEK_RAW asked on freed series\n");
+        else
+            printf("SER_SEEK_RAW asked %d on width=%d\n", w, SER_WIDE(s));
+        panic (s);
     }
-    else {
-      #if !defined(NDEBUG)
-        if (w != SER_WIDE(s)) {
-            REBYTE wide = SER_WIDE(s);
-            if (wide == 0)
-                printf("SER_SEEK_RAW asked on freed series\n");
-            else
-                printf("SER_SEEK_RAW asked %d on width=%d\n", w, SER_WIDE(s));
-            panic (s);
-        }
-      #endif
-    }
+  #endif
 
     // The VAL_CONTEXT(), VAL_SERIES(), VAL_ARRAY() extractors do the failing
     // upon extraction--that's meant to catch it before it gets this far.

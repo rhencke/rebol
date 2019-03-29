@@ -122,6 +122,7 @@ void Startup_Frame_Stack(void)
         nullptr, // no specialization exemplar (or inherited exemplar)
         1 // details array capacity (unused, but 0 is not legal)
     );
+    Init_Unreadable_Blank(ARR_HEAD(ACT_DETAILS(PG_Dummy_Action)));
 
     Push_Action(f, PG_Dummy_Action, UNBOUND);
 

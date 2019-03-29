@@ -257,14 +257,17 @@ uint32_t Hash_Value(const RELVAL *v)
         break;
 
       case REB_BINARY:
+        hash = Hash_Bytes(VAL_BIN_AT(cell), VAL_LEN_AT(cell));
+        break;
+
       case REB_TEXT:
       case REB_FILE:
       case REB_EMAIL:
       case REB_URL:
       case REB_TAG:
         hash = Hash_UTF8_Caseless(
-            SER_AT_RAW(2, VAL_SERIES(cell), VAL_INDEX(cell)),
-            VAL_LEN_HEAD(cell)
+            VAL_STRING_AT(cell),
+            VAL_LEN_AT(cell)
         );
         break;
 
