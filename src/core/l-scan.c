@@ -355,8 +355,6 @@ static const REBYTE *Scan_UTF8_Char_Escapable(REBUNI *out, const REBYTE *bp)
             *out = (*out << 4) + c;
             cp++;
         }
-        if ((cp - bp) > 4)
-            return nullptr;
         if (*cp == ')') {
             cp++;
             return cp;
@@ -680,7 +678,7 @@ static REBCTX *Error_Syntax(SCAN_STATE *ss, enum Reb_Token token) {
 //
 //  Error_Missing: C
 //
-// For instance, `load "( abc"`.
+// Caused by code like: `load "( abc"`.
 //
 // Note: This error is useful for things like multi-line input, because it
 // indicates a state which could be reconciled by adding more text.  A
@@ -692,7 +690,17 @@ static REBCTX *Error_Missing(SCAN_STATE *ss, char wanted) {
     Init_Text(expected, Make_Ser_Codepoint(wanted));
 
     REBCTX *error = Error_Scan_Missing_Raw(expected);
-    Update_Error_Near_For_Line(error, ss->start_line, ss->start_line_head);
+
+    // We have two options of where to implicate the error...either the start
+    // of the thing being scanned, or where we are now (or, both).  But we
+    // only have the start line information for GROUP! and BLOCK!...strings
+    // don't cause recursions.  So using a start line on a string would point
+    // at the block the string is in, which isn't as useful.
+    //
+    if (wanted == ')' or wanted == ']')
+        Update_Error_Near_For_Line(error, ss->start_line, ss->start_line_head);
+    else
+        Update_Error_Near_For_Line(error, ss->line, ss->line_head);
     return error;
 }
 

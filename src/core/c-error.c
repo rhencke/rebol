@@ -315,7 +315,7 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
     // If the error doesn't have a where/near set, set it from stack
     //
     ERROR_VARS *vars = ERR_VARS(error);
-    if (IS_NULLED(&vars->where) or IS_BLANK(&vars->where))
+    if (IS_NULLED_OR_BLANK(&vars->where))
         Set_Location_Of_Error(error, FS_TOP);
 
     // The information for the Rebol call frames generally is held in stack
@@ -464,7 +464,15 @@ void Set_Location_Of_Error(
     // Nearby location of the error.  Reify any valist that is running,
     // so that the error has an array to present.
     //
-    Init_Near_For_Frame(&vars->nearest, where);
+    // !!! Review: The "near" information is used in things like the scanner
+    // missing a closing quote mark, and pointing to the source code (not
+    // the implementation of LOAD).  We don't want to override that or we
+    // would lose the message.  But we still want the stack of where the
+    // LOAD was being called in the "where".  For the moment don't overwrite
+    // any existing near, but a less-random design is needed here.
+    //
+    if (IS_NULLED_OR_BLANK(&vars->nearest))
+        Init_Near_For_Frame(&vars->nearest, where);
 
     // Try to fill in the file and line information of the error from the
     // stack, looking for arrays with ARRAY_HAS_FILE_LINE.
