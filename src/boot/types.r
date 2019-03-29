@@ -87,12 +87,6 @@ money       "high precision decimals with denomination (opt)"
 char        "8bit and 16bit character"
             char        -       +       +       [scalar]
 
-pair        "two dimensional point or size"
-            pair        +       +       +       [scalar]
-
-tuple       "sequence of small integers (colors, versions, IP)"
-            tuple       +       +       +       [scalar]
-
 time        "time of day or duration"
             time        +       +       +       [scalar]
 
@@ -102,12 +96,19 @@ date        "day, month, year, time of day, and timezone"
 integer     "64 bit integer"
             integer     -       +       +       [number scalar]
 
+tuple       "sequence of small integers (colors, versions, IP)"
+            tuple       +       +       +       [scalar]
+
 ; ============================================================================
 ; BEGIN TYPES THAT NEED TO BE GC-MARKED
 ; ============================================================================
 ;
 ; !!! Note that INTEGER! may become arbitrary precision, and thus could have
-; a node in it to mark in some cases.
+; a node in it to mark in some cases.  TUPLE! will be changing categories
+; entirely and becoming more like PATH!.
+
+pair        "two dimensional point or size"
+            pair        +       +       +       [scalar]
 
 ; </ANY_SCALAR>
 

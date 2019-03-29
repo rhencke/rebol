@@ -253,7 +253,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
     // need marking when it becomes arbitrary precision and has a node...
     //
     enum Reb_Kind kind = CELL_KIND_UNCHECKED(v);
-    if (kind <= REB_INTEGER)
+    if (kind < REB_PAIR)
         return;
 
   #if !defined(NDEBUG)  // see Queue_Mark_Node_Deep() for notes on recursion
