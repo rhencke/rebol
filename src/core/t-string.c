@@ -981,6 +981,8 @@ REBTYPE(String)
     REBCNT index = VAL_INDEX(v);
     REBCNT tail = VAL_LEN_HEAD(v);
 
+    REBFLGS sop_flags;  // SOP_XXX "Set Operation" flags
+
     REBSYM sym = VAL_WORD_SYM(verb);
     switch (sym) {
         //
@@ -1212,10 +1214,35 @@ REBTYPE(String)
 
     //-- Bitwise:
 
-    case SYM_INTERSECT:
-    case SYM_UNION:
-    case SYM_DIFFERENCE:
-        fail ("string set operations temporarily unavailable");
+      case SYM_INTERSECT:
+        sop_flags = SOP_FLAG_CHECK;
+        goto set_operation;
+
+      case SYM_UNION:
+        sop_flags = SOP_FLAG_BOTH;
+        goto set_operation;
+
+      case SYM_DIFFERENCE:
+        sop_flags = SOP_FLAG_BOTH | SOP_FLAG_CHECK | SOP_FLAG_INVERT;
+        goto set_operation;
+
+      set_operation: {
+
+        INCLUDE_PARAMS_OF_DIFFERENCE;  // should all have same spec
+
+        UNUSED(ARG(value1)); // covered by value
+
+        return Init_Any_Series(
+            D_OUT,
+            VAL_TYPE(v),
+            Make_Set_Operation_Series(
+                v,
+                ARG(value2),
+                sop_flags,
+                REF(case),
+                REF(skip) ? Int32s(ARG(size), 1) : 1
+            )
+        ); }
 
     //-- Special actions:
 

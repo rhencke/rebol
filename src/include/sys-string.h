@@ -694,7 +694,7 @@ inline static REBCNT Num_Codepoints_For_Bytes(
 ){
     assert(end >= start);
     REBCNT num_chars = 0;
-    REBCHR(*) cp = cast(REBCHR(*), start);
+    REBCHR(const*) cp = cast(REBCHR(const*), start);
     for (; cp != end; ++num_chars)
         cp = NEXT_STR(cp);
     return num_chars;

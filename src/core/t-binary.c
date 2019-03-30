@@ -58,18 +58,6 @@ REBINT CT_Binary(const REBCEL *a, const REBCEL *b, REBINT mode)
 ***********************************************************************/
 
 
-static void swap_chars(REBVAL *val1, REBVAL *val2)
-{
-    REBSER *s1 = VAL_SERIES(val1);
-    REBSER *s2 = VAL_SERIES(val2);
-
-    REBUNI c1 = GET_CHAR_AT(s1, VAL_INDEX(val1));
-    REBUNI c2 = GET_CHAR_AT(s2, VAL_INDEX(val2));
-
-    SET_CHAR_AT(s1, VAL_INDEX(val1), c2);
-    SET_CHAR_AT(s2, VAL_INDEX(val2), c1);
-}
-
 static void reverse_binary(REBVAL *v, REBCNT len)
 {
     REBYTE *bp = VAL_BIN_AT(v);
@@ -891,8 +879,11 @@ REBTYPE(Binary)
 
         FAIL_IF_READ_ONLY(arg);
 
-        if (index < tail and VAL_INDEX(arg) < VAL_LEN_HEAD(arg))
-            swap_chars(v, arg);
+        if (index < tail and VAL_INDEX(arg) < VAL_LEN_HEAD(arg)) {
+            REBYTE temp = *VAL_BIN_AT(v);
+            *VAL_BIN_AT(v) = *VAL_BIN_AT(arg);
+            *VAL_BIN_AT(arg) = temp;
+        }
         RETURN (v); }
 
     case SYM_REVERSE: {

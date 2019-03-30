@@ -48,61 +48,63 @@ REB_R Series_Common_Action_Maybe_Unhandled(
     REBINT index = cast(REBINT, VAL_INDEX(value));
     REBINT tail = cast(REBINT, VAL_LEN_HEAD(value));
 
-    switch (VAL_WORD_SYM(verb)) {
+    REBFLGS sop_flags;  // "SOP_XXX" Set Operation Flags
 
-    case SYM_REFLECT: {
+    switch (VAL_WORD_SYM(verb)) {
+      case SYM_REFLECT: {
         REBSYM property = VAL_WORD_SYM(arg);
         assert(property != SYM_0);
 
         switch (property) {
-        case SYM_INDEX:
+          case SYM_INDEX:
             return Init_Integer(D_OUT, cast(REBI64, index) + 1);
 
-        case SYM_LENGTH:
+          case SYM_LENGTH:
             return Init_Integer(D_OUT, tail > index ? tail - index : 0);
 
-        case SYM_HEAD:
+          case SYM_HEAD:
             Move_Value(D_OUT, value);
             VAL_INDEX(D_OUT) = 0;
             return Trust_Const(D_OUT);
 
-        case SYM_TAIL:
+          case SYM_TAIL:
             Move_Value(D_OUT, value);
             VAL_INDEX(D_OUT) = cast(REBCNT, tail);
             return Trust_Const(D_OUT);
 
-        case SYM_HEAD_Q:
+          case SYM_HEAD_Q:
             return Init_Logic(D_OUT, index == 0);
 
-        case SYM_TAIL_Q:
+          case SYM_TAIL_Q:
             return Init_Logic(D_OUT, index >= tail);
 
-        case SYM_PAST_Q:
+          case SYM_PAST_Q:
             return Init_Logic(D_OUT, index > tail);
 
-        case SYM_FILE: {
+          case SYM_FILE: {
             REBSER *s = VAL_SERIES(value);
             if (not IS_SER_ARRAY(s))
                 return nullptr;
             if (NOT_ARRAY_FLAG(s, HAS_FILE_LINE_UNMASKED))
                 return nullptr;
-
             return Init_File(D_OUT, LINK_FILE(s)); }
 
-        case SYM_LINE: {
+          case SYM_LINE: {
             REBSER *s = VAL_SERIES(value);
-            if (IS_SER_ARRAY(s) and GET_ARRAY_FLAG(s, HAS_FILE_LINE_UNMASKED))
-                return Init_Integer(D_OUT, MISC(s).line);
-            return nullptr; }
+            if (not IS_SER_ARRAY(s))
+                return nullptr;
+            if (NOT_ARRAY_FLAG(s, HAS_FILE_LINE_UNMASKED))
+                return nullptr;
+            return Init_Integer(D_OUT, MISC(s).line); }
 
-        default:
+          default:
             break;
         }
 
         break; }
 
-    case SYM_SKIP:
-    case SYM_AT: {
+      case SYM_SKIP:
+      case SYM_AT: {
         INCLUDE_PARAMS_OF_SKIP; // must be compatible with AT
 
         UNUSED(ARG(series)); // is already `value`
@@ -155,7 +157,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
         VAL_INDEX(value) = cast(REBCNT, i);
         RETURN (Trust_Const(value)); }
 
-    case SYM_REMOVE: {
+      case SYM_REMOVE: {
         INCLUDE_PARAMS_OF_REMOVE;
         UNUSED(PAR(series));  // accounted for by `value`
 
@@ -173,11 +175,24 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
         RETURN (value); }
 
-    case SYM_INTERSECT: {
+      case SYM_INTERSECT:
+        sop_flags = SOP_FLAG_CHECK;
+        goto set_operation;
+
+      case SYM_UNION:
+        sop_flags = SOP_FLAG_BOTH;
+        goto set_operation;
+
+      case SYM_DIFFERENCE:
+        sop_flags = SOP_FLAG_BOTH | SOP_FLAG_CHECK | SOP_FLAG_INVERT;
+        goto set_operation;
+
+      set_operation: {
+
         if (IS_BINARY(value))
             return R_UNHANDLED; // !!! unhandled; use bitwise math, for now
 
-        INCLUDE_PARAMS_OF_INTERSECT;
+        INCLUDE_PARAMS_OF_DIFFERENCE;  // should all have same spec
 
         UNUSED(ARG(value1)); // covered by value
 
@@ -187,53 +202,13 @@ REB_R Series_Common_Action_Maybe_Unhandled(
             Make_Set_Operation_Series(
                 value,
                 ARG(value2),
-                SOP_FLAG_CHECK,
+                sop_flags,
                 REF(case),
                 REF(skip) ? Int32s(ARG(size), 1) : 1
             )
         ); }
 
-    case SYM_UNION: {
-        if (IS_BINARY(value))
-            return R_UNHANDLED; // !!! unhandled; use bitwise math, for now
-
-        INCLUDE_PARAMS_OF_UNION;
-
-        UNUSED(ARG(value1)); // covered by value
-
-        return Init_Any_Series(
-            D_OUT,
-            VAL_TYPE(value),
-            Make_Set_Operation_Series(
-                value,
-                ARG(value2),
-                SOP_FLAG_BOTH,
-                REF(case),
-                REF(skip) ? Int32s(ARG(size), 1) : 1
-            )
-        ); }
-
-    case SYM_DIFFERENCE: {
-        if (IS_BINARY(value))
-            return R_UNHANDLED; // !!! unhandled; use bitwise math, for now
-
-        INCLUDE_PARAMS_OF_DIFFERENCE;
-
-        UNUSED(ARG(value1)); // covered by value
-
-        return Init_Any_Series(
-            D_OUT,
-            VAL_TYPE(value),
-            Make_Set_Operation_Series(
-                value,
-                ARG(value2),
-                SOP_FLAG_BOTH | SOP_FLAG_CHECK | SOP_FLAG_INVERT,
-                REF(case),
-                REF(skip) ? Int32s(ARG(size), 1) : 1
-            )
-        ); }
-
-    default:
+      default:
         break;
     }
 

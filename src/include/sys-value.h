@@ -667,8 +667,8 @@ inline static RELVAL *Prep_Stack_Cell_Core(
         assert(
             node == nullptr
             or (node->header.bits
-                & (NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_MANAGED)
-            ) == (NODE_FLAG_NODE | NODE_FLAG_MANAGED)
+                & (NODE_FLAG_NODE | NODE_FLAG_FREE)
+            ) == NODE_FLAG_NODE
         );
         PAYLOAD(Any, v).first.node = node;
     }

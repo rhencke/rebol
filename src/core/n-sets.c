@@ -216,10 +216,9 @@ REBSER *Make_Set_Operation_Series(
                         cased ? AM_FIND_CASE : 0 // flags
                     )
                 ){
-                    assert(false); // !!! not sure what this should do, review
-                    /*DECLARE_LOCAL (temp);
-                    Init_Any_Series_At(temp, REB_STRING, ser, i);
-                    Append_Utf8(mo->series, temp, skip); */
+                    DECLARE_LOCAL (temp);
+                    Init_Any_Series_At(temp, REB_TEXT, ser, i);
+                    Append_String(mo->series, temp, skip);
                 }
             }
 
@@ -346,9 +345,18 @@ REBNATIVE(exclude)
         if (VAL_TYPE(val1) != VAL_TYPE(val2))
             fail (Error_Unexpected_Type(VAL_TYPE(val1), VAL_TYPE(val2)));
 
+        if (BITS_NOT(VAL_BITSET(val1)) or BITS_NOT(VAL_BITSET(val2)))
+            fail ("https://github.com/rebol/rebol-issues/issues/2371");
+
+        DECLARE_LOCAL (bin1);
+        Init_Binary(bin1, VAL_BITSET(val1));
+        DECLARE_LOCAL (bin2);
+        Init_Binary(bin2, VAL_BITSET(val2));
+
         DECLARE_LOCAL (verb); // initial code did something weird w/this
         Init_Word(verb, Canon(SYM_EXCLUDE));
-        return Init_Bitset(D_OUT, Xandor_Binary(verb, val1, val2));
+        REBBIN *result = Xandor_Binary(verb, bin1, bin2);
+        return Init_Bitset(D_OUT, Manage_Series(result));
     }
 
     if (IS_TYPESET(val1) || IS_TYPESET(val2)) {
