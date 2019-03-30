@@ -67,18 +67,74 @@
 // the library from has a `#console_out` element, then we hook it up to mirror
 // whatever gets written via console.log(), console.warn(), etc.
 
-function try_set_console() {
-    let console_out = document.getElementById("console_out")
+let temp_elem = document.createElement("div")
+
+var load = function (html) {
+    temp_elem.innerHTML = html
+    var loaded = temp_elem.firstChild
+    temp_elem.removeChild(loaded)  // https://trello.com/c/64iJBijV
+    if (temp_elem.firstChild) {
+        alert("load() created more than one element" + temp_elem.innerHTML)
+        temp_elem.innerHTML = ""  // https://trello.com/c/1P2jwTmZ
+    }
+    return loaded
+}
+
+var escape_text = function (text) {
+    // escape text using
+    // the browser's internal mechanisms.
+    //
+    // https://stackoverflow.com/q/6234773/
+    //
+    temp_elem.innerText = text  // assignable property, assumes literal text
+    return temp_elem.innerHTML  // so <my-tag> now becomes &lt;my-tag&gt;
+}
+
+var console_out = null
+
+var write_console = function (text, html) {
+    if (! console_out) {alert(text);return}
+
+    // If not html and just code, for now assume that any TAG-like things
+    // should not be interpreted by the browser.  So escape
+    //
+    if (!html)
+        text = escape_text(text)
+
+    let line = console_out.lastChild
+    if (!line)
+        console_out.appendChild(
+            line = load("<div class='line'>&zwnj;</div>")
+        )
+
+    // Split string into pieces.  Note that splitting a string of just "\n"
+    // will give ["", ""].
+    //
+    // Each newline means making a new div, but if there's no newline (e.g.
+    // only "one piece") then no divs will be added.
+    //
+    let pieces = text.split("\n")
+    line.innerHTML += pieces.shift()  // shift() takes first element
+    while (pieces.length)
+        console_out.appendChild(
+            load("<div class='line'>&zwnj;" + pieces.shift() + "</div>")
+        )
+    console_out.scrollTop = console_out.scrollHeight
+}
+
+let try_set_console = function() {
+    console_out = document.getElementById("console_out")
     if (!console_out)
         return false  // DOM may not be loaded yet; we'll try this twice
 
     let rewired = function (old_handler, classname) {
         return (txt) => {
-            let p = document.createElement("p")
-            p.className = classname
-            p.innerText = txt
-            console_out.appendChild(p)
-            console_out.scrollTop = console_out.scrollHeight
+            write_console (
+                '<span class="'+classname+'">' 
+                + escape_text(txt)
+                + '</span>\n'
+                , true
+            )
 
             old_handler(txt)  // also show message in browser developer tools
         }
