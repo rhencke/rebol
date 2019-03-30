@@ -166,7 +166,7 @@ process src-dir/a-lib.c
 ; long generated lists, and then spliced into slots in that "big picture"
 
 extern-prototypes: map-each-api [
-    cscape/with {EMSCRIPTEN_KEEPALIVE RL_API $<Proto>} api
+    cscape/with {RL_API $<Proto>} api
 ]
 
 lib-struct-fields: map-each-api [
@@ -331,22 +331,6 @@ e-lib/emit {
         #if !defined(__cplusplus)
             #include <stdbool.h>  /* for bool, true, false (if C99) */
         #endif
-    #endif
-
-    #ifdef TO_EMSCRIPTEN
-        /*
-         * EMSCRIPTEN_KEEPALIVE is a macro in emscripten.h used to export
-         * a function.  We can't include emscripten.h here (it is incompatible
-         * with DONT_INCLUDE_STDIO_H)
-         *
-         * !!! It's possible to specify a list of functions to the command
-         * line of emcc via a JSON-formatted file; producing this file during
-         * the generation process would be preferable to this attribute...so
-         * that %rebol.h be cleaner.
-         */
-        #define EMSCRIPTEN_KEEPALIVE __attribute__((used))
-    #else
-        #define EMSCRIPTEN_KEEPALIVE
     #endif
 
     /*

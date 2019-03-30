@@ -333,8 +333,7 @@ struct Reb_Promise_Info *PG_Promises;  // Singly-linked list
 // which ties the returned integer into the resolve and reject branches of an
 // actual JavaScript ES6 Promise.
 //
-EMSCRIPTEN_KEEPALIVE EXTERN_C
-intptr_t RL_rebPromise(REBFLGS flags, void *p, va_list *vaptr)
+EXTERN_C intptr_t RL_rebPromise(REBFLGS flags, void *p, va_list *vaptr)
 {
     TRACE("rebPromise() called");
     ASSERT_ON_MAIN_THREAD();
@@ -566,8 +565,7 @@ void Invoke_Js_Body_On_Main(REBFRM *f)
 // build, and it purposefully holds up the MAIN from running in the pthread
 // version so that both threads don't call libRebol APIs at once.
 //
-EMSCRIPTEN_KEEPALIVE EXTERN_C
-void RL_rebIdle_internal(void)  // there should be NO user JS code on stack!
+EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
 {
     ASSERT_ON_MAIN_THREAD();
 
@@ -753,8 +751,7 @@ void RL_rebIdle_internal(void)  // there should be NO user JS code on stack!
 // But it's not worth it to wire up two different protocols on the JavaScript
 // side.  It should be rethought if someday the emterpreter version is axed.
 //
-EMSCRIPTEN_KEEPALIVE EXTERN_C
-void RL_rebSignalAwaiter_internal(intptr_t frame_id, int rejected) {
+EXTERN_C void RL_rebSignalAwaiter_internal(intptr_t frame_id, int rejected) {
     ASSERT_ON_MAIN_THREAD();
 
     struct Reb_Promise_Info *info = PG_Promises;

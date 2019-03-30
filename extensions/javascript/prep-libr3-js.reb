@@ -509,6 +509,108 @@ e-cwrap/emit {
 e-cwrap/write-emitted
 
 
+=== GENERATE EMSCRIPTEN KEEPALIVE LIST ===
+
+; It is possible to tell the linker what functions to keep alive via the
+; EMSCRIPTEN_KEEPALIVE annotation.  But we don't want %rebol.h to be dependent
+; upon the emscripten header.  Since it's possible to use a JSON file to
+; specify the list with EXPORTED_FUNCTIONS (via an @), we use that instead.
+;
+;     EXPORTED_FUNCTIONS=@libr3.exports.json
+;
+
+json-collect: function [body [block!]] [
+    results: collect compose [
+        keep: adapt 'keep [  ; Emscripten prefixes functions w/underscore
+            value: unspaced [{"} {_} value {"}]
+        ]
+        ((body))
+    ]
+    return cscape/with {
+        [
+            $(Results),
+        ]
+    } 'results
+]
+
+write output-dir/libr3.exports.json json-collect [
+    map-each-api [keep unspaced ["RL_" name]]
+]
+
+
+=== GENERATE EMTERPRETER BLACKLIST FILE ===
+
+; The emterpreter runs C compiled to bytecode vs. directly running WASM code.
+; This gives the ability to suspend the C execution--preserving its stack
+; state, yet be able to yield to JavaScript and run code on that same single
+; thread.  When the JavaScript is done, it can wake up the suspended
+; interpreter and the C can continue.  This gives the illusion of being able
+; to pass JavaScript work items to a "worker thread"--and while it is slow,
+; it's our only option in browsers without WASM threads and SharedArrayBuffer.
+;
+; But using the emterpreter doesn't mean *every* function has to be run as
+; bytecode.  Only functions that would be on the stack somewhere when an
+; `emscripten_sleep_with_yield()` is called.  Hence there is a "blacklist"
+; of functions that are compiled as normal WASM, not emterpreter bytecode.
+; The more functions that can be found as legal to blacklist, the faster
+; the emterpreted version can be.
+;
+; Beyond speed, an API marked in the blacklist has the special ability of
+; still being run while in the yielding state (a feature added to Emscripten
+; due to a Ren-C request):
+;
+; https://stackoverflow.com/q/51204703/
+;
+; This means that APIs which are able to be blacklisted can be called directly
+; from inside a JS-AWAITER.  That means being able to produce `reb.Text()`
+; and other values.  But also critically can include reb.Promise() so that
+; the final return value of a JS-AWAITER can be returned with it.
+;
+
+write output-dir/emterpreter.blacklist.json json-collect [
+    map-each-api [
+        if is-variadic and (name != "rebPromise") [
+            ;
+            ; Currently, all variadic APIs are variadic because they evaluate.
+            ; The exception is rebPromise, which takes its variadic list as
+            ; a set of instructions to run later.  Blacklisting that means
+            ; it is safe to call from a JS-AWAITER (though you cannot *await*
+            ; on it inside a JS-AWAITER, see rebPromise() and this post:
+            ;
+            ; https://stackoverflow.com/q/55186667/
+            ; 
+            continue
+        ]
+
+        any [
+            name = "rebRescue"
+            name = "rebRescueWith"
+        ]
+        then [
+            ; While not variadic, the rescue functions are API functions
+            ; which are called from internal code that needs to be emterpreted
+            ; and hence can't be blacklisted from being turned to bytecode.
+            ;
+            continue
+        ]
+
+        if name = "rebIdle_internal" [
+            ;
+            ; When rebPromise() decides not to run an evaluation (hence why
+            ; it can be blacklisted), it queues a setTimeout() to the GUI
+            ; thread to come back later and run the evaluation.  What it
+            ; queues is the "idle" function...which will do evaluations and
+            ; will be on the stack during an `emscripten_sleep_with_yield()`.
+            ; Hence it can't be blacklisted from being turned to bytecode.
+            ;
+            continue
+        ]
+
+        keep unspaced ["RL_" name]
+    ]
+]
+
+
 === GENERATE %NODE-PRELOAD.JS ===
 
 ; While Node.JS has worker support and SharedArrayBuffer support, Emscripten

@@ -206,12 +206,11 @@ ldflags: compose [
     {-s DISABLE_EXCEPTION_CATCHING=1}
     {-s DEMANGLE_SUPPORT=0}  ; C++ build does all exports as C, not needed
 
-    ; Currently the exported functions come from EMTERPRETER_KEEP_ALIVE
-    ; annotations, but it would be preferable if a JSON file were produced
-    ; and used, as %emscripten.h should not (in general) be included by
-    ; the %rebol.h file--it has to have a fake #define at the moment.
+    ; API exports can appear unused to the compiler.  It's possible to mark a
+    ; C function as an export with EMTERPRETER_KEEP_ALIVE, but we prefer to
+    ; generate the list so that `rebol.h` doesn't depend on `emscripten.h`
     ;
-    ;{-s EXPORTED_FUNCTIONS="['_something']"}
+    {-s EXPORTED_FUNCTIONS=@prep/include/libr3.exports.json}
 
     ; Documentation claims a `--pre-js` or `--post-js` script that uses
     ; internal methods will auto-export them since the linker "sees" it.  But
@@ -255,18 +254,15 @@ ldflags: compose [
         ; blacklist.  Everything not in the blacklist gets emterpreted."
         ; https://github.com/kripken/emscripten/issues/7239
         ;
-        ; For efficiency, it's best if all functions that can be blacklisted
-        ; are.  This is ideally done with a JSON file that is generated via
-        ; analysis of the code to see which routines cannot call the
-        ; emscripten_sleep_with_yield() function.  Currently anything that
-        ; runs the evaluator can, but low-level routines like Make_Series()
-        ; could be on the list.
-        ;
-        ;{-s EMTERPRETIFY_BLACKLIST="['_malloc']"}
-        ;{-s EMTERPRETIFY_WHITELIST=@emterpreter_whitelist.json}
+        ; Blacklisting functions from being emterpreted means they will run
+        ; faster, as raw WASM.  But it also means blacklisted APIs can be
+        ; called from within a JS-AWAITER, since they don't require use of
+        ; the suspended bytecode interpreter.  See additional notes in the
+        ; blacklist generation code in %prep-libr3-js.reb
 
-        {-s EMTERPRETIFY_BLACKLIST="['_RL_rebText', '_RL_rebSignalAwaiter_internal']"}
-    ]] else [[
+        {-s EMTERPRETIFY_BLACKLIST=@prep/include/emterpreter.blacklist.json}
+    ]]
+    else [[
         {-s USE_PTHREADS=1}  ; must be in both cflags and ldflags if used
 
         ; If you don't specify a thread pool size as a linker flag, the first
