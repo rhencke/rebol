@@ -160,10 +160,13 @@ let args = (location.search
 )
 for (let i = 0; i < args.length; i++) {
     args[i] = decodeURIComponent(args[i])
-    if (args[i] == 'debug')
+    if (args[i] == 'debug') {
         is_debug = true
-    if (args[i] == 'local')
+    } else if (args[i] == 'local') {
         base_dir = "./"
+    } else if (args[i] == 'remote') {
+        base_dir = "https://metaeducation.s3.amazonaws.com/travis-builds/"
+    }
 }
 
 if (is_debug) {
