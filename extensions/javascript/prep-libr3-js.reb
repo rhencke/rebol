@@ -38,6 +38,112 @@ e-cwrap: (make-emitter
     "JavaScript C Wrapper functions" output-dir/reb-lib.js
 )
 
+=== EMTERPRETER-BLACKLIST TOLERANT CWRAP ===
+
+; Emscripten's `cwrap` is based on a version of ccall which does not allow
+; the emterpreter to execute a function while emscripten_sleep_with_yield()
+; is in effect.  However, there was a feature added for Ren-C to be able to
+; call the WASM function in this case:
+;
+; https://stackoverflow.com/q/51204703/
+;
+; This is not accounted for, so we can't use cwrap()/ccall().  For the moment
+; we copy the code directly from %preamble.js...minus that assert:
+;
+; https://github.com/emscripten-core/emscripten/blob/incoming/src/preamble.js
+;
+; !!! This workaround is only necessary for the emterpreter build.  But also,
+; there are few enough routines that a better answer is probably to dodge
+; inclusion of `cwrap`/`ccall` altogether and just by-hand wrap the routines.
+;
+e-cwrap/emit {
+    function ccall_tolerant(ident, returnType, argTypes, args, opts) {
+      // For fast lookup of conversion functions
+      var toC = {
+        'string': function(str) {
+          var ret = 0;
+          if (str !== null && str !== undefined && str !== 0) { // null string
+            // at most 4 bytes per UTF-8 code point, +1 for the trailing '\0'
+            var len = (str.length << 2) + 1;
+            ret = stackAlloc(len);
+            stringToUTF8(str, ret, len);
+          }
+          return ret;
+        },
+        'array': function(arr) {
+          var ret = stackAlloc(arr.length);
+          writeArrayToMemory(arr, ret);
+          return ret;
+        }
+      };
+
+      function convertReturnValue(ret) {
+        if (returnType === 'string') return UTF8ToString(ret);
+        if (returnType === 'boolean') return Boolean(ret);
+        return ret;
+      }
+
+      var func = getCFunc(ident);
+      var cArgs = [];
+      var stack = 0;
+      if (args) {
+        for (var i = 0; i < args.length; i++) {
+          var converter = toC[argTypes[i]];
+          if (converter) {
+            if (stack === 0) stack = stackSave();
+            cArgs[i] = converter(args[i]);
+          } else {
+            cArgs[i] = args[i];
+          }
+        }
+      }
+      var ret = func.apply(null, cArgs);
+
+    // This is the part we want to avoid.  Something like reb.Text() is calling
+    // the _RL_rebText() function underneath, and that's in EMTERPRETER_BLACKLIST,
+    // but the main cwrap/ccall() does not account for it.
+    //
+    /* <ren-c modification>
+    #if EMTERPRETIFY_ASYNC
+      if (typeof EmterpreterAsync === 'object' && EmterpreterAsync.state) {
+    #if ASSERTIONS
+        assert(opts && opts.async, 'The call to ' + ident + ' is running asynchronously. If this was intended, add the async option to the ccall/cwrap call.');
+        assert(!EmterpreterAsync.restartFunc, 'Cannot have multiple async ccalls in flight at once');
+    #endif
+        return new Promise(function(resolve) {
+          EmterpreterAsync.restartFunc = func;
+          EmterpreterAsync.asyncFinalizers.push(function(ret) {
+            if (stack !== 0) stackRestore(stack);
+            resolve(convertReturnValue(ret));
+          });
+        });
+      }
+    #endif
+    </ren-c modification> */
+
+      ret = convertReturnValue(ret);
+      if (stack !== 0) stackRestore(stack);
+      return ret;
+    }
+
+    function cwrap_tolerant(ident, returnType, argTypes, opts) {
+      argTypes = argTypes || [];
+      // When the function takes numbers and returns a number, we can just return
+      // the original function
+      var numericArgs = argTypes.every(function(type){ return type === 'number'});
+      var numericRet = returnType !== 'string';
+      if (numericRet && numericArgs && !opts) {
+        return getCFunc(ident);
+      }
+      return function() {
+        return ccall_tolerant(ident, returnType, argTypes, arguments, opts);
+      }
+    }
+}
+
+
+=== GENERATE C WRAPPER FUNCTIONS ===
+
 e-cwrap/emit {
     /* The C API uses names like rebRun().  This is because calls from the
      * core do not go through a struct, but inline directly...also some of
@@ -292,7 +398,7 @@ map-each-api [
         } api
     ] else [
         e-cwrap/emit cscape/with {
-            reb.$<No-Reb-Name> = Module.cwrap(
+            reb.$<No-Reb-Name> = cwrap_tolerant(  /* vs. Module.cwrap() */
                 'RL_$<Name>',
                 $<Js-Returns>, [
                     $(Js-Param-Types),

@@ -212,12 +212,29 @@ ldflags: compose [
     ;
     {-s EXPORTED_FUNCTIONS=@prep/include/libr3.exports.json}
 
-    ; Documentation claims a `--pre-js` or `--post-js` script that uses
-    ; internal methods will auto-export them since the linker "sees" it.  But
-    ; that doesn't seem to be the case for %reb-lib.js or things called from
-    ; EM_ASM() in the C...so do it explicitly.
+    ; The EXPORTED_"RUNTIME"_METHODS are referring to JavaScript helper
+    ; functions that Emscripten provides that make it easier to call C code.
+    ; You don't need them to call C functions with integer arguments.  But
+    ; you'll proably want them if you're going to do things like transform
+    ; from JavaScript strings into an allocated UTF-8 string on the heap
+    ; that is visible to C (allocateUTF8).  See:
     ;
-    {-s "EXTRA_EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'allocateUTF8']"}
+    ; https://emscripten.org/docs/porting/connecting_cpp_and_javascript/Interacting-with-code.html
+    ;
+    ; The documentation claims a `--pre-js` or `--post-js` script that uses
+    ; internal methods will auto-export them since the linker "sees" it.  But
+    ; that doesn't seem to be the case (and wouldn't be the case for anything
+    ; called from EM_ASM() in the C anyway).  So list them explicitly here.
+    ;
+    ; !!! For the moment (and possible future) we do not use ccall and cwrap
+    ; because they do not heed EMTERPRETER_BLACKLIST to know when it would
+    ; be safe to call a wrapped function during emterpreter_sleep_with_yield()
+    ; It may be that the API doesn't need such a heavy wrapping mechanism
+    ; anyway, and there are few enough APIs that the non-variadics can just
+    ; be factored and wrapped by hand.
+    ;
+    {-s "EXTRA_EXPORTED_RUNTIME_METHODS=['allocateUTF8']"}
+    ; {-s "EXTRA_EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'allocateUTF8']"}
 
     ; WASM does not have source maps, so disabling it can aid in debugging
     ; But emcc WASM=0 does not work in VirtualBox shared folders by default
