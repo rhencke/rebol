@@ -62,54 +62,42 @@
 'use strict'  // <-- FIRST statement! https://stackoverflow.com/q/1335851
 
 
-// if exist a #console_out element, use it for console output
+//=//// SIMULATED DEVELOPER CONSOLE INSIDE BROWSER WINDOW /////////////////=//
 //
+// Mobile web browsers frequently do not have the "Ctrl-Shift-I" option to
+// open developer tools.  To assist in debugging, if the page you are loading
+// the library from has a `#console_out` element, then we hook it up to mirror
+// whatever gets written via console.log(), console.warn(), etc.
 
-var try_set_console = function() {
-    var console_out = document.getElementById("console_out")
-    if (! console_out) return false
-    var old_console_info = console.info
-    console.info = (txt) => {
-      old_console_info(txt)
-      let p = document.createElement("p")
-      p.className = "info"
-      p.innerText = txt
-      console_out.appendChild(p)
-      console_out.scrollTop = console_out.scrollHeight
+function try_set_console() {
+    let console_out = document.getElementById("console_out")
+    if (!console_out)
+        return false  // DOM may not be loaded yet; we'll try this twice
+
+    let rewired = function (old_handler, classname) {
+        return (txt) => {
+            let p = document.createElement("p")
+            p.className = classname
+            p.innerText = txt
+            console_out.appendChild(p)
+            console_out.scrollTop = console_out.scrollHeight
+
+            old_handler(txt)  // also show message in browser developer tools
+        }
     }
-    var old_console_log = console.log
-    console.log = (txt) => {
-      old_console_log(txt)
-      let p = document.createElement("p")
-      p.className = "log"
-      p.innerText = txt
-      console_out.appendChild(p)
-      console_out.scrollTop = console_out.scrollHeight
-    }
-    var old_console_warn = console.warn
-    console.warn = (txt) => {
-      old_console_warn(txt)
-      let p = document.createElement("p")
-      p.className = "warn"
-      p.innerText = txt
-      console_out.appendChild(p)
-      console_out.scrollTop = console_out.scrollHeight
-    }
-    var old_console_error = console.error
-    console.error = (txt) => {
-      old_console_error(txt)
-      let p = document.createElement("p")
-      p.className = "error"
-      p.innerText = txt
-      console_out.appendChild(p)
-      console_out.scrollTop = console_out.scrollHeight
-    }
+
+    console.info = rewired(console.info, "info")
+    console.log = rewired(console.log, "log")
+    console.warn = rewired(console.warn, "warn")
+    console.error = rewired(console.error, "error")
+
     return true
 }
 
-if (! try_set_console()) {document.addEventListener(
-        'DOMContentLoaded', try_set_console
-)}
+if (!try_set_console()) {  // DOM may not have been loaded, try when it is
+    document.addEventListener('DOMContentLoaded', try_set_console)
+}
+
 
 
 if (typeof WebAssembly !== "object") {
@@ -182,17 +170,19 @@ var git_commit = ""
 // it would need to have a .catch() clause attached to it here.  This way, it
 // can just use the catch of the promise chain it's put into.)
 
-var load_js_promiser = (url) => new Promise(function(resolve, reject) {
+let load_js_promiser = (url) => new Promise(function(resolve, reject) {
     let script = document.createElement('script')
     script.src = url
     script.onload = () => {resolve(url)}
     script.onerror = () => {reject(url)}
     if (document.body) {
         document.body.appendChild(script)
-    } else { document.addEventListener(
-        'DOMContentLoaded',
-        ()=>{document.body.appendChild(script)}
-    )}
+    } else {
+        document.addEventListener(
+            'DOMContentLoaded',
+            () => { document.body.appendChild(script) }
+        )
+    }
 })
 
 var git_commit_promiser = (os_id) => {
@@ -348,7 +338,20 @@ var Module = {
 // https://stackoverflow.com/a/22519785
 //
 
-var dom_content_loaded_promise = new Promise(function(resolve, reject) {
+let dom_content_loaded_promise = new Promise(function (resolve, reject) {
+    //
+    // The code for load-r3.js originally came from ReplPad, which didn't
+    // want to start until the WASM code was loaded -AND- the DOM was ready.
+    // It was almost certain that the DOM would be ready first (given the
+    // WASM being a large file), but doing things properly demanded waiting
+    // for the DOMContentLoaded event.
+    //
+    // Now that load-r3.js is a library, it's not clear if it should be its
+    // responsibility to make sure the DOM is ready.  This would have to be
+    // rethought if the loader were going to be reused in Node.js, since
+    // there is no DOM.  However, if any of the loaded extensions want to
+    // take the DOM being loaded for granted, this makes that easier.  Review.
+    //
     document.addEventListener('DOMContentLoaded', resolve)
 })
 
