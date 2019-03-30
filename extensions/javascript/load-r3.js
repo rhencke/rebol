@@ -24,41 +24,39 @@
 // makes it possible to get everything taken care of by including only a
 // single `<script>` tag on a page.
 //
-// Adding to the complexity is that the JavaScript extension is designed to be
-// able to build versions of the code.  Both versions can accomplish I/O in
-// a way that appears synchronous: using pthreads or using the "Emterpreter":
+//=//// EXAMPLE ///////////////////////////////////////////////////////////=//
 //
-// https://emscripten.org/docs/porting/pthreads.html
-// https://github.com/kripken/emscripten/wiki/Emterpreter
-//
-// pthreads rely on SharedArrayBuffer and WASM threading, and hence aren't
-// ready in quite all JS environments yet.  However, the resulting build
-// products are half the size of what the emterpreter makes--and around
-// THIRTY TIMES FASTER.  Hence, the emterpreter is not an approach that is
-// likely to stick around any longer than it has to.
-//
-// But for the foreseeable future, support for both is included, and this
-// loader does the necessary detection to decide which version the host
-// environment is capable of running.
-//
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  Example:
 //  <body>
-//  <div id="console_out"></div>
-//  <!-- WARNING: load-r3.js URL MUST CONTAIN '/':
-//  USE './load-r3.js' INSTEAD OF 'load-r3.js'"
-//  -->
-//  <script src="./load-r3.js"></script>
-//  <script>
-//    load_r3.then(() => {
-//      console.log("Ready!")
-//    })
-//  </script>
+//      <div id="console_out"></div>
+//      <script src="./load-r3.js"></script>  <!-- URL must contain a `/` -->
+//      <script>
+//          load_r3.then(() => {
+//              let msg = "READY!"
+//              console.log(
+//                  reb.Spell("spaced [",
+//                      {reb.Xxx() API functions are now...}", reb.T(msg),
+//                  "]")
+//              )
+//          })
+//      </script>
 //  </body>
 //
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// NOTES /////////////////////////////////////////////////////////////=//
+//
+// * At time of writing, a hosted version of load-r3.js and the WebAssembly
+//   build products is available at:
+//
+//   https://metaeducation.s3.amazonaws.com/travis-builds/load-r3.js
+//
+// * As noted in the comment in the example, the URL for %load-r3.js currently
+//   must contain a `/`.  So use './load-r3.js' INSTEAD OF 'load-r3.js'"
+//
+// * This file is supposed to be able to load multiple versions of the
+//   evaluator.  While it is still early at time of writing to say that
+//   "it shouldn't have breaking protocol changes", over the long run it
+//   really shouldn't...so try to keep its dependencies simple as possible.
+//
+
 'use strict'  // <-- FIRST statement! https://stackoverflow.com/q/1335851
 
 
@@ -99,6 +97,24 @@ if (!try_set_console()) {  // DOM may not have been loaded, try when it is
 }
 
 
+//=//// PICK BUILD BASED ON BROWSER CAPABILITIES //////////////////////////=//
+//
+// The JavaScript extension can be built two different ways for the browser.
+// Both versions can accomplish I/O in a way that appears synchronous: using
+// pthreads or using the "Emterpreter":
+//
+// https://emscripten.org/docs/porting/pthreads.html
+// https://github.com/kripken/emscripten/wiki/Emterpreter
+//
+// pthreads rely on SharedArrayBuffer and WASM threading, and hence aren't
+// ready in quite all JS environments yet.  However, the resulting build
+// products are half the size of what the emterpreter makes--and around
+// THIRTY TIMES FASTER.  Hence, the emterpreter is not an approach that is
+// likely to stick around any longer than it has to.
+//
+// But for the foreseeable future, support for both is included, and this
+// loader does the necessary detection to decide which version the host
+// environment is capable of running.
 
 if (typeof WebAssembly !== "object") {
     throw Error("Your browser doesn't support WebAssembly.")
@@ -422,6 +438,25 @@ var r3_ready_promise =
 
     console.info('Executing Rebol boot code...')
     reb.Startup()
+
+    // Scripts have to have an idea of what the "current directory is" when
+    // they are running.  If a resource is requested as a FILE! (as opposed
+    // to an absolute URL!) it is fetched by path relative to that.  What
+    // makes the most sense as the starting "directory" on the web is what's
+    // visible in the URL bar.  Then, executing URLs can change the "current"
+    // notion to whatever scripts you DO, while they are running.
+    //
+    // Method chosen for getting the URL dir adapted one that included slash:
+    // https://stackoverflow.com/a/16985358
+    //
+    let url = document.URL
+    let base_url
+    if (url.charAt(url.length - 1) === '/')
+        base_url = url
+    else
+        base_url = url.slice(0, url.lastIndexOf('/')) + '/'
+
+    reb.Elide("change-dir system/options/path: as url!", reb.T(base_url))
 
     // There is currently no method to dynamically load extensions with
     // r3.js, so the only extensions you can load are those that are picked
