@@ -70,12 +70,9 @@ inline static void TERM_BIN_LEN(REBSER *s, REBCNT len) {
 
 inline static REBYTE *VAL_BIN_AT(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_BINARY or CELL_KIND(v) == REB_BITSET);
+    if (VAL_PAST_END(v))
+        fail (Error_Past_End_Raw());  // don't give deceptive return pointer
     return BIN_AT(VAL_SERIES(v), VAL_INDEX(v));
-}
-
-inline static REBYTE *VAL_BIN_TAIL(const REBCEL *v) {
-    assert(CELL_KIND(v) == REB_BINARY or CELL_KIND(v) == REB_BITSET);
-    return SER_TAIL(REBYTE, VAL_SERIES(v));
 }
 
 // !!! RE: VAL_BIN_AT_HEAD() see remarks on VAL_ARRAY_AT_HEAD()

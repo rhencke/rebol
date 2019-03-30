@@ -619,10 +619,22 @@ inline static REBSER *VAL_SERIES(const REBCEL *v) {
 #define VAL_LEN_HEAD(v) \
     SER_LEN(VAL_SERIES(v))
 
+inline static bool VAL_PAST_END(const REBCEL *v)
+   { return VAL_INDEX(v) > VAL_LEN_HEAD(v); }
+
 inline static REBCNT VAL_LEN_AT(const REBCEL *v) {
+    //
+    // !!! At present, it is considered "less of a lie" to tell people the
+    // length of a series is 0 if its index is actually past the end, than
+    // to implicitly clip the data pointer on out of bounds access.  It's
+    // still going to be inconsistent, as if the caller extracts the index
+    // and low level SER_LEN() themselves, they'll find it doesn't add up.
+    // This is a longstanding historical Rebol issue that needs review.
+    //
     if (VAL_INDEX(v) >= VAL_LEN_HEAD(v))
-        return 0; // avoid negative index
-    return VAL_LEN_HEAD(v) - VAL_INDEX(v); // take current index into account
+        return 0;  // avoid negative index
+
+    return VAL_LEN_HEAD(v) - VAL_INDEX(v);  // take current index into account
 }
 
 inline static REBYTE *VAL_RAW_DATA_AT(const REBCEL *v) {

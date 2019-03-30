@@ -224,10 +224,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 //
 REBINT Cmp_Array(const REBCEL *sval, const REBCEL *tval, bool is_case)
 {
-    RELVAL *s = VAL_ARRAY_AT(sval);
-    RELVAL *t = VAL_ARRAY_AT(tval);
-
-    if (C_STACK_OVERFLOWING(&s))
+    if (C_STACK_OVERFLOWING(&is_case))
         Fail_Stack_Overflow();
 
     if (
@@ -236,6 +233,9 @@ REBINT Cmp_Array(const REBCEL *sval, const REBCEL *tval, bool is_case)
     ){
          return 0;
     }
+
+    RELVAL *s = VAL_ARRAY_AT(sval);
+    RELVAL *t = VAL_ARRAY_AT(tval);
 
     if (IS_END(s) or IS_END(t))
         goto diff_of_ends;

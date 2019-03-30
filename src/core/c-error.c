@@ -232,14 +232,8 @@ void Trapped_Helper(struct Reb_State *s)
 //
 ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
 {
-    REBCTX *error;
-
   #ifdef DEBUG_HAS_PROBE
-    //
-    // This is set via an environment variable (e.g. R3_PROBE_FAILURES=1)
-    // Helpful for debugging boot, before command line parameters are parsed.
-    //
-    if (PG_Probe_Failures) {
+    if (PG_Probe_Failures) {  // see R3_PROBE_FAILURES environment variable
         static bool probing = false;
 
         if (p == cast(void*, VAL_CONTEXT(Root_Stackoverflow_Error))) {
@@ -258,25 +252,26 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
     }
   #endif
 
+    REBCTX *error;
     if (p == nullptr) {
         error = Error_Unknown_Error_Raw();
     }
     else switch (Detect_Rebol_Pointer(p)) {
-      case DETECTED_AS_UTF8: {
+      case DETECTED_AS_UTF8:
         error = Error_User(cast(const char*, p));
-        break; }
+        break;
 
       case DETECTED_AS_SERIES: {
-        REBSER *s = m_cast(REBSER*, cast(const REBSER*, p)); // don't mutate
+        REBSER *s = m_cast(REBSER*, cast(const REBSER*, p));  // don't mutate
         if (not IS_SER_ARRAY(s) or NOT_ARRAY_FLAG(s, IS_VARLIST))
             panic (s);
         error = CTX(s);
         break; }
 
       case DETECTED_AS_CELL: {
-        REBVAL *v = m_cast(REBVAL*, cast(const REBVAL*, p)); // don't mutate
+        const REBVAL *v = cast(const REBVAL*, p);
         if (IS_PARAM(v)) {
-            REBVAL *v_seek = v;
+            const REBVAL *v_seek = v;
             while (not IS_ACTION(v_seek))
                 --v_seek;
             REBFRM *f_seek = FS_TOP;
@@ -293,7 +288,7 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
         break; }
 
       default:
-        panic (p); // suppress compiler error from non-smart compilers
+        panic (p);  // suppress compiler error from non-smart compilers
     }
 
     ASSERT_CONTEXT(error);

@@ -474,16 +474,6 @@ inline static REBARR* Copy_Array_At_Extra_Deep_Flags_Managed(
     Root_Empty_Binary
 
 
-// These array operations take the index position into account.  The use
-// of the word AT with a missing index is a hint that the index is coming
-// from the VAL_INDEX() of the value itself.
-//
-#define VAL_ARRAY_AT(v) \
-    ARR_AT(VAL_ARRAY(v), VAL_INDEX(v))
-
-#define VAL_ARRAY_LEN_AT(v) \
-    VAL_LEN_AT(v)
-
 // These operations do not need to take the value's index position into
 // account; they strictly operate on the array series
 //
@@ -502,6 +492,20 @@ inline static REBARR *VAL_ARRAY(const REBCEL *v) {
 #define VAL_ARRAY_HEAD(v) \
     ARR_HEAD(VAL_ARRAY(v))
 
+
+// These array operations take the index position into account.  The use
+// of the word AT with a missing index is a hint that the index is coming
+// from the VAL_INDEX() of the value itself.
+//
+inline static RELVAL *VAL_ARRAY_AT(const REBCEL *v) {
+    if (VAL_PAST_END(v))
+        fail (Error_Past_End_Raw());  // don't clip and give deceptive pointer
+    return ARR_AT(VAL_ARRAY(v), VAL_INDEX(v));
+}
+
+#define VAL_ARRAY_LEN_AT(v) \
+    VAL_LEN_AT(v)
+
 inline static RELVAL *VAL_ARRAY_TAIL(const RELVAL *v) {
     return ARR_AT(VAL_ARRAY(v), VAL_ARRAY_LEN_AT(v));
 }
@@ -510,7 +514,7 @@ inline static RELVAL *VAL_ARRAY_TAIL(const RELVAL *v) {
 // !!! VAL_ARRAY_AT_HEAD() is a leftover from the old definition of
 // VAL_ARRAY_AT().  Unlike SKIP in Rebol, this definition did *not* take
 // the current index position of the value into account.  It rather extracted
-// the array, counted rom the head, and disregarded the index entirely.
+// the array, counted from the head, and disregarded the index entirely.
 //
 // The best thing to do with it is probably to rewrite the use cases to
 // not need it.  But at least "AT HEAD" helps communicate what the equivalent
@@ -518,8 +522,11 @@ inline static RELVAL *VAL_ARRAY_TAIL(const RELVAL *v) {
 // head because it's taking an index.  So  it looks weird enough to suggest
 // looking here for what the story is.
 //
-#define VAL_ARRAY_AT_HEAD(v,n) \
-    ARR_AT(VAL_ARRAY(v), (n))
+inline static RELVAL *VAL_ARRAY_AT_HEAD(const RELVAL *v, REBCNT n) {
+    if (n > VAL_LEN_HEAD(v))
+        fail (Error_Past_End_Raw());
+    return ARR_AT(VAL_ARRAY(v), (n));
+}
 
 #define Init_Any_Array_At(v,t,a,i) \
     Init_Any_Series_At((v), (t), SER(a), (i))

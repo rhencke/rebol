@@ -545,7 +545,7 @@ bool Specialize_Action_Throws(
             SET_CELL_FLAG(arg, ARG_MARKED_CHECKED);
             goto specialized_arg_no_typecheck;
         }
-        
+
         switch (VAL_PARAM_CLASS(param)) {
           case REB_P_RETURN:
           case REB_P_LOCAL:

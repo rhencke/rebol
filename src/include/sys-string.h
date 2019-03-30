@@ -587,6 +587,8 @@ inline static REBCHR(*) VAL_STRING_AT(const REBCEL *v) {
     assert(ANY_STRING_KIND(CELL_KIND(v)));
     if (VAL_INDEX(v) == 0)
         return STR_HEAD(VAL_SERIES(v));  // common case, try and be fast
+    if (VAL_PAST_END(v))
+        fail (Error_Past_End_Raw());  // don't give deceptive return pointer
     return STR_AT(VAL_SERIES(v), VAL_INDEX(v));
 }
 
