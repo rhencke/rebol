@@ -1581,8 +1581,8 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         // Note that the dispatcher may push ACTION! values to the data stack
         // which are used to process the return result after the switch.
         //
-        const REBVAL *r; // initialization would be skipped by gotos
-        r = (*PG_Dispatch)(f); // default just calls FRM_PHASE(f)
+      blockscope {
+        const REBVAL *r = (*PG_Dispatch)(f);  // default just calls FRM_PHASE
 
         if (r == f->out) {
             assert(NOT_CELL_FLAG(f->out, OUT_MARKED_STALE));
@@ -1739,6 +1739,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
           default:
             assert(!"Invalid pseudotype returned from action dispatcher");
         }
+      }
 
       dispatch_completed:
 

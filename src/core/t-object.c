@@ -153,16 +153,13 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
 
     TERM_ARRAY_LEN(BUF_COLLECT, ARR_LEN(BUF_COLLECT));
 
-    // Append new words to obj
-    //
-    REBCNT len; // goto crosses initialization
-    len = CTX_LEN(context) + 1;
+  blockscope {  // Append new words to obj
+    REBCNT len = CTX_LEN(context) + 1;
     Expand_Context(context, ARR_LEN(BUF_COLLECT) - len);
 
-    RELVAL *collect_key; // goto crosses initialization
-    collect_key = ARR_AT(BUF_COLLECT, len);
+    RELVAL *collect_key = ARR_AT(BUF_COLLECT, len);
     for (; NOT_END(collect_key); ++collect_key)
-        Append_Context(context, NULL, VAL_KEY_SPELLING(collect_key));
+        Append_Context(context, NULL, VAL_KEY_SPELLING(collect_key)); }
 
     // Set new values to obj words
     for (word = item; NOT_END(word); word += 2) {

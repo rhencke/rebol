@@ -562,11 +562,10 @@ REBNATIVE(decode_bmp)
         dp -= (2 * w) * 4;
     }
 
-    REBVAL *binary;  // goto crosses initialization
-    binary = rebRepossess(image_bytes, (w * h) * 4);
+  blockscope {
+    REBVAL *binary = rebRepossess(image_bytes, (w * h) * 4);
 
-    REBVAL *image;
-    image = rebRun(  // goto crosses initialization
+    REBVAL *image = rebRun(
         "make image! compose [",
             "(make pair! [", rebI(w), rebI(h), "])",
             binary,
@@ -575,12 +574,14 @@ REBNATIVE(decode_bmp)
 
     rebRelease(binary);
 
-    return image;
+    return image; }
 
-bit_len_error:
-bad_encoding_error:
-bad_table_error:
-    if (ctab) free(ctab);
+  bit_len_error:
+  bad_encoding_error:
+  bad_table_error:
+
+    if (ctab)
+        free(ctab);
     fail (Error_Bad_Media_Raw()); // better error?
 }
 

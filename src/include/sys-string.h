@@ -511,21 +511,20 @@ inline static REBCHR(*) STR_AT(REBSER *s, REBCNT at) {
     //
     assert(not LINK(bookmark).bookmarks);  // only one for now
 
-    blockscope {
-        REBCNT booked = BMK_INDEX(bookmark);
+  blockscope {
+    REBCNT booked = BMK_INDEX(bookmark);
 
-        if (at < booked / 2) {  // !!! when faster to seek from head?
-            bookmark = nullptr;
-            goto scan_from_head;
-        }
-        if (at > len - (booked / 2)) {  // !!! when faster to seek from tail?
-            bookmark = nullptr;
-            goto scan_from_tail;
-        }
-
-        index = booked;
-        cp = cast(REBCHR(*), SER_DATA_RAW(s) + BMK_OFFSET(bookmark));
+    if (at < booked / 2) {  // !!! when faster to seek from head?
+        bookmark = nullptr;
+        goto scan_from_head;
     }
+    if (at > len - (booked / 2)) {  // !!! when faster to seek from tail?
+        bookmark = nullptr;
+        goto scan_from_tail;
+    }
+
+    index = booked;
+    cp = cast(REBCHR(*), SER_DATA_RAW(s) + BMK_OFFSET(bookmark)); }
 
     if (index > at)
         goto scan_backward;
