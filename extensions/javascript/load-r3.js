@@ -124,10 +124,10 @@ if (typeof Promise !== "function") {
     throw Error("Your browser doesn't support Promise.")
 }
 
-var hasShared = typeof SharedArrayBuffer !== "undefined"
+let hasShared = typeof SharedArrayBuffer !== "undefined"
 console.info("Has SharedArrayBuffer => " + hasShared)
 
-var hasThreads = false
+let hasThreads = false
 if (hasShared) {
     let test = new WebAssembly.Memory({
         "initial": 0, "maximum": 0, "shared": true
@@ -136,38 +136,38 @@ if (hasShared) {
 }
 console.info("Has Threads => " + hasThreads)
 
-var use_emterpreter = ! hasThreads
-var os_id = (use_emterpreter ? "0.16.1" : "0.16.2")
+let use_emterpreter = ! hasThreads
+let os_id = (use_emterpreter ? "0.16.1" : "0.16.2")
 
 console.info("Use Emterpreter => " + use_emterpreter)
 
-// WARNING: load-r3.js URL MUST CONTAIN '/':
-// USE './load-r3.js' INSTEAD OF 'load-r3.js'"
-var base_dir = document.querySelector('script[src$="/load-r3.js"]').src
-base_dir = base_dir.substring(0, base_dir.indexOf("load-r3.js"))
-// simulate remote url
-// base_dir = "http://metaeducation.s3.amazonaws.com/travis-builds/"
-if (base_dir == "http://metaeducation.s3.amazonaws.com/travis-builds/") {
-    // correct http => https
-    base_dir = "https://metaeducation.s3.amazonaws.com/travis-builds/"
-}
 
+//=//// PARSE SCRIPT LOCATION FOR LOADER OPTIONS //////////////////////////=//
+//
+// The script can read arguments out of the "location", which is the part of
+// the URL bar which comes after a ? mark.  So for instance, this would ask
+// to load the JS files relative to %replpad-js/ on localhost:
+//
+//     http://localhost:8000/replpad-js/index.html?local
+//
 
-var is_debug = false
+let is_debug = false
+let base_dir = null
 
-// 'load' args from
-var args = (location.search
+let args = (location.search
     ? location.search.substring(1).split('&')
     : []
 )
-// process args
 for (let i = 0; i < args.length; i++) {
     args[i] = decodeURIComponent(args[i])
-    if (args[i] == 'debug') is_debug = true
+    if (args[i] == 'debug')
+        is_debug = true
+    if (args[i] == 'local')
+        base_dir = "./"
 }
 
 if (is_debug) {
-    var old_alert = window.alert
+    let old_alert = window.alert
     window.alert = function(message) {
         console.error(message)
         old_alert(message)
@@ -175,12 +175,33 @@ if (is_debug) {
     }
 }
 
+if (!base_dir) {
+    //
+    // Default to using the base directory as wherever the %load-r3.js was
+    // fetched from.  Today, that is typically on Travis.
+    //
+    // The directory should have subdirectories %0.16.2/ (for WASM threading)
+    // and %0.16.1/ (for emterpreter files).
+    //
+    // WARNING: for this detection to work, load-r3.js URL MUST CONTAIN '/':
+    // USE './load-r3.js' INSTEAD OF 'load-r3.js'"
+    //
+    base_dir = document.querySelector('script[src$="/load-r3.js"]').src
+    base_dir = base_dir.substring(0, base_dir.indexOf("load-r3.js"))
+
+    if (base_dir == "http://metaeducation.s3.amazonaws.com/travis-builds/") {
+        // correct http => https
+        base_dir = "https://metaeducation.s3.amazonaws.com/travis-builds/"
+    }
+}
+
+
 // THE NAME OF THIS VARIABLE MUST BE SYNCED WITH
 // https://metaeducation.s3.amazonaws.com/travis-builds/${OS_ID}/zzz_git_commit.js
 // that contains `git_commit = ${GIT_COMMIT_SHORT}`
 // See .travis.yml
 //
-var git_commit = ""
+let git_commit = ""
 
 // Note these are "promiser" functions, because if they were done as a promise
 // it would need to have a .catch() clause attached to it here.  This way, it
@@ -201,16 +222,15 @@ let load_js_promiser = (url) => new Promise(function(resolve, reject) {
     }
 })
 
-var git_commit_promiser = (os_id) => {
-    if (base_dir == "https://metaeducation.s3.amazonaws.com/travis-builds/"
-    ) { // load from amazonaws.com
-        return load_js_promiser(
-            base_dir + os_id + "/zzz_git_commit.js"
-        )
-    } else { return Promise.resolve(null)}
+let git_commit_promiser = (os_id) => {
+    if (base_dir == "https://metaeducation.s3.amazonaws.com/travis-builds/") {
+        return load_js_promiser(base_dir + os_id + "/zzz_git_commit.js")
+    } else {
+        return Promise.resolve(null)
+    }
 }
 
-var lib_suffixes = [
+let lib_suffixes = [
     ".js", ".wasm",  // all builds
     ".wast", ".temp.asm.js",  // debug only
     ".bytecode",  // emterpreter builds only
@@ -253,7 +273,7 @@ function libRebolComponentURL(suffix) {  // suffix includes the dot
     // at the moment you call `pthread_create()`, see PTHREAD_POOL_SIZE.  Each
     // worker needs to load its own copy of the libr3.js interface to have
     // the cwraps to the WASM heap available (since workers do not have access
-    // to variables on the GUI thread).
+    // to letiables on the GUI thread).
     //
     // Due to origin policy restrictions, you typically need to have a
     // worker live in the same place your page is coming from.  To make Ren-C
@@ -286,7 +306,7 @@ function libRebolComponentURL(suffix) {  // suffix includes the dot
 }
 
 
-var Module = {
+var Module = {  // Can't use `let` here: https://stackoverflow.com/a/36140613/
     //
     // For errors like:
     //
@@ -371,9 +391,7 @@ let dom_content_loaded_promise = new Promise(function (resolve, reject) {
     document.addEventListener('DOMContentLoaded', resolve)
 })
 
-var onGuiInitialized = () => {} // back-compatibility
-
-var runtime_init_promise = new Promise(function(resolve, reject) {
+let runtime_init_promise = new Promise(function(resolve, reject) {
     //
     // The load of %libr3.js will at some point will trigger a call to
     // onRuntimeInitialized().  We set it up so that when it does, it will
@@ -387,9 +405,9 @@ var runtime_init_promise = new Promise(function(resolve, reject) {
 // before the %libr3.js starts running.  And it will start running some time
 // after the dynamic `<script>` is loaded.
 //
-// See notes on short_hash_promiser for why this is a "promiser", not a promise
+// See notes on short_hash_promiser for why it's a "promiser", not a promise
 //
-var bytecode_promiser
+let bytecode_promiser
 if (!use_emterpreter)
     bytecode_promiser = () => {
         console.info("Not emterpreted libr3.js, not requesting bytecode")
@@ -411,7 +429,7 @@ else {
 
           }).then(function(buffer) {
 
-            Module.emterpreterFile = buffer  // must load before emterpret()-ing
+            Module.emterpreterFile = buffer  // must load before emterpret()
           })
     }
 }
@@ -421,7 +439,7 @@ else {
 //
 // !!! Review use of Promise.all() for steps which could be run in parallel.
 //
-var r3_ready_promise =
+let load_r3 =
   git_commit_promiser(os_id) // set git_commit
   .then(bytecode_promiser)  // needs git_commit
   .then(function() {
@@ -469,5 +487,3 @@ var r3_ready_promise =
             "[load-extension collation]"
     )
   })
-
-var load_r3 = r3_ready_promise // alias
