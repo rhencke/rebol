@@ -2116,6 +2116,7 @@ REBNATIVE(subparse)
                         assert(r == P_OUT);
                         i = VAL_INT32(P_OUT);
                     }
+                    SET_END(P_OUT);  // preserve invariant
                     break; }
 
                 // Because there are no LIT-XXX! datatypes, a special rule

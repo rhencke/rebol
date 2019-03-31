@@ -389,6 +389,17 @@ REBCNT Modify_String(
     REBSYM sym = STR_SYMBOL(verb);
     assert(sym == SYM_INSERT or sym == SYM_CHANGE or sym == SYM_APPEND);
 
+    if (IS_NULLED(src)) {  // no-op, unless CHANGE, where it means delete
+        if (sym == SYM_APPEND)
+            return 0;  // APPEND returns index at head
+        else if (sym == SYM_INSERT)
+            return VAL_INDEX(dst);  // INSERT returns index at insertion tail
+
+        assert(sym == SYM_CHANGE);
+        flags |= AM_SPLICE;
+        src = EMPTY_TEXT;  // give same behavior as CHANGE to empty string
+    }
+
     REBSER *dst_ser = VAL_SERIES(dst);
     REBCNT dst_idx = VAL_INDEX(dst);
 
@@ -402,16 +413,7 @@ REBCNT Modify_String(
     else
         limit = -1;
 
-    if (IS_NULLED(src) and sym == SYM_CHANGE) {
-        //
-        // Tweak requests to CHANGE to a null to be a deletion; basically
-        // what happens with an empty string.
-        //
-        flags |= AM_SPLICE;
-        src = EMPTY_TEXT;
-    }
-
-    if (IS_NULLED(src) or limit == 0 or dups <= 0)
+    if (limit == 0 or dups <= 0)
         return sym == SYM_APPEND ? 0 : dst_idx;
 
     REBCNT tail = SER_LEN(dst_ser);
@@ -428,15 +430,15 @@ REBCNT Modify_String(
     REBSER *formed = nullptr;  // must free if generated
 
     const REBYTE *src_ptr;  // start of utf-8 encoded data to insert
-    REBCNT src_len;  // length in codepoints
-    REBSIZ src_size;  // size in bytes
+    REBCNT src_len_no_dups;  // length in codepoints
+    REBSIZ src_size_no_dups;  // size in bytes
 
     if (IS_CHAR(src)) {  // characters store their encoding in their payload
         if (flags & AM_LINE)
             goto form;  // currently need encoding to have the newline in it
         src_ptr = VAL_CHAR_ENCODED(src);
-        src_len = 1;
-        src_size = VAL_CHAR_ENCODED_SIZE(src);
+        src_len_no_dups = 1;
+        src_size_no_dups = VAL_CHAR_ENCODED_SIZE(src);
     }
     else if (IS_BLOCK(src)) {
         //
@@ -445,8 +447,8 @@ REBCNT Modify_String(
         //
         formed = Form_Tight_Block(src);
         src_ptr = STR_HEAD(formed);
-        src_len = STR_LEN(formed);
-        src_size = SER_USED(formed);
+        src_len_no_dups = STR_LEN(formed);
+        src_size_no_dups = SER_USED(formed);
     }
     else if (
         ANY_STRING(src)
@@ -464,18 +466,20 @@ REBCNT Modify_String(
             goto form;
 
         src_ptr = VAL_STRING_AT(src);
-        src_size = VAL_SIZE_LIMIT_AT(&src_len, src, limit);
+        src_size_no_dups = VAL_SIZE_LIMIT_AT(&src_len_no_dups, src, limit);
     }
     else {
       form:
         formed = Copy_Form_Value(src, 0);
         src_ptr = STR_HEAD(formed);
-        src_len = STR_LEN(formed);
-        src_size = SER_USED(formed);
+        src_len_no_dups = STR_LEN(formed);
+        src_size_no_dups = SER_USED(formed);
     }
 
-    if (limit >= 0)
-        src_len = limit;
+    if (limit >= 0) {
+        src_len_no_dups = limit;
+        assert(!"Feature not implemented: string based limits");
+    }
 
     // !!! The feature of being able to say APPEND/LINE and get a newline
     // added to the string on each duplicate is new to Ren-C; it's simplest
@@ -484,11 +488,11 @@ REBCNT Modify_String(
     if (flags & AM_LINE) {
         assert(formed);  // don't want to modify input series
         Append_Codepoint(formed, '\n');
-        ++src_len;
-        ++src_size;
+        ++src_len_no_dups;
+        ++src_size_no_dups;
     }
 
-    REBSIZ size = dups * src_size;  // total bytes to insert
+    REBSIZ src_size_with_dups = dups * src_size_no_dups;  // total insert bytes
 
     REBSIZ dst_used = SER_USED(dst_ser);
     REBSIZ dst_off = VAL_OFFSET_FOR_INDEX(dst, dst_idx); // !!! review perf
@@ -503,21 +507,21 @@ REBCNT Modify_String(
     // since we know the width.
 
     if (sym == SYM_APPEND) {  // Expand, all bookmarks will still be vaild
-        Expand_Series(dst_ser, dst_off, size);
+        Expand_Series(dst_ser, dst_off, src_size_with_dups);
         TERM_STR_LEN_USED(
             dst_ser,
-            tail + src_len * dups,
-            dst_used + size
+            tail + src_len_no_dups * dups,
+            dst_used + src_size_with_dups
         );
     }
     else if (sym == SYM_INSERT) {  // Expand, adjust bookmarks after insertion
-        Expand_Series(dst_ser, dst_off, size);
+        Expand_Series(dst_ser, dst_off, src_size_with_dups);
         if (bookmark and BMK_INDEX(bookmark) >= dst_idx)
-            BMK_OFFSET(bookmark) += src_size * dups;
+            BMK_OFFSET(bookmark) += src_size_with_dups;
         TERM_STR_LEN_USED(
             dst_ser,
-            tail + src_len * dups,
-            dst_used + size
+            tail + src_len_no_dups * dups,
+            dst_used + src_size_with_dups
         );
     }
     else {  // CHANGE only expands if more content added than overwritten
@@ -542,62 +546,84 @@ REBCNT Modify_String(
         //
         //     src_len == 1
         //     dst_len == 4
-        //     src_size == 4
+        //     src_size_with_dups == 4
         //     dst_size == 4
         //
         // It deceptively seems there's enough capacity.  But since only one
         // codepoint is being overwritten (with a larger one), three bytes
         // have to be moved safely out of the way before being overwritten.
 
-        REBSIZ overwrite = VAL_SIZE_LIMIT_AT(NULL, dst, src_len * dups);
-        if (overwrite < size) {
+        REBSIZ overwrite_size;
+        REBSIZ overwrite_len;
+        if (src_len_no_dups * dups >= cast(REBCNT, dst_len)) {
+            overwrite_len = dst_len;
+            overwrite_size = dst_size;
+        }
+        else {
+            overwrite_len = src_len_no_dups * dups;
+            overwrite_size = VAL_SIZE_LIMIT_AT(NULL, dst, src_size_with_dups);
+        }
+
+        if (overwrite_size < src_size_with_dups) {
             //
             // e.g. we're only wishing to overwrite one byte for a codepoint
             // when planning to insert 4.  Capacity has to be inserted.
 
-            Expand_Series(dst_ser, dst_off, size - overwrite);
+            Expand_Series(
+                dst_ser,
+                dst_off,
+                src_size_with_dups - overwrite_size
+            );
             TERM_STR_LEN_USED(
                 dst_ser,
-                tail,
-                dst_used + size - overwrite
+                tail + (src_len_no_dups * dups) - overwrite_len,
+                dst_used + src_size_with_dups - overwrite_size
             );
         }
-        else if (size > dst_size) {
-            Expand_Series(dst_ser, dst_off, size - dst_size);
+        else if (src_size_with_dups > dst_size) {
+            Expand_Series(dst_ser, dst_off, src_size_with_dups - dst_size);
             TERM_STR_LEN_USED(
                 dst_ser,
-                tail + (src_len * dups) - dst_len,
-                dst_used + size - dst_size
+                tail + (src_len_no_dups * dups) - dst_len,
+                dst_used + src_size_with_dups - dst_size
             );
         }
-        else if (size < dst_size and (flags & AM_PART)) {
-            Remove_Series_Units(dst_ser, dst_off, dst_size - size);
+        else if (src_size_with_dups < dst_size and (flags & AM_PART)) {
+            Remove_Series_Units(
+                dst_ser,
+                dst_off,
+                dst_size - src_size_with_dups
+            );
             TERM_STR_LEN_USED(
                 dst_ser,
-                tail + (src_len * dups) - dst_len,
-                dst_used + size - dst_size
+                tail + (src_len_no_dups * dups) - dst_len,
+                dst_used + src_size_with_dups - dst_size
             );
 
         }
-        else if (size + dst_off > dst_used) {
-            EXPAND_SERIES_TAIL(dst_ser, size - (dst_used - dst_off));
+        else if (src_size_with_dups + dst_off > dst_used) {
+            EXPAND_SERIES_TAIL(
+                dst_ser,
+                src_size_with_dups - (dst_used - dst_off)
+            );
             TERM_STR_LEN_USED(
                 dst_ser,
-                tail + (src_len * dups) - dst_len,
-                dst_used + size - dst_size
+                tail + (src_len_no_dups * dups) - dst_len,
+                dst_used + src_size_with_dups - dst_size
             );
         }
-        else  // staying the same size (change "abc" "-" => "-bc")
-            ASSERT_SERIES_TERM(dst_ser);
+        else {
+            // staying the same size (change "abc" "-" => "-bc")
+        }
     }
 
     REBYTE *dst_ptr = SER_SEEK(REBYTE, dst_ser, dst_off);
 
     REBINT d;
     for (d = 0; d < dups; ++d) {
-        memcpy(dst_ptr, src_ptr, src_size);
-        dst_ptr += src_size;
-        dst_idx += src_len;
+        memcpy(dst_ptr, src_ptr, src_size_no_dups);
+        dst_ptr += src_size_no_dups;
+        dst_idx += src_len_no_dups;
     }
 
     if (formed)  // !!! TBD: Use mold buffer, don't make entire new series
@@ -618,5 +644,6 @@ REBCNT Modify_String(
         }
     }
 
+    ASSERT_SERIES_TERM(dst_ser);
     return (sym == SYM_APPEND) ? 0 : dst_idx;
 }

@@ -2653,7 +2653,10 @@ REBNATIVE(transcode)
             // (It would probably be better if the scanner kept count, though
             // maybe that would make it slower when this isn't needed?)
             //
-            VAL_INDEX(D_OUT) += Num_Codepoints_For_Bytes(bp, ss.end);
+            if (ss.begin != 0)
+                VAL_INDEX(D_OUT) += Num_Codepoints_For_Bytes(bp, ss.begin);
+            else
+                VAL_INDEX(D_OUT) += BIN_TAIL(VAL_SERIES(source)) - bp;
         }
     }
     else

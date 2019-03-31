@@ -850,8 +850,10 @@ REB_R Call_Core(REBFRM *frame_) {
 
     if (non_errno_ret > 0) {
         rebJumps(
-            "fail [{Child process is terminated by signal:}",
-                rebI(non_errno_ret), rebEND
+            "fail [",
+                "{Child process is terminated by signal:}",
+                rebI(non_errno_ret),
+            "]", rebEND
         );
     }
     else if (non_errno_ret < 0)
