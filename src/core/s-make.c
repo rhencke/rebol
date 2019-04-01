@@ -36,13 +36,8 @@
 //
 REBSTR *Make_String_Core(REBSIZ encoded_capacity, REBFLGS flags)
 {
-    // !!! Even though this is a byte sized sequence, we add 2 bytes for the
-    // terminator (and TERM_SEQUENCE() terminates with 2 bytes) because we're
-    // in a stopgap position where the series contains REBUNIs, and sometimes
-    // the null terminator is visited in enumerations.
-    //
     REBSER *s = Make_Series_Core(
-        encoded_capacity + 1,
+        encoded_capacity + 1,  // +1 is for NUL terminator
         sizeof(REBYTE),
         flags | SERIES_FLAG_IS_STRING | SERIES_FLAG_UTF8_NONWORD
     );
@@ -386,40 +381,40 @@ REBSTR *Append_UTF8_May_Fail(
 
 
 //
-//  Join_Binary: C
+//  Join_Binary_In_Byte_Buf: C
 //
 // Join a binary from component values for use in standard
 // actions like make, insert, or append.
 // limit: maximum number of values to process
 // limit < 0 means no limit
 //
-// WARNING: returns BYTE_BUF, not a copy!
+// !!! This routine uses a different buffer from molding, because molding
+// currently has to maintain valid UTF-8 data.  It may be that the buffers
+// should be unified.
 //
-REBBIN *Join_Binary(const REBVAL *blk, REBINT limit)
+void Join_Binary_In_Byte_Buf(const REBVAL *blk, REBINT limit)
 {
-    REBSER *series = BYTE_BUF;
+    REBSER *buf = BYTE_BUF;
 
     REBCNT tail = 0;
 
     if (limit < 0)
         limit = VAL_LEN_AT(blk);
 
-    SET_SERIES_LEN(series, 0);
+    SET_SERIES_LEN(buf, 0);
 
     RELVAL *val;
     for (val = VAL_ARRAY_AT(blk); limit > 0; val++, limit--) {
         switch (VAL_TYPE(val)) {
         case REB_INTEGER:
-            if (VAL_INT64(val) > 255 || VAL_INT64(val) < 0)
-                fail (Error_Out_Of_Range(KNOWN(val)));
-            EXPAND_SERIES_TAIL(series, 1);
-            *BIN_AT(series, tail) = (REBYTE)VAL_INT32(val);
+            EXPAND_SERIES_TAIL(buf, 1);
+            *BIN_AT(buf, tail) = cast(REBYTE, VAL_UINT8(val));  // can fail()
             break;
 
         case REB_BINARY: {
             REBCNT len = VAL_LEN_AT(val);
-            EXPAND_SERIES_TAIL(series, len);
-            memcpy(BIN_AT(series, tail), VAL_BIN_AT(val), len);
+            EXPAND_SERIES_TAIL(buf, len);
+            memcpy(BIN_AT(buf, tail), VAL_BIN_AT(val), len);
             break; }
 
         case REB_TEXT:
@@ -432,30 +427,28 @@ REBBIN *Join_Binary(const REBVAL *blk, REBINT limit)
 
             REBSIZ offset = VAL_OFFSET_FOR_INDEX(val, VAL_INDEX(val));
 
-            EXPAND_SERIES_TAIL(series, utf8_size);
+            EXPAND_SERIES_TAIL(buf, utf8_size);
             memcpy(
-                BIN_AT(series, tail),
+                BIN_AT(buf, tail),
                 BIN_AT(VAL_SERIES(val), offset),
                 utf8_size
             );
-            SET_SERIES_LEN(series, tail + utf8_size);
+            SET_SERIES_LEN(buf, tail + utf8_size);
             break; }
 
         case REB_CHAR: {
-            EXPAND_SERIES_TAIL(series, 6);
+            EXPAND_SERIES_TAIL(buf, 6);
             REBCNT len =
-                Encode_UTF8_Char(BIN_AT(series, tail), VAL_CHAR(val));
-            SET_SERIES_LEN(series, tail + len);
+                Encode_UTF8_Char(BIN_AT(buf, tail), VAL_CHAR(val));
+            SET_SERIES_LEN(buf, tail + len);
             break; }
 
         default:
             fail (Error_Bad_Value_Core(val, VAL_SPECIFIER(blk)));
         }
 
-        tail = SER_LEN(series);
+        tail = SER_LEN(buf);
     }
 
-    *BIN_AT(series, tail) = 0;
-
-    return series;  // SHARED FORM SERIES!
+    *BIN_AT(buf, tail) = 0;
 }

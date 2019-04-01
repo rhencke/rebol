@@ -1044,15 +1044,6 @@ REBNATIVE(free_q)
 //  ]
 //
 REBNATIVE(as)
-//
-// !!! With UTF-8 Everywhere, it will be possible to alias binaries to strings
-// and vice-versa.  However, doing so will require the underlying series to be
-// flagged that it must hold valid UTF-8 bytes.  This flag will prevent access
-// through the BINARY! alias from being able to make edits that would corrupt
-// the data from the STRING! alias point of view.
-//
-// ANY-WORD! and ANY-STRING! categories should also become unified, so all
-// 3 should be able to alias between each other.
 {
     INCLUDE_PARAMS_OF_AS;
 
@@ -1116,49 +1107,51 @@ REBNATIVE(as)
       case REB_FILE:
       case REB_URL:
       case REB_EMAIL: {
-        //
-        // !!! Until UTF-8 Everywhere, turning ANY-WORD! into an ANY-STRING!
-        // means it has to be UTF-8 decoded into REBUNI (UCS-2).  We do that
-        // but make sure it is locked, so that when it does give access to
-        // WORD! you won't think you can mutate the data.  (Though mutable
-        // WORD! should become a thing, if they're not bound or locked.)
-        //
-        if (ANY_WORD(v)) {
-            REBSTR *spelling = VAL_WORD_SPELLING(v);
-            REBSTR *string = Make_Sized_String_UTF8(
-                STR_UTF8(spelling),
-                STR_SIZE(spelling)
-            );
-            SET_SERIES_INFO(SER(string), FROZEN);
-            return Inherit_Const(
-                Quotify(Init_Any_String(D_OUT, new_kind, string), quotes),
-                v
-            );
+        if (ANY_WORD(v)) {  // ANY-WORD! can alias as a read only ANY-STRING!
+            Init_Any_String(D_OUT, new_kind, VAL_WORD_SPELLING(v));
+            return Inherit_Const(Quotify(D_OUT, quotes), v);
         }
 
-        // !!! Similarly, until UTF-8 Everywhere, we can't actually alias
-        // the UTF-8 bytes in a binary as a WCHAR string.
-        //
-        if (IS_BINARY(v)) {
-            REBSTR *string = Make_Sized_String_UTF8(
-                cs_cast(VAL_BIN_AT(v)),
-                VAL_LEN_AT(v)
-            );
-            if (Is_Value_Frozen(v))
-                SET_SERIES_INFO(string, FROZEN);
-            else {
-                // !!! Catch any cases of people who were trying to alias the
-                // binary, make mutations via the string, and see those
-                // changes show up in the binary.  That can't work until UTF-8
-                // everywhere.  Most callsites don't need the binary after
-                // conversion...if so, tthey should AS a COPY of it for now.
+        if (IS_BINARY(v)) {  // If valid UTF-8, BINARY! aliases as ANY-STRING!
+            REBBIN *bin = VAL_SERIES(v);
+            if (NOT_SERIES_FLAG(bin, IS_STRING)) {
                 //
-                Decay_Series(VAL_SERIES(v));
+                // If the binary wasn't created as a view on string data to
+                // start with, there's no assurance that it's actually valid
+                // UTF-8.  So we check it and cache the length if so.  We
+                // can do this if it's locked, but not if it's just const...
+                // because we may not have the right to.
+                //
+                if (not Is_Series_Frozen(bin))
+                    if (GET_CELL_FLAG(v, CONST))
+                        fail ("Can't alias const unlocked BINARY! to string");
+
+                bool all_ascii = true;
+                REBCNT num_codepoints = 0;
+
+                REBSIZ bytes_left = BIN_LEN(bin);
+                const REBYTE *bp = BIN_HEAD(bin);
+                for (; bytes_left > 0; --bytes_left, ++bp) {
+                    REBUNI c = *bp;
+                    if (c >= 0x80) {
+                        bp = Back_Scan_UTF8_Char(&c, bp, &bytes_left);
+                        if (bp == NULL)  // !!! Should Back_Scan() fail?
+                            fail (Error_Bad_Utf8_Raw());
+
+                        all_ascii = false;
+                    }
+
+                    ++num_codepoints;
+                }
+                SET_SERIES_FLAG(bin, IS_STRING);
+                SET_SERIES_FLAG(bin, UTF8_NONWORD);
+                SET_STR_LEN_SIZE(STR(bin), num_codepoints, BIN_LEN(bin));
+                LINK(bin).bookmarks = nullptr;
+
+                UNUSED(all_ascii);  // TBD: maintain cache
             }
-            return Inherit_Const(
-                Quotify(Init_Any_String(D_OUT, new_kind, string), quotes),
-                v
-            );
+            Init_Any_String(D_OUT, new_kind, STR(bin));
+            return Inherit_Const(Quotify(D_OUT, quotes), v);
         }
 
         if (not ANY_STRING(v))
@@ -1169,40 +1162,46 @@ REBNATIVE(as)
       case REB_GET_WORD:
       case REB_SET_WORD:
       case REB_ISSUE: {
-        //
-        // !!! Until UTF-8 Everywhere, turning ANY-STRING! into an ANY-WORD!
-        // means you have to have an interning of it.
-        //
-        if (ANY_STRING(v)) {
-            //
-            // Don't give misleading impression that mutations of the input
-            // string will change the output word, by freezing the input.
-            // This will be relaxed when mutable words exist.
-            //
-            Freeze_Sequence(VAL_SERIES(v));
+        if (ANY_STRING(v)) {  // aliasing data as an ANY-WORD! freezes data
+            REBSTR *s = VAL_STRING(v);
+            if (not IS_STR_SYMBOL(s)) {
+                //
+                // If the string isn't already a symbol, it could contain
+                // characters invalid for words...like spaces or newlines, or
+                // start with a number.  We want the same rules here as used
+                // in the scanner.
+                //
+                // !!! For the moment, we don't check and just freeze the
+                // prior sequence and make a new interning.  This wastes
+                // space and lets bad words through, but gives the idea of
+                // what behavior it would have when it reused the series.
 
-            REBSIZ utf8_size;
-            const REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v);
-            return Inherit_Const(
-                Quotify(Init_Any_Word(
-                    D_OUT,
-                    new_kind,
-                    Intern_UTF8_Managed(utf8, utf8_size)
-                ), quotes),
-                v
-            );
+                if (not Is_Series_Frozen(SER(s)))
+                    if (GET_CELL_FLAG(v, CONST))
+                        fail ("Can't alias const unlocked string to word");
+
+                Freeze_Sequence(VAL_SERIES(v));
+
+                REBSIZ utf8_size;
+                const REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v);
+                s = Intern_UTF8_Managed(utf8, utf8_size);
+            }
+            Init_Any_Word(D_OUT, new_kind, s);
+            return Inherit_Const(Quotify(D_OUT, quotes), v);
         }
 
-        // !!! Since pre-UTF8-everywhere ANY-WORD! was saved in UTF-8 it would
-        // be sort of possible to alias a binary as a WORD!.  But modification
-        // wouldn't be allowed (as there are no mutable words), and also the
-        // interning logic would have to take ownership of the binary if it
-        // was read-only.  No one is converting binaries to words yet, so
-        // wait to implement the logic until the appropriate time...just lock
-        // the binary for now.
-        //
         if (IS_BINARY(v)) {
+            REBBIN *bin = VAL_BINARY(v);
+
+            if (not Is_Series_Frozen(bin))
+                if (GET_CELL_FLAG(v, CONST))
+                    fail ("Can't alias const unlocked string to word");
+
             Freeze_Sequence(VAL_SERIES(v));
+
+            // !!! Need to check here, not just for invalid characters but
+            // also for invalid UTF-8 sequences...
+            //
             return Inherit_Const(
                 Quotify(Init_Any_Word(
                     D_OUT,
@@ -1218,34 +1217,9 @@ REBNATIVE(as)
         break; }
 
       case REB_BINARY: {
-        //
-        // !!! A locked BINARY! shouldn't (?) complain if it exposes a
-        // REBSTR holding UTF-8 data, even prior to the UTF-8 conversion.
-        //
-        if (ANY_WORD(v)) {
-            assert(Is_Value_Frozen(v));
-            return Inherit_Const(
-                Quotify(Init_Binary(D_OUT, SER(VAL_WORD_SPELLING(v))), quotes),
-                v
-            );
-        }
-
-        if (ANY_STRING(v)) {
-            REBSER *bin = Make_UTF8_From_Any_String(v, VAL_LEN_AT(v));
-
-            // !!! Making a binary out of a UCS-2 encoded string currently
-            // frees the string data if it's mutable, and if that's not
-            // satisfactory you can make a copy before the AS.
-            //
-            if (Is_Value_Frozen(v))
-                Freeze_Sequence(bin);
-            else
-                Decay_Series(VAL_SERIES(v));
-
-            return Inherit_Const(
-                Quotify(Init_Binary(D_OUT, bin), quotes),
-                v
-            );
+        if (ANY_WORD(v) or ANY_STRING(v)) {
+            Init_Binary(D_OUT, SER(VAL_STRING(v)));
+            return Inherit_Const(Quotify(D_OUT, quotes), v);
         }
 
         fail (v); }

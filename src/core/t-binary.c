@@ -259,8 +259,8 @@ static REBSER *MAKE_TO_Binary_Common(const REBVAL *arg)
         return Make_UTF8_From_Any_String(arg, VAL_LEN_AT(arg));
 
     case REB_BLOCK:
-        // Join_Binary returns a shared buffer, so produce a copy:
-        return Copy_Sequence_Core(Join_Binary(arg, -1), SERIES_FLAGS_NONE);
+        Join_Binary_In_Byte_Buf(arg, -1);
+        return Copy_Sequence_Core(BYTE_BUF, SERIES_FLAGS_NONE);
 
     case REB_TUPLE:
         return Copy_Bytes(VAL_TUPLE(arg), VAL_TUPLE_LEN(arg));
@@ -601,9 +601,6 @@ REBTYPE(Binary)
             // !!! Doesn't pay attention...all binary appends are /ONLY
         }
 
-        if (REF(line))
-            fail ("APPEND+INSERT+CHANGE cannot use /LINE with BINARY!");
-
         REBCNT len; // length of target
         if (VAL_WORD_SYM(verb) == SYM_CHANGE)
             len = Part_Len_May_Modify_Index(v, ARG(limit));
@@ -613,8 +610,10 @@ REBTYPE(Binary)
         REBFLGS flags = 0;
         if (REF(part))
             flags |= AM_PART;
+        if (REF(line))
+            flags |= AM_LINE;
 
-        VAL_INDEX(v) = Modify_Binary(
+        VAL_INDEX(v) = Modify_String_Or_Binary(
             v,
             VAL_WORD_CANON(verb),
             arg,

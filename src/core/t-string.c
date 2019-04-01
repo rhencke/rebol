@@ -131,11 +131,11 @@ static void reverse_string(REBVAL *v, REBCNT len)
 
         DECLARE_LOCAL (verb);
         Init_Word(verb, Canon(SYM_CHANGE));
-        Modify_String(
+        Modify_String_Or_Binary(
             v,
             VAL_WORD_SPELLING(verb),
             temp,
-            0, // not AM_PART, we want to change all len bytes
+            AM_PART,  // heed len for deletion
             len,
             1 // dup count
         );
@@ -1045,7 +1045,6 @@ REBTYPE(String)
                 VAL_INDEX(v) = 0;
             RETURN (v); // don't fail on read only if it would be a no-op
         }
-        FAIL_IF_READ_ONLY(v);
 
         REBFLGS flags = 0;
         if (REF(part))
@@ -1053,7 +1052,7 @@ REBTYPE(String)
         if (REF(line))
             flags |= AM_LINE;
 
-        VAL_INDEX(v) = Modify_String(
+        VAL_INDEX(v) = Modify_String_Or_Binary(  // does read-only check
             v,
             VAL_WORD_SPELLING(verb),
             arg,

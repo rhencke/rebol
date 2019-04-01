@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -20,17 +20,25 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-
-
-// Is it a byte-sized series?
+// A BINARY! value holds a byte-size series.  The bytes may be arbitrary, or
+// if the series has SERIES_FLAG_IS_STRING then modifications are constrained
+// to only allow valid UTF-8 data.  Such binary "views" are possible due to
+// things like the AS operator (`as binary! "abc"`).
 //
-#define BYTE_SIZE(s) \
-    (SER_WIDE(s) == 1)
+// R3-Alpha used a binary series to hold the data for BITSET!.  See notes in
+// %sys-bitset.h regarding this usage (which has a "negated" bit in the
+// MISC() field).
+//
+//=//// NOTES /////////////////////////////////////////////////////////////=//
+//
+// * Since strings use MISC() and LINK() for various features, and binaries
+//   can be "views" on string series, this means that generally speaking a
+//   binary series can't use MISC() and LINK() for its own purposes.  (For
+//   the moment, typesets cannot be aliased, so you can't get into a situation
+//   like `as text! as binary! make bitset! [...]`)
 
 
-//
-// BIN_XXX: Binary or byte-size string seres macros
-//
+//=//// BINARY! SERIES ////////////////////////////////////////////////////=//
 
 #define BIN_AT(s,n) \
     SER_AT(REBYTE, (s), (n))
@@ -45,54 +53,20 @@
     SER_LAST(REBYTE, (s))
 
 inline static REBCNT BIN_LEN(REBBIN *s) {
-    assert(BYTE_SIZE(s));
+    assert(SER_WIDE(s) == 1);
     return SER_USED(s);
 }
 
 inline static void TERM_BIN(REBSER *s) {
+    assert(SER_WIDE(s) == 1);
     BIN_HEAD(s)[SER_USED(s)] = 0;
 }
 
 inline static void TERM_BIN_LEN(REBSER *s, REBCNT len) {
+    assert(SER_WIDE(s) == 1);
     SET_SERIES_USED(s, len);
     BIN_HEAD(s)[len] = 0;
 }
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  BINARY! (uses `struct Reb_Any_Series`)
-//
-//=////////////////////////////////////////////////////////////////////////=//
-
-#define VAL_BIN_HEAD(v) \
-    BIN_HEAD(VAL_SERIES(v))
-
-inline static REBYTE *VAL_BIN_AT(const REBCEL *v) {
-    assert(CELL_KIND(v) == REB_BINARY or CELL_KIND(v) == REB_BITSET);
-    if (VAL_INDEX(v) > BIN_LEN(VAL_SERIES(v)))
-        fail (Error_Past_End_Raw());  // don't give deceptive return pointer
-    return BIN_AT(VAL_SERIES(v), VAL_INDEX(v));
-}
-
-// !!! RE: VAL_BIN_AT_HEAD() see remarks on VAL_ARRAY_AT_HEAD()
-//
-#define VAL_BIN_AT_HEAD(v,n) \
-    BIN_AT(VAL_SERIES(v), (n))
-
-#define VAL_BYTE_SIZE(v) \
-    BYTE_SIZE(VAL_SERIES(v))
-
-// defined as an inline to avoid side effects in:
-
-#define Init_Binary(out, bin) \
-    Init_Any_Series((out), REB_BINARY, (bin))
-
-inline static REBBIN *VAL_BINARY(const REBCEL* v) {
-    assert(CELL_KIND(v) == REB_BINARY);
-    return VAL_SERIES(v);
-}
-
 
 // Make a byte series of length 0 with the given capacity.  The length will
 // be increased by one in order to allow for a null terminator.  Binaries are
@@ -109,3 +83,27 @@ inline static REBSER *Make_Binary_Core(REBCNT capacity, REBFLGS flags)
 
 #define Make_Binary(capacity) \
     Make_Binary_Core(capacity, SERIES_FLAGS_NONE)
+
+
+//=//// BINARY! VALUES ////////////////////////////////////////////////////=//
+
+#define VAL_BIN_HEAD(v) \
+    BIN_HEAD(VAL_SERIES(v))
+
+inline static REBYTE *VAL_BIN_AT(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_BINARY or CELL_KIND(v) == REB_BITSET);
+    if (VAL_INDEX(v) > BIN_LEN(VAL_SERIES(v)))
+        fail (Error_Past_End_Raw());  // don't give deceptive return pointer
+    return BIN_AT(VAL_SERIES(v), VAL_INDEX(v));
+}
+
+#define VAL_BIN_AT_HEAD(v,n) \
+    BIN_AT(VAL_SERIES(v), (n))  // see remarks on VAL_ARRAY_AT_HEAD()
+
+#define Init_Binary(out, bin) \
+    Init_Any_Series((out), REB_BINARY, (bin))
+
+inline static REBBIN *VAL_BINARY(const REBCEL* v) {
+    assert(CELL_KIND(v) == REB_BINARY);
+    return VAL_SERIES(v);
+}

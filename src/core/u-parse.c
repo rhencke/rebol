@@ -2610,29 +2610,16 @@ REBNATIVE(subparse)
 
                         REBCNT mod_flags = (flags & PF_INSERT) ? 0 : AM_PART;
 
-                        if (P_TYPE == REB_BINARY)
-                            P_POS = Modify_Binary(
-                                P_INPUT_VALUE,
-                                (flags & PF_CHANGE)
-                                    ? Canon(SYM_CHANGE)
-                                    : Canon(SYM_INSERT),
-                                specified,
-                                mod_flags,
-                                count,
-                                1
-                            );
-                        else {
-                            P_POS = Modify_String(
-                                P_INPUT_VALUE,
-                                (flags & PF_CHANGE)
-                                    ? Canon(SYM_CHANGE)
-                                    : Canon(SYM_INSERT),
-                                specified,
-                                mod_flags,
-                                count,
-                                1
-                            );
-                        }
+                        P_POS = Modify_String_Or_Binary(  // checks read-only
+                            P_INPUT_VALUE,
+                            (flags & PF_CHANGE)
+                                ? Canon(SYM_CHANGE)
+                                : Canon(SYM_INSERT),
+                            specified,
+                            mod_flags,
+                            count,
+                            1
+                        );
                     }
                 }
 

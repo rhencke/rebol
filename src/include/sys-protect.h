@@ -32,7 +32,10 @@
 // to be mutable, so it could be checked at compile-time.
 //
 
-inline static void FAIL_IF_READ_ONLY_CORE(RELVAL *v, REBSPC *specifier) {
+inline static void FAIL_IF_READ_ONLY_CORE(
+    const RELVAL *v,
+    REBSPC *specifier
+){
     assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
     REBSER *s = SER(VAL_NODE(v));  // can be pairlist, varlist, etc.
 

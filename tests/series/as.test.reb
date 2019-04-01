@@ -51,15 +51,6 @@
    did all [
       "abc" = txt
       "abcd" = append txt #"d"
-      free? bin
-   ]
-)
-(
-   bin: copy #{616263}
-   txt: as text! bin
-   did all [
-      "abc" = txt
-      "abcd" = append txt #"d"
-      free? bin
+      #{61626364} = bin
    ]
 )

@@ -76,6 +76,8 @@ enum REB_Mold_Opts {
     MOLD_FLAG_RESERVE = 1 << 8  // At outset, reserve capacity for buffer
 };
 
+#define MOLD_MASK_NONE 0
+
 // Temporary:
 #define MOLD_FLAG_NON_ANSI_PARENED \
     MOLD_FLAG_ALL // Non ANSI chars are ^() escaped

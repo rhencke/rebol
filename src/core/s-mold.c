@@ -623,23 +623,6 @@ bool Form_Reduce_Throws(
 
 
 //
-//  Form_Tight_Block: C
-//
-REBSTR *Form_Tight_Block(const REBVAL *blk)
-{
-    DECLARE_MOLD (mo);
-
-    Push_Mold(mo);
-
-    RELVAL *item;
-    for (item = VAL_ARRAY_AT(blk); NOT_END(item); ++item)
-        Form_Value(mo, item);
-
-    return Pop_Molded_String(mo);
-}
-
-
-//
 //  Push_Mold: C
 //
 void Push_Mold(REB_MOLD *mo)

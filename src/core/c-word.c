@@ -283,20 +283,23 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
     memcpy(BIN_HEAD(s), utf8, size);
     TERM_BIN_LEN(s, size);
 
+    // The UTF-8 series can be aliased with AS to become an ANY-STRING! or a
+    // BINARY!.  If it is, then it should not be modified.
+    //
+    SET_SERIES_INFO(s, FROZEN);
+
     if (not canon) {  // no canon found, so this interning must become canon
         SET_SERIES_INFO(s, STRING_CANON);
 
         LINK_SYNONYM_NODE(s) = NOD(s);  // 1-item in circular list
 
-        // Canon symbols don't need to cache a canon pointer to themselves.
-        // So instead that slot is reserved for tracking associated information
-        // for the canon word, e.g. the current bind index.  Because this
-        // may be used by several threads, it would likely have to be an
-        // atomic pointer that would "pop out" to a structure, but for now
-        // it is just randomized to keep its information in high bits or low
-        // bits as a poor-man's demo that there is an infrastructure in place
-        // for sharing (start with 2, grow to N based on the functions for
-        // 2 being in place)
+        // Canon symbols use their MISC() to hold binding information.  Long
+        // term, it may become a design that lets multiple binds run at once.
+        // So the slot could hold an atomic pointer that would "pop out" to a
+        // structure.  But for the moment only one bind runs at a time, and
+        // it's randomized to keep its information in high bits or low bits
+        // as a poor-man's demo that there is an infrastructure in place for
+        // sharing (start with 2, grow to N eventually).
         //
         MISC(s).bind_index.high = 0;
         MISC(s).bind_index.low = 0;

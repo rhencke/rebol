@@ -221,7 +221,7 @@ void Assert_Cell_Marked_Correctly(const RELVAL *v)
       case REB_STRUCT: {  // like an OBJECT!, but the "varlist" can be binary
         assert(GET_CELL_FLAG(v, FIRST_IS_NODE));
         REBSER *data = SER(PAYLOAD(Any, v).first.node);
-        assert(BYTE_SIZE(data) or IS_SER_ARRAY(data));
+        assert(SER_WIDE(data) == 1 or IS_SER_ARRAY(data));
         assert(Is_Marked(PAYLOAD(Any, v).first.node));
         break; }
 
@@ -264,20 +264,21 @@ void Assert_Cell_Marked_Correctly(const RELVAL *v)
         REBSER *s = VAL_SERIES(v);
 
         assert(SER_WIDE(s) == sizeof(REBYTE));
-        assert(not IS_STR_SYMBOL(s));  // !!! temporary
         assert(Is_Marked(s));
 
-        REBBMK *bookmark = LINK(s).bookmarks;
-        if (bookmark) {
-            assert(not LINK(bookmark).bookmarks);  // just one for now
-            //
-            // The intent is that bookmarks are unmanaged REBSERs, which
-            // get freed when the string GCs.  This mechanic could be a by
-            // product of noticing that the SERIES_INFO_LINK_IS_NODE is true
-            // but that the managed bit on the node is false.
+        if (not IS_STR_SYMBOL(STR(s))) {
+            REBBMK *bookmark = LINK(s).bookmarks;
+            if (bookmark) {
+                assert(not LINK(bookmark).bookmarks);  // just one for now
+                //
+                // The intent is that bookmarks are unmanaged REBSERs, which
+                // get freed when the string GCs.  This mechanic could be a by
+                // product of noticing that the SERIES_INFO_LINK_IS_NODE is
+                // true but that the managed bit on the node is false.
 
-            assert(not Is_Marked(bookmark));
-            assert(NOT_SERIES_FLAG(bookmark, MANAGED));
+                assert(not Is_Marked(bookmark));
+                assert(NOT_SERIES_FLAG(bookmark, MANAGED));
+            }
         }
         break; }
 

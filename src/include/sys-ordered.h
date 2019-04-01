@@ -193,8 +193,11 @@ inline static bool ANY_SERIES_KIND(REBYTE k)
 // of attack for this to let strings hold bindings.  To make the ANY_INERT()
 // test fast, issue is grouped with the inert types...not the other words.
 
+#define ANY_WORD_KIND_EVIL_MACRO \
+    ((k >= REB_WORD and k <= REB_GET_WORD) or k == REB_ISSUE)
+
 inline static bool ANY_WORD_KIND(REBYTE k)
-    { return (k >= REB_WORD and k <= REB_GET_WORD) or k == REB_ISSUE; }
+    { return ANY_WORD_KIND_EVIL_MACRO; }
 
 #define ANY_WORD(v) \
     ANY_WORD_KIND(KIND_BYTE(v))

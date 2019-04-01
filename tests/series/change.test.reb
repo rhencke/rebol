@@ -89,3 +89,17 @@
     change next x "1111"
     x = "a1111"
 )
+
+(
+    x: ""
+    did all [
+        "" = change x "xyz"
+        x = "xyz"
+    ]
+)
+
+; !!! FORMAT isn't really tested, but it's built on CHANGE.
+
+(
+    "ò " = format 2 "ò"
+)

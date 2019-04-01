@@ -247,7 +247,7 @@ void RL_rebFree(void *ptr)
         );
     }
 
-    assert(BYTE_SIZE(s));
+    assert(SER_WIDE(s) == 1);
 
     Free_Unmanaged_Series(s);
 }
@@ -1963,7 +1963,7 @@ REBREQ *RL_rebMake_Rebreq(int device) {
         NOOP
 #else
     inline static void ASSERT_REBREQ(REBREQ *req) {  // basic sanity check
-        assert(BYTE_SIZE(req) and BIN_LEN(req) >= sizeof(struct rebol_devreq));
+        assert(BIN_LEN(req) >= sizeof(struct rebol_devreq));
         assert(GET_SERIES_FLAG(req, LINK_NODE_NEEDS_MARK));
         assert(GET_SERIES_FLAG(req, MISC_NODE_NEEDS_MARK));
     }

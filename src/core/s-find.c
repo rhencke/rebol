@@ -597,8 +597,6 @@ REBCNT Find_Bin_Bitset(
 ){
     assert(head >= 0 && tail >= 0 && offset >= 0);
 
-    assert(NOT_SERIES_FLAG(bin, UTF8_NONWORD));
-
     assert((flags & ~AM_FIND_MATCH) == 0); // no AM_FIND_CASE
 
     REBYTE *bp1 = BIN_AT(bin, offset);

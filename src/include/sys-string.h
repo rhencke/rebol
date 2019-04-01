@@ -341,27 +341,106 @@ inline static bool IS_SER_STRING(REBSER *s) {
 #define IS_STR_SYMBOL(s) \
     NOT_SERIES_FLAG((s), UTF8_NONWORD)
 
+
+//=//// STRING ALL-ASCII FLAG /////////////////////////////////////////////=//
+//
+// One of the best optimizations that can be done on strings is to keep track
+// of if they contain only ASCII codepoints.  Such a flag would likely have
+// false negatives, unless all removals checked the removed portion for if
+// the ASCII flag is true.  It could be then refreshed by any routine that
+// walks an entire string for some other reason (like molding or printing).
+//
+// For the moment, we punt on this optimization.  The main reason is that it
+// means the non-ASCII code is exercised on every code path, which is a good
+// substitute for finding high-codepoint data to pass through to places that
+// would not receive it otherwise.
+//
+// But ultimately this optimization will be necessary, and decisions on how
+// up-to-date the flag should be kept would need to be made.
+
+#define Is_Definitely_Ascii(s) false
+
+inline static bool Is_String_Definitely_ASCII(const RELVAL *str) {
+    UNUSED(str);
+    return false;
+}
+
 inline static const char *STR_UTF8(REBSTR *s) {
     return cast(const char*, BIN_HEAD(SER(s)));
 }
+
 
 inline static size_t STR_SIZE(REBSTR *s) {
     return SER_USED(SER(s)); // number of bytes in series is the UTF-8 size
 }
 
-// Note that STR_LEN() is not currently available on ANY-WORD! data REBSTRs.
-// That's because they need the slot in their series node for maintaining a
-// linked list to other canons.  They're usually short, so calculating the
-// size is not too bad.
-//
-inline static REBCNT STR_LEN(REBSTR *s) {
-    assert(not IS_STR_SYMBOL(s));  // see note
+#define STR_HEAD(s) \
+    cast(REBCHR(*), SER_HEAD(REBYTE, SER(s)))
 
-  #if defined(DEBUG_UTF8_EVERYWHERE)
-    if (MISC(s).length > SER_USED(s)) // includes 0xDECAFBAD
-        panic(s);
-  #endif
-    return MISC(s).length;
+#define STR_TAIL(s) \
+    cast(REBCHR(*), SER_TAIL(REBYTE, SER(s)))
+
+inline static REBCHR(*) STR_LAST(REBSTR *s) {
+    REBCHR(*) cp = STR_TAIL(s);
+    REBUNI c;
+    cp = BACK_CHR(&c, cp);
+    assert(c == '\0');
+    UNUSED(c);
+    return cp;
+}
+
+inline static REBCNT STR_LEN(REBSTR *s) {
+    if (Is_Definitely_Ascii(s))
+        return STR_SIZE(s);
+
+    if (not IS_STR_SYMBOL(s)) {  // length is cached for non-ANY-WORD! strings
+      #if defined(DEBUG_UTF8_EVERYWHERE)
+        if (MISC(s).length > SER_USED(s)) // includes 0xDECAFBAD
+            panic(s);
+      #endif
+        return MISC(s).length;
+    }
+
+    // Have to do it the slow way if it's a symbol series...but hopefully
+    // they're not too long (since spaces and newlines are illegal.)
+    //
+    REBCNT len = 0;
+    REBCHR(const*) ep = STR_TAIL(s);
+    REBCHR(const*) cp = STR_HEAD(s);
+    while (cp != ep) {
+        cp = NEXT_STR(cp);
+        ++len;
+    }
+    return len;
+}
+
+inline static REBCNT STR_INDEX_AT(REBSTR *s, REBSIZ offset) {
+    if (Is_Definitely_Ascii(s))
+        return offset;
+
+    assert(*BIN_AT(SER(s), offset) < 0x80);  // must be codepoint boundary
+
+    if (not IS_STR_SYMBOL(s)) {  // length is cached for non-ANY-WORD! strings
+      #if defined(DEBUG_UTF8_EVERYWHERE)
+        if (MISC(s).length > SER_USED(s)) // includes 0xDECAFBAD
+            panic(s);
+      #endif
+
+        // We have length and bookmarks.  We should build STR_AT() based on
+        // this routine.  For now, fall through and do it slowly.
+    }
+
+    // Have to do it the slow way if it's a symbol series...but hopefully
+    // they're not too long (since spaces and newlines are illegal.)
+    //
+    REBCNT index = 0;
+    REBCHR(const*) ep = cast(REBCHR(const*), BIN_AT(SER(s), offset));
+    REBCHR(const*) cp = STR_HEAD(s);
+    while (cp != ep) {
+        cp = NEXT_STR(cp);
+        ++index;
+    }
+    return index;
 }
 
 // If you already know what kind of series you have, you should call STR_LEN()
@@ -386,44 +465,6 @@ inline static void TERM_STR_LEN_SIZE(REBSTR *s, REBCNT len, REBSIZ used) {
     TERM_SEQUENCE(SER(s));
 }
 
-#define STR_HEAD(s) \
-    cast(REBCHR(*), SER_HEAD(REBYTE, SER(s)))
-
-#define STR_TAIL(s) \
-    cast(REBCHR(*), SER_TAIL(REBYTE, SER(s)))
-
-inline static REBCHR(*) STR_LAST(REBSTR *s) {
-    REBCHR(*) cp = STR_TAIL(s);
-    REBUNI c;
-    cp = BACK_CHR(&c, cp);
-    assert(c == '\0');
-    UNUSED(c);
-    return cp;
-}
-
-
-//=//// STRING ALL-ASCII FLAG /////////////////////////////////////////////=//
-//
-// One of the best optimizations that can be done on strings is to keep track
-// of if they contain only ASCII codepoints.  Such a flag would likely have
-// false negatives, unless all removals checked the removed portion for if
-// the ASCII flag is true.  It could be then refreshed by any routine that
-// walks an entire string for some other reason (like molding or printing).
-//
-// For the moment, we punt on this optimization.  The main reason is that it
-// means the non-ASCII code is exercised on every code path, which is a good
-// substitute for finding high-codepoint data to pass through to places that
-// would not receive it otherwise.
-//
-// But ultimately this optimization will be necessary, and decisions on how
-// up-to-date the flag should be kept would need to be made.
-
-#define Is_Definitely_Ascii(s) false
-
-inline static bool Is_String_Definitely_ASCII(const RELVAL *str) {
-    UNUSED(str);
-    return false;
-}
 
 
 //=//// CACHED ACCESSORS AND BOOKMARKS ////////////////////////////////////=//
@@ -488,7 +529,6 @@ inline static void Free_Bookmarks_Maybe_Null(REBSTR *s) {
 // to get away with not having any bookmarks at all.
 //
 inline static REBCHR(*) STR_AT(REBSTR *s, REBCNT at) {
-    assert(not IS_STR_SYMBOL(s));
     assert(at <= STR_LEN(s));
 
     if (Is_Definitely_Ascii(s)) {  // can't have any false positives
@@ -499,7 +539,9 @@ inline static REBCHR(*) STR_AT(REBSTR *s, REBCNT at) {
     REBCHR(*) cp;  // can be used to calculate offset (relative to STR_HEAD())
     REBCNT index;
 
-    REBBMK *bookmark = LINK(s).bookmarks;  // updated at end if not nulled out
+    REBBMK *bookmark = nullptr;  // updated at end if not nulled out
+    if (not IS_STR_SYMBOL(s))
+        bookmark = LINK(s).bookmarks;
 
   #if defined(DEBUG_SPORADICALLY_DROP_BOOKMARKS)
     if (bookmark and SPORADICALLY(100)) {
@@ -511,20 +553,22 @@ inline static REBCHR(*) STR_AT(REBSTR *s, REBCNT at) {
     REBCNT len = STR_LEN(s);
     if (at < len / 2) {
         if (len < sizeof(REBVAL)) {
-            assert(not bookmark);  // mutations must ensure this
+            if (not IS_STR_SYMBOL(s))
+                assert(not bookmark);  // mutations must ensure this
             goto scan_from_head;  // good locality, avoid bookmark logic
         }
-        if (not bookmark) {
+        if (not bookmark and not IS_STR_SYMBOL(s)) {
             LINK(s).bookmarks = bookmark = Alloc_Bookmark();
             goto scan_from_head;  // will fill in bookmark
         }
     }
     else {
         if (len < sizeof(REBVAL)) {
-            assert(not bookmark);  // mutations must ensure this
+            if (not IS_STR_SYMBOL(s))
+                assert(not bookmark);  // mutations must ensure this
             goto scan_from_tail;  // good locality, avoid bookmark logic
         }
-        if (not bookmark) {
+        if (not bookmark and not IS_STR_SYMBOL(s)) {
             LINK(s).bookmarks = bookmark = Alloc_Bookmark();
             goto scan_from_tail;  // will fill in bookmark
         }
@@ -611,8 +655,8 @@ inline static REBCHR(*) STR_AT(REBSTR *s, REBCNT at) {
     STR_TAIL(VAL_SERIES(v))
 
 inline static REBSTR *VAL_STRING(const REBCEL *v) {
-    assert(ANY_STRING_KIND(CELL_KIND(v)));
-    return STR(VAL_SERIES(v));
+    assert(ANY_STRING_KIND(CELL_KIND(v)) or ANY_WORD_KIND(CELL_KIND(v)));
+    return STR(VAL_NODE(v));  // VAL_SERIES() would assert
 }
 
 #define VAL_LEN_HEAD(v) \
