@@ -116,7 +116,7 @@ static void Expand_Word_Table(void)
     // Hold onto it while creating the new hash table.
 
     REBCNT old_num_slots = SER_LEN(PG_Canons_By_Hash);
-    REBSTR* *old_canons_by_hash = SER_HEAD(REBSER*, PG_Canons_By_Hash);
+    REBSTR* *old_canons_by_hash = SER_HEAD(REBSTR*, PG_Canons_By_Hash);
 
     REBCNT num_slots = Get_Hash_Prime(old_num_slots + 1);
     if (num_slots == 0) { // larger than hash prime table
@@ -135,7 +135,7 @@ static void Expand_Word_Table(void)
 
     // Rehash all the symbols:
 
-    REBSTR **new_canons_by_hash = SER_HEAD(REBSER*, ser);
+    REBSTR **new_canons_by_hash = SER_HEAD(REBSTR*, ser);
 
     REBCNT old_slot;
     for (old_slot = 0; old_slot != old_num_slots; ++old_slot) {
@@ -203,7 +203,7 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
         num_slots = SER_LEN(PG_Canons_By_Hash); // got larger
     }
 
-    REBSTR* *canons_by_hash = SER_HEAD(REBSER*, PG_Canons_By_Hash);
+    REBSTR* *canons_by_hash = SER_HEAD(REBSTR*, PG_Canons_By_Hash);
 
     REBCNT skip; // how many slots to skip when occupied candidates found
     REBCNT slot = First_Hash_Candidate_Slot(
@@ -271,33 +271,22 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
     // separate allocation.  Because automatically doing this is a new
     // feature, double check with an assert that the behavior matches.
     //
-    REBSTR *intern = Make_Series_Core(
+    REBSER *s = Make_Series_Core(
         size + 1,
         sizeof(REBYTE),
-        SERIES_FLAG_IS_UTF8_STRING | SERIES_FLAG_FIXED_SIZE
+        SERIES_FLAG_IS_STRING | SERIES_FLAG_FIXED_SIZE
     );
 
     // The incoming string isn't always null terminated, e.g. if you are
     // interning `foo` in `foo: bar + 1` it would be colon-terminated.
     //
-    memcpy(BIN_HEAD(intern), utf8, size);
-    TERM_BIN_LEN(intern, size);
+    memcpy(BIN_HEAD(s), utf8, size);
+    TERM_BIN_LEN(s, size);
 
     if (not canon) {  // no canon found, so this interning must become canon
-        if (deleted_slot) {
-            *deleted_slot = intern;  // reuse the deleted slot
-          #if !defined(NDEBUG)
-            --PG_Num_Canon_Deleteds;  // note slot usage count stays constant
-          #endif
-        }
-        else {
-            canons_by_hash[slot] = intern;
-            ++PG_Num_Canon_Slots_In_Use;
-        }
+        SET_SERIES_INFO(s, STRING_CANON);
 
-        SET_SERIES_INFO(intern, STRING_CANON);
-
-        LINK_SYNONYM_NODE(intern) = NOD(intern);  // 1-item in circular list
+        LINK_SYNONYM_NODE(s) = NOD(s);  // 1-item in circular list
 
         // Canon symbols don't need to cache a canon pointer to themselves.
         // So instead that slot is reserved for tracking associated information
@@ -309,26 +298,39 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
         // for sharing (start with 2, grow to N based on the functions for
         // 2 being in place)
         //
-        MISC(intern).bind_index.high = 0;
-        MISC(intern).bind_index.low = 0;
+        MISC(s).bind_index.high = 0;
+        MISC(s).bind_index.low = 0;
 
         // leave header.bits as 0 for SYM_0 as answer to VAL_WORD_SYM()
         // Startup_Symbols() tags values from %words.r after the fact.
+
+        if (deleted_slot) {
+            *deleted_slot = STR(s);  // reuse the deleted slot
+          #if !defined(NDEBUG)
+            --PG_Num_Canon_Deleteds;  // note slot usage count stays constant
+          #endif
+        }
+        else {
+            canons_by_hash[slot] = STR(s);
+            ++PG_Num_Canon_Slots_In_Use;
+        }
     }
     else {
         // This is a synonym for an existing canon.  Link it into the synonyms
         // circularly linked list, and direct link the canon form.
         //
-        MISC(intern).length = 0;  // !!! TBD: codepoint count
-        LINK_SYNONYM_NODE(intern) = LINK_SYNONYM_NODE(canon);
-        LINK_SYNONYM_NODE(canon) = NOD(intern);
+        MISC(s).length = 0;  // !!! TBD: codepoint count
+        LINK_SYNONYM_NODE(s) = LINK_SYNONYM_NODE(canon);
+        LINK_SYNONYM_NODE(canon) = NOD(s);
 
         // If the canon form had a SYM_XXX for quick comparison of %words.r
         // words in C switch statements, the synonym inherits that number.
         //
-        assert(SECOND_UINT16(intern->header) == 0);
-        SET_SECOND_UINT16(intern->header, STR_SYMBOL(canon));
+        assert(SECOND_UINT16(s->header) == 0);
+        SET_SECOND_UINT16(s->header, STR_SYMBOL(canon));
     }
+
+    REBSTR *intern = STR(Manage_Series(s));
 
   #if !defined(NDEBUG)
     uint16_t sym_canon = cast(uint16_t, STR_SYMBOL(STR_CANON(intern)));
@@ -340,7 +342,7 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
     // be no clear contract on the return result--as it wouldn't be possible
     // to know if a shared instance had been managed by someone else or not.
     //
-    return Manage_Series(intern);
+    return intern;
 }
 
 
@@ -369,7 +371,7 @@ void GC_Kill_Interning(REBSTR *intern)
     assert(MISC(intern).bind_index.low == 0);
 
     REBCNT num_slots = SER_LEN(PG_Canons_By_Hash);
-    REBSTR* *canons_by_hash = SER_HEAD(REBSER*, PG_Canons_By_Hash);
+    REBSTR* *canons_by_hash = SER_HEAD(REBSTR*, PG_Canons_By_Hash);
 
     REBCNT skip;
     REBCNT slot = First_Hash_Candidate_Slot(
@@ -543,8 +545,8 @@ void Startup_Symbols(REBARR *words)
             // Could probably use less than 16 bits, but 8 is insufficient.
             // (length %words.r > 256)
             //
-            assert(SECOND_UINT16(name->header) == 0);
-            SET_SECOND_UINT16(name->header, sym);
+            assert(SECOND_UINT16(SER(name)->header) == 0);
+            SET_SECOND_UINT16(SER(name)->header, sym);
             assert(SAME_SYM_NONZERO(STR_SYMBOL(name), sym));
 
             name = LINK_SYNONYM(name);

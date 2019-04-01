@@ -72,8 +72,8 @@ REBINT CT_String(const REBCEL *a, const REBCEL *b, REBINT mode)
 
 static void swap_chars(REBVAL *val1, REBVAL *val2)
 {
-    REBSER *s1 = VAL_SERIES(val1);
-    REBSER *s2 = VAL_SERIES(val2);
+    REBSTR *s1 = VAL_STRING(val1);
+    REBSTR *s2 = VAL_STRING(val2);
 
     REBUNI c1 = GET_CHAR_AT(s1, VAL_INDEX(val1));
     REBUNI c2 = GET_CHAR_AT(s2, VAL_INDEX(val2));
@@ -114,8 +114,8 @@ static void reverse_string(REBVAL *v, REBCNT len)
 
         REBCNT val_len_head = VAL_LEN_HEAD(v);
 
-        REBSER *ser = VAL_SERIES(v);
-        REBCHR(const*) up = STR_LAST(ser);  // last exists due to len != 0
+        REBSTR *s = VAL_STRING(v);
+        REBCHR(const*) up = STR_LAST(s);  // last exists due to len != 0
         REBCNT n;
         for (n = 0; n < len; ++n) {
             REBUNI c;
@@ -156,7 +156,7 @@ static void reverse_string(REBVAL *v, REBCNT len)
 //
 REBCNT find_string(
     REBCNT *len,
-    REBSER *str,
+    REBSTR *str,
     REBCNT index,
     REBCNT end,
     const RELVAL *pattern,
@@ -185,14 +185,14 @@ REBCNT find_string(
         // bit tricky as it is.  Let it settle down before trying that--and
         // for now just form the tag into a temporary alternate series.
 
-        REBSER *formed = nullptr;
+        REBSTR *formed = nullptr;
         REBYTE *bp2;
         REBSIZ size2;
         if (not IS_TEXT(pattern)) { // !!! for TAG!, but what about FILE! etc?
             formed = Copy_Form_Value(pattern, 0);
             *len = STR_LEN(formed);
             bp2 = STR_HEAD(formed);
-            size2 = SER_USED(formed);
+            size2 = STR_SIZE(formed);
         }
         else {
             *len = VAL_LEN_AT(pattern);
@@ -217,7 +217,7 @@ REBCNT find_string(
 
             if (flags & AM_FIND_CASE)
                 result = Find_Bin_In_Bin(
-                    str,  // all_ascii can be treated same as binary
+                    SER(str),  // all_ascii can be treated same as binary
                     index,
                     bp2,
                     size2,
@@ -225,7 +225,7 @@ REBCNT find_string(
                 );
             else
                 return Find_Str_In_Bin(
-                    str,  // all_ascii can be treated same as binary
+                    SER(str),  // all_ascii can be treated same as binary
                     index,
                     bp2,
                     *len,
@@ -239,14 +239,14 @@ REBCNT find_string(
                 index,
                 end,
                 skip,
-                formed ? formed : VAL_SERIES(pattern),
+                formed ? formed : VAL_STRING(pattern),
                 formed ? 0 : VAL_INDEX(pattern),
                 *len,
                 flags & (AM_FIND_MATCH | AM_FIND_CASE)
             );
 
         if (formed)
-            Free_Unmanaged_Series(formed);
+            Free_Unmanaged_Series(SER(formed));
 
         return result;
     }
@@ -286,9 +286,9 @@ REBCNT find_string(
             return index;  // empty binaries / strings are matches
 
         const REBYTE *pbytes = VAL_BIN_AT(pattern);
-        REBSIZ offset = cast(REBYTE*, STR_AT(str, index)) - BIN_HEAD(str);
+        REBSIZ offset = cast(REBYTE*, STR_AT(str, index)) - STR_HEAD(str);
         REBCNT result = Find_Bin_In_Bin(
-            str,
+            SER(str),
             offset,
             pbytes,
             psize,
@@ -329,7 +329,7 @@ REBCNT find_string(
 // Note also the existence of AS should be able to reduce copying, e.g.
 // `print ["spelling is" as string! word]` will be cheaper than TO or MAKE.
 //
-static REBSER *MAKE_TO_String_Common(const REBVAL *arg)
+static REBSTR *MAKE_TO_String_Common(const REBVAL *arg)
 {
     if (IS_BINARY(arg))
         return Make_Sized_String_UTF8(
@@ -343,7 +343,7 @@ static REBSER *MAKE_TO_String_Common(const REBVAL *arg)
         return Copy_Mold_Value(arg, MOLD_FLAG_0);
 
     if (IS_CHAR(arg))
-        return Make_Ser_Codepoint(VAL_CHAR(arg));
+        return Make_Codepoint_String(VAL_CHAR(arg));
 
     return Copy_Form_Value(arg, MOLD_FLAG_TIGHT);
 }
@@ -367,7 +367,7 @@ REB_R MAKE_String(
         // is semantically nebulous (round up, down?) and generally bad.
         // Red continues this behavior.
         //
-        return Init_Any_Series(out, kind, Make_Unicode(Int32s(def, 0)));
+        return Init_Any_String(out, kind, Make_Unicode(Int32s(def, 0)));
     }
 
     if (IS_BLOCK(def)) {
@@ -399,7 +399,7 @@ REB_R MAKE_String(
         return Init_Any_Series_At(out, kind, VAL_SERIES(first), i);
     }
 
-    return Init_Any_Series(out, kind, MAKE_TO_String_Common(def));
+    return Init_Any_String(out, kind, MAKE_TO_String_Common(def));
 
   bad_make:
     fail (Error_Bad_Make(kind, def));
@@ -411,7 +411,7 @@ REB_R MAKE_String(
 //
 REB_R TO_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    return Init_Any_Series(out, kind, MAKE_TO_String_Common(arg));
+    return Init_Any_String(out, kind, MAKE_TO_String_Common(arg));
 }
 
 
@@ -513,7 +513,7 @@ REB_R PD_String(
     const REBVAL *picker,
     const REBVAL *opt_setval
 ){
-    REBSER *ser = VAL_SERIES(pvs->out);
+    REBSTR *s = VAL_STRING(pvs->out);
 
     // Note: There was some more careful management of overflow here in the
     // PICK and POKE actions, before unification.  But otherwise the code
@@ -539,10 +539,10 @@ REB_R PD_String(
             if (n < 0)
                 ++n; // Rebol2/Red convention, `pick tail "abc" -1` is #"c"
             n += VAL_INDEX(pvs->out) - 1;
-            if (n < 0 or cast(REBCNT, n) >= SER_LEN(ser))
+            if (n < 0 or cast(REBCNT, n) >= STR_LEN(s))
                 return nullptr;
 
-            Init_Char_Unchecked(pvs->out, GET_CHAR_AT(ser, n));
+            Init_Char_Unchecked(pvs->out, GET_CHAR_AT(s, n));
             return pvs->out;
         }
 
@@ -581,11 +581,15 @@ REB_R PD_String(
         //     >> (x)/("bar")
         //     == %foo/bar
         //
-        if (SER_USED(mo->series) - mo->offset == 0)
+        if (STR_SIZE(mo->series) - mo->offset == 0)
             Append_Codepoint(mo->series, '/');
         else {
-            if (*SER_SEEK(REBYTE, mo->series, SER_USED(mo->series) - 1) != '/')
+            if (
+                *SER_SEEK(REBYTE, SER(mo->series), STR_SIZE(mo->series) - 1)
+                != '/'
+            ){
                 Append_Codepoint(mo->series, '/');
+            }
         }
 
         // !!! Code here previously would handle this case:
@@ -600,7 +604,7 @@ REB_R PD_String(
 
         Form_Value(mo, picker);
 
-        Init_Any_Series(pvs->out, VAL_TYPE(pvs->out), Pop_Molded_String(mo));
+        Init_Any_String(pvs->out, VAL_TYPE(pvs->out), Pop_Molded_String(mo));
         return pvs->out;
     }
 
@@ -617,7 +621,7 @@ REB_R PD_String(
     if (n < 0)
         ++n;
     n += VAL_INDEX(pvs->out) - 1;
-    if (n < 0 or cast(REBCNT, n) >= SER_LEN(ser))
+    if (n < 0 or cast(REBCNT, n) >= STR_LEN(s))
         fail (Error_Out_Of_Range(picker));
 
     REBINT c;
@@ -636,12 +640,12 @@ REB_R PD_String(
         if (i >= VAL_LEN_HEAD(opt_setval))
             fail (opt_setval);
 
-        c = GET_CHAR_AT(VAL_SERIES(opt_setval), i);
+        c = GET_CHAR_AT(VAL_STRING(opt_setval), i);
     }
     else
         return R_UNHANDLED;
 
-    SET_CHAR_AT(ser, n, c);
+    SET_CHAR_AT(s, n, c);
     return R_INVISIBLE;
 }
 
@@ -681,6 +685,8 @@ REBYTE *Form_Uni_Hex(REBYTE *out, REBCNT n)
 //
 void Mold_Uni_Char(REB_MOLD *mo, REBUNI c, bool parened)
 {
+    REBSTR *buf = mo->series;
+
     // !!! The UTF-8 "Byte Order Mark" is an insidious thing which is not
     // necessary for UTF-8, not recommended by the Unicode standard, and
     // Rebol should not invisibly be throwing it out of strings or file reads:
@@ -705,53 +711,49 @@ void Mold_Uni_Char(REB_MOLD *mo, REBUNI c, bool parened)
         // !!! Comment here said "do not AND with the above"
         //
         if (parened || c == 0x1E || c == 0xFEFF) {
-            REBCNT len_old = SER_LEN(mo->series);
-            REBSIZ used_old = SER_USED(mo->series);
-            EXPAND_SERIES_TAIL(mo->series, 7); // worst case: ^(1234)
-            TERM_STR_LEN_USED(mo->series, len_old, used_old);
+            REBCNT len_old = STR_LEN(buf);
+            REBSIZ size_old = STR_SIZE(buf);
+            EXPAND_SERIES_TAIL(SER(buf), 7);  // worst case: ^(1234)
+            TERM_STR_LEN_SIZE(buf, len_old, size_old);
 
-            Append_Ascii(mo->series, "^\"");
+            Append_Ascii(buf, "^\"");
 
-            REBYTE *bp = BIN_TAIL(mo->series);
+            REBYTE *bp = BIN_TAIL(SER(buf));
             REBYTE *ep = Form_Uni_Hex(bp, c); // !!! Make a mold...
-            TERM_STR_LEN_USED(
-                mo->series,
+            TERM_STR_LEN_SIZE(
+                buf,
                 len_old + (ep - bp),
-                SER_USED(mo->series) + (ep - bp)
+                STR_SIZE(buf) + (ep - bp)
             );
-            Append_Codepoint(mo->series, ')');
+            Append_Codepoint(buf, ')');
             return;
         }
 
-        Append_Codepoint(mo->series, c);
+        Append_Codepoint(buf, c);
         return;
     }
     else if (not IS_CHR_ESC(c)) { // Spectre mitigation in MSVC w/o `not`
-        Append_Codepoint(mo->series, c);
+        Append_Codepoint(buf, c);
         return;
     }
 
-    Append_Codepoint(mo->series, '^');
-    Append_Codepoint(mo->series, Char_Escapes[c]);
+    Append_Codepoint(buf, '^');
+    Append_Codepoint(buf, Char_Escapes[c]);
 }
 
 
 //
 //  Mold_Text_Series_At: C
 //
-void Mold_Text_Series_At(
-    REB_MOLD *mo,
-    REBSER *series,
-    REBCNT index
-){
-    REBSER *out = mo->series;
+void Mold_Text_Series_At(REB_MOLD *mo, REBSTR *s, REBCNT index) {
+    REBSTR *buf = mo->series;
 
-    if (index >= SER_LEN(series)) {
-        Append_Ascii(out, "\"\"");
+    if (index >= STR_LEN(s)) {
+        Append_Ascii(buf, "\"\"");
         return;
     }
 
-    REBCNT len = SER_LEN(series) - index;
+    REBCNT len = STR_LEN(s) - index;
 
     bool parened = GET_MOLD_FLAG(mo, MOLD_FLAG_NON_ANSI_PARENED);
 
@@ -766,7 +768,7 @@ void Mold_Text_Series_At(
     REBCNT chr1e = 0;
     REBCNT malign = 0;
 
-    REBCHR(const*) up = STR_AT(series, index);
+    REBCHR(const*) up = STR_AT(s, index);
 
     REBCNT x;
     for (x = index; x < len; x++) {
@@ -812,21 +814,21 @@ void Mold_Text_Series_At(
     if (NOT_MOLD_FLAG(mo, MOLD_FLAG_NON_ANSI_PARENED))
         paren = 0;
 
-    up = STR_AT(series, index);
+    up = STR_AT(s, index);
 
     // If it is a short quoted string, emit it as "string"
     //
     if (len <= MAX_QUOTED_STR && quote == 0 && newline < 3) {
-        Append_Codepoint(mo->series, '"');
+        Append_Codepoint(buf, '"');
 
         REBCNT n;
-        for (n = index; n < STR_LEN(series); n++) {
+        for (n = index; n < STR_LEN(s); n++) {
             REBUNI c;
             up = NEXT_CHR(&c, up);
             Mold_Uni_Char(mo, c, parened);
         }
 
-        Append_Codepoint(mo->series, '"');
+        Append_Codepoint(buf, '"');
         return;
     }
 
@@ -834,10 +836,10 @@ void Mold_Text_Series_At(
     if (malign == 0)
         brace_in = brace_out = 0;
 
-    Append_Codepoint(mo->series, '{');
+    Append_Codepoint(buf, '{');
 
     REBCNT n;
-    for (n = index; n < STR_LEN(series); n++) {
+    for (n = index; n < STR_LEN(s); n++) {
         REBUNI c;
         up = NEXT_CHR(&c, up);
 
@@ -845,13 +847,13 @@ void Mold_Text_Series_At(
         case '{':
         case '}':
             if (malign) {
-                Append_Codepoint(mo->series, '^');
+                Append_Codepoint(buf, '^');
                 break;
             }
             // fall through
         case '\n':
         case '"':
-            Append_Codepoint(mo->series, c);
+            Append_Codepoint(buf, c);
             break;
 
         default:
@@ -859,7 +861,7 @@ void Mold_Text_Series_At(
         }
     }
 
-    Append_Codepoint(mo->series, '}');
+    Append_Codepoint(buf, '}');
 }
 
 
@@ -916,7 +918,7 @@ static void Mold_Tag(REB_MOLD *mo, const REBCEL *v)
 //
 void MF_String(REB_MOLD *mo, const REBCEL *v, bool form)
 {
-    REBSER *s = mo->series;
+    REBSTR *buf = mo->series;
 
     enum Reb_Kind kind = CELL_KIND(v); // may be literal reusing the cell
     assert(ANY_STRING_KIND(kind));
@@ -925,7 +927,7 @@ void MF_String(REB_MOLD *mo, const REBCEL *v, bool form)
     //
     if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL) && VAL_INDEX(v) != 0) {
         Pre_Mold(mo, v); // e.g. #[file! part
-        Mold_Text_Series_At(mo, VAL_SERIES(v), 0);
+        Mold_Text_Series_At(mo, VAL_STRING(v), 0);
         Post_Mold(mo, v);
         return;
     }
@@ -934,18 +936,18 @@ void MF_String(REB_MOLD *mo, const REBCEL *v, bool form)
     // would form with no delimiters, e.g. `form #foo` is just foo
     //
     if (form and kind != REB_TAG) {
-        Append_String(mo->series, v, VAL_LEN_AT(v));
+        Append_String(buf, v, VAL_LEN_AT(v));
         return;
     }
 
     switch (kind) {
       case REB_TEXT:
-        Mold_Text_Series_At(mo, VAL_SERIES(v), VAL_INDEX(v));
+        Mold_Text_Series_At(mo, VAL_STRING(v), VAL_INDEX(v));
         break;
 
       case REB_FILE:
         if (VAL_LEN_AT(v) == 0) {
-            Append_Ascii(s, "%\"\"");
+            Append_Ascii(buf, "%\"\"");
             break;
         }
         Mold_File(mo, v);
@@ -998,7 +1000,7 @@ REBTYPE(String)
 
         UNUSED(PAR(series)); // already accounted for
 
-        REBSER *ser = VAL_SERIES(v);
+        REBSTR *s = VAL_STRING(v);
         FAIL_IF_READ_ONLY(v);
 
         UNUSED(REF(part));
@@ -1010,11 +1012,11 @@ REBTYPE(String)
         REBSIZ size = VAL_SIZE_LIMIT_AT(&len, v, limit);
 
         REBSIZ offset = VAL_OFFSET_FOR_INDEX(v, index);
-        REBSIZ used_old = SER_USED(ser);
+        REBSIZ size_old = STR_SIZE(s);
 
-        Remove_Series_Units(ser, offset, size); // should keep terminator
-        Free_Bookmarks_Maybe_Null(ser);
-        SET_STR_LEN_USED(ser, tail - len, used_old - size); // no term needed
+        Remove_Series_Units(SER(s), offset, size);  // should keep terminator
+        Free_Bookmarks_Maybe_Null(s);
+        SET_STR_LEN_SIZE(s, tail - len, size_old - size);  // no term needed
 
         RETURN (v); }
 
@@ -1094,7 +1096,7 @@ REBTYPE(String)
 
         REBCNT len;
         REBCNT ret = find_string(
-            &len, VAL_SERIES(v), index, tail, arg, flags, skip
+            &len, VAL_STRING(v), index, tail, arg, flags, skip
         );
 
         if (ret == NOT_FOUND)
@@ -1116,7 +1118,7 @@ REBTYPE(String)
 
         return Init_Char_Unchecked(
             D_OUT,
-            CHR_CODE(STR_AT(VAL_SERIES(v), ret))
+            CHR_CODE(STR_AT(VAL_STRING(v), ret))
         ); }
 
     case SYM_TAKE_P: {
@@ -1133,7 +1135,7 @@ REBTYPE(String)
         if (REF(part)) {
             len = Part_Len_May_Modify_Index(v, ARG(limit));
             if (len == 0)
-                return Init_Any_Series(D_OUT, VAL_TYPE(v), Make_String(0));
+                return Init_Any_String(D_OUT, VAL_TYPE(v), Make_String(0));
         } else
             len = 1;
 
@@ -1151,26 +1153,25 @@ REBTYPE(String)
         if (VAL_INDEX(v) >= tail) {
             if (not REF(part))
                 return nullptr;
-            return Init_Any_Series(D_OUT, VAL_TYPE(v), Make_String(0));
+            return Init_Any_String(D_OUT, VAL_TYPE(v), Make_String(0));
         }
 
-        REBSER *ser = VAL_SERIES(v);
+        REBSTR *s = VAL_STRING(v);
         index = VAL_INDEX(v);
 
         // if no /PART, just return value, else return string
         //
         if (REF(part))
-            Init_Any_Series(D_OUT, VAL_TYPE(v), Copy_String_At_Limit(v, len));
+            Init_Any_String(D_OUT, VAL_TYPE(v), Copy_String_At_Limit(v, len));
         else
             Init_Char_Unchecked(D_OUT, CHR_CODE(VAL_STRING_AT(v)));
 
-
-        Remove_Series_Len(ser, VAL_INDEX(v), len);
+        Remove_Series_Len(SER(s), VAL_INDEX(v), len);
         return D_OUT; }
 
     case SYM_CLEAR: {
         FAIL_IF_READ_ONLY(v);
-        REBSER *ser = VAL_SERIES(v);
+        REBSTR *s = VAL_STRING(v);
 
         if (index >= tail)
             RETURN (v);  // clearing after available data has no effect
@@ -1179,14 +1180,14 @@ REBTYPE(String)
         // series is now empty, it reclaims the "bias" (unused capacity at
         // the head of the series).  One of many behaviors worth reviewing.
         //
-        if (index == 0 and IS_SER_DYNAMIC(ser))
-            Unbias_Series(ser, false);
+        if (index == 0 and IS_SER_DYNAMIC(s))
+            Unbias_Series(SER(s), false);
 
-        Free_Bookmarks_Maybe_Null(ser);  // review!
+        Free_Bookmarks_Maybe_Null(s);  // review!
         REBSIZ offset = VAL_OFFSET_FOR_INDEX(v, index);
-        Free_Bookmarks_Maybe_Null(ser);
+        Free_Bookmarks_Maybe_Null(s);
 
-        TERM_STR_LEN_USED(ser, cast(REBCNT, index), offset);
+        TERM_STR_LEN_SIZE(s, cast(REBCNT, index), offset);
         RETURN (v); }
 
     //-- Creation:
@@ -1206,7 +1207,7 @@ REBTYPE(String)
         REBINT len = Part_Len_May_Modify_Index(v, ARG(limit));
         UNUSED(REF(part)); // checked by if limit is nulled
 
-        return Init_Any_Series(
+        return Init_Any_String(
             D_OUT,
             VAL_TYPE(v),
             Copy_String_At_Limit(v, len)
@@ -1315,7 +1316,7 @@ REBTYPE(String)
 
             return Init_Char_Unchecked(
                 D_OUT,
-                GET_CHAR_AT(VAL_SERIES(v), index)
+                GET_CHAR_AT(VAL_STRING(v), index)
             );
         }
 

@@ -113,11 +113,11 @@ const REBYTE *Match_Bytes(const REBYTE *src, const REBYTE *pat)
 // Return true if s1 is a subpath of s2.
 // Case insensitive.
 //
-bool Match_Sub_Path(REBSER *s1, REBSER *s2)
+bool Match_Sub_Path(REBSTR *s1, REBSTR *s2)
 {
-    REBCNT len1 = SER_LEN(s1);
+    REBCNT len1 = STR_LEN(s1);
 
-    if (len1 > SER_LEN(s2))
+    if (len1 > STR_LEN(s2))
         return false;
 
     REBUNI c1 = 0;
@@ -418,11 +418,11 @@ REBCNT Find_Str_In_Bin(
 // Flags are set according to ALL_FIND_REFS
 //
 REBCNT Find_Str_In_Str(
-    REBSER *ser1,
+    REBSTR *str1,
     REBCNT index_unsigned,
     REBCNT end_unsigned,
     REBINT skip,
-    REBSER *ser2,
+    REBSTR *str2,
     REBINT index2,
     REBCNT len,
     REBFLGS flags
@@ -441,18 +441,15 @@ REBCNT Find_Str_In_Str(
 
     assert((flags & ~(AM_FIND_CASE | AM_FIND_MATCH)) == 0);
 
-    assert(GET_SERIES_FLAG(ser1, UTF8_NONWORD));
-    assert(GET_SERIES_FLAG(ser2, UTF8_NONWORD));
-
     bool uncase = not (flags & AM_FIND_CASE); // case insenstive
 
     REBUNI c2_canon; // calculate first char lowercase once, vs. each step
-    REBCHR(const*) next2 = STR_AT(ser2, index2);
+    REBCHR(const*) next2 = STR_AT(str2, index2);
     next2 = NEXT_CHR(&c2_canon, next2);
     if (uncase)
         c2_canon = LO_CASE(c2_canon);
 
-    REBCHR(const*) cp1 = STR_AT(ser1, index);
+    REBCHR(const*) cp1 = STR_AT(str1, index);
     REBUNI c1;
     if (skip > 0)
         cp1 = NEXT_CHR(&c1, cp1);
@@ -460,7 +457,7 @@ REBCNT Find_Str_In_Str(
         cp1 = BACK_CHR(&c1, cp1);
 
     while (skip < 0 ? index >= start : index < end) {
-        if (c1 == c2_canon || (uncase && LO_CASE(c1) == c2_canon)) {
+        if (c1 == c2_canon or (uncase and LO_CASE(c1) == c2_canon)) {
             REBCHR(const*) tp1;
             if (skip > 0)
                 tp1 = cp1;
@@ -474,7 +471,7 @@ REBCNT Find_Str_In_Str(
 
                 REBUNI c2;
                 tp2 = NEXT_CHR(&c2, tp2);
-                if (c1 == c2 || (uncase && LO_CASE(c1) == LO_CASE(c2)))
+                if (c1 == c2 or (uncase and LO_CASE(c1) == LO_CASE(c2)))
                     continue;
 
                 break;
@@ -507,7 +504,7 @@ REBCNT Find_Str_In_Str(
 //
 REBCNT Find_Char_In_Str(
     REBUNI uni,         // character to look for
-    REBSER *series,     // UTF-8 string series
+    REBSTR *s,          // UTF-8 string series
     REBCNT index_orig,  // first index to examine (if out of range, NOT_FOUND)
     REBCNT highest,     // *one past* highest return result (e.g. SER_LEN)
     REBINT skip,        // step amount while searching, can be negative!
@@ -518,10 +515,10 @@ REBCNT Find_Char_In_Str(
     // !!! In UTF-8, finding a char in a string is really just like finding a
     // string in a string.  Optimize as this all folds together.
 
-    REBSER *temp = Make_Ser_Codepoint(uni);
+    REBSTR *temp = Make_Codepoint_String(uni);
 
     REBCNT i = Find_Str_In_Str(
-        series,
+        s,
         index_orig,
         highest,
         skip,
@@ -530,7 +527,7 @@ REBCNT Find_Char_In_Str(
         1,
         flags
     );
-    Free_Unmanaged_Series(temp);
+    Free_Unmanaged_Series(SER(temp));
 
     return i;
 }
@@ -541,7 +538,7 @@ REBCNT Find_Char_In_Str(
 //
 REBCNT Find_Char_In_Bin(
     REBUNI uni,         // character to look for
-    REBSER *series,     // UTF-8 string series
+    REBBIN *bin,        // binary series
     REBCNT lowest,      // lowest return index
     REBCNT index_orig,  // first index to examine (if out of range, NOT_FOUND)
     REBCNT highest,     // *one past* highest return result (e.g. SER_LEN)
@@ -556,23 +553,23 @@ REBCNT Find_Char_In_Bin(
     if (skip != 1)
         fail ("Find_Char_In_Bin() does not support SKIP <> 1 at the moment");
 
-    if (highest != BIN_LEN(series))
+    if (highest != BIN_LEN(bin))
         fail ("Find_Char_In_Bin() only searches the whole binary for now");
 
     UNUSED(lowest);
 
-    REBSER *temp = Make_Ser_Codepoint(uni);
+    REBSTR *temp = Make_Codepoint_String(uni);
 
     REBCNT i = Find_Str_In_Bin(
-        series,
+        bin,
         index_orig,
-        BIN_HEAD(temp),
+        STR_HEAD(temp),
         1, // 1 character
-        BIN_LEN(temp),
+        STR_SIZE(temp),
         flags
     );
 
-    Free_Unmanaged_Series(temp);
+    Free_Unmanaged_Series(SER(temp));
 
     return i;
 }
@@ -635,7 +632,7 @@ REBCNT Find_Bin_Bitset(
 // Flags are set according to ALL_FIND_REFS
 //
 REBCNT Find_Str_Bitset(
-    REBSER *str,
+    REBSTR *str,
     REBCNT index_unsigned,
     REBCNT end_unsigned,
     REBINT skip,
@@ -651,8 +648,6 @@ REBCNT Find_Str_Bitset(
     }
     else
         start = index;
-
-    assert(GET_SERIES_FLAG(str, UTF8_NONWORD));
 
     bool uncase = not (flags & AM_FIND_CASE); // case insensitive
 
@@ -742,19 +737,18 @@ REBCNT Find_In_Any_Sequence(
     const RELVAL *pattern,
     REBFLGS flags
 ){
-    REBSER *series = VAL_SERIES(any_series);
     REBCNT index = VAL_INDEX(any_series);
     REBCNT end = VAL_LEN_HEAD(any_series);
     REBINT skip = 1;
 
     if (IS_BINARY(any_series))
         return find_binary(  // Note: returned len is in bytes here
-            len, series, index, end, pattern, flags, skip
+            len, VAL_SERIES(any_series), index, end, pattern, flags, skip
         );
 
     if (ANY_STRING(any_series))
         return find_string(  // Note: returned len is in codepoints here
-            len, series, index, end, pattern, flags, skip
+            len, VAL_STRING(any_series), index, end, pattern, flags, skip
         );
 
     fail ("Unknown sequence type for Find_In_Any_Sequence()");

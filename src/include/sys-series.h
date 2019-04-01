@@ -128,17 +128,6 @@ inline static REBCNT SER_USED(REBSER *s) {
     return len_byte == 255 ? s->content.dynamic.used : len_byte;
 }
 
-inline static REBCNT SER_LEN(REBSER *s) {
-    if (NOT_SERIES_FLAG(s, UTF8_NONWORD))
-        return SER_USED(s);
-
-  #ifdef DEBUG_UTF8_EVERYWHERE
-    if (MISC(s).length > SER_USED(s)) // includes 0xDECAFBAD
-        panic(s);
-  #endif
-    return MISC(s).length;
-}
-
 inline static void SET_SERIES_USED(REBSER *s, REBCNT used) {
     assert(NOT_SERIES_FLAG(s, STACK_LIFETIME));
 
@@ -155,7 +144,7 @@ inline static void SET_SERIES_USED(REBSER *s, REBCNT used) {
     // at the byte level.  The higher level string mechanics must be used on
     // strings.
     //
-    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
+    if (GET_SERIES_FLAG(s, IS_STRING)) {
         MISC(s).length = 0xDECAFBAD;
         TOUCH_SERIES_IF_DEBUG(s);
     }
@@ -163,7 +152,7 @@ inline static void SET_SERIES_USED(REBSER *s, REBCNT used) {
 }
 
 inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
-    assert(NOT_SERIES_FLAG(s, UTF8_NONWORD)); // use _LEN_SIZE
+    assert(NOT_SERIES_FLAG(s, IS_STRING));  // use _LEN_SIZE
     SET_SERIES_USED(s, len);
 }
 
@@ -616,26 +605,6 @@ inline static REBSER *VAL_SERIES(const REBCEL *v) {
     }
 #endif
 
-#define VAL_LEN_HEAD(v) \
-    SER_LEN(VAL_SERIES(v))
-
-inline static bool VAL_PAST_END(const REBCEL *v)
-   { return VAL_INDEX(v) > VAL_LEN_HEAD(v); }
-
-inline static REBCNT VAL_LEN_AT(const REBCEL *v) {
-    //
-    // !!! At present, it is considered "less of a lie" to tell people the
-    // length of a series is 0 if its index is actually past the end, than
-    // to implicitly clip the data pointer on out of bounds access.  It's
-    // still going to be inconsistent, as if the caller extracts the index
-    // and low level SER_LEN() themselves, they'll find it doesn't add up.
-    // This is a longstanding historical Rebol issue that needs review.
-    //
-    if (VAL_INDEX(v) >= VAL_LEN_HEAD(v))
-        return 0;  // avoid negative index
-
-    return VAL_LEN_HEAD(v) - VAL_INDEX(v);  // take current index into account
-}
 
 inline static REBYTE *VAL_RAW_DATA_AT(const REBCEL *v) {
     return SER_AT_RAW(SER_WIDE(VAL_SERIES(v)), VAL_SERIES(v), VAL_INDEX(v));

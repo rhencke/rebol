@@ -114,7 +114,7 @@ inline static REBARR *Singular_From_Cell(const REBCEL *v) {
 // sync these independently for performance reasons (for better or worse).
 //
 #define ARR_LEN(a) \
-    SER_LEN(SER(a))
+    SER_USED(SER(a))
 
 
 // Set length and also terminate.  This routine avoids conditionality in the
@@ -147,7 +147,7 @@ inline static void RESET_ARRAY(REBARR *a) {
 
 inline static void TERM_SERIES(REBSER *s) {
     if (IS_SER_ARRAY(s))
-        TERM_ARRAY_LEN(ARR(s), SER_LEN(s));
+        TERM_ARRAY_LEN(ARR(s), ARR_LEN(s));
     else
         TERM_SEQUENCE(s);
 }
@@ -498,7 +498,7 @@ inline static REBARR *VAL_ARRAY(const REBCEL *v) {
 // from the VAL_INDEX() of the value itself.
 //
 inline static RELVAL *VAL_ARRAY_AT(const REBCEL *v) {
-    if (VAL_PAST_END(v))
+    if (VAL_INDEX(v) > ARR_LEN(VAL_ARRAY(v)))
         fail (Error_Past_End_Raw());  // don't clip and give deceptive pointer
     return ARR_AT(VAL_ARRAY(v), VAL_INDEX(v));
 }
@@ -506,9 +506,8 @@ inline static RELVAL *VAL_ARRAY_AT(const REBCEL *v) {
 #define VAL_ARRAY_LEN_AT(v) \
     VAL_LEN_AT(v)
 
-inline static RELVAL *VAL_ARRAY_TAIL(const RELVAL *v) {
-    return ARR_AT(VAL_ARRAY(v), VAL_ARRAY_LEN_AT(v));
-}
+inline static RELVAL *VAL_ARRAY_TAIL(const RELVAL *v)
+  { return ARR_TAIL(VAL_ARRAY(v)); }
 
 
 // !!! VAL_ARRAY_AT_HEAD() is a leftover from the old definition of
@@ -523,9 +522,10 @@ inline static RELVAL *VAL_ARRAY_TAIL(const RELVAL *v) {
 // looking here for what the story is.
 //
 inline static RELVAL *VAL_ARRAY_AT_HEAD(const RELVAL *v, REBCNT n) {
-    if (n > VAL_LEN_HEAD(v))
+    REBARR *a = VAL_ARRAY(v);  // debug build checks it's ANY-ARRAY!
+    if (n > ARR_LEN(a))
         fail (Error_Past_End_Raw());
-    return ARR_AT(VAL_ARRAY(v), (n));
+    return ARR_AT(a, (n));
 }
 
 #define Init_Any_Array_At(v,t,a,i) \
@@ -581,7 +581,7 @@ inline static bool Splices_Into_Type_Without_Only(
 inline static bool Is_Any_Doubled_Group(const REBCEL *group) {
     assert(ANY_GROUP_KIND(CELL_KIND(group)));
     RELVAL *inner = VAL_ARRAY_AT(group);
-    if (KIND_BYTE(inner) != REB_GROUP or VAL_LEN_AT(group) != 1)
+    if (KIND_BYTE(inner) != REB_GROUP or NOT_END(inner + 1))
         return false; // plain (...) GROUP!
     return true; // a ((...)) GROUP!, inject as rule
 }

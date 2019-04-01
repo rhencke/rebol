@@ -148,7 +148,7 @@ REBNATIVE(request_file_p)
         }
         Append_Codepoint(mo->series, '\0');
 
-        REBSER *ser = Pop_Molded_String(mo);
+        REBSTR *ser = Pop_Molded_String(mo);
 
         // !!! We don't really want to be exposing REBSERs to this level of
         // interface code.  In trying to coax it toward REBVAL-oriented APIs

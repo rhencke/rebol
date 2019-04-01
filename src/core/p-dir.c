@@ -72,17 +72,17 @@ static REBARR *Read_Dir_May_Fail(REBREQ *dir)
         and (
             NOT_FOUND != Find_Char_In_Str(
                 '*',
-                VAL_SERIES(ReqFile(dir)->path),
+                VAL_STRING(ReqFile(dir)->path),
                 VAL_INDEX(ReqFile(dir)->path), // first index to examine
-                SER_LEN(VAL_SERIES(ReqFile(dir)->path)) + 1, // highest return + 1
+                STR_LEN(VAL_STRING(ReqFile(dir)->path)) + 1, // highest return + 1
                 0, // skip
                 AM_FIND_CASE // not relevant
             )
             or NOT_FOUND != Find_Char_In_Str(
                 '?',
-                VAL_SERIES(ReqFile(dir)->path),
+                VAL_STRING(ReqFile(dir)->path),
                 VAL_INDEX(ReqFile(dir)->path), // first index to examine
-                SER_LEN(VAL_SERIES(ReqFile(dir)->path)) + 1, // highest return + 1
+                STR_LEN(VAL_STRING(ReqFile(dir)->path)) + 1, // highest return + 1
                 0, // skip
                 AM_FIND_CASE // not relevant
             )

@@ -171,10 +171,11 @@ typedef struct Reb_Series REBSER;
 
 typedef REBSER REBBIN;  // generic binary series, e.g. for BINARY! (byte-size)
 
-typedef REBSER REBSTR;  // UTF-8 string series (byte-size, variable encoding)
+struct Reb_String;
+typedef struct Reb_String REBSTR;  // see %sys-string.h
 
 struct Reb_Array;
-typedef struct Reb_Array REBARR;
+typedef struct Reb_Array REBARR;  // array of value cells
 
 struct Reb_Context;
 typedef struct Reb_Context REBCTX;

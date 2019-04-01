@@ -999,7 +999,7 @@ inline static void Begin_Action(REBFRM *f, REBSTR *opt_label)
     f->original = FRM_PHASE(f);
 
     assert(IS_POINTER_TRASH_DEBUG(f->opt_label)); // only valid w/REB_ACTION
-    assert(not opt_label or GET_SERIES_FLAG(opt_label, IS_UTF8_STRING));
+    assert(not opt_label or GET_SERIES_FLAG(opt_label, IS_STRING));
     f->opt_label = opt_label;
   #if defined(DEBUG_FRAME_LABELS) // helpful for looking in the debugger
     f->label_utf8 = cast(const char*, Frame_Label_Or_Anonymous_UTF8(f));
@@ -1156,7 +1156,7 @@ inline static void Drop_Action(REBFRM *f) {
 
     assert(
         not f->opt_label
-        or GET_SERIES_FLAG(f->opt_label, IS_UTF8_STRING)
+        or GET_SERIES_FLAG(f->opt_label, IS_STRING)
     );
 
     if (NOT_EVAL_FLAG(f, FULFILLING_ARG))

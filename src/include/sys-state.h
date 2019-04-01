@@ -46,6 +46,6 @@ struct Reb_State {
 
     REBCNT manuals_len; // Where GC_Manuals was when state started
     REBCNT mold_buf_len;
-    REBCNT mold_buf_used;
+    REBCNT mold_buf_size;
     REBCNT mold_loop_tail;
 };

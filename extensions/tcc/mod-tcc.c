@@ -506,10 +506,16 @@ REBNATIVE(compile_p)
     if (tcc_set_output_type(state, TCC_OUTPUT_MEMORY) < 0)
         fail ("TCC failed to set output to memory");
 
-    if (tcc_compile_string(state, cs_cast(BIN_AT(mo->series, mo->offset))) < 0)
+    if (
+        tcc_compile_string(
+            state,
+            cs_cast(BIN_AT(SER(mo->series), mo->offset))
+        ) < 0
+    ){
         rebJumps ("fail [",
             "{TCC failed to compile the code}", compilables,
         "]", rebEND);
+    }
 
     Drop_Mold(mo);  // discard the combined source (no longer needed)
 

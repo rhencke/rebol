@@ -687,7 +687,7 @@ static REBCTX *Error_Syntax(SCAN_STATE *ss, enum Reb_Token token) {
 //
 static REBCTX *Error_Missing(SCAN_STATE *ss, char wanted) {
     DECLARE_LOCAL (expected);
-    Init_Text(expected, Make_Ser_Codepoint(wanted));
+    Init_Text(expected, Make_Codepoint_String(wanted));
 
     REBCTX *error = Error_Scan_Missing_Raw(expected);
 
@@ -712,7 +712,7 @@ static REBCTX *Error_Missing(SCAN_STATE *ss, char wanted) {
 //
 static REBCTX *Error_Extra(SCAN_STATE *ss, char seen) {
     DECLARE_LOCAL (unexpected);
-    Init_Text(unexpected, Make_Ser_Codepoint(seen));
+    Init_Text(unexpected, Make_Codepoint_String(seen));
 
     REBCTX *error = Error_Scan_Extra_Raw(unexpected);
     Update_Error_Near_For_Line(error, ss->line, ss->line_head);

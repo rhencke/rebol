@@ -536,7 +536,7 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
                 if (var)
                     Init_Char_Unchecked(
                         var,
-                        GET_CHAR_AT(les->data_ser, les->data_idx)
+                        GET_CHAR_AT(STR(les->data_ser), les->data_idx)
                     );
                 if (++les->data_idx == les->data_len)
                     more_data = false;
@@ -1160,8 +1160,8 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         //
         REBSER *popped = Pop_Molded_Binary(res->mo);
 
-        assert(SER_LEN(popped) <= VAL_LEN_HEAD(res->data));
-        count = VAL_LEN_HEAD(res->data) - SER_LEN(popped);
+        assert(BIN_LEN(popped) <= VAL_LEN_HEAD(res->data));
+        count = VAL_LEN_HEAD(res->data) - BIN_LEN(popped);
 
         // We want to swap out the data properties of the series, so the
         // identity of the incoming series is kept but now with different
@@ -1186,22 +1186,22 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         for (; res->start != orig_len; ++res->start) {
             Append_Codepoint(
                 res->mo->series,
-                GET_CHAR_AT(res->series, res->start)
+                GET_CHAR_AT(STR(res->series), res->start)
             );
         }
 
-        REBSER *popped = Pop_Molded_String(res->mo);
+        REBSTR *popped = Pop_Molded_String(res->mo);
 
-        assert(SER_LEN(popped) <= VAL_LEN_HEAD(res->data));
-        count = VAL_LEN_HEAD(res->data) - SER_LEN(popped);
+        assert(STR_LEN(popped) <= VAL_LEN_HEAD(res->data));
+        count = VAL_LEN_HEAD(res->data) - STR_LEN(popped);
 
         // We want to swap out the data properties of the series, so the
         // identity of the incoming series is kept but now with different
         // underlying data.
         //
-        Swap_Series_Content(popped, VAL_SERIES(res->data));
+        Swap_Series_Content(SER(popped), VAL_SERIES(res->data));
 
-        Free_Unmanaged_Series(popped);  // now frees incoming series's data
+        Free_Unmanaged_Series(SER(popped));  // frees incoming series's data
     }
 
     return count;
@@ -1248,7 +1248,10 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
                 Init_Integer(var, cast(REBI64, BIN_HEAD(res->series)[index]));
             else {
                 assert(ANY_STRING(res->data));
-                Init_Char_Unchecked(var, GET_CHAR_AT(res->series, index));
+                Init_Char_Unchecked(
+                    var,
+                    GET_CHAR_AT(STR(res->series), index)
+                );
             }
             ++index;
         }
@@ -1313,7 +1316,7 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
                 else {
                     Append_Codepoint(
                         res->mo->series,
-                        GET_CHAR_AT(res->series, res->start)
+                        GET_CHAR_AT(STR(res->series), res->start)
                     );
                 }
                 ++res->start;

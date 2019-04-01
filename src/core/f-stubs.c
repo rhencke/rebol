@@ -307,19 +307,51 @@ REBVAL *Init_Any_Series_At_Core(
         assert(binding == UNBOUND);
 
   #if !defined(NDEBUG)
-    if (ANY_STRING_KIND(type)) {
-        if (
-            SER_WIDE(s) != 1
-            or NOT_SERIES_FLAG(s, UTF8_NONWORD)
-        ){
-            panic(s);
-        }
-    } else if (type == REB_BINARY) {
+    if (ANY_STRING_KIND(type) or type == REB_BINARY)
         if (SER_WIDE(s) != 1)
             panic(s);
-    }
   #endif
 
+    return KNOWN(out);
+}
+
+
+//
+//  Init_Any_String_At_Core: C
+//
+// Common function.
+//
+REBVAL *Init_Any_String_At_Core(
+    RELVAL *out,
+    enum Reb_Kind type,
+    REBSTR *s,
+    REBCNT index
+){
+    if (ANY_WORD_KIND(type))
+        assert(IS_STR_SYMBOL(s));
+    else
+        assert(ANY_STRING_KIND(type));
+
+    // Note: a R3-Alpha Make_Binary() comment said:
+    //
+    //     Make a binary string series. For byte, C, and UTF8 strings.
+    //     Add 1 extra for terminator.
+    //
+    // One advantage of making all binaries terminate in 0 is that it means
+    // that if they were valid UTF-8, they could be aliased as Rebol strings,
+    // which are zero terminated.  For now, it's the rule.
+    //
+    ASSERT_SERIES_TERM(SER(s));
+  #if !defined(NDEBUG)
+    if (SER_WIDE(SER(s)) != 1)
+        panic(s);
+  #endif
+
+    Ensure_Series_Managed(s);
+
+    RESET_CELL(out, type, CELL_FLAG_FIRST_IS_NODE);
+    INIT_VAL_NODE(out, s);
+    VAL_INDEX(out) = index;
     return KNOWN(out);
 }
 

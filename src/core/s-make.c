@@ -34,7 +34,7 @@
 // be made, but better to either know -or- go via the mold buffer to get
 // the exact right length.
 //
-REBSER *Make_String_Core(REBSIZ encoded_capacity, REBFLGS flags)
+REBSTR *Make_String_Core(REBSIZ encoded_capacity, REBFLGS flags)
 {
     // !!! Even though this is a byte sized sequence, we add 2 bytes for the
     // terminator (and TERM_SEQUENCE() terminates with 2 bytes) because we're
@@ -44,20 +44,12 @@ REBSER *Make_String_Core(REBSIZ encoded_capacity, REBFLGS flags)
     REBSER *s = Make_Series_Core(
         encoded_capacity + 1,
         sizeof(REBYTE),
-        flags
+        flags | SERIES_FLAG_IS_STRING | SERIES_FLAG_UTF8_NONWORD
     );
-    SET_SERIES_FLAG(s, UTF8_NONWORD);
     MISC(s).length = 0;
     LINK(s).bookmarks = nullptr;  // generated on demand
     TERM_SERIES(s);
-
-    // !!! Can the current codebase get away with single-byte termination of
-    // a REBUNI-based string?  Code in the REBUNI-world shouldn't really be
-    // looking for terminators since embedded nulls are legal in STRING!, so
-    // we might get away with it.
-    //
-    ASSERT_SERIES_TERM(s);
-    return s;
+    return STR(s);
 }
 
 
@@ -71,10 +63,10 @@ REBSER *Make_String_Core(REBSIZ encoded_capacity, REBFLGS flags)
 // for internal strings, getting this wrong and not doing an expansion could
 // be a bug.  Just make big strings for now.
 //
-REBSER *Make_Unicode(REBCNT codepoint_capacity)
+REBSTR *Make_Unicode(REBCNT codepoint_capacity)
 {
-    REBSER *s = Make_String(codepoint_capacity * 2);
-    ASSERT_SERIES_TERM(s);
+    REBSTR *s = Make_String(codepoint_capacity * 2);
+    ASSERT_SERIES_TERM(SER(s));
     return s;
 }
 
@@ -103,11 +95,11 @@ REBSER *Copy_Bytes(const REBYTE *src, REBINT len)
 //
 // Insert a unicode char into a string.
 //
-void Insert_Char(REBSER *dst, REBCNT index, REBCNT chr)
+void Insert_Char(REBSTR *dst, REBCNT index, REBCNT chr)
 {
-    if (index > SER_LEN(dst))
-        index = SER_LEN(dst);
-    Expand_Series(dst, index, 1);
+    if (index > STR_LEN(dst))
+        index = STR_LEN(dst);
+    Expand_Series(SER(dst), index, 4);  // !!! 4 is max codepoint size, review
     SET_CHAR_AT(dst, index, chr);
 }
 
@@ -119,15 +111,15 @@ void Insert_Char(REBSER *dst, REBCNT index, REBCNT chr)
 // other series due to the length being counted in characters and not
 // units of the series width.
 //
-REBSER *Copy_String_At_Limit(const RELVAL *src, REBINT limit)
+REBSTR *Copy_String_At_Limit(const RELVAL *src, REBINT limit)
 {
     REBCNT length_limit;
     REBSIZ size = VAL_SIZE_LIMIT_AT(&length_limit, src, limit);
     assert(length_limit <= size);
 
-    REBSER *dst = Make_String(size);
+    REBSTR *dst = Make_String(size);
     memcpy(STR_HEAD(dst), VAL_STRING_AT(src), size);
-    TERM_STR_LEN_USED(dst, length_limit, size);
+    TERM_STR_LEN_SIZE(dst, length_limit, size);
 
     return dst;
 }
@@ -143,12 +135,10 @@ REBSER *Copy_String_At_Limit(const RELVAL *src, REBINT limit)
 // resizing checks if an invalid UTF-8 byte were used to mark the end of the
 // capacity (the way END markers are used on the data stack?)
 //
-REBSER *Append_Codepoint(REBSER *dst, REBUNI codepoint)
+REBSTR *Append_Codepoint(REBSTR *dst, REBUNI codepoint)
 {
     assert(codepoint <= MAX_UNI);
-
-    assert(SER_WIDE(dst) == sizeof(REBYTE));
-    assert(GET_SERIES_FLAG(dst, UTF8_NONWORD));
+    assert(not IS_STR_SYMBOL(dst));
 
     REBCNT old_len = STR_LEN(dst);
 
@@ -156,29 +146,29 @@ REBSER *Append_Codepoint(REBSER *dst, REBUNI codepoint)
     //
     // https://stackoverflow.com/a/9533324/211160
     //
-    REBSIZ tail = SER_USED(dst);
-    EXPAND_SERIES_TAIL(dst, 4); // !!! Conservative, assume long codepoint
-    tail += Encode_UTF8_Char(BIN_AT(dst, tail), codepoint); // 1 to 4 bytes
+    REBSIZ tail = STR_SIZE(dst);
+    EXPAND_SERIES_TAIL(SER(dst), 4); // !!! Conservative, assume big codepoint
+    tail += Encode_UTF8_Char(BIN_AT(SER(dst), tail), codepoint);
 
     // "length" grew by 1 codepoint, but "size" grew by 1 to 4 bytes
     //
-    TERM_STR_LEN_USED(dst, old_len + 1, tail);
+    TERM_STR_LEN_SIZE(dst, old_len + 1, tail);
 
     return dst;
 }
 
 
 //
-//  Make_Ser_Codepoint: C
+//  Make_Codepoint_String: C
 //
 // Create a string that holds a single codepoint.
 //
-REBSER *Make_Ser_Codepoint(REBUNI codepoint)
+REBSTR *Make_Codepoint_String(REBUNI codepoint)
 {
     assert(codepoint <= MAX_UNI);
 
-    REBSER *s = Make_Unicode(1);
-    TERM_STR_LEN_USED(s, 1, Encode_UTF8_Char(BIN_HEAD(s), codepoint));
+    REBSTR *s = Make_Unicode(1);
+    TERM_STR_LEN_SIZE(s, 1, Encode_UTF8_Char(STR_HEAD(s), codepoint));
     return s;
 }
 
@@ -192,10 +182,8 @@ REBSER *Make_Ser_Codepoint(REBUNI codepoint)
 // !!! Should debug build assert it's ASCII?  Most of these are coming from
 // string literals in the source.
 //
-REBSER *Append_Ascii_Len(REBSER *dst, const char *ascii, REBCNT len)
+REBSTR *Append_Ascii_Len(REBSTR *dst, const char *ascii, REBCNT len)
 {
-    assert(BYTE_SIZE(dst));
-
     REBCNT old_size;
     REBCNT old_len;
 
@@ -205,14 +193,14 @@ REBSER *Append_Ascii_Len(REBSER *dst, const char *ascii, REBCNT len)
         old_len = 0;
     }
     else {
-        old_size = SER_USED(dst);
+        old_size = STR_SIZE(dst);
         old_len = STR_LEN(dst);
-        EXPAND_SERIES_TAIL(dst, len);
+        EXPAND_SERIES_TAIL(SER(dst), len);
     }
 
-    memcpy(BIN_AT(dst, old_size), ascii, len);
+    memcpy(BIN_AT(SER(dst), old_size), ascii, len);
 
-    TERM_STR_LEN_USED(dst, old_len + len, old_size + len);
+    TERM_STR_LEN_SIZE(dst, old_len + len, old_size + len);
     return dst;
 }
 
@@ -225,7 +213,7 @@ REBSER *Append_Ascii_Len(REBSER *dst, const char *ascii, REBCNT len)
 //
 // !!! Should be in a header file so it can be inlined.
 //
-REBSER *Append_Ascii(REBSER *dst, const char *src)
+REBSTR *Append_Ascii(REBSTR *dst, const char *src)
 {
     return Append_Ascii_Len(dst, src, strlen(src));
 }
@@ -236,7 +224,7 @@ REBSER *Append_Ascii(REBSER *dst, const char *src)
 //
 // Append a UTF8 byte series to a UTF8 binary.  Terminates.
 //
-REBSER *Append_Utf8(REBSER *dst, const char *utf8, size_t size)
+REBSTR *Append_Utf8(REBSTR *dst, const char *utf8, size_t size)
 {
     const bool crlf_to_lf = false;
     return Append_UTF8_May_Fail(dst, utf8, size, crlf_to_lf);
@@ -248,7 +236,7 @@ REBSER *Append_Utf8(REBSER *dst, const char *utf8, size_t size)
 //
 // Append the spelling of a REBSTR to a UTF8 binary.  Terminates.
 //
-void Append_Spelling(REBSER *dst, REBSTR *spelling)
+void Append_Spelling(REBSTR *dst, REBSTR *spelling)
 {
     Append_Utf8(dst, STR_UTF8(spelling), STR_SIZE(spelling));
 }
@@ -259,27 +247,24 @@ void Append_Spelling(REBSER *dst, REBSTR *spelling)
 //
 // Append a partial string to a UTF-8 binary series.
 //
-void Append_String(REBSER *dst, const REBCEL *src, REBCNT limit)
+void Append_String(REBSTR *dst, const REBCEL *src, REBCNT limit)
 {
-    assert(
-        SER_WIDE(dst) == sizeof(REBYTE)
-        and SER_WIDE(VAL_SERIES(src)) == sizeof(REBYTE)
-        and GET_SERIES_FLAG(VAL_SERIES(src), UTF8_NONWORD)
-    );
+    assert(not IS_STR_SYMBOL(dst));
+    assert(ANY_STRING_KIND(CELL_KIND(src)));
 
     REBSIZ offset = VAL_OFFSET_FOR_INDEX(src, VAL_INDEX(src));
 
-    REBCNT old_len = SER_LEN(dst);
-    REBSIZ old_used = SER_USED(dst);
+    REBCNT old_len = STR_LEN(dst);
+    REBSIZ old_used = STR_SIZE(dst);
 
     REBCNT len;
     REBSIZ size = VAL_SIZE_LIMIT_AT(&len, src, limit);
 
-    REBCNT tail = SER_USED(dst);
-    Expand_Series(dst, tail, size); // series USED changes too
+    REBCNT tail = STR_SIZE(dst);
+    Expand_Series(SER(dst), tail, size);  // series USED changes too
 
-    memcpy(BIN_AT(dst, tail), BIN_AT(VAL_SERIES(src), offset), size);
-    TERM_STR_LEN_USED(dst, old_len + len, old_used + size);
+    memcpy(BIN_AT(SER(dst), tail), BIN_AT(VAL_SERIES(src), offset), size);
+    TERM_STR_LEN_SIZE(dst, old_len + len, old_used + size);
 }
 
 
@@ -288,11 +273,11 @@ void Append_String(REBSER *dst, const REBCEL *src, REBCNT limit)
 //
 // Append an integer string.
 //
-void Append_Int(REBSER *dst, REBINT num)
+void Append_Int(REBSTR *dst, REBINT num)
 {
     REBYTE buf[32];
-
     Form_Int(buf, num);
+
     Append_Ascii(dst, s_cast(buf));
 }
 
@@ -302,7 +287,7 @@ void Append_Int(REBSER *dst, REBINT num)
 //
 // Append an integer string.
 //
-void Append_Int_Pad(REBSER *dst, REBINT num, REBINT digs)
+void Append_Int_Pad(REBSTR *dst, REBINT num, REBINT digs)
 {
     REBYTE buf[32];
     if (digs > 0)
@@ -318,12 +303,10 @@ void Append_Int_Pad(REBSER *dst, REBINT num, REBINT digs)
 //
 //  Append_UTF8_May_Fail: C
 //
-// Append UTF-8 data to a series underlying an ANY-STRING!.
+// Append UTF-8 data to a series underlying an ANY-STRING! (or create new one)
 //
-// `dst = NULL` means make a new string.
-//
-REBSER *Append_UTF8_May_Fail(
-    REBSER *dst,
+REBSTR *Append_UTF8_May_Fail(
+    REBSTR *dst,  // if nullptr, that means make a new string
     const char *utf8,
     REBSIZ size,
     bool crlf_to_lf
@@ -377,23 +360,23 @@ REBSER *Append_UTF8_May_Fail(
     if (dst == mo->series)
         return dst;
 
-    if (dst == NULL)
+    if (not dst)
         return Pop_Molded_String(mo);
 
-    REBCNT old_len = SER_LEN(dst);
-    REBSIZ old_size = SER_USED(dst);
+    REBCNT old_len = STR_LEN(dst);
+    REBSIZ old_size = STR_SIZE(dst);
 
-    EXPAND_SERIES_TAIL(dst, size);
+    EXPAND_SERIES_TAIL(SER(dst), size);
     memcpy(
-        SER_AT_RAW(SER_WIDE(dst), dst, old_size),
-        BIN_AT(mo->series, mo->offset),
-        SER_USED(mo->series) - mo->offset
+        BIN_AT(SER(dst), old_size),
+        BIN_AT(SER(mo->series), mo->offset),
+        STR_SIZE(mo->series) - mo->offset
     );
 
-    TERM_STR_LEN_USED(
+    TERM_STR_LEN_SIZE(
         dst,
         old_len + num_codepoints,
-        old_size + SER_USED(mo->series) - mo->offset
+        old_size + STR_SIZE(mo->series) - mo->offset
     );
 
     Drop_Mold(mo);
@@ -412,7 +395,7 @@ REBSER *Append_UTF8_May_Fail(
 //
 // WARNING: returns BYTE_BUF, not a copy!
 //
-REBSER *Join_Binary(const REBVAL *blk, REBINT limit)
+REBBIN *Join_Binary(const REBVAL *blk, REBINT limit)
 {
     REBSER *series = BYTE_BUF;
 

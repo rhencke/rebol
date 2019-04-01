@@ -576,7 +576,7 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
 //
 void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
 {
-    REBSER *s = mo->series;
+    REBSTR *s = mo->series;
 
     REBCTX *c = VAL_CONTEXT(v);
 

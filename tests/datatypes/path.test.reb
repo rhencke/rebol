@@ -179,8 +179,6 @@
 ][
     (#iss/ue/path = to path! [#iss ue path])
     (#issue/3 = to path! [#issue 3])
-    ((#issue)/3 = #"s")
-    (i: #issue | i/3 = #"s")
 ][
     ("te"/xt/path = to path! ["te" xt path])
     ("text"/3 = to path! ["text" 3])

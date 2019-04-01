@@ -34,9 +34,9 @@
 //
 void Extend_Series(REBSER *s, REBCNT delta)
 {
-    REBCNT len_old = SER_LEN(s);
+    REBCNT used_old = SER_USED(s);
     EXPAND_SERIES_TAIL(s, delta);
-    SET_SERIES_LEN(s, len_old);
+    SET_SERIES_LEN(s, used_old);
 }
 
 
@@ -53,8 +53,8 @@ REBCNT Insert_Series(
     const REBYTE *data,
     REBCNT len
 ) {
-    if (index > SER_LEN(s))
-        index = SER_LEN(s);
+    if (index > SER_USED(s))
+        index = SER_USED(s);
 
     Expand_Series(s, index, len); // tail += len
 
@@ -79,13 +79,13 @@ REBCNT Insert_Series(
 //
 void Append_Series(REBSER *s, const void *data, REBCNT len)
 {
-    REBCNT len_old = SER_LEN(s);
+    REBCNT used_old = SER_USED(s);
     REBYTE wide = SER_WIDE(s);
 
     assert(not IS_SER_ARRAY(s));
 
     EXPAND_SERIES_TAIL(s, len);
-    memcpy(SER_DATA_RAW(s) + (wide * len_old), data, wide * len);
+    memcpy(SER_DATA_RAW(s) + (wide * used_old), data, wide * len);
 
     TERM_SERIES(s);
 }
@@ -140,8 +140,9 @@ REBSER *Copy_Sequence_Core(REBSER *s, REBFLGS flags)
     // propagated.  This includes locks, etc.  But the string flag needs
     // to be copied, for sure.
     //
-    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
-        copy = Make_String_Core(used, flags);
+    if (GET_SERIES_FLAG(s, IS_STRING)) {
+        assert(not IS_STR_SYMBOL(s));
+        copy = SER(Make_String_Core(used, flags));
         SET_SERIES_USED(copy, used);
         TERM_SERIES(copy);
         LINK(copy).bookmarks = nullptr;  // !!! Review: copy these?
@@ -149,7 +150,7 @@ REBSER *Copy_Sequence_Core(REBSER *s, REBFLGS flags)
     }
     else {
         copy = Make_Series_Core(used + 1, SER_WIDE(s), flags);
-        TERM_SEQUENCE_LEN(copy, SER_LEN(s));
+        TERM_SEQUENCE_LEN(copy, SER_USED(s));
     }
 
     memcpy(SER_DATA_RAW(copy), SER_DATA_RAW(s), used * SER_WIDE(s));
@@ -173,7 +174,7 @@ REBSER *Copy_Sequence_At_Len_Extra(
     REBCNT extra
 ){
     assert(not IS_SER_ARRAY(s));
-    assert(NOT_SERIES_FLAG(s, UTF8_NONWORD));
+    assert(not (IS_SER_STRING(s) and not IS_STR_SYMBOL(s)));
 
     REBSER *copy = Make_Series(len + 1 + extra, SER_WIDE(s));
     memcpy(
@@ -288,18 +289,19 @@ void Remove_Series_Units(REBSER *s, REBSIZ offset, REBINT quantity)
 //
 void Remove_Series_Len(REBSER *s, REBCNT index, REBINT len)
 {
-    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
-        REBCHR(*) cp = STR_AT(s, index);
-        REBCHR(*) ep = STR_AT(s, index + len);
+    if (IS_SER_STRING(s) and not IS_STR_SYMBOL(s)) {
+        REBSTR *str = STR(s);
+        REBCHR(*) cp = STR_AT(str, index);
+        REBCHR(*) ep = STR_AT(str, index + len);
 
-        REBINT len_old = STR_LEN(s);
-        REBSIZ used_old = SER_USED(s);
+        REBINT len_old = STR_LEN(str);
+        REBSIZ size_old = STR_SIZE(str);
 
         assert(len <= len_old);
 
-        Remove_Series_Units(s, cp - STR_HEAD(s), ep - cp);
-        Free_Bookmarks_Maybe_Null(s);
-        SET_STR_LEN_USED(s, len_old - len, used_old - (ep - cp));
+        Remove_Series_Units(s, cp - STR_HEAD(str), ep - cp);
+        Free_Bookmarks_Maybe_Null(str);
+        SET_STR_LEN_SIZE(str, len_old - len, size_old - (ep - cp));
     }
     else
         Remove_Series_Units(s, index, len);
@@ -430,7 +432,7 @@ void Assert_Series_Core(REBSER *s)
         and NOT_SERIES_INFO(s, 7_IS_FALSE) // @ NODE_FLAG_CELL
     );
 
-    assert(SER_LEN(s) < SER_REST(s));
+    assert(SER_USED(s) < SER_REST(s));
 
     Assert_Series_Term_Core(s);
 }

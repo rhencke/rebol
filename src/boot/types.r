@@ -188,7 +188,7 @@ tag         "markup string (HTML or XML)"
 ; it still has a binding, so it has to be here.
 
 issue       "identifying marker word"
-            word        *       *       +       [word]
+            word        -       *       +       [word]
 
 ; <ANY-CONTEXT>
 
@@ -254,13 +254,13 @@ get-path    "the value of a path"
 ; <ANY-WORD> (order matters, see UNSETIFY_ANY_XXX_KIND())
 
 word        "word (symbol or variable)"
-            word        *       *       +       [word]
+            word        -       *       +       [word]
 
 set-word    "definition of a word's value"
-            word        *       *       +       [word]
+            word        -       *       +       [word]
 
 get-word    "the value of a word (variable)"
-            word        *       *       +       [word]
+            word        -       *       +       [word]
 
 ; </ANY-WORD> (except for ISSUE!)
 

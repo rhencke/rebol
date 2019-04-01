@@ -50,8 +50,8 @@ PVAR REBU64 PG_Mem_Limit;   // Memory limit set by SECURE
 // forms of words are created, and removed when they are GC'd.  It is scaled
 // according to the total number of canons in the system.
 //
-PVAR REBSTR *PG_Symbol_Canons; // Canon symbol pointers for words in %words.r
-PVAR REBSTR *PG_Canons_By_Hash; // Canon REBSER pointers indexed by hash
+PVAR REBSER *PG_Symbol_Canons; // Canon symbol pointers for words in %words.r
+PVAR REBSER *PG_Canons_By_Hash; // Canon REBSER pointers indexed by hash
 PVAR REBCNT PG_Num_Canon_Slots_In_Use; // Total canon hash slots (+ deleteds)
 #if !defined(NDEBUG)
     PVAR REBCNT PG_Num_Canon_Deleteds; // Deleted canon hash slots "in use"
@@ -188,7 +188,7 @@ TVAR REBSER *TG_Mold_Stack; // Used to prevent infinite loop in cyclical molds
 TVAR REBARR *TG_Buf_Collect; // for collecting object keys or words
 TVAR REBSER *TG_Buf_Utf8; // UTF8 reused buffer
 TVAR REBSER *TG_Byte_Buf; // temporary byte buffer used mainly by raw print
-TVAR REBSER *TG_Mold_Buf; // temporary UTF8 buffer - used mainly by mold
+TVAR REBSTR *TG_Mold_Buf; // temporary UTF8 buffer - used mainly by mold
 
 TVAR REBSER *GC_Manuals;    // Manually memory managed (not by GC)
 

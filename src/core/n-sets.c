@@ -183,18 +183,19 @@ REBSER *Make_Set_Operation_Series(
         Push_Mold(mo);
 
         do {
-            REBSER *ser = VAL_SERIES(val1); // val1 and val2 swapped 2nd pass!
+            REBSTR *str = VAL_STRING(val1); // val1 and val2 swapped 2nd pass!
+
             REBUNI uc;
 
             // Iterate over first series
             //
             i = VAL_INDEX(val1);
-            for (; i < SER_LEN(ser); i += skip) {
-                uc = GET_CHAR_AT(ser, i);
+            for (; i < STR_LEN(str); i += skip) {
+                uc = GET_CHAR_AT(str, i);
                 if (flags & SOP_FLAG_CHECK) {
                     h = (NOT_FOUND != Find_Char_In_Str(
                         uc,
-                        VAL_SERIES(val2),
+                        VAL_STRING(val2),
                         VAL_INDEX(val2),
                         VAL_LEN_HEAD(val2),
                         skip,
@@ -211,13 +212,13 @@ REBSER *Make_Set_Operation_Series(
                         uc, // c2 (the character to find)
                         mo->series, // ser
                         mo->index, // index - !!! was mo->start
-                        SER_LEN(mo->series), // tail
+                        STR_LEN(mo->series), // tail
                         skip, // skip
                         cased ? AM_FIND_CASE : 0 // flags
                     )
                 ){
                     DECLARE_LOCAL (temp);
-                    Init_Any_Series_At(temp, REB_TEXT, ser, i);
+                    Init_Any_String_At_Core(temp, REB_TEXT, str, i);
                     Append_String(mo->series, temp, skip);
                 }
             }
@@ -235,7 +236,7 @@ REBSER *Make_Set_Operation_Series(
             }
         } while (i);
 
-        out_ser = Pop_Molded_String(mo);
+        out_ser = SER(Pop_Molded_String(mo));
     }
     else {
         assert(IS_BINARY(val1) and IS_BINARY(val2));
@@ -254,17 +255,17 @@ REBSER *Make_Set_Operation_Series(
         Push_Mold(mo);
 
         do {
-            REBSER *ser = VAL_SERIES(val1); // val1 and val2 swapped 2nd pass!
-            REBUNI uc;
+            REBBIN *bin = VAL_SERIES(val1); // val1 and val2 swapped 2nd pass!
+            REBYTE b;
 
             // Iterate over first series
             //
             i = VAL_INDEX(val1);
-            for (; i < SER_LEN(ser); i += skip) {
-                uc = GET_CHAR_AT(ser, i);
+            for (; i < BIN_LEN(bin); i += skip) {
+                b = *BIN_AT(bin, i);
                 if (flags & SOP_FLAG_CHECK) {
                     h = (NOT_FOUND != Find_Char_In_Bin(
-                        uc,
+                        b,
                         VAL_SERIES(val2),
                         0,
                         VAL_INDEX(val2),
@@ -280,11 +281,11 @@ REBSER *Make_Set_Operation_Series(
 
                 if (
                     NOT_FOUND == Find_Char_In_Bin(
-                        uc, // c2 (the character to find)
-                        mo->series, // ser
-                        mo->index, // head - !!! was mo->start
-                        mo->index, // index - !!! was also mo->start
-                        SER_LEN(mo->series), // tail
+                        b, // c2 (the character to find)
+                        SER(mo->series), // ser
+                        mo->offset, // head - !!! was mo->start
+                        mo->offset, // index - !!! was also mo->start
+                        STR_SIZE(mo->series), // tail
                         skip, // skip
                         cased ? AM_FIND_CASE : 0 // flags
                     )

@@ -84,13 +84,13 @@ REBINT What_UTF(const REBYTE *bp, REBCNT len)
 // Returns length in chars (negative if all chars are ASCII).
 // No terminator is added.
 //
-REBSER *Decode_UTF16(
+REBSTR *Decode_UTF16(
     const REBYTE *src,
     REBCNT len,
     bool little_endian,
     bool crlf_to_lf
 ){
-    REBSER *s = Make_Unicode(len);
+    REBSTR *s = Make_Unicode(len);
 
     bool expect_lf = false;
     bool ascii = true;
@@ -143,7 +143,7 @@ REBSER *Decode_UTF16(
     //
     UNUSED(ascii);
 
-    TERM_STR_LEN_USED(s, num_chars, dp - STR_HEAD(s));
+    TERM_STR_LEN_SIZE(s, num_chars, dp - STR_HEAD(s));
     return s;
 }
 
@@ -301,7 +301,7 @@ REBNATIVE(decode_utf16le)
     //
     if (
         VAL_LEN_AT(D_OUT) > 0
-        && GET_CHAR_AT(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT)) == 0xFEFF
+        && GET_CHAR_AT(VAL_STRING(D_OUT), VAL_INDEX(D_OUT)) == 0xFEFF
     ){
         Remove_Series_Len(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT), 1);
     }
@@ -388,7 +388,7 @@ REBNATIVE(decode_utf16be)
     //
     if (
         VAL_LEN_AT(D_OUT) > 0
-        && GET_CHAR_AT(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT)) == 0xFEFF
+        && GET_CHAR_AT(VAL_STRING(D_OUT), VAL_INDEX(D_OUT)) == 0xFEFF
     ){
         Remove_Series_Len(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT), 1);
     }

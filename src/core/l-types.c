@@ -1027,7 +1027,7 @@ const REBYTE *Scan_Email(
 ) {
     TRASH_CELL_IF_DEBUG(out);
 
-    REBSER *s = Make_Unicode(len);
+    REBSTR *s = Make_Unicode(len);
     REBCHR(*) up = STR_HEAD(s);
 
     REBCNT num_chars = 0;
@@ -1062,7 +1062,7 @@ const REBYTE *Scan_Email(
     if (not found_at)
         return_NULL;
 
-    TERM_STR_LEN_USED(s, num_chars, up - STR_HEAD(s));
+    TERM_STR_LEN_SIZE(s, num_chars, up - STR_HEAD(s));
 
     Init_Email(out, s);
     return cp;
@@ -1274,8 +1274,8 @@ const REBYTE *Scan_Any(
     //
     bool crlf_to_lf = true;
 
-    REBSER *s = Append_UTF8_May_Fail(NULL, cs_cast(cp), num_bytes, crlf_to_lf);
-    Init_Any_Series(out, type, s);
+    REBSTR *s = Append_UTF8_May_Fail(NULL, cs_cast(cp), num_bytes, crlf_to_lf);
+    Init_Any_String(out, type, s);
 
     return cp + num_bytes;
 }
@@ -1400,7 +1400,7 @@ REBNATIVE(scan_net_header)
         // correctly, it would need to use NEXT_CHR to count the characters
         // in the loop above.  Better to convert to usermode.
 
-        REBSER *string = Make_Unicode(len);
+        REBSTR *string = Make_Unicode(len);
         REBCHR(*) str = STR_HEAD(string);
         cp = start;
 
@@ -1420,7 +1420,7 @@ REBNATIVE(scan_net_header)
             while (!ANY_CR_LF_END(*cp))
                 str = WRITE_CHR(str, *cp++);
         }
-        TERM_STR_LEN_USED(string, len, str - STR_HEAD(string));
+        TERM_STR_LEN_SIZE(string, len, str - STR_HEAD(string));
         Init_Text(val, string);
     }
 

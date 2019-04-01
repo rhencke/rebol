@@ -473,7 +473,7 @@ post_process_output:
             if (not IS_BINARY(D_OUT))
                 fail ("/STRING or /LINES used on a non-BINARY!/STRING! read");
 
-            REBSER *decoded = Make_Sized_String_UTF8(
+            REBSTR *decoded = Make_Sized_String_UTF8(
                 cs_cast(VAL_BIN_AT(D_OUT)),
                 VAL_LEN_AT(D_OUT)
             );

@@ -189,20 +189,20 @@
     FLAG_LEFT_BIT(11)
 
 
-//=//// SERIES_FLAG_IS_UTF8_STRING ////////////////////////////////////////=//
+//=//// SERIES_FLAG_IS_STRING /////////////////////////////////////////////=//
 //
-// Indicates the series holds a UTF-8 encoded string.
-//
-// !!! Currently this is only used to store ANY-WORD! symbols, which are
-// read-only and cannot be indexed into, e.g. with `next 'foo`.  This is
-// because UTF-8 characters are encoded at variable sizes, and the series
-// indexing does not support that at this time.  However, it would be nice
-// if a way could be figured out to unify ANY-STRING! with ANY-WORD! somehow
-// in order to implement the "UTF-8 Everywhere" manifesto:
+// Indicates the series holds a UTF-8 encoded string.  Ren-C strings follow
+// the "UTF-8 Everywhere" manifesto, where they are not decoded into a fixed
+// number of bytes per character array, but remain in UTF8 at all times:
 //
 // http://utf8everywhere.org/
 //
-#define SERIES_FLAG_IS_UTF8_STRING \
+// There are two varieties of string series, those used by ANY-STRING! and
+// those used by ANY-WORD!, tested with IS_STR_SYMBOL().  While they store
+// their content the same, they use the MISC() and LINK() fields of the series
+// node differently.
+//
+#define SERIES_FLAG_IS_STRING \
     FLAG_LEFT_BIT(12)
 
 

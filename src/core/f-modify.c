@@ -245,7 +245,7 @@ REBCNT Modify_Binary(
     if (IS_NULLED(src_val) || limit == 0 || dups < 0)
         return sym == SYM_APPEND ? 0 : dst_idx;
 
-    REBCNT tail = SER_LEN(dst_ser);
+    REBCNT tail = BIN_LEN(dst_ser);
     if (sym == SYM_APPEND || dst_idx > tail)
         dst_idx = tail;
 
@@ -304,7 +304,7 @@ REBCNT Modify_Binary(
 
     // Use either new src or the one that was passed:
     if (src_ser != NULL) {
-        src_len = SER_LEN(src_ser);
+        src_len = BIN_LEN(src_ser);
     }
     else {
         src_ser = VAL_SERIES(src_val);
@@ -416,7 +416,7 @@ REBCNT Modify_String(
     if (limit == 0 or dups <= 0)
         return sym == SYM_APPEND ? 0 : dst_idx;
 
-    REBCNT tail = SER_LEN(dst_ser);
+    REBCNT tail = STR_LEN(STR(dst_ser));
     if (sym == SYM_APPEND or dst_idx > tail)
         dst_idx = tail;
 
@@ -427,7 +427,7 @@ REBCNT Modify_String(
     // mold buffer instead of generating entirely new series nodes w/entirely
     // new data allocations.  Data could be used from the buffer, then dropped.
     //
-    REBSER *formed = nullptr;  // must free if generated
+    REBSTR *formed = nullptr;  // must free if generated
 
     const REBYTE *src_ptr;  // start of utf-8 encoded data to insert
     REBCNT src_len_no_dups;  // length in codepoints
@@ -448,7 +448,7 @@ REBCNT Modify_String(
         formed = Form_Tight_Block(src);
         src_ptr = STR_HEAD(formed);
         src_len_no_dups = STR_LEN(formed);
-        src_size_no_dups = SER_USED(formed);
+        src_size_no_dups = STR_SIZE(formed);
     }
     else if (
         ANY_STRING(src)
@@ -473,12 +473,14 @@ REBCNT Modify_String(
         formed = Copy_Form_Value(src, 0);
         src_ptr = STR_HEAD(formed);
         src_len_no_dups = STR_LEN(formed);
-        src_size_no_dups = SER_USED(formed);
+        src_size_no_dups = STR_SIZE(formed);
     }
 
     if (limit >= 0) {
         src_len_no_dups = limit;
-        assert(!"Feature not implemented: string based limits");
+        src_size_no_dups = limit;  // !!! Incorrect for UTF-8
+
+        // !!! This feature needs reviewing.
     }
 
     // !!! The feature of being able to say APPEND/LINE and get a newline
@@ -508,8 +510,8 @@ REBCNT Modify_String(
 
     if (sym == SYM_APPEND) {  // Expand, all bookmarks will still be vaild
         Expand_Series(dst_ser, dst_off, src_size_with_dups);
-        TERM_STR_LEN_USED(
-            dst_ser,
+        TERM_STR_LEN_SIZE(
+            STR(dst_ser),
             tail + src_len_no_dups * dups,
             dst_used + src_size_with_dups
         );
@@ -518,8 +520,8 @@ REBCNT Modify_String(
         Expand_Series(dst_ser, dst_off, src_size_with_dups);
         if (bookmark and BMK_INDEX(bookmark) >= dst_idx)
             BMK_OFFSET(bookmark) += src_size_with_dups;
-        TERM_STR_LEN_USED(
-            dst_ser,
+        TERM_STR_LEN_SIZE(
+            STR(dst_ser),
             tail + src_len_no_dups * dups,
             dst_used + src_size_with_dups
         );
@@ -574,16 +576,16 @@ REBCNT Modify_String(
                 dst_off,
                 src_size_with_dups - overwrite_size
             );
-            TERM_STR_LEN_USED(
-                dst_ser,
+            TERM_STR_LEN_SIZE(
+                STR(dst_ser),
                 tail + (src_len_no_dups * dups) - overwrite_len,
                 dst_used + src_size_with_dups - overwrite_size
             );
         }
         else if (src_size_with_dups > dst_size) {
             Expand_Series(dst_ser, dst_off, src_size_with_dups - dst_size);
-            TERM_STR_LEN_USED(
-                dst_ser,
+            TERM_STR_LEN_SIZE(
+                STR(dst_ser),
                 tail + (src_len_no_dups * dups) - dst_len,
                 dst_used + src_size_with_dups - dst_size
             );
@@ -594,8 +596,8 @@ REBCNT Modify_String(
                 dst_off,
                 dst_size - src_size_with_dups
             );
-            TERM_STR_LEN_USED(
-                dst_ser,
+            TERM_STR_LEN_SIZE(
+                STR(dst_ser),
                 tail + (src_len_no_dups * dups) - dst_len,
                 dst_used + src_size_with_dups - dst_size
             );
@@ -606,8 +608,8 @@ REBCNT Modify_String(
                 dst_ser,
                 src_size_with_dups - (dst_used - dst_off)
             );
-            TERM_STR_LEN_USED(
-                dst_ser,
+            TERM_STR_LEN_SIZE(
+                STR(dst_ser),
                 tail + (src_len_no_dups * dups) - dst_len,
                 dst_used + src_size_with_dups - dst_size
             );
@@ -627,20 +629,20 @@ REBCNT Modify_String(
     }
 
     if (formed)  // !!! TBD: Use mold buffer, don't make entire new series
-        Free_Unmanaged_Series(formed);  // !!! should just be Drop_Mold()
+        Free_Unmanaged_Series(SER(formed));  // !!! should just be Drop_Mold()
 
     if (bookmark) {
-        if (BMK_INDEX(bookmark) > SER_LEN(dst_ser)) {  // past active area
-            assert(sym == SYM_CHANGE); // only change removes material
-            Free_Bookmarks_Maybe_Null(dst_ser);
+        if (BMK_INDEX(bookmark) > STR_LEN(STR(dst_ser))) {  // past active
+            assert(sym == SYM_CHANGE);  // only change removes material
+            Free_Bookmarks_Maybe_Null(STR(dst_ser));
         }
         else {
           #if defined(DEBUG_BOOKMARKS_ON_MODIFY)
             Check_Bookmarks_Debug(dst_ser);
           #endif
 
-            if (SER_LEN(dst_ser) < sizeof(REBVAL))  // not kept if small
-                Free_Bookmarks_Maybe_Null(dst_ser);
+            if (STR_LEN(STR(dst_ser)) < sizeof(REBVAL))  // not kept if small
+                Free_Bookmarks_Maybe_Null(STR(dst_ser));
         }
     }
 

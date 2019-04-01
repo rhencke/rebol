@@ -44,7 +44,7 @@
 // volume when no root slash was provided.  It was an odd case to support
 // the MSDOS convention of `c:file`.  That is not done here.
 //
-REBSER *To_REBOL_Path(const RELVAL *string, REBFLGS flags)
+REBSTR *To_REBOL_Path(const RELVAL *string, REBFLGS flags)
 {
     assert(IS_TEXT(string));
 
@@ -78,7 +78,7 @@ restart:;
                 //
                 // Drop mold so far, and change C:/ to /C/ (and C:X to /C/X)
                 //
-                TERM_STR_LEN_USED(mo->series, mo->index, mo->offset);
+                TERM_STR_LEN_SIZE(mo->series, mo->index, mo->offset);
                 Append_Codepoint(mo->series, '/');
                 lead_slash = true; // don't do this the second time around
                 goto restart;
@@ -261,7 +261,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
 
                         // Terminate, loses '/' (or '\'), but added back below
                         //
-                        TERM_STR_LEN_USED(
+                        TERM_STR_LEN_SIZE(
                             mo->series,
                             n,
                             tp - STR_HEAD(mo->series) + 1
@@ -294,10 +294,10 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
                 continue;
             }
 
-            REBCNT n = SER_USED(mo->series);
+            REBCNT n = STR_SIZE(mo->series);
             if (
                 n > mo->offset
-                and *BIN_AT(mo->series, n - 1) == OS_DIR_SEP
+                and *BIN_AT(SER(mo->series), n - 1) == OS_DIR_SEP
             ){
                 // Collapse multiple sequential slashes into just one, by
                 // skipping to the next character without adding to mold.
@@ -332,9 +332,9 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
     // is included in the filename (move, delete), so it might not be wanted.
     //
     if (flags & REB_FILETOLOCAL_NO_TAIL_SLASH) {
-        REBSIZ n = SER_USED(mo->series);
-        if (n > mo->offset and *BIN_AT(mo->series, n - 1) == OS_DIR_SEP)
-            TERM_STR_LEN_USED(mo->series, STR_LEN(mo->series) - 1, n - 1);
+        REBSIZ n = STR_SIZE(mo->series);
+        if (n > mo->offset and *BIN_AT(SER(mo->series), n - 1) == OS_DIR_SEP)
+            TERM_STR_LEN_SIZE(mo->series, STR_LEN(mo->series) - 1, n - 1);
     }
 
     // If one is to list a directory's contents, you might want the name to
@@ -351,7 +351,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
 // Convert Rebol-format filename to a local-format filename.  This is the
 // opposite operation of To_REBOL_Path.
 //
-REBSER *To_Local_Path(const RELVAL *file, REBFLGS flags) {
+REBSTR *To_Local_Path(const RELVAL *file, REBFLGS flags) {
     DECLARE_MOLD (mo);
     Push_Mold(mo);
 

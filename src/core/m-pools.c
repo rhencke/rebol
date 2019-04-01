@@ -1001,12 +1001,12 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
         s->content.dynamic.used = 0;
 
     if (IS_SER_ARRAY(s))
-        TERM_ARRAY_LEN(ARR(s), SER_LEN(s));
+        TERM_ARRAY_LEN(ARR(s), ARR_LEN(s));
     else
         TERM_SEQUENCE(s);
 
   #ifdef DEBUG_UTF8_EVERYWHERE
-    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
+    if (GET_SERIES_FLAG(s, IS_STRING) and not IS_STR_SYMBOL(STR(s))) {
         MISC(s).length = 0xDECAFBAD;
         TOUCH_SERIES_IF_DEBUG(s);
     }
@@ -1024,11 +1024,12 @@ void Decay_Series(REBSER *s)
 {
     assert(NOT_SERIES_INFO(s, INACCESSIBLE));
 
-    if (GET_SERIES_FLAG(s, IS_UTF8_STRING))
-        GC_Kill_Interning(s); // needs special handling to adjust canons
-
-    if (GET_SERIES_FLAG(s, UTF8_NONWORD))
-        Free_Bookmarks_Maybe_Null(s);
+    if (GET_SERIES_FLAG(s, IS_STRING)) {
+        if (IS_STR_SYMBOL(STR(s)))
+            GC_Kill_Interning(STR(s));  // special handling can adjust canons
+        else
+            Free_Bookmarks_Maybe_Null(STR(s));
+    }
 
     // Remove series from expansion list, if found:
     REBCNT n;

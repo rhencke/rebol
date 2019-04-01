@@ -1125,13 +1125,13 @@ REBNATIVE(as)
         //
         if (ANY_WORD(v)) {
             REBSTR *spelling = VAL_WORD_SPELLING(v);
-            REBSER *string = Make_Sized_String_UTF8(
+            REBSTR *string = Make_Sized_String_UTF8(
                 STR_UTF8(spelling),
                 STR_SIZE(spelling)
             );
-            SET_SERIES_INFO(string, FROZEN);
+            SET_SERIES_INFO(SER(string), FROZEN);
             return Inherit_Const(
-                Quotify(Init_Any_Series(D_OUT, new_kind, string), quotes),
+                Quotify(Init_Any_String(D_OUT, new_kind, string), quotes),
                 v
             );
         }
@@ -1140,7 +1140,7 @@ REBNATIVE(as)
         // the UTF-8 bytes in a binary as a WCHAR string.
         //
         if (IS_BINARY(v)) {
-            REBSER *string = Make_Sized_String_UTF8(
+            REBSTR *string = Make_Sized_String_UTF8(
                 cs_cast(VAL_BIN_AT(v)),
                 VAL_LEN_AT(v)
             );
@@ -1156,7 +1156,7 @@ REBNATIVE(as)
                 Decay_Series(VAL_SERIES(v));
             }
             return Inherit_Const(
-                Quotify(Init_Any_Series(D_OUT, new_kind, string), quotes),
+                Quotify(Init_Any_String(D_OUT, new_kind, string), quotes),
                 v
             );
         }
@@ -1225,7 +1225,7 @@ REBNATIVE(as)
         if (ANY_WORD(v)) {
             assert(Is_Value_Frozen(v));
             return Inherit_Const(
-                Quotify(Init_Binary(D_OUT, VAL_WORD_SPELLING(v)), quotes),
+                Quotify(Init_Binary(D_OUT, SER(VAL_WORD_SPELLING(v))), quotes),
                 v
             );
         }

@@ -22,7 +22,7 @@
 //
 
 struct rebol_mold {
-    REBSER *series;     // destination series (uni)
+    REBSTR *series;     // destination series (utf8)
     REBCNT index;       // codepoint index where mold starts within series
     REBSIZ offset;      // byte offset where mold starts within series
     REBFLGS opts;       // special option flags

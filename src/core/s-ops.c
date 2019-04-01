@@ -230,18 +230,16 @@ REBSER *Complement_Binary(REBVAL *value)
 //
 void Shuffle_String(REBVAL *value, bool secure)
 {
-    REBCNT n;
-    REBCNT k;
-    REBSER *series = VAL_SERIES(value);
-    REBCNT idx     = VAL_INDEX(value);
-    REBUNI swap;
+    REBSTR *s = VAL_STRING(value);
+    REBCNT idx = VAL_INDEX(value);
 
+    REBCNT n;
     for (n = VAL_LEN_AT(value); n > 1;) {
-        k = idx + (REBCNT)Random_Int(secure) % n;
+        REBCNT k = idx + cast(REBCNT, Random_Int(secure)) % n;
         n--;
-        swap = GET_CHAR_AT(series, k);
-        SET_CHAR_AT(series, k, GET_CHAR_AT(series, n + idx));
-        SET_CHAR_AT(series, n + idx, swap);
+        REBUNI swap = GET_CHAR_AT(s, k);
+        SET_CHAR_AT(s, k, GET_CHAR_AT(s, n + idx));
+        SET_CHAR_AT(s, n + idx, swap);
     }
 }
 
@@ -253,18 +251,18 @@ void Shuffle_String(REBVAL *value, bool secure)
 //
 void Trim_Tail(REB_MOLD *mo, REBYTE ascii)
 {
-    assert(ascii < 0x80); // more work needed for multi-byte characters
+    assert(ascii < 0x80);  // more work needed for multi-byte characters
 
-    REBCNT len = SER_LEN(mo->series);
-    REBSIZ used = SER_USED(mo->series);
+    REBCNT len = STR_LEN(mo->series);
+    REBSIZ size = STR_SIZE(mo->series);
 
-    for (; used > 0; --used, --len) {
-        REBYTE b = *BIN_AT(mo->series, used - 1);
+    for (; size > 0; --size, --len) {
+        REBYTE b = *BIN_AT(SER(mo->series), size - 1);
         if (b != ascii)
             break;
     }
 
-    TERM_STR_LEN_USED(mo->series, len, used);
+    TERM_STR_LEN_SIZE(mo->series, len, size);
 }
 
 
@@ -392,7 +390,7 @@ REBARR *Split_Lines(const REBVAL *str)
     // If there's any remainder we pushed in the buffer, consider the end of
     // string to be an implicit line-break
 
-    if (SER_USED(mo->series) == mo->offset)
+    if (STR_SIZE(mo->series) == mo->offset)
         Drop_Mold(mo);
     else {
         Init_Text(DS_PUSH(), Pop_Molded_String(mo));

@@ -221,11 +221,11 @@ void Form_Hex_Esc(REB_MOLD *mo, REBYTE b)
 void Form_RGBA(REB_MOLD *mo, const REBYTE *dp)
 {
     REBCNT len_old = STR_LEN(mo->series);
-    REBSIZ used_old = SER_USED(mo->series);
+    REBSIZ used_old = STR_SIZE(mo->series);
 
-    EXPAND_SERIES_TAIL(mo->series, 8);  // grow by 8 bytes, may realloc buffer
+    EXPAND_SERIES_TAIL(SER(mo->series), 8);  // grow by 8 bytes, may realloc
 
-    REBYTE *bp = BIN_AT(mo->series, used_old);  // potentially new buffer
+    REBYTE *bp = BIN_AT(SER(mo->series), used_old);  // potentially new buffer
 
     bp[0] = Hex_Digits[(dp[0] >> 4) & 0xf];
     bp[1] = Hex_Digits[dp[0] & 0xf];
@@ -237,7 +237,7 @@ void Form_RGBA(REB_MOLD *mo, const REBYTE *dp)
     bp[7] = Hex_Digits[dp[3] & 0xf];
     bp[8] = '\0';
 
-    TERM_STR_LEN_USED(mo->series, len_old + 8, used_old + 8);
+    TERM_STR_LEN_SIZE(mo->series, len_old + 8, used_old + 8);
 }
 
 

@@ -841,7 +841,7 @@ static void Init_Root_Vars(void)
 
     // Note: rebText() can't run yet, review.
     //
-    REBSER *nulled_uni = Make_Unicode(1);
+    REBSTR *nulled_uni = Make_Unicode(1);
 
   #if !defined(NDEBUG)
     REBUNI test_nul;

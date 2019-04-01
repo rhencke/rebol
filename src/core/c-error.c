@@ -50,8 +50,8 @@ void Snap_State_Core(struct Reb_State *s)
     s->frame = FS_TOP;
 
     s->manuals_len = SER_LEN(GC_Manuals);
-    s->mold_buf_len = STR_LEN(MOLD_BUF);
-    s->mold_buf_used = SER_USED(MOLD_BUF);
+    s->mold_buf_len = STR_LEN(STR(MOLD_BUF));
+    s->mold_buf_size = STR_SIZE(STR(MOLD_BUF));
     s->mold_loop_tail = ARR_LEN(TG_Mold_Stack);
 
     // !!! Is this initialization necessary?
@@ -126,8 +126,8 @@ void Assert_State_Balanced_Debug(
         panic_at (manual, file, line);
     }
 
-    assert(s->mold_buf_len == STR_LEN(MOLD_BUF));
-    assert(s->mold_buf_used == SER_USED(MOLD_BUF));
+    assert(s->mold_buf_len == STR_LEN(STR(MOLD_BUF)));
+    assert(s->mold_buf_size == STR_SIZE(STR(MOLD_BUF)));
     assert(s->mold_loop_tail == ARR_LEN(TG_Mold_Stack));
 
     assert(s->error == NULL); // !!! necessary?
@@ -184,7 +184,7 @@ void Trapped_Helper(struct Reb_State *s)
 
     SET_SERIES_LEN(GC_Guarded, s->guarded_len);
     TG_Top_Frame = s->frame;
-    TERM_STR_LEN_USED(MOLD_BUF, s->mold_buf_len, s->mold_buf_used);
+    TERM_STR_LEN_SIZE(STR(MOLD_BUF), s->mold_buf_len, s->mold_buf_size);
 
   #if !defined(NDEBUG)
     //
@@ -1538,7 +1538,7 @@ const REBYTE *Security_Policy(REBSTR *spelling, const REBVAL *name)
             if (len == 0) flags = VAL_TUPLE(policy+1); // non-aligned
         }
         else if (name and (IS_TEXT(policy) or IS_FILE(policy))) {
-            if (Match_Sub_Path(VAL_SERIES(policy), VAL_SERIES(name))) {
+            if (Match_Sub_Path(VAL_STRING(policy), VAL_STRING(name))) {
                 // Is the match adequate?
                 if (VAL_LEN_HEAD(name) >= len) {
                     len = VAL_LEN_HEAD(name);
@@ -1605,14 +1605,14 @@ void Check_Security(REBSTR *sym, REBCNT policy, REBVAL *value)
 //
 static void Mold_Value_Limit(REB_MOLD *mo, RELVAL *v, REBCNT len)
 {
-    REBCNT start = SER_LEN(mo->series);
+    REBCNT start = STR_LEN(mo->series);
     Mold_Value(mo, v);
 
-    if (SER_LEN(mo->series) - start > len) {
+    if (STR_LEN(mo->series) - start > len) {
         Remove_Series_Len(
-            mo->series,
+            SER(mo->series),
             start + len,
-            SER_LEN(mo->series) - start - len
+            STR_LEN(mo->series) - start - len
         );
         Append_Ascii(mo->series, "...");
     }

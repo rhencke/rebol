@@ -93,7 +93,7 @@ static void Mark_Devices_Deep(void);
 #endif
 
 #define ASSERT_NO_GC_MARKS_PENDING() \
-    assert(SER_LEN(GC_Mark_Stack) == 0)
+    assert(SER_USED(GC_Mark_Stack) == 0)
 
 
 static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v);
@@ -230,8 +230,8 @@ static void Queue_Mark_Node_Deep(void *p)
         //
         if (SER_FULL(GC_Mark_Stack))
             Extend_Series(GC_Mark_Stack, 8);
-        *SER_AT(REBARR*, GC_Mark_Stack, SER_LEN(GC_Mark_Stack)) = ARR(s);
-        SET_SERIES_LEN(GC_Mark_Stack, SER_LEN(GC_Mark_Stack) + 1);  // noterm
+        *SER_AT(REBARR*, GC_Mark_Stack, SER_USED(GC_Mark_Stack)) = ARR(s);
+        SET_SERIES_USED(GC_Mark_Stack, SER_USED(GC_Mark_Stack) + 1);  // !term
     }
 }
 
@@ -294,19 +294,19 @@ static void Propagate_All_GC_Marks(void)
 {
     assert(not in_mark);
 
-    while (SER_LEN(GC_Mark_Stack) != 0) {
-        SET_SERIES_LEN(GC_Mark_Stack, SER_LEN(GC_Mark_Stack) - 1); // still ok
+    while (SER_USED(GC_Mark_Stack) != 0) {
+        SET_SERIES_USED(GC_Mark_Stack, SER_USED(GC_Mark_Stack) - 1);  // safe
 
         // Data pointer may change in response to an expansion during
         // Mark_Array_Deep_Core(), so must be refreshed on each loop.
         //
-        REBARR *a = *SER_AT(REBARR*, GC_Mark_Stack, SER_LEN(GC_Mark_Stack));
+        REBARR *a = *SER_AT(REBARR*, GC_Mark_Stack, SER_USED(GC_Mark_Stack));
 
         // Termination is not required in the release build (the length is
         // enough to know where it ends).  But overwrite with trash in debug.
         //
         TRASH_POINTER_IF_DEBUG(
-            *SER_AT(REBARR*, GC_Mark_Stack, SER_LEN(GC_Mark_Stack))
+            *SER_AT(REBARR*, GC_Mark_Stack, SER_USED(GC_Mark_Stack))
         );
 
         // We should have marked this series at queueing time to keep it from
@@ -629,7 +629,7 @@ static void Mark_Symbol_Series(void)
     assert(IS_POINTER_TRASH_DEBUG(*canon)); // SYM_0 for all non-builtin words
     ++canon;
     for (; *canon != nullptr; ++canon)
-        (*canon)->header.bits |= NODE_FLAG_MARKED;
+        SER(*canon)->header.bits |= NODE_FLAG_MARKED;
 
     ASSERT_NO_GC_MARKS_PENDING(); // doesn't ues any queueing
 }
@@ -664,7 +664,7 @@ static void Mark_Natives(void)
 static void Mark_Guarded_Nodes(void)
 {
     REBNOD **np = SER_HEAD(REBNOD*, GC_Guarded);
-    REBCNT n = SER_LEN(GC_Guarded);
+    REBCNT n = SER_USED(GC_Guarded);
     for (; n > 0; --n, ++np) {
         REBNOD *node = *np;
         if (node->header.bits & NODE_FLAG_CELL) {
@@ -1005,7 +1005,7 @@ static REBCNT Sweep_Series(void)
 REBCNT Fill_Sweeplist(REBSER *sweeplist)
 {
     assert(SER_WIDE(sweeplist) == sizeof(REBNOD*));
-    assert(SER_LEN(sweeplist) == 0);
+    assert(SER_USED(sweeplist) == 0);
 
     REBCNT count = 0;
 
@@ -1290,9 +1290,9 @@ void Push_Guard_Node(const REBNOD *node)
     if (SER_FULL(GC_Guarded))
         Extend_Series(GC_Guarded, 8);
 
-    *SER_AT(const REBNOD*, GC_Guarded, SER_LEN(GC_Guarded)) = node;
+    *SER_AT(const REBNOD*, GC_Guarded, SER_USED(GC_Guarded)) = node;
 
-    SET_SERIES_LEN(GC_Guarded, SER_LEN(GC_Guarded) + 1);
+    SET_SERIES_USED(GC_Guarded, SER_USED(GC_Guarded) + 1);
 }
 
 

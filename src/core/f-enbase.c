@@ -403,7 +403,7 @@ void Form_Base2(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
             Append_Codepoint(mo->series, LF);
     }
 
-    if (*BIN_TAIL(mo->series) != LF && len > 9 && brk)
+    if (*BIN_TAIL(SER(mo->series)) != LF && len > 9 && brk)
         Append_Codepoint(mo->series, LF);
 }
 
@@ -433,7 +433,7 @@ void Form_Base16(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
             Append_Codepoint(mo->series, LF);
     }
 
-    if (brk and (len >= 32) and *BIN_LAST(mo->series) != LF)
+    if (brk and (len >= 32) and *BIN_LAST(SER(mo->series)) != LF)
         Append_Codepoint(mo->series, LF);
 }
 
@@ -453,7 +453,7 @@ void Form_Base64(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
     // it appends one character at a time and relies upon the mold buffer's
     // natural expansion.  Review if it needs the optimization.
 
-    REBSER *s = mo->series;
+    REBSTR *s = mo->series;
 
     REBINT loop = cast(int, len / 3) - 1;
     if (brk and 4 * loop > 64)
@@ -493,6 +493,6 @@ void Form_Base64(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
         Append_Codepoint(s, '=');
     }
 
-    if (brk and x > 49 and *BIN_LAST(s) != LF)
+    if (brk and x > 49 and *BIN_LAST(SER(s)) != LF)
         Append_Codepoint(s, LF);
 }

@@ -264,7 +264,7 @@ void Assert_Cell_Marked_Correctly(const RELVAL *v)
         REBSER *s = VAL_SERIES(v);
 
         assert(SER_WIDE(s) == sizeof(REBYTE));
-        assert(GET_SERIES_FLAG(s, UTF8_NONWORD));  // !!! temporary
+        assert(not IS_STR_SYMBOL(s));  // !!! temporary
         assert(Is_Marked(s));
 
         REBBMK *bookmark = LINK(s).bookmarks;
@@ -446,7 +446,6 @@ void Assert_Cell_Marked_Correctly(const RELVAL *v)
       case REB_P_LOCAL:
       case REB_P_RETURN: {
         REBSTR *s = VAL_TYPESET_STRING(v);
-        assert(SER_WIDE(s) == 1);  // UTF-8 REBSTR
         assert(Is_Marked(s));
         assert(MIRROR_BYTE(v) == REB_TYPESET);
         break; }

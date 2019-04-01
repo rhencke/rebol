@@ -129,7 +129,7 @@ inline static void Probe_Molded_Value(const REBVAL *v)
     Push_Mold(mo);
     Mold_Value(mo, v);
 
-    printf("%s\n", s_cast(BIN_AT(mo->series, mo->offset)));
+    printf("%s\n", s_cast(BIN_AT(SER(mo->series), mo->offset)));
     fflush(stdout);
 
     Drop_Mold(mo);
@@ -173,19 +173,17 @@ void* Probe_Core_Debug(
 
         if (SER_WIDE(s) == sizeof(REBYTE)) {
             DECLARE_LOCAL (value);
-            if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
-                Probe_Print_Helper(p, "UTF-8 Nonword Series", file, line);
-                Mold_Text_Series_At(mo, s, 0); // or could be TAG!, etc.
-            }
-            else if (GET_SERIES_FLAG(s, IS_UTF8_STRING)) {
-                Probe_Print_Helper(p, "UTF8 Byte Series", file, line);
-                goto probe_byte_series; // !!! for the moment, print bytes
+            if (GET_SERIES_FLAG(s, IS_STRING)) {
+                REBSTR *str = STR(s);
+                if (IS_STR_SYMBOL(str))
+                    Probe_Print_Helper(p, "UTF-8 WORD! Series", file, line);
+                else
+                    Probe_Print_Helper(p, "UTF-8 STRING! Series", file, line);
+                Mold_Text_Series_At(mo, str, 0);  // or could be TAG!, etc.
             }
             else {
                 Probe_Print_Helper(p, "Byte-Size Series", file, line);
 
-              probe_byte_series:;
-                //
                 // !!! Duplication of code in MF_Binary
                 //
                 const bool brk = (BIN_LEN(s) > 32);
@@ -250,8 +248,8 @@ void* Probe_Core_Debug(
         panic (p);
     }
 
-    if (mo->offset != SER_LEN(mo->series))
-        printf("%s\n", s_cast(BIN_AT(mo->series, mo->offset)));
+    if (mo->offset != STR_LEN(mo->series))
+        printf("%s\n", s_cast(BIN_AT(SER(mo->series), mo->offset)));
     fflush(stdout);
 
     Drop_Mold(mo);

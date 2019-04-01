@@ -96,7 +96,7 @@ REBCNT find_binary(
         if (skip != 1)
             fail ("String search in BINARY! only supports /SKIP 1 for now.");
 
-        REBSER *formed = nullptr;
+        REBSTR *formed = nullptr;
 
         REBYTE *bp2;
         REBCNT len2;
@@ -104,7 +104,7 @@ REBCNT find_binary(
             formed = Copy_Form_Value(pattern, 0);
             len2 = STR_LEN(formed);
             bp2 = STR_HEAD(formed);
-            *size = SER_USED(formed);
+            *size = STR_SIZE(formed);
         }
         else {
             len2 = VAL_LEN_AT(pattern);
@@ -125,7 +125,7 @@ REBCNT find_binary(
         );
 
         if (formed)
-            Free_Unmanaged_Series(formed);
+            Free_Unmanaged_Series(SER(formed));
 
         return result;
     }
@@ -504,7 +504,7 @@ REB_R PD_Binary(
         if (i >= VAL_LEN_HEAD(opt_setval))
             fail (opt_setval);
 
-        c = GET_CHAR_AT(VAL_SERIES(opt_setval), i);
+        c = GET_CHAR_AT(VAL_STRING(opt_setval), i);
     }
     else
         return R_UNHANDLED;

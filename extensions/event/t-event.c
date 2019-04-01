@@ -336,7 +336,7 @@ static REBVAL *Get_Event_Var(RELVAL *out, const REBCEL *v, REBSTR *name)
 
             free(str);
         }
-        return Init_File(out, SER(VAL_EVENT_NODE(v))); }
+        return Init_File(out, STR(VAL_EVENT_NODE(v))); }
 
       default:
         return nullptr;

@@ -672,13 +672,13 @@ static REB_R Parse_One_Rule(
             // !!! Could this unify with above method for binary, somehow?
 
             if (P_HAS_CASE) {
-                if (VAL_CHAR(rule) != GET_CHAR_AT(P_INPUT, P_POS))
+                if (VAL_CHAR(rule) != GET_CHAR_AT(STR(P_INPUT), P_POS))
                     return R_UNHANDLED;
             }
             else {
                 if (
                     UP_CASE(VAL_CHAR(rule))
-                    != UP_CASE(GET_CHAR_AT(P_INPUT, P_POS))
+                    != UP_CASE(GET_CHAR_AT(STR(P_INPUT), P_POS))
                 ){
                     return R_UNHANDLED;
                 }
@@ -709,7 +709,7 @@ static REB_R Parse_One_Rule(
             if (P_TYPE == REB_BINARY)
                 uni = *BIN_AT(P_INPUT, P_POS);
             else
-                uni = GET_CHAR_AT(P_INPUT, P_POS);
+                uni = GET_CHAR_AT(STR(P_INPUT), P_POS);
 
             if (Check_Bit(VAL_BITSET(rule), uni, not P_HAS_CASE))
                 return Init_Integer(P_OUT, P_POS + 1);
@@ -909,7 +909,7 @@ static REBIXO To_Thru_Block_Rule(
             else {
                 assert(ANY_STRING_KIND(P_TYPE));
 
-                REBUNI ch_unadjusted = GET_CHAR_AT(P_INPUT, pos);
+                REBUNI ch_unadjusted = GET_CHAR_AT(STR(P_INPUT), pos);
                 REBUNI ch;
                 if (!P_HAS_CASE)
                     ch = UP_CASE(ch_unadjusted);
@@ -939,11 +939,11 @@ static REBIXO To_Thru_Block_Rule(
                         // !!! This code was adapted from Parse_to, and is
                         // inefficient in the sense that it forms the tag
                         //
-                        REBSER *formed = Copy_Form_Value(rule, 0);
-                        REBCNT len = SER_LEN(formed);
+                        REBSTR *formed = Copy_Form_Value(rule, 0);
+                        REBCNT len = STR_LEN(formed);
                         const REBINT skip = 1;
                         REBCNT i = Find_Str_In_Str(
-                            P_INPUT,
+                            STR(P_INPUT),
                             pos,
                             SER_LEN(P_INPUT),
                             skip,
@@ -952,7 +952,7 @@ static REBIXO To_Thru_Block_Rule(
                             len,
                             AM_FIND_MATCH | P_FIND_FLAGS
                         );
-                        Free_Unmanaged_Series(formed);
+                        Free_Unmanaged_Series(SER(formed));
                         if (i != NOT_FOUND) {
                             if (is_thru)
                                 return pos + len;
@@ -964,11 +964,11 @@ static REBIXO To_Thru_Block_Rule(
                     REBCNT len = VAL_LEN_AT(rule);
                     const REBINT skip = 1;
                     REBCNT i = Find_Str_In_Str(
-                        P_INPUT,
+                        STR(P_INPUT),
                         pos,
                         SER_LEN(P_INPUT),
                         skip,
-                        VAL_SERIES(rule),
+                        VAL_STRING(rule),
                         VAL_INDEX(rule),
                         len,
                         AM_FIND_MATCH | P_FIND_FLAGS
@@ -1744,7 +1744,7 @@ REBNATIVE(subparse)
                         }
                         else if (ANY_STRING(P_INPUT_VALUE)) {
                             target = nullptr;
-                            Init_Any_Series(
+                            Init_Any_String(
                                 Alloc_Tail_Array(P_COLLECTION),
                                 P_TYPE,
                                 Copy_String_At_Limit(
@@ -2514,7 +2514,7 @@ REBNATIVE(subparse)
                         else
                             Init_Char_Unchecked(
                                 var,
-                                GET_CHAR_AT(P_INPUT, begin)
+                                GET_CHAR_AT(STR(P_INPUT), begin)
                             );
                     }
                 }

@@ -1047,12 +1047,12 @@ unsigned int RL_rebSpellIntoWide(
 
         // !!! Inefficient way of asking "how long is this UTF-8 series", fix!
         //
-        REBSER *s = Make_Sized_String_UTF8(
+        REBSTR *s = Make_Sized_String_UTF8(
             STR_UTF8(spelling),
             STR_SIZE(spelling)
         );
-        len = SER_LEN(s);
-        Free_Unmanaged_Series(s);
+        len = STR_LEN(s);
+        Free_Unmanaged_Series(SER(s));
     }
     else
         fail ("rebSpellIntoWide() only accepts ANY-STRING! and ANY-WORD!");

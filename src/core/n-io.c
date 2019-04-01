@@ -599,13 +599,13 @@ REBNATIVE(local_to_file)
         if (not REF(pass))
             fail ("LOCAL-TO-FILE only passes through FILE! if /PASS used");
 
-        return Init_File(
+        return Init_File(  // Copy (callers frequently modify result)
             D_OUT,
-            Copy_Sequence_At_Len( // Copy (callers frequently modify result)
+            STR(Copy_Sequence_At_Len(
                 VAL_SERIES(path),
                 VAL_INDEX(path),
                 VAL_LEN_AT(path)
-            )
+            ))
         );
     }
 
@@ -644,13 +644,13 @@ REBNATIVE(file_to_local)
         if (not REF(pass))
             fail ("FILE-TO-LOCAL only passes through STRING! if /PASS used");
 
-        return Init_Text(
+        return Init_Text(  // Copy (callers frequently modify result)
             D_OUT,
-            Copy_Sequence_At_Len( // Copy (callers frequently modify result)
+            STR(Copy_Sequence_At_Len(
                 VAL_SERIES(path),
                 VAL_INDEX(path),
                 VAL_LEN_AT(path)
-            )
+            ))
         );
     }
 

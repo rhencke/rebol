@@ -163,18 +163,18 @@ inline static bool SAME_SYM_NONZERO(REBSYM a, REBSYM b) {
 }
 
 inline static REBSTR *STR_CANON(REBSTR *s) {
-    assert(NOT_SERIES_FLAG(s, UTF8_NONWORD));
-    assert(SER_WIDE(s) == 1);
+    assert(IS_STR_SYMBOL(STR(s)));
+
     while (NOT_SERIES_INFO(s, STRING_CANON))
         s = LINK_SYNONYM(s);  // circularly linked list
     return s;
 }
 
 inline static OPT_REBSYM STR_SYMBOL(REBSTR *s) {
-    assert(NOT_SERIES_FLAG(s, UTF8_NONWORD));
-    assert(SER_WIDE(s) == 1);
-    uint16_t sym = SECOND_UINT16(s->header);
-    assert(sym == SECOND_UINT16(STR_CANON(s)->header));
+    assert(IS_STR_SYMBOL(STR(s)));
+
+    uint16_t sym = SECOND_UINT16(SER(s)->header);
+    assert(sym == SECOND_UINT16(SER(STR_CANON(s))->header));
     return cast(REBSYM, sym);
 }
 
@@ -185,8 +185,8 @@ inline static REBSTR *Canon(REBSYM sym) {
 }
 
 inline static bool SAME_STR(REBSTR *s1, REBSTR *s2) {
-    assert(NOT_SERIES_FLAG(s1, UTF8_NONWORD));
-    assert(NOT_SERIES_FLAG(s2, UTF8_NONWORD));
+    assert(IS_STR_SYMBOL(STR(s1)));
+    assert(IS_STR_SYMBOL(STR(s2)));
 
     if (s1 == s2)
         return true; // !!! does this check speed things up or not?
@@ -391,8 +391,8 @@ inline static REBSTR* Intern(const void *p)
 
       case DETECTED_AS_SERIES: {
         REBSER *s = m_cast(REBSER*, cast(const REBSER*, p));
-        assert(GET_SERIES_FLAG(s, IS_UTF8_STRING));
-        return s; }
+        assert(GET_SERIES_FLAG(s, IS_STRING));
+        return STR(s); }
 
       case DETECTED_AS_CELL: {
         const REBVAL *v = cast(const REBVAL*, p);

@@ -640,7 +640,7 @@ REBNATIVE(enhex)
         }
     }
 
-    Init_Any_Series(D_OUT, VAL_TYPE(ARG(string)), Pop_Molded_String(mo));
+    Init_Any_String(D_OUT, VAL_TYPE(ARG(string)), Pop_Molded_String(mo));
     return D_OUT;
 }
 
@@ -762,7 +762,7 @@ REBNATIVE(dehex)
         }
     }
 
-    Init_Any_Series(D_OUT, VAL_TYPE(ARG(string)), Pop_Molded_String(mo));
+    Init_Any_String(D_OUT, VAL_TYPE(ARG(string)), Pop_Molded_String(mo));
     return D_OUT;
 }
 
@@ -788,8 +788,8 @@ REBNATIVE(deline)
     if (REF(lines))
         return Init_Block(D_OUT, Split_Lines(val));
 
-    REBSER *s = VAL_SERIES(val);
-    REBCNT len_head = SER_LEN(s);
+    REBSTR *s = VAL_STRING(val);
+    REBCNT len_head = STR_LEN(s);
 
     REBCNT len_at = VAL_LEN_AT(val);
 
@@ -813,7 +813,7 @@ REBNATIVE(deline)
         dest = WRITE_CHR(dest, c);
     }
 
-    TERM_STR_LEN_USED(s, len_head, dest - VAL_STRING_AT(val));
+    TERM_STR_LEN_SIZE(s, len_head, dest - VAL_STRING_AT(val));
 
     RETURN (ARG(string));
 }
@@ -834,7 +834,7 @@ REBNATIVE(enline)
 
     REBVAL *val = ARG(string);
 
-    REBSER *ser = VAL_SERIES(val);
+    REBSTR *s = VAL_STRING(val);
     REBCNT idx = VAL_INDEX(val);
 
     REBCNT len;
@@ -850,7 +850,7 @@ REBNATIVE(enline)
     // but this would not work if someone added, say, an ENLINE/PART...since
     // the byte ending position of interest might not be end of the string.
 
-    REBCHR(*) cp = STR_AT(ser, idx);
+    REBCHR(*) cp = STR_AT(s, idx);
 
     REBUNI c_prev = '\0';
 
@@ -866,9 +866,9 @@ REBNATIVE(enline)
     if (delta == 0)
         RETURN (ARG(string)); // nothing to do
 
-    REBCNT old_len = MISC(ser).length;
-    EXPAND_SERIES_TAIL(ser, delta); // corrupts MISC(ser).length
-    MISC(ser).length = old_len + delta; // just adding CR's
+    REBCNT old_len = MISC(s).length;
+    EXPAND_SERIES_TAIL(SER(s), delta);  // corrupts MISC(str).length
+    MISC(s).length = old_len + delta;  // just adding CR's
 
     // !!! After the UTF-8 Everywhere conversion, this will be able to stay
     // a byte-oriented process..because UTF-8 doesn't reuse ASCII chars in
@@ -880,8 +880,8 @@ REBNATIVE(enline)
     // UCS-2 has the CR LF bytes in codepoint sequences that aren't CR LF.
     // So sliding is done in full character counts.
 
-    REBYTE* bp = STR_HEAD(ser); // expand may change the pointer
-    REBSIZ tail = SER_USED(ser); // size in bytes after expansion
+    REBYTE* bp = STR_HEAD(s); // expand may change the pointer
+    REBSIZ tail = STR_SIZE(s); // size in bytes after expansion
 
     // Add missing CRs
 
@@ -971,7 +971,7 @@ REBNATIVE(entab)
         }
     }
 
-    Init_Any_Series(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
+    Init_Any_String(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
     return D_OUT;
 }
 
@@ -1032,7 +1032,7 @@ REBNATIVE(detab)
         Append_Codepoint(mo->series, c);
     }
 
-    Init_Any_Series(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
+    Init_Any_String(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
     return D_OUT;
 }
 
@@ -1134,8 +1134,8 @@ REBNATIVE(to_hex)
     // !!! Issue should be able to use string from mold buffer directly when
     // UTF-8 Everywhere unification of ANY-WORD! and ANY-STRING! is done.
     //
-    assert(len == BIN_LEN(mo->series) - mo->offset);
-    if (NULL == Scan_Issue(D_OUT, BIN_AT(mo->series, mo->offset), len))
+    assert(len == STR_SIZE(mo->series) - mo->offset);
+    if (NULL == Scan_Issue(D_OUT, BIN_AT(SER(mo->series), mo->offset), len))
         fail (PAR(value));
 
     Drop_Mold(mo);

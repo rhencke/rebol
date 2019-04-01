@@ -229,53 +229,6 @@ void MF_Issue(REB_MOLD *mo, const REBCEL *v, bool form) {
 
 
 //
-//  PD_Word: C
-//
-// !!! The eventual intention is that words will become ANY-STRING!s, and
-// support the same operations.  As a small step in that direction, this
-// adds support for picking characters out of the UTF-8 data of a word
-// (eventually all strings will be "UTF-8 Everywhere")
-//
-REB_R PD_Word(
-    REBPVS *pvs,
-    const REBVAL *picker,
-    const REBVAL *opt_setval
-){
-    REBSTR *str = VAL_WORD_SPELLING(pvs->out);
-
-    if (not opt_setval) { // PICK-ing
-        if (IS_INTEGER(picker)) {
-            REBINT n = Int32(picker) - 1;
-            if (n < 0)
-                return nullptr;
-
-            REBSIZ size = SER_LEN(str);
-            const REBYTE *bp = STR_HEAD(str);
-            REBUNI c;
-            do {
-                if (size == 0)
-                    return nullptr; // character asked for is past end
-
-                if (*bp < 0x80)
-                    c = *bp;
-                else
-                    bp = Back_Scan_UTF8_Char(&c, bp, &size);
-                --size;
-                ++bp;
-            } while (n-- != 0);
-
-            Init_Char_Unchecked(pvs->out, c);
-            return pvs->out;
-        }
-
-        fail ("ANY-WORD! picking only supports INTEGER!, currently");
-    }
-
-    fail ("Can't use ANY-WORD! with SET-PATH");
-}
-
-
-//
 //  REBTYPE: C
 //
 // The future plan for WORD! types is that they will be unified somewhat with
