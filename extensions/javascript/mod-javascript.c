@@ -392,14 +392,20 @@ EXTERN_C intptr_t RL_rebPromise(REBFLGS flags, void *p, va_list *vaptr)
     return info->promise_id;
 }
 
+struct ArrayAndBool {
+    REBARR *code;
+    bool failed;
+};
 
 // Function passed to rebRescue() so code can be run but trap errors safely.
 //
 REBVAL *Run_Array_Dangerous(void *opaque) {
-    REBARR *code = cast(REBARR*, opaque);
+    struct ArrayAndBool *x = cast(struct ArrayAndBool*, opaque);
+
+    x->failed = true;  // assume it failed if the end was not reached
 
     REBVAL *result = Alloc_Value();
-    if (Do_At_Mutable_Throws(result, code, 0, SPECIFIED)) {
+    if (Do_At_Mutable_Throws(result, x->code, 0, SPECIFIED)) {
         if (IS_HANDLE(VAL_THROWN_LABEL(result))) {
             CATCH_THROWN(result, result);
             assert(IS_FRAME(result));
@@ -409,12 +415,7 @@ REBVAL *Run_Array_Dangerous(void *opaque) {
         fail (Error_No_Catch_For_Throw(result));
     }
 
-    // We want to distinguish an error that was raised from an error that
-    // was returned by value.  Here we experiment with using the MARKED flag.
-    // An error that comes back from the trap won't have the flag.
-    //
-    assert(NOT_CELL_FLAG(result, MARKED_RESULT_SUCCESS));
-    SET_CELL_FLAG(result, MARKED_RESULT_SUCCESS);
+    x->failed = false;  // Since end was reached, it did not fail...
     return result;
 }
 
@@ -457,23 +458,25 @@ void *promise_worker(void *vargp)
         //
         // https://stackoverflow.com/q/33445415/
 
-        REBVAL *result = rebRescue(&Run_Array_Dangerous, code);
+        struct ArrayAndBool x;  // bool needed to know if it failed
+        x.code = code;
+        REBVAL *result = rebRescue(&Run_Array_Dangerous, &x);
         if (info->state == PROMISE_STATE_REJECTED)
             assert(IS_FRAME(result));
         else {
             assert(info->state == PROMISE_STATE_RUNNING);
 
-            if (NOT_CELL_FLAG(result, MARKED_RESULT_SUCCESS)) {
+            if (x.failed) {
                 //
                 // Note this could be an uncaught throw error, raised by the
-                // Run_Array_Dangerous() itself.
+                // Run_Array_Dangerous() itself...or a failure rebRescue()
+                // caught...
                 //
                 assert(IS_ERROR(result));
                 info->state = PROMISE_STATE_REJECTED;
                 TRACE("promise_worker() => error unblocked MAIN => reject");
             }
             else {
-                CLEAR_CELL_FLAG(result, MARKED_RESULT_SUCCESS);
                 info->state = PROMISE_STATE_RESOLVED;
                 TRACE("promise_worker() => unblock MAIN => resolve");
             }
@@ -599,16 +602,17 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
     //
     TRACE("rebIdle() => begin emterpreting promise code");
 
-    result = rebRescue(&Run_Array_Dangerous, code);
+    struct ArrayAndBool x;
+    x.code = code;
+    result = rebRescue(&Run_Array_Dangerous, &x);
     assert(info->state == PROMISE_STATE_RUNNING);
 
-    if (NOT_CELL_FLAG(result, MARKED_RESULT_SUCCESS)) {
+    if (x.failed) {
         assert(IS_ERROR(result));
         info->state = PROMISE_STATE_REJECTED;
         TRACE("rebIdle() => error in emterpreted promise => reject");
     }
     else {
-        CLEAR_CELL_FLAG(result, MARKED_RESULT_SUCCESS);
         info->state = PROMISE_STATE_RESOLVED;
         TRACE("rebIdle() => successful emterpreted promise => resolve");
     }
