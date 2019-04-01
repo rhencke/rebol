@@ -24,8 +24,6 @@
 
 #include "sys-core.h"
 
-#include "sys-tuple.h"
-
 #include "reb-net.h"
 
 #define NET_BUF_SIZE 32*1024

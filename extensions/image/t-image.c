@@ -25,7 +25,6 @@
 
 #include "sys-core.h"
 
-#include "sys-tuple.h"
 #include "sys-image.h"
 
 

@@ -26,7 +26,7 @@
 
 #include "sys-core.h"
 
-#include "sys-money.h"
+#include "datatypes/sys-money.h"
 
 #include <math.h>
 #include <float.h>

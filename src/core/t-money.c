@@ -24,7 +24,7 @@
 
 #include "sys-core.h"
 
-#include "sys-money.h"
+#include "datatypes/sys-money.h"
 
 //
 //  Scan_Money: C

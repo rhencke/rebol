@@ -35,8 +35,6 @@
 #endif
 #include "sys-core.h"
 
-#include "sys-tuple.h"
-
 #include "reb-net.h"
 
 #if (0)

@@ -26,7 +26,7 @@
 
 #include "sys-int-funcs.h"
 
-#include "sys-money.h"
+#include "datatypes/sys-money.h"
 
 //
 //  CT_Integer: C

@@ -25,8 +25,6 @@
 #include "sys-core.h"
 #include "reb-net.h"
 
-#include "sys-tuple.h"
-
 
 //
 //  DNS_Actor: C

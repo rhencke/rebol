@@ -24,7 +24,7 @@
 
 #include "sys-core.h"
 
-#include "sys-money.h"
+#include "datatypes/sys-money.h"
 
 #define THE_SIGN(v) ((v < 0) ? -1 : (v > 0) ? 1 : 0)
 

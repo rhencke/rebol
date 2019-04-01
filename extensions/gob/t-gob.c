@@ -24,7 +24,6 @@
 
 #include "sys-core.h"
 
-#include "sys-tuple.h"
 #include "reb-gob.h"
 
 const struct {

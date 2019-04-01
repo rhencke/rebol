@@ -485,38 +485,39 @@ extern void reb_qsort_r(void *a, size_t n, size_t es, void *thunk, cmp_t *cmp);
 //
 inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding);
 
-#include "sys-track.h"
-#include "sys-value.h" // basic definitions that don't need series accessors
-#include "sys-nulled.h"
-#include "sys-void.h"
-#include "sys-blank.h"
-#include "sys-logic.h"
-#include "sys-integer.h"
-#include "sys-char.h"  // uses Init_Integer() for bad codepoint error
-#include "sys-decimal.h"
-#include "sys-datatype.h"
+#include "datatypes/sys-track.h"
+#include "datatypes/sys-value.h"  // these defines don't need series accessors
+
+#include "datatypes/sys-nulled.h"
+#include "datatypes/sys-void.h"
+#include "datatypes/sys-blank.h"
+#include "datatypes/sys-logic.h"
+#include "datatypes/sys-integer.h"
+#include "datatypes/sys-char.h"  // use Init_Integer() for bad codepoint error
+#include "datatypes/sys-decimal.h"
+#include "datatypes/sys-datatype.h"
 
 inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
     Eval_Signals |= f;
     Eval_Count = 1;
 }
 
-#include "sys-series.h"
+#include "datatypes/sys-series.h"
 
-#include "sys-array.h"  // REBARR used by bookmark code in UTF-8 strings
+#include "datatypes/sys-array.h"  // REBARR used by UTF-8 string bookmarks
 
-#include "sys-binary.h" // BYTE_SIZE(), BIN_HEAD(), etc. used by strings
-#include "sys-string.h" // REBSYM needed for typeset datatype symbols
-#include "sys-word.h"
+#include "datatypes/sys-binary.h"  // BIN_XXX(), etc. used by strings
+#include "datatypes/sys-string.h"  // REBSYM needed for typesets
+#include "datatypes/sys-word.h"
 
-#include "sys-pair.h"
-#include "sys-quoted.h"  // requires pairings for cell storage
+#include "datatypes/sys-pair.h"
+#include "datatypes/sys-quoted.h"  // requires pairings for cell storage
 
-#include "sys-action.h"
-#include "sys-typeset.h"  // needed for keys in contexts
-#include "sys-context.h" // needs actions defined for FRAME! contexts
+#include "datatypes/sys-action.h"
+#include "datatypes/sys-typeset.h"  // needed for keys in contexts
+#include "datatypes/sys-context.h"  // needs actions for FRAME! contexts
 
-#include "sys-bitset.h"
+#include "datatypes/sys-bitset.h"
 
 #include "sys-stack.h"
 #include "sys-bind.h" // needs DS_PUSH() and DS_TOP from %sys-stack.h
@@ -524,16 +525,16 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "sys-roots.h"
 
 #include "sys-throw.h"
-#include "sys-frame.h"  // needs words for frame-label-returning helpers
+#include "datatypes/sys-frame.h"  // needs words for frame-label helpers
 
 #include "sys-protect.h"
 
-#include "sys-time.h"
-#include "sys-handle.h"
-#include "sys-map.h"
-#include "sys-varargs.h"
+#include "datatypes/sys-time.h"
+#include "datatypes/sys-handle.h"
+#include "datatypes/sys-map.h"
+#include "datatypes/sys-varargs.h"
 
-#include "sys-library.h" // maybe should be defined in an extension
+#include "datatypes/sys-library.h"  // maybe should be defined in an extension
 
 #include "host-lib.h"
 
@@ -604,4 +605,5 @@ enum {
 #include "sys-eval.h" // low-level single-step evaluation API
 #include "sys-do.h" // higher-level evaluate-until-end API
 
-#include "sys-path.h"
+#include "datatypes/sys-path.h"
+#include "datatypes/sys-tuple.h"

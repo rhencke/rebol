@@ -24,8 +24,6 @@
 
 #include "sys-core.h"
 
-#include "sys-tuple.h"
-
 //
 //  CT_Tuple: C
 //

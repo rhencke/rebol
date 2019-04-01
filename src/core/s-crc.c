@@ -24,8 +24,7 @@
 
 #include "sys-core.h"
 
-#include "sys-money.h" // !!! Needed for hash (should be a method?)
-#include "sys-tuple.h" // !!! ...same
+#include "datatypes/sys-money.h" // !!! Needed for hash (should be a method?)
 
 #include "sys-zlib.h" // re-use CRC code from zlib
 const z_crc_t *crc32_table; // pointer to the zlib CRC32 table

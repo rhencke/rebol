@@ -26,8 +26,6 @@
 #include "sys-dec-to-char.h"
 #include <errno.h>
 
-#include "sys-tuple.h"
-
 
 //
 // The scanning code in R3-Alpha used NULL to return failure during the scan

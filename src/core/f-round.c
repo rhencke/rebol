@@ -24,7 +24,7 @@
 
 #include "sys-core.h"
 
-#include "sys-money.h"
+#include "datatypes/sys-money.h"
 
 
 #define Dec_Trunc(x) (((x) < 0.0) ? -1.0 : 1.0) * floor(fabs(x))
