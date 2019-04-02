@@ -1009,9 +1009,20 @@ script:
       fi
 
     # Keep note of GIT_COMMIT_SHORT
-    - rm -f ${OS_ID}/zzz_git_commit.js
     - echo "git_commit = '${GIT_COMMIT_SHORT}'" > ${OS_ID}/zzz_git_commit.js
-    # 'zzz' in the hope it will the latest uploaded file 
+    # 'zzz' in the hope it will the latest uploaded file
+    - |
+      if [[ ${TRAVIS_BRANCH} = "master" && ( $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ) ]]
+      then
+        for i in $OS_ID/*
+        do
+            case $i in
+                *.wasm) OPT_TYPE="--content-type application/wasm" ;;
+                *) OPT_TYPE="" ;;
+            esac
+            $AWS s3 cp $i s3://${AWS_S3_BUCKET_NAME}/travis-builds/$i $OPT_TYPE
+        done
+      fi
 
     # Return whether the build succeeded or not to Travis.  If this succeeded 
     # then the deploy step to S3 will run.  Parentheses create a "subshell"
@@ -1032,3 +1043,7 @@ deploy:
     bucket: "$AWS_S3_BUCKET_NAME"
     skip_cleanup: true
     upload-dir: travis-builds
+    on:
+        condition: ${OS_ID} != "0.16.1"
+        condition: ${OS_ID} != "0.16.2"
+
