@@ -363,19 +363,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 derived
             );
 
-            // Refinements and refinement arguments cannot be specified as
-            // <opt>.  Although refinement arguments may be void, they are
-            // not "passed in" that way...the refinement is inactive.
-            //
-            if (refinement_seen) {
-                if (
-                    TYPE_CHECK(param, REB_NULLED)
-                    and not TYPE_CHECK(param, REB_TS_SKIPPABLE)  // !!! allow?
-                ){
-                    fail (Error_Refinement_Arg_Opt_Raw());
-                }
-            }
-
             has_types = true;
             continue;
         }

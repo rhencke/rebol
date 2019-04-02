@@ -518,11 +518,11 @@ REBTYPE(Time)
             switch (sym) {
             case SYM_ADD:
                 secs = Add_Max(REB_TIME, secs, secs2, MAX_TIME);
-                goto fixTime;
+                return Init_Time_Nanoseconds(D_OUT, secs);
 
             case SYM_SUBTRACT:
                 secs = Add_Max(REB_TIME, secs, -secs2, MAX_TIME);
-                goto fixTime;
+                return Init_Time_Nanoseconds(D_OUT, secs);
 
             case SYM_DIVIDE:
                 if (secs2 == 0)
@@ -536,7 +536,7 @@ REBTYPE(Time)
                 if (secs2 == 0)
                     fail (Error_Zero_Divide_Raw());
                 secs %= secs2;
-                goto setTime;
+                return Init_Time_Nanoseconds(D_OUT, secs);
 
             default:
                 fail (Error_Math_Args(REB_TIME, verb));
@@ -548,30 +548,30 @@ REBTYPE(Time)
             switch (VAL_WORD_SYM(verb)) {
             case SYM_ADD:
                 secs = Add_Max(REB_TIME, secs, num * SEC_SEC, MAX_TIME);
-                goto fixTime;
+                return Init_Time_Nanoseconds(D_OUT, secs);
 
             case SYM_SUBTRACT:
                 secs = Add_Max(REB_TIME, secs, num * -SEC_SEC, MAX_TIME);
-                goto fixTime;
+                return Init_Time_Nanoseconds(D_OUT, secs);
 
             case SYM_MULTIPLY:
                 secs *= num;
                 if (secs < -MAX_TIME || secs > MAX_TIME)
                     fail (Error_Type_Limit_Raw(Datatype_From_Kind(REB_TIME)));
-                goto setTime;
+                return Init_Time_Nanoseconds(D_OUT, secs);
 
             case SYM_DIVIDE:
                 if (num == 0)
                     fail (Error_Zero_Divide_Raw());
                 secs /= num;
                 Init_Integer(D_OUT, secs);
-                goto setTime;
+                return Init_Time_Nanoseconds(D_OUT, secs);
 
             case SYM_REMAINDER:
                 if (num == 0)
                     fail (Error_Zero_Divide_Raw());
                 secs %= num;
-                goto setTime;
+                return Init_Time_Nanoseconds(D_OUT, secs);
 
             default:
                 fail (Error_Math_Args(REB_TIME, verb));
@@ -588,7 +588,7 @@ REBTYPE(Time)
                     cast(int64_t, dec * SEC_SEC),
                     MAX_TIME
                 );
-                goto fixTime;
+                return Init_Time_Nanoseconds(D_OUT, secs);
 
             case SYM_SUBTRACT:
                 secs = Add_Max(
@@ -597,17 +597,17 @@ REBTYPE(Time)
                     cast(int64_t, dec * -SEC_SEC),
                     MAX_TIME
                 );
-                goto fixTime;
+                return Init_Time_Nanoseconds(D_OUT, secs);
 
             case SYM_MULTIPLY:
                 secs = cast(int64_t, secs * dec);
-                goto setTime;
+                return Init_Time_Nanoseconds(D_OUT, secs);
 
             case SYM_DIVIDE:
                 if (dec == 0.0)
                     fail (Error_Zero_Divide_Raw());
                 secs = cast(int64_t, secs / dec);
-                goto setTime;
+                return Init_Time_Nanoseconds(D_OUT, secs);
 
 //          case SYM_REMAINDER:
 //              ld = fmod(ld, VAL_DECIMAL(arg));
@@ -640,11 +640,11 @@ REBTYPE(Time)
 
         case SYM_NEGATE:
             secs = -secs;
-            goto setTime;
+            return Init_Time_Nanoseconds(D_OUT, secs);
 
         case SYM_ABSOLUTE:
             if (secs < 0) secs = -secs;
-            goto setTime;
+            return Init_Time_Nanoseconds(D_OUT, secs);
 
         case SYM_ROUND: {
             INCLUDE_PARAMS_OF_ROUND;
@@ -661,35 +661,33 @@ REBTYPE(Time)
                 | (REF(half_ceiling) ? RF_HALF_CEILING : 0)
             );
 
-            if (REF(to)) {
-                arg = ARG(scale);
-                if (IS_TIME(arg)) {
-                    secs = Round_Int(secs, flags, VAL_NANO(arg));
-                }
-                else if (IS_DECIMAL(arg)) {
-                    VAL_DECIMAL(arg) = Round_Dec(
-                        cast(REBDEC, secs),
-                        flags,
-                        Dec64(arg) * SEC_SEC
-                    );
-                    VAL_DECIMAL(arg) /= SEC_SEC;
-                    RESET_VAL_HEADER(arg, REB_DECIMAL, CELL_MASK_NONE);
-                    Move_Value(D_OUT, ARG(scale));
-                    return D_OUT;
-                }
-                else if (IS_INTEGER(arg)) {
-                    VAL_INT64(arg) = Round_Int(secs, 1, Int32(arg) * SEC_SEC) / SEC_SEC;
-                    RESET_VAL_HEADER(arg, REB_INTEGER, CELL_MASK_NONE);
-                    Move_Value(D_OUT, ARG(scale));
-                    return D_OUT;
-                }
-                else
-                    fail (arg);
-            }
-            else {
+            if (not REF(to)) {
                 secs = Round_Int(secs, flags | RF_TO, SEC_SEC);
+                return Init_Time_Nanoseconds(D_OUT, secs);
             }
-            goto fixTime; }
+
+            REBVAL *to = ARG(to);
+            if (IS_TIME(to)) {
+                secs = Round_Int(secs, flags, VAL_NANO(to));
+                return Init_Time_Nanoseconds(D_OUT, secs);
+            }
+            else if (IS_DECIMAL(to)) {
+                VAL_DECIMAL(to) = Round_Dec(
+                    cast(REBDEC, secs),
+                    flags,
+                    Dec64(to) * SEC_SEC
+                );
+                VAL_DECIMAL(to) /= SEC_SEC;
+                RESET_VAL_HEADER(to, REB_DECIMAL, CELL_MASK_NONE);
+                RETURN (to);
+            }
+            else if (IS_INTEGER(to)) {
+                VAL_INT64(to) = Round_Int(secs, 1, Int32(to) * SEC_SEC) / SEC_SEC;
+                RESET_VAL_HEADER(to, REB_INTEGER, CELL_MASK_NONE);
+                RETURN (to);
+            }
+            
+            fail (PAR(to)); }
 
         case SYM_RANDOM: {
             INCLUDE_PARAMS_OF_RANDOM;
@@ -704,15 +702,12 @@ REBTYPE(Time)
                 return nullptr;
             }
             secs = Random_Range(secs / SEC_SEC, REF(secure)) * SEC_SEC;
-            goto fixTime; }
+            return Init_Time_Nanoseconds(D_OUT, secs); }
 
         default:
             break;
         }
     }
-    fail (Error_Illegal_Action(REB_TIME, verb));
 
-fixTime:
-setTime:
-    return Init_Time_Nanoseconds(D_OUT, secs);
+    fail (Error_Illegal_Action(REB_TIME, verb));
 }

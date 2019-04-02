@@ -493,10 +493,10 @@ REBTYPE(Varargs)
 
         REBDSP dsp_orig = DSP;
 
-        if (not IS_INTEGER(ARG(limit)))
-            fail (PAR(limit));
+        if (not IS_INTEGER(ARG(part)))
+            fail (PAR(part));
 
-        REBINT limit = VAL_INT32(ARG(limit));
+        REBINT limit = VAL_INT32(ARG(part));
         if (limit < 0)
             limit = 0;
 

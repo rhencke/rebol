@@ -44,14 +44,12 @@ do*: function [
     return: [<opt> any-value!]
     source [file! url! text! binary! tag!]
         {Files, urls and modules evaluate as scripts, other strings don't.}
-    arg [<opt> any-value!]
+    args [any-value!]
         "Args passed as system/script/args to a script (normally a string)"
     only [logic!]
         "Do not catch quits...propagate them."
 ][
     ; Refinements on the original DO, re-derive for helper
-
-    args: value? :arg
 
     next: :lib/next
 
@@ -158,12 +156,12 @@ do*: function [
 
         ; Make the new script object
         original-script: system/script  ; and save old one
-        system/script: make system/standard/script [
+        system/script: make system/standard/script compose [
             title: try select hdr 'title
             header: hdr
             parent: :original-script
             path: what-dir
-            args: try :arg
+            args: (:args)
         ]
 
         if set? 'script-pre-load-hook [

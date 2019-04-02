@@ -605,19 +605,8 @@ REBTYPE(Bitset)
 
         UNUSED(PAR(series));
         UNUSED(PAR(pattern));
-        if (REF(part)) {
-            UNUSED(ARG(limit));
-            fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(only))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(skip)) {
-            UNUSED(ARG(size));
-            fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(tail))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(match))
+
+        if (REF(part) or REF(only) or REF(skip) or REF(tail) or REF(match))
             fail (Error_Bad_Refines_Raw());
 
         if (not Check_Bits(VAL_BITSET(v), arg, REF(case)))
@@ -654,8 +643,8 @@ REBTYPE(Bitset)
         if (not REF(part))
             fail (Error_Missing_Arg_Raw());
 
-        if (not Set_Bits(VAL_BITSET(v), ARG(limit), false))
-            fail (ARG(limit));
+        if (not Set_Bits(VAL_BITSET(v), ARG(part), false))
+            fail (PAR(part));
 
         RETURN (v); }
 
@@ -663,16 +652,8 @@ REBTYPE(Bitset)
         INCLUDE_PARAMS_OF_COPY;
         UNUSED(PAR(value));
 
-        if (REF(part)) {
-            UNUSED(ARG(limit));
+        if (REF(part) or REF(deep) or REF(types))
             fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(deep))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(types)) {
-            UNUSED(ARG(kinds));
-            fail (Error_Bad_Refines_Raw());
-        }
 
         REBBIN *copy = Copy_Sequence_Core(VAL_BITSET(v), NODE_FLAG_MANAGED);
         INIT_BITS_NOT(copy, BITS_NOT(VAL_BITSET(v)));

@@ -165,7 +165,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
         REBINT len;
         if (REF(part))
-            len = Part_Len_May_Modify_Index(value, ARG(limit));
+            len = Part_Len_May_Modify_Index(value, ARG(part));
         else
             len = 1;
 
@@ -204,7 +204,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
                 ARG(value2),
                 sop_flags,
                 REF(case),
-                REF(skip) ? Int32s(ARG(size), 1) : 1
+                REF(skip) ? Int32s(ARG(skip), 1) : 1
             )
         ); }
 

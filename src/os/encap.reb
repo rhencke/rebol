@@ -588,6 +588,9 @@ pe-format: context [
         def
         find-a-word
     ][
+        words: skip
+        skip: :lib/skip
+
         find-a-word: func [
             return: <void>
             word [any-word!]
@@ -599,7 +602,7 @@ pe-format: context [
             ]
         ]
 
-        either skip [
+        either words [
             if word? words [
                 words: reduce [words]
             ]

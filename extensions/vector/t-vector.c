@@ -641,16 +641,8 @@ REBTYPE(Vector)
         INCLUDE_PARAMS_OF_COPY;
         UNUSED(PAR(value));  // same as `v`
 
-        if (REF(part)) {
-            UNUSED(ARG(limit));
+        if (REF(part) or REF(deep) or REF(types))
             fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(deep))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(types)) {
-            UNUSED(ARG(kinds));
-            fail (Error_Bad_Refines_Raw());
-        }
 
         REBBIN *bin = Copy_Sequence_Core(
             VAL_BINARY(VAL_VECTOR_BINARY(v)),

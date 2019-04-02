@@ -58,14 +58,12 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         UNUSED(PAR(source));
 
-        if (REF(part)) {
-            UNUSED(ARG(limit));
+        if (REF(part))
             fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(seek)) {
-            UNUSED(ARG(index));
+
+        if (REF(seek))
             fail (Error_Bad_Refines_Raw());
-        }
+
         UNUSED(PAR(string)); // handled in dispatcher
         UNUSED(PAR(lines)); // handled in dispatcher
 

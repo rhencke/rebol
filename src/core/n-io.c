@@ -50,16 +50,12 @@ REBNATIVE(form)
 //
 //  "Converts a value to a REBOL-readable string."
 //
-//      value [any-value!]
-//          "The value to mold"
-//      /only
-//          {For a block value, mold only its contents, no outer []}
-//      /all
-//          "Use construction syntax"
-//      /flat
-//          "No indentation"
-//      /limit
-//          "Limit to a certain length"
+//      value "The value to mold"
+//          [any-value!]
+//      /only "For a block value, mold only its contents, no outer []"
+//      /all "Use construction syntax"
+//      /flat "No indentation"
+//      /limit "Limit to a certain length"
 //      amount [integer!]
 //  ]
 //
@@ -74,7 +70,7 @@ REBNATIVE(mold)
         SET_MOLD_FLAG(mo, MOLD_FLAG_INDENT);
     if (REF(limit)) {
         SET_MOLD_FLAG(mo, MOLD_FLAG_LIMIT);
-        mo->limit = Int32(ARG(amount));
+        mo->limit = Int32(ARG(limit));
     }
 
     Push_Mold(mo);
@@ -180,7 +176,7 @@ REBNATIVE(new_line)
     if (REF(all))
         skip = 1;
     else if (REF(skip)) {
-        skip = Int32s(ARG(count), 1);
+        skip = Int32s(ARG(skip), 1);
         if (skip < 1)
             skip = 1;
     }

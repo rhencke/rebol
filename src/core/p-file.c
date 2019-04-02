@@ -365,9 +365,9 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         }
 
         if (REF(seek))
-            Set_Seek(file, ARG(index));
+            Set_Seek(file, ARG(seek));
 
-        REBCNT len = Set_Length(file, REF(part) ? VAL_INT64(ARG(limit)) : -1);
+        REBCNT len = Set_Length(file, REF(part) ? VAL_INT64(ARG(part)) : -1);
         Read_File_Port(D_OUT, port, file, path, flags, len);
 
         if (opened) {
@@ -397,10 +397,8 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         UNUSED(PAR(destination));
 
-        if (REF(allow)) {
-            UNUSED(ARG(access));
+        if (REF(allow))
             fail (Error_Bad_Refines_Raw());
-        }
 
         REBVAL *data = ARG(data); // binary, string, or block
 
@@ -430,13 +428,14 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
             req->modes |= RFM_RESEEK;
         }
         if (REF(seek))
-            Set_Seek(file, ARG(index));
+            Set_Seek(file, ARG(seek));
 
         // Determine length. Clip /PART to size of string if needed.
         REBCNT len = VAL_LEN_AT(data);
         if (REF(part)) {
-            REBCNT n = Int32s(ARG(limit), 0);
-            if (n <= len) len = n;
+            REBCNT n = Int32s(ARG(part), 0);
+            if (n <= len)
+                len = n;
         }
 
         Write_File_Port(file, data, len, REF(lines));
@@ -459,10 +458,9 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         INCLUDE_PARAMS_OF_OPEN;
 
         UNUSED(PAR(spec));
-        if (REF(allow)) {
-            UNUSED(ARG(access));
+
+        if (REF(allow))
             fail (Error_Bad_Refines_Raw());
-        }
 
         REBFLGS flags = (
             (REF(new) ? AM_OPEN_NEW : 0)
@@ -483,17 +481,14 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         INCLUDE_PARAMS_OF_COPY;
 
         UNUSED(PAR(value));
-        if (REF(deep))
+
+        if (REF(deep) or REF(types))
             fail (Error_Bad_Refines_Raw());
-        if (REF(types)) {
-            UNUSED(ARG(kinds));
-            fail (Error_Bad_Refines_Raw());
-        }
 
         if (not (req->flags & RRF_OPEN))
             fail (Error_Not_Open_Raw(path)); // !!! wrong msg
 
-        REBCNT len = Set_Length(file, REF(part) ? VAL_INT64(ARG(limit)) : -1);
+        REBCNT len = Set_Length(file, REF(part) ? VAL_INT64(ARG(part)) : -1);
         REBFLGS flags = 0;
         Read_File_Port(D_OUT, port, file, path, flags, len);
         return D_OUT; }
@@ -575,10 +570,9 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         INCLUDE_PARAMS_OF_QUERY;
 
         UNUSED(PAR(target));
-        if (REF(mode)) {
-            UNUSED(ARG(field));
+
+        if (REF(mode))
             fail (Error_Bad_Refines_Raw());
-        }
 
         if (not (req->flags & RRF_OPEN)) {
             Setup_File(file, 0, path);

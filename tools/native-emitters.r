@@ -78,6 +78,8 @@ emit-include-params-macro: function [
     paramlist [block!] "paramlist of the native"
     /ext ext-name
 ][
+    seen-refinement: false
+
     n: 1
     items: try collect* [
         for-each item paramlist [
@@ -89,13 +91,21 @@ emit-include-params-macro: function [
             ]
 
             either refinement? item [
+                seen-refinement: true
                 param-name: as text! to word! item
 
                 keep cscape/with {REFINE($<n>, ${param-name})} [n param-name]
             ][
-                param-name: as text! item
+                ; !!! As a transition to refinements-being-the-arg, we don't
+                ; generate macros for things that look like refinement args.
+                ; This forces usages to change to ARG(refinename).  In time,
+                ; it will be legal to order normal parameters after refines.
+                ;
+                if not seen-refinement [
+                    param-name: as text! item
 
-                keep cscape/with {PARAM($<n>, ${param-name})} [n param-name]
+                    keep cscape/with {PARAM($<n>, ${param-name})} [n param-name]
+                ]
             ]
             n: n + 1
         ]

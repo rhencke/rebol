@@ -171,14 +171,10 @@ REBTYPE(Action)
         INCLUDE_PARAMS_OF_COPY;
 
         UNUSED(PAR(value));
-        if (REF(part)) {
-            UNUSED(ARG(limit));
+
+        if (REF(part) or REF(types))
             fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(types)) {
-            UNUSED(ARG(kinds));
-            fail (Error_Bad_Refines_Raw());
-        }
+
         if (REF(deep)) {
             // !!! always "deep", allow it?
         }

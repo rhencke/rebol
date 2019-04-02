@@ -124,24 +124,15 @@ static void cleanup_rc4_ctx(const REBVAL *v)
 
 
 //
-//  export rc4: native [
+//  export rc4-key: native [
 //
 //  "Encrypt/decrypt data (modifies) using RC4 algorithm."
 //
-//      return: [handle! logic!]
-//          "Returns stream cipher context handle."
-//      /key
-//          "Provided only for the first time to get stream HANDLE!"
-//      crypt-key [binary!]
-//          "Crypt key."
-//      /stream
-//      ctx [handle!]
-//          "Stream cipher context."
-//      data [binary!]
-//          "Data to encrypt/decrypt."
+//      return: [handle!]
+//      key [binary!]
 //  ]
 //
-REBNATIVE(rc4)
+REBNATIVE(rc4_key)
 //
 // !!! RC4 was originally included for use with TLS.  However, the insecurity
 // of RC4 led the IETF to prohibit RC4 for TLS use in 2015:
@@ -152,47 +143,59 @@ REBNATIVE(rc4)
 // be moved to its own extension so it could be selected to build in or not,
 // which is how cryptography methods should probably be done.
 {
-    CRYPT_INCLUDE_PARAMS_OF_RC4;
+    CRYPT_INCLUDE_PARAMS_OF_RC4_KEY;
 
-    if (REF(stream)) {
-        REBVAL *data = ARG(data);
+    RC4_CTX *rc4_ctx = ALLOC_ZEROFILL(RC4_CTX);
 
-        if (VAL_HANDLE_CLEANER(ARG(ctx)) != cleanup_rc4_ctx)
-            rebJumps("fail [{Not a RC4 Context:}", ARG(ctx), "]", rebEND);
+    RC4_setup(
+        rc4_ctx,
+        VAL_BIN_AT(ARG(key)),
+        VAL_LEN_AT(ARG(key))
+    );
 
-        RC4_CTX *rc4_ctx = VAL_HANDLE_POINTER(RC4_CTX, ARG(ctx));
+    return Init_Handle_Cdata_Managed(
+        D_OUT,
+        rc4_ctx,
+        sizeof(RC4_CTX),
+        &cleanup_rc4_ctx
+    );
+}
 
-        RC4_crypt(
-            rc4_ctx,
-            VAL_BIN_AT(data), // input "message"
-            VAL_BIN_AT(data), // output (same, since it modifies)
-            VAL_LEN_AT(data)
-        );
 
-        // In %host-core.c this used to fall through to return the first arg,
-        // a refinement, which was true in this case.  :-/
-        //
-        return rebLogic(true);
-    }
+//
+//  export rc4-stream: native [
+//
+//  "Encrypt/decrypt data (modifies) using RC4 algorithm."
+//
+//      return: [logic!]
+//      ctx "Stream cipher context"
+//          [handle!]
+//      data "Data to encrypt/decrypt (modified)"
+//          [binary!]
+//  ]
+//
+REBNATIVE(rc4_stream)
+{
+    CRYPT_INCLUDE_PARAMS_OF_RC4_STREAM;
 
-    if (REF(key)) { // Key defined - setup new context
-        RC4_CTX *rc4_ctx = ALLOC_ZEROFILL(RC4_CTX);
+    REBVAL *data = ARG(data);
 
-        RC4_setup(
-            rc4_ctx,
-            VAL_BIN_AT(ARG(crypt_key)),
-            VAL_LEN_AT(ARG(crypt_key))
-        );
+    if (VAL_HANDLE_CLEANER(ARG(ctx)) != cleanup_rc4_ctx)
+        rebJumps("fail [{Not a RC4 Context:}", ARG(ctx), "]", rebEND);
 
-        return Init_Handle_Cdata_Managed(
-            D_OUT,
-            rc4_ctx,
-            sizeof(RC4_CTX),
-            &cleanup_rc4_ctx
-        );
-    }
+    RC4_CTX *rc4_ctx = VAL_HANDLE_POINTER(RC4_CTX, ARG(ctx));
 
-    rebJumps("fail {Refinement /key or /stream has to be present}", rebEND);
+    RC4_crypt(
+        rc4_ctx,
+        VAL_BIN_AT(data),  // input "message"
+        VAL_BIN_AT(data),  // output (same, since it modifies)
+        VAL_LEN_AT(data)
+    );
+
+    // !!! In %host-core.c this used to fall through to return the first arg,
+    // a refinement, which was true in this case.  :-/
+    //
+    return rebLogic(true);
 }
 
 
@@ -203,10 +206,8 @@ REBNATIVE(rc4)
 //
 //      data [binary!]
 //      key-object [object!]
-//      /decrypt
-//         "Decrypts the data (default is to encrypt)"
-//      /private
-//         "Uses an RSA private key (default is a public key)"
+//      /decrypt "Decrypts the data (default is to encrypt)"
+//      /private "Uses an RSA private key (default is a public key)"
 //  ]
 //
 REBNATIVE(rsa)
@@ -361,9 +362,9 @@ REBNATIVE(rsa)
 //  "Update DH object with new DH private/public key pair."
 //
 //      return: "No result, object's PRIV-KEY and PUB-KEY members updated"
-//          [<opt>]
-//      obj [object!]
-//         "(modified) Diffie-Hellman object, with generator(g) / modulus(p)"
+//          <void>
+//      obj "(modified) Diffie-Hellman object, with generator(g) / modulus(p)"
+//          [object!]
 //  ]
 //
 REBNATIVE(dh_generate_key)
@@ -408,7 +409,7 @@ REBNATIVE(dh_generate_key)
     rebRelease(priv);
     rebRelease(pub);
 
-    return nullptr; // !!! Should be void, how to denote?
+    return rebVoid();
 }
 
 
@@ -417,12 +418,12 @@ REBNATIVE(dh_generate_key)
 //
 //  "Computes key from a private/public key pair and the peer's public key."
 //
-//      return: [binary!]
-//          "Negotiated key"
-//      obj [object!]
-//          "The Diffie-Hellman key object"
-//      public-key [binary!]
-//          "Peer's public key"
+//      return: "Negotiated key"
+//          [binary!]
+//      obj "The Diffie-Hellman key object"
+//          [object!]
+//      public-key "Peer's public key"
+//          [binary!]
 //  ]
 //
 REBNATIVE(dh_compute_key)
@@ -469,131 +470,131 @@ static void cleanup_aes_ctx(const REBVAL *v)
 
 
 //
-//  export aes: native [
+//  export aes-key: native [
 //
 //  "Encrypt/decrypt data using AES algorithm."
 //
-//      return: [handle! binary! logic!]
-//          "Stream cipher context handle or encrypted/decrypted data."
-//      /key
-//          "Provided only for the first time to get stream HANDLE!"
-//      crypt-key [binary!]
-//          "Crypt key."
-//      iv [binary! blank!]
-//          "Optional initialization vector."
-//      /stream
-//      ctx [handle!]
-//          "Stream cipher context."
-//      data [binary!]
-//          "Data to encrypt/decrypt."
-//      /decrypt
-//          "Use the crypt-key for decryption (default is to encrypt)"
+//      return: "Stream cipher context handle"
+//          [handle!]
+//      key [binary!]
+//      iv "Optional initialization vector"
+//          [binary! blank!]
+//      /decrypt "Make cipher context for decryption (default is to encrypt)"
 //  ]
 //
-REBNATIVE(aes)
+REBNATIVE(aes_key)
 {
-    CRYPT_INCLUDE_PARAMS_OF_AES;
+    CRYPT_INCLUDE_PARAMS_OF_AES_KEY;
 
-    if (REF(stream)) {
-        if (VAL_HANDLE_CLEANER(ARG(ctx)) != cleanup_aes_ctx)
-            rebJumps(
-                "fail [{Not a AES context:}", ARG(ctx), "]", rebEND
-            );
+    uint8_t iv[AES_IV_SIZE];
 
-        AES_CTX *aes_ctx = VAL_HANDLE_POINTER(AES_CTX, ARG(ctx));
+    if (IS_BINARY(ARG(iv))) {
+        if (VAL_LEN_AT(ARG(iv)) < AES_IV_SIZE)
+            fail ("Length of initialization vector less than AES size");
 
-        REBYTE *dataBuffer = VAL_BIN_AT(ARG(data));
-        REBINT len = VAL_LEN_AT(ARG(data));
-
-        if (len == 0)
-            return nullptr; // !!! Is NULL a good result for 0 data?
-
-        REBINT pad_len = (((len - 1) >> 4) << 4) + AES_BLOCKSIZE;
-
-        REBYTE *pad_data;
-        if (len < pad_len) {
-            //
-            //  make new data input with zero-padding
-            //
-            pad_data = rebAllocN(REBYTE, pad_len);
-            memset(pad_data, 0, pad_len);
-            memcpy(pad_data, dataBuffer, len);
-            dataBuffer = pad_data;
-        }
-        else
-            pad_data = nullptr;
-
-        REBYTE *data_out = rebAllocN(REBYTE, pad_len);
-        memset(data_out, 0, pad_len);
-
-        if (aes_ctx->key_mode == AES_MODE_DECRYPT)
-            AES_cbc_decrypt(
-                aes_ctx,
-                cast(const uint8_t*, dataBuffer),
-                data_out,
-                pad_len
-            );
-        else
-            AES_cbc_encrypt(
-                aes_ctx,
-                cast(const uint8_t*, dataBuffer),
-                data_out,
-                pad_len
-            );
-
-        if (pad_data)
-            rebFree(pad_data);
-
-        return rebRepossess(data_out, pad_len);
+        memcpy(iv, VAL_BIN_AT(ARG(iv)), AES_IV_SIZE);
+    }
+    else {
+        assert(IS_BLANK(ARG(iv)));
+        memset(iv, 0, AES_IV_SIZE);
     }
 
-    if (REF(key)) {
-        uint8_t iv[AES_IV_SIZE];
-
-        if (IS_BINARY(ARG(iv))) {
-            if (VAL_LEN_AT(ARG(iv)) < AES_IV_SIZE)
-                fail ("Length of initialization vector less than AES size");
-
-            memcpy(iv, VAL_BIN_AT(ARG(iv)), AES_IV_SIZE);
-        }
-        else {
-            assert(IS_BLANK(ARG(iv)));
-            memset(iv, 0, AES_IV_SIZE);
-        }
-
-        //key defined - setup new context
-
-        REBINT len = VAL_LEN_AT(ARG(crypt_key)) << 3;
-        if (len != 128 and len != 256) {
-            DECLARE_LOCAL (i);
-            Init_Integer(i, len);
-            rebJumps(
-                "fail [{AES key length has to be 16 or 32, not:}",
-                    rebI(len), "]", rebEND
-            );
-        }
-
-        AES_CTX *aes_ctx = ALLOC_ZEROFILL(AES_CTX);
-
-        AES_set_key(
-            aes_ctx,
-            cast(const uint8_t *, VAL_BIN_AT(ARG(crypt_key))),
-            cast(const uint8_t *, iv),
-            (len == 128) ? AES_MODE_128 : AES_MODE_256
-        );
-
-        if (REF(decrypt))
-            AES_convert_key(aes_ctx);
-
-        return Init_Handle_Cdata_Managed(
-            D_OUT,
-            aes_ctx,
-            sizeof(AES_CTX),
-            &cleanup_aes_ctx
-        );
+    REBINT len = VAL_LEN_AT(ARG(key)) << 3;
+    if (len != 128 and len != 256) {
+        DECLARE_LOCAL (i);
+        Init_Integer(i, len);
+        rebJumps(
+            "fail [{AES key length has to be 16 or 32, not:}", rebI(len), "]",
+        rebEND);
     }
 
-    rebJumps("fail {Refinement /key or /stream has to be present}", rebEND);
+    AES_CTX *aes_ctx = ALLOC_ZEROFILL(AES_CTX);
+
+    AES_set_key(
+        aes_ctx,
+        cast(const uint8_t*, VAL_BIN_AT(ARG(key))),
+        cast(const uint8_t*, iv),
+        (len == 128) ? AES_MODE_128 : AES_MODE_256
+    );
+
+    if (REF(decrypt))
+        AES_convert_key(aes_ctx);
+
+    return Init_Handle_Cdata_Managed(
+        D_OUT,
+        aes_ctx,
+        sizeof(AES_CTX),
+        &cleanup_aes_ctx
+    );
+}
+
+
+//
+//  export aes-stream: native [
+//
+//  "Encrypt/decrypt data using AES algorithm."
+//
+//      return: "Encrypted/decrypted data (null if zero length)"
+//          [<opt> binary!]
+//      ctx "Stream cipher context"
+//          [handle!]
+//      data [binary!]
+//  ]
+//
+REBNATIVE(aes_stream)
+{
+    CRYPT_INCLUDE_PARAMS_OF_AES_STREAM;
+
+    if (VAL_HANDLE_CLEANER(ARG(ctx)) != cleanup_aes_ctx)
+        rebJumps(
+            "fail [{Not a AES context:}", ARG(ctx), "]", rebEND
+        );
+
+    AES_CTX *aes_ctx = VAL_HANDLE_POINTER(AES_CTX, ARG(ctx));
+
+    REBYTE *dataBuffer = VAL_BIN_AT(ARG(data));
+    REBINT len = VAL_LEN_AT(ARG(data));
+
+    if (len == 0)
+        return nullptr; // !!! Is NULL a good result for 0 data?
+
+    REBINT pad_len = (((len - 1) >> 4) << 4) + AES_BLOCKSIZE;
+
+    REBYTE *pad_data;
+    if (len < pad_len) {
+        //
+        //  make new data input with zero-padding
+        //
+        pad_data = rebAllocN(REBYTE, pad_len);
+        memset(pad_data, 0, pad_len);
+        memcpy(pad_data, dataBuffer, len);
+        dataBuffer = pad_data;
+    }
+    else
+        pad_data = nullptr;
+
+    REBYTE *data_out = rebAllocN(REBYTE, pad_len);
+    memset(data_out, 0, pad_len);
+
+    if (aes_ctx->key_mode == AES_MODE_DECRYPT)
+        AES_cbc_decrypt(
+            aes_ctx,
+            cast(const uint8_t*, dataBuffer),
+            data_out,
+            pad_len
+        );
+    else
+        AES_cbc_encrypt(
+            aes_ctx,
+            cast(const uint8_t*, dataBuffer),
+            data_out,
+            pad_len
+        );
+
+    if (pad_data)
+        rebFree(pad_data);
+
+    return rebRepossess(data_out, pad_len);
 }
 
 
@@ -602,10 +603,10 @@ REBNATIVE(aes)
 //
 //  {Calculate a SHA256 hash value from binary data.}
 //
-//      return: [binary!]
-//          {32-byte binary hash}
-//      data [binary! text!]
-//          {Data to hash, TEXT! will be converted to UTF-8}
+//      return: "32-byte binary hash"
+//          [binary!]
+//      data "Data to hash, TEXT! will be converted to UTF-8"
+//          [binary! text!]
 //  ]
 //
 REBNATIVE(sha256)

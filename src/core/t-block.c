@@ -549,7 +549,7 @@ static void Sort_Block(
         flags.offset = Int32(compv) - 1;
     }
     else {
-        assert(IS_NULLED(compv));
+        assert(IS_BLANK(compv));
         flags.comparator = NULL;
         flags.offset = 0;
     }
@@ -560,7 +560,7 @@ static void Sort_Block(
 
     // Skip factor:
     REBCNT skip;
-    if (not IS_NULLED(skipv)) {
+    if (not IS_BLANK(skipv)) {
         skip = Get_Num_From_Arg(skipv);
         if (skip <= 0 || len % skip != 0 || skip > len)
             fail (Error_Out_Of_Range(skipv));
@@ -839,7 +839,7 @@ REBTYPE(Array)
 
         REBCNT len;
         if (REF(part)) {
-            len = Part_Len_May_Modify_Index(array, ARG(limit));
+            len = Part_Len_May_Modify_Index(array, ARG(part));
             if (len == 0)
                 return Init_Block(D_OUT, Make_Array(0)); // new empty block
         }
@@ -882,8 +882,7 @@ REBTYPE(Array)
 
         REBINT len = ANY_ARRAY(arg) ? VAL_ARRAY_LEN_AT(arg) : 1;
 
-        REBCNT limit = Part_Tail_May_Modify_Index(array, ARG(limit));
-        UNUSED(REF(part)); // checked by if limit is nulled
+        REBCNT limit = Part_Tail_May_Modify_Index(array, ARG(part));
 
         REBCNT index = VAL_INDEX(array);
 
@@ -895,9 +894,9 @@ REBTYPE(Array)
 
         REBINT skip;
         if (REF(skip)) {
-            skip = VAL_INT32(ARG(size));
+            skip = VAL_INT32(ARG(skip));
             if (skip == 0)
-                fail (PAR(size));
+                fail (PAR(skip));
         }
         else
             skip = 1;
@@ -940,9 +939,9 @@ REBTYPE(Array)
 
         REBCNT len; // length of target
         if (VAL_WORD_SYM(verb) == SYM_CHANGE)
-            len = Part_Len_May_Modify_Index(array, ARG(limit));
+            len = Part_Len_May_Modify_Index(array, ARG(part));
         else
-            len = Part_Len_Append_Insert_May_Modify_Index(arg, ARG(limit));
+            len = Part_Len_Append_Insert_May_Modify_Index(arg, ARG(part));
 
         // Note that while inserting or removing NULL is a no-op, CHANGE with
         // a /PART can actually erase data.
@@ -976,7 +975,7 @@ REBTYPE(Array)
             arg,
             flags,
             len,
-            REF(dup) ? Int32(ARG(count)) : 1
+            REF(dup) ? Int32(ARG(dup)) : 1
         );
         return D_OUT; }
 
@@ -1001,8 +1000,7 @@ REBTYPE(Array)
         UNUSED(PAR(value));
 
         REBU64 types = 0;
-        REBCNT tail = Part_Tail_May_Modify_Index(array, ARG(limit));
-        UNUSED(REF(part));
+        REBCNT tail = Part_Tail_May_Modify_Index(array, ARG(part));
 
         REBCNT index = VAL_INDEX(array);
 
@@ -1010,11 +1008,11 @@ REBTYPE(Array)
             types |= REF(types) ? 0 : TS_STD_SERIES;
 
         if (REF(types)) {
-            if (IS_DATATYPE(ARG(kinds)))
-                types |= FLAGIT_KIND(VAL_TYPE(ARG(kinds)));
+            if (IS_DATATYPE(ARG(types)))
+                types |= FLAGIT_KIND(VAL_TYPE(ARG(types)));
             else {
-                types |= VAL_TYPESET_LOW_BITS(ARG(kinds));
-                types |= cast(REBU64, VAL_TYPESET_HIGH_BITS(ARG(kinds)))
+                types |= VAL_TYPESET_LOW_BITS(ARG(types));
+                types |= cast(REBU64, VAL_TYPESET_HIGH_BITS(ARG(types)))
                     << 32;
             }
         }
@@ -1069,9 +1067,11 @@ REBTYPE(Array)
     }
 
     case SYM_REVERSE: {
+        INCLUDE_PARAMS_OF_REVERSE;
+
         FAIL_IF_READ_ONLY(array);
 
-        REBCNT len = Part_Len_May_Modify_Index(array, D_ARG(3));
+        REBCNT len = Part_Len_May_Modify_Index(array, ARG(part));
         if (len == 0)
             RETURN (array); // !!! do 1-element reversals update newlines?
 
@@ -1123,18 +1123,15 @@ REBTYPE(Array)
         INCLUDE_PARAMS_OF_SORT;
 
         UNUSED(PAR(series));
-        UNUSED(REF(part)); // checks limit as void
-        UNUSED(REF(skip)); // checks size as void
-        UNUSED(REF(compare)); // checks comparator as void
 
         FAIL_IF_READ_ONLY(array);
 
         Sort_Block(
             array,
             REF(case),
-            ARG(size), // skip size (may be void if no /SKIP)
-            ARG(comparator), // (may be void if no /COMPARE)
-            ARG(limit), // (may be void if no /PART)
+            ARG(skip),   // blank! if no /SKIP
+            ARG(compare),  // blank! if no /COMPARE
+            ARG(part),  // blank! if no /PART
             REF(all),
             REF(reverse)
         );

@@ -447,15 +447,14 @@ REB_R Do_Port_Action(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     //
     // !!! Note this code is incorrect for files read in chunks!!!
 
-post_process_output:
+  post_process_output:
+
     if (VAL_WORD_SYM(verb) == SYM_READ) {
         INCLUDE_PARAMS_OF_READ;
 
         UNUSED(PAR(source));
         UNUSED(PAR(part));
-        UNUSED(PAR(limit));
         UNUSED(PAR(seek));
-        UNUSED(PAR(index));
 
         if (not r)
             return nullptr;  // !!! `read dns://` returns nullptr on failure

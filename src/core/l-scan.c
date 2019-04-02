@@ -2561,23 +2561,22 @@ REBNATIVE(transcode)
     // !!! Should the base name and extension be stored, or whole path?
     //
     REBSTR *filename = REF(file)
-        ? Intern(ARG(file_name))
+        ? Intern(ARG(file))
         : Canon(SYM___ANONYMOUS__);
 
     const REBVAL *line_number;
-    if (ANY_WORD(ARG(line_number)))
-        line_number = Get_Opt_Var_May_Fail(ARG(line_number), SPECIFIED);
+    if (ANY_WORD(ARG(line)))
+        line_number = Get_Opt_Var_May_Fail(ARG(line), SPECIFIED);
     else
-        line_number = ARG(line_number);
-    UNUSED(ARG(line));
+        line_number = ARG(line);
 
     REBLIN start_line;
     if (IS_INTEGER(line_number)) {
         start_line = VAL_INT32(line_number);
         if (start_line <= 0)
-            fail (PAR(line_number));
+            fail (PAR(line));
     }
-    else if (IS_NULLED_OR_BLANK(line_number)) {
+    else if (IS_BLANK(line_number)) {
         start_line = 1;
     }
     else
@@ -2630,8 +2629,8 @@ REBNATIVE(transcode)
         Init_Block(Sink_Var_May_Fail(ARG(var), SPECIFIED), a);
     }
 
-    if (ANY_WORD(ARG(line_number)))  // they wanted the line number updated
-        Init_Integer(Sink_Var_May_Fail(ARG(line_number), SPECIFIED), ss.line);
+    if (ANY_WORD(ARG(line)))  // they wanted the line number updated
+        Init_Integer(Sink_Var_May_Fail(ARG(line), SPECIFIED), ss.line);
 
     // Return the input BINARY! or TEXT! advanced by how much the transcode
     // operation consumed.

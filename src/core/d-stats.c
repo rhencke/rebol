@@ -43,7 +43,7 @@
 //          "High resolution time difference from start"
 //      /evals
 //          "Number of values evaluated by interpreter"
-//      /dump-series
+//      /pool
 //          "Dump all series in pool"
 //      pool-id [integer!]
 //          "-1 for all pools"
@@ -106,8 +106,8 @@ REBNATIVE(stats)
         return D_OUT;
     }
 
-    if (REF(dump_series)) {
-        REBVAL *pool_id = ARG(pool_id);
+    if (REF(pool)) {
+        REBVAL *pool_id = ARG(pool);
         Dump_Series_In_Pool(VAL_INT32(pool_id));
         return nullptr;
     }

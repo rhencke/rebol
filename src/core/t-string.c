@@ -470,19 +470,18 @@ static void Sort_String(
     // sized codepoints.  However, it could work if all the codepoints were
     // known to be ASCII range in the memory of interest, maybe common case.
 
-    if (not IS_NULLED(compv))
+    if (not IS_BLANK(compv))
         fail (Error_Bad_Refine_Raw(compv)); // !!! didn't seem to be supported (?)
 
     REBCNT skip = 1;
     REBCNT size = 1;
     REBCNT thunk = 0;
 
-    REBCNT len = Part_Len_May_Modify_Index(string, part); // length of sort
+    REBCNT len = Part_Len_May_Modify_Index(string, part);  // length of sort
     if (len <= 1)
         return;
 
-    // Skip factor:
-    if (not IS_NULLED(skipv)) {
+    if (not IS_BLANK(skipv)) {
         skip = Get_Num_From_Arg(skipv);
         if (skip <= 0 || len % skip != 0 || skip > len)
             fail (skipv);
@@ -1002,8 +1001,7 @@ REBTYPE(String)
         REBSTR *s = VAL_STRING(v);
         FAIL_IF_READ_ONLY(v);
 
-        UNUSED(REF(part));
-        REBINT limit =  Part_Len_May_Modify_Index(v, ARG(limit));
+        REBINT limit =  Part_Len_May_Modify_Index(v, ARG(part));
         if (index >= tail or limit == 0)
             RETURN (v);
 
@@ -1032,9 +1030,9 @@ REBTYPE(String)
 
         REBCNT len; // length of target
         if (VAL_WORD_SYM(verb) == SYM_CHANGE)
-            len = Part_Len_May_Modify_Index(v, ARG(limit));
+            len = Part_Len_May_Modify_Index(v, ARG(part));
         else
-            len = Part_Len_Append_Insert_May_Modify_Index(arg, ARG(limit));
+            len = Part_Len_Append_Insert_May_Modify_Index(arg, ARG(part));
 
         // Note that while inserting or removing NULL is a no-op, CHANGE with
         // a /PART can actually erase data.
@@ -1057,7 +1055,7 @@ REBTYPE(String)
             arg,
             flags,
             len,
-            REF(dup) ? Int32(ARG(count)) : 1
+            REF(dup) ? Int32(ARG(dup)) : 1
         );
         RETURN (v); }
 
@@ -1081,13 +1079,13 @@ REBTYPE(String)
         );
 
         if (REF(part))
-            tail = Part_Tail_May_Modify_Index(v, ARG(limit));
+            tail = Part_Tail_May_Modify_Index(v, ARG(part));
 
         REBINT skip;
         if (REF(skip)) {
-            skip = VAL_INT32(ARG(size));
+            skip = VAL_INT32(ARG(skip));
             if (skip == 0)
-                fail (PAR(size));
+                fail (PAR(skip));
         }
         else
             skip = 1;
@@ -1131,7 +1129,7 @@ REBTYPE(String)
 
         REBCNT len;
         if (REF(part)) {
-            len = Part_Len_May_Modify_Index(v, ARG(limit));
+            len = Part_Len_May_Modify_Index(v, ARG(part));
             if (len == 0)
                 return Init_Any_String(D_OUT, VAL_TYPE(v), Make_String(0));
         } else
@@ -1195,15 +1193,10 @@ REBTYPE(String)
 
         UNUSED(PAR(value));
 
-        if (REF(deep))
+        if (REF(deep) or REF(types))
             fail (Error_Bad_Refines_Raw());
-        if (REF(types)) {
-            UNUSED(ARG(kinds));
-            fail (Error_Bad_Refines_Raw());
-        }
-
-        REBINT len = Part_Len_May_Modify_Index(v, ARG(limit));
-        UNUSED(REF(part)); // checked by if limit is nulled
+ 
+        REBINT len = Part_Len_May_Modify_Index(v, ARG(part));
 
         return Init_Any_String(
             D_OUT,
@@ -1239,7 +1232,7 @@ REBTYPE(String)
                 ARG(value2),
                 sop_flags,
                 REF(case),
-                REF(skip) ? Int32s(ARG(size), 1) : 1
+                REF(skip) ? Int32s(ARG(skip), 1) : 1
             )
         ); }
 
@@ -1258,9 +1251,11 @@ REBTYPE(String)
         RETURN (v); }
 
     case SYM_REVERSE: {
+        INCLUDE_PARAMS_OF_REVERSE;
+
         FAIL_IF_READ_ONLY(v);
 
-        REBINT len = Part_Len_May_Modify_Index(v, D_ARG(3));
+        REBINT len = Part_Len_May_Modify_Index(v, ARG(part));
         if (len > 0)
             reverse_string(v, len);
         RETURN (v); }
@@ -1271,11 +1266,8 @@ REBTYPE(String)
         FAIL_IF_READ_ONLY(v);
 
         UNUSED(PAR(series));
-        UNUSED(REF(skip));
-        UNUSED(REF(compare));
-        UNUSED(REF(part));
 
-        if (REF(all)) // Not Supported
+        if (REF(all))
             fail (Error_Bad_Refine_Raw(ARG(all)));
 
         if (not Is_String_Definitely_ASCII(v))
@@ -1284,9 +1276,9 @@ REBTYPE(String)
         Sort_String(
             v,
             REF(case),
-            ARG(size), // skip size (void if not /SKIP)
-            ARG(comparator), // (void if not /COMPARE)
-            ARG(limit),   // (void if not /PART)
+            ARG(skip),  // blank! if not /SKIP
+            ARG(compare),  // blank! if not /COMPARE
+            ARG(part),  // blank! if not /PART
             REF(reverse)
         );
         RETURN (v); }

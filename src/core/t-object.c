@@ -814,18 +814,16 @@ REBTYPE(Context)
 
         UNUSED(PAR(value));
 
-        if (REF(part)) {
-            UNUSED(ARG(limit));
+        if (REF(part))
             fail (Error_Bad_Refines_Raw());
-        }
 
         REBU64 types = 0;
         if (REF(types)) {
-            if (IS_DATATYPE(ARG(kinds)))
-                types = FLAGIT_KIND(VAL_TYPE_KIND(ARG(kinds)));
+            if (IS_DATATYPE(ARG(types)))
+                types = FLAGIT_KIND(VAL_TYPE_KIND(ARG(types)));
             else {
-                types |= VAL_TYPESET_LOW_BITS(ARG(kinds));
-                types |= cast(REBU64, VAL_TYPESET_HIGH_BITS(ARG(kinds))) << 32;
+                types |= VAL_TYPESET_LOW_BITS(ARG(types));
+                types |= cast(REBU64, VAL_TYPESET_HIGH_BITS(ARG(types))) << 32;
             }
         }
         else if (REF(deep))
@@ -887,7 +885,7 @@ REBNATIVE(construct)
     INCLUDE_PARAMS_OF_CONSTRUCT;
 
     REBVAL *spec = ARG(spec);
-    REBCTX *parent = REF(with) ? VAL_CONTEXT(ARG(prototype)) : nullptr;
+    REBCTX *parent = REF(with) ? VAL_CONTEXT(ARG(with)) : nullptr;
 
     // This parallels the code originally in CONSTRUCT.  Run it if the /ONLY
     // refinement was passed in.

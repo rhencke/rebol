@@ -400,17 +400,17 @@ static void Sort_Binary(
 ){
     assert(IS_BINARY(binary));
 
-    if (!IS_VOID(compv))
-        fail (Error_Bad_Refine_Raw(compv)); // !!! R3-Alpha didn't support :-/
+    if (not IS_BLANK(compv))
+        fail (Error_Bad_Refine_Raw(compv));  // !!! R3-Alpha didn't support
 
     REBFLGS thunk = 0;
 
-    REBCNT len = Part_Len_May_Modify_Index(binary, part); // length of sort
+    REBCNT len = Part_Len_May_Modify_Index(binary, part);  // length of sort
     if (len <= 1)
         return;
 
     REBCNT skip;
-    if (IS_VOID(skipv))
+    if (IS_BLANK(skipv))
         skip = 1;
     else {
         skip = Get_Num_From_Arg(skipv);
@@ -602,9 +602,9 @@ REBTYPE(Binary)
 
         REBCNT len; // length of target
         if (VAL_WORD_SYM(verb) == SYM_CHANGE)
-            len = Part_Len_May_Modify_Index(v, ARG(limit));
+            len = Part_Len_May_Modify_Index(v, ARG(part));
         else
-            len = Part_Len_Append_Insert_May_Modify_Index(arg, ARG(limit));
+            len = Part_Len_Append_Insert_May_Modify_Index(arg, ARG(part));
 
         REBFLGS flags = 0;
         if (REF(part))
@@ -618,7 +618,7 @@ REBTYPE(Binary)
             arg,
             flags,
             len,
-            REF(dup) ? Int32(ARG(count)) : 1
+            REF(dup) ? Int32(ARG(dup)) : 1
         );
         RETURN (v); }
 
@@ -644,11 +644,11 @@ REBTYPE(Binary)
         flags |= AM_FIND_CASE;
 
         if (REF(part))
-            tail = Part_Tail_May_Modify_Index(v, ARG(limit));
+            tail = Part_Tail_May_Modify_Index(v, ARG(part));
 
         REBCNT skip;
         if (REF(skip))
-            skip = Part_Len_May_Modify_Index(v, ARG(size));
+            skip = Part_Len_May_Modify_Index(v, ARG(part));
         else
             skip = 1;
 
@@ -682,10 +682,9 @@ REBTYPE(Binary)
         if (REF(deep))
             fail (Error_Bad_Refines_Raw());
 
-
         REBINT len;
         if (REF(part)) {
-            len = Part_Len_May_Modify_Index(v, ARG(limit));
+            len = Part_Len_May_Modify_Index(v, ARG(part));
             if (len == 0)
                 return Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
         } else
@@ -750,15 +749,10 @@ REBTYPE(Binary)
 
         UNUSED(PAR(value));
 
-        if (REF(deep))
+        if (REF(deep) or REF(types))
             fail (Error_Bad_Refines_Raw());
-        if (REF(types)) {
-            UNUSED(ARG(kinds));
-            fail (Error_Bad_Refines_Raw());
-        }
-
-        UNUSED(REF(part));
-        REBINT len = Part_Len_May_Modify_Index(v, ARG(limit));
+ 
+        REBINT len = Part_Len_May_Modify_Index(v, ARG(part));
 
         return Init_Any_Series(
             D_OUT,
@@ -885,9 +879,11 @@ REBTYPE(Binary)
         RETURN (v); }
 
     case SYM_REVERSE: {
+        INCLUDE_PARAMS_OF_REVERSE;
+
         FAIL_IF_READ_ONLY(v);
 
-        REBINT len = Part_Len_May_Modify_Index(v, D_ARG(3));
+        REBINT len = Part_Len_May_Modify_Index(v, ARG(part));
         if (len > 0)
             reverse_binary(v, len);
         RETURN (v); }
@@ -898,11 +894,8 @@ REBTYPE(Binary)
         FAIL_IF_READ_ONLY(v);
 
         UNUSED(PAR(series));
-        UNUSED(REF(skip));
-        UNUSED(REF(compare));
-        UNUSED(REF(part));
 
-        if (REF(all)) // Not Supported
+        if (REF(all))
             fail (Error_Bad_Refine_Raw(ARG(all)));
 
         if (REF(case)) {
@@ -911,9 +904,9 @@ REBTYPE(Binary)
 
         Sort_Binary(
             v,
-            ARG(size), // skip size (void if not /SKIP)
-            ARG(comparator), // (void if not /COMPARE)
-            ARG(limit),   // (void if not /PART)
+            ARG(skip),  // blank! if not /SKIP
+            ARG(compare),  // (blank! if not /COMPARE)
+            ARG(part),   // (blank! if not /PART)
             REF(reverse)
         );
         RETURN (v); }

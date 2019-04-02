@@ -767,9 +767,9 @@ encrypt-data: function [
     switch ctx/crypt-method [
         aes@ [
             ctx/encrypt-stream: default [
-                aes/key ctx/client-crypt-key ctx/client-iv
+                aes-key ctx/client-crypt-key ctx/client-iv
             ]
-            data: aes/stream ctx/encrypt-stream data
+            data: aes-stream ctx/encrypt-stream data
 
             if ctx/version > 1.0 [
                 ; encrypt-stream must be reinitialized each time with the
@@ -801,9 +801,9 @@ decrypt-data: function [
     switch ctx/crypt-method [
         aes@ [
             ctx/decrypt-stream: default [
-                aes/key/decrypt ctx/server-crypt-key ctx/server-iv
+                aes-key/decrypt ctx/server-crypt-key ctx/server-iv
             ]
-            data: aes/stream ctx/decrypt-stream data
+            data: aes-stream ctx/decrypt-stream data
 
             ; TLS 1.1 and above must use a new initialization vector each time
             ; so the decrypt stream has to get GC'd.

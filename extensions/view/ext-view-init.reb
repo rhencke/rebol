@@ -10,18 +10,15 @@ REBOL [
 ; Move the default filters to usermode code, instead of a hardcoded C literal
 ;
 request-file: adapt :request-file* [
-    if not filter [
-        ;
-        ; !!! What notation should be used to indicate the default filter?
-        ; Perhaps put in a GROUP!?
-        ;
-        filter: true
-        list: [
-            "All files"         %*.*
-            "Rebol scripts"     %*.r
-            ; ("Default idea"   %*.xxx)
-            "Text files"        %*.txt
-        ]
+    ;
+    ; !!! What notation should be used to indicate the default filter?
+    ; Perhaps put in a GROUP!?
+    ;
+    filter: default [
+        "All files"         %*.*
+        "Rebol scripts"     %*.r
+        ; ("Default idea"   %*.xxx)
+        "Text files"        %*.txt
     ]
 ]
 

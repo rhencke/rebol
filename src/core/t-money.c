@@ -261,18 +261,18 @@ REBTYPE(Money)
             | (REF(half_ceiling) ? RF_HALF_CEILING : 0)
         );
 
-        REBVAL *scale = ARG(scale);
+        REBVAL *to = ARG(to);
 
         DECLARE_LOCAL (temp);
         if (REF(to)) {
-            if (IS_INTEGER(scale))
-                Init_Money(temp, int_to_deci(VAL_INT64(scale)));
-            else if (IS_DECIMAL(scale) or IS_PERCENT(scale))
-                Init_Money(temp, decimal_to_deci(VAL_DECIMAL(scale)));
-            else if (IS_MONEY(scale))
-                Move_Value(temp, scale);
+            if (IS_INTEGER(to))
+                Init_Money(temp, int_to_deci(VAL_INT64(to)));
+            else if (IS_DECIMAL(to) or IS_PERCENT(to))
+                Init_Money(temp, decimal_to_deci(VAL_DECIMAL(to)));
+            else if (IS_MONEY(to))
+                Move_Value(temp, to);
             else
-                fail (PAR(scale));
+                fail (PAR(to));
         }
         else
             Init_Money(temp, int_to_deci(0));
@@ -284,13 +284,13 @@ REBTYPE(Money)
         ));
 
         if (REF(to)) {
-            if (IS_DECIMAL(scale) or IS_PERCENT(scale)) {
+            if (IS_DECIMAL(to) or IS_PERCENT(to)) {
                 REBDEC dec = deci_to_decimal(VAL_MONEY_AMOUNT(D_OUT));
-                RESET_CELL(D_OUT, VAL_TYPE(scale), CELL_MASK_NONE);
+                RESET_CELL(D_OUT, VAL_TYPE(to), CELL_MASK_NONE);
                 VAL_DECIMAL(D_OUT) = dec;
                 return D_OUT;
             }
-            if (IS_INTEGER(scale)) {
+            if (IS_INTEGER(to)) {
                 REBI64 i64 = deci_to_int(VAL_MONEY_AMOUNT(D_OUT));
                 return Init_Integer(D_OUT, i64);
             }

@@ -443,25 +443,24 @@ void Extra_Init_Action_Checks_Debug(REBACT *a) {
 // position, so that a positive length for the partial region is returned.
 //
 static REBCNT Part_Len_Core(
-    REBVAL *series, // this is the series whose index may be modified
-    const REBVAL *limit // /PART (number, position in value, or NULLED cell)
+    REBVAL *series,  // ANY-SERIES! value whose index may be modified
+    const REBVAL *part  // /PART (number, position in value, or BLANK! cell)
 ){
-    if (IS_NULLED(limit)) // limit is nulled when /PART refinement unused
-        return VAL_LEN_AT(series); // leave index alone, use plain length
+    if (IS_BLANK(part))  // indicates /PART refinement unused
+        return VAL_LEN_AT(series);  // leave index alone, use plain length
 
     REBI64 len;
-    if (IS_INTEGER(limit) or IS_DECIMAL(limit))
-        len = Int32(limit); // may be positive or negative
-    else {
-        assert(ANY_SERIES(limit)); // must be same series (same series, even)
+    if (IS_INTEGER(part) or IS_DECIMAL(part))
+        len = Int32(part);  // may be positive or negative
+    else {  // must be same series
         if (
-            VAL_TYPE(series) != VAL_TYPE(limit) // !!! should AS be tolerated?
-            or VAL_SERIES(series) != VAL_SERIES(limit)
+            VAL_TYPE(series) != VAL_TYPE(part)  // !!! allow AS aliases?
+            or VAL_SERIES(series) != VAL_SERIES(part)
         ){
-            fail (Error_Invalid_Part_Raw(limit));
+            fail (Error_Invalid_Part_Raw(part));
         }
 
-        len = cast(REBINT, VAL_INDEX(limit)) - cast(REBINT, VAL_INDEX(series));
+        len = cast(REBINT, VAL_INDEX(part)) - cast(REBINT, VAL_INDEX(series));
     }
 
     // Restrict length to the size available
@@ -537,16 +536,16 @@ REBCNT Part_Tail_May_Modify_Index(REBVAL *series, const REBVAL *limit)
 //
 REBCNT Part_Len_Append_Insert_May_Modify_Index(
     REBVAL *value,
-    const REBVAL *limit
+    const REBVAL *part
 ){
     if (ANY_SERIES(value))
-        return Part_Len_Core(value, limit);
+        return Part_Len_Core(value, part);
 
-    if (IS_NULLED(limit))
+    if (IS_BLANK(part))
         return 1;
 
-    if (IS_INTEGER(limit) or IS_DECIMAL(limit))
-        return Part_Len_Core(value, limit);
+    if (IS_INTEGER(part) or IS_DECIMAL(part))
+        return Part_Len_Core(value, part);
 
     fail ("Invalid /PART specified for non-series APPEND/INSERT argument");
 }

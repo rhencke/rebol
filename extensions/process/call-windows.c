@@ -70,18 +70,18 @@ REB_R Call_Core(REBFRM *frame_) {
     // Make sure that if the output or error series are STRING! or BINARY!,
     // they are not read-only, before we try appending to them.
     //
-    if (IS_TEXT(ARG(out)) or IS_BINARY(ARG(out)))
-        FAIL_IF_READ_ONLY(ARG(out));
-    if (IS_TEXT(ARG(err)) or IS_BINARY(ARG(err)))
-        FAIL_IF_READ_ONLY(ARG(err));
+    if (IS_TEXT(ARG(output)) or IS_BINARY(ARG(output)))
+        FAIL_IF_READ_ONLY(ARG(output));
+    if (IS_TEXT(ARG(error)) or IS_BINARY(ARG(error)))
+        FAIL_IF_READ_ONLY(ARG(error));
 
     bool flag_wait;
     if (
         REF(wait)
         or (
-            IS_TEXT(ARG(in)) or IS_BINARY(ARG(in))
-            or IS_TEXT(ARG(out)) or IS_BINARY(ARG(out))
-            or IS_TEXT(ARG(err)) or IS_BINARY(ARG(err))
+            IS_TEXT(ARG(input)) or IS_BINARY(ARG(input))
+            or IS_TEXT(ARG(output)) or IS_BINARY(ARG(output))
+            or IS_TEXT(ARG(error)) or IS_BINARY(ARG(error))
         )  // I/O redirection implies /WAIT
     ){
         flag_wait = true;
@@ -181,7 +181,7 @@ REB_R Call_Core(REBFRM *frame_) {
     if (not REF(input)) {  // get stdin normally (usually from user console)
         si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
     }
-    else switch (VAL_TYPE(ARG(in))) {
+    else switch (VAL_TYPE(ARG(input))) {
       case REB_BLANK:  // act like there's no console input available at all
         si.hStdInput = 0;
         break;
@@ -192,15 +192,15 @@ REB_R Call_Core(REBFRM *frame_) {
         // Pipes and file reirects are generally understood in Windows to
         // *not* use those encodings, and transmit raw bytes.
         //
-        inbuf_size = rebSpellIntoQ(nullptr, 0, ARG(in), rebEND);
+        inbuf_size = rebSpellIntoQ(nullptr, 0, ARG(input), rebEND);
         inbuf = rebAllocN(char, inbuf_size + 1);
-        size_t check = rebSpellIntoQ(inbuf, inbuf_size, ARG(in), rebEND);
+        size_t check = rebSpellIntoQ(inbuf, inbuf_size, ARG(input), rebEND);
         assert(check == inbuf_size);
         UNUSED(check);
         goto input_via_buffer; }
 
       case REB_BINARY:  // feed standard input from BINARY! (full-band)
-        inbuf = s_cast(rebBytes(&inbuf_size, ARG(in), rebEND));
+        inbuf = s_cast(rebBytes(&inbuf_size, ARG(input), rebEND));
 
       input_via_buffer:
 
@@ -218,7 +218,7 @@ REB_R Call_Core(REBFRM *frame_) {
         break;
 
       case REB_FILE: {  // feed standard input from file contents
-        WCHAR *local_wide = rebSpellWideQ("file-to-local", ARG(in), rebEND);
+        WCHAR *local_wide = rebSpellWideQ("file-to-local", ARG(input), rebEND);
 
         hInputRead = CreateFile(
             local_wide,
@@ -238,7 +238,7 @@ REB_R Call_Core(REBFRM *frame_) {
         break; }
 
       default:
-        panic (ARG(in));
+        panic (ARG(input));
     }
 
     // !!! Output and Error code is nearly identical and should be factored
@@ -249,7 +249,7 @@ REB_R Call_Core(REBFRM *frame_) {
     if (not REF(output)) {  // outbuf stdout normally (usually to console)
         si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
     }
-    else switch (VAL_TYPE(ARG(out))) {
+    else switch (VAL_TYPE(ARG(output))) {
       case REB_BLANK:  // discard outbuf (e.g. don't print to stdout)
         si.hStdOutput = 0;
         break;
@@ -270,7 +270,9 @@ REB_R Call_Core(REBFRM *frame_) {
         break;
 
       case REB_FILE: {  // write stdout outbuf to file
-        WCHAR *local_wide = rebSpellWideQ("file-to-local", ARG(out), rebEND);
+        WCHAR *local_wide = rebSpellWideQ(
+            "file-to-local", ARG(output),
+        rebEND);
 
         si.hStdOutput = CreateFile(
             local_wide,
@@ -301,7 +303,7 @@ REB_R Call_Core(REBFRM *frame_) {
         break; }
 
       default:
-        panic (ARG(out));
+        panic (ARG(output));
     }
 
     //=//// ERROR SINK SETUP //////////////////////////////////////////////=//
@@ -309,7 +311,7 @@ REB_R Call_Core(REBFRM *frame_) {
     if (not REF(error)) {  // outbuf stderr normally (usually same as stdout)
         si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
     }
-    else switch (VAL_TYPE(ARG(err))) {
+    else switch (VAL_TYPE(ARG(error))) {
       case REB_BLANK:  // suppress stderr outbuf entirely
         si.hStdError = 0;
         break;
@@ -330,7 +332,9 @@ REB_R Call_Core(REBFRM *frame_) {
         break;
 
       case REB_FILE: {  // write stderr outbuf to file
-        WCHAR *local_wide = rebSpellWideQ("file-to-local", ARG(out), rebEND);
+        WCHAR *local_wide = rebSpellWideQ(
+            "file-to-local", ARG(output),
+        rebEND);
 
         si.hStdError = CreateFile(
             local_wide,
@@ -361,7 +365,7 @@ REB_R Call_Core(REBFRM *frame_) {
         break; }
 
       default:
-        panic (ARG(err));
+        panic (ARG(error));
     }
 
     //=//// COMMAND AND ARGUMENTS SETUP ///////////////////////////////////=//
@@ -613,17 +617,17 @@ REB_R Call_Core(REBFRM *frame_) {
     if (hErrorRead != nullptr)
         CloseHandle(hErrorRead);
 
-    if (IS_FILE(ARG(err)))
+    if (IS_FILE(ARG(error)))
         CloseHandle(si.hStdError);
 
   stderr_error:
 
-    if (IS_FILE(ARG(out)))
+    if (IS_FILE(ARG(output)))
         CloseHandle(si.hStdOutput);
 
   stdout_error:
 
-    if (IS_FILE(ARG(in)))
+    if (IS_FILE(ARG(input)))
         CloseHandle(si.hStdInput);
 
   stdin_error:
@@ -642,17 +646,17 @@ REB_R Call_Core(REBFRM *frame_) {
 
     rebFree(m_cast(REBWCHAR**, argv));
 
-    if (IS_TEXT(ARG(out))) {
+    if (IS_TEXT(ARG(output))) {
         if (outbuf_used > 0) {  // not wide chars, see notes at top of file
             REBVAL *output_val = rebSizedText(outbuf, outbuf_used);
-            rebElide("append", ARG(out), output_val, rebEND);
+            rebElide("append", ARG(output), output_val, rebEND);
             rebRelease(output_val);
         }
     }
-    else if (IS_BINARY(ARG(out))) {  // can text/binary both append binary?
+    else if (IS_BINARY(ARG(output))) {  // can text/binary both append binary?
         if (outbuf_used > 0) {
             REBVAL *output_val = rebSizedBinary(outbuf, outbuf_used);
-            rebElide("append", ARG(out), output_val, rebEND);
+            rebElide("append", ARG(output), output_val, rebEND);
             rebRelease(output_val);
         }
     }
@@ -660,17 +664,17 @@ REB_R Call_Core(REBFRM *frame_) {
         assert(outbuf == nullptr);
     free(outbuf);  // legal for outbuf=nullptr
 
-    if (IS_TEXT(ARG(err))) {
+    if (IS_TEXT(ARG(error))) {
         if (errbuf_used > 0) {  // not wide chars, see notes at top of file
             REBVAL *error_val = rebSizedText(errbuf, errbuf_used);
-            rebElide("append", ARG(out), error_val, rebEND);
+            rebElide("append", ARG(error), error_val, rebEND);
             rebRelease(error_val);
         }
-    } else if (IS_BINARY(ARG(err))) {  // can text/binary both append binary?
+    } else if (IS_BINARY(ARG(error))) {  // can text/binary both append binary?
         if (errbuf_used > 0) {
-            REBVAL *output_val = rebSizedBinary(errbuf, errbuf_used);
-            rebElide("append", ARG(out), output_val, rebEND);
-            rebRelease(output_val);
+            REBVAL *error_val = rebSizedBinary(errbuf, errbuf_used);
+            rebElide("append", ARG(error), error_val, rebEND);
+            rebRelease(error_val);
         }
     }
     else

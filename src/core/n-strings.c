@@ -133,44 +133,30 @@ REBNATIVE(delimit)
 //  "Computes a checksum, CRC, or hash."
 //
 //      data [binary!]
-//          "Bytes to checksum"
-//      /part
+//      /part "Length of data"
 //      limit
-//          "Length of data"
-//      /tcp
-//          "Returns an Internet TCP 16-bit checksum"
-//      /secure
-//          "Returns a cryptographically secure checksum"
-//      /hash
-//          "Returns a hash value"
+//      /tcp "Returns an Internet TCP 16-bit checksum"
+//      /secure "Returns a cryptographically secure checksum"
+//      /hash "Returns a hash value with given size"
 //      size [integer!]
-//          "Size of the hash table"
-//      /method
-//          "Method to use"
+//      /method "Method to use (SHA1, MD5, CRC32)"
 //      word [word!]
-//          "Methods: SHA1 MD5 CRC32"
-//      /key
-//          "Returns keyed HMAC value"
+//      /key "Returns keyed HMAC value"
 //      key-value [binary! text!]
-//          "Key to use"
 //  ]
 //
 REBNATIVE(checksum)
 {
     INCLUDE_PARAMS_OF_CHECKSUM;
 
-    REBVAL *arg = ARG(data);
-
-    REBCNT len = Part_Len_May_Modify_Index(arg, ARG(limit));
-    UNUSED(REF(part)); // checked by if limit is nulled
-
-    REBYTE *data = VAL_RAW_DATA_AT(arg); // after Part_Len in case of change
+    REBCNT len = Part_Len_May_Modify_Index(ARG(data), ARG(part));
+    REBYTE *data = VAL_RAW_DATA_AT(ARG(data));  // after Part_Len, may change
 
     REBSYM sym;
     if (REF(method)) {
-        sym = VAL_WORD_SYM(ARG(word));
-        if (sym == SYM_0) // not in %words.r, no SYM_XXX constant
-            fail (PAR(word));
+        sym = VAL_WORD_SYM(ARG(method));
+        if (sym == SYM_0)  // not in %words.r, no SYM_XXX constant
+            fail (PAR(method));
     }
     else
         sym = SYM_SHA1;
@@ -212,16 +198,12 @@ REBNATIVE(checksum)
             if (not REF(key))
                 digests[i].digest(data, len, BIN_HEAD(digest));
             else {
-                REBVAL *key = ARG(key_value);
-
                 REBCNT blocklen = digests[i].hmacblock;
 
                 REBYTE tmpdigest[20]; // size must be max of all digest[].len
 
-                assert(IS_BINARY(key) or IS_TEXT(key));
-
                 REBSIZ key_size;
-                const REBYTE *key_bytes = VAL_BYTES_AT(&key_size, key);
+                const REBYTE *key_bytes = VAL_BYTES_AT(&key_size, ARG(key));
 
                 if (key_size > blocklen) {
                     digests[i].digest(key_bytes, key_size, tmpdigest);
@@ -260,14 +242,14 @@ REBNATIVE(checksum)
             return Init_Binary(D_OUT, digest);
         }
 
-        fail (PAR(word));
+        fail (PAR(method));
     }
     else if (REF(tcp)) {
         REBINT ipc = Compute_IPC(data, len);
         Init_Integer(D_OUT, ipc);
     }
     else if (REF(hash)) {
-        REBINT sum = VAL_INT32(ARG(size));
+        REBINT sum = VAL_INT32(ARG(hash));
         if (sum <= 1)
             sum = 1;
 
@@ -287,25 +269,19 @@ REBNATIVE(checksum)
 //  "Compress data using DEFLATE: https://en.wikipedia.org/wiki/DEFLATE"
 //
 //      return: [binary!]
-//      data [binary! text!]
-//          "If text, it will be UTF-8 encoded"
-//      /part
+//      data "If text, it will be UTF-8 encoded"
+//          [binary! text!]
+//      /part "Length of data (elements)"
 //      limit
-//          "Length of data (elements)"
-//      /envelope
-//          {Add an envelope with header plus checksum/size information}
+//      /envelope "ZLIB (adler32, no size) or GZIP (crc32, uncompressed size)"
 //      format [word!]
-//          {ZLIB (adler32, no size) or GZIP (crc32, uncompressed size)}
 //  ]
 //
 REBNATIVE(deflate)
 {
     INCLUDE_PARAMS_OF_DEFLATE;
 
-    REBVAL *data = ARG(data);
-
-    REBCNT limit = Part_Len_May_Modify_Index(data, ARG(limit));
-    UNUSED(PAR(part)); // checked by if limit is nulled
+    REBCNT limit = Part_Len_May_Modify_Index(ARG(data), ARG(part));
 
     REBSIZ size;
     const REBYTE *bp = VAL_BYTES_LIMIT_AT(&size, ARG(data), limit);
@@ -314,14 +290,14 @@ REBNATIVE(deflate)
     if (not REF(envelope))
         envelope = Canon(SYM_NONE);  // Note: nullptr is gzip (for bootstrap)
     else {
-        envelope = VAL_WORD_SPELLING(ARG(format));
+        envelope = VAL_WORD_SPELLING(ARG(envelope));
         switch (STR_SYMBOL(envelope)) {
           case SYM_ZLIB:
           case SYM_GZIP:
             break;
 
           default:
-            fail (PAR(format));
+            fail (PAR(envelope));
         }
     }
 
@@ -344,57 +320,51 @@ REBNATIVE(deflate)
 //
 //      return: [binary!]
 //      data [binary!]
-//      /part
+//      /part "Length of compressed data (must match end marker)"
 //      limit
-//          "Length of compressed data (must match end marker)"
-//      /max
+//      /max "Error out if result is larger than this"
 //      bound
-//          "Error out if result is larger than this"
-//      /envelope
-//          {Expect (and verify) envelope with header/CRC/size information}
+//      /envelope "ZLIB, GZIP, or DETECT (http://stackoverflow.com/a/9213826)"
 //      format [word!]
-//          {ZLIB, GZIP, or DETECT (for http://stackoverflow.com/a/9213826)}
 //  ]
 //
 REBNATIVE(inflate)
 {
     INCLUDE_PARAMS_OF_INFLATE;
 
-    REBVAL *data = ARG(data);
-
     REBINT max;
     if (REF(max)) {
-        max = Int32s(ARG(bound), 1);
+        max = Int32s(ARG(max), 1);
         if (max < 0)
-            fail (PAR(bound));
+            fail (PAR(max));
     }
     else
         max = -1;
 
     // v-- measured in bytes (length of a BINARY!)
-    REBCNT len = Part_Len_May_Modify_Index(data, ARG(limit));
-    UNUSED(REF(part)); // checked by if limit is nulled
+    //
+    REBCNT len = Part_Len_May_Modify_Index(ARG(data), ARG(part));
 
     REBSTR *envelope;
     if (not REF(envelope))
         envelope = Canon(SYM_NONE);  // Note: nullptr is gzip (for bootstrap)
     else {
-        switch (VAL_WORD_SYM(ARG(format))) {
+        switch (VAL_WORD_SYM(ARG(envelope))) {
           case SYM_ZLIB:
           case SYM_GZIP:
           case SYM_DETECT:
-            envelope = VAL_WORD_SPELLING(ARG(format));
+            envelope = VAL_WORD_SPELLING(ARG(envelope));
             break;
 
           default:
-            fail (PAR(format));
+            fail (PAR(envelope));
         }
     }
 
     size_t decompressed_size;
     void *decompressed = Decompress_Alloc_Core(
         &decompressed_size,
-        VAL_BIN_AT(data),
+        VAL_BIN_AT(ARG(data)),
         len,
         max,
         envelope
@@ -412,11 +382,8 @@ REBNATIVE(inflate)
 //      return: [binary!]
 //          ;-- Comment said "we don't know the encoding" of the return binary
 //      value [binary! text!]
-//          "The string to decode"
-//      /base
-//          "Binary base to use"
+//      /base "The base to convert from: 64, 16, or 2 (defaults to 64)"
 //      base-value [integer!]
-//          "The base to convert from: 64, 16, or 2 (defaults to 64)"
 //  ]
 //
 REBNATIVE(debase)
@@ -428,7 +395,7 @@ REBNATIVE(debase)
 
     REBINT base = 64;
     if (REF(base))
-        base = VAL_INT32(ARG(base_value));
+        base = VAL_INT32(ARG(base));
     else
         base = 64;
 
@@ -445,12 +412,10 @@ REBNATIVE(debase)
 //  {Encodes data into a binary, hexadecimal, or base-64 ASCII string.}
 //
 //      return: [text!]
-//      value [binary! text!]
-//          "If text, will be UTF-8 encoded"
-//      /base
-//          "Binary base to use (BASE-64 default)"
+//      value "If text, will be UTF-8 encoded"
+//          [binary! text!]
+//      /base "Binary base to use: 64, 16, or 2 (BASE-64 default)"
 //      base-value [integer!]
-//          "The base to convert to: 64, 16, or 2"
 //  ]
 //
 REBNATIVE(enbase)
@@ -459,7 +424,7 @@ REBNATIVE(enbase)
 
     REBINT base;
     if (REF(base))
-        base = VAL_INT32(ARG(base_value));
+        base = VAL_INT32(ARG(base));
     else
         base = 64;
 
@@ -471,24 +436,23 @@ REBNATIVE(enbase)
 
     const bool brk = false;
     switch (base) {
-    case 64:
+      case 64:
         Form_Base64(mo, bp, size, brk);
         break;
 
-    case 16:
+      case 16:
         Form_Base16(mo, bp, size, brk);
         break;
 
-    case 2:
+      case 2:
         Form_Base2(mo, bp, size, brk);
         break;
 
-    default:
-        fail (PAR(base_value));
+      default:
+        fail (PAR(base));
     }
 
-    Init_Text(D_OUT, Pop_Molded_String(mo));
-    return D_OUT;
+    return Init_Text(D_OUT, Pop_Molded_String(mo));
 }
 
 
@@ -902,10 +866,9 @@ REBNATIVE(enline)
 //
 //  "Converts spaces to tabs (default tab size is 4)."
 //
-//      string [any-string!]
-//          "(modified)"
-//      /size
-//          "Specifies the number of spaces per tab"
+//      string "(modified)"
+//          [any-string!]
+//      /size "Specifies the number of spaces per tab"
 //      number [integer!]
 //  ]
 //
@@ -913,21 +876,19 @@ REBNATIVE(entab)
 {
     INCLUDE_PARAMS_OF_ENTAB;
 
-    REBVAL *val = ARG(string);
-
     REBINT tabsize;
     if (REF(size))
-        tabsize = Int32s(ARG(number), 1);
+        tabsize = Int32s(ARG(size), 1);
     else
         tabsize = TAB_SIZE;
 
     DECLARE_MOLD (mo);
     Push_Mold(mo);
 
-    REBCNT len = VAL_LEN_AT(val);
+    REBCNT len = VAL_LEN_AT(ARG(string));
 
-    REBCHR(const*) up = VAL_STRING_AT(val);
-    REBCNT index = VAL_INDEX(val);
+    REBCHR(const*) up = VAL_STRING_AT(ARG(string));
+    REBCNT index = VAL_INDEX(ARG(string));
 
     REBINT n = 0;
     for (; index < len; index++) {
@@ -970,8 +931,8 @@ REBNATIVE(entab)
         }
     }
 
-    Init_Any_String(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
-    return D_OUT;
+    enum Reb_Kind kind = VAL_TYPE(ARG(string));
+    return Init_Any_String(D_OUT, kind, Pop_Molded_String(mo));
 }
 
 
@@ -991,13 +952,11 @@ REBNATIVE(detab)
 {
     INCLUDE_PARAMS_OF_DETAB;
 
-    REBVAL *val = ARG(string);
-
-    REBCNT len = VAL_LEN_AT(val);
+    REBCNT len = VAL_LEN_AT(ARG(string));
 
     REBINT tabsize;
     if (REF(size))
-        tabsize = Int32s(ARG(number), 1);
+        tabsize = Int32s(ARG(size), 1);
     else
         tabsize = TAB_SIZE;
 
@@ -1006,8 +965,8 @@ REBNATIVE(detab)
 
     // Estimate new length based on tab expansion:
 
-    REBCHR(const*) cp = VAL_STRING_AT(val);
-    REBCNT index = VAL_INDEX(val);
+    REBCHR(const*) cp = VAL_STRING_AT(ARG(string));
+    REBCNT index = VAL_INDEX(ARG(string));
 
     REBCNT n = 0;
 
@@ -1031,8 +990,8 @@ REBNATIVE(detab)
         Append_Codepoint(mo->series, c);
     }
 
-    Init_Any_String(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
-    return D_OUT;
+    enum Reb_Kind kind = VAL_TYPE(ARG(string));
+    return Init_Any_String(D_OUT, kind, Pop_Molded_String(mo));
 }
 
 
@@ -1041,10 +1000,9 @@ REBNATIVE(detab)
 //
 //  "Converts string of characters to lowercase."
 //
-//      string [any-string! char!]
-//          "(modified if series)"
-//      /part
-//          "Limits to a given length or position"
+//      string "(modified if series)"
+//          [any-string! char!]
+//      /part "Limits to a given length or position"
 //      limit [any-number! any-string!]
 //  ]
 //
@@ -1052,8 +1010,7 @@ REBNATIVE(lowercase)
 {
     INCLUDE_PARAMS_OF_LOWERCASE;
 
-    UNUSED(REF(part)); // checked by if limit is null
-    Change_Case(D_OUT, ARG(string), ARG(limit), false);
+    Change_Case(D_OUT, ARG(string), ARG(part), false);
     return D_OUT;
 }
 
@@ -1063,10 +1020,9 @@ REBNATIVE(lowercase)
 //
 //  "Converts string of characters to uppercase."
 //
-//      string [any-string! char!]
-//          "(modified if series)"
-//      /part
-//          "Limits to a given length or position"
+//      string "(modified if series)"
+//          [any-string! char!]
+//      /part "Limits to a given length or position"
 //      limit [any-number! any-string!]
 //  ]
 //
@@ -1074,8 +1030,7 @@ REBNATIVE(uppercase)
 {
     INCLUDE_PARAMS_OF_UPPERCASE;
 
-    UNUSED(REF(part)); // checked by if limit is nulled
-    Change_Case(D_OUT, ARG(string), ARG(limit), true);
+    Change_Case(D_OUT, ARG(string), ARG(part), true);
     return D_OUT;
 }
 
@@ -1086,9 +1041,7 @@ REBNATIVE(uppercase)
 //  {Converts numeric value to a hex issue! datatype (with leading # and 0's).}
 //
 //      value [integer! tuple!]
-//          "Value to be converted"
-//      /size
-//          "Specify number of hex digits in result"
+//      /size "Specify number of hex digits in result"
 //      len [integer!]
 //  ]
 //
@@ -1100,7 +1053,7 @@ REBNATIVE(to_hex)
 
     REBCNT len;
     if (REF(size))
-        len = cast(REBCNT, VAL_INT64(ARG(len)));
+        len = cast(REBCNT, VAL_INT64(ARG(size)));
     else
         len = UNKNOWN;
 

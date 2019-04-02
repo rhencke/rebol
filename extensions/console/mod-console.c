@@ -297,8 +297,7 @@ REBNATIVE(console)
 
     REBVAL *code;
     if (REF(provoke)) {
-        code = rebArg("provocation", rebEND);  // fetch as an API handle
-        UNUSED(ARG(provocation));
+        code = rebArg("provoke", rebEND);  // fetch as an API handle
         goto provoked;
     }
     else {
@@ -494,11 +493,11 @@ REBNATIVE(resume)
 
     if (REF(with)) {
         Init_False(ARR_AT(instruction, RESUME_INST_MODE)); // don't DO
-        Move_Value(ARR_AT(instruction, RESUME_INST_PAYLOAD), ARG(value));
+        Move_Value(ARR_AT(instruction, RESUME_INST_PAYLOAD), ARG(with));
     }
     else if (REF(do)) {
         Init_True(ARR_AT(instruction, RESUME_INST_MODE)); // DO value
-        Move_Value(ARR_AT(instruction, RESUME_INST_PAYLOAD), ARG(code));
+        Move_Value(ARR_AT(instruction, RESUME_INST_PAYLOAD), ARG(do));
     }
     else {
         Init_Blank(ARR_AT(instruction, RESUME_INST_MODE)); // use default

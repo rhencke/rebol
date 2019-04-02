@@ -502,21 +502,20 @@ REBTYPE(Decimal)
             | (REF(half_ceiling) ? RF_HALF_CEILING : 0)
         );
 
-        arg = ARG(scale);
         if (REF(to)) {
-            if (IS_MONEY(arg))
+            if (IS_MONEY(ARG(to)))
                 return Init_Money(D_OUT, Round_Deci(
-                    decimal_to_deci(d1), flags, VAL_MONEY_AMOUNT(arg)
+                    decimal_to_deci(d1), flags, VAL_MONEY_AMOUNT(ARG(to))
                 ));
 
-            if (IS_TIME(arg))
-                fail (arg);
+            if (IS_TIME(ARG(to)))
+                fail (PAR(to));
 
-            d1 = Round_Dec(d1, flags, Dec64(arg));
-            if (IS_INTEGER(arg))
+            d1 = Round_Dec(d1, flags, Dec64(ARG(to)));
+            if (IS_INTEGER(ARG(to)))
                 return Init_Integer(D_OUT, cast(REBI64, d1));
 
-            if (IS_PERCENT(arg))
+            if (IS_PERCENT(ARG(to)))
                 type = REB_PERCENT;
         }
         else

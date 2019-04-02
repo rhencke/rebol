@@ -324,14 +324,12 @@ REBSER *Make_Set_Operation_Series(
 //
 //  {Returns the first data set less the second data set.}
 //
-//      series [any-array! any-string! binary! bitset! typeset!]
-//          "original data"
-//      exclusions [any-array! any-string! binary! bitset! typeset!]
-//          "data to exclude from series"
-//      /case
-//          "Uses case-sensitive comparison"
-//      /skip
-//          "Treat the series as records of fixed size"
+//      series "original data"
+//          [any-array! any-string! binary! bitset! typeset!]
+//      exclusions "data to exclude from series"
+//          [any-array! any-string! binary! bitset! typeset!]
+//      /case "Uses case-sensitive comparison"
+//      /skip "Treat the series as records of fixed size"
 //      size [integer!]
 //  ]
 //
@@ -378,7 +376,7 @@ REBNATIVE(exclude)
             val2,
             SOP_FLAG_CHECK | SOP_FLAG_INVERT,
             REF(case),
-            REF(skip) ? Int32s(ARG(size), 1) : 1
+            REF(skip) ? Int32s(ARG(skip), 1) : 1
         )
     );
 }
@@ -390,10 +388,8 @@ REBNATIVE(exclude)
 //  "Returns the data set with duplicates removed."
 //
 //      series [any-array! any-string! binary! bitset! typeset!]
-//      /case
-//          "Use case-sensitive comparison (except bitsets)"
-//      /skip
-//          "Treat the series as records of fixed size"
+//      /case "Use case-sensitive comparison (except bitsets)"
+//      /skip "Treat the series as records of fixed size"
 //      size [integer!]
 //  ]
 //
@@ -414,7 +410,7 @@ REBNATIVE(unique)
             NULL,
             SOP_NONE,
             REF(case),
-            REF(skip) ? Int32s(ARG(size), 1) : 1
+            REF(skip) ? Int32s(ARG(skip), 1) : 1
         )
     );
 }

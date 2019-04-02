@@ -258,9 +258,8 @@ load: function [
         [file! url! text! binary! block!]
     /header "Result includes REBOL header object "
     /all "Load all values (cannot be used with /HEADER)"
-    /type "Override default file-type"
-    ftype "E.g. rebol, text, markup, jpeg... (by default, auto-detected)"
-        [word!]
+    /type "E.g. rebol, text, markup, jpeg... (by default, auto-detected)"
+    ftype [word!]
     <in> no-all  ; !!! temporary fake of <unbind> option
 ][
     self: binding of 'return  ; so you can say SELF/ALL
@@ -291,7 +290,7 @@ load: function [
                 source: s
                 header: header
                 all: a
-                set* lit ftype: :ftype
+                type: :type
             ]
         ]
     ]
@@ -301,9 +300,9 @@ load: function [
     if match [file! url!] source [
         file: source
         line: 1
-        ftype: default [file-type? source else ['rebol]]  ; !!! rebol default?
+        type: default [file-type? source else ['rebol]]  ; !!! rebol default?
 
-        if ftype = 'extension [
+        if type = 'extension [
             if not file? source [
                 fail ["Can only load extensions from FILE!, not" source]
             ]
@@ -329,19 +328,19 @@ load: function [
     else [
         file: line: _
         data: source
-        ftype: default ['rebol]
+        type: default ['rebol]
 
-        if ftype = 'extension [
+        if type = 'extension [
             fail "Extensions can only be loaded from a FILE! (.DLL, .so)"
         ]
     ]
 
-    if not find [unbound rebol] ftype [
-        if find system/options/file-types ftype [
-            return decode ftype :data
+    if not find [unbound rebol] type [
+        if find system/options/file-types type [
+            return decode type :data
         ]
 
-        fail ["No" ftype "LOADer found for" type of source]
+        fail ["No" type "LOADer found for" type of source]
     ]
 
     ensure [text! binary!] data
@@ -381,7 +380,7 @@ load: function [
     ; Bind code to user context
 
     none [
-        'unbound = ftype
+        'unbound = type
         'module = select hdr 'type
         find try get 'hdr/options 'unbound
     ] then [
@@ -808,17 +807,17 @@ load-module: function [
 
         if exports [
             if null? select hdr 'exports [
-                append hdr compose [exports: (export-list)]
+                append hdr compose [exports: (exports)]
             ] else [
                 append exports hdr/exports
-                hdr/exports: export-list
+                hdr/exports: exports
             ]
         ]
 
         catch/quit [
             mod: module/mixin/into hdr code (
                 opt do-needs/no-user hdr
-            ) :existing
+            ) :into
         ]
     ]
 

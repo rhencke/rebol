@@ -537,31 +537,32 @@ REBTYPE(Integer)
             | (REF(half_ceiling) ? RF_HALF_CEILING : 0)
         );
 
-        REBVAL *val2 = ARG(scale);
-        if (REF(to)) {
-            if (IS_MONEY(val2))
-                return Init_Money(
-                    D_OUT,
-                    Round_Deci(
-                        int_to_deci(num), flags, VAL_MONEY_AMOUNT(val2)
-                    )
-                );
-            if (IS_DECIMAL(val2) || IS_PERCENT(val2)) {
-                REBDEC dec = Round_Dec(
-                    cast(REBDEC, num), flags, VAL_DECIMAL(val2)
-                );
-                RESET_CELL(D_OUT, VAL_TYPE(val2), CELL_MASK_NONE);
-                VAL_DECIMAL(D_OUT) = dec;
-                return D_OUT;
-            }
-            if (IS_TIME(val2))
-                fail (val2);
-            arg = VAL_INT64(val2);
-        }
-        else
-            arg = 0L;
+        if (not REF(to))
+            return Init_Integer(D_OUT, Round_Int(num, flags, 0L));
 
-        return Init_Integer(D_OUT, Round_Int(num, flags, arg)); }
+        REBVAL *to = ARG(to);
+
+        if (IS_MONEY(to))
+            return Init_Money(
+                D_OUT,
+                Round_Deci(
+                    int_to_deci(num), flags, VAL_MONEY_AMOUNT(to)
+                )
+            );
+
+        if (IS_DECIMAL(to) || IS_PERCENT(to)) {
+            REBDEC dec = Round_Dec(
+                cast(REBDEC, num), flags, VAL_DECIMAL(to)
+            );
+            RESET_CELL(D_OUT, VAL_TYPE(to), CELL_MASK_NONE);
+            VAL_DECIMAL(D_OUT) = dec;
+            return D_OUT;
+        }
+
+        if (IS_TIME(ARG(to)))
+            fail (PAR(to));
+
+        return Init_Integer(D_OUT, Round_Int(num, flags, VAL_INT64(to))); }
 
     case SYM_RANDOM: {
         INCLUDE_PARAMS_OF_RANDOM;

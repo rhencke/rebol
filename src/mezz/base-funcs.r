@@ -889,7 +889,7 @@ module: func [
     ; In Ren-C, MAKE MODULE! acts just like MAKE OBJECT! due to the generic
     ; facility for SET-META.
 
-    mod: default [
+    mod: into: default [
         make module! 7 ; arbitrary starting size
     ]
 

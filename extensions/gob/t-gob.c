@@ -950,8 +950,6 @@ REBTYPE(Gob)
             VAL_WORD_SYM(verb) == SYM_CHANGE
             && (REF(part) || REF(only) || REF(dup))
         ){
-            UNUSED(PAR(limit));
-            UNUSED(PAR(count));
             fail (Error_Not_Done_Raw());
         }
 
@@ -978,11 +976,8 @@ REBTYPE(Gob)
         if (REF(line))
             fail (Error_Bad_Refines_Raw());
 
-        if (REF(part) || REF(only) || REF(dup)) {
-            UNUSED(PAR(limit));
-            UNUSED(PAR(count));
+        if (REF(part) || REF(only) || REF(dup))
             fail (Error_Not_Done_Raw());
-        }
 
         REBCNT len;
         if (IS_GOB(arg)) {
@@ -1010,7 +1005,7 @@ REBTYPE(Gob)
         INCLUDE_PARAMS_OF_REMOVE;
         UNUSED(PAR(series));
 
-        REBCNT len = REF(part) ? Get_Num_From_Arg(ARG(limit)) : 1;
+        REBCNT len = REF(part) ? Get_Num_From_Arg(ARG(part)) : 1;
         if (index + len > tail)
             len = tail - index;
         if (index < tail && len != 0)
@@ -1036,7 +1031,6 @@ REBTYPE(Gob)
             "applique :take* [",
                 "series: at", pane, rebI(index + 1),
                 "part:", ARG(part),
-                "limit:", ARG(limit),
                 "deep:", ARG(deep),
                 "last:", ARG(last),
             "]",

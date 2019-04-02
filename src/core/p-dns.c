@@ -66,15 +66,9 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         INCLUDE_PARAMS_OF_READ;
 
         UNUSED(PAR(source));
-        if (REF(part)) {
-            UNUSED(ARG(limit));
-            fail (Error_Bad_Refines_Raw());
-        }
 
-        if (REF(seek)) {
-            UNUSED(ARG(index));
+        if (REF(part) or REF(seek))
             fail (Error_Bad_Refines_Raw());
-        }
 
         UNUSED(PAR(string)); // handled in dispatcher
         UNUSED(PAR(lines)); // handled in dispatcher
@@ -140,19 +134,10 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         INCLUDE_PARAMS_OF_OPEN;
 
         UNUSED(PAR(spec));
-        if (REF(new))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(read))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(write))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(seek))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(allow)) {
-            UNUSED(ARG(access));
-            fail (Error_Bad_Refines_Raw());
-        }
 
+        if (REF(new) or REF(read) or REF(write) or REF(seek) or REF(allow))
+            fail (Error_Bad_Refines_Raw());
+ 
         OS_DO_DEVICE_SYNC(req, RDC_OPEN);
         RETURN (port); }
 

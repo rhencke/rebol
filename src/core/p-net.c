@@ -295,14 +295,9 @@ static REB_R Transport_Actor(
 
         UNUSED(PAR(source));
 
-        if (REF(part)) {
-            UNUSED(ARG(limit));
+        if (REF(part) or REF(seek))
             fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(seek)) {
-            UNUSED(ARG(index));
-            fail (Error_Bad_Refines_Raw());
-        }
+
         UNUSED(PAR(string)); // handled in dispatcher
         UNUSED(PAR(lines)); // handled in dispatcher
 
@@ -371,17 +366,7 @@ static REB_R Transport_Actor(
 
         UNUSED(PAR(destination));
 
-        if (REF(seek)) {
-            UNUSED(ARG(index));
-            fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(append))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(allow)) {
-            UNUSED(ARG(access));
-            fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(lines))
+        if (REF(seek) or REF(append) or REF(allow) or REF(lines))
             fail (Error_Bad_Refines_Raw());
 
         // Write the entire argument string to the network.
@@ -399,7 +384,7 @@ static REB_R Transport_Actor(
 
         REBCNT len = VAL_LEN_AT(data);
         if (REF(part)) {
-            REBCNT n = Int32s(ARG(limit), 0);
+            REBCNT n = Int32s(ARG(part), 0);
             if (n <= len)
                 len = n;
         }
@@ -450,12 +435,10 @@ static REB_R Transport_Actor(
         if (not (req->modes & RST_LISTEN) or (req->modes & RST_UDP))
             fail ("TAKE is only available on TCP LISTEN ports");
 
-        UNUSED(REF(part)); // non-null limit accounts for
-
         return rebRunQ(
             "take*/part/(", ARG(deep), ")/(", ARG(last), ")",
                 CTX_VAR(ctx, STD_PORT_CONNECTIONS),
-                NULLIFY_NULLED(ARG(limit)),
+                ARG(part),
                 rebEND
         ); }
 

@@ -52,8 +52,8 @@ static REB_R Clipboard_Actor(
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
+        UNUSED(ARG(value));  // implied by `port`
 
-        UNUSED(ARG(value)); // implied by `port`
         REBSYM property = VAL_WORD_SYM(ARG(property));
         assert(property != 0);
 
@@ -69,18 +69,13 @@ static REB_R Clipboard_Actor(
 
     case SYM_READ: {
         INCLUDE_PARAMS_OF_READ;
+        UNUSED(ARG(source));  // implied by `port`
 
-        UNUSED(PAR(source)); // already accounted for
-        if (REF(part)) {
-            UNUSED(ARG(limit));
+        if (REF(part) or REF(seek))
             fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(seek)) {
-            UNUSED(ARG(index));
-            fail (Error_Bad_Refines_Raw());
-        }
-        UNUSED(PAR(string)); // handled in dispatcher
-        UNUSED(PAR(lines)); // handled in dispatcher
+
+        UNUSED(REF(string));  // handled in dispatcher
+        UNUSED(REF(lines));  // handled in dispatcher
 
         SetLastError(NO_ERROR);
         if (not IsClipboardFormatAvailable(CF_UNICODETEXT)) {
@@ -128,21 +123,10 @@ static REB_R Clipboard_Actor(
 
     case SYM_WRITE: {
         INCLUDE_PARAMS_OF_WRITE;
+        UNUSED(ARG(destination));  // implied by `port`
+        UNUSED(ARG(data)); // implied by `arg`
 
-        UNUSED(PAR(destination));
-        UNUSED(PAR(data)); // used as arg
-
-        if (REF(seek)) {
-            UNUSED(ARG(index));
-            fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(append))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(allow)) {
-            UNUSED(ARG(access));
-            fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(lines))
+        if (REF(seek) or REF(append) or REF(allow) or REF(lines))
             fail (Error_Bad_Refines_Raw());
 
         // !!! Traditionally the currency of READ and WRITE is binary data.
@@ -155,8 +139,8 @@ static REB_R Clipboard_Actor(
         // Handle /part refinement:
         //
         REBINT len = VAL_LEN_AT(arg);
-        if (REF(part) and VAL_INT32(ARG(limit)) < len)
-            len = VAL_INT32(ARG(limit));
+        if (REF(part) and VAL_INT32(ARG(part)) < len)
+            len = VAL_INT32(ARG(part));
 
         if (not OpenClipboard(NULL))
             rebJumps(
@@ -204,20 +188,10 @@ static REB_R Clipboard_Actor(
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
-
         UNUSED(PAR(spec));
-        if (REF(new))
+
+        if (REF(new) or REF(read) or REF(write) or REF(seek) or REF(allow))
             fail (Error_Bad_Refines_Raw());
-        if (REF(read))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(write))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(seek))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(allow)) {
-            UNUSED(ARG(access));
-            fail (Error_Bad_Refines_Raw());
-        }
 
         // !!! Currently just ignore (it didn't do anything)
 

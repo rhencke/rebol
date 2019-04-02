@@ -262,6 +262,11 @@ inline static void Finalize_Arg(REBFRM *f) {
         fail (Error_Arg_Type(f, f->param, VAL_TYPE(f->arg)));
 
     SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
+    if (IS_REFINEMENT(f->refine)) {
+        Move_Value(f->refine, f->arg);
+        Init_Void(f->arg);
+        SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
+    }
 }
 
 
@@ -773,9 +778,9 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 // at the `process_action` label.
 
       case REB_ACTION: {
-        assert(NOT_CELL_FLAG(v, ENFIXED)); // come from WORD!/PATH! only
+        assert(NOT_CELL_FLAG(v, ENFIXED));  // only WORD!s, via process_action
 
-        REBSTR *opt_label = nullptr; // not invoked through a word, "nameless"
+        REBSTR *opt_label = nullptr;  // not run from WORD!/PATH!, "nameless"
 
         Push_Action(f, VAL_ACTION(v), VAL_BINDING(v));
         Begin_Action(f, opt_label);
@@ -864,7 +869,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             // match the "consumption order" of the expressions that need to
             // be fetched from the callsite.  For instance:
             //
-            //     foo: func [aa /b bb /c cc] [...]
+            //     foo: func [aa /b [integer!] /c [integer!]] [...]
             //
             //     foo/b/c 10 20 30
             //     foo/c/b 10 20 30
@@ -1007,10 +1012,15 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                 SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
-              used_refinement:
+              used_refinement:  // can hit this on redo, copy its argument
 
-                assert(not IS_POINTER_TRASH_DEBUG(f->refine)); // must be set
-                Refinify(Init_Word(f->arg, VAL_PARAM_SPELLING(f->param)));
+                if (f->special == f->arg) {
+                    /* type checking */
+                }
+                else {
+                    assert(not IS_POINTER_TRASH_DEBUG(f->refine)); // must be set
+                    Refinify(Init_Word(f->arg, VAL_PARAM_SPELLING(f->param)));
+                }
                 SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
             }
@@ -1109,10 +1119,10 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                 // NULL is not technically in the valid argument types for
                 // refinement arguments, but is legal in fulfilled frames.
                 //
-                assert(
+             /*   assert(
                     (f->refine != ORDINARY_ARG and IS_NULLED(f->arg))
                     or Typecheck_Including_Quoteds(f->param, f->arg)
-                );
+                ); */
 
                 goto continue_arg_loop;
             }

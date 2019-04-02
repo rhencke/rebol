@@ -374,7 +374,7 @@ REBNATIVE(do)
             true,  // fully = true, error if not all arguments consumed
             rebU1(sys_do_helper),
             source,
-            NULLIFY_NULLED(ARG(arg)), // nulled cells => nullptr for API
+            ARG(args),
             REF(only) ? TRUE_VALUE : FALSE_VALUE,
             rebEND
         )){
@@ -518,7 +518,7 @@ REBNATIVE(evaluate)
             return nullptr;  // leave the result variable with old value
 
         if (REF(set))
-            Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), D_SPARE);
+            Move_Value(Sink_Var_May_Fail(ARG(set), SPECIFIED), D_SPARE);
 
         Move_Value(D_OUT, source);
         VAL_INDEX(D_OUT) = index;
@@ -559,7 +559,7 @@ REBNATIVE(evaluate)
             }
 
             if (REF(set))
-                Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), D_SPARE);
+                Move_Value(Sink_Var_May_Fail(ARG(set), SPECIFIED), D_SPARE);
 
             VAL_INDEX(position) = index;
             RETURN (source);  // original VARARGS! will have updated position
@@ -586,7 +586,7 @@ REBNATIVE(evaluate)
             return nullptr;
 
         if (REF(set))
-            Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), D_SPARE);
+            Move_Value(Sink_Var_May_Fail(ARG(set), SPECIFIED), D_SPARE);
 
         RETURN (source); }  // original VARARGS! will have an updated position
 
@@ -672,7 +672,7 @@ REBNATIVE(redo)
     // than the established check for a common "ancestor".
     //
     if (REF(other)) {
-        REBVAL *sibling = ARG(sibling);
+        REBVAL *sibling = ARG(other);
         if (FRM_UNDERLYING(f) != ACT_UNDERLYING(VAL_ACTION(sibling)))
             fail ("/OTHER function passed to REDO has incompatible FRAME!");
 

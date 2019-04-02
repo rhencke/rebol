@@ -187,8 +187,8 @@ make-scheme: function [
     base-name [word!]
         "Scheme name to use as base"
 ][
-    with: either with [get in system/schemes base-name][system/standard/scheme]
-    if not with [cause-error 'access 'no-scheme base-name]
+    with: either with [get in system/schemes with][system/standard/scheme]
+    if not with [cause-error 'access 'no-scheme with]
 
     scheme: make with def
     if not scheme/name [cause-error 'access 'no-scheme-name scheme]

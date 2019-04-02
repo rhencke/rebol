@@ -127,17 +127,7 @@ REB_R Retrigger_Append_As_Write(REBFRM *frame_) {
         fail (PAR(value));
     }
 
-    if (REF(part)) {
-        UNUSED(ARG(limit));
-        fail (Error_Bad_Refines_Raw());
-    }
-    if (REF(only))
-        fail (Error_Bad_Refines_Raw());
-    if (REF(dup)) {
-        UNUSED(ARG(count));
-        fail (Error_Bad_Refines_Raw());
-    }
-    if (REF(line))
+    if (REF(part) or REF(only) or REF(dup) or REF(line))
         fail (Error_Bad_Refines_Raw());
 
     return rebRunQ("write/append", D_ARG(1), D_ARG(2), rebEND);

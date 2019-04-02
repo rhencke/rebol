@@ -479,7 +479,7 @@ REBTYPE(Tuple)
         UNUSED(PAR(series));
 
         if (REF(part)) {
-            len = Get_Num_From_Arg(ARG(limit));
+            len = Get_Num_From_Arg(ARG(part));
             len = MIN(len, VAL_TUPLE_LEN(value));
         }
         if (len > 0) {

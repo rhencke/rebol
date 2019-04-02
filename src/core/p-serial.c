@@ -177,14 +177,10 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         INCLUDE_PARAMS_OF_READ;
 
         UNUSED(PAR(source));
-        if (REF(part)) {
-            UNUSED(ARG(limit));
+
+        if (REF(part) or REF(seek))
             fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(seek)) {
-            UNUSED(ARG(index));
-            fail (Error_Bad_Refines_Raw());
-        }
+
         UNUSED(PAR(string)); // handled in dispatcher
         UNUSED(PAR(lines)); // handled in dispatcher
 
@@ -225,17 +221,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         UNUSED(PAR(destination));
 
-        if (REF(seek)) {
-            UNUSED(ARG(index));
-            fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(append))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(allow)) {
-            UNUSED(ARG(access));
-            fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(lines))
+        if (REF(seek) or REF(append) or REF(allow) or REF(lines))
             fail (Error_Bad_Refines_Raw());
 
         // Determine length. Clip /PART to size of binary if needed.
@@ -243,7 +229,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         REBVAL *data = ARG(data);
         REBCNT len = VAL_LEN_AT(data);
         if (REF(part)) {
-            REBCNT n = Int32s(ARG(limit), 0);
+            REBCNT n = Int32s(ARG(part), 0);
             if (n <= len)
                 len = n;
         }

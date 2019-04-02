@@ -208,18 +208,9 @@ REB_R Event_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         INCLUDE_PARAMS_OF_OPEN;
 
         UNUSED(PAR(spec));
-        if (REF(new))
+
+        if (REF(new) or REF(read) or REF(write) or REF(seek) or REF(allow))
             fail (Error_Bad_Refines_Raw());
-        if (REF(read))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(write))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(seek))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(allow)) {
-            UNUSED(ARG(access));
-            fail (Error_Bad_Refines_Raw());
-        }
 
         REBREQ *req = OS_MAKE_DEVREQ(RDI_EVENT);
 

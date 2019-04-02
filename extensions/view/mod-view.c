@@ -99,21 +99,16 @@ bool osDialogOpen = false;
 //
 //  {Asks user to select file(s) and returns full file path(s)}
 //
-//      return: [<opt> file! block!]
-//          {Null if canceled, otherwise a path or block of paths}
-//      /save
-//          "File save mode"
-//      /multi
-//          {Allows multiple file selection, returned as a block}
-//      /file
+//      return: "Null if canceled, otherwise a path or block of paths"
+//          [<opt> file! block!]
+//      /save "File save mode"
+//      /multi "Allows multiple file selection, returned as a block"
+//      /file "Default file name or directory"
 //      name [file!]
-//          "Default file name or directory"
-//      /title
+//      /title "Window title"
 //      text [text!]
-//          "Window title"
-//      /filter
+//      /filter "Block of filters (filter-name filter)"
 //      list [block!]
-//          "Block of filters (filter-name filter)"
 //  ]
 //
 REBNATIVE(request_file_p)
@@ -142,7 +137,7 @@ REBNATIVE(request_file_p)
         Push_Mold(mo);
 
         RELVAL *item;
-        for (item = VAL_ARRAY_AT(ARG(list)); NOT_END(item); ++item) {
+        for (item = VAL_ARRAY_AT(ARG(filter)); NOT_END(item); ++item) {
             Form_Value(mo, item);
             Append_Codepoint(mo->series, '\0');
         }
@@ -187,8 +182,8 @@ REBNATIVE(request_file_p)
 
     WCHAR *lpstrInitialDir;
     if (REF(file)) {
-        REBCNT path_len = rebUnbox("length of", ARG(name), rebEND);
-        WCHAR *path = rebSpellWide("file-to-local/full", ARG(name), rebEND);
+        REBCNT path_len = rebUnbox("length of", ARG(file), rebEND);
+        WCHAR *path = rebSpellWide("file-to-local/full", ARG(file), rebEND);
 
         // If the last character doesn't indicate a directory, that means
         // we are trying to pre-select a file, which we do by copying the
@@ -220,7 +215,7 @@ REBNATIVE(request_file_p)
 
     WCHAR *lpstrTitle;
     if (REF(title))
-        lpstrTitle = rebSpellWide(ARG(text), rebEND);
+        lpstrTitle = rebSpellWide(ARG(title), rebEND);
     else
         lpstrTitle = NULL; // Will use "Save As" or "Open" defaults
     ofn.lpstrTitle = lpstrTitle;
@@ -357,15 +352,11 @@ REBNATIVE(request_file_p)
     if (not gtk_init_check(&argc, NULL))
         fail ("gtk_init_check() failed");
 
-    if (REF(filter)) {
-        // !!! wasn't implemented in GTK for Atronix R3
-        //
-        UNUSED(ARG(list));
-    }
+    UNUSED(REF(filter));  // not implemented in GTK for Atronix R3
 
     char *title;
     if (REF(title))
-        title = rebSpell(ARG(text), rebEND);
+        title = rebSpell(ARG(title), rebEND);
     else
         title = NULL;
 
@@ -400,7 +391,7 @@ REBNATIVE(request_file_p)
 
     REBYTE *name;
     if (REF(file)) {
-        name = rebSpell(ARG(name), rebEND);
+        name = rebSpell(ARG(file), rebEND);
         gtk_file_chooser_set_current_folder(chooser, cast(gchar*, name));
     }
     else
@@ -475,11 +466,8 @@ REBNATIVE(request_file_p)
     UNUSED(REF(save));
     UNUSED(REF(multi));
     UNUSED(REF(file));
-    UNUSED(ARG(name));
     UNUSED(REF(title));
-    UNUSED(ARG(text));
     UNUSED(REF(filter));
-    UNUSED(ARG(list));
 
     error = Error_User("REQUEST-FILE only on GTK and Windows at this time");
   #endif
@@ -643,9 +631,7 @@ REBNATIVE(request_dir_p)
         rebFree(cast(WCHAR*, bi.lParam));
   #else
     UNUSED(REF(title));
-    UNUSED(ARG(text));
     UNUSED(REF(path));
-    UNUSED(ARG(dir));
 
     error = Error_User("Temporary implementation of REQ-DIR only on Windows");
   #endif

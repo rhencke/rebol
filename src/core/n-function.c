@@ -131,8 +131,8 @@ REB_R Init_Thrown_Unwind_Value(
 //
 //      level "Frame, action, or index to exit from"
 //          [frame! action! integer!]
-//      /with "Result for enclosing state (default is void)"
-//      value [any-value!]
+//      /with "Result for enclosing state"
+//      value [<opt> any-value!]
 //  ]
 //
 REBNATIVE(unwind)
@@ -147,9 +147,7 @@ REBNATIVE(unwind)
 {
     INCLUDE_PARAMS_OF_UNWIND;
 
-    UNUSED(REF(with)); // implied by non-null value
-
-    return Init_Thrown_Unwind_Value(D_OUT, ARG(level), ARG(value), frame_);
+    return Init_Thrown_Unwind_Value(D_OUT, ARG(level), ARG(with), frame_);
 }
 
 

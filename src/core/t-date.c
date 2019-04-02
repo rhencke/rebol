@@ -1008,7 +1008,6 @@ REBTYPE(Date)
 
             if (REF(skip))
                 fail (Error_Bad_Refines_Raw());
-            UNUSED(PAR(size));
 
             // !!! Plain SUBTRACT on dates has historically given INTEGER! of
             // days, while DIFFERENCE has given back a TIME!.  This is not

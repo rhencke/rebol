@@ -1370,19 +1370,19 @@ REBNATIVE(catch)
         REBVAL *temp1 = ARG(quit);
         REBVAL *temp2 = ARG(any);
 
-        if (IS_BLOCK(ARG(names))) {
+        if (IS_BLOCK(ARG(name))) {
             //
             // Test all the words in the block for a match to catch
 
-            RELVAL *candidate = VAL_ARRAY_AT(ARG(names));
+            RELVAL *candidate = VAL_ARRAY_AT(ARG(name));
             for (; NOT_END(candidate); candidate++) {
                 //
                 // !!! Should we test a typeset for illegal name types?
                 //
                 if (IS_BLOCK(candidate))
-                    fail (PAR(names));
+                    fail (PAR(name));
 
-                Derelativize(temp1, candidate, VAL_SPECIFIER(ARG(names)));
+                Derelativize(temp1, candidate, VAL_SPECIFIER(ARG(name)));
                 Move_Value(temp2, label);
 
                 // Return the THROW/NAME's arg if the names match
@@ -1393,7 +1393,7 @@ REBNATIVE(catch)
             }
         }
         else {
-            Move_Value(temp1, ARG(names));
+            Move_Value(temp1, ARG(name));
             Move_Value(temp2, label);
 
             // Return the THROW/NAME's arg if the names match
@@ -1447,13 +1447,13 @@ REBNATIVE(throw)
 // Choices are currently limited for what one can use as a "name" of a THROW.
 // Note blocks as names would conflict with the `name_list` feature in CATCH.
 //
-// !!! Should parameters be /NAMED and NAME ?
+// !!! Should it be /NAMED instead of /NAME?
 {
     INCLUDE_PARAMS_OF_THROW;
 
     return Init_Thrown_With_Label(
         D_OUT,
         ARG(value),
-        REF(name) ? ARG(name_value) : BLANK_VALUE // uses blank, not null
+        ARG(name)  // will be BLANK! if unused (vs. null)
     );
 }

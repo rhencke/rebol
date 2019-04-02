@@ -645,8 +645,8 @@ REBARR *Collect_Keylist_Managed(
 //
 REBARR *Collect_Unique_Words_Managed(
     const RELVAL *head,
-    REBFLGS flags, // See COLLECT_XXX
-    const REBVAL *ignore // BLOCK!, ANY-CONTEXT!, or void for none
+    REBFLGS flags,  // See COLLECT_XXX
+    const REBVAL *ignore  // BLOCK!, ANY-CONTEXT!, or BLANK! for none
 ){
     // We do not want to fail() during the bind at this point in time (the
     // system doesn't know how to clean up, and the only cleanup it does
@@ -654,7 +654,7 @@ REBARR *Collect_Unique_Words_Managed(
     // the "ignore" bindings.)  Do a pre-pass to fail first, if there are
     // any non-words in a block the user passed in.
     //
-    if (not IS_NULLED(ignore)) {
+    if (not IS_BLANK(ignore)) {
         RELVAL *check = VAL_ARRAY_AT(ignore);
         for (; NOT_END(check); ++check) {
             if (not ANY_WORD_KIND(CELL_KIND(VAL_UNESCAPED(check))))
@@ -707,7 +707,7 @@ REBARR *Collect_Unique_Words_Managed(
         }
     }
     else
-        assert(IS_NULLED(ignore));
+        assert(IS_BLANK(ignore));
 
     Collect_Inner_Loop(cl, head);
 
@@ -734,12 +734,11 @@ REBARR *Collect_Unique_Words_Managed(
     }
     else if (ANY_CONTEXT(ignore)) {
         REBVAL *key = CTX_KEYS_HEAD(VAL_CONTEXT(ignore));
-        for (; NOT_END(key); ++key) {
+        for (; NOT_END(key); ++key)
             Remove_Binder_Index(&cl->binder, VAL_KEY_CANON(key));
-        }
     }
     else
-        assert(IS_NULLED(ignore));
+        assert(IS_BLANK(ignore));
 
     Collect_End(cl);
     return array;
@@ -1214,7 +1213,7 @@ void Resolve_Context(
     key = CTX_KEYS_HEAD(source);
     for (n = 1; NOT_END(key); n++, key++) {
         REBSTR *canon = VAL_KEY_CANON(key);
-        if (IS_NULLED(only_words))
+        if (IS_BLANK(only_words))
             Add_Binder_Index(&binder, canon, n);
         else {
             if (Get_Binder_Index_Else_0(&binder, canon) != 0) {

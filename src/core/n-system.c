@@ -98,21 +98,15 @@ REBNATIVE(exit_rebol)
 //
 //  "Recycles unused memory."
 //
-//      return: [<opt> integer!]
-//          {Number of series nodes recycled (if applicable)}
-//      /off
-//          "Disable auto-recycling"
-//      /on
-//          "Enable auto-recycling"
-//      /ballast
-//          "Trigger for auto-recycle (memory used)"
+//      return: "Number of series nodes recycled (if applicable)"
+//          [<opt> integer!]
+//      /off "Disable auto-recycling"
+//      /on "Enable auto-recycling"
+//      /ballast "Trigger for auto-recycle (memory used)"
 //      size [integer!]
-//      /torture
-//          "Constant recycle (for internal debugging)"
-//      /watch
-//          "Monitor recycling (debug only)"
-//      /verbose
-//          "Dump out information about series being recycled (debug only)"
+//      /torture "Constant recycle (for internal debugging)"
+//      /watch "Monitor recycling (debug only)"
+//      /verbose "Dump information about series being recycled (debug only)"
 //  ]
 //
 REBNATIVE(recycle)
@@ -130,7 +124,7 @@ REBNATIVE(recycle)
     }
 
     if (REF(ballast)) {
-        TG_Max_Ballast = VAL_INT32(ARG(size));
+        TG_Max_Ballast = VAL_INT32(ARG(ballast));
         TG_Ballast = TG_Max_Ballast;
     }
 

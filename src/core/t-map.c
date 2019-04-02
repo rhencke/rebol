@@ -684,20 +684,7 @@ REBTYPE(Map)
         UNUSED(PAR(series));
         UNUSED(PAR(pattern)); // handled as `arg`
 
-        if (REF(part)) {
-            UNUSED(ARG(limit));
-            fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(only))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(skip)) {
-            UNUSED(ARG(size));
-            fail (Error_Bad_Refines_Raw());
-        }
-
-        if (REF(tail))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(match))
+        if (REF(part) or REF(only) or REF(skip) or REF(tail) or REF(match))
             fail (Error_Bad_Refines_Raw());
 
         REBINT n = Find_Map_Entry(
@@ -749,20 +736,13 @@ REBTYPE(Map)
 
         UNUSED(PAR(series));
 
-        if (REF(only))
+        if (REF(only) or REF(line) or REF(dup))
             fail (Error_Bad_Refines_Raw());
-        if (REF(line))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(dup)) {
-            UNUSED(ARG(count));
-            fail (Error_Bad_Refines_Raw());
-        }
 
         if (not IS_BLOCK(arg))
             fail (PAR(value));
 
-        REBCNT len = Part_Len_May_Modify_Index(arg, ARG(limit));
-        UNUSED(REF(part)); // detected by if limit is nulled
+        REBCNT len = Part_Len_May_Modify_Index(arg, ARG(part));
 
         Append_Map(
             map,
@@ -776,12 +756,10 @@ REBTYPE(Map)
 
     case SYM_COPY: {
         INCLUDE_PARAMS_OF_COPY;
-
         UNUSED(PAR(value));
-        if (REF(part)) {
-            UNUSED(ARG(limit));
+
+        if (REF(part))
             fail (Error_Bad_Refines_Raw());
-        }
 
         REBU64 types = 0; // which types to copy non-"shallowly"
 
@@ -789,11 +767,11 @@ REBTYPE(Map)
             types |= REF(types) ? 0 : TS_CLONE;
 
         if (REF(types)) {
-            if (IS_DATATYPE(ARG(kinds)))
-                types |= FLAGIT_KIND(VAL_TYPE(ARG(kinds)));
+            if (IS_DATATYPE(ARG(types)))
+                types |= FLAGIT_KIND(VAL_TYPE(ARG(types)));
             else {
-                types |= VAL_TYPESET_LOW_BITS(ARG(kinds));
-                types |= cast(REBU64, VAL_TYPESET_HIGH_BITS(ARG(kinds))) << 32;
+                types |= VAL_TYPESET_LOW_BITS(ARG(types));
+                types |= cast(REBU64, VAL_TYPESET_HIGH_BITS(ARG(types))) << 32;
             }
         }
 

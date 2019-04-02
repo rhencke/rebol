@@ -102,21 +102,17 @@ REBNATIVE(as_pair)
 //
 //  bind: native [
 //
-//  "Binds words or words in arrays to the specified context."
+//  {Binds words or words in arrays to the specified context}
 //
 //      return: [<requote> action! any-array! any-path! any-word!]
-//      value [<dequote> action! any-array! any-path! any-word!]
-//          "Value whose binding is to be set (modified) (returned)"
-//      target [any-word! any-context!]
-//          "The target context or a word whose binding should be the target"
-//      /copy
-//          "Bind and return a deep copy of a block, don't modify original"
-//      /only
-//          "Bind only first block (not deep)"
-//      /new
-//          "Add to context any new words found"
-//      /set
-//          "Add to context any new set-words found"
+//      value "Value whose binding is to be set (modified) (returned)"
+//          [<dequote> action! any-array! any-path! any-word!]
+//      target "Target context or a word whose binding should be the target"
+//          [any-word! any-context!]
+//      /copy "Bind and return a deep copy of a block, don't modify original"
+//      /only "Bind only first block (not deep)"
+//      /new "Add to context any new words found"
+//      /set "Add to context any new set-words found"
 //  ]
 //
 REBNATIVE(bind)
@@ -506,12 +502,10 @@ REBNATIVE(collect_words)
     if (REF(deep))
         flags |= COLLECT_DEEP;
 
-    UNUSED(REF(ignore)); // implied used or unused by ARG(hidden)'s voidness
-
     RELVAL *head = VAL_ARRAY_AT(ARG(block));
     return Init_Block(
         D_OUT,
-        Collect_Unique_Words_Managed(head, flags, ARG(hidden))
+        Collect_Unique_Words_Managed(head, flags, ARG(ignore))
     );
 }
 
@@ -825,30 +819,23 @@ REBNATIVE(opt)
 //
 //      target [any-context!] "(modified)"
 //      source [any-context!]
-//      /only
-//          "Only specific words (exports) or new words in target"
+//      /only "Only specific words (exports) or new words in target"
 //      from [block! integer!]
-//          "(index to tail)"
-//      /all
-//          "Set all words, even those in the target that already have a value"
-//      /extend
-//          "Add source words to the target if necessary"
+//      /all "Set all words, even those in the target that already have a value"
+//      /extend "Add source words to the target if necessary"
 //  ]
 //
 REBNATIVE(resolve)
 {
     INCLUDE_PARAMS_OF_RESOLVE;
 
-    if (IS_INTEGER(ARG(from))) {
-        // check range and sign
-        Int32s(ARG(from), 1);
-    }
+    if (IS_INTEGER(ARG(only)))
+        Int32s(ARG(only), 1);  // check range and sign
 
-    UNUSED(REF(only)); // handled by noticing if ARG(from) is void
     Resolve_Context(
         VAL_CONTEXT(ARG(target)),
         VAL_CONTEXT(ARG(source)),
-        ARG(from),
+        ARG(only),
         REF(all),
         REF(extend)
     );

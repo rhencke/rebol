@@ -173,14 +173,10 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         INCLUDE_PARAMS_OF_READ;
 
         UNUSED(PAR(source));
-        if (REF(part)) {
-            UNUSED(ARG(limit));
+
+        if (REF(part) or REF(seek))
             fail (Error_Bad_Refines_Raw());
-        }
-        if (REF(seek)) {
-            UNUSED(ARG(index));
-            fail (Error_Bad_Refines_Raw());
-        }
+
         UNUSED(PAR(string)); // handled in dispatcher
         UNUSED(PAR(lines)); // handled in dispatcher
 
@@ -293,16 +289,9 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         INCLUDE_PARAMS_OF_OPEN;
 
         UNUSED(PAR(spec));
-        if (REF(read))
+
+        if (REF(read) or REF(write) or REF(seek) or REF(allow))
             fail (Error_Bad_Refines_Raw());
-        if (REF(write))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(seek))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(allow)) {
-            UNUSED(ARG(access));
-            fail (Error_Bad_Refines_Raw());
-        }
 
         // !! If open fails, what if user does a READ w/o checking for error?
         if (IS_BLOCK(state))

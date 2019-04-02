@@ -206,10 +206,10 @@ trim: function [
                 fail "Invalid refinements for TRIM of STRING!"
             ]
 
-            rule: either with [
-                either bitset? str [str] [charset str]
-            ][
-                charset reduce [space tab]
+            rule: case [
+                blank? with [charset reduce [space tab]]
+                bitset? with [with]
+                default [charset with]
             ]
 
             if any [all_TRIM lines head_TRIM tail_TRIM] [append rule newline]
@@ -221,7 +221,7 @@ trim: function [
             ]
 
             rule: either with [
-                either bitset? str [str] [charset str]
+                either bitset? with [with] [charset with]
             ][
                 #{00}
             ]

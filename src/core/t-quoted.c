@@ -199,9 +199,9 @@ REBNATIVE(uneval) // !!! This will be renamed QUOTE in the future
 {
     INCLUDE_PARAMS_OF_UNEVAL;
 
-    REBINT depth = REF(depth) ? VAL_INT32(ARG(count)) : 1;
+    REBINT depth = REF(depth) ? VAL_INT32(ARG(depth)) : 1;
     if (depth < 0)
-        fail (PAR(count));
+        fail (PAR(depth));
 
     return Quotify(Move_Value(D_OUT, ARG(optional)), depth);
 }
@@ -222,11 +222,11 @@ REBNATIVE(unquote)
 {
     INCLUDE_PARAMS_OF_UNQUOTE;
 
-    REBINT depth = REF(depth) ? VAL_INT32(ARG(count)) : 1;
+    REBINT depth = REF(depth) ? VAL_INT32(ARG(depth)) : 1;
     if (depth < 0)
-        fail (PAR(count));
+        fail (PAR(depth));
     if (cast(REBCNT, depth) > VAL_NUM_QUOTES(ARG(optional)))
-        fail (PAR(count));
+        fail (PAR(depth));
 
     return Unquotify(Move_Value(D_OUT, ARG(optional)), depth);
 }

@@ -586,8 +586,6 @@ REB_R Modify_Image(REBFRM *frame_, const REBVAL *verb)
 
     REBVAL *value = ARG(series);  // !!! confusing name
     REBVAL *arg = ARG(value);
-    REBVAL *len = ARG(limit);  // nulled cell if no /PART
-    REBVAL *count = ARG(count);  // nulled cell if no /DUP
 
     REBCNT index = VAL_IMAGE_POS(value);
     REBCNT tail = VAL_IMAGE_LEN_HEAD(value);
@@ -620,15 +618,15 @@ REB_R Modify_Image(REBFRM *frame_, const REBVAL *verb)
     REBINT dup_y = 0;
 
     if (REF(dup)) {  // "it specifies fill size"
-        if (IS_INTEGER(count)) {
-            dup = VAL_INT32(count);
+        if (IS_INTEGER(ARG(dup))) {
+            dup = VAL_INT32(ARG(dup));
             dup = MAX(dup, 0);
             if (dup == 0)
                 RETURN (value);
         }
-        else if (IS_PAIR(count)) {  // rectangular dup
-            dup_x = VAL_PAIR_X_INT(count);
-            dup_y = VAL_PAIR_Y_INT(count);
+        else if (IS_PAIR(ARG(dup))) {  // rectangular dup
+            dup_x = VAL_PAIR_X_INT(ARG(dup));
+            dup_y = VAL_PAIR_Y_INT(ARG(dup));
             dup_x = MAX(dup_x, 0);
             dup_x = MIN(dup_x, cast(REBINT, w) - x);  // clip dup width
             dup_y = MAX(dup_y, 0);
@@ -640,7 +638,7 @@ REB_R Modify_Image(REBFRM *frame_, const REBVAL *verb)
                 RETURN (value);
         }
         else
-            fail (Error_Invalid_Type(VAL_TYPE(count)));
+            fail (Error_Invalid_Type(VAL_TYPE(ARG(dup))));
     }
 
     REBINT part = 1;
@@ -649,32 +647,32 @@ REB_R Modify_Image(REBFRM *frame_, const REBVAL *verb)
 
     if (REF(part)) {  // only allowed when arg is a series
         if (IS_BINARY(arg)) {
-            if (IS_INTEGER(len)) {
-                part = VAL_INT32(len);
-            } else if (IS_BINARY(len)) {
-                part = (VAL_INDEX(len) - VAL_INDEX(arg)) / 4;
+            if (IS_INTEGER(ARG(part))) {
+                part = VAL_INT32(ARG(part));
+            } else if (IS_BINARY(ARG(part))) {
+                part = (VAL_INDEX(ARG(part)) - VAL_INDEX(arg)) / 4;
             } else
-                fail (len);
+                fail (PAR(part));
             part = MAX(part, 0);
         }
         else if (IS_IMAGE(arg)) {
-            if (IS_INTEGER(len)) {
-                part = VAL_INT32(len);
+            if (IS_INTEGER(ARG(part))) {
+                part = VAL_INT32(ARG(part));
                 part = MAX(part, 0);
             }
-            else if (IS_IMAGE(len)) {
-                if (VAL_IMAGE_WIDTH(len) == 0)
-                    fail (len);
+            else if (IS_IMAGE(ARG(part))) {
+                if (VAL_IMAGE_WIDTH(ARG(part)) == 0)
+                    fail (PAR(part));
 
-                part_x = VAL_IMAGE_POS(len) - VAL_IMAGE_POS(arg);
-                part_y = part_x / VAL_IMAGE_WIDTH(len);
+                part_x = VAL_IMAGE_POS(ARG(part)) - VAL_IMAGE_POS(arg);
+                part_y = part_x / VAL_IMAGE_WIDTH(ARG(part));
                 part_y = MAX(part_y, 1);
                 part_x = MIN(part_x, cast(REBINT, VAL_IMAGE_WIDTH(arg)));
                 goto len_compute;
             }
-            else if (IS_PAIR(len)) {
-                part_x = VAL_PAIR_X_INT(len);
-                part_y = VAL_PAIR_Y_INT(len);
+            else if (IS_PAIR(ARG(part))) {
+                part_x = VAL_PAIR_X_INT(ARG(part));
+                part_y = VAL_PAIR_Y_INT(ARG(part));
             len_compute:
                 part_x = MAX(part_x, 0);
                 part_x = MIN(part_x, cast(REBINT, w) - x);  // clip part width
@@ -690,7 +688,7 @@ REB_R Modify_Image(REBFRM *frame_, const REBVAL *verb)
                     RETURN (value);
             }
             else
-                fail (Error_Invalid_Type(VAL_TYPE(len)));
+                fail (Error_Invalid_Type(VAL_TYPE(ARG(part))));
         }
         else
             fail (arg);  // /PART not allowed
@@ -737,7 +735,7 @@ REB_R Modify_Image(REBFRM *frame_, const REBVAL *verb)
             if ((arg_int < 0) || (arg_int > 255))
                 fail (Error_Out_Of_Range(arg));
 
-            if (IS_PAIR(count))  // rectangular fill
+            if (IS_PAIR(ARG(dup)))  // rectangular fill
                 Fill_Alpha_Rect(
                     ip, cast(REBYTE, arg_int), w, dup_x, dup_y
                 );
@@ -747,7 +745,7 @@ REB_R Modify_Image(REBFRM *frame_, const REBVAL *verb)
         else if (IS_TUPLE(arg)) {  // RGB
             REBYTE pixel[4];
             Set_Pixel_Tuple(pixel, arg);
-            if (IS_PAIR(count))  // rectangular fill
+            if (IS_PAIR(ARG(dup)))  // rectangular fill
                 Fill_Rect(ip, pixel, w, dup_x, dup_y, only);
             else
                 Fill_Line(ip, pixel, dup, only);
@@ -817,8 +815,6 @@ void Find_Image(REBFRM *frame_)
         || REF(match)
         || REF(part)
     ){
-        UNUSED(PAR(limit));
-        UNUSED(PAR(size));
         fail (Error_Bad_Refines_Raw());
     }
 
@@ -1066,7 +1062,7 @@ REBTYPE(Image)
         FAIL_IF_READ_ONLY(value);
 
         if (REF(part)) {
-            val = ARG(limit);
+            val = ARG(part);
             if (IS_INTEGER(val)) {
                 len = VAL_INT32(val);
             }
@@ -1111,16 +1107,14 @@ REBTYPE(Image)
         if (REF(deep))
             fail (Error_Bad_Refines_Raw());
 
-        if (REF(types)) {
-            UNUSED(ARG(kinds));
+        if (REF(types))
             fail (Error_Bad_Refines_Raw());
-        }
 
         if (not REF(part)) {
             arg = value;
             goto makeCopy;
         }
-        arg = ARG(limit); // can be image, integer, pair.
+        arg = ARG(part); // can be image, integer, pair.
         if (IS_IMAGE(arg)) {
             if (VAL_IMAGE_BIN(arg) != VAL_IMAGE_BIN(value))
                 fail (arg);
