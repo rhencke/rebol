@@ -445,7 +445,7 @@ ext-console-impl: function [
                 emit [fail {^-- Shouldn't get here, due to HALT}]
             ]
             <die> [
-                emit [quit/with 1]  ; bash exit code for any generic error
+                emit [quit 1]  ; bash exit code for any generic error
                 emit [fail {^-- Shouldn't get here, due to QUIT}]
             ]
             <bad> [

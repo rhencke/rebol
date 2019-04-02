@@ -89,7 +89,7 @@ do*: function [
         if original-path [change-dir original-path]
 
         if quit_FINALIZER and 'only [
-            quit/with :value ;-- "rethrow" the QUIT if DO/ONLY
+            quit :value ;-- "rethrow" the QUIT if DO/ONLY
         ]
 
         return :value ;-- returns from DO*, because of <with> return

@@ -271,7 +271,7 @@ host-start: function [
                 emit [fail {^-- Shouldn't get here, due to HALT}]
             ]
             <die> [
-                emit [quit/with 1] ;-- catch-all bash code for general errors
+                emit [quit 1]  ; catch-all bash code for general errors
                 emit [fail {^-- Shouldn't get here, due to QUIT}]
             ]
             <bad> [
@@ -811,7 +811,7 @@ comment [
     host-start: 'done
 
     if quit-when-done [
-        emit [quit/with 0]
+        emit [quit 0]
         return <unreachable>
     ]
 

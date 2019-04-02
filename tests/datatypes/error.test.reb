@@ -19,7 +19,7 @@
 (a: 1 error? trap [set/opt 'a 1 / 0] :a =? 1)
 
 [#2190
-    (127 = catch/quit [attempt [catch/quit [1 / 0]] quit/with 127])
+    (127 = catch/quit [attempt [catch/quit [1 / 0]] quit 127])
 ]
 
 ; error types that should be predefined

@@ -46,9 +46,8 @@ REBNATIVE(halt)
 //
 //  {Stop evaluating and return control to command shell or calling script}
 //
-//      /with "Yield a result (mapped to an integer if given to shell)"
-//      value [any-value!]
-//          "See: http://en.wikipedia.org/wiki/Exit_status"
+//      value "See: http://en.wikipedia.org/wiki/Exit_status"
+//          [<end> <opt> any-value!]
 //  ]
 //
 REBNATIVE(quit)
@@ -65,7 +64,7 @@ REBNATIVE(quit)
     //
     return Init_Thrown_With_Label(
         D_OUT,
-        REF(with)? ARG(value) : VOID_VALUE,
+        IS_NULLED(ARG(value)) ? VOID_VALUE : ARG(value),
         NAT_VALUE(quit)
     );
 }
@@ -76,22 +75,21 @@ REBNATIVE(quit)
 //
 //  {Stop the current Rebol interpreter (cannot be caught by CATCH/QUIT)}
 //
-//      /with
-//      value [integer!]
-//          "See: http://en.wikipedia.org/wiki/Exit_status"
+//      status "See: http://en.wikipedia.org/wiki/Exit_status"
+//          [<opt> <end> integer!]
 //  ]
 //
 REBNATIVE(exit_rebol)
 {
     INCLUDE_PARAMS_OF_EXIT_REBOL;
 
-    int code;
-    if (REF(with))
-        code = VAL_INT32(ARG(value));
+    int status;
+    if (IS_NULLED(ARG(status)))
+        status = EXIT_SUCCESS;
     else
-        code = EXIT_SUCCESS;
+        status = VAL_INT32(ARG(status));
 
-    exit(code);
+    exit(status);
 }
 
 

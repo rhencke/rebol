@@ -2,15 +2,15 @@
 ; In R3, DO of a script provided as a text! code catches QUIT, just as it
 ; would do for scripts in files.
 
-(42 = do "quit/with 42")
+(42 = do "quit 42")
 
-(99 = do {do {quit/with 42} 99})
+(99 = do {do {quit 42} 99})
 
 ; Returning of Rebol values from called to calling script via QUIT/WITH.
 (
-    do-script-returning: func [value /local script] [
+    do-script-returning: func [value <local> script] [
         script: %tmp-inner.reb
-        save/header script compose/only [quit/with (value)] []
+        save/header script compose [quit (value)] []
         do script
     ]
     all map-each value reduce [
