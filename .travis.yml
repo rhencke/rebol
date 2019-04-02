@@ -553,6 +553,11 @@ install:
 
   - |
     if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]; then
+      pip3 install awscli --upgrade --user
+      export AWS=`find /Users/travis/Library/Python/3.7 -name aws`
+      echo ===== AWS=$AWS
+      $AWS --version
+      echo =====
       git clone --depth 1 https://github.com/emscripten-core/emsdk
       cd emsdk
       ./emsdk update
