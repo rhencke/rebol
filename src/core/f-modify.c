@@ -240,15 +240,15 @@ REBCNT Modify_String_Or_Binary(
     REBCNT dst_idx = VAL_INDEX(dst);
     REBSIZ dst_used = SER_USED(dst_ser);
 
-    REBCNT tail;
+    REBCNT dst_len_old = 0xDECAFBAD;  // only if IS_SER_STRING(dst_ser)
     REBSIZ dst_off;
     if (IS_BINARY(dst)) {  // check invariants up front even if NULL / no-op
         if (IS_SER_STRING(dst_ser)) {
             if (*BIN_AT(dst_ser, dst_idx) >= 0x80)  // in middle of codepoint
                 fail ("Index codepoint to modify string-aliased-BINARY!");
+            dst_len_old = STR_LEN(STR(dst_ser));
         }
         dst_off = dst_idx;
-        tail = dst_used;
     }
     else {
         assert(ANY_STRING(dst));
@@ -256,7 +256,7 @@ REBCNT Modify_String_Or_Binary(
         assert(not IS_STR_SYMBOL(STR(dst_ser)));  // would have been read-only
 
         dst_off = VAL_OFFSET_FOR_INDEX(dst, dst_idx);  // !!! review for speed
-        tail = STR_LEN(STR(dst_ser));
+        dst_len_old = STR_LEN(STR(dst_ser));
     }
 
     if (IS_NULLED(src)) {  // no-op, unless CHANGE, where it means delete
@@ -283,9 +283,12 @@ REBCNT Modify_String_Or_Binary(
     if (limit == 0 or dups <= 0)
         return sym == SYM_APPEND ? 0 : dst_idx;
 
-    if (sym == SYM_APPEND or dst_idx > tail) {
+    if (sym == SYM_APPEND or dst_off > dst_used) {
         dst_off = SER_USED(dst_ser);
-        dst_idx = tail;
+        if (IS_BINARY(dst))
+            dst_idx = dst_used;
+        else
+            dst_idx = dst_len_old;
     }
 
     // If the src is not an ANY-STRING!, then we need to create string data
@@ -315,6 +318,8 @@ REBCNT Modify_String_Or_Binary(
         // otherwise `append #{123456} 10` is #{1234560A}, just the byte
 
         src_byte = VAL_UINT8(src);  // fails if out of range
+        if (IS_SER_STRING(dst_ser) and src_byte >= 0x80)
+            fail ("Can't mutate aliased string as binary to incomplete UTF-8");
         src_ptr = &src_byte;
         src_len_raw = src_size_raw = 1;
     }
@@ -328,15 +333,31 @@ REBCNT Modify_String_Or_Binary(
         if (not IS_SER_STRING(dst_ser))
             src_len_raw = src_size_raw;
         else {
-            if (IS_SER_STRING(bin)) {  // valid UTF-8
+            if (IS_SER_STRING(bin)) {  // guaranteed valid UTF-8
                 REBSTR *str = STR(bin);
                 if (*src_ptr > 0x80)
                     fail ("Index codepoint to insert string-aliased-BINARY!");
 
                 src_len_raw = STR_LEN(str) - STR_INDEX_AT(str, offset);
             }
-            else {  // bin may be invalid UTF-8
-                fail ("Checking BINARY! UTF-8 not yet implemented.");
+            else {
+                // The binary may be invalid UTF-8.  We don't actually need
+                // to worry about the *entire* binary, just the part we are
+                // adding (whereas AS has to worry about the *whole* binary
+                // for aliasing, since BACK and HEAD are still possible)
+                //
+                src_len_raw = 0;
+                REBSIZ bytes_left = src_size_raw;
+                const REBYTE *bp = src_ptr;
+                for (; bytes_left > 0; --bytes_left, ++bp) {
+                    REBUNI c = *bp;
+                    if (c >= 0x80) {
+                        bp = Back_Scan_UTF8_Char(&c, bp, &bytes_left);
+                        if (bp == NULL)  // !!! Should Back_Scan() fail?
+                            fail (Error_Bad_Utf8_Raw());
+                    }
+                    ++src_len_raw;
+                }
             }
         }
     }
@@ -439,7 +460,7 @@ REBCNT Modify_String_Or_Binary(
         if (IS_SER_STRING(dst_ser)) {
             if (bookmark and BMK_INDEX(bookmark) >= dst_idx)  // only INSERT
                 BMK_OFFSET(bookmark) += src_size_total;
-            MISC(dst_ser).length = tail + src_len_total;
+            MISC(dst_ser).length = dst_len_old + src_len_total;
         }
     }
     else {  // CHANGE only expands if more content added than overwritten
@@ -525,7 +546,7 @@ REBCNT Modify_String_Or_Binary(
                 BMK_INDEX(bookmark) = dst_idx;
                 BMK_OFFSET(bookmark) = dst_off;
             }
-            MISC(dst_ser).length = tail + src_len_total - part;
+            MISC(dst_ser).length = dst_len_old + src_len_total - part;
         }
     }
 

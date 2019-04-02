@@ -77,3 +77,14 @@
         b = braille
     )
 ]
+
+
+(
+    str: "caffè"
+    bin: as binary! str
+    append bin 65
+    did all [
+        bin = #{63616666C3A841}
+        str = "caffèA"
+    ]
+)

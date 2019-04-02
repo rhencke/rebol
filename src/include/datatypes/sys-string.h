@@ -659,8 +659,11 @@ inline static REBSTR *VAL_STRING(const REBCEL *v) {
     return STR(VAL_NODE(v));  // VAL_SERIES() would assert
 }
 
-#define VAL_LEN_HEAD(v) \
-    SER_LEN(VAL_SERIES(v))
+inline static REBCNT VAL_LEN_HEAD(const REBCEL *v) {
+    if (REB_BINARY == CELL_KIND(v))
+        return SER_USED(VAL_SERIES(v));  // binaries can alias strings...
+    return SER_LEN(VAL_SERIES(v));  // senses strings, not optimal.  :-/
+}
 
 inline static bool VAL_PAST_END(const REBCEL *v)
    { return VAL_INDEX(v) > VAL_LEN_HEAD(v); }
