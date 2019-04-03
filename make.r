@@ -144,11 +144,11 @@ to-obj-path: func [
 
 gen-obj: func [
     s
-    /dir directory [any-string!]
-    /D definitions [block!]
-    /I includes [block!]
-    /F cflags [block!]
-    /main ; for main object
+    /dir "directory" [any-string!]
+    /D "definitions" [block!]
+    /I "includes" [block!]
+    /F "cflags" [block!]
+    /main "for main object"
     <local>
     flags
 ][
@@ -223,11 +223,11 @@ gen-obj: func [
         s: s/1
     ]
 
-    if F [append flags :cflags]
+    append flags opt F  ; cflags
 
     make rebmake/object-file-class compose/only [
         source: to-file case [
-            dir [join directory s]
+            dir [join dir s]
             main [s]
             default [join src-dir s]
         ]
@@ -236,8 +236,8 @@ gen-obj: func [
                 join %main/ (last ensure path! s)
             ] [s]
         cflags: either empty? flags [_] [flags]
-        definitions: (try get 'definitions)
-        includes: (try get 'includes)
+        definitions: D
+        includes: I
     ]
 ]
 
@@ -1232,11 +1232,11 @@ all-extensions: join builtin-extensions dynamic-extensions
 add-project-flags: func [
     return: <void>
     project [object!]
-    /I includes
-    /D definitions
-    /c cflags
-    /O optimization
-    /g debug
+    /I "includes" [block!]
+    /D "definitions" [block!]
+    /c "cflags" [block!]
+    /O "optimization" [any-value!] ; !!! types?
+    /g "debug" [any-value!]  ; !!! types?
 ][
     assert [
         find [
@@ -1249,31 +1249,31 @@ add-project-flags: func [
 
     if D [
         if block? project/definitions [
-            append project/definitions definitions
+            append project/definitions D
         ] else [
             ensure blank! project/definitions
-            project/definitions: definitions
+            project/definitions: D
         ]
     ]
 
     if I [
         if block? project/includes [
-            append project/includes includes
+            append project/includes I
         ] else [
             ensure blank! project/includes
-            project/includes: includes
+            project/includes: I
         ]
     ]
     if c [
         if block? project/cflags [
-            append project/cflags cflags
+            append project/cflags c
         ] else [
             ensure blank! project/cflags
-            project/cflags: cflags
+            project/cflags: c
         ]
     ]
-    if g [project/debug: debug]
-    if O [project/optimization: optimization]
+    if g [project/debug: g]
+    if O [project/optimization: O]
 ]
 
 process-module: func [

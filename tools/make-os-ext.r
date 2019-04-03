@@ -75,7 +75,7 @@ host-lib-macros: make text! 1000
 ;
 checksum-source: make text! 1000
 
-count: func [s c /local n] [
+count: func [s c <local> n] [
     if find ["()" "(void)"] s [return "()"]
     output-buffer: copy "(a"
     n: 1

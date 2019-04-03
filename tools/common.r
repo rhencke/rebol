@@ -37,8 +37,7 @@ to-c-name: function [
     return: [text!]
     value "Will be converted to text (via UNSPACED if BLOCK!)"
         [text! block! word!]
-    /scope "See C's rules: http://stackoverflow.com/questions/228783/"
-    where "Either #global or #local (defaults global)"
+    /scope "#global or #local, see http://stackoverflow.com/questions/228783/"
         [issue!]
 ][
     all [
@@ -120,16 +119,16 @@ to-c-name: function [
         ]
     ]
 
-    where: default [#global]
+    scope: default [#global]
 
     case [
         string/1 != "_" [<ok>]
 
-        where = 'global [
+        scope = 'global [
             fail "global C ids starting with _ are reserved"
         ]
 
-        where = 'local [
+        scope = 'local [
             find charset [#"A" - #"Z"] string/2 then [
                 fail "local C ids starting with _ and uppercase are reserved"
             ]

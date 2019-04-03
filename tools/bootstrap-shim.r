@@ -55,19 +55,63 @@ collect*: :collect
 collect: :collect-block
 
 modernize-action: function [
-    "Account for the <blank> annotation as a usermode feature"
+    "Account for <blank> annotation, refinements as own arguments"
     return: [block!]
     spec [block!]
     body [block!]
 ][
+    last-refine-word: _
+
     blankers: copy []
+    proxiers: copy []
+
     spec: collect [
-        iterate spec [
-            ;
+        while [not tail? spec] [
+            if tag? spec/1 [
+                last-refine-word: _
+                keep/only spec/1
+                spec: my next
+                continue
+            ]
+
+            if refinement? spec/1 [  ; REFINEMENT! is a word in this r3
+                last-refine-word: as word! spec/1
+                keep/only spec/1
+
+                ; Feed through any TEXT!s following the PATH!
+                ;
+                while [if (tail? spec: my next) [break] | text? spec/1] [
+                    keep/only spec/1
+                ]
+
+                ; If there's a block specifying argument types, we need to
+                ; have a fake proxying parameter.
+
+                if not block? spec/1 [
+                    continue
+                ]
+
+                proxy: as word! unspaced [last-refine-word "-arg"]
+                keep/only proxy
+                keep/only spec/1
+
+                append proxiers compose [
+                    (as set-word! last-refine-word) try (as get-word! proxy)
+                    set* (as lit-word! proxy) void
+                ]
+                spec: my next
+                continue
+            ]
+
             ; Find ANY-WORD!s (args/locals)
             ;
             if keep w: match any-word! spec/1 [
-                ;
+                if last-refine-word [
+                    fail [
+                        "Refinements now *are* the arguments:" mold head spec
+                    ]
+                ]
+
                 ; Feed through any TEXT!s following the ANY-WORD!
                 ;
                 while [if (tail? spec: my next) [break] | text? spec/1] [
@@ -82,14 +126,22 @@ modernize-action: function [
                     append blankers compose [
                         if blank? (as get-word! w) [return null]
                     ]
+                    spec: my next
                     continue
                 ]
             ]
+
+            if refinement? spec/1 [
+                continue
+            ]
+
             keep/only spec/1
+            spec: my next
         ]
     ]
     body: compose [
         ((blankers))
+        ((proxiers))
         (as group! body)
     ]
     return reduce [spec body]

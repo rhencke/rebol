@@ -76,7 +76,7 @@ emit-include-params-macro: function [
     e [object!] "where to emit (see %common-emitters.r)"
     word [word!] "name of the native"
     paramlist [block!] "paramlist of the native"
-    /ext ext-name
+    /ext [text!] "extension name"
 ][
     seen-refinement: false
 
@@ -114,7 +114,7 @@ emit-include-params-macro: function [
         ]
     ]
 
-    prefix: either ext [unspaced [ext-name "_"]] [""]
+    prefix: either ext [unspaced [ext "_"]] [""]
     e/emit [prefix word items] {
         #define $<PREFIX>INCLUDE_PARAMS_OF_${WORD} \
             $[Items]; \

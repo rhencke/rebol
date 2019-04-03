@@ -429,14 +429,14 @@ gcc: make compiler-class [
     id: "gnu"
     check: method [
         return: [logic!]
-        /exec path [file!]
+        /exec [file!]
         <static>
         digit (charset "0123456789")
     ][
         version: copy ""
         attempt [
-            exec-file: path: default ["gcc"]
-            call/output reduce [path "--version"] version
+            exec-file: exec: default ["gcc"]
+            call/output reduce [exec "--version"] version
             parse version [
                 {gcc (GCC)} space
                 copy major: some digit "."
@@ -460,11 +460,11 @@ gcc: make compiler-class [
         return: [text!]
         output [file!]
         source [file!]
-        /I includes
-        /D definitions
-        /F cflags
-        /O opt-level
-        /g debug
+        /I "includes" [block!]
+        /D "definitions" [block!]
+        /F "cflags" [block!]
+        /O "opt-level" [any-value!]  ; !!! datatypes?
+        /g "debug" [any-value!]  ; !!! datatypes?
         /PIC
         /E
     ][
@@ -479,38 +479,38 @@ gcc: make compiler-class [
                 keep "-fPIC"
             ]
             if I [
-                for-each inc (map-files-to-local includes) [
+                for-each inc (map-files-to-local I) [
                     keep ["-I" inc]
                 ]
             ]
             if D [
-                for-each flg definitions [
+                for-each flg D [
                     keep ["-D" (filter-flag flg id else [continue])]
                 ]
             ]
             if O [
                 case [
-                    opt-level = true [keep "-O2"]
-                    opt-level = false [keep "-O0"]
-                    integer? opt-level [keep ["-O" opt-level]]
-                    find ["s" "z" "g" 's 'z 'g] opt-level [
-                        keep ["-O" opt-level]
+                    O = true [keep "-O2"]
+                    O = false [keep "-O0"]
+                    integer? O [keep ["-O" O]]
+                    find ["s" "z" "g" 's 'z 'g] O [
+                        keep ["-O" O]
                     ]
 
-                    fail ["unrecognized optimization level:" opt-level]
+                    fail ["unrecognized optimization level:" O]
                 ]
             ]
             if g [
                 case [
-                    debug = true [keep "-g -g3"]
-                    debug = false []
-                    integer? debug [keep ["-g" debug]]
+                    g = true [keep "-g -g3"]
+                    g = false []
+                    integer? g [keep ["-g" g]]
 
-                    fail ["unrecognized debug option:" debug]
+                    fail ["unrecognized debug option:" g]
                 ]
             ]
             if F [
-                for-each flg cflags [
+                for-each flg F [
                     keep filter-flag flg id
                 ]
             ]
@@ -551,52 +551,52 @@ cl: make compiler-class [
         return: [text!]
         output [file!]
         source
-        /I includes
-        /D definitions
-        /F cflags
-        /O opt-level
-        /g debug
-        /PIC {Ignored for cl}
+        /I "includes" [block!]
+        /D "definitions" [block!]
+        /F "cflags" [block!]
+        /O "opt-level" [any-value!]  ; !!! datatypes?
+        /g "debug" [any-value!]  ; !!! datatypes?
+        /PIC "Position-Independent Code (ignored for Microsoft CL compiler)"
         /E
     ][
         collect-text [
             keep ("cl" unless file-to-local/pass exec-file)
-            keep "/nologo" ; don't show startup banner
+            keep "/nologo"  ; don't show startup banner
             keep either E ["/P"]["/c"]
 
             if I [
-                for-each inc (map-files-to-local includes) [
+                for-each inc (map-files-to-local I) [
                     keep ["/I" inc]
                 ]
             ]
             if D [
-                for-each flg definitions [
+                for-each flg D [
                     keep ["/D" (filter-flag flg id else [continue])]
                 ]
             ]
             if O [
                 case [
-                    opt-level = true [keep "/O2"]
-                    opt-level and [not zero? opt-level] [
-                        keep ["/O" opt-level]
+                    O = true [keep "/O2"]
+                    O and [not zero? O] [
+                        keep ["/O" O]
                     ]
                 ]
             ]
             if g [
                 case [
                     any [
-                        debug = true
-                        integer? debug ;-- doesn't map to a CL option
+                        g = true
+                        integer? g  ; doesn't map to a CL option
                     ][
                         keep "/Od /Zi"
                     ]
                     debug = false []
                     
-                    fail ["unrecognized debug option:" debug]
+                    fail ["unrecognized debug option:" g]
                 ]
             ]
             if F [
-                for-each flg cflags [
+                for-each flg F [
                     keep filter-flag flg id
                 ]
             ]
@@ -742,12 +742,12 @@ ld: make linker-class [
 
     check: method [
         return: [logic!]
-        /exec path [file!]
+        /exec [file!]
     ][
         version: copy ""
         ;attempt [
-            exec-file: path: default ["gcc"]
-            call/output reduce [path "--version"] version
+            exec-file: exec: default ["gcc"]
+            call/output reduce [exec "--version"] version
         ;]
     ]
 ]
@@ -939,19 +939,19 @@ strip-class: make object! [
     commands: method [
         return: [block!]
         target [file!]
-        /params flags [block! any-string!]
+        /params [block! any-string!]
     ][
         reduce [collect-text [
             keep ("strip" unless file-to-local/pass exec-file)
-            flags: default [options]
-            switch type of flags [
+            params: default [options]
+            switch type of params [
                 block! [
-                    for-each flag flags [
+                    for-each flag params [
                         keep filter-flag flag id
                     ]
                 ]
                 text! [
-                    keep flags
+                    keep params
                 ]
             ]
             keep file-to-local target
@@ -984,24 +984,25 @@ object-file-class: make object! [
 
     command: method [
         return: [text!]
-        /I ex-includes
-        /D ex-definitions
-        /F ex-cflags
-        /O opt-level
-        /g dbg
-        /PIC ;Position Independent Code
-        /E {only preprocessing}
+        /I "extra includes" [block!]
+        /D "extra definitions" [block!]
+        /F "extra cflags (override)" [block!]
+        /O "opt-level" [any-value!]  ; !!! datatypes?
+        /g "dbg" [any-value!]  ; !!! datatypes?
+        /PIC "Position Independent Code"
+        /E "only preprocessing"
     ][
         cc: any [compiler default-compiler]
         cc/command/I/D/F/O/g/(PIC)/(E) output source
-            compose [((opt includes)) ((if I [ex-includes]))]
-            compose [((opt definitions)) ((if D [ex-definitions]))]
-            compose [((if F [ex-cflags])) ((opt cflags))] ; ex-cflags override
+            compose [((opt includes)) ((opt I))]
+            compose [((opt definitions)) ((opt D))]
+            compose [((opt F)) ((opt cflags))]  ; extra cflags override
 
-            ; current setting overwrites /refinement
-            ; because the refinements are inherited from the parent
-            opt either O [either optimization [optimization][opt-level]][optimization]
-            opt either g [either debug [debug][dbg]][debug]
+            ; "current setting overwrites /refinement"
+            ; "because the refinements are inherited from the parent" (?)
+
+            opt either O [O][optimization]
+            opt either g [g][debug]
     ]
 
     gen-entries: method [
@@ -1362,7 +1363,7 @@ makefile: make generator-class [
         return: <void>
         buf [binary!]
         project [object!]
-        /parent parent-object
+        /parent [object!]  ; !!! Not heeded?
     ][
         ;print ["emitting..."]
         ;dump project
@@ -1490,7 +1491,8 @@ Execution: make generator-class [
     run-target: method [
         return: <void>
         target [object!]
-        /cwd dir [file!]
+        /cwd "change working directory"  ; !!! Not heeded (?)
+            [file!]
     ][
         switch target/class [
             #variable [
@@ -1524,7 +1526,8 @@ Execution: make generator-class [
     run: method [
         return: <void>
         project [object!]
-        /parent p-project
+        /parent "parent project"
+            [object!]
     ][
         ;dump project
         if not object? project [return]
@@ -1561,7 +1564,7 @@ Execution: make generator-class [
                     if not obj/generated? [
                         obj/generated?: true
                         run-target obj/gen-entries/(try all [
-                            p-project/class = #dynamic-library
+                            parent/class = #dynamic-library
                             'PIC
                         ]) project
                     ]
