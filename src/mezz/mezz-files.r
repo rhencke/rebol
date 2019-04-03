@@ -137,34 +137,33 @@ ask: function [
 
 
 confirm: function [
-    {Confirms a user choice.}
+    {Confirms a user choice}
 
     return: [logic!]
-    question [any-series!]
-        "Prompt to user"
-    /with
-    choices [text! block!]
+    question "Prompt to user"
+        [any-series!]
+    /with [text! block!]
 ][
-    choices: default [["y" "yes"] ["n" "no"]]
+    with: default [["y" "yes"] ["n" "no"]]
 
     all [
-        block? choices
-        length of choices > 2
+        block? with
+        length of with > 2
 
-        fail 'choices [
-            "maximum 2 arguments allowed for choices [true false]"
-            "got:" mold choices
+        fail 'with [
+            "maximum 2 arguments allowed for with [true false]"
+            "got:" mold with
         ]
     ]
 
     response: ask question
 
     return case [
-        empty? choices [true]
-        text? choices [did find/match response choices]
-        length of choices < 2 [did find/match response first choices]
-        find first choices response [true]
-        find second choices response [false]
+        empty? with [true]
+        text? with [did find/match response with]
+        length of with < 2 [did find/match response first with]
+        find first with response [true]
+        find second with response [false]
     ]
 ]
 
@@ -181,9 +180,9 @@ list-dir: function [
 ;   /t "Time order"
     /r "Recursive"
     /i "Indent"
-        indent
+        [any-value!]
 ][
-    indent: default [""]
+    i: default [""]
 
     save-dir: what-dir
 
@@ -192,7 +191,7 @@ list-dir: function [
     ]
 
     switch type of :path [
-        null [] ; Stay here
+        null []  ; Stay here
         file! [change-dir path]
         text! [change-dir local-to-file path]
         word! path! [change-dir to-file path]
@@ -222,9 +221,9 @@ list-dir: function [
         ] else [
             info: get (words of query file)
             change info second split-path info/1
-            printf [indent 16 -8 #" " 24 #" " 6] info
+            printf [i 16 -8 #" " 24 #" " 6] info
             if all [r | dir? file] [
-                list-dir/l/r/i :file join indent "    "
+                list-dir/l/r/i :file join i "    "
             ]
         ]
     ]

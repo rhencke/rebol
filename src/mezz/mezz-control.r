@@ -11,17 +11,19 @@ REBOL [
     }
 ]
 
-launch: func [
+launch: function [
     {Runs a script as a separate process; return immediately.}
 
-    script [<blank> file! text!] "The name of the script"
-    /args arg [text! block!] "Arguments to the script"
+    script "The name of the script"
+        [<blank> file! text!]
+    /args "Arguments to the script"
+        [text! block!]
     /wait "Wait for the process to terminate"
 ][
     if file? script [script: file-to-local clean-path script]
-    args: reduce [file-to-local system/options/boot script]
-    if set? 'arg [append args arg]
-    call*/(wait) args
+    command: reduce [file-to-local system/options/boot script]
+    append command opt arg
+    call*/(wait) command
 ]
 
 wrap: func [

@@ -56,7 +56,7 @@ REBNATIVE(form)
 //      /all "Use construction syntax"
 //      /flat "No indentation"
 //      /limit "Limit to a certain length"
-//      amount [integer!]
+//          [integer!]
 //  ]
 //
 REBNATIVE(mold)
@@ -142,15 +142,13 @@ REBNATIVE(write_stdout)
 //
 //  {Sets or clears the new-line marker within a block or group.}
 //
-//      position [block! group!]
-//          "Position to change marker (modified)"
-//      mark [logic!]
-//          "Set TRUE for newline"
-//      /all
-//          "Set/clear marker to end of series"
-//      /skip
-//          {Set/clear marker periodically to the end of the series}
-//      count [integer!]
+//      position "Position to change marker (modified)"
+//          [block! group!]
+//      mark "Set TRUE for newline"
+//          [logic!]
+//      /all "Set/clear marker to end of series"
+//      /skip "Set/clear marker periodically to the end of the series"
+//          [integer!]
 //  ]
 //
 REBNATIVE(new_line)

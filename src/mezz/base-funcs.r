@@ -525,25 +525,25 @@ tweak :was #postpone on
 zdeflate: redescribe [
     {Deflates data with zlib envelope: https://en.wikipedia.org/wiki/ZLIB}
 ](
-    specialize 'deflate/envelope [format: 'zlib]
+    specialize 'deflate [envelope: 'zlib]
 )
 
 zinflate: redescribe [
     {Inflates data with zlib envelope: https://en.wikipedia.org/wiki/ZLIB}
 ](
-    specialize 'inflate/envelope [format: 'zlib]
+    specialize 'inflate [envelope: 'zlib]
 )
 
 gzip: redescribe [
     {Deflates data with gzip envelope: https://en.wikipedia.org/wiki/Gzip}
 ](
-    specialize 'deflate/envelope [format: 'gzip]
+    specialize 'deflate [envelope: 'gzip]
 )
 
 gunzip: redescribe [
     {Inflates data with gzip envelope: https://en.wikipedia.org/wiki/Gzip}
 ](
-    specialize 'inflate/envelope [format: 'gzip] ;-- What about GZIP-BADSIZE?
+    specialize 'inflate [envelope: 'gzip]  ; What about GZIP-BADSIZE?
 )
 
 
@@ -615,7 +615,7 @@ upshot: specialize 'n-shot [n: -1]
 find-reverse: redescribe [
     {Variant of FIND that uses a /SKIP of -1}
 ](
-    specialize 'find/skip [size: -1]
+    specialize 'find [skip: -1]
 )
 
 find-last: redescribe [
@@ -822,23 +822,18 @@ meth: enfix func [
 ]
 
 
-module: func [
-    {Creates a new module.}
+module: function [
+    {Creates a new module}
 
     spec "The header block of the module (modified)"
         [block! object!]
     body "The body block of the module (modified)"
         [block!]
-    /mixin "Mix in words from other modules"
-    mixins "Words collected into an object"
+    /mixin "Mix in words collected into an object from other modules"
         [object!]
     /into "Add data to existing MODULE! context (vs making a new one)"
-    mod [module!]
-
-    <local> hidden w
+        [module!]
 ][
-    mixins: default [_]
-
     ; !!! Is it a good idea to mess with the given spec and body bindings?
     ; This was done by MODULE but not seemingly automatically by MAKE MODULE!
     ;
@@ -846,9 +841,9 @@ module: func [
 
     ; Convert header block to standard header object:
     ;
-    if block? :spec [
+    if block? spec [
         unbind/deep spec
-        spec: try attempt [construct/with/only :spec system/standard/header]
+        spec: try attempt [construct/with/only spec system/standard/header]
     ]
 
     ; Historically, the Name: and Type: fields would tolerate either LIT-WORD!
@@ -877,7 +872,7 @@ module: func [
     for-each [var types] [
         spec object!
         body block!
-        mixins [object! blank!]
+        mixin [object! blank!]
         spec/name [word! blank!]
         spec/type [word! blank!]
         spec/version [tuple! blank!]
@@ -961,7 +956,7 @@ module: func [
 
         ; The module keeps its own variables (not shared with system):
         ;
-        if object? mixins [resolve mod mixins]
+        if object? mixin [resolve mod mixin]
 
         resolve mod lib
     ][
@@ -973,13 +968,12 @@ module: func [
         ;
         bind body lib
 
-        if object? mixins [bind body mixins]
+        if object? mixin [bind body mixin]
     ]
 
-    bind body mod ;-- redundant?
+    bind body mod  ; !!! "Redundant?" (said the comment...)
     do body
 
-    ;print ["Module created" spec/name spec/version]
     mod
 ]
 
@@ -1025,8 +1019,7 @@ fail: function [
         [<skip> 'word! 'path!]
     reason "ERROR! value, message text, or failure spec"
         [<end> error! text! block!]
-    /where "Specify an originating location other than the FAIL itself"
-    location "Frame or parameter at which to indicate the error originated"
+    /where "Frame or parameter at which to indicate the error originated"
         [frame! any-word!]
 ][
     ; Ultimately we might like FAIL to use some clever error-creating dialect
@@ -1086,9 +1079,9 @@ fail: function [
         ; If no specific location specified, and error doesn't already have a
         ; location, make it appear to originate from the frame calling FAIL.
         ;
-        location: default [frame or [binding of 'reason]]
+        where: default [frame or [binding of 'reason]]
 
-        set-location-of-error error location  ; !!! must this be a native?
+        set-location-of-error error where  ; !!! must this be a native?
     ]
 
     do ensure error! error  ; raise to nearest TRAP up the stack (if any)
@@ -1134,7 +1127,7 @@ generate: function [ "Make a generator."
 read-lines: function [
     {Makes a generator that yields lines from a file or port.}
     src [port! file! blank!]
-    /delimiter eol [binary! char! text! bitset!]
+    /delimiter [binary! char! text! bitset!]
     /keep "Don't remove delimiter"
     /binary "Return BINARY instead of TEXT"
 ][
@@ -1144,8 +1137,8 @@ read-lines: function [
     crlf: charset "^/^M"
     rule: compose/deep/only either delimiter [
         either keep
-        [ [[thru (eol) pos:]] ]
-        [ [[to (eol) remove (eol) pos:]] ]
+        [ [[thru (delimiter) pos:]] ]
+        [ [[to (delimiter) remove (delimiter) pos:]] ]
     ][
         [[
             to (crlf) any [

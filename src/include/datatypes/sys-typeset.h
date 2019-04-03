@@ -383,3 +383,10 @@ inline static bool Typecheck_Including_Quoteds(
 
     return false;
 }
+
+
+inline static bool Is_Typeset_Invisible(const RELVAL *param) {
+    REBU64 bits = VAL_TYPESET_LOW_BITS(param);
+    bits |= cast(REBU64, VAL_TYPESET_HIGH_BITS(param)) << 32;
+    return (bits & TS_OPT_VALUE) == 0;  // e.g. `return: []` or `[/refine]`
+}

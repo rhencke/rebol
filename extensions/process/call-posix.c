@@ -135,29 +135,28 @@ REB_R Call_Core(REBFRM *frame_) {
     // Make sure that if the output or error series are STRING! or BINARY!,
     // they are not read-only, before we try appending to them.
     //
-    if (IS_TEXT(ARG(out)) or IS_BINARY(ARG(out)))
-        FAIL_IF_READ_ONLY(ARG(out));
-    if (IS_TEXT(ARG(err)) or IS_BINARY(ARG(err)))
-        FAIL_IF_READ_ONLY(ARG(err));
+    if (IS_TEXT(ARG(output)) or IS_BINARY(ARG(output)))
+        FAIL_IF_READ_ONLY(ARG(output));
+    if (IS_TEXT(ARG(error)) or IS_BINARY(ARG(error)))
+        FAIL_IF_READ_ONLY(ARG(error));
 
     char *inbuf;
     size_t inbuf_size;
 
     if (not REF(input)) {
+      null_input_buffer:
         inbuf = nullptr;
         inbuf_size = 0;
     }
-    else switch (VAL_TYPE(ARG(in))) {
-      case REB_BLANK:
-        inbuf = NULL;
-        inbuf_size = 0;
-        break;
+    else switch (VAL_TYPE(ARG(input))) {
+      case REB_LOGIC:
+        goto null_input_buffer;
 
       case REB_TEXT: {
-        inbuf_size = rebSpellIntoQ(nullptr, 0, ARG(in), rebEND);
+        inbuf_size = rebSpellIntoQ(nullptr, 0, ARG(input), rebEND);
         inbuf = rebAllocN(char, inbuf_size);
         size_t check;
-        check = rebSpellIntoQ(inbuf, inbuf_size, ARG(in), rebEND);
+        check = rebSpellIntoQ(inbuf, inbuf_size, ARG(input), rebEND);
         UNUSED(check);
         break; }
 
@@ -165,27 +164,27 @@ REB_R Call_Core(REBFRM *frame_) {
         size_t size;
         inbuf = s_cast(rebBytes(  // !!! why fileNAME size passed in???
             &size,
-            "file-to-local", ARG(in),
+            "file-to-local", ARG(input),
             rebEND
         ));
         inbuf_size = size;
         break; }
 
       case REB_BINARY: {
-        inbuf = s_cast(rebBytes(&inbuf_size, ARG(in), rebEND));
+        inbuf = s_cast(rebBytes(&inbuf_size, ARG(input), rebEND));
         break; }
 
       default:
-        panic(ARG(in));
+        panic (ARG(input));  // typechecking should not have allowed it
     }
 
     bool flag_wait;
     if (
         REF(wait)
         or (
-            IS_TEXT(ARG(in)) or IS_BINARY(ARG(in))
-            or IS_TEXT(ARG(out)) or IS_BINARY(ARG(out))
-            or IS_TEXT(ARG(err)) or IS_BINARY(ARG(err))
+            IS_TEXT(ARG(input)) or IS_BINARY(ARG(input))
+            or IS_TEXT(ARG(output)) or IS_BINARY(ARG(output))
+            or IS_TEXT(ARG(error)) or IS_BINARY(ARG(error))
         ) // I/O redirection implies /WAIT
     ){
         flag_wait = true;
@@ -293,17 +292,17 @@ REB_R Call_Core(REBFRM *frame_) {
     int stderr_pipe[] = {-1, -1};
     int info_pipe[] = {-1, -1};
 
-    if (IS_TEXT(ARG(in)) or IS_BINARY(ARG(in))) {
+    if (IS_TEXT(ARG(input)) or IS_BINARY(ARG(input))) {
         if (Open_Pipe_Fails(stdin_pipe))
             goto stdin_pipe_err;
     }
 
-    if (IS_TEXT(ARG(out)) or IS_BINARY(ARG(out))) {
+    if (IS_TEXT(ARG(output)) or IS_BINARY(ARG(output))) {
         if (Open_Pipe_Fails(stdout_pipe))
             goto stdout_pipe_err;
     }
 
-    if (IS_TEXT(ARG(err)) or IS_BINARY(ARG(err))) {
+    if (IS_TEXT(ARG(error)) or IS_BINARY(ARG(error))) {
         if (Open_Pipe_Fails(stderr_pipe))
             goto stdout_pipe_err;
     }
@@ -324,16 +323,17 @@ REB_R Call_Core(REBFRM *frame_) {
         // http://stackoverflow.com/questions/15126925/
 
         if (not REF(input)) {
-            // inherit stdin from the parent
+          inherit_stdin_from_parent:
+            NOOP;  // it's the default
         }
-        else if (IS_TEXT(ARG(in)) or IS_BINARY(ARG(in))) {
+        else if (IS_TEXT(ARG(input)) or IS_BINARY(ARG(input))) {
             close(stdin_pipe[W]);
             if (dup2(stdin_pipe[R], STDIN_FILENO) < 0)
                 goto child_error;
             close(stdin_pipe[R]);
         }
-        else if (IS_FILE(ARG(in))) {
-            char *local_utf8 = rebSpell("file-to-local", ARG(in), rebEND);
+        else if (IS_FILE(ARG(input))) {
+            char *local_utf8 = rebSpell("file-to-local", ARG(input), rebEND);
 
             int fd = open(local_utf8, O_RDONLY);
 
@@ -345,7 +345,10 @@ REB_R Call_Core(REBFRM *frame_) {
                 goto child_error;
             close(fd);
         }
-        else if (IS_BLANK(ARG(in))) {
+        else if (IS_LOGIC(ARG(input))) {
+            if (VAL_LOGIC(ARG(input)))
+                goto inherit_stdin_from_parent;
+
             int fd = open("/dev/null", O_RDONLY);
             if (fd < 0)
                 goto child_error;
@@ -354,19 +357,20 @@ REB_R Call_Core(REBFRM *frame_) {
             close(fd);
         }
         else
-            panic(ARG(in));
+            panic(ARG(input));
 
         if (not REF(output)) {
-            // inherit stdout from the parent
+          inherit_stdout_from_parent:
+            NOOP;  // it's the default
         }
-        else if (IS_TEXT(ARG(out)) or IS_BINARY(ARG(out))) {
+        else if (IS_TEXT(ARG(output)) or IS_BINARY(ARG(output))) {
             close(stdout_pipe[R]);
             if (dup2(stdout_pipe[W], STDOUT_FILENO) < 0)
                 goto child_error;
             close(stdout_pipe[W]);
         }
-        else if (IS_FILE(ARG(out))) {
-            char *local_utf8 = rebSpell("file-to-local", ARG(out), rebEND);
+        else if (IS_FILE(ARG(output))) {
+            char *local_utf8 = rebSpell("file-to-local", ARG(output), rebEND);
 
             int fd = open(local_utf8, O_CREAT | O_WRONLY, 0666);
 
@@ -378,7 +382,10 @@ REB_R Call_Core(REBFRM *frame_) {
                 goto child_error;
             close(fd);
         }
-        else if (IS_BLANK(ARG(out))) {
+        else if (IS_LOGIC(ARG(output))) {
+            if (VAL_LOGIC(ARG(output)))
+                goto inherit_stdout_from_parent;
+
             int fd = open("/dev/null", O_WRONLY);
             if (fd < 0)
                 goto child_error;
@@ -388,16 +395,17 @@ REB_R Call_Core(REBFRM *frame_) {
         }
 
         if (not REF(error)) {
-            // inherit stderr from the parent
+          inherit_stderr_from_parent:
+            NOOP;  // it's the default
         }
-        else if (IS_TEXT(ARG(err)) or IS_BINARY(ARG(err))) {
+        else if (IS_TEXT(ARG(error)) or IS_BINARY(ARG(error))) {
             close(stderr_pipe[R]);
             if (dup2(stderr_pipe[W], STDERR_FILENO) < 0)
                 goto child_error;
             close(stderr_pipe[W]);
         }
-        else if (IS_FILE(ARG(err))) {
-            char *local_utf8 = rebSpell("file-to-local", ARG(err), rebEND);
+        else if (IS_FILE(ARG(error))) {
+            char *local_utf8 = rebSpell("file-to-local", ARG(error), rebEND);
 
             int fd = open(local_utf8, O_CREAT | O_WRONLY, 0666);
 
@@ -409,7 +417,10 @@ REB_R Call_Core(REBFRM *frame_) {
                 goto child_error;
             close(fd);
         }
-        else if (IS_BLANK(ARG(err))) {
+        else if (IS_LOGIC(ARG(error))) {
+            if (VAL_LOGIC(ARG(error)))
+                goto inherit_stderr_from_parent;
+
             int fd = open("/dev/null", O_WRONLY);
             if (fd < 0)
                 goto child_error;
@@ -874,17 +885,17 @@ REB_R Call_Core(REBFRM *frame_) {
 
     rebFree(m_cast(char**, argv));
 
-    if (IS_TEXT(ARG(out))) {
+    if (IS_TEXT(ARG(output))) {
         if (outbuf_used > 0) {
             REBVAL *output_val = rebSizedText(outbuf, outbuf_used);
-            rebElide("append", ARG(out), output_val, rebEND);
+            rebElide("append", ARG(output), output_val, rebEND);
             rebRelease(output_val);
         }
     }
-    else if (IS_BINARY(ARG(out))) {
+    else if (IS_BINARY(ARG(output))) {
         if (outbuf_used > 0) {
             REBVAL *output_val = rebSizedBinary(outbuf, outbuf_used);
-            rebElide("append", ARG(out), output_val, rebEND);
+            rebElide("append", ARG(output), output_val, rebEND);
             rebRelease(output_val);
         }
     }
@@ -892,16 +903,16 @@ REB_R Call_Core(REBFRM *frame_) {
         assert(outbuf == nullptr);
     rebFree(outbuf);  // legal if outbuf is nullptr
 
-    if (IS_TEXT(ARG(err))) {
+    if (IS_TEXT(ARG(error))) {
         if (errbuf_used > 0) {
             REBVAL *error_val = rebSizedText(errbuf, errbuf_used);
-            rebElide("append", ARG(err), error_val, rebEND);
+            rebElide("append", ARG(error), error_val, rebEND);
             rebRelease(error_val);
         }
-    } else if (IS_BINARY(ARG(err))) {
+    } else if (IS_BINARY(ARG(error))) {
         if (errbuf_used > 0) {
             REBVAL *error_val = rebSizedBinary(errbuf, errbuf_used);
-            rebElide("append", ARG(err), error_val, rebEND);
+            rebElide("append", ARG(error), error_val, rebEND);
             rebRelease(error_val);
         }
     }

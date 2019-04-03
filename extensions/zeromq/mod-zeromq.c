@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2011 Andreas Bolka <a AT bolka DOT at>
-// Copyright 2018 Rebol Open Source Contributors
+// Copyright 2018-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -71,7 +71,7 @@ ATTRIBUTE_NO_RETURN static void fail_ZeroMQ(void) {
 
 
 //
-//  export zmq-init: native [ ;; >= 0MQ 2.0.7
+//  export zmq-init: native [  ; >= 0MQ 2.0.7
 //
 //  {Initialise 0MQ context}
 //
@@ -585,7 +585,7 @@ REBNATIVE(zmq_setsockopt) {
 //      name "see http://api.zeromq.org/4-1:zmq-getsockopt"
 //          [word! integer!]
 //      /type "If name is an INTEGER!, specify the return type"
-//      datatype [datatype!]
+//          [datatype!]
 //  ]
 //
 REBNATIVE(zmq_getsockopt) {
@@ -599,7 +599,7 @@ REBNATIVE(zmq_getsockopt) {
         name = rebUnboxInteger(ARG(name)); // take their word for it :-/
         if (not REF(type))
             rebJumps("FAIL {INTEGER! name use requires /TYPE specification}");
-        datatype = ARG(datatype);
+        datatype = ARG(type);
     }
     else {
         if (REF(type))
@@ -875,7 +875,7 @@ REBNATIVE(zmq_poll)
 //      frontend [handle!] {Socket handle}
 //      backend [handle!] {Socket handle}
 //      /capture
-//      capturer [handle!] {Socket handle}
+//          [handle!] {Socket handle}
 //  ]
 //
 REBNATIVE(zmq_proxy) {
@@ -886,7 +886,7 @@ REBNATIVE(zmq_proxy) {
 
     void *capture_socket;
     if (REF(capture))
-        capture_socket = VAL_HANDLE_VOID_POINTER(ARG(capturer));
+        capture_socket = VAL_HANDLE_VOID_POINTER(ARG(capture));
     else
         capture_socket = nullptr;
 

@@ -880,6 +880,7 @@ REBTYPE(Binary)
 
     case SYM_REVERSE: {
         INCLUDE_PARAMS_OF_REVERSE;
+        UNUSED(ARG(series));
 
         FAIL_IF_READ_ONLY(v);
 

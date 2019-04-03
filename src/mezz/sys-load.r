@@ -259,7 +259,7 @@ load: function [
     /header "Result includes REBOL header object "
     /all "Load all values (cannot be used with /HEADER)"
     /type "E.g. rebol, text, markup, jpeg... (by default, auto-detected)"
-    ftype [word!]
+        [word!]
     <in> no-all  ; !!! temporary fake of <unbind> option
 ][
     self: binding of 'return  ; so you can say SELF/ALL
@@ -514,19 +514,19 @@ load-module: function [
     source {Source (file, URL, binary, etc.) or block of sources}
         [word! file! url! text! binary! module! block!]
     /version "Module must be this version or greater"
-    ver [tuple!]
+        [tuple!]
     /no-share "Force module to use its own non-shared global namespace"
     /no-lib "Don't export to the runtime library (lib)"
     /import "Do module import now, overriding /delay and 'delay option"
     /as "New name for the module (not valid for reloads)"
-    name [word!]
+        [word!]
     /delay "Delay module init until later (ignored if source is module!)"
     /into "Load into an existing module (e.g. populated with some natives)"
-    existing [module!]
+        [module!]
     /exports "Add exports on top of those in the EXPORTS: section"
-    export-list [block!]
+        [block!]
 ][
-    as_LOAD_MODULE: :as
+    name: as
     as: :lib/as
 
     ; NOTES:
@@ -550,7 +550,7 @@ load-module: function [
 
     switch type of source [
         word! [ ; loading the preloaded
-            if as_LOAD_MODULE [
+            if name [
                 cause-error 'script 'bad-refine /as  ; no renaming
             ]
 
@@ -602,7 +602,7 @@ load-module: function [
         module! [
             ; see if the same module is already in the list
             if tmp: find/skip next system/modules mod: source 2 [
-                if as_LOAD_MODULE [
+                if name [
                     ; already imported
                     cause-error 'script 'bad-refine /as
                 ]
@@ -620,7 +620,7 @@ load-module: function [
         ]
 
         block! [
-            if any [version as] [
+            if any [version name] [
                 cause-error 'script 'bad-refines blank
             ]
 
@@ -633,8 +633,10 @@ load-module: function [
                     set mod [
                         word! | module! | file! | url! | text! | binary!
                     ]
-                    set ver opt tuple! (
-                        append data reduce [mod ver if name [to word! name]]
+                    set version opt tuple! (
+                        append data reduce [
+                            mod version if name [to word! name]
+                        ]
                     )
                 ]
                 end
@@ -646,9 +648,7 @@ load-module: function [
                 applique 'load-module [
                     source: mod
                     version: version
-                    ver: :ver
-                    as: true
-                    name: opt name
+                    as: name
                     no-share: no-share
                     no-lib: no-lib
                     import: import
@@ -699,7 +699,7 @@ load-module: function [
     ]
 
     ; Unify hdr/name and /AS name
-    if set? 'name [
+    if name [
         hdr/name: name  ; rename /AS name
     ] else [
         name: :hdr/name
@@ -852,7 +852,7 @@ import: function [
 
     module [word! file! url! text! binary! module! block! tag!]
     /version "Module must be this version or greater"
-    ver [tuple!]
+        [tuple!]
     /no-share "Force module to use its own non-shared global namespace"
     /no-lib "Don't export to the runtime library (lib)"
     /no-user "Don't export to the user context"
@@ -893,7 +893,6 @@ import: function [
     set [name: mod:] applique 'load-module [
         source: module
         version: version
-        ver: :ver
         no-share: no-share
         no-lib: no-lib
         import: true  ; !!! original code always passed /IMPORT, should it?
@@ -915,7 +914,6 @@ import: function [
                     applique 'load-module [
                         source: path/:file
                         version: version
-                        ver: :ver
                         no-share: :no-share
                         no-lib: :no-lib
                         import: true

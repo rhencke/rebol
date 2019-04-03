@@ -132,7 +132,7 @@ REB_R Init_Thrown_Unwind_Value(
 //      level "Frame, action, or index to exit from"
 //          [frame! action! integer!]
 //      /with "Result for enclosing state"
-//      value [<opt> any-value!]
+//          [<opt> any-value!]
 //  ]
 //
 REBNATIVE(unwind)

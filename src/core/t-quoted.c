@@ -192,7 +192,7 @@ REBNATIVE(literal) // aliased in %base-defs.r as LIT
 //      return: [quoted!]
 //      optional [<opt> any-value!]
 //      /depth "Number of quoting levels to apply (default 1)"
-//      count [integer!]
+//          [integer!]
 //  ]
 //
 REBNATIVE(uneval) // !!! This will be renamed QUOTE in the future
@@ -215,7 +215,7 @@ REBNATIVE(uneval) // !!! This will be renamed QUOTE in the future
 //      return: [<opt> any-value!]
 //      optional [<opt> any-value!]
 //      /depth "Number of quoting levels to remove (default 1)"
-//      count [integer!]
+//          [integer!]
 //  ]
 //
 REBNATIVE(unquote)

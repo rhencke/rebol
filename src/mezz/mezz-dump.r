@@ -21,14 +21,14 @@ dump: function [
     :extra "Optional variadic data for SET-WORD!, e.g. `dump x: 1 + 2`"
         [any-value! <...>]
     /prefix "Put a custom marker at the beginning of each output line"
-    sigil [text!]
+        [text!]
 
     <static> enablements (make map! [])
 ][
     print: adapt 'lib/print [
-        if set? 'sigil [
-            if select enablements sigil <> #on [return]
-            write-stdout sigil
+        if prefix [
+            if select enablements prefix <> #on [return]
+            write-stdout prefix
             write-stdout space
         ]
     ]
@@ -43,8 +43,8 @@ dump: function [
 
     dump-one: function [return: <void> item] [
         switch type of item [
-            refinement! ;-- treat as label, /a no shift and shorter than "a"
-            text! [ ;-- good for longer labeling when you need spaces/etc.
+            refinement!  ; treat as label, /a no shift and shorter than "a"
+            text! [  ; good for longer labeling when you need spaces/etc.
                 print [mold/limit item system/options/dump-size]
             ]
 
@@ -61,7 +61,7 @@ dump: function [
             ]
 
             issue! [
-                enablements/(sigil): item
+                enablements/(prefix): item
             ]
 
             fail 'value [
@@ -135,8 +135,8 @@ dumps: enfix function [
         [<opt> any-value! <...>]
 ][
     if issue? value [
-        d: specialize 'dump-to-newline [sigil: as text! name]
-        if value <> #off [d #on] ;-- note: d hard quotes its argument
+        d: specialize 'dump-to-newline [prefix: as text! name]
+        if value <> #off [d #on]  ; note: d hard quotes its argument
     ] else [
         ; Make it easy to declare and dump a variable at the same time.
         ;
@@ -155,7 +155,7 @@ dumps: enfix function [
         ;
         d: function [return: [] /on /off <static> d'] compose/deep [
             d': default [
-                d'': specialize 'dump [sigil: (as text! name)]
+                d'': specialize 'dump [prefix: (as text! name)]
                 d'' #on
             ]
             case [
@@ -190,9 +190,9 @@ summarize-obj: function [
         [<opt> block!]
     obj [object! port!]
     /match "Include only fields that match a string or datatype"
-    pattern [text! datatype!]
+        [text! datatype!]
 ][
-    match_DUMP-OBJ: match
+    pattern: match
     match: :lib/match
 
     form-pad: func [
@@ -219,8 +219,8 @@ summarize-obj: function [
                 form word
             ]
 
-            switch type of :pattern [  ; filter out any non-matching items
-                null []
+            switch type of pattern [  ; filter out any non-matching items
+                blank! []
 
                 datatype! [
                     if type != pattern [continue]

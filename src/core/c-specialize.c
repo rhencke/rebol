@@ -35,18 +35,16 @@
 // specifying a refinement without all its arguments is made complicated
 // because ordering matters:
 //
-//     foo: func [/ref1 arg1 /ref2 arg2 /ref3 arg3] [...]
+//     foo: func [/ref1 [integer!] /ref2 [integer!] /ref3 [integer!]] [...]
 //
 //     foo23: :foo/ref2/ref3
 //     foo32: :foo/ref3/ref2
 //
-//     foo23 A B ;-- should give A to arg2 and B to arg3
-//     foo32 A B ;-- should give B to arg2 and A to arg3
+//     foo23 A B  ; should give A to arg2 and B to arg3
+//     foo32 A B  ; should give B to arg2 and A to arg3
 //
-// Merely filling in the slots for the refinements specified with TRUE will
-// not provide enough information for a call to be able to tell the difference
-// between the intents.  Also, a call to `foo23/ref1 A B C` does not want to
-// make arg1 A, because it should act like `foo/ref2/ref3/ref1 A B C`.
+// Also, a call to `foo23/ref1 A B C` does not want to make arg1 A, because it
+// should act like `foo/ref2/ref3/ref1 A B C`.
 //
 // The current trick for solving this efficiently involves exploiting the
 // fact that refinements in exemplar frames are nominally only unspecialized

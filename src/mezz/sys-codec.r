@@ -99,13 +99,11 @@ encode: function [
     {Encodes a datatype (e.g. image!) into a series of bytes.}
 
     return: [binary!]
-    type [word!]
-        {Media type (jpeg, png, etc.)}
-    data
-        {The data to encode}
-    /options
-        {Special encoding options}
-    opts [block!]
+    type "Media type (jpeg, png, etc.)"
+        [word!]
+    data [any-value!]
+    /options "Encoding options"
+        [block!]  ; !!! Not currently used
 ][
     all [
         cod: select system/codecs type

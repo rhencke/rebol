@@ -180,12 +180,13 @@ decode-url: _ ; used by sys funcs, defined above, set below
 ;-- Native Schemes -----------------------------------------------------------
 
 make-scheme: function [
-    "Make a scheme from a specification and add it to the system."
-    def [block!]
-        "Scheme specification"
-    /with
-    base-name [word!]
-        "Scheme name to use as base"
+    {Make a scheme from a specification and add it to the system}
+
+    def "Scheme specification"
+        [block!]
+    /with "Scheme name to use as base"
+        [word!]
+        
 ][
     with: either with [get in system/schemes with][system/standard/scheme]
     if not with [cause-error 'access 'no-scheme with]

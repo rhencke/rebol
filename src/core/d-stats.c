@@ -35,18 +35,12 @@
 //  {Provides status and statistics information about the interpreter.}
 //
 //      return: [<opt> time! integer!]
-//      /show
-//          "Print formatted results to console"
-//      /profile
-//          "Returns profiler object"
-//      /timer
-//          "High resolution time difference from start"
-//      /evals
-//          "Number of values evaluated by interpreter"
-//      /pool
-//          "Dump all series in pool"
-//      pool-id [integer!]
-//          "-1 for all pools"
+//      /show "Print formatted results to console"
+//      /profile "Returns profiler object"
+//      /timer "High resolution time difference from start"
+//      /evals "Number of values evaluated by interpreter"
+//      /pool "Dump all series in pool"
+//          [integer!]
 //  ]
 //
 REBNATIVE(stats)
@@ -67,8 +61,7 @@ REBNATIVE(stats)
 #ifdef NDEBUG
     UNUSED(REF(show));
     UNUSED(REF(profile));
-    UNUSED(REF(dump_series));
-    UNUSED(ARG(pool_id));
+    UNUSED(ARG(pool));
 
     fail (Error_Debug_Only_Raw());
 #else

@@ -134,15 +134,15 @@ REBNATIVE(delimit)
 //
 //      data [binary!]
 //      /part "Length of data"
-//      limit
+//          [any-value!]
 //      /tcp "Returns an Internet TCP 16-bit checksum"
 //      /secure "Returns a cryptographically secure checksum"
 //      /hash "Returns a hash value with given size"
-//      size [integer!]
+//          [integer!]
 //      /method "Method to use (SHA1, MD5, CRC32)"
-//      word [word!]
+//          [word!]
 //      /key "Returns keyed HMAC value"
-//      key-value [binary! text!]
+//          [binary! text!]
 //  ]
 //
 REBNATIVE(checksum)
@@ -272,9 +272,9 @@ REBNATIVE(checksum)
 //      data "If text, it will be UTF-8 encoded"
 //          [binary! text!]
 //      /part "Length of data (elements)"
-//      limit
+//          [any-value!]
 //      /envelope "ZLIB (adler32, no size) or GZIP (crc32, uncompressed size)"
-//      format [word!]
+//          [word!]
 //  ]
 //
 REBNATIVE(deflate)
@@ -321,11 +321,11 @@ REBNATIVE(deflate)
 //      return: [binary!]
 //      data [binary!]
 //      /part "Length of compressed data (must match end marker)"
-//      limit
+//          [any-value!]
 //      /max "Error out if result is larger than this"
-//      bound
+//          [integer!]
 //      /envelope "ZLIB, GZIP, or DETECT (http://stackoverflow.com/a/9213826)"
-//      format [word!]
+//          [word!]
 //  ]
 //
 REBNATIVE(inflate)
@@ -383,7 +383,7 @@ REBNATIVE(inflate)
 //          ;-- Comment said "we don't know the encoding" of the return binary
 //      value [binary! text!]
 //      /base "The base to convert from: 64, 16, or 2 (defaults to 64)"
-//      base-value [integer!]
+//          [integer!]
 //  ]
 //
 REBNATIVE(debase)
@@ -415,7 +415,7 @@ REBNATIVE(debase)
 //      value "If text, will be UTF-8 encoded"
 //          [binary! text!]
 //      /base "Binary base to use: 64, 16, or 2 (BASE-64 default)"
-//      base-value [integer!]
+//          [integer!]
 //  ]
 //
 REBNATIVE(enbase)
@@ -736,10 +736,9 @@ REBNATIVE(dehex)
 //  {Converts string terminators to standard format, e.g. CR LF to LF.}
 //
 //      return: [any-string! block!]
-//      string [any-string!]
-//          "Will be modified (unless /LINES used)"
-//      /lines
-//          {Return block of lines (works for LF, CR, CR-LF endings)}
+//      string "Will be modified (unless /LINES used)"
+//          [any-string!]
+//      /lines "Return block of lines (works for LF, CR, CR-LF endings)"
 //  ]
 //
 REBNATIVE(deline)
@@ -869,7 +868,7 @@ REBNATIVE(enline)
 //      string "(modified)"
 //          [any-string!]
 //      /size "Specifies the number of spaces per tab"
-//      number [integer!]
+//          [integer!]
 //  ]
 //
 REBNATIVE(entab)
@@ -941,11 +940,10 @@ REBNATIVE(entab)
 //
 //  "Converts tabs to spaces (default tab size is 4)."
 //
-//      string [any-string!]
-//          "(modified)"
-//      /size
-//          "Specifies the number of spaces per tab"
-//      number [integer!]
+//      string "(modified)"
+//          [any-string!]
+//      /size "Specifies the number of spaces per tab"
+//          [integer!]
 //  ]
 //
 REBNATIVE(detab)
@@ -1003,7 +1001,7 @@ REBNATIVE(detab)
 //      string "(modified if series)"
 //          [any-string! char!]
 //      /part "Limits to a given length or position"
-//      limit [any-number! any-string!]
+//          [any-number! any-string!]
 //  ]
 //
 REBNATIVE(lowercase)
@@ -1023,7 +1021,7 @@ REBNATIVE(lowercase)
 //      string "(modified if series)"
 //          [any-string! char!]
 //      /part "Limits to a given length or position"
-//      limit [any-number! any-string!]
+//          [any-number! any-string!]
 //  ]
 //
 REBNATIVE(uppercase)
@@ -1042,7 +1040,7 @@ REBNATIVE(uppercase)
 //
 //      value [integer! tuple!]
 //      /size "Specify number of hex digits in result"
-//      len [integer!]
+//          [integer!]
 //  ]
 //
 REBNATIVE(to_hex)

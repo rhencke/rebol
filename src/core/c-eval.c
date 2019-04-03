@@ -258,8 +258,22 @@ inline static void Finalize_Arg(REBFRM *f) {
         Dequotify(f->arg);
     }
 
-    if (not Typecheck_Including_Quoteds(f->param, f->arg))
-        fail (Error_Arg_Type(f, f->param, VAL_TYPE(f->arg)));
+    if (TYPE_CHECK(f->param, REB_TS_REFINEMENT)) {
+        if (IS_NULLED(f->arg)) {
+            if (not TYPE_CHECK(f->param, REB_NULLED))
+                Init_Blank(f->arg);
+        }
+        else if (not IS_BLANK(f->arg))
+            goto type_check;
+    }
+    else {
+      type_check:
+        if (not Typecheck_Including_Quoteds(f->param, f->arg)) {
+            PROBE(f->param);
+            PROBE(f->arg);
+            fail (Error_Arg_Type(f, f->param, VAL_TYPE(f->arg)));
+        }
+    }
 
     SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
     if (IS_REFINEMENT(f->refine)) {
@@ -979,6 +993,15 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
                 if (VAL_STORED_CANON(ordered) == param_canon) {
                     DS_DROP(); // we're lucky: this was next refinement used
+
+                    if (not Is_Typeset_Invisible(f->param)) {
+                        //
+                        // !!! This now actually gathers from the callsite!
+                        //
+                        f->refine = ORDINARY_ARG;
+                        goto ordinary_arg;
+                    }
+
                     f->refine = f->arg; // remember so we can revoke!
                     goto used_refinement;
                 }
@@ -999,7 +1022,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                     REBCNT offset = f->arg - FRM_ARGS_HEAD(f);
                     INIT_BINDING(ordered, f->varlist);
                     INIT_WORD_INDEX(ordered, offset + 1);
-                    f->refine = SKIPPING_REFINEMENT_ARGS; // fill args later
+                    f->refine = SKIPPING_REFINEMENT_ARGS;  // fill args later
                     goto used_refinement;
                 }
 
@@ -1078,6 +1101,8 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
             if (f->refine == SKIPPING_REFINEMENT_ARGS)
                 goto skip_this_arg_for_now;
+
+          ordinary_arg:
 
             if (GET_CELL_FLAG(f->special, ARG_MARKED_CHECKED)) {
 
@@ -1465,7 +1490,6 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             // this code which checks the typeset and also handles it when
             // a void arg signals the revocation of a refinement usage.
 
-            assert(not TYPE_CHECK(f->param, REB_TS_REFINEMENT));
             assert(pclass != REB_P_LOCAL);
             assert(
                 not SPECIAL_IS_ARG_SO_TYPECHECKING  // was handled, unless...

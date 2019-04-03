@@ -2540,10 +2540,10 @@ void Shutdown_Scanner(void)
 //      /next "Translate next complete value (blocks as single value)"
 //      /only "Translate only a single value (blocks dissected)"
 //      /relax "Do not cause errors - return error object as value in place"
-//      /file
-//      file-name [file! url!]
-//      /line
-//      line-number [integer! any-word!]
+//      /file "File to be associated with BLOCK!s and GROUP!s in source"
+//          [file! url!]
+//      /line "Line number for start of scan, word variable will be updated"
+//          [integer! any-word!]
 //  ]
 //
 REBNATIVE(transcode)

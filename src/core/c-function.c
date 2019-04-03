@@ -354,6 +354,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // Turn block into typeset for parameter at current index.
             // Leaves VAL_TYPESET_SYM as-is.
             //
+            bool was_refinement = TYPE_CHECK(param, REB_TS_REFINEMENT);
             REBSPC *derived = Derive_Specifier(VAL_SPECIFIER(spec), item);
             VAL_TYPESET_LOW_BITS(param) = 0;
             VAL_TYPESET_HIGH_BITS(param) = 0;
@@ -362,6 +363,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 VAL_ARRAY_HEAD(item),
                 derived
             );
+            if (was_refinement)
+                TYPE_SET(param, REB_TS_REFINEMENT);
 
             has_types = true;
             continue;
@@ -376,6 +379,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         switch (VAL_TYPE(item)) {
           case REB_WORD:
             spelling = VAL_WORD_SPELLING(item);
+
+            if (refinement_seen and mode == SPEC_MODE_NORMAL)
+                PROBE(spec);
 
             pclass = (mode == SPEC_MODE_LOCAL)
                 ? REB_P_LOCAL
@@ -481,19 +487,26 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // If the typeset bits contain REB_NULLED, that indicates <opt>.
         // But Is_Param_Endable() indicates <end>.
 
-        Init_Param(
-            DS_PUSH(),
-            pclass,
-            spelling, // don't canonize, see #2258
-            (flags & MKF_ANY_VALUE)
-                ? TS_OPT_VALUE
-                : TS_VALUE & ~(
-                    FLAGIT_KIND(REB_ACTION)
-                    | FLAGIT_KIND(REB_VOID)
-                )
-        );
-        if (is_refinement)
-            TYPE_SET(DS_TOP, REB_TS_REFINEMENT);
+        if (is_refinement) {
+            Init_Param(
+                DS_PUSH(),
+                pclass,
+                spelling,  // don't canonize, see #2258
+                FLAGIT_KIND(REB_TS_REFINEMENT)  // must preserve if type block
+            );
+        }
+        else
+            Init_Param(
+                DS_PUSH(),
+                pclass,
+                spelling,  // don't canonize, see #2258
+                (flags & MKF_ANY_VALUE)
+                    ? TS_OPT_VALUE
+                    : TS_VALUE & ~(
+                        FLAGIT_KIND(REB_ACTION)
+                        | FLAGIT_KIND(REB_VOID)
+                    )
+            );
 
         // All these would cancel a definitional return (leave has same idea):
         //
@@ -960,10 +973,10 @@ REBACT *Make_Action(
     if (GET_ACTION_FLAG(act, HAS_RETURN)) {
         REBVAL *param = ACT_PARAM(act, ACT_NUM_PARAMS(act));
         assert(VAL_PARAM_SYM(param) == SYM_RETURN);
-        REBU64 bits = VAL_TYPESET_LOW_BITS(param);
-        bits |= cast(REBU64, VAL_TYPESET_HIGH_BITS(param)) << 32;
-        if ((bits & TS_OPT_VALUE) == 0)  // e.g. `return []`
+
+        if (Is_Typeset_Invisible(param))  // e.g. `return []`
             SET_ACTION_FLAG(act, IS_INVISIBLE);
+
         if (TYPE_CHECK(param, REB_TS_DEQUOTE_REQUOTE))
             SET_ACTION_FLAG(act, RETURN_REQUOTES);
     }

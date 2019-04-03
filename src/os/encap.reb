@@ -580,8 +580,8 @@ pe-format: context [
         "Collect all set-words in @rule and make an object out of them and save it in @name"
         rule [block!]
         'name [word!]
-        /skip
-            words [word! block!] "Do not collect these words"
+        /skip "Do not collect these words"
+            [word! block!]
         <local>
         word
         skips
@@ -1239,28 +1239,27 @@ generic-format: context [
 
 
 encap: function [
-    return: [file!]
-        {Path location of the resulting output}
-    spec [file! block!]
-        {Single script to embed, directory to zip with main.reb, or dialect}
-    /rebol
-        {Specify a path to a Rebol to encap instead of using the current one}
-    in-rebol-path
+    return: "Path location of the resulting output"
+        [file!]
+    spec "Single script to embed, directory to zip with main.reb, or dialect"
+        [file! block!]
+    /rebol "Path to a Rebol to encap instead of using the current one"
+        [any-value!]
 ][
     if block? spec [
         fail "The spec dialect for encapping has not been defined yet"
     ]
 
-    in-rebol-path: default [system/options/boot]
-    either ".exe" = base-name: skip tail of in-rebol-path -4 [
+    rebol: default [system/options/boot]
+    either ".exe" = base-name: skip tail of rebol -4 [
         out-rebol-path: join
-            copy/part in-rebol-path (index of base-name) - 1
+            copy/part rebol (index of base-name) - 1
             "-encap.exe"
     ][
-        out-rebol-path: join in-rebol-path "-encap"
+        out-rebol-path: join rebol "-encap"
     ]
 
-    print ["Encapping from original executable:" in-rebol-path]
+    print ["Encapping from original executable:" rebol]
 
     executable: read in-rebol-path
 
@@ -1285,9 +1284,9 @@ encap: function [
     ; actual names of disk files at this moment.  Just signal which it is.
     ;
     either single-script [
-        insert compressed 0 ;-- signal a single file encap
+        insert compressed 0  ; signal a single file encap
     ][
-        insert compressed 1 ;-- signal a zipped encap
+        insert compressed 1  ; signal a zipped encap
     ]
 
     print ["Extending compressed resource by one byte for zipped/not signal"]

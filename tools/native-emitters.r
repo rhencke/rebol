@@ -101,7 +101,10 @@ emit-include-params-macro: function [
                 ; This forces usages to change to ARG(refinename).  In time,
                 ; it will be legal to order normal parameters after refines.
                 ;
-                if not seen-refinement [
+                if seen-refinement [
+                    keep cscape/with {#error "${param-name}"} [param-name]
+                ]
+                else [
                     param-name: as text! item
 
                     keep cscape/with {PARAM($<n>, ${param-name})} [n param-name]

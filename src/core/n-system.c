@@ -103,7 +103,7 @@ REBNATIVE(exit_rebol)
 //      /off "Disable auto-recycling"
 //      /on "Enable auto-recycling"
 //      /ballast "Trigger for auto-recycle (memory used)"
-//      size [integer!]
+//          [integer!]
 //      /torture "Constant recycle (for internal debugging)"
 //      /watch "Monitor recycling (debug only)"
 //      /verbose "Dump information about series being recycled (debug only)"

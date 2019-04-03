@@ -298,16 +298,14 @@ REB_R Pending_Native_Dispatcher(REBFRM *f) {
 //
 //  {Create an ACTION! which is compiled from a C source STRING!}
 //
-//      return: [action!]
-//          "Function value, will be compiled on demand or by COMPILE"
-//      spec [block!]
-//          "The spec of the native"
-//      source [text!]
-//          "C source of the native implementation"
-//      /linkname
-//          "Provide a specific linker name"
-//      name [text!]
-//          "Legal C identifier (default will be auto-generated)"
+//      return: "Function value, will be compiled on demand or by COMPILE"
+//          [action!]
+//      spec "Rebol parameter definitions (similar to FUNCTION's spec)"
+//          [block!]
+//      source "C source of the native implementation"
+//          [text!]
+//      /linkname "Provide a specific linker name (default is auto-generated)"
+//          [text!]
 //  ]
 //
 REBNATIVE(make_native)
@@ -345,14 +343,14 @@ REBNATIVE(make_native)
     );
 
     if (REF(linkname)) {
-        REBVAL *name = ARG(name);
+        REBVAL *linkname = ARG(linkname);
 
-        if (Is_Series_Frozen(VAL_SERIES(name)))
-            Move_Value(ARR_AT(details, IDX_TCC_NATIVE_LINKNAME), name);
+        if (Is_Series_Frozen(VAL_SERIES(linkname)))
+            Move_Value(ARR_AT(details, IDX_TCC_NATIVE_LINKNAME), linkname);
         else {
             Init_Text(
                 ARR_AT(details, IDX_TCC_NATIVE_LINKNAME),
-                Copy_String_At(name)
+                Copy_String_At(linkname)
             );
         }
     }

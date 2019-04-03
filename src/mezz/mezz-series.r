@@ -73,12 +73,12 @@ remold: redescribe [
 
 array: function [
     {Makes and initializes a block of a given size}
-    size [integer! block!] "Size or block of sizes for each dimension"
-    /initial "Specify an initial value for all elements"
-    value "Initial value (will be called each time if a function)"
-        [any-value!]
+
+    size "Size or block of sizes for each dimension"
+        [integer! block!]
+    /initial "Initial value (will be called each time if a function)"
+        [any-value!]  ; refinement, so will default to BLANK!
 ][
-    value: default [_]
     if block? size [
         if tail? rest: next size [rest: _]
         if not integer? size: first size [
@@ -88,16 +88,16 @@ array: function [
     block: make block! size
     case [
         block? :rest [
-            loop size [block: insert/only block array/initial rest :value]
+            loop size [block: insert/only block array/initial rest :initial]
         ]
-        any-series? :value [
-            loop size [block: insert/only block copy/deep value]
+        any-series? :initial [
+            loop size [block: insert/only block copy/deep initial]
         ]
-        action? :value [
-            loop size [block: insert/only block value]  ; Called every time
+        action? :initial [
+            loop size [block: insert/only block initial]  ; Called every time
         ]
         default [
-            insert/dup/only block :value size
+            insert/dup/only block :initial size
         ]
     ]
     head of block
@@ -200,9 +200,8 @@ reword: function [
     values "Keyword literals and value expressions"
         [map! object! block!]
     /case "Characters are case-sensitive"
-    /escape "Choose your own escape char(s) or [prefix suffix] delimiters"
-    delimiters "Default is $"
-        [blank! char! any-string! word! binary! block!]
+    /escape "Escape char(s) or [prefix suffix] delimiters (default is $)"
+        [char! any-string! word! binary! block!]
 
     <static>
 
@@ -210,10 +209,10 @@ reword: function [
     ; BLOCK! excluded.
     ;
     delimiter-types (
-        make typeset! [blank! char! any-string! word! binary!]
+        make typeset! [char! any-string! word! binary!]
     )
     keyword-types (
-        make typeset! [blank! char! any-string! integer! word! binary!]
+        make typeset! [char! any-string! integer! word! binary!]
     )
 ][
     case_REWORD: case
@@ -223,19 +222,29 @@ reword: function [
 
     prefix: _
     suffix: _
-    switch type of :delimiters [
-        null [prefix: "$"]
-        block! [
-            parse delimiters [
+    case [
+        blank? escape [prefix: "$"]  ; refinement not used, so use default
+
+        any [
+            escape = ""
+            escape = []
+        ][
+            prefix: _  ; pure search and replace, no prefix/suffix
+        ]
+
+        block? escape [
+            parse escape [
                 set prefix delimiter-types
                 set suffix opt delimiter-types
                 end
             ] else [
-                fail ["Invalid /ESCAPE delimiter block" delimiters]
+                fail ["Invalid /ESCAPE delimiter block" escape]
             ]
         ]
-    ] else [
-        prefix: ensure delimiter-types delimiters
+
+        default [
+            prefix: ensure delimiter-types escape
+        ]
     ]
 
     ; To be used in a parse rule, words must be turned into strings, though
@@ -333,64 +342,67 @@ reword: function [
 
 
 move: func [
-    "Move a value or span of values in a series."
-    source [any-series!] "Source series (modified)"
-    offset [integer!] "Offset to move by, or index to move to"
-    /part "Move part of a series"
-    limit [integer!] "The length of the part to move"
-    /skip "Treat the series as records of fixed size" ;; SKIP redefined
-    size [integer!] "Size of each record"
-    /to "Move to an index relative to the head of the series" ;; TO redefined
+    {Move a value or span of values in a series}
+
+    source "Source series (modified)"
+        [any-series!] 
+    offset "Offset to move by, or index to move to"
+        [integer!] 
+    /part "Move part of a series by length"
+        [integer!]
+    /skip "Treat the series as records of fixed size"
+        [integer!]
+    /to "Move to an index relative to the head of the series"
 ][
-    limit: default [1]
+    part: default [1]
     if skip [
-        if 1 > size [cause-error 'script 'out-of-range size]
-        offset: either to [offset - 1 * size + 1] [offset * size]
-        limit: limit * size
+        if 1 > skip [cause-error 'script 'out-of-range skip]
+        offset: either to [offset - 1 * skip + 1] [offset * skip]
+        part: part * skip
     ]
-    part: take/part source limit
+    part: take/part source part
     insert either to [at head of source offset] [
         lib/skip source offset
     ] part
 ]
 
 
-extract: func [
-    "Extracts a value from a series at regular intervals."
-    series [any-series!]
-    width [integer!] "Size of each entry (the skip)"
-    /index "Extract from an offset position"
-    pos "The position(s)" [any-number! logic! block!]
-    /default "Use a default value instead of blank"
-    value "The value to use (will be called each time if a function)"
-    <local> len val out default_EXTRACT
-][  ; Default value is "" for any-string! output
+extract: function [
+    {Extracts a value from a series at regular intervals}
 
-    default_EXTRACT: default
+    series [any-series!]
+    width "Size of each entry (the skip)"
+        [integer!] 
+    /index "Extract from offset position(s)"
+        [any-number! logic! block!]
+    /default "Use a default value instead of blank"
+        "The value to use (will be called each time if a function)"
+][
+    value: default  ; Default value is "" for any-string! output
     default: enfix :lib/default
 
     if zero? width [return make (type of series) 0]  ; avoid an infinite loop
     len: either positive? width [  ; Length to preallocate
         divide (length of series) width  ; Forward loop, use length
     ][
-        divide index of series negate width  ; Backward loop, use position
+        divide (index of series) negate width  ; Backward loop, use position
     ]
-    if not index [pos: 1]
-    if block? pos [
-        parse pos [some [any-number! | logic!] end] else [
-            cause-error 'Script 'invalid-arg reduce [pos]
+    index: default [1]
+    if block? index [
+        parse index [some [any-number! | logic!] end] else [
+            cause-error 'Script 'invalid-arg reduce [index]
         ]
-        out: make (type of series) len * length of pos
+        out: make (type of series) len * length of index
         if (not default_EXTRACT) and [any-string? out] [value: copy ""]
-        iterate-skip series width [iterate pos [
-            val: pick series pos/1 else [value]
+        iterate-skip series width [iterate index [
+            val: pick series index/1 else [value]
             append/only out :val
         ]]
     ] else [
         out: make (type of series) len
         if (not default_EXTRACT) and [any-string? out] [value: copy ""]
         iterate-skip series width [
-            val: pick series pos else [value]
+            val: pick series index else [value]
             append/only out :val
         ]
     ]
@@ -494,7 +506,7 @@ collect-lines: redescribe [
 ] adapt 'collect [  ; https://forum.rebol.info/t/945/1
     body: compose [
         keep: adapt specialize 'keep [
-            line: true | only: false | part: false
+            line: true | only: false | part: _
         ] [value: spaced try :value]
         (as group! body)
     ]
@@ -507,7 +519,7 @@ collect-text: redescribe [
     adapt 'collect [
         body: compose [
             keep: adapt specialize 'keep [
-                line: false | only: false | part: false
+                line: false | only: false | part: _
             ][
                 value: unspaced try :value
             ]
@@ -523,11 +535,11 @@ format: function [
     "Format a string according to the format dialect."
     rules {A block in the format dialect. E.g. [10 -10 #"-" 4]}
     values
-    /pad p
+    /pad
 ][
-    p: default [space]
-    if not block? :rules [rules: reduce [:rules]]
-    if not block? :values [values: reduce [:values]]
+    pad: default [space]
+    rules: blockify :rules
+    values: blockify :values
 
     ; Compute size of output (for better mem usage):
     val: 0
@@ -543,7 +555,7 @@ format: function [
     ]
 
     out: make text! val
-    insert/dup out p val
+    insert/dup out pad val
 
     ; Process each rule:
     for-each rule rules [

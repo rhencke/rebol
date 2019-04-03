@@ -126,11 +126,8 @@ sys/make-scheme [
             insert-odbc port/locals reduce compose [(sql)]
         ]
 
-        copy: function [port [port!] /part length [integer!]] [
-            if not part [
-                length: blank
-            ]
-            copy-odbc port/locals length
+        copy: function [port [port!] /part [integer!]] [
+            copy-odbc port/locals part
         ]
     ]
 ]

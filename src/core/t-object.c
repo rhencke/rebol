@@ -866,8 +866,7 @@ REBTYPE(Context)
 //      spec [<blank> block!]
 //          "Object specification block (bindings modified)"
 //      /only "Values are kept as-is"
-//      /with "Use a prototype object"
-//      prototype "parent/prototype context"
+//      /with "Use a parent/prototype context"
 //          [any-context!]
 //  ]
 //

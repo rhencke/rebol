@@ -330,7 +330,7 @@ REBSER *Make_Set_Operation_Series(
 //          [any-array! any-string! binary! bitset! typeset!]
 //      /case "Uses case-sensitive comparison"
 //      /skip "Treat the series as records of fixed size"
-//      size [integer!]
+//          [integer!]
 //  ]
 //
 REBNATIVE(exclude)
@@ -390,7 +390,7 @@ REBNATIVE(exclude)
 //      series [any-array! any-string! binary! bitset! typeset!]
 //      /case "Use case-sensitive comparison (except bitsets)"
 //      /skip "Treat the series as records of fixed size"
-//      size [integer!]
+//          [integer!]
 //  ]
 //
 REBNATIVE(unique)

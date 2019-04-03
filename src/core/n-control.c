@@ -1323,8 +1323,7 @@ REBNATIVE(default)
 //          [<opt> any-value!]
 //      block "Block to evaluate"
 //          [block!]
-//      /name "Catches a named throw" ;-- should it be called /named ?
-//      names "Names to catch (single name if not block)"
+//      /name "Catches a named throw (single name if not block)"
 //          [block! word! action! object!]
 //      /quit "Special catch for QUIT native"
 //      /any "Catch all throws except QUIT (can be used with /QUIT)"
@@ -1439,7 +1438,7 @@ REBNATIVE(catch)
 //      value "Value returned from catch"
 //          [<opt> any-value!]
 //      /name "Throws to a named catch"
-//      name-value [word! action! object!]
+//          [word! action! object!]
 //  ]
 //
 REBNATIVE(throw)

@@ -113,18 +113,10 @@ charset: function [
     {Makes a bitset of chars for the parse function.}
 
     chars [text! block! binary! char! integer!]
-    /length "Preallocate this many bits"
-    len [integer!] "Must be > 0"
+    /length "Preallocate this many bits (must be > 0)"
+        [integer!]
 ][
-    ;-- CHARSET function historically has a refinement called /LENGTH, that
-    ;-- is used to preallocate bits.  Yet the LENGTH? function has been
-    ;-- changed to use just the word LENGTH.  We could change this to
-    ;-- /CAPACITY SIZE or something similar, but keep it working for now.
-    ;--
-    length_CHARSET: length      ; refinement passed in
-    unset 'length               ; helps avoid overlooking the ambiguity
-
-    init: either length_CHARSET [len][[]]
+    init: either length [length] [[]]
     append make bitset! init chars
 ]
 
@@ -142,8 +134,8 @@ trim: function [
     /auto "Auto indents lines relative to first line"
     /lines "Removes all line breaks and extra spaces"
     /all "Removes all whitespace"
-    /with "Same as /all, but removes characters in 'str'"
-    str [char! text! binary! integer! block! bitset!]
+    /with "Same as /all, but removes specific characters"
+        [char! text! binary! integer! block! bitset!]
 ][
     tail_TRIM: :tail
     tail: :lib/tail

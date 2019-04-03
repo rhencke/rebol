@@ -82,12 +82,12 @@
 //      /console "Runs command with I/O redirected to console"
 //      /shell "Forces command to be run from shell"
 //      /info "Returns process information object"
-//      /input "Redirects stdin to in (if blank, /dev/null)"
-//      in [text! binary! file! blank!]
-//      /output "Redirects stdout to out (if blank, /dev/null)"
-//      out [text! binary! file! blank!]
-//      /error "Redirects stderr to err (if blank, /dev/null)"
-//      err [text! binary! file! blank!]
+//      /input "Redirects stdin (false=/dev/null, true=inherit)"
+//          [text! binary! file! logic!]
+//      /output "Redirects stdout (false=/dev/null, true=inherit)"
+//          [text! binary! file! logic!]
+//      /error "Redirects stderr (false=/dev/null, true=inherit)"
+//          [text! binary! file! logic!]
 //  ]
 //
 REBNATIVE(call_internal_p)

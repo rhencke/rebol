@@ -64,20 +64,21 @@ sign-of: func [
     ]
 ]
 
-extreme-of: func [
+extreme-of: function [
     {Finds the value with a property in a series that is the most "extreme"}
 
-    return: [any-series!] {Position where the extreme value was found}
-    series [any-series!] {Series to search}
-    comparator [action!] {Comparator to use, e.g. LESSER? for MINIMUM-OF}
-    /skip {Treat the series as records of fixed size}
-    size [integer!]
-    <local> spot
+    return: "Position where the extreme value was found"
+        [any-series!]
+    series [any-series!]
+    comparator "Comparator to use, e.g. LESSER? for MINIMUM-OF"
+        [action!]
+    /skip "Treat the series as records of fixed size"
+        [integer!]
 ][
-    size: default [1]
-    if 1 > size [cause-error 'script 'out-of-range size]
+    skip: default [1]
+    if 1 > skip [cause-error 'script 'out-of-range skip]
     spot: series
-    iterate-skip series size [
+    iterate-skip series skip [
         if (comparator first series first spot) [spot: series]
     ]
     spot

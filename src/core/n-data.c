@@ -476,17 +476,13 @@ REBNATIVE(unbind)
 //
 //  collect-words: native [
 //
-//  {Collect unique words used in a block (used for context construction).}
+//  {Collect unique words used in a block (used for context construction)}
 //
 //      block [block!]
-//      /deep
-//          "Include nested blocks"
-//      /set
-//          "Only include set-words"
-//      /ignore
-//          "Ignore prior words"
-//      hidden [any-context! block!]
-//          "Words to ignore"
+//      /deep "Include nested blocks"
+//      /set "Only include set-words"
+//      /ignore "Ignore prior words"
+//          [any-context! block!]
 //  ]
 //
 REBNATIVE(collect_words)
@@ -820,7 +816,7 @@ REBNATIVE(opt)
 //      target [any-context!] "(modified)"
 //      source [any-context!]
 //      /only "Only specific words (exports) or new words in target"
-//      from [block! integer!]
+//          [block! integer!]
 //      /all "Set all words, even those in the target that already have a value"
 //      /extend "Add source words to the target if necessary"
 //  ]

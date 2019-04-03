@@ -26,12 +26,9 @@ backtrace*: function [
         "Where to consider the trace point as starting from"
     level [blank! integer! action!]
         "Stack level to return frame for (blank to list)"
-    /limit
-        "Limit the length of the backtrace"
-    frames [blank! integer!]
-        "Max number of frames (pending and active), blank for no limit"
-    /brief
-        "Do not list depths, just function labels on one line"
+    /limit "Max number of frames (pending and active), false for no limit"
+        [logic! integer!]
+    /brief "Do not list depths, just function labels on one line"
 ][
     get-frame: not blank? :level
 
@@ -47,23 +44,25 @@ backtrace*: function [
         ]
     ]
 
-    ; The "frames" from /LIMIT, plus one (for ellipsis)
-    ; Default 20, as on an 80x25 terminal leaves room to type afterward
-    ;
-    max-rows: 20 unless (limit and [
-        if blank? frames [
-            99999 ; as many frames as possible
-        ] else [
-            if frames < 0 [
+    max-rows: case [
+        blank? limit [
+            20  ; Default 20, leaves room to type on 80x25 terminal
+        ]
+        limit = false [
+            99999  ; as many frames as possible
+        ]
+        integer? limit [
+            if limit < 0 [
                 fail ["Invalid limit of frames" frames]
             ]
-            frames + 1 ; add one for ellipsis
+            limit + 1  ; add one for ellipsis
         ]
-    ])
+        fail
+    ]
 
-    row: 0 ; row we're on (incl. pending frames and maybe ellipsis)
-    number: 0 ; level label number in the loop (no pending frames)
-    first-frame: true ; special check of first frame for "breakpoint 0"
+    row: 0  ; row we're on (incl. pending frames and maybe ellipsis)
+    number: 0  ; level label number in the loop (no pending frames)
+    first-frame: true  ; special check of first frame for "breakpoint 0"
 
     f: start
 

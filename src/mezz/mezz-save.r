@@ -27,91 +27,77 @@ mold64: function [
 ]
 
 save: function [
-    {Saves a value, block, or other data to a file, URL, binary, or text.}
-    where [file! url! binary! text! blank!]
-        {Where to save (suffix determines encoding)}
-    value {Value(s) to save}
-    /header
-        {Provide a REBOL header block (or output non-code datatypes)}
-    header-data [block! object! logic!]
-        {Header block, object, or TRUE (header is in value)}
-    /all ;-- renamed to `all_SAVE` to avoid ambiguity with native
-        {Save in serialized format}
-    /length
-        {Save the length of the script content in the header}
-    /compress
-        {Save in a compressed format or not}
-    method [logic! word!]
-        {true = compressed, false = not, 'script = encoded string}
+    {Saves a value, block, or other data to a file, URL, binary, or text}
+
+    where "Where to save (suffix determines encoding)"
+        [file! url! binary! text! blank!]
+    value "Value(s) to save"
+        [<const> any-value!]
+    /header "Provide REBOL header block/object, or TRUE (header is in value)"
+        [block! object! logic!]
+    /all "Save in serialized format"
+    /length "Save the length of the script content in the header"
+    /compress "true = compressed, false = not, 'script = encoded string"
+        [logic! word!]
 ][
     ; Recover common natives for words used as refinements.
     all_SAVE: all
     all: :lib/all
 
-    method: default [_]
-    header-data: default [_]
-
     ; Special datatypes use codecs directly (e.g. PNG image file):
     all [
-        not header ; User wants to save value as script, not data file
+        not header  ; User wants to save value as script, not data file
         match [file! url!] where
         type: file-type? where
-        type <> 'rebol ;-- handled by this routine, not by WRITE+ENCODE
+        type <> 'rebol  ; handled by this routine, not by WRITE+ENCODE
     ] then [
         ; We have a codec.  Will check for valid type.
         return write where encode type :value
     ]
 
-    ; Compressed scripts and script lengths require a header:
-    any [length method] then [
-        header: true
-        header-data: default [[]]
+    any [length compress] then [  ; need header if compressed or lengthed
+        header: default [[]]
     ]
 
-    ; Handle the header object:
-    if header-data [
-
-        ; #[true] indicates the header is the first value in the block
-        if header-data = true [
-            header-data: first ensure block! value
-            value: my next  ; do not use TAKE (leave header in position)
+    if header [
+        if header = true [  ; the header is the first value in the block
+            header: first ensure block! value
+            value: my next
         ]
 
-        ; Make it an object if it's not already
+        ; Make header an object if it's not already
         ;
-        header-data: if object? :header-data [
-            trim :header-data  ; clean out words set to blank
+        header: if object? header [
+            trim header  ; clean out words set to blank
         ] else [
-            construct/only :header-data  ; does not use STANDARD/HEADER
+            construct/only header  ; does not use STANDARD/HEADER
         ]
 
-        if compress [  ; Make the header option match
-            case [
-                not method [
-                    remove find to-value select header-data 'options 'compress
-                ]
-                not block? select header-data 'options [
-                    append header-data compose [options: (copy [compress])]
-                ]
-                not find header-data/options 'compress [
-                    append header-data/options 'compress
-                ]
+        ; Sync the header option with the /COMPRESS setting
+        ;
+        case [
+            blank? compress [
+                compress: did find try (select header 'options) 'compress
+            ]
+            compress = false [
+                remove find to-value select header 'options 'compress
+            ]
+            not block? select header 'options [
+                append header compose [options: (copy [compress])]
+            ]
+            not find header/options 'compress [
+                append header/options 'compress
             ]
         ]
 
         if length [
-            ; any truthy value will work, but this uses #[true].
-            ;
-            append header-data compose [length: (true)]
+            append header compose [
+                length: (true)  ; "uses #[true], any truthy value will work"
+            ]
         ]
 
-        compress: did find try (select header-data 'options) 'compress
-        if not compress [
-            method: _
-        ]
-
-        length: ensure [integer! blank!] try select header-data 'length
-        header-data: body-of header-data
+        length: ensure [integer! blank!] try select header 'length
+        header: body-of header
     ]
 
     ; !!! Maybe /all should be the default?  See #2159
@@ -119,11 +105,10 @@ save: function [
         mold/only :value
     ]
 
-    ; mold does not append a newline? Nope.
-    append data newline
+    append data newline  ; MOLD does not append a newline
 
     case/all [
-        tmp: find header-data 'checksum [
+        tmp: find header 'checksum [
             ; Checksum uncompressed data, if requested
             change next tmp checksum/secure data: to-binary data
         ]
@@ -133,7 +118,7 @@ save: function [
             data: gzip data
         ]
 
-        method = 'script [
+        compress = 'script [
             data: mold64 data  ; File content is encoded as base-64
         ]
 
@@ -142,18 +127,17 @@ save: function [
         ]
 
         length [
-            change find/tail header-data 'length (length of data)
+            change find/tail header 'length (length of data)
         ]
 
-        header-data [
-            insert data unspaced [{REBOL} space (mold header-data) newline]
+        header [
+            insert data unspaced [{REBOL} space (mold header) newline]
         ]
     ]
 
     case [
         file? where [
-            ; WRITE converts to UTF-8, saves overhead
-            write where data
+            write where data  ; "WRITE converts to UTF-8, saves overhead" (?)
         ]
 
         url? where [
@@ -163,11 +147,9 @@ save: function [
         ]
 
         blank? where [
-            ; just return the UTF-8 binary
-            data
+            data  ; just return the UTF-8 binary
         ]
     ] else [
-        ; text! or binary!, insert data
-        insert tail of where data
+        insert tail of where data  ; text! or binary!, insert data
     ]
 ]

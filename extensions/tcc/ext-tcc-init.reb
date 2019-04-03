@@ -45,15 +45,14 @@ compile: function [
 
     return: <void>
     compilables "Functions from MAKE-NATIVE, TEXT! strings of code, ..."
-    /with
-    settings [block!] {
+    /settings [block!] {
         The block supports the following dialect:
             options [text!]
             include-path [block! file! text!]
             library-path [block! file! text!]
             library [block! file! text!]
             runtime-path [file! text!]
-            debug [word! logic!] ;; currently unimplemented
+            debug [word! logic!]  ; !!! currently unimplemented
     }
     /inspect "Return the C source code as text, but don't compile it"
 ][
@@ -67,9 +66,10 @@ compile: function [
         fail ["COMPILABLES must have at least one element"]
     ]
 
-    ; !!! BLOCK! is preprocessed into an OBJECT! for COMPILE*.  It would be
-    ; difficult to check a passed-in object for validity as well as add to
-    ; it when needed: https://github.com/rebol/rebol-issues/issues/2334
+    ; !!! `settings` BLOCK! is preprocessed into a `config` OBJECT! for
+    ; COMPILE*.  It's difficult to check a passed-in object for validity as
+    ; well as add to it when needed:
+    ; https://github.com/rebol/rebol-issues/issues/2334
 
     settings: default [[]]
     config: make object! [

@@ -104,11 +104,11 @@ bool osDialogOpen = false;
 //      /save "File save mode"
 //      /multi "Allows multiple file selection, returned as a block"
 //      /file "Default file name or directory"
-//      name [file!]
+//          [file!]
 //      /title "Window title"
-//      text [text!]
+//          [text!]
 //      /filter "Block of filters (filter-name filter)"
-//      list [block!]
+//          [block!]
 //  ]
 //
 REBNATIVE(request_file_p)
@@ -539,12 +539,10 @@ int CALLBACK ReqDirCallbackProc(
 //
 //  "Asks user to select a directory and returns it as file path"
 //
-//      /title
-//          "Custom dialog title text"
-//      text [text!]
-//      /path
-//          "Default directory path"
-//      dir [file!]
+//      /title "Custom dialog title text"
+//          [text!]
+//      /path "Default directory path"
+//          [file!]
 //  ]
 //
 REBNATIVE(request_dir_p)

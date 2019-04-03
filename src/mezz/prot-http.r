@@ -167,47 +167,12 @@ http-awake: function [return: [logic!] event [event!]] [
 make-http-error: func [
     {Make an error for the HTTP protocol}
 
-    msg [text! block!]
-    /inf obj
-    /otherhost new-url [url!] headers
-] [
-    ; cannot call it "message" because message is the error template.  :-/
-    ; hence when the error is created it has message defined as blank, and
-    ; you have to overwrite it if you're doing a custom template, e.g.
-    ;
-    ;     make error! [message: ["the" :animal "has claws"] animal: "cat"]
-    ;
-    ; A less keyword-y solution is being pursued, however this error template
-    ; name of "message" existed before.  It's just that the object creation
-    ; with derived fields in the usual way wasn't working, so you didn't
-    ; know.  Once it was fixed, the `message` variable name here caused
-    ; a conflict where the error had no message.
-
-    if block? msg [msg: unspaced msg]
-    case [
-        inf [
-            make error! [
-                type: 'Access
-                id: 'Protocol
-                arg1: msg
-                arg2: obj
-            ]
-        ]
-        otherhost [
-            make error! [
-                type: 'Access
-                id: 'Protocol
-                arg1: msg
-                arg2: headers
-                arg3: new-url
-            ]
-        ]
-    ] else [
-        make error! [
-            type: 'Access
-            id: 'Protocol
-            arg1: msg
-        ]
+    message [text! block!]
+][
+    make error! compose [
+        type: 'Access
+        id: 'Protocol
+        arg1: (unspaced message)  ; ERROR! has a `message` field, must COMPOSE
     ]
 ]
 
@@ -453,8 +418,12 @@ check-response: function [port] [
                 ] also [
                     res: do-redirect port headers/location headers
                 ] else [
-                    (state/error: make-http-error/inf
-                        "Redirect requires manual intervention" info)
+                    state/error: make error! [
+                        type: 'Access
+                        id: 'Protocol
+                        arg1: "Redirect requires manual intervention"
+                        arg2: info
+                    ]
                     res: awake make event! [type: 'error port: port]
                 ]
             ]
@@ -568,9 +537,16 @@ do-redirect: func [
         false
     ]
     else [
-        state/error: make-http-error/otherhost
-            "Redirect to other host - requires custom handling"
-            as url! unspaced [new-uri/scheme "://" new-uri/host new-uri/path] headers
+        state/error: make error! [
+            type: 'Access
+            id: 'Protocol
+            arg1: "Redirect to other host - requires custom handling"
+            arg2: headers
+            arg3: as url! unspaced [
+                new-uri/scheme "://" new-uri/host new-uri/path
+            ]
+        ]
+
         state/awake make event! [type: 'error port: port]
     ]
 ]

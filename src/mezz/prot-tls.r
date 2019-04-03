@@ -369,18 +369,18 @@ update-write-state: specialize 'update-state [
 client-hello: function [
     return: <void>
     ctx [object!]
-    /version "TLS version to request (default is minimum 1.0, maximum 1.2)"
-    ver "If block, lowest and highest version to allow"
+    /version "TLS version to request (block is [lowest highest] allowed)"
         [decimal! block!]
 ][
+    version: default [[1.0 1.2]]
+
     set [ctx/min-version: ctx/max-version:] case [
-        not set? 'ver [[1.0 1.2]]
-        decimal? ver [reduce [ver ver]]
-        block? ver [
-            parse ver [decimal! decimal! end] else [
+        decimal? version [reduce [version version]]
+        block? version [
+            parse version [decimal! decimal! end] else [
                 fail "BLOCK! /VERSION must be two DECIMAL! (min ver, max ver)"
             ]
-            ver
+            version
         ]
     ]
     min-ver-bytes: select version-to-bytes ctx/min-version else [
@@ -722,9 +722,9 @@ encrypt-data: function [
     ctx [object!]
     content [binary!]
     /type
-    msg-type [binary!] "application data is default"
+        [binary!] "application data is default"
 ][
-    msg-type: default [#{17}] ;-- #application
+    type: default [#{17}] ;-- #application
 
     ; GenericBlockCipher: https://tools.ietf.org/html/rfc5246#section-6.2.3.2
 
@@ -747,7 +747,7 @@ encrypt-data: function [
     ;
     MAC: checksum/method/key join-all [
         to-bin ctx/seq-num-w 8              ; sequence number (64-bit int)
-        msg-type                            ; msg type
+        type                                ; msg type
         ctx/ver-bytes                       ; version
         to-bin length of content 2          ; msg content length
         content                             ; msg content

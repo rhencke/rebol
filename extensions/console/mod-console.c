@@ -241,12 +241,11 @@ static REBVAL *Run_Sandboxed_Group(REBVAL *group) {
 //
 //  export console: native [
 //
-//  {Runs an instance of a customizable Read-Eval-Print Loop}
+//  {Runs customizable Read-Eval-Print Loop, may "provoke" code before input}
 //
 //      return: "Integer if QUIT result, path if RESUME instruction"
 //          [integer! path!]
-//      /provoke "Give the console some code to run before taking user input"
-//      provocation "Block must return a console state, group is cancellable"
+//      /provoke "Block must return a console state, group is cancellable"
 //          [block! group!]
 //      /resumable "Allow RESUME instruction (will return a PATH!)"
 //  ]
@@ -440,14 +439,10 @@ enum {
 //
 //  {Resume after a breakpoint, can evaluate code in the breaking context.}
 //
-//      /with
-//          "Return the given value as return value from BREAKPOINT"
-//      value [any-value!]
-//          "Value to use"
-//      /do
-//          "Evaluate given code as return value from BREAKPOINT"
-//      code [block!]
-//          "Code to evaluate"
+//      /with "Return the given value as return value from BREAKPOINT"
+//          [any-value!]
+//      /do "Evaluate given code as return value from BREAKPOINT"
+//          [block!]
 //  ]
 //
 REBNATIVE(resume)

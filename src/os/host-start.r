@@ -343,20 +343,25 @@ host-start: function [
         load-extension collation
     ]
 
-    ; helper functions
-    ;
+    === HELPER FUNCTIONS ===
+
     die: func [
         {A graceful way to "FAIL" during startup}
-        reason [text! block!]
-            {Error message}
-        /error e [error!]
-            {Error object, shown if --verbose option used}
+
+        reason "Error message"
+            [text! block!]
+        /error "Error object, shown if --verbose option used"
+            [error!]
         <with> return
     ][
         print "Startup encountered an error!"
         print ["**" if block? reason [spaced reason] else [reason]]
         if error [
-            print either o/verbose [[e]] ["!! use --verbose for more detail"]
+            print either o/verbose [
+                [error]
+            ][
+                "!! use --verbose for more detail"
+            ]
         ]
         return <die>
     ]

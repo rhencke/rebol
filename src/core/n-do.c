@@ -254,23 +254,21 @@ REBNATIVE(shove)
 //
 //      return: [<opt> any-value!]
 //      source [
-//          <blank> ;-- opts out of the DO, returns null
-//          block! ;-- source code in block form
-//          group! ;-- same as block (or should it have some other nuance?)
-//          text! ;-- source code in text form
-//          binary! ;-- treated as UTF-8
-//          url! ;-- load code from URL via protocol
-//          file! ;-- load code from file on local disk
-//          tag! ;-- module name (URL! looked up from table)
-//          error! ;-- should use FAIL instead
-//          action! ;-- will only run arity 0 actions (avoids DO variadic)
-//          frame! ;-- acts like APPLY (voids are optionals, not unspecialized)
-//          varargs! ;-- simulates as if frame! or block! is being executed
+//          <blank>  ; opts out of the DO, returns null
+//          block!  ; source code in block form
+//          group!  ; same as block (or should it have some other nuance?)
+//          text!  ; source code in text form
+//          binary!  ; treated as UTF-8
+//          url!  ; load code from URL via protocol
+//          file!  ; load code from file on local disk
+//          tag!  ; module name (URL! looked up from table)
+//          error!  ; should use FAIL instead
+//          action!  ; will only run arity 0 actions (avoids DO variadic)
+//          frame!  ; acts like APPLY (voids are optionals, not unspecialized)
+//          varargs!  ; simulates as if frame! or block! is being executed
 //      ]
-//      /args
-//          {If value is a script, this will set its system/script/args}
-//      arg
-//          "Args passed to a script (normally a string)"
+//      /args "Sets system/script/args if doing a script (usually a TEXT!)"
+//          [any-value!]
 //      /only "Don't catch QUIT (default behavior for BLOCK!)"
 //  ]
 //
@@ -486,8 +484,7 @@ REBNATIVE(do)
 //          varargs!  ; simulates as if frame! or block! is being executed
 //      ]
 //      /set "Store result in a variable (assuming something was evaluated)"
-//      var [any-word!]
-//          "If not blank, then a variable updated with new position"
+//          [any-word!]
 //  ]
 //
 REBNATIVE(evaluate)
@@ -630,7 +627,6 @@ REBNATIVE(sync_invisibles)
 //      restartee "Frame to restart, or bound word (e.g. REDO 'RETURN)"
 //          [frame! any-word!]
 //      /other "Restart in a frame-compatible function (sibling tail-call)"
-//      sibling "Action derived from the same underlying frame as restartee"
 //          [action!]
 //  ]
 //
