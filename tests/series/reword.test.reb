@@ -9,7 +9,7 @@
     "BrianH is answering Adrian." = reword/escape "I am answering you." [
         "I am" "BrianH is"
         you "Adrian"
-    ] blank
+    ] ""
 )(
     "Hello is Goodbye" = reword/escape "$$$a$$$ is $$$b$$$" [
        a Hello

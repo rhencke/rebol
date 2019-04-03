@@ -117,7 +117,7 @@
 [#145 (
     test-block: [a b c d e f]
     set 'f func [
-        /local buff
+        <local> buff
     ][
         buff: copy ""
         for-each val test-block [

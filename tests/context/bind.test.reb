@@ -20,7 +20,7 @@
 ; BIND works 'as expected' in function body
 [#1549 (
     b1: [self]
-    f: func [/local b2] [
+    f: func [<local> b2] [
         b2: [self]
         same? first b2 first bind/copy b1 'b2
     ]

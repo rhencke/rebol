@@ -114,7 +114,7 @@ make object! compose [
         flags [block!] {which flags to accept}
         code-checksum [binary! blank!]
         log-file-prefix [file!]
-        /local interpreter last-vector value position next-position
+        <local> interpreter last-vector value position next-position
         test-sources test-checksum guard
     ] [
         allowed-flags: flags

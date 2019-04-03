@@ -325,13 +325,11 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
     f->arg = FRM_ARGS_HEAD(f);
     f->special = ACT_SPECIALTY_HEAD(FRM_PHASE(f));
 
-    bool ignoring = false;
-
     for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
-        if (Is_Param_Hidden(f->param))
-            continue; // !!! is this still relevant?
-        if (GET_CELL_FLAG(f->special, ARG_MARKED_CHECKED))
-            continue; // a parameter that was "specialized out" of this phase
+        if (Is_Param_Hidden(f->param)) {  // specialized-out parameter
+            assert(GET_CELL_FLAG(f->special, ARG_MARKED_CHECKED));
+            continue;
+        }
 
         Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
 
@@ -343,19 +341,16 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
         }
 
         if (TYPE_CHECK(f->param, REB_TS_REFINEMENT)) {
-            if (IS_BLANK(f->arg)) {
-                ignoring = true; // don't add to PATH!
+            if (IS_BLANK(f->arg))  // don't add to PATH!
+                continue;
+
+            Init_Word(DS_PUSH(), VAL_PARAM_SPELLING(f->param));
+
+            if (Is_Typeset_Invisible(f->param)) {
+                assert(IS_REFINEMENT(f->arg));  // used but argless refinement
                 continue;
             }
-
-            assert(IS_REFINEMENT(f->arg));
-            ignoring = false;
-            Init_Word(DS_PUSH(), VAL_PARAM_SPELLING(f->param));
-            continue;
         }
-
-        if (ignoring)
-            continue;
 
         // The arguments were already evaluated to put them in the frame, do
         // not evaluate them again.

@@ -319,7 +319,7 @@
 )
 [#19 ; but duplicate specializations currently not legal in Ren-C
     (
-    f: func [/r x] [x]
+    f: func [/r [integer!]] [x]
     error? trap [2 == f/r/r 1 2]
     )
 ]
@@ -371,17 +371,17 @@
     n: 20
 
     f: function [
-        /count
-        n (2)
+        /count [integer!]
         <in> o1 o1/o2
         <with> outer
         <static> static (10 + n)
     ][
-        data: reduce [n x y outer static]
+        count: default [2]
+        data: reduce [count x y outer static]
         return case [
-            n = 0 [reduce [data]]
+            count = 0 [reduce [data]]
             true [
-               append/only (f/count n - 1) data
+               append/only (f/count count - 1) data
             ]
         ]
     ]
@@ -409,7 +409,7 @@
 
 ; /LOCAL is an ordinary refinement in Ren-C
 (
-    a-value: func [/local a] [a]
+    a-value: func [/local [integer!]] [local]
     1 == a-value/local 1
 )
 

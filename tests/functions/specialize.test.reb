@@ -6,29 +6,30 @@
 ;     specialize 'append/dup/part []
 ;     :append/dup/part
 
-(
-    foo: func [/A aa /B bb /C cc] [
-        return compose [
-            (opt A) (:aa) (opt B) (:bb) (opt C) (:cc)
+[
+    (
+        foo: func [/A [integer!] /B [integer!] /C [integer!]] [
+            return compose [
+                /A (A) /B (B) /C (C)
+            ]
         ]
-    ]
 
-    fooBC: :foo/B/C
-    fooCB: :foo/C/B
+        fooBC: :foo/B/C
+        fooCB: :foo/C/B
+        true
+    )
 
-    did all [
-        [/B 10 /C 20] = fooBC 10 20
-        [/A 30 /B 10 /C 20] = fooBC/A 10 20 30
+    ([/A _ /B 10 /C 20] = fooBC 10 20)
+    ([/A 30 /B 10 /C 20] = fooBC/A 10 20 30)
 
-        [/B 20 /C 10] = fooCB 10 20
-        [/A 30 /B 20 /C 10] = fooCB/A 10 20 30
+    ([/A _ /B 20 /C 10] = fooCB 10 20)
+    ([/A 30 /B 20 /C 10] = fooCB/A 10 20 30)
 
-        error? trap [fooBC/B 1 2 3 4 5 6]
-        error? trap [fooBC/C 1 2 3 4 5 6]
-        error? trap [fooCB/B 1 2 3 4 5 6]
-        error? trap [fooCB/C 1 2 3 4 5 6]
-    ]
-)
+    (error? trap [fooBC/B 1 2 3 4 5 6])
+    (error? trap [fooBC/C 1 2 3 4 5 6])
+    (error? trap [fooCB/B 1 2 3 4 5 6])
+    (error? trap [fooCB/C 1 2 3 4 5 6])
+]
 
 (
     append-123: specialize :append [value: [1 2 3] only: true]
@@ -36,14 +37,16 @@
 )
 (
     append-123: specialize :append [value: [1 2 3] only: true]
-    append-123-twice: specialize :append-123 [dup: true count: 2]
+    append-123-twice: specialize :append-123 [dup: 2]
     [a b c [1 2 3] [1 2 3]] = append-123-twice copy [a b c]
 )
 (
     append-10: specialize 'append [value: 10]
     f: make frame! :append-10
     f/series: copy [a b c]
-    do copy f ;-- COPY before DO allows reuse of F, only the copy is "stolen"
+
+    comment {COPY before DO allows reuse of F, only the copy is "stolen"}
+    do copy f
     [a b c 10 10] = do f
 )
 (
@@ -61,50 +64,54 @@
     foo = 5
 )
 
-(
-    apd: specialize 'append/part [dup: true]
-    apd3: specialize 'apd [count: 3]
-    ap2d: specialize 'apd [limit: 2]
+[
+    (
+        apd: :append/part/dup
+        apd3: specialize 'apd [dup: 3]
+        ap2d: specialize 'apd [part: 2]
 
-    xy: [<X> #Y]
-    abc: [A B C]
-    r: [<X> #Y A B A B A B]
+        xy: [<X> #Y]
+        abc: [A B C]
+        r: [<X> #Y A B A B A B]
+        true
+    )
 
-    did all [
-        | r = apd copy xy abc 2 3
-        | r = applique 'apd [series: copy xy | value: abc | limit: 2 | count: 3]
-        |
-        | r = apd3 copy xy abc 2
-        | r = applique 'apd3 [series: copy xy | value: abc | limit: 2]
-        |
-        | r = ap2d copy xy abc 3
-        | r = applique 'ap2d [series: copy xy | value: abc | count: 3]
-    ]
-)(
-    adp: specialize 'append/dup [part: true]
-    adp2: specialize 'adp [limit: 2]
-    ad3p: specialize 'adp [count: 3]
+    (r = apd copy xy abc 2 3)
+    (r = applique 'apd [series: copy xy | value: abc | part: 2 | dup: 3])
 
-    xy: [<X> #Y]
-    abc: [A B C]
-    r: [<X> #Y A B A B A B]
+    (r = apd3 copy xy abc 2)
+    (r = applique 'apd3 [series: copy xy | value: abc | part: 2])
 
-    did all [
-        | r = adp copy xy abc 3 2
-        | r = applique 'adp [series: copy xy | value: abc | count: 3 | limit: 2]
-        |
-        | r = adp2 copy xy abc 3
-        | r = applique 'adp2 [series: copy xy | value: abc | count: 3]
-        |
-        | r = ad3p copy xy abc 2
-        | r = applique 'ad3p [series: copy xy | value: abc | limit: 2]
-    ]
-)
+    (r = ap2d copy xy abc 3)
+    (r = applique 'ap2d [series: copy xy | value: abc | dup: 3])
+]
+
+[
+    (
+        adp: :append/dup/part
+        adp2: specialize 'adp [part: 2]
+        ad3p: specialize 'adp [dup: 3]
+
+        xy: [<X> #Y]
+        abc: [A B C]
+        r: [<X> #Y A B A B A B]
+        true
+    )
+
+    (r = adp copy xy abc 3 2)
+    (r = applique 'adp [series: copy xy | value: abc | dup: 3 | part: 2])
+
+    (r = adp2 copy xy abc 3)
+    (r = applique 'adp2 [series: copy xy | value: abc | dup: 3])
+
+    (r = ad3p copy xy abc 2)
+    (r = applique 'ad3p [series: copy xy | value: abc | part: 2])
+]
 
 (
     aopd3: specialize lit (specialize 'append/only [])/part [
-        count: 3
-        limit: 1
+        dup: 3
+        part: 1
     ]
 
     r: [a b c [d e] [d e] [d e]]
@@ -136,7 +143,7 @@
     f/series: copy [a b c]
     did all [
         [a b c 10] = do copy f
-        f/count: 2
+        f/dup: 2
         [a b c 10 10 10] = do f
     ]
 )
@@ -144,19 +151,22 @@
 ; Partial specialization can do some complex reordering of argument gathering,
 ; which the evaluator needs to accomodate with backwards quoting skippables
 ; and other enfix situations.
-(
-    foo: function [/a aa /b :bb [<skip> word!]] [
-        reduce [a (:aa else '<null>) b (:bb else '<null>)]
-    ]
-    foob: enfix :foo/b
-    did all [
-        [_ <null> /b word] = (word foob |)
-        [_ <null> _ <null>] = (<not a word> foob |)
-        [/a 20 /b word] = (word <- foob/a 20)
-        comment [
-            {Currently SHOVE and <skip> don't work together, maybe shouldn't}
-            https://github.com/metaeducation/ren-c/issues/909
-            [/a 20 _ <null>] = (<not a word> <- foob/a 20)
+[
+    (
+        foo: function [/A [integer!] :/B [<skip> word!]] [
+            reduce [/A (A) /B (B)]
         ]
-    ]
-)
+        foob: enfix :foo/b
+        true
+    )
+
+    ([/A _ /B word] = (word foob |))
+    ([/A _ /B _] = (<not a word> foob |))
+    ([/A 20 /B word] = (word <- foob/a 20))
+
+    (comment [
+        {Currently SHOVE and <skip> don't work together, maybe shouldn't}
+        https://github.com/metaeducation/ren-c/issues/909
+        [/A 20 /B _] = (<not a word> <- foob/a 20)
+    ] true)
+]

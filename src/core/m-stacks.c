@@ -130,7 +130,6 @@ void Startup_Frame_Stack(void)
     Begin_Action(f, opt_label);
     assert(IS_END(f->arg));
     f->param = END_NODE; // signal all arguments gathered
-    assert(f->refine == ORDINARY_ARG); // Begin_Action() sets
     f->arg = m_cast(REBVAL*, END_NODE);
     f->special = END_NODE;
 

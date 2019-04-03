@@ -217,7 +217,6 @@ void Eval_Core_Expression_Checks_Debug(REBFRM *f)
     TRASH_POINTER_IF_DEBUG(f->param);
     TRASH_POINTER_IF_DEBUG(f->arg);
     TRASH_POINTER_IF_DEBUG(f->special);
-    TRASH_POINTER_IF_DEBUG(f->refine);
 
     assert(not f->varlist or NOT_SERIES_INFO(f->varlist, INACCESSIBLE));
 
@@ -245,7 +244,6 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
 
     assert(GET_ARRAY_FLAG(ACT_PARAMLIST(phase), IS_PARAMLIST));
 
-    assert(f->refine == ORDINARY_ARG);
     if (NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT)) {
         if (NOT_CELL_FLAG(f->out, OUT_MARKED_STALE))
             assert(GET_ACTION_FLAG(phase, IS_INVISIBLE));

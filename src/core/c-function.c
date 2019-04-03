@@ -381,7 +381,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             spelling = VAL_WORD_SPELLING(item);
 
             if (refinement_seen and mode == SPEC_MODE_NORMAL)
-                PROBE(spec);
+                fail (Error_Legacy_Refinement_Raw(spec));
 
             pclass = (mode == SPEC_MODE_LOCAL)
                 ? REB_P_LOCAL

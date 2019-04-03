@@ -230,7 +230,6 @@ static bool Subparse_Throws(
 
     f->param = END_NODE; // informs infix lookahead
     f->arg = m_cast(REBVAL*, END_NODE);
-    assert(f->refine == ORDINARY_ARG); // Begin_Action() sets
     f->special = END_NODE;
 
     Derelativize(Prep_Stack_Cell(P_INPUT_VALUE), input, input_specifier);

@@ -151,11 +151,11 @@ Script: [
     no-refine:          [:arg1 {has no refinement called} :arg2]
     bad-refines:        {incompatible or invalid refinements}
     bad-refine:         [{incompatible or duplicate refinement:} :arg1]
-    argument-revoked:   [:arg1 {refinement revoked, cannot supply} :arg2]
-    bad-refine-revoke:  [:arg1 {refinement in use, can't be revoked by} :arg2]
     non-logic-refine:   [:arg1 {refinement must be LOGIC!, not} :arg2]
-    refinement-arg-opt: [{refinement arguments cannot be <opt>}]
-    ambiguous-partial:  {Ambiguous partial (try SPECIALIZE-ing a PATH!)}
+    legacy-refinement:  [
+                            {Refinements now act as their own args.  See}
+                            {https://trello.com/c/DaVz9GG3 - spec was} :arg1
+                        ]
 
     bad-field-set:      [{cannot set} :arg1 {field to} :arg2 {datatype}]
     bad-path-pick:      [{cannot pick} :arg1 {in path}]

@@ -120,7 +120,7 @@
     1 == obj/fun
 )
 (
-    obj: make object! [fun: func [/ref val] [val]]
+    obj: make object! [fun: func [/ref [integer!]] [ref]]
     1 == obj/fun/ref 1
 )
 ; calling functions through paths: function in block, positional

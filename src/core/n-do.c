@@ -744,7 +744,7 @@ REBNATIVE(applique)
     //
     struct Reb_Binder binder;
     INIT_BINDER(&binder);
-    REBCTX *exemplar = Make_Context_For_Action_Int_Partials(
+    REBCTX *exemplar = Make_Context_For_Action_Push_Partials(
         applicand,
         f->dsp_orig, // lowest_ordered_dsp of refinements to weave in
         &binder,

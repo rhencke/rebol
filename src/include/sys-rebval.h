@@ -178,6 +178,8 @@
 //
 #define CELL_FLAG_ENFIXED \
     FLAG_LEFT_BIT(20)
+#define CELL_FLAG_PUSH_PARTIAL \
+    FLAG_LEFT_BIT(20)
 
 
 //=//// CELL_FLAG_NEWLINE_BEFORE //////////////////////////////////////////=//
@@ -348,11 +350,6 @@ struct Reb_Typeset_Extra  // see %sys-typeset.h
     uint_fast32_t high_bits;  // 64 typeflags, can't all fit in payload second
 };
 
-struct Reb_Partial_Extra  // see %c-specialize.c (used with REB_X_PARTIAL)
-{
-    REBVAL *next;  // links to next potential partial refinement arg
-};
-
 union Reb_Any {  // needed to beat strict aliasing, used in payload
     bool flag;  // "wasteful" to just use for one flag, but fast to read/write
 
@@ -395,7 +392,6 @@ union Reb_Value_Extra { //=/////////////////// ACTUAL EXTRA DEFINITION ////=//
     struct Reb_Datatype_Extra Datatype;
     struct Reb_Date_Extra Date;
     struct Reb_Typeset_Extra Typeset;
-    struct Reb_Partial_Extra Partial;
 
     union Reb_Any Any;
     union Reb_Bytes_Extra Bytes;
@@ -460,12 +456,6 @@ struct Reb_Any_Payload  // generic, for adding payloads after-the-fact
     union Reb_Any second;
 };
 
-struct Reb_Partial_Payload  // see %c-specialize.c (used w/REB_X_PARTIAL)
-{
-    REBDSP dsp;  // the DSP of this partial slot (if ordered on the stack)
-    REBINT signed_index;  // index in the paramlist, negative if not "in use"
-};
-
 struct Reb_Bookmark_Payload {   // see %sys-string.h (used w/REB_X_BOOKMARK)
     REBCNT index;
     REBSIZ offset;
@@ -527,7 +517,6 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     struct Reb_Decimal_Payload Decimal;
     struct Reb_Time_Payload Time;
 
-    struct Reb_Partial_Payload Partial;  // internal (see REB_X_PARTIAL)
     struct Reb_Bookmark_Payload Bookmark;  // internal (see REB_X_BOOKMARK)
 
     union Reb_Bytes_Payload Bytes;

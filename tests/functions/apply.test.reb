@@ -4,8 +4,7 @@
     s: applique :append [
         series: [a b c]
         value: [d e]
-        dup: true
-        count: 2
+        dup: 2
     ]
     s = [a b c d e d e]
 )

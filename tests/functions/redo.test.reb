@@ -69,25 +69,25 @@
             return <success>
         ]
         n: 0
-        redo 'n ;-- should redo INNER, not outer
+        redo 'n  comment {should redo INNER, not outer}
     ]
 
     outer: adapt 'inner [
         if n = 0 [
             return "outer phase run by redo"
         ]
-        ;-- fall through to inner, using same frame
+        comment {fall through to inner, using same frame}
     ]
 
     <success> = outer 1
 )
 (
-    inner: func [n /captured-frame f] [
+    inner: func [n /captured-frame [frame!]] [
         if n = 0 [
            return "inner phase run by redo"
         ]
         n: 0
-        redo f ;-- should redo OUTER, not INNER
+        redo captured-frame  comment {should redo OUTER, not INNER}
     ]
 
     outer: adapt 'inner [
@@ -95,12 +95,13 @@
             return <success>
         ]
 
-        f: binding of 'n
-        captured-frame: true
+        captured-frame: binding of 'n
 
-        ;-- fall through to inner
-        ;-- it is running in the same frame's memory, but...
-        ;-- F is a FRAME! value that stowed outer's "phase"
+        comment {
+            Fall through to inner
+            It is running in the same frame's memory, but...
+            CAPURED-FRAME is a FRAME! value that stowed outer's "phase"
+        }
     ]
 
     <success> = outer 1
@@ -162,17 +163,17 @@
 ; a tag and signals success.
 (
     log: (
-        func ['x] [] ;-- no-op
-        elide (:dump) ;-- un-elide to get output
+        func ['x] []  comment {no-op}
+        elide (:dump)  comment {un-elide to get output}
     )
 
-    base: func [n delta /captured-frame f [frame!]] [
+    base: func [n delta /captured-frame [frame!]] [
         log [{BASE} n delta]
 
         n: n - delta
         if n < 0 [return "base less than zero"]
         if n = 0 [return "base done"]
-        if captured-frame [redo f]
+        if captured-frame [redo captured-frame]
         return "base got no frame"
     ]
 
@@ -180,11 +181,10 @@
         adapt 'base [
            log [{C} n delta]
 
-           f: binding of 'n
-           captured-frame: true
+           captured-frame: binding of 'n
            redo/other 'n :s
 
-           ;-- fall through to base
+           comment {fall through to base}
         ]
             |
         func [x] [

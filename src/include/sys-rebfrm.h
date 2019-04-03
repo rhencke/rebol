@@ -690,26 +690,6 @@ struct Reb_Frame {
     //
     const REBVAL *special;
 
-    // `refine` has many potential states during parameter fulfillment, that
-    // explain what the state of refinement processing is.  One state is that
-    // it might point to the `arg` slot of a refinement to be processed.  Or
-    // it may point to another *read-only* value whose content signals
-    // information about how arguments should be handled.
-    //
-    // See comments at the points of definition for:
-    //
-    //     SKIPPING_REFINEMENT_ARGS
-    //     ARG_TO_UNUSED_REFINEMENT
-    //     ARG_TO_IRREVOCABLE_REFINEMENT
-    //     ARG_TO_REVOKED_REFINEMENT
-    //     ORDINARY_ARG
-    //
-    // In path processing, ->refine points to the soft-quoted product of the
-    // current path item (the "picker").  So on the second step of processing
-    // foo/(1 + 2) it would be 3.
-    //
-    REBVAL *refine;
-
     REBCNT requotes; // negative means null result should be requoted
 
   union {
@@ -778,69 +758,6 @@ struct Reb_Frame {
 // the boolean result only tells you whether or not it threw.
 //
 typedef bool (*REBEVL)(REBFRM * const);
-
-
-//=//// SPECIAL VALUE MODES FOR (REBFRM*)->REFINE /////////////////////////=//
-//
-// f->refine is a bit tricky.  If it IS_LOGIC() and TRUE, then this means that
-// a refinement is active but revokable, having its arguments gathered.  So
-// it actually points to the f->arg of the active refinement slot.  If
-// evaluation of an argument in this state produces no value, the refinement
-// must be revoked, and its value mutated to be FALSE.
-//
-// But all the other values that f->refine can hold are read-only pointers
-// that signal something about the argument gathering state:
-//
-// * If NULL, then refinements are being skipped, and the following arguments
-//   should not be written to.
-//
-// * If FALSE_VALUE, this is an arg to a refinement that was not used in
-//   the invocation.  No consumption should be performed, arguments should
-//   be written as unset, and any non-unset specializations of arguments
-//   should trigger an error.
-//
-// * If BLANK_VALUE, this is an arg to a refinement that was used in the
-//   invocation but has been *revoked*.  It still consumes expressions
-//   from the callsite for each remaining argument, but those expressions
-//   must not evaluate to any value.
-//
-// * If EMPTY_BLOCK, it's an ordinary arg...and not a refinement.  It will
-//   be evaluated normally but is not involved with revocation.
-//
-// * If EMPTY_TEXT, the evaluator's next argument fulfillment is the
-//   left-hand argument of a lookback operation.  After that fulfillment,
-//   it will be transitioned to EMPTY_BLOCK.
-//
-// Because of how this lays out, IS_TRUTHY() can be used to determine if an
-// argument should be type checked normally...while IS_FALSEY() means that the
-// arg's bits must be set to null.  Since the skipping-refinement-args case
-// doesn't write to arguments at all, it doesn't get to the point where the
-// decision of type checking needs to be made...so using C's nullptr for that
-// means the comparison is a little bit faster.
-//
-// These special values are all pointers to read-only cells, but are cast to
-// mutable in order to be held in the same pointer that might write to a
-// refinement to revoke it.  Note that since literal pointers are used, tests
-// like `f->refine == BLANK_VALUE` are faster than `IS_BLANK(f->refine)`.
-//
-// !!! ^-- While that's presumably true, it would be worth testing if a
-// dereference of the single byte via VAL_TYPE() is ever faster.
-//
-
-#define SKIPPING_REFINEMENT_ARGS \
-    nullptr // 0 pointer comparison generally faster than to arbitrary pointer
-
-#define ARG_TO_UNUSED_REFINEMENT \
-    m_cast(REBVAL*, FALSE_VALUE)
-
-#define ARG_TO_IRREVOCABLE_REFINEMENT \
-    m_cast(REBVAL*, TRUE_VALUE)
-
-#define ARG_TO_REVOKED_REFINEMENT \
-    m_cast(REBVAL*, BLANK_VALUE)
-
-#define ORDINARY_ARG \
-    m_cast(REBVAL*, EMPTY_BLOCK)
 
 
 #if !defined(DEBUG_CHECK_CASTS)

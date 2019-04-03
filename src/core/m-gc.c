@@ -768,13 +768,10 @@ static void Mark_Frame_Stack_Deep(void)
         if (f->opt_label)
             Queue_Mark_Node_Deep(f->opt_label);  // nullptr if anonymous
 
-        // refine and special can be used to GC protect an arbitrary value
-        // while a function is running, currently.  nullptr is permitted as
-        // well for flexibility (e.g. path frames use nullptr to indicate no
-        // set value on a path)
+        // special can be used to GC protect an arbitrary value while a
+        // function is running, currently.  nullptr is permitted as well
+        // (e.g. path frames use nullptr to indicate no set value on a path)
         //
-        if (f->refine)
-            Queue_Mark_Opt_End_Cell_Deep(f->refine);
         if (f->special)
             Queue_Mark_Opt_End_Cell_Deep(f->special);
 

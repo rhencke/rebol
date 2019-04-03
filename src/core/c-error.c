@@ -970,10 +970,15 @@ REBCTX *Error_Need_Non_Null_Core(const RELVAL *target, REBSPC *specifier) {
 //
 //  Error_Non_Logic_Refinement: C
 //
-// Ren-C allows functions to be specialized, such that a function's frame can
-// be filled (or partially filled) by an example frame.  The variables
-// corresponding to refinements must be canonized to either TRUE or FALSE
-// by these specializations, because that's what the called function expects.
+// !!! This error is a placeholder for addressing the issue of using a value
+// to set a refinement that's not a good fit for the refinement type, e.g.
+//
+//     specialize 'append [only: 10]
+//
+// It seems that LOGIC! should be usable, and for purposes of chaining a
+// refinement-style PATH! should be usable too (for using one refinement to
+// trigger another--whether the name is the same or not).  BLANK! has to be
+// legal as well.  But arbitrary values probably should not be.
 //
 REBCTX *Error_Non_Logic_Refinement(const RELVAL *param, const REBVAL *arg) {
     DECLARE_LOCAL (word);
@@ -1145,34 +1150,6 @@ REBCTX *Error_Bad_Func_Def_Core(const RELVAL *item, REBSPC *specifier)
     DECLARE_LOCAL (specific);
     Derelativize(specific, item, specifier);
     return Error_Bad_Func_Def_Raw(specific);
-}
-
-
-//
-//  Error_Bad_Refine_Revoke: C
-//
-// We may have to search for the refinement, so we always do (speed of error
-// creation not considered that relevant to the evaluator, being overshadowed
-// by the error handling).  See the remarks about the state of f->refine in
-// the Reb_Frame definition.
-//
-REBCTX *Error_Bad_Refine_Revoke(const RELVAL *param, const REBVAL *arg)
-{
-    DECLARE_LOCAL (param_name);
-    Init_Word(param_name, VAL_PARAM_SPELLING(param));
-
-    while (not TYPE_CHECK(param, REB_TS_REFINEMENT))
-        --param;
-
-    DECLARE_LOCAL (refine_name);
-    Refinify(Init_Word(refine_name, VAL_PARAM_SPELLING(param)));
-
-    if (IS_NULLED(arg)) // was void and shouldn't have been
-        return Error_Bad_Refine_Revoke_Raw(refine_name, param_name);
-
-    // wasn't void and should have been
-    //
-    return Error_Argument_Revoked_Raw(refine_name, param_name);
 }
 
 

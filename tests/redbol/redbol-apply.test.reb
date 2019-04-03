@@ -30,17 +30,16 @@
     ]
 
     comment [
-        ;
-        ; Too many arguments was not a problem for R3-alpha's APPLY, it
-        ; would evaluate them all even if not used by the function.  It
-        ; may or may not be better to have it be an error.
-        ;
+        {Too many arguments was not a problem for R3-alpha's APPLY, it
+        would evaluate them all even if not used by the function.  It
+        may or may not be better to have it be an error.}
+
         if not tail? block [
             fail "Too many arguments passed in R3-ALPHA-APPLY block."
         ]
     ]
 
-    do frame  ; nulls are optionals
+    do frame  comment {nulls are optionals}
 ])
 
 [#44 (
@@ -57,22 +56,24 @@
 
 (error? redbol-apply :make [error! ""])
 
-(/a = redbol-apply func [/a] [a] [true])
-(_ = redbol-apply func [/a] [a] [false])
+(/a = redbol-apply func [/a] [a] [#[true]])
+(_ = redbol-apply func [/a] [a] [#[false]])
 (_ = redbol-apply func [/a] [a] [])
-(/a = redbol-apply/only func [/a] [a] [true])
+(/a = redbol-apply/only func [/a] [a] [#[true]])
 ; the word 'false
-(/a = redbol-apply/only func [/a] [a] [false])
+(
+    e: trap [/a = redbol-apply/only func [/a] [a] [false]]
+    e/id = 'invalid-type
+)
 (_ == redbol-apply/only func [/a] [a] [])
 (use [a] [a: true /a = redbol-apply func [/a] [a] [a]])
 (use [a] [a: false _ == redbol-apply func [/a] [a] [a]])
-(use [a] [a: false /a = redbol-apply func [/a] [a] ['a]])
 (use [a] [a: false /a = redbol-apply func [/a] [a] [/a]])
-(use [a] [a: false /a = redbol-apply/only func [/a] [a] [a]])
+(use [a] [a: false /a = redbol-apply/only func [/a] [/a] [/a]])
 (group! == redbol-apply/only (specialize 'of [property: 'type]) [()])
-([1] == head of redbol-apply :insert [copy [] [1] blank blank blank])
-([1] == head of redbol-apply :insert [copy [] [1] blank blank false])
-([[1]] == head of redbol-apply :insert [copy [] [1] blank blank true])
+([1] == head of redbol-apply :insert [copy [] [1] blank blank])
+([1] == head of redbol-apply :insert [copy [] [1] blank false])
+([[1]] == head of redbol-apply :insert [copy [] [1] blank true])
 (action! == redbol-apply (specialize 'of [property: 'type]) [:print])
 (get-word! == redbol-apply/only (specialize 'of [property: 'type]) [:print])
 

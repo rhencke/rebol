@@ -132,23 +132,6 @@ REB_R Dispatch_Internal(REBFRM * const f)
     (f->special != f->param and f->special != f->arg)
 
 
-inline static void Revoke_Refinement_Arg(REBFRM *f) {
-    assert(IS_NULLED(f->arg)); // may be "endish nulled"
-    assert(IS_REFINEMENT(f->refine));
-
-    // We can only revoke the refinement if this is the first refinement arg.
-    // If it's a later arg, then the first didn't trigger revocation, or
-    // refine wouldn't be a refinement.
-    //
-    if (f->refine + 1 != f->arg)
-        fail (Error_Bad_Refine_Revoke(f->param, f->arg));
-
-    Init_Blank(f->refine); // can't re-enable...
-    SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
-
-    f->refine = ARG_TO_REVOKED_REFINEMENT;
-}
-
 // It's called "Finalize" because in addition to checking, any other handling
 // that an argument needs once being put into a frame is handled.  VARARGS!,
 // for instance, that may come from an APPLY need to have their linkage
@@ -167,11 +150,6 @@ inline static void Finalize_Arg(REBFRM *f) {
             fail (Error_No_Arg(f, f->param));
 
         Init_Endish_Nulled(f->arg);
-        if (IS_REFINEMENT(f->refine)) {
-            Revoke_Refinement_Arg(f);
-            return;
-        }
-
         SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
         return;
     }
@@ -179,35 +157,6 @@ inline static void Finalize_Arg(REBFRM *f) {
   #if defined(DEBUG_STALE_ARGS) // see notes on flag definition
     assert(NOT_CELL_FLAG(f->arg, ARG_MARKED_CHECKED));
   #endif
-
-    assert(
-        f->refine == ORDINARY_ARG // check arg type
-        or f->refine == ARG_TO_UNUSED_REFINEMENT // ensure arg null
-        or f->refine == ARG_TO_REVOKED_REFINEMENT // ensure arg null
-        or IS_REFINEMENT(f->refine) // ensure arg not null
-    );
-
-    if (kind_byte == REB_NULLED) {
-        if (IS_REFINEMENT(f->refine)) {
-            Revoke_Refinement_Arg(f);
-            return; // don't check for optionality, refinement args always are
-        }
-
-        if (IS_FALSEY(f->refine)) {
-            //
-            // BLANK! means refinement already revoked, null is okay
-            // false means refinement was never in use, so also okay
-            //
-            SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
-            return;
-        }
-
-        assert(f->refine == ORDINARY_ARG); // fall through, check if <opt> ok
-    }
-    else { // argument is set...
-        if (IS_FALSEY(f->refine)) // ...so refinement is not revoked/unused
-            fail (Error_Bad_Refine_Revoke(f->param, f->arg));
-    }
 
     if (
         kind_byte == REB_BLANK
@@ -259,28 +208,15 @@ inline static void Finalize_Arg(REBFRM *f) {
     }
 
     if (TYPE_CHECK(f->param, REB_TS_REFINEMENT)) {
-        if (IS_NULLED(f->arg)) {
-            if (not TYPE_CHECK(f->param, REB_NULLED))
-                Init_Blank(f->arg);
-        }
-        else if (not IS_BLANK(f->arg))
-            goto type_check;
+        Typecheck_Refinement_And_Canonize(f->param, f->arg);
+        return;
     }
-    else {
-      type_check:
-        if (not Typecheck_Including_Quoteds(f->param, f->arg)) {
-            PROBE(f->param);
-            PROBE(f->arg);
-            fail (Error_Arg_Type(f, f->param, VAL_TYPE(f->arg)));
-        }
+
+    if (not Typecheck_Including_Quoteds(f->param, f->arg)) {
+        fail (Error_Arg_Type(f, f->param, VAL_TYPE(f->arg)));
     }
 
     SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
-    if (IS_REFINEMENT(f->refine)) {
-        Move_Value(f->refine, f->arg);
-        Init_Void(f->arg);
-        SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
-    }
 }
 
 
@@ -828,17 +764,39 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
       #endif
 
         assert(DSP >= f->dsp_orig); // path processing may push REFINEMENT!s
-        assert(f->refine == ORDINARY_ARG);
 
         TRASH_POINTER_IF_DEBUG(v); // shouldn't be used below
         TRASH_POINTER_IF_DEBUG(gotten);
 
         assert(NOT_EVAL_FLAG(f, DOING_PICKUPS));
 
-      process_args_for_pickup_or_to_end:
-
         for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
-            Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
+
+    //=//// CONTINUES (AT TOP SO GOTOS DO NOT CROSS INITIALIZATIONS ///////=//
+
+            goto loop_body;  // optimized out
+
+          continue_arg_loop:
+
+            assert(GET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED));
+
+            if (GET_EVAL_FLAG(f, DOING_PICKUPS)) {
+                if (DSP != f->dsp_orig)
+                    goto next_pickup;
+
+                f->param = END_NODE;  // don't need f->param in paramlist
+                goto arg_loop_and_any_pickups_done;
+            }
+            continue;
+
+          skip_this_arg_for_now:  // the GC marks args up through f->arg...
+            
+            Init_Unreadable_Blank(f->arg);  // ...so cell must have valid bits
+            continue;
+
+    //=//// ACTUAL LOOP BODY //////////////////////////////////////////////=//
+
+          loop_body:
 
             // !!! If not an APPLY or a typecheck of existing values, the data
             // array which backs the frame may not have any initialization of
@@ -874,16 +832,12 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
     //=//// A /REFINEMENT ARG /////////////////////////////////////////////=//
 
-            // Refinements are checked first for a reason.  This is to
-            // short-circuit based on EVAL_FLAG_DOING_PICKUPS before redoing
-            // fulfillments on arguments that have already been handled.
-            //
-            // Pickups are needed because the "visitation order" of the
+            // Refinements can be tricky because the "visitation order" of the
             // parameters while walking across the parameter array might not
             // match the "consumption order" of the expressions that need to
             // be fetched from the callsite.  For instance:
             //
-            //     foo: func [aa /b [integer!] /c [integer!]] [...]
+            //     foo: func [a /b [integer!] /c [integer!]] [...]
             //
             //     foo/b/c 10 20 30
             //     foo/c/b 10 20 30
@@ -895,73 +849,29 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             // that they are encountered, then this can be done in one pass.
             // Otherwise a second pass is needed.  But it is accelerated by
             // storing the parameter indices to revisit in the binding of the
-            // REFINEMENT! words (e.g. /B and /C above) on the data stack.
+            // words (e.g. /B and /C above) on the data stack.
 
             if (TYPE_CHECK(f->param, REB_TS_REFINEMENT)) {
-                if (GET_EVAL_FLAG(f, DOING_PICKUPS)) {
-                    if (DSP != f->dsp_orig)
-                        goto next_pickup;
-
-                    f->param = END_NODE; // don't need f->param in paramlist
-                    goto arg_loop_and_any_pickups_done;
-                }
-
-                TRASH_POINTER_IF_DEBUG(f->refine); // must update to new value
-
-                REBVAL *ordered = DS_TOP;
-                REBSTR *param_canon = VAL_PARAM_CANON(f->param); // #2258
+                assert(NOT_EVAL_FLAG(f, DOING_PICKUPS));  // jump lower
 
                 if (SPECIAL_IS_PARAM_SO_UNSPECIALIZED)  // args from callsite
                     goto unspecialized_refinement;  // most common case (?)
 
-                // All tests below are on special, but if f->special is not
-                // the same as f->arg then f->arg must get assigned somehow
-                // (jumping to unspecialized_refinement will take care of it)
-
-                if (IS_NULLED(f->special)) {
-                    assert(NOT_CELL_FLAG(f->special, ARG_MARKED_CHECKED));
-                    goto unspecialized_refinement; // second most common
+                if (SPECIAL_IS_ARG_SO_TYPECHECKING) {
+                    if (NOT_CELL_FLAG(f->arg, ARG_MARKED_CHECKED))
+                        Typecheck_Refinement_And_Canonize(f->param, f->arg);
+                    goto continue_arg_loop;
                 }
 
-                if (IS_BLANK(f->special)) // either specialized or not...
-                    goto unused_refinement; // will get ARG_MARKED_CHECKED
+                // A specialization....
 
-                // If arguments in the frame haven't already gone through
-                // some kind of processing, use the truthiness of the value.
-                //
-                // !!! This must accept what it puts out--the /REFINE-NAME
-                // or a BLANK!, to work with pre-built frames.  Accepting
-                // #[true] and #[false] are a given as well.  It seems that
-                // doing more typechecking than that has limited benefit,
-                // since at minimum it needs to accept any other refinement
-                // name to control it, but it could be considered.
-                //
-                if (NOT_CELL_FLAG(f->special, ARG_MARKED_CHECKED)) {
-                    if (IS_FALSEY(f->special)) // !!! error on void, needed?
-                        goto unused_refinement;
-
-                    f->refine = f->arg; // remember, as we might revoke!
-                    goto used_refinement;
+                if (GET_CELL_FLAG(f->special, ARG_MARKED_CHECKED)) {
+                    Move_Value(f->arg, f->special);
+                    SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
+                    goto continue_arg_loop;  // !!! Double-check?
                 }
 
-                if (IS_REFINEMENT(f->special)) {
-                    assert(
-                        VAL_REFINEMENT_SPELLING(f->special)
-                        == VAL_PARAM_SPELLING(f->param)
-                    ); // !!! Maybe not, if REDESCRIBE renamed args, but...
-                    f->refine = f->arg;
-                    goto used_refinement; // !!! ...this would fix it up.
-                }
-
-                // A "typechecked" void means it's unspecialized, but partial
-                // refinements are still coming that may have higher priority
-                // in taking arguments at the callsite than the current
-                // refinement, if it's in use due to a PATH! invocation.
-                //
-                if (IS_VOID(f->special))
-                    goto unspecialized_refinement_must_pickup; // defer this
-
-                // A "typechecked" ISSUE! with binding indicates a partial
+                // A non-checked ISSUE! with binding indicates a partial
                 // refinement with parameter index that needs to be pushed
                 // to top of stack, hence HIGHER priority for fulfilling
                 // @ the callsite than any refinements added by a PATH!.
@@ -973,65 +883,50 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                     Init_Issue(DS_PUSH(), partial_canon);
                     INIT_BINDING(DS_TOP, f->varlist);
                     INIT_WORD_INDEX(DS_TOP, partial_index);
-
-                    f->refine = SKIPPING_REFINEMENT_ARGS;
-                    goto used_refinement;
                 }
+                else
+                    assert(IS_NULLED(f->special));
 
-                assert(IS_INTEGER(f->special)); // DO FRAME! leaves these
+    //=//// UNSPECIALIZED REFINEMENT SLOT /////////////////////////////////=//
 
-                assert(GET_EVAL_FLAG(f, FULLY_SPECIALIZED));
-                f->refine = f->arg; // remember so we can revoke!
-                goto used_refinement;
+        // We want to fulfill all normal parameters before any refinements
+        // that take arguments.  Ren-C allows normal parameters *after* any
+        // refinement, that are not "refinement arguments".  So a refinement
+        // that takes an argument must always fulfill using "pickups".
 
-    //=//// UNSPECIALIZED REFINEMENT SLOT (no consumption) ////////////////=//
+              unspecialized_refinement: {
 
-              unspecialized_refinement:
-
-                if (f->dsp_orig == DSP) // no refinements left on stack
-                    goto unused_refinement;
-
-                if (VAL_STORED_CANON(ordered) == param_canon) {
-                    DS_DROP(); // we're lucky: this was next refinement used
-
-                    if (not Is_Typeset_Invisible(f->param)) {
-                        //
-                        // !!! This now actually gathers from the callsite!
-                        //
-                        f->refine = ORDINARY_ARG;
-                        goto ordinary_arg;
-                    }
-
-                    f->refine = f->arg; // remember so we can revoke!
-                    goto used_refinement;
-                }
-
-                --ordered; // not lucky: if in use, this is out of order
-
-              unspecialized_refinement_must_pickup:  // fulfill on 2nd pass
+                REBVAL *ordered = DS_TOP;
+                REBSTR *param_canon = VAL_PARAM_CANON(f->param);  // #2258
 
                 for (; ordered != DS_AT(f->dsp_orig); --ordered) {
                     if (VAL_STORED_CANON(ordered) != param_canon)
                         continue;
 
-                    // The call uses this refinement but we'll have to
-                    // come back to it when the expression index to
-                    // consume lines up.  Save the position to come back to,
-                    // as binding information on the refinement.
-                    //
                     REBCNT offset = f->arg - FRM_ARGS_HEAD(f);
                     INIT_BINDING(ordered, f->varlist);
                     INIT_WORD_INDEX(ordered, offset + 1);
-                    f->refine = SKIPPING_REFINEMENT_ARGS;  // fill args later
-                    goto used_refinement;
+
+                    if (Is_Typeset_Invisible(f->param)) {
+                        //
+                        // There's no argument, so we won't need to come back
+                        // for this one.  But we did need to set its index
+                        // so we knew it was valid (errors later if not set).
+                        //
+                        goto used_refinement;
+                    }
+
+                    goto skip_this_arg_for_now;
                 }
 
-                goto unused_refinement; // not in path, not specialized
+                goto unused_refinement; }  // not in path, not specialized yet
 
-              unused_refinement:
+              unused_refinement:  // Note: might get pushed by a later slot
 
-                f->refine = ARG_TO_UNUSED_REFINEMENT; // "don't consume"
-                Init_Blank(f->arg);
+                if (TYPE_CHECK(f->param, REB_NULLED))
+                    Init_Nulled(f->arg);  // <opt> refinements null if unused
+                else
+                    Init_Blank(f->arg);
                 SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
@@ -1041,7 +936,6 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                     /* type checking */
                 }
                 else {
-                    assert(not IS_POINTER_TRASH_DEBUG(f->refine)); // must be set
                     Refinify(Init_Word(f->arg, VAL_PARAM_SPELLING(f->param)));
                 }
                 SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
@@ -1054,10 +948,10 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             // need to be pre-filled.  !!! Note nuances with compositions:
             //
             // https://github.com/metaeducation/ren-c/issues/823
-            //
-            // Also note that while it might seem intuitive to take care of
-            // these "easy" fills before refinement checking--checking for
-            // refinement pickups ending prevents double-doing this work.
+
+        fulfill_arg: ;  // semicolon needed--next statement is declaration
+
+            Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
 
             switch (pclass) {
               case REB_P_LOCAL:
@@ -1096,13 +990,6 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
               default:
                 break;
             }
-
-    //=//// IF COMING BACK TO REFINEMENT ARGS LATER, MOVE ON FOR NOW //////=//
-
-            if (f->refine == SKIPPING_REFINEMENT_ARGS)
-                goto skip_this_arg_for_now;
-
-          ordinary_arg:
 
             if (GET_CELL_FLAG(f->special, ARG_MARKED_CHECKED)) {
 
@@ -1144,10 +1031,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                 // NULL is not technically in the valid argument types for
                 // refinement arguments, but is legal in fulfilled frames.
                 //
-             /*   assert(
-                    (f->refine != ORDINARY_ARG and IS_NULLED(f->arg))
-                    or Typecheck_Including_Quoteds(f->param, f->arg)
-                ); */
+                assert(Typecheck_Including_Quoteds(f->param, f->arg));
 
                 goto continue_arg_loop;
             }
@@ -1165,20 +1049,6 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                 else
                     Finalize_Arg(f);
                 goto continue_arg_loop; // looping to verify args/refines
-            }
-
-    //=//// IF UNSPECIALIZED ARG IS INACTIVE, SET NULL AND MOVE ON ////////=//
-
-            // Unspecialized arguments that do not consume do not need any
-            // further processing or checking.  null will always be fine.
-            //
-            if (f->refine == ARG_TO_UNUSED_REFINEMENT) {
-                //
-                // Overwrite if !(EVAL_FLAG_FULLY_SPECIALIZED) faster than check
-                //
-                Init_Nulled(f->arg);
-                SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
-                goto continue_arg_loop;
             }
 
     //=//// HANDLE IF NEXT ARG IS IN OUT SLOT (e.g. ENFIX, CHAIN) /////////=//
@@ -1348,8 +1218,6 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
     //=//// AFTER THIS, PARAMS CONSUME FROM CALLSITE IF NOT APPLY /////////=//
 
-            assert(f->refine == ORDINARY_ARG or IS_REFINEMENT(f->refine));
-
             // If this is a non-enfix action, we're at least at *second* slot:
             //
             //     1 + non-enfix-action <we-are-here> * 3
@@ -1497,20 +1365,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             );
 
             Finalize_Arg(f);
-
-          continue_arg_loop:
-
-            assert(GET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED));
-            continue;
-
-          skip_this_arg_for_now:
-
-            // The GC will protect values up through how far we have
-            // enumerated, so we need to put *something* in this slot when
-            // skipping, since we're going past it in the enumeration.
-            //
-            Init_Unreadable_Blank(f->arg);
-            continue;
+            goto continue_arg_loop;
         }
 
         assert(IS_END(f->arg)); // arg can otherwise point to any arg cell
@@ -1540,26 +1395,26 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             // But +1 is okay, because we want the slots after the refinement.
             //
             REBINT offset =
-                VAL_WORD_INDEX(DS_TOP) - (f->arg - FRM_ARGS_HEAD(f));
+                VAL_WORD_INDEX(DS_TOP) - (f->arg - FRM_ARGS_HEAD(f)) - 1;
             f->param += offset;
             f->arg += offset;
             f->special += offset;
 
-            f->refine = f->arg - 1; // this refinement may still be revoked
-            assert(
-                IS_REFINEMENT(f->refine)
-                and (
-                    VAL_REFINEMENT_SPELLING(f->refine)
-                    == VAL_PARAM_SPELLING(f->param - 1)
-                )
-            );
-
-            assert(VAL_STORED_CANON(DS_TOP) == VAL_PARAM_CANON(f->param - 1));
-            assert(TYPE_CHECK(f->param - 1, REB_TS_REFINEMENT));
-
+            assert(VAL_STORED_CANON(DS_TOP) == VAL_PARAM_CANON(f->param));
+            assert(TYPE_CHECK(f->param, REB_TS_REFINEMENT));
             DS_DROP();
+
+            if (Is_Typeset_Invisible(f->param)) {  /* no callsite arg, just drop */
+                if (DSP != f->dsp_orig)
+                    goto next_pickup;
+
+                f->param = END_NODE; // don't need f->param in paramlist
+                goto arg_loop_and_any_pickups_done;
+            }
+
+            assert(IS_UNREADABLE_DEBUG(f->arg) or IS_BLANK(f->arg));
             SET_EVAL_FLAG(f, DOING_PICKUPS);
-            goto process_args_for_pickup_or_to_end;
+            goto fulfill_arg;
         }
 
       arg_loop_and_any_pickups_done:
@@ -1583,7 +1438,6 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         assert(NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT));
 
         assert(IS_END(f->param));
-        // refine can be anything.
         assert(
             IS_END(*next)
             or FRM_IS_VALIST(f)
@@ -1734,7 +1588,6 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             f->param = ACT_PARAMS_HEAD(FRM_PHASE(f));
             f->arg = FRM_ARGS_HEAD(f);
             f->special = f->arg;
-            f->refine = ORDINARY_ARG; // no gathering, but need for assert
 
             goto process_action;
 

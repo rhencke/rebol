@@ -830,7 +830,7 @@ inline static void INIT_BINDING(RELVAL *v, void *p) {
         if (v->header.bits & NODE_FLAG_TRANSIENT) {
             // let anything go... for now.
             // SERIES_FLAG_STACK_LIFETIME might not be set yet due to construction
-            // constraints, see Make_Context_For_Action_Int_Partials()
+            // constraints, see Make_Context_For_Action_Push_Partials()
         }
         else {
             assert(v->header.bits & CELL_FLAG_STACK_LIFETIME);

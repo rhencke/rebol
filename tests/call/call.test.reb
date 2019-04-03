@@ -66,7 +66,7 @@
             {--do} {"write-stdout read system/ports/input"}
         ]
     ] function [frame [frame!]] [
-        out: frame/out
+        out: frame/output
         do frame
         return out
     ])

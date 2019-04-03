@@ -491,8 +491,6 @@ inline static void Begin_Action(REBFRM *f, REBSTR *opt_label)
     f->label_utf8 = cast(const char*, Frame_Label_Or_Anonymous_UTF8(f));
   #endif
 
-    f->refine = ORDINARY_ARG;
-
     assert(NOT_EVAL_FLAG(f, REQUOTE_NULL));
     f->requotes = 0;
 }
