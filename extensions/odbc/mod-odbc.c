@@ -81,7 +81,7 @@ typedef struct {
 } PARAMETER; // For binding parameters
 
 typedef struct {
-    REBVAL *title_word; // a WORD!
+    REBVAL *title_word;  // a WORD!
     SQLSMALLINT sql_type;
     SQLSMALLINT c_type;
     SQLULEN column_size;
@@ -91,7 +91,7 @@ typedef struct {
     SQLSMALLINT precision;
     SQLSMALLINT nullable;
     bool is_unsigned;
-} COLUMN; // For describing columns
+} COLUMN;  // For describing columns
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -164,7 +164,7 @@ REBCTX *Error_ODBC(SQLSMALLINT handleType, SQLHANDLE handle) {
 static void cleanup_hdbc(const REBVAL *v) {
     SQLHDBC hdbc = cast(SQLHDBC, VAL_HANDLE_VOID_POINTER(v));
     if (hdbc == SQL_NULL_HANDLE)
-        return; // already cleared out by CLOSE-ODBC
+        return;  // already cleared out by CLOSE-ODBC
 
     SQLDisconnect(hdbc);
     SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
@@ -173,7 +173,7 @@ static void cleanup_hdbc(const REBVAL *v) {
 static void cleanup_henv(const REBVAL *v) {
     SQLHENV henv = cast(SQLHENV, VAL_HANDLE_VOID_POINTER(v));
     if (henv == SQL_NULL_HANDLE)
-        return; // already cleared out by CLOSE-ODBC
+        return;  // already cleared out by CLOSE-ODBC
 
     SQLFreeHandle(SQL_HANDLE_ENV, henv);
 }
@@ -182,12 +182,12 @@ static void cleanup_henv(const REBVAL *v) {
 //
 //  export open-connection: native [
 //
-//      return: [logic!]
-//          {Always true if success}
-//      connection [object!]
-//          {Template object for HENV and HDBC handle fields to set}
-//      spec [text!]
-//          {ODBC connection string, e.g. commonly "Dsn=DatabaseName"}
+//      return: "Always true if success"
+//          [logic!]
+//      connection "Template object for HENV and HDBC handle fields to set"
+//          [object!]
+//      spec {ODBC connection string, e.g. commonly "Dsn=DatabaseName"}
+//          [text!]
 //  ]
 //
 REBNATIVE(open_connection)
@@ -223,7 +223,7 @@ REBNATIVE(open_connection)
         henv,
         SQL_ATTR_ODBC_VERSION,
         cast(SQLPOINTER, SQL_OV_ODBC3),
-        0 // StringLength (ignored for this attribute)
+        0  // StringLength (ignored for this attribute)
     );
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO) {
         REBCTX *error = Error_ODBC_Env(henv);
@@ -256,14 +256,14 @@ REBNATIVE(open_connection)
 
     SQLSMALLINT out_connect_len;
     rc = SQLDriverConnectW(
-        hdbc, // ConnectionHandle
-        NULL, // WindowHandle
-        connect, // InConnectionString
-        cast(SQLSMALLINT, connect_len), // StringLength1
-        NULL, // OutConnectionString (not interested in this)
-        0, // BufferLength (again, not interested)
-        &out_connect_len, // StringLength2Ptr (gets returned anyway)
-        SQL_DRIVER_NOPROMPT // DriverCompletion
+        hdbc,  // ConnectionHandle
+        NULL,  // WindowHandle
+        connect,  // InConnectionString
+        cast(SQLSMALLINT, connect_len),  // StringLength1
+        NULL,  // OutConnectionString (not interested in this)
+        0,  // BufferLength (again, not interested)
+        &out_connect_len,  // StringLength2Ptr (gets returned anyway)
+        SQL_DRIVER_NOPROMPT  // DriverCompletion
     );
     rebFree(connect);
 
@@ -332,7 +332,7 @@ REBNATIVE(open_statement)
 SQLRETURN ODBC_BindParameter(
     SQLHSTMT hstmt,
     PARAMETER *p,
-    SQLUSMALLINT number, // parameter number
+    SQLUSMALLINT number,  // parameter number
     const REBVAL *v
 ){
     assert(number != 0);
@@ -340,12 +340,12 @@ SQLRETURN ODBC_BindParameter(
     SQLSMALLINT c_type;
     SQLSMALLINT sql_type;
 
-    p->length = 0; // ignored for most types
-    p->column_size = 0; // also ignored for most types
-    TRASH_POINTER_IF_DEBUG(p->buffer); // required to be set by switch()
+    p->length = 0;  // ignored for most types
+    p->column_size = 0;  // also ignored for most types
+    TRASH_POINTER_IF_DEBUG(p->buffer);  // required to be set by switch()
 
     switch (VAL_TYPE(v)) {
-    case REB_BLANK: {
+      case REB_BLANK: {
         p->buffer_size = 0;
         p->buffer = NULL;
 
@@ -353,7 +353,7 @@ SQLRETURN ODBC_BindParameter(
         sql_type = SQL_NULL_DATA;
         break; }
 
-    case REB_LOGIC: {
+      case REB_LOGIC: {
         p->buffer_size = sizeof(unsigned char);
         p->buffer = rebAllocN(char, p->buffer_size);
 
@@ -363,17 +363,17 @@ SQLRETURN ODBC_BindParameter(
         sql_type = SQL_BIT;
         break; }
 
-    case REB_INTEGER: {
+      case REB_INTEGER: {
         p->buffer_size = sizeof(REBI64);
         p->buffer = rebAllocN(char, p->buffer_size);
 
         *cast(REBI64*, p->buffer) = VAL_INT64(v);
 
-        c_type = SQL_C_SBIGINT; // Rebol's INTEGER! type is signed
+        c_type = SQL_C_SBIGINT;  // Rebol's INTEGER! type is signed
         sql_type = SQL_INTEGER;
         break; }
 
-    case REB_DECIMAL: {
+      case REB_DECIMAL: {
         p->buffer_size = sizeof(double);
         p->buffer = rebAllocN(char, p->buffer_size);
 
@@ -383,24 +383,24 @@ SQLRETURN ODBC_BindParameter(
         sql_type = SQL_DOUBLE;
         break; }
 
-    case REB_TIME: {
+      case REB_TIME: {
         p->buffer_size = sizeof(TIME_STRUCT);
         p->buffer = rebAllocN(char, p->buffer_size);
 
         TIME_STRUCT *time = cast(TIME_STRUCT*, p->buffer);
 
         REB_TIMEF tf;
-        Split_Time(VAL_NANO(v), &tf); // loses sign
+        Split_Time(VAL_NANO(v), &tf);  // loses sign
 
         time->hour = tf.h;
         time->minute = tf.m;
-        time->second = tf.s; // cast(REBDEC, tf.s) + (tf.n * NANO) for precise
+        time->second = tf.s;  // cast(REBDEC, tf.s)+(tf.n * NANO) for precise
 
         c_type = SQL_C_TYPE_TIME;
         sql_type = SQL_TYPE_TIME;
         break; }
 
-    case REB_DATE: {
+      case REB_DATE: {
         if (not Does_Date_Have_Time(v)) {
             p->buffer_size = sizeof(DATE_STRUCT);
             p->buffer = rebAllocN(char, p->buffer_size);
@@ -433,7 +433,7 @@ SQLRETURN ODBC_BindParameter(
         }
         break; }
 
-    case REB_TEXT: {
+      case REB_TEXT: {
         //
         // Call to get the length of how big a buffer to make, then a second
         // call to fill the buffer after its made.
@@ -453,8 +453,8 @@ SQLRETURN ODBC_BindParameter(
         p->buffer = chars;
         break; }
 
-    case REB_BINARY: {
-        p->buffer_size = VAL_LEN_AT(v); // sizeof(char) guaranteed to be 1
+      case REB_BINARY: {
+        p->buffer_size = VAL_LEN_AT(v);  // sizeof(char) guaranteed to be 1
         p->buffer = rebAllocN(char, p->buffer_size);
 
         memcpy(p->buffer, VAL_BIN_AT(v), p->buffer_size);
@@ -465,21 +465,21 @@ SQLRETURN ODBC_BindParameter(
         sql_type = SQL_VARBINARY;
         break; }
 
-    default: // used to do same as REB_BLANK, should it?
+      default:  // used to do same as REB_BLANK, should it?
         fail ("Non-SQL type used in parameter binding");
     }
 
     SQLRETURN rc = SQLBindParameter(
-        hstmt, // StatementHandle
-        number, // ParameterNumber
-        SQL_PARAM_INPUT, // InputOutputType
-        c_type, // ValueType
-        sql_type, // ParameterType
-        p->column_size, // ColumnSize
-        0, // DecimalDigits
-        p->buffer, // ParameterValuePtr
-        p->buffer_size, // BufferLength
-        &p->length // StrLen_Or_IndPtr
+        hstmt,  // StatementHandle
+        number,  // ParameterNumber
+        SQL_PARAM_INPUT,  // InputOutputType
+        c_type,  // ValueType
+        sql_type,  // ParameterType
+        p->column_size,  // ColumnSize
+        0,  // DecimalDigits
+        p->buffer,  // ParameterValuePtr
+        p->buffer_size,  // BufferLength
+        &p->length  // StrLen_Or_IndPtr
     );
 
     return rc;
@@ -491,7 +491,7 @@ SQLRETURN ODBC_GetCatalog(
     const REBVAL *which,
     REBVAL *block
 ){
-    assert(IS_BLOCK(block)); // !!! Should it ensure exactly 4 items?
+    assert(IS_BLOCK(block));  // !!! Should it ensure exactly 4 items?
 
     SQLSMALLINT length[4];
     SQLWCHAR *pattern[4];
@@ -530,31 +530,31 @@ SQLRETURN ODBC_GetCatalog(
     );
 
     switch (w) {
-    case 1:
+      case 1:
         rc = SQLTablesW(
             hstmt,
-            pattern[2], length[2], // catalog
-            pattern[1], length[1], // schema
-            pattern[0], length[0], // table
-            pattern[3], length[3] // type
+            pattern[2], length[2],  // catalog
+            pattern[1], length[1],  // schema
+            pattern[0], length[0],  // table
+            pattern[3], length[3]  // type
         );
         break;
 
-    case 2:
+      case 2:
         rc = SQLColumnsW(
             hstmt,
-            pattern[3], length[3], // catalog
-            pattern[2], length[2], // schema
-            pattern[0], length[0], // table
+            pattern[3], length[3],  // catalog
+            pattern[2], length[2],  // schema
+            pattern[0], length[0],  // table
             pattern[1], length[1]  // column
         );
         break;
 
-    case 3:
+      case 3:
         rc = SQLGetTypeInfoW(hstmt, SQL_ALL_TYPES);
         break;
 
-    default:
+      default:
         panic ("Invalid GET_CATALOG_XXX value");
     }
 
@@ -694,14 +694,14 @@ SQLRETURN ODBC_BindColumns(
         COLUMN *c = &columns[col_num];
 
         switch (c->sql_type) {
-        case SQL_BIT:
+          case SQL_BIT:
             c->c_type = SQL_C_BIT;
             c->buffer_size = sizeof(unsigned char);
             break;
 
-        case SQL_SMALLINT:
-        case SQL_TINYINT:
-        case SQL_INTEGER:
+          case SQL_SMALLINT:
+          case SQL_TINYINT:
+          case SQL_INTEGER:
             if (c->is_unsigned) {
                 c->c_type = SQL_C_ULONG;
                 c->buffer_size = sizeof(unsigned long int);
@@ -715,8 +715,8 @@ SQLRETURN ODBC_BindColumns(
         // We could ask the driver to give all integer types back as BIGINT,
         // but driver support may be more sparse for this...so only use the
         // 64-bit datatypes if absolutely necessary.
-        //
-        case SQL_BIGINT:
+
+          case SQL_BIGINT:
             if (c->is_unsigned) {
                 c->c_type = SQL_C_UBIGINT;
                 c->buffer_size = sizeof(REBU64);
@@ -727,41 +727,41 @@ SQLRETURN ODBC_BindColumns(
             }
             break;
 
-        case SQL_DECIMAL:
-        case SQL_NUMERIC:
-        case SQL_REAL:
-        case SQL_FLOAT:
-        case SQL_DOUBLE:
+          case SQL_DECIMAL:
+          case SQL_NUMERIC:
+          case SQL_REAL:
+          case SQL_FLOAT:
+          case SQL_DOUBLE:
             c->c_type = SQL_C_DOUBLE;
             c->buffer_size = sizeof(double);
             break;
 
-        case SQL_TYPE_DATE:
+          case SQL_TYPE_DATE:
             c->c_type = SQL_C_TYPE_DATE;
             c->buffer_size = sizeof(DATE_STRUCT);
             break;
 
-        case SQL_TYPE_TIME:
+          case SQL_TYPE_TIME:
             c->c_type = SQL_C_TYPE_TIME;
             c->buffer_size = sizeof(TIME_STRUCT);
             break;
 
-        case SQL_TYPE_TIMESTAMP:
+          case SQL_TYPE_TIMESTAMP:
             c->c_type = SQL_C_TYPE_TIMESTAMP;
             c->buffer_size = sizeof(TIMESTAMP_STRUCT);
             break;
 
-        case SQL_BINARY:
-        case SQL_VARBINARY:
-        case SQL_LONGVARBINARY:
+          case SQL_BINARY:
+          case SQL_VARBINARY:
+          case SQL_LONGVARBINARY:
             c->c_type = SQL_C_BINARY;
             c->buffer_size = sizeof(char) * c->column_size;
             break;
 
-        case SQL_CHAR:
-        case SQL_VARCHAR:
-        case SQL_WCHAR:
-        case SQL_WVARCHAR:
+          case SQL_CHAR:
+          case SQL_VARCHAR:
+          case SQL_WCHAR:
+          case SQL_WVARCHAR:
             //
             // !!! Should the non-wide char types use less space by asking
             // for regular SQL_C_CHAR?  Would it be UTF-8?  Latin1?
@@ -776,8 +776,8 @@ SQLRETURN ODBC_BindColumns(
             c->buffer_size = sizeof(WCHAR) * (c->column_size + 1);
             break;
 
-        case SQL_LONGVARCHAR:
-        case SQL_WLONGVARCHAR:
+          case SQL_LONGVARCHAR:
+          case SQL_WLONGVARCHAR:
             //
             // !!! Should the non-wide char type use less space by asking
             // for regular SQL_C_CHAR?  Would it be UTF-8?  Latin1?
@@ -800,7 +800,7 @@ SQLRETURN ODBC_BindColumns(
             c->buffer_size = sizeof(WCHAR) * (32700 + 1);
             break;
 
-        default: // used to allocate a character buffer based on column size
+          default:  // used to allocate character buffer based on column size
             fail ("Unknown column SQL_XXX type");
         }
 
@@ -809,12 +809,12 @@ SQLRETURN ODBC_BindColumns(
             fail ("Couldn't allocate column buffer!");
 
         SQLRETURN rc = SQLBindCol(
-            hstmt, // StatementHandle
-            col_num + 1, // ColumnNumber
-            c->c_type, // TargetType
-            c->buffer, // TargetValuePtr
-            c->buffer_size, // BufferLength (ignored for fixed-size items)
-            &c->length // StrLen_Or_Ind (SQLFetch will write here)
+            hstmt,  // StatementHandle
+            col_num + 1,  // ColumnNumber
+            c->c_type,  // TargetType
+            c->buffer,  // TargetValuePtr
+            c->buffer_size,  // BufferLength (ignored for fixed-size items)
+            &c->length  // StrLen_Or_Ind (SQLFetch will write here)
         );
 
         if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
@@ -830,11 +830,11 @@ SQLRETURN ODBC_BindColumns(
 //
 //  {Executes SQL statements (prepare on first pass, executes conservatively)}
 //
-//      return: [integer! block!]
-//          {Row count for row-changes, BLOCK! of column titles for selects}
+//      return: "Row count for row change, column title BLOCK! for selects"
+//          [integer! block!]
 //      statement [object!]
-//      sql [block!]
-//          {Dialect beginning with TABLES, COLUMNS, TYPES, or a SQL STRING!}
+//      sql "Dialect beginning with TABLES, COLUMNS, TYPES, or SQL STRING!"
+//          [block!]
 //  ]
 //
 REBNATIVE(insert_odbc)
@@ -850,8 +850,8 @@ REBNATIVE(insert_odbc)
 
     SQLRETURN rc;
 
-    rc = SQLFreeStmt(hstmt, SQL_RESET_PARAMS); // !!! check rc?
-    rc = SQLCloseCursor(hstmt); // !!! check rc?
+    rc = SQLFreeStmt(hstmt, SQL_RESET_PARAMS);  // !!! check rc?
+    rc = SQLCloseCursor(hstmt);  // !!! check rc?
 
     // !!! Some code here would set the number of rows, but was commented out
     // saying it was "in the wrong place" (?)
@@ -920,7 +920,8 @@ REBNATIVE(insert_odbc)
         // injection.
 
         REBCNT num_params
-            = rebUnbox("length of", ARG(sql), rebEND) - sql_index; // after SQL
+            = rebUnbox("length of", ARG(sql), rebEND)
+              - sql_index;  // after SQL
         ++sql_index;
 
         PARAMETER *params = NULL;
@@ -1047,9 +1048,9 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
         return rebBlank();
 
     switch (col->sql_type) {
-    case SQL_TINYINT: // signed: –128..127, unsigned: 0..255
-    case SQL_SMALLINT: // signed: –32,768..32,767, unsigned: 0..65,535
-    case SQL_INTEGER: //  signed: –2[31]..2[31] – 1, unsigned: 0..2[32] – 1
+      case SQL_TINYINT:  // signed: -128..127, unsigned: 0..255
+      case SQL_SMALLINT:  // signed: -32,768..32,767, unsigned: 0..65,535
+      case SQL_INTEGER:  // signed: -2[31]..2[31] - 1, unsigned: 0..2[32] - 1
         //
         // ODBC was asked at column binding time to give back *most* integer
         // types as SQL_C_SLONG or SQL_C_ULONG, regardless of actual size.
@@ -1059,7 +1060,7 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
 
         return rebInteger(*cast(signed long*, col->buffer));
 
-    case SQL_BIGINT: // signed: –2[63]..2[63] – 1, unsigned: 0..2[64] – 1
+      case SQL_BIGINT:  // signed: -2[63]..2[63]-1, unsigned: 0..2[64] - 1
         //
         // Special exception made for big integers.
         //
@@ -1072,18 +1073,18 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
 
         return rebInteger(*cast(REBI64*, col->buffer));
 
-    case SQL_REAL: // precision 24
-    case SQL_DOUBLE: // precision 53
-    case SQL_FLOAT: // FLOAT(p) has at least precision p
-    case SQL_NUMERIC: // NUMERIC(p,s) has exact? precision p and scale s
-    case SQL_DECIMAL: // DECIMAL(p,s) has at least precision p and scale s
+      case SQL_REAL:  // precision 24
+      case SQL_DOUBLE:  // precision 53
+      case SQL_FLOAT:  // FLOAT(p) has at least precision p
+      case SQL_NUMERIC:  // NUMERIC(p,s) has exact? precision p and scale s
+      case SQL_DECIMAL:  // DECIMAL(p,s) has at least precision p and scale s
         //
         // ODBC was asked at column binding time to give back all floating
         // point types as SQL_C_DOUBLE, regardless of actual size.
         //
         return rebDecimal(*cast(double*, col->buffer));
 
-    case SQL_TYPE_DATE: {
+      case SQL_TYPE_DATE: {
         DATE_STRUCT *date = cast(DATE_STRUCT*, col->buffer);
         return rebRun(
             "make date! [",
@@ -1091,7 +1092,7 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
             "]", rebEND
         ); }
 
-    case SQL_TYPE_TIME: {
+      case SQL_TYPE_TIME: {
         //
         // The TIME_STRUCT in ODBC does not contain a fraction/nanosecond
         // component.  Hence a TIME(7) might be able to store 17:32:19.123457
@@ -1109,7 +1110,7 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
     // TIMESTAMP_STRUCT with timezone_hour and timezone_minute.  Someone can
     // try and figure this out in the future if they are so inclined.
 
-    case SQL_TYPE_TIMESTAMP: {
+      case SQL_TYPE_TIMESTAMP: {
         TIMESTAMP_STRUCT *stamp = cast(TIMESTAMP_STRUCT*, col->buffer);
 
         // !!! This isn't a very elegant way of combining a date and time
@@ -1123,12 +1124,12 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
             rebI(stamp->day),
             rebI(
                 stamp->hour * 3600 + stamp->minute * 60 + stamp->second
-            ), // seconds
-            rebI(stamp->fraction), // billionths of a second, e.g. nanoseconds
-            "0" // timezone
+            ),  // seconds
+            rebI(stamp->fraction),  // billionths of a second (nanoseconds)
+            "0"  // timezone
         ")", rebEND); }
 
-    case SQL_BIT:
+      case SQL_BIT:
         //
         // Note: MySQL ODBC returns -2 for sql_type when a field is BIT(n)
         // where n != 1, as opposed to SQL_BIT and column_size of n.  See
@@ -1139,29 +1140,29 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
 
         return rebLogic(*cast(unsigned char*, col->buffer) != 0);
 
-    case SQL_BINARY:
-    case SQL_VARBINARY:
-    case SQL_LONGVARBINARY:
+      case SQL_BINARY:
+      case SQL_VARBINARY:
+      case SQL_LONGVARBINARY:
         return rebSizedBinary(col->buffer, col->length);
 
-    case SQL_CHAR:
-    case SQL_VARCHAR:
-    case SQL_LONGVARCHAR:
+      case SQL_CHAR:
+      case SQL_VARCHAR:
+      case SQL_LONGVARCHAR:
         fail ("Non-WCHAR data not supported by ODBC (currently)");
 
-    case SQL_WCHAR:
-    case SQL_WVARCHAR:
-    case SQL_WLONGVARCHAR:
+      case SQL_WCHAR:
+      case SQL_WVARCHAR:
+      case SQL_WLONGVARCHAR:
         assert(col->length % 2 == 0);
         return rebLengthedTextWide(
             cast(SQLWCHAR*, col->buffer),
             col->length / 2
         );
 
-    case SQL_GUID:
+      case SQL_GUID:
         fail ("SQL_GUID not supported by ODBC (currently)");
 
-    default:
+      default:
         break;
     }
 
@@ -1175,8 +1176,8 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
 //
 //  export copy-odbc: native [
 //
-//      return: [block!]
-//          {Result-set block of row blocks for selects and catalog functions}
+//      return: "Block of row blocks for selects and catalog functions"
+//          [block!]
 //      statement [object!]
 //      length [integer! blank!]
 //  ]
@@ -1316,7 +1317,7 @@ REBNATIVE(close_statement)
             rebRelease(columns[col].title_word);
 
         free(columns);
-        SET_HANDLE_CDATA(columns_value, NULL); // avoid GC cleanup
+        SET_HANDLE_CDATA(columns_value, NULL);  // avoid GC cleanup
         rebElide("poke", statement, "'columns", "blank", rebEND);
 
         rebRelease(columns_value);
@@ -1330,7 +1331,7 @@ REBNATIVE(close_statement)
         assert(hstmt);
 
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-        SET_HANDLE_CDATA(hstmt_value, SQL_NULL_HANDLE); // avoid GC cleanup
+        SET_HANDLE_CDATA(hstmt_value, SQL_NULL_HANDLE);  // avoid GC cleanup
         rebElide("poke", statement, "'hstmt blank", rebEND);
 
         rebRelease(hstmt_value);
@@ -1365,7 +1366,7 @@ REBNATIVE(close_connection)
 
         SQLDisconnect(hdbc);
         SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
-        SET_HANDLE_CDATA(hdbc_value, SQL_NULL_HANDLE); // avoid GC cleanup
+        SET_HANDLE_CDATA(hdbc_value, SQL_NULL_HANDLE);  // avoid GC cleanup
 
         rebElide("poke", connection, "'hdbc", "blank", rebEND);
         rebRelease(hdbc_value);
@@ -1381,7 +1382,7 @@ REBNATIVE(close_connection)
         assert(henv);
 
         SQLFreeHandle(SQL_HANDLE_ENV, henv);
-        SET_HANDLE_CDATA(henv_value, SQL_NULL_HANDLE); // avoid GC cleanup
+        SET_HANDLE_CDATA(henv_value, SQL_NULL_HANDLE);  // avoid GC cleanup
 
         rebElide("poke", connection, "'henv", "blank", rebEND);
         rebRelease(henv_value);
