@@ -158,6 +158,7 @@
 %functions/redescribe.test.reb
 %functions/redo.test.reb
 %functions/specialize.test.reb
+%functions/unwind.test.reb
 
 %math/absolute.test.reb
 %math/add.test.reb

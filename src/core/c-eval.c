@@ -1462,7 +1462,11 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         // need to take a "hold" on the cell to prevent a rebFree() while the
         // evaluation was in progress.
         //
-        /*assert(f->out->header.bits & (CELL_FLAG_STACK_LIFETIME | NODE_FLAG_ROOT)); */
+        assert(f->out->header.bits & (
+            CELL_FLAG_STACK_LIFETIME
+            | NODE_FLAG_TRANSIENT
+            | NODE_FLAG_ROOT
+        ));
 
         *next_gotten = nullptr; // arbitrary code changes fetched variables
 

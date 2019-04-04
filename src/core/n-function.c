@@ -94,7 +94,7 @@ REB_R Init_Thrown_Unwind_Value(
 
             --count;
             if (count == 0) {
-                INIT_BINDING(out, f->varlist);
+                INIT_BINDING_MAY_MANAGE(out, SPC(f->varlist));
                 break;
             }
         }
@@ -114,7 +114,7 @@ REB_R Init_Thrown_Unwind_Value(
                 continue; // not ready to exit
 
             if (VAL_ACTION(level) == f->original) {
-                INIT_BINDING(out, f->varlist);
+                INIT_BINDING_MAY_MANAGE(out, SPC(f->varlist));
                 break;
             }
         }
@@ -131,8 +131,8 @@ REB_R Init_Thrown_Unwind_Value(
 //
 //      level "Frame, action, or index to exit from"
 //          [frame! action! integer!]
-//      /with "Result for enclosing state"
-//          [<opt> any-value!]
+//      result "Result for enclosing state"
+//          [<opt> <end> any-value!]
 //  ]
 //
 REBNATIVE(unwind)
@@ -147,7 +147,12 @@ REBNATIVE(unwind)
 {
     INCLUDE_PARAMS_OF_UNWIND;
 
-    return Init_Thrown_Unwind_Value(D_OUT, ARG(level), ARG(with), frame_);
+    return Init_Thrown_Unwind_Value(
+        D_OUT,
+        ARG(level),
+        IS_ENDISH_NULLED(ARG(result)) ? VOID_VALUE : ARG(result),
+        frame_
+    );
 }
 
 

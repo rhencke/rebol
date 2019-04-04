@@ -67,23 +67,6 @@
     f1: func [] [while [if cycle? [return 1] cycle?] [cycle?: false 2]]
     1 = f1
 )
-; UNWIND the IF should stop the loop
-(
-    cycle?: true
-    f1: does [if 1 < 2 [while [cycle?] [cycle?: false unwind :if] 2]]
-    null? f1
-)
-
-(  ; bug#1519
-    cycle?: true
-    if-not: adapt 'if [condition: not :condition]
-    f1: does [
-        if-not 1 > 2 [
-            while [if cycle? [unwind :if-not] cycle?] [cycle?: false 2]
-        ]
-    ]
-    null? f1
-)
 
 ; CONTINUE out of a condition continues any enclosing loop (it does not mean
 ; continue the WHILE whose condition it appears in)
