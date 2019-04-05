@@ -266,9 +266,15 @@ REB_R Compose_To_Stack_Core(
                     // Only proxy newline flag from the template on *first*
                     // value spliced in (it may have its own newline flag)
                     //
+                    // !!! These rules aren't necessarily obvious.  If you
+                    // say `compose [thing ((block-of-things))]` did you want
+                    // that block to fit on one line?
+                    //
                     Derelativize(DS_PUSH(), push, VAL_SPECIFIER(insert));
                     if (GET_CELL_FLAG(*v, NEWLINE_BEFORE))
                         SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
+                    else
+                        CLEAR_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
 
                     while (++push, NOT_END(push))
                         Derelativize(DS_PUSH(), push, VAL_SPECIFIER(insert));
@@ -291,8 +297,13 @@ REB_R Compose_To_Stack_Core(
                     assert(kind == REB_GROUP);
 
                 Quotify(DS_TOP, quotes);  // match original quotes
+
+                // Use newline intent from the GROUP! in the compose pattern
+                //
                 if (GET_CELL_FLAG(*v, NEWLINE_BEFORE))
                     SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
+                else
+                    CLEAR_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
             }
 
             if (insert != out)
