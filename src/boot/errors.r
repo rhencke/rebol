@@ -152,9 +152,14 @@ Script: [
     bad-refines:        {incompatible or invalid refinements}
     bad-refine:         [{incompatible or duplicate refinement:} :arg1]
     non-logic-refine:   [:arg1 {refinement must be LOGIC!, not} :arg2]
+    
     legacy-refinement:  [
                             {Refinements now act as their own args.  See}
                             {https://trello.com/c/DaVz9GG3 - spec was} :arg1
+                        ]
+    legacy-local:       [
+                            {/LOCAL is a plain refinement now, use <local>}
+                            {https://trello.com/c/IyxPieNa - spec was} :arg1
                         ]
 
     bad-field-set:      [{cannot set} :arg1 {field to} :arg2 {datatype}]

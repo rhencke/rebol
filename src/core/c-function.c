@@ -404,6 +404,10 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             mode = SPEC_MODE_NORMAL;
 
             spelling = VAL_WORD_SPELLING(VAL_ARRAY_AT(cell) + 1);
+            if (STR_SYMBOL(spelling) == SYM_LOCAL)  // /local
+                if (ANY_WORD_KIND(KIND_BYTE(item + 1)))  // END is 0
+                    fail (Error_Legacy_Local_Raw(spec));  // -> <local>
+
             if (CELL_KIND(cell) == REB_GET_PATH) {
                 if (not quoted)
                     pclass = REB_P_HARD_QUOTE;

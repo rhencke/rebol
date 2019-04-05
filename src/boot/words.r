@@ -231,6 +231,12 @@ dummy7
 dummy8
 dummy9
 
+; !!! Legacy: Used to report an error on usage of /LOCAL when <local> was
+; intended.  Should be removed from code when the majority of such uses have
+; been found, as the responsibility for that comes from %r2-warn.reb
+;
+local
+
 ; properties for action TWEAK function (passed as ISSUE!)
 ;
 defer
