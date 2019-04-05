@@ -1603,6 +1603,8 @@ static REBINT Scan_Head(SCAN_STATE *ss)
     DEAD_END;
 }
 
+#define CELL_FLAG_BLANK_MARKED_GET NODE_FLAG_MARKED
+
 
 static REBARR *Scan_Full_Array(SCAN_STATE *ss, REBYTE mode_char);
 static REBARR *Scan_Child_Array(SCAN_STATE *ss, REBYTE mode_char);
@@ -1673,6 +1675,18 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
           case TOKEN_GET:
             if (ep[-1] == ':') {
+                if (ep[0] == '/') {  // e.g. :/foo
+                    Init_Blank(DS_PUSH());  // let blank be head of path
+
+                    // !!! Ugly hack due to lack of GET-BLANK! (which we
+                    // probably do not want...)  Since path scanning converts
+                    // values in the first slot that are GET-XXX! to mean the
+                    // overall path is a GET-PATH!, we need another signal.
+                    //
+                    SET_CELL_FLAG(DS_TOP, BLANK_MARKED_GET);
+
+                    break;  // mode will be changed to '/'
+                }
                 if (len == 1 or ss->mode_char != '/')
                     goto syntax_error;
                 --len;
@@ -2188,11 +2202,15 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
                 Append_Value(a, DS_TOP);  // may be BLANK!
                 Init_Blank(Alloc_Tail_Array(a));
-                Init_Path(DS_TOP, a);
+                if (GET_CELL_FLAG(DS_TOP, BLANK_MARKED_GET))
+                    Init_Any_Path(DS_TOP, REB_GET_PATH, a);
+                else
+                    Init_Path(DS_TOP, a);
             }
             else if (
                 DSP - dsp_path_head == 1  // one more item added
                 and IS_BLANK(DS_AT(dsp_path_head))
+                and NOT_CELL_FLAG(DS_AT(dsp_path_head), BLANK_MARKED_GET)
             ){
                 // This is the optimized case where we use a single cell to
                 // represent a path with a blank at the head like /FOO.  So
@@ -2206,6 +2224,11 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 REBFLGS flags = NODE_FLAG_MANAGED;
                 if (ss->newline_pending)
                     flags |= ARRAY_FLAG_NEWLINE_AT_TAIL;
+
+                bool blank_marked_get =
+                    GET_CELL_FLAG(DS_AT(dsp_path_head), BLANK_MARKED_GET);
+                if (blank_marked_get)
+                    assert(IS_BLANK(DS_AT(dsp_path_head)));
 
                 REBARR *a = Pop_Stack_Values_Core(
                     dsp_path_head - 1,  // stop popping right after head pop
@@ -2221,7 +2244,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 RELVAL *head = ARR_HEAD(a);
                 REBYTE kind_head = KIND_BYTE(head);
 
-                if (ANY_GET_KIND(kind_head)) {
+                if (ANY_GET_KIND(kind_head) or blank_marked_get) {
                     if (ss->begin and *ss->end == ':')
                       goto syntax_error;  // for instance `:a/b/c:`
 
@@ -2230,9 +2253,10 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                         REB_GET_PATH,
                         CELL_FLAG_FIRST_IS_NODE
                     );
-                    mutable_KIND_BYTE(head)
-                        = mutable_MIRROR_BYTE(head)
-                        = UNGETIFY_ANY_GET_KIND(kind_head);
+                    if (not blank_marked_get)  // undecorated
+                        mutable_KIND_BYTE(head)
+                            = mutable_MIRROR_BYTE(head)
+                            = UNGETIFY_ANY_GET_KIND(kind_head);
                 }
                 else if (ss->begin and *ss->end == ':') {
                     RESET_VAL_HEADER(

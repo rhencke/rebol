@@ -53,28 +53,27 @@ static bool Params_Of_Hook(
         s->dest = ARR_HEAD(s->arr);
     }
 
-    REBSTR *spelling = VAL_PARAM_SPELLING(param);
+    Init_Any_Word(s->dest, REB_WORD, VAL_PARAM_SPELLING(param));
+
+    if (TYPE_CHECK(param, REB_TS_REFINEMENT))
+        Refinify(KNOWN(s->dest));
 
     switch (VAL_PARAM_CLASS(param)) {
       case REB_P_NORMAL:
-        Init_Any_Word(s->dest, REB_WORD, spelling);
         break;
 
       case REB_P_HARD_QUOTE:
-        Init_Any_Word(s->dest, REB_GET_WORD, spelling);
+        Getify(KNOWN(s->dest));
         break;
 
       case REB_P_SOFT_QUOTE:
-        Quotify(Init_Any_Word(s->dest, REB_WORD, spelling), 1);
+        Quotify(KNOWN(s->dest), 1);
         break;
 
       default:
         assert(false);
         DEAD_END;
     }
-
-    if (TYPE_CHECK(param, REB_TS_REFINEMENT))
-        Refinify(KNOWN(s->dest));
 
     ++s->dest;
     return true;
@@ -372,45 +371,30 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     //=//// ANY-WORD! PARAMETERS THEMSELVES (MAKE TYPESETS w/SYMBOL) //////=//
 
-        bool is_refinement = false;
+        bool quoted = false;  // single quoting level used as signal in spec
+        if (VAL_NUM_QUOTES(item) > 0) {
+            if (VAL_NUM_QUOTES(item) > 1)
+                fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
+            quoted = true;
+        }
 
-        Reb_Param_Class pclass;
+        const REBCEL *cell = VAL_UNESCAPED(item);
+
         REBSTR *spelling;
-        switch (VAL_TYPE(item)) {
-          case REB_WORD:
-            spelling = VAL_WORD_SPELLING(item);
+        Reb_Param_Class pclass = REB_P_DETECT;
 
-            if (refinement_seen and mode == SPEC_MODE_NORMAL)
-                fail (Error_Legacy_Refinement_Raw(spec));
+        bool refinement = false;  // paths with blanks at head are refinements
+        if (ANY_PATH_KIND(CELL_KIND(cell))) {
+            if (
+                KIND_BYTE(VAL_ARRAY_AT(cell)) != REB_BLANK
+                or KIND_BYTE(VAL_ARRAY_AT(cell) + 1) != REB_WORD
+                or KIND_BYTE(VAL_ARRAY_AT(cell) + 2) != REB_0_END
+            ){
+                fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
+            }
 
-            pclass = (mode == SPEC_MODE_LOCAL)
-                ? REB_P_LOCAL
-                : REB_P_NORMAL;
-            break;
-
-          case REB_GET_WORD:
-            if (mode != SPEC_MODE_NORMAL)
-                goto mode_mismatch;
-
-            pclass = REB_P_HARD_QUOTE;
-            spelling = VAL_WORD_SPELLING(item);
-            break;
-
-          case REB_QUOTED: {
-            const REBCEL *cell = VAL_UNESCAPED(item);
-            if (VAL_NUM_QUOTES(item) != 1 or CELL_KIND(cell) != REB_WORD)
-                fail ("QUOTED! argument must be a WORD! to soft quote");
-
-            if (mode != SPEC_MODE_NORMAL)
-                goto mode_mismatch;
-
-            pclass = REB_P_SOFT_QUOTE;
-            spelling = VAL_WORD_SPELLING(cell);
-            break; }
-
-          case REB_PATH:
-            if (not IS_REFINEMENT(item))
-                fail ("PATH! argument must be like /REFINEMENT");
+            refinement = true;
+            refinement_seen = true;
 
             // !!! If you say [<with> x /foo y] the <with> terminates and a
             // refinement is started.  Same w/<local>.  Is this a good idea?
@@ -419,32 +403,52 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             //
             mode = SPEC_MODE_NORMAL;
 
-            refinement_seen = true;
-            is_refinement = true;
+            spelling = VAL_WORD_SPELLING(VAL_ARRAY_AT(cell) + 1);
+            if (CELL_KIND(cell) == REB_GET_PATH) {
+                if (not quoted)
+                    pclass = REB_P_HARD_QUOTE;
+            }
+            else if (CELL_KIND(cell) == REB_PATH) {
+                if (quoted)
+                    pclass = REB_P_SOFT_QUOTE;
+                else
+                    pclass = REB_P_NORMAL;
+            }
+        }
+        else if (ANY_WORD_KIND(CELL_KIND(cell))) {
+            spelling = VAL_WORD_SPELLING(cell);
+            if (CELL_KIND(cell) == REB_SET_WORD) {
+                if (not quoted)
+                    pclass = REB_P_LOCAL;
+            }
+            else {
+                if (refinement_seen and mode == SPEC_MODE_NORMAL)
+                    fail (Error_Legacy_Refinement_Raw(spec));
 
-            pclass = REB_P_NORMAL;
-            spelling = VAL_WORD_SPELLING(VAL_ARRAY_AT_HEAD(item, 1));
-
-            // !!! The typeset bits of a refinement are not currently used.
-            // They are checked for TRUE or FALSE but this is done literally
-            // by the code.  This means that every refinement has some spare
-            // bits available in it for another purpose.
-            break;
-
-          case REB_SET_WORD:
-            // tolerate as-is if in <local> or <with> mode...
-            pclass = REB_P_LOCAL;
-            spelling = VAL_WORD_SPELLING(item);
-            //
-            // !!! Typeset bits of pure locals also not currently used,
-            // though definitional return should be using it for the return
-            // type of the function.
-            //
-            break;
-
-          mode_mismatch:
-          default:
+                if (CELL_KIND(cell) == REB_GET_WORD) {
+                    if (not quoted)
+                        pclass = REB_P_HARD_QUOTE;
+                }
+                else if (CELL_KIND(cell) == REB_WORD) {
+                    if (quoted)
+                        pclass = REB_P_SOFT_QUOTE;
+                    else
+                        pclass = REB_P_NORMAL;
+                }
+            }
+        }
+        else
             fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
+
+        if (pclass == REB_P_DETECT)  // didn't match
+            fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
+
+        if (mode != SPEC_MODE_NORMAL) {
+            if (pclass != REB_P_NORMAL and pclass != REB_P_LOCAL)
+                fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
+
+            if (mode == SPEC_MODE_LOCAL)
+                pclass = REB_P_LOCAL;
         }
 
         REBSTR *canon = STR_CANON(spelling);
@@ -487,7 +491,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // If the typeset bits contain REB_NULLED, that indicates <opt>.
         // But Is_Param_Endable() indicates <end>.
 
-        if (is_refinement) {
+        if (refinement) {
             Init_Param(
                 DS_PUSH(),
                 pclass,

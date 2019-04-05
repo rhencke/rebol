@@ -12,15 +12,10 @@
     null? :a
 )
 
-[#1477 (
-    e: trap [load ":/"]
-    (error? e) and [e/id = 'scan-invalid]
-)]
-(
-    e: trap [load "://"]
-    (error? e) and [e/id = 'scan-invalid]
-)
-(
-    e: trap [load ":///"]
-    (error? e) and [e/id = 'scan-invalid]
-)
+[#1477
+    ((match get-path! lit :/) = (load ":/"))
+
+    ((match get-path! lit ://) = (load "://"))
+
+    ((match get-path! lit :///) = (load ":///"))
+]

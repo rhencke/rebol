@@ -154,7 +154,7 @@
 [
     (
         foo: function [/A [integer!] :/B [<skip> word!]] [
-            reduce [/A (A) /B (B)]
+            reduce [/A (A) /B (try :B)]
         ]
         foob: enfix :foo/b
         true

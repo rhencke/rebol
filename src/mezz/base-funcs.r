@@ -130,12 +130,12 @@ function: func [
         ((either var [[
             set var: [
                 match [any-word! 'word!]
-                | ahead path! into [blank! word!]
+                | ahead any-path! into [blank! word!]
             ](
                 append new-spec var
 
                 ;-- exclude args/refines
-                append exclusions either path? var [var/2] [var]
+                append exclusions either any-path? var [var/2] [var]
             )
             |
             set other: block! (
