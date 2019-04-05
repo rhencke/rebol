@@ -3,7 +3,7 @@ REBOL [
     Title: "Rebol2 and Red Compatibility Shim"
     Homepage: https://trello.com/b/l385BE7a/porting-guide
     Rights: {
-        Copyright 2012-2018 Rebol Open Source Contributors
+        Copyright 2012-2019 Rebol Open Source Contributors
         REBOL is a trademark of REBOL Technologies
     }
     License: {
@@ -24,9 +24,11 @@ REBOL [
         was able to be folded in with this one--not possible, *yet*)
     }
     Notes: {
-        If you do not want to have locked source, there is currently an
-        option in the debug build: `system/options/unlocked-source`, which
-        you can set to "false".
+        * Ren-C does not allow the mutation of PATH!.  You can JOIN a path to
+          make a new one, and FOREACH a path to enumerate one, but you can't
+          APPEND or INSERT into them.  Calling code that expects to do these
+          kinds of mutations needs to be changed to do them on BLOCK! and
+          convert to PATH! when done.
     }
 ]
 
@@ -55,12 +57,12 @@ helper: enfix lib/func [
 ]
 
 emulate: enfix lib/func [
-    return: <void>
+    return: [<opt> any-value!]
     :set-word [set-word!]
     code [block!]
 ] lib/in lib [
-    set set-word do in lib code
-    export set-word
+    set/any set-word do in lib code  ; SET/ANY, needs to emulate VOID!
+    elide export set-word
 ]
 
 emulate-enfix: enfix lib/func [
@@ -93,7 +95,7 @@ scalar?: emulate [:any-scalar?]
 series!: emulate [any-series!]
 series?: emulate [:any-series?]
 
-any-type!: emulate [any-value!] ;-- !!! does not include any "UNSET!"
+any-type!: emulate [any-value!]  ; !!! does not include any "UNSET!"
 
 any-block!: emulate [any-array!]
 any-block?: emulate [:any-array?]
@@ -102,109 +104,165 @@ any-object!: emulate [any-context!]
 any-object?: emulate [:any-context?]
 
 
-; Rebol2 missing refinements are #[none], or #[true] if present
-; Red missing refinements are #[false], or #[true] if present
-; Rebol2 and Red arguments to unused refinements are #[none]
-;
-; Ren-C missing refinements are a BLANK! (_), or REFINEMENT! w/name if present
-; Ren-C arguments to unused refinements are not set.
-;
-; This is userspace code which transforms a FRAME! from the Ren-C convention
-; once the function is running, but before the user code composed into its
-; body gets a chance to run.  It uses the Rebol2 #[none] convention, as it
-; is more consistent with the Ren-C blank.
-;
-blankify-refinement-args: helper [
-    function [return: <void> f [frame!]] [
-        seen-refinement: false
-        for-each w (parameters of action of f) [
-            case [
-                refinement? w [
-                    seen-refinement: true
-                    w: ensure word! second w
-                    if f/(w) [
-                        f/(w): true ;-- turn refinement PATH! into #[true]
-                    ]
-                ]
-                seen-refinement [ ;-- turn any null args into BLANK!s
-                    ;
-                    ; !!! This is better expressed as `: default [_]`, but
-                    ; DEFAULT is based on using SET, which disallows GROUP!s
-                    ; in PATH!s.  Review rationale and consequences.
-                    ;
-                    f/(to-word w): to-value :f/(to-word w)
-                ]
-            ]
-        ]
-    ]
-]
 
-; This transforms a function spec so that UNSET! becomes <opt>, since there is
-; no "UNSET! data type" (null is not a value, and has no type).  It also must
-; transform `any-type!` into `<opt> any-value!`, as in Rebol2 ANY-TYPE!
-; implied not being set was acceptable...but UNSET! is not a type and hence
-; not in the types implied by ANY-VALUE!.
+; Refinement arguments in Ren-C are conveyed via the refinement value itself:
 ;
-optify: helper [
-    function [spec [block!]] [
-        ; R3-Alpha would tolerate blocks in the first position, but didn't do
-        ; the Rebol2 feature, e.g. `func [[throw catch] x y][...]`.
+; https://trello.com/c/DaVz9GG3/
+;
+; The old behavior is simulated by creating locals for the refinement args
+; and then having a bit of code at the beginning of the body that moves the
+; refinement's value into it.
+;
+; Also adds a specialization of the definitional return to act as EXIT.
+;
+rewrite-spec-and-body: helper [
+    function [
+        spec "(modified)" [block!]
+        body "(modified)" [block!]
+    ][
+        ; R3-Alpha didn't implement the Rebol2 `func [[throw catch] x y][...]`
+        ; but it didn't error on the block in the first position.  It just
+        ; ignored it.  For now, do the same in the emulation.
         ;
-        if block? first spec [spec: next spec] ;-- skip Rebol2's [throw]
+        if block? first spec [take spec]  ; skip Rebol2's [throw]
 
-        map-each item spec [
-            case [
-                :item = [any-type!] [
-                    [<opt> any-value!]
-                ]
-                find (try match block! item) 'unset! [
-                    replace (copy item) 'unset! <opt>
-                ]
-                default [:item]
+        spool-descriptions-and-locals: does [
+            while [match [text! set-word!] first spec] [
+                spec: my next
             ]
         ]
-    ]
-]
 
-func: emulate [
-    function [
-        return: [action!]
-        spec [block!]
-        body [block!]
-    ][
-        func compose [
-           ((optify spec)) <local> exit
-        ] compose [
-            blankify-refinement-args binding of 'return
-            exit: make action! [[] [unwind binding of 'return]]
-            ((body))
+        while [not tail? spec] [
+            refinement: try match path! spec/1
+
+            ; Refinements with multiple arguments are no longer allowed, and
+            ; there weren't many of those so it's not a big deal.  But there
+            ; are *many* instances of the non-refinement usage of /LOCAL.
+            ; These translate in Ren-C to the <local> tag.
+            ;
+            if refinement = lit /local [
+                change spec <local>
+                refinement: _
+            ]
+
+            spec: my next
+            if not refinement [continue]
+
+            if tail? spec [break]
+            spool-descriptions-and-locals
+            if tail? spec [break]
+
+            if not argument: match [word! lit-word! get-word!] spec/1 [
+                continue  ; refinement didn't take args, so leave it alone
+            ]
+            take spec  ; don't want argument between refinement + type block
+
+            if not tail? spec [spool-descriptions-and-locals]
+
+            ; may be at tail, if so need the [any-value!] injection
+
+            if types: match block! first spec [  ; explicit arg types
+                spec: my next
+            ]
+            else [
+                insert/only spec [any-value!]  ; old refinement-arg default
+            ]
+
+            append spec as set-word! argument  ; SET-WORD! in specs are locals
+
+            ; Take the value of the refinement and assign it to the argument
+            ; name that was in the spec.  Then set refinement to true/blank.
+            ;
+            ; (Rebol2 missing refinements are #[none], or #[true] if present
+            ; Red missing refinements are #[false], or #[true] if present
+            ; Rebol2 and Red arguments to unused refinements are #[none]
+            ; Since there's no agreement, Redbol goes with the Rebol2 way,
+            ; since NONE! is closer to Ren-C's BLANK! for unused refinements.)
+
+            insert body compose/deep [
+                (argument): :(refinement)
+                if not blank? :(refinement) [(refinement): true]
+            ]
+
+            if tail? spec [break]
+            spool-descriptions-and-locals
+            if tail? spec [break]
+
+            if extra: match any-word! first spec [
+                fail [
+                    {Refinement} refinement {can't take more than one}
+                    {argument in the Redbol emulation, so} extra {must be}
+                    {done some other way.  (We should be *able* to do}
+                    {it via variadics, but woul be much more involved.)}
+                ]
+            ]
         ]
+
+        spec: head spec  ; At tail, so seek head for any debugging!
+
+        ; We don't go to an effort to provide a non-definitional return.  But
+        ; add support for an EXIT that's a synonym for returning void.
+        ;
+        insert body [
+            exit: specialize 'return [set/any (lit value:) void]
+        ]
+        append spec [<local> exit]  ; FUNC needs it (function doesn't...)
     ]
 ]
 
-function: emulate [
+; If a Ren-C function suspects it is running code that may happen more than
+; once (e.g. a loop or function body) it marks that parameter `<const>`.
+; That prevents casual mutations.
+;
+; !!! See notes in RESKINNED for why an ADAPT must be used (for now)
+
+func-nonconst: emulate [
+    reskinned [body [block!]] adapt :func []
+]
+
+function-nonconst: emulate [
+    reskinned [body [block!]] adapt :function []
+]
+
+redbol-func: func: emulate [
     function [
         return: [action!]
         spec [block!]
         body [block!]
-        /with object [object! block! map!]
-        /extern words [block!]
     ][
-        if block? :object [object: has object]
+        spec: copy spec
+        body: copy body
+        rewrite-spec-and-body spec body
+
+        return func-nonconst spec body
+    ]
+]
+
+redbol-function: function: emulate [
+    function [
+        return: [action!]
+        spec [block!]
+        body [block!]
+        /with [object! block! map!]  ; from R3-Alpha, not adopted by Red
+        /extern [block!]  ; from R3-Alpha, adopted by Red
+    ][
+        if block? with [with: make object! with]
+
+        spec: copy spec
+        body: copy body
+        rewrite-spec-and-body spec body
 
         ; The shift in Ren-C is to remove the refinements from FUNCTION, and
-        ; put everything into the spec...marked with <tags>
+        ; put everything into the spec dialect...marked with <tags>
         ;
-        function compose [
-            ((optify spec))
-            (if with [<in>]) (:object)  ; <in> replaces /WITH
-            (if extern [<with>]) ((:words))  ; <with> replaces /EXTERN
-            ; <local> exit, picked up since using FUNCTION as generator
-        ] compose [
-            blankify-refinement-args binding of 'return
-            exit: make action! [[] [unwind binding of 'return]]
-            ((body))
+        if with [
+            append spec compose [<in> (with)]  ; <in> replaces /WITH
         ]
+        if extern [
+            append spec compose [<with> ((extern))]  ; <with> replaces /EXTERN
+        ]
+
+        return function-nonconst spec body
     ]
 ]
 
@@ -273,14 +331,25 @@ to-local-file: emulate [:file-to-local]
 
 to-rebol-file: emulate [:local-to-file]
 
-why?: emulate [does [lib/why]] ;-- not exported yet, :why not bound
+why?: emulate [does [lib/why]]  ; not exported yet, :why not bound
 
 null: emulate [
     #"^@" ; NUL in Ren-C https://en.wikipedia.org/wiki/Null_character
 ]
 
-unset?: emulate [:null?] ; https://trello.com/c/shR4v8tS
-unset!: emulate [:null] ;-- Note: datatype? unset! will fail with this
+; Ren-C's VOID! is the closest analogue to UNSET! that there is in behavior,
+; but it's not used for relaying the unset state of variables:
+;
+; https://forum.rebol.info/t/947
+;
+; Try saying that either a VOID! value or NULL state are unset, but 
+;
+unset?: emulate [
+    func [x [<opt> any-value!]] [
+        any [void? :x null? :x]
+    ]
+]
+unset!: emulate [:void!]
 
 ; NONE is reserved for `if none [x = 1 | y = 2] [...]`
 ;
@@ -323,7 +392,7 @@ value?: emulate [
         {See SET? in Ren-C: https://trello.com/c/BlktEl2M}
         value
     ][
-        either any-word? :value [set? value] [true] ;; bizarre.  :-/
+        either any-word? :value [set? value] [true]  ; bizarre.  :-/
     ]
 ]
 
@@ -334,9 +403,9 @@ type?: emulate [
     ][
         case [
             not word [type of :value]
-            unset? 'value ['unset!] ;-- https://trello.com/c/rmsTJueg
-            blank? :value ['none!] ;-- https://trello.com/c/vJTaG3w5
-            group? :value ['paren!] ;-- https://trello.com/c/ANlT44nH
+            unset? 'value ['unset!]  ; https://trello.com/c/rmsTJueg
+            blank? :value ['none!]  ; https://trello.com/c/vJTaG3w5
+            group? :value ['paren!]  ; https://trello.com/c/ANlT44nH
             (match ['word!] :value) ['lit-word!]
             (match ['path!] :value) ['lit-path!]
         ] else [
@@ -383,13 +452,13 @@ get: emulate [
         return: [<opt> any-value!]
         source {Legacy handles Rebol2 types, not *any* type like R3-Alpha}
             [blank! any-word! any-path! any-context! block!]
-        /any {/ANY in Ren-C is covered by TRY, only used with BLOCK!}
+        /any "/ANY in Ren-C is covered by TRY"
     ][
         any_GET: any
         any: :lib/any
 
         if block? :source [
-            return source ;-- this is what it did :-/
+            return source  ; this is what it did :-/
         ]
         set* lit result: either any-context? source [
             get words of source
@@ -403,14 +472,16 @@ get: emulate [
     ]
 ]
 
-; R3-Alpha and Rebol2's DO was effectively variadic.  If you gave it
-; an action, it could "reach out" to grab arguments from after the
-; call.  While Ren-C permits this in variadic actions, the system
-; natives should be "well behaved".
+; R3-Alpha and Rebol2's DO was effectively variadic.  If you gave it an
+; action, it could "reach out" to grab arguments from after the call.  Ren-C
+; replaced this functionality with EVAL:
 ;
-; https://trello.com/c/YMAb89dv
+; https://forum.rebol.info/t/meet-the-eval-native/311
 ;
-; This legacy bridge is variadic to achieve the result.
+; !!! This code contains an early and awkward attempt at emulating the old
+; DO behavior for functions in userspace, through an early version of
+; variadics.  Ren-C is aiming to have functions that make "writing your own
+; EVAL-like-thing" easier.
 ;
 do: emulate [
     function [
@@ -421,19 +492,17 @@ do: emulate [
         normals [any-value! <...>]
         'softs [any-value! <...>]
         :hards [any-value! <...>]
-        /args
-        arg
-        /next
-        var [word! blank!]
+        /args [any-value!]
+        /next [word!]
     ][
-        next_DO: next
+        var: next
         next: :lib/next
 
-        if next_DO [
+        if var [  ; DO/NEXT
             if args [fail "Can't use DO/NEXT with ARGS"]
             source: evaluate/set :source lit result:
-            if var [set var source] ;-- DO/NEXT put the *position* in the var
-            return :result ;-- DO/NEXT returned the *evaluative result*
+            set var source  ; DO/NEXT put the *position* in the var
+            return :result  ; DO/NEXT returned the *evaluative result*
         ]
 
         if action? :source [
@@ -444,7 +513,7 @@ do: emulate [
                     word! [take normals]
                     lit-word! [take softs]
                     get-word! [take hards]
-                    set-word! [[]] ;-- empty block appends nothing
+                    set-word! [[]]  ; empty block appends nothing
                     refinement! [break]
 
                     fail ["bad param type" params/1]
@@ -454,12 +523,7 @@ do: emulate [
         ] else [
             applique 'do [
                 source: :source
-                if args: args [
-                    arg: :arg
-                ]
-                if next: next_DO [
-                    var: :var
-                ]
+                args: :args
             ]
         ]
     ]
@@ -470,17 +534,17 @@ to: emulate [
         all [
             :value = group!
             find any-word! type
-            value: "paren!" ;-- make TO WORD! GROUP! give back "paren!"
+            value: "paren!"  ; make TO WORD! GROUP! give back "paren!"
         ]
         if any-array? :type [
             if match [text! typeset! map! any-context! vector!] :spec [
                 return make :type :value
             ]
-            if binary? :spec [ ;-- would scan UTF-8 data
+            if binary? :spec [  ; would scan UTF-8 data
                 return make :type as text! :value
             ]
         ]
-        ;--fallthrough
+        ; fallthrough
     ]
 ]
 
@@ -489,16 +553,16 @@ try: emulate [
         {See TRAP: https://trello.com/c/IbnfBaLI}
         return: [<opt> any-value!]
         block [block!]
-        /except "Note TRAP doesn't take a handler...use THEN instead}
-        code [block! action!]
+        /except "Note TRAP doesn't take a handler...use THEN instead"
+            [block! action!]
     ][
         trap [
             result: do block
         ] then (err => [
             case [
-                null? :code [err]
-                block? :code [do code]
-                action? :code [code err]
+                blank? :except [err]
+                block? :except [do except]
+                action? :except [try except err]  ; NULL result runs ELSE (!)
             ]
         ]) else [
             result
@@ -538,7 +602,7 @@ parse: emulate [
         input [any-series!]
         rules [block! text! blank!]
         /case
-        /all {Ignored refinement in <r3-legacy>}
+        /all "Ignored refinement in <r3-legacy>"
     ][
         case_PARSE: case
         case: :lib/case
@@ -562,11 +626,11 @@ reduce: emulate [
     function [
         value "Not just BLOCK!s evaluated: https://trello.com/c/evTPswH3"
         /into "https://forum.rebol.info/t/stopping-the-into-virus/705"
-        out [any-array!]
+            [any-array!]
     ][
         case [
             not block? :value [:value]
-            into [insert out reduce :value]
+            into [insert into reduce :value]
         ] else [
             reduce :value
         ]
@@ -580,12 +644,12 @@ compose: emulate [
         /deep "Ren-C recurses into PATH!s: https://trello.com/c/8WMgdtMp"
         /only
         /into "https://forum.rebol.info/t/stopping-the-into-virus/705"
-        out [any-array! any-string! binary!]
+            [any-array! any-string! binary!]
     ][
         case [
             not block? value [:value]
             into [
-                insert out applique 'compose [
+                insert into applique 'compose [
                     value: :value
                     deep: deep
                     only: true  ; controls turning off ((...)) splicing
@@ -608,10 +672,10 @@ collect: emulate [
         return: [any-series!]
         body [block!]
         /into "https://forum.rebol.info/t/stopping-the-into-virus/705"
-        output [any-series!]
+            [any-series!]
         <local> keeper
     ][
-        output: default [make block! 16]
+        output: any [into | make block! 16]
 
         keeper: specialize (
             enclose 'insert function [
@@ -619,7 +683,7 @@ collect: emulate [
                 <static> o (:output)
             ][
                 f/series: o
-                o: do f ;-- update static's position on each insertion
+                o: do f  ; update static's position on each insertion
                 :f/value
             ]
         )[
@@ -639,18 +703,18 @@ repend: emulate [
     function [
         series [any-series! port! map! gob! object! bitset!]
         value
-        /part limit [any-number! any-series! pair!]
+        /part [any-number! any-series! pair!]
         /only
-        /dup count [any-number! pair!]
+        /dup [any-number! pair!]
     ][
-        ;-- R3-alpha REPEND with block behavior called out
+        ; R3-alpha REPEND with block behavior called out
         ;
         applique 'append/part/dup [
             series: series
             value: (block? :value) and [reduce :value] or [:value]
-            if part [limit: :limit]
+            part: part
             only: only
-            if dup [count: :count]
+            dup: dup
         ]
     ]
 ]
@@ -660,7 +724,7 @@ join: emulate [
         value
         rest
     ][
-        ;-- double-inline of R3-alpha `repend value :rest`
+        ; double-inline of R3-alpha `repend value :rest`
         ;
         applique 'append [
             series: if series? :value [copy value] else [form :value]
@@ -677,7 +741,7 @@ reform: emulate [:spaced]
 print: emulate [
     func [
         return: <void>
-        value [any-value!] ;-- Ren-C only takes TEXT!, BLOCK!, BLANK!
+        value [any-value!]  ; Ren-C only takes TEXT!, BLOCK!, BLANK!, CHAR!
     ][
         write-stdout case [
             block? :value [spaced value]
@@ -689,35 +753,19 @@ print: emulate [
 
 quit: emulate [
     function [
-        /return {use /WITH in Ren-C: https://trello.com/c/3hCNux3z}
-        value
+        /return "Ren-C is variadic, 0 or 1 arg: https://trello.com/c/3hCNux3z"
+            [<opt> any-value!]
     ][
         applique 'quit [
-            with: ensure [refinement! blank!] return
-            if return [value: :value]
+            value: :return
         ]
     ]
 ]
 
 does: emulate [
-    func [
-        return: [action!]
-        :code [group! block!]
-    ][
-        func [<local> return:] compose/only [
-            return: does [
-                fail "No RETURN from DOES: https://trello.com/c/KgwJRlyj"
-            ]
-            | (as group! code)
-        ]
-    ]
+    specialize 'redbol-func [spec: []]
 ]
 
-; In Ren-C, HAS is the arity-1 parallel to OBJECT as arity-2 (similar
-; to the relationship between DOES and FUNCTION).  In Rebol2 and
-; R3-Alpha it just broke out locals into their own block when they
-; had no arguments.
-;
 has: emulate [
     func [
         return: [action!]
@@ -728,11 +776,19 @@ has: emulate [
     ]
 ]
 
+; OBJECT is a noun-ish word; Ren-C tried HAS for a while and did not like it.
+; A more generalized version of CONSTRUCT is being considered:
+;
+; https://forum.rebol.info/t/has-hasnt-worked-rethink-construct/1058
+;
+object: emulate [
+    specialize 'make [type: object!]
+]
+
 construct: emulate [
     func [
-        {CONSTRUCT is arity-2 object constructor}
         spec [block!]
-        /with object [object!]
+        /with [object!]
         /only
     ][
         if only [
@@ -741,20 +797,19 @@ construct: emulate [
                 {see %redbol.reb if you're interested in adding support}
             ]
         ]
-        object: default [object!]
-        to object spec
+        to any [with object!] spec
     ]
 ]
 
 break: emulate [
     func [
-        /return {/RETURN is deprecated: https://trello.com/c/cOgdiOAD}
-        value [any-value!]
+        /return "/RETURN is deprecated: https://trello.com/c/cOgdiOAD"
+            [any-value!]
     ][
         if return [
             fail [
-                "BREAK/RETURN not implemented in <r3-legacy>, see /WITH"
-                "or use THROW+CATCH.  See https://trello.com/c/uPiz2jLL/"
+                "BREAK/RETURN not implemented in Redbol emulation, use THROW"
+                "and CATCH.  See https://trello.com/c/uPiz2jLL/"
             ]
         ]
         break
@@ -762,32 +817,47 @@ break: emulate [
 ]
 
 ++: emulate [
-    function [
-        {Deprecated, use ME and MY: https://trello.com/c/8Bmwvwya}
-        'word [word!]
-    ][
-        value: get word ;-- returned value
-        elide (set word case [
-            any-series? :value [next value]
-            integer? :value [value + 1]
-        ] else [
-            fail "++ only works on ANY-SERIES! or INTEGER!"
-        ])
+    func [] [
+        fail 'return [
+            {++ and -- are not in the Redbol layer by default, as they were}
+            {not terribly popular to begin with...but also because `--` is}
+            {a very useful and easy-to-type dumping construct in Ren-C, that}
+            {comes in very handy when debugging Redbol.  Implementations of}
+            {++ and -- are available in %redbol.reb if you need them.}
+            {See also ME and MY: https://trello.com/c/8Bmwvwya}
+        ]
     ]
 ]
 
---: emulate [
-    function [
-        {Deprecated, use ME and MY: https://trello.com/c/8Bmwvwya}
-        'word [word!]
-    ][
-        value: get word ;-- returned value
-        elide (set word case [
-            any-series? :value [next value]
-            integer? :value [value + 1]
-        ] else [
-            fail "-- only works on ANY-SERIES! or INTEGER!"
-        ])
+comment [  ; ^-- see remark above
+    ++: emulate [
+        function [
+            {Deprecated, use ME and MY: https://trello.com/c/8Bmwvwya}
+            'word [word!]
+        ][
+            value: get word  ; returned value
+            elide (set word case [
+                any-series? :value [next value]
+                integer? :value [value + 1]
+            ] else [
+                fail "++ only works on ANY-SERIES! or INTEGER!"
+            ])
+        ]
+    ]
+
+    --: emulate [
+        function [
+            {Deprecated, use ME and MY: https://trello.com/c/8Bmwvwya}
+            'word [word!]
+        ][
+            value: get word  ; returned value
+            elide (set word case [
+                any-series? :value [next value]
+                integer? :value [value + 1]
+            ] else [
+                fail "-- only works on ANY-SERIES! or INTEGER!"
+            ])
+        ]
     ]
 ]
 
@@ -796,12 +866,12 @@ compress: emulate [
         {Deprecated, use DEFLATE or GZIP: https://trello.com/c/Bl6Znz0T}
         return: [binary!]
         data [binary! text!]
-        /part lim
+        /part [any-value!]
         /gzip
         /only
     ][
-        if not any [gzip only] [ ; assume caller wants "Rebol compression"
-            data: to-binary copy/part data :lim
+        if not any [gzip only] [  ; assume caller wants "Rebol compression"
+            data: to-binary copy/part data part
             zlib: deflate data
 
             length-32bit: modulo (length of data) (to-integer power 2 32)
@@ -824,17 +894,17 @@ decompress: emulate [
         {Deprecated, use DEFLATE or GUNZIP: https://trello.com/c/Bl6Znz0T}
         return: [binary!]
         data [binary!]
-        /part lim
+        /part [binary!]
         /gzip
-        /limit max
+        /limit [integer!]
         /only
     ][
-        if not any [gzip only] [ ;; assume data is "Rebol compressed"
+        if not any [gzip only] [  ; assume data is "Rebol compressed"
             lim: default [tail of data]
-            return zinflate/part/max data (skip lim -4) :max
+            return zinflate/part/max data (skip part -4) limit
         ]
 
-        return inflate/part/max/envelope data :lim :max case [
+        return inflate/part/max/envelope data part limit case [
             gzip [assert [not only] 'gzip]
             not only ['zlib]
         ]
@@ -854,8 +924,8 @@ devoider: helper [
             :action
                 |
             func [x [<opt> any-value!]] [
-                if null? :x [return blank] ;-- "none"
-                if void? :x [return null] ;-- "unset"
+                if null? :x [return blank]  ; "none"
+                if void? :x [return null]  ; "unset"
                 :x
             ]
         ]
@@ -874,7 +944,7 @@ switch: emulate [redescribe [
                 for-each c cases [
                     keep/only either block? :c [:c] [uneval :c]
                 ]
-                if default [ ;-- convert to fallout
+                if default [  ; convert to fallout
                     keep/only as group! default-branch
                     default: false
                     unset 'default-branch
@@ -986,7 +1056,7 @@ change: emulate [oldsplicer :change]
 
 quote: emulate [:lit]
 
-cloaker: helper [function [ ;-- specialized as CLOAK and DECLOAK
+cloaker: helper [function [  ; specialized as CLOAK and DECLOAK
     {Simple and insecure data scrambler, was native C code in Rebol2/R3-Alpha}
 
     return: [binary!] "Same series as data"
@@ -998,8 +1068,8 @@ cloaker: helper [function [ ;-- specialized as CLOAK and DECLOAK
     if length of data = 0 [return]
 
     switch type of key [
-        integer! [key: to binary! to string! key] ;-- UTF-8 string conversion
-        text! [key: to binary! key] ;-- UTF-8 encoding of string
+        integer! [key: to binary! to string! key]  ; UTF-8 string conversion
+        text! [key: to binary! key]  ; UTF-8 encoding of string
         binary! []
         fail
     ]
@@ -1009,14 +1079,14 @@ cloaker: helper [function [ ;-- specialized as CLOAK and DECLOAK
         fail "Cannot CLOAK/DECLOAK with length 0 key"
     ]
 
-    if not with [ ;-- hash key (only up to first 20 bytes?)
+    if not with [  ; hash key (only up to first 20 bytes?)
         src: make binary! 20
         count-up i 20 [
             append src key/(1 + modulo (i - 1) klen)
         ]
 
         key: checksum/method src 'sha1
-        assert [length of key = 20] ;-- size of an SHA1 hash
+        assert [length of key = 20]  ; size of an SHA1 hash
         klen: 20
     ]
 
