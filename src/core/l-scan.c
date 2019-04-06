@@ -2759,6 +2759,13 @@ const REBYTE *Scan_Issue(RELVAL *out, const REBYTE *cp, REBCNT len)
                 and LEX_SPECIAL_BAR != c
                 and LEX_SPECIAL_BLANK != c
                 and LEX_SPECIAL_COLON != c
+
+                // !!! R3-Alpha didn't allow #<< or #>>, but this was used
+                // in things like pdf-maker.r - and Red allows it.  Ren-C
+                // aims to make ISSUE!s back into strings, so allow it here.
+                //
+                and LEX_SPECIAL_GREATER != c
+                and LEX_SPECIAL_LESSER != c
             ){
                 return nullptr;
             }
