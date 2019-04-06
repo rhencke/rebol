@@ -772,7 +772,7 @@ has: emulate [
         vars [block!]
         body [block!]
     ][
-        r3-alpha-func (head of insert copy vars /local) body
+        redbol-func (head of insert copy vars /local) body
     ]
 ]
 
@@ -872,14 +872,14 @@ compress: emulate [
     ][
         if not any [gzip only] [  ; assume caller wants "Rebol compression"
             data: to-binary copy/part data part
-            zlib: deflate data
+            zlib: zdeflate data
 
             length-32bit: modulo (length of data) (to-integer power 2 32)
             loop 4 [
                 append zlib modulo (to-integer length-32bit) 256
                 length-32bit: me / 256
             ]
-            return zlib ;; ^-- plus size mod 2^32 in big endian
+            return zlib  ; ^-- plus size mod 2^32 in big endian
         ]
 
         return deflate/part/envelope data :lim [
@@ -893,20 +893,27 @@ decompress: emulate [
     function [
         {Deprecated, use DEFLATE or GUNZIP: https://trello.com/c/Bl6Znz0T}
         return: [binary!]
-        data [binary!]
-        /part [binary!]
-        /gzip
-        /limit [integer!]
-        /only
+        data [binary!] "Red assumes GZIP, Rebol assumed 'Rebol compressed'"
+        /part [binary!] "R3-Alpha refinement, must match end of compression"
+        /gzip "R3-Alpha refinement (no size argument, envelope stores)"
+        /limit [integer!] "R3-Alpha refinement, error if larger"
+        /zlib [integer!] "Red refinement (RFC 1951), uncompressed size"
+        /deflate [integer!] "Red refinement (RFC 1950), uncompressed size"
     ][
-        if not any [gzip only] [  ; assume data is "Rebol compressed"
-            lim: default [tail of data]
+        if not any [gzip zlib deflate] [
+            ;
+            ; Assume data is "Rebol compressed".  Could get more compatibility
+            ; by testing for gzip header or otherwise having a fallback, as
+            ; Red went with a Gzip default.
+            ;
             return zinflate/part/max data (skip part -4) limit
         ]
 
         return inflate/part/max/envelope data part limit case [
-            gzip [assert [not only] 'gzip]
-            not only ['zlib]
+            gzip [assert [not zlib not deflate] 'gzip]
+            zlib [assert [not deflate] 'zlib]
+            deflate [_]
+            fail
         ]
     ]
 ]
