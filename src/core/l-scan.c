@@ -1278,7 +1278,14 @@ static enum Reb_Token Locate_Token_May_Push_Mold(
                 while (not ANY_CR_LF_END(*cp))
                     ++cp;
                 ss->end = cp;
-                fail (Error_Syntax(ss, TOKEN_BINARY));
+
+                // !!! This was Error_Syntax(ss, TOKEN_BINARY), but if we use
+                // the same error as for an unclosed string the console uses
+                // that to realize the binary may be incomplete.  It may also
+                // have bad characters in it, but that would be detected by
+                // the caller, so we mention the missing `}` first.)
+                //
+                fail (Error_Missing(ss, '}'));
             }
             if (cp - 1 == ss->begin)
                 return TOKEN_ISSUE;
