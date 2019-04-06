@@ -637,6 +637,8 @@ reduce: emulate [
     ]
 ]
 
+enblock-devoid: chain [:devoid | :enblock]
+
 compose: emulate [
     function [
         value "Ren-C composes ANY-ARRAY!: https://trello.com/c/8WMgdtMp"
@@ -646,24 +648,27 @@ compose: emulate [
         /into "https://forum.rebol.info/t/stopping-the-into-virus/705"
             [any-array! any-string! binary!]
     ][
-        case [
-            not block? value [:value]
-            into [
-                insert into applique 'compose [
-                    value: :value
-                    deep: deep
-                    only: true  ; controls turning off ((...)) splicing
-                    splice: not only  ; splice by default
-                ]
-            ]
-        ] else [
-            applique 'compose [
-                value: :value
-                deep: deep
-                only: true  ; controls turning off ((...)) splicing
-                splice: not only
-            ]
+        if not block? :value [return :value]  ; `compose 1` is `1` in Rebol2
+
+        composed: applique 'compose [
+            value: :value
+            deep: deep
+
+            ; The predicate is a function that runs on whatever is generated
+            ; in the COMPOSE'd slot.  If you put it in a block, that will
+            ; splice but protect its contents from splicing (the default).
+            ; We add the twist that VOID!s ("unset") won't compose in Rebol2.
+            ;
+            ;    rebol2> type? either true [] []
+            ;    == unset!
+            ;
+            ;    rebol2> compose [(either true [] [])]
+            ;    == []  ; would be a #[void] in Ren-C
+            ;
+            predicate: either only [:enblock-devoid] [:devoid]
         ]
+
+        either into [insert into composed] [composed]
     ]
 ]
 

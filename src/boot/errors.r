@@ -87,6 +87,8 @@ Script: [
     no-relative:        [:arg1 {word is bound relative to context not on stack}]
     not-in-context:     [:arg1 {is not in the specified context}]
 
+    void-evaluation:    "VOID! cells cannot be evaluated"
+
     assertion-failure:  [{assertion failure:} :arg1]
 
     phase-bad-arg-type:

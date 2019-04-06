@@ -1353,6 +1353,26 @@ REBNATIVE(voidify)
 
 
 //
+//  devoid: native [
+//
+//  "Turn voids into nulls, passing through all other values"
+//
+//      return: [<opt> any-value!]
+//      optional [<opt> any-value!]
+//  ]
+//
+REBNATIVE(devoid)
+{
+    INCLUDE_PARAMS_OF_DEVOID;
+
+    if (IS_VOID(ARG(optional)))
+        return Init_Nulled(D_OUT);
+
+    RETURN (ARG(optional));
+}
+
+
+//
 //  nothing?: native/body [
 //
 //  "Returns TRUE if argument is either a BLANK! or NULL"

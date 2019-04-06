@@ -241,16 +241,18 @@ REB_R Compose_To_Stack_Core(
                 and not doubled_group
                 and VAL_ACTION(predicate) != NAT_ACTION(identity)
             ){
-                insert = rebRun(predicate, out, rebEND);
+                insert = rebRun(predicate, rebQ(out, rebEND), rebEND);
             } else
-                insert = out;
+                insert = IS_NULLED(out) ? nullptr : out;
 
-            if (IS_NULLED(insert) and kind == REB_GROUP and quotes == 0) {
+            if (insert == nullptr and kind == REB_GROUP and quotes == 0) {
                 //
                 // compose [(unquoted "nulls *vanish*!" null)] => []
                 // compose [(elide "so do 'empty' composes")] => []
             }
-            else if (IS_BLOCK(insert) and (predicate or doubled_group)) {
+            else if (
+                insert and IS_BLOCK(insert) and (predicate or doubled_group)
+            ){
                 //
                 // We splice blocks if they were produced by a predicate
                 // application, or if (( )) was used.
@@ -287,7 +289,10 @@ REB_R Compose_To_Stack_Core(
                 // compose [(1 + 2) inserts as-is] => [3 inserts as-is]
                 // compose [([a b c]) unmerged] => [[a b c] unmerged]
 
-                Move_Value(DS_PUSH(), insert);  // can't stack eval directly!
+                if (insert == nullptr)
+                    Init_Nulled(DS_PUSH());
+                else
+                    Move_Value(DS_PUSH(), insert);  // can't stack eval direct
 
                 if (kind == REB_SET_GROUP)
                     Setify(DS_TOP);
@@ -382,7 +387,7 @@ REB_R Compose_To_Stack_Core(
 //  {Evaluates only contents of GROUP!-delimited expressions in an array}
 //
 //      return: [any-array! any-path!]
-//      :predicate [<skip> path!]
+//      :predicate [<skip> action! path!]
 //          "Function to run on composed slots (default: ENBLOCK)"
 //      :label "Distinguish compose groups, e.g. [(plain) (<*> composed)]"
 //          [<skip> tag! file!]

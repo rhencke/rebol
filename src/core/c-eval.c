@@ -715,7 +715,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 // If we get here, the evaluator is actually seeing it, and it's time to fail.
 
       case REB_VOID:
-        fail ("VOID! cells cannot be evaluated");
+        fail (Error_Void_Evaluation_Raw());
 
 
 //==//// ACTION! /////////////////////////////////////////////////////////==//
@@ -1281,6 +1281,9 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
               case REB_P_NORMAL: {
                 REBFLGS flags = EVAL_MASK_DEFAULT
                     | EVAL_FLAG_FULFILLING_ARG;
+
+                if (IS_VOID(*next))  // Eval_Step() has callers test this
+                    fail (Error_Void_Evaluation_Raw());  // must be quoted
 
                 if (Eval_Step_In_Subframe_Throws(f->arg, f, flags)) {
                     Move_Value(f->out, f->arg);
