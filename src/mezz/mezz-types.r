@@ -28,7 +28,7 @@ to-decimal: to-percent: to-money: to-char: to-pair:
 to-tuple: to-time: to-date: to-binary: to-file: to-email: to-url: to-tag:
 to-text: to-bitset: to-image: to-vector: to-block: to-group:
 to-path: to-set-path: to-get-path: to-map: to-datatype: to-typeset:
-to-word: to-set-word: to-get-word: to-refinement: to-issue:
+to-word: to-set-word: to-get-word: to-issue:
 to-function: to-object: to-module: to-error: to-port:
 to-gob: to-event:
     blank
@@ -51,3 +51,8 @@ use [word] [
         ]
     ]
 ]
+
+; !!! Refinements are actually PATH! now, but TO PATH! of a WORD! assumes you
+; want a 2-element path with a blank at the head that looks like a refinement
+;
+to-refinement: :to-path
