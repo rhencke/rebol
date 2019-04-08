@@ -1161,3 +1161,53 @@ encloak: emulate [
         specialize 'cloaker [decode: false]
     )
 ]
+
+
+write: emulate [
+    function [
+        {Writes to a file, url, or port-spec (block or object).}
+        destination [file! url! object! block!]
+        value
+        /binary "Preserves contents exactly."
+        /string "Translates all line terminators."
+        /direct "Opens the port without buffering."
+        /append "Writes to the end of an existing file."
+        /no-wait "Returns immediately without waiting if no data."
+        /lines "Handles data as lines."
+        /part "Reads a specified amount of data."
+            [number!]
+        /with "Specifies alternate line termination."
+            [char! string!]
+        /allow "Specifies the protection attributes when created."
+            [block!]
+        /mode "Block of above refinements."
+            [block!]
+        /custom "Allows special refinements."
+            [block!]
+        /as {(Red) Write with the specified encoding, default is 'UTF-8}
+            [word!]
+    ][
+        all [binary? value | not binary] then [
+            fail [
+                {Rebol2 would do LF => CR LF substitution in BINARY! WRITE}
+                {unless you specified /BINARY.  Doing this quietly is a bad}
+                {behavior.  Use /BINARY, or WRITE AS TEXT! for conversion.}
+            ]
+        ]
+
+        for-each w [direct no-wait with part allow mode custom as] [
+            if get w [
+                fail [unspaced ["write/" w] "not currently in Redbol"]
+            ]
+        ]
+
+        applique 'write [
+            destination: destination
+            data: :value
+            string: string
+            append: append
+            lines: lines
+            part: part
+        ]
+    ]
+]
