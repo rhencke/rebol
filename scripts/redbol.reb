@@ -956,10 +956,10 @@ switch: emulate [redescribe [
                 for-each c cases [
                     keep/only either block? :c [:c] [uneval :c]
                 ]
-                if default [  ; convert to fallout
-                    keep/only as group! default-branch
+                if default [  ; /DEFAULT refinement -- convert to fallout
+                    keep/only as group! default
                     default: false
-                    unset 'default-branch
+                    unset 'default
                 ]
             ]
         ]

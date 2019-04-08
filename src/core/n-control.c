@@ -1011,11 +1011,15 @@ REBNATIVE(case)
 //      cases "Block of cases (comparison lists followed by block branches)"
 //          [block!]
 //      /all "Evaluate all matches (not just first one)"
+//      /default "Deprecated -- use ELSE, DEFAULT, or a GROUP! as last item"
 //  ]
 //
 REBNATIVE(switch)
 {
     INCLUDE_PARAMS_OF_SWITCH;
+
+    if (REF(default))  // Refinement needed for ADAPT usage
+        fail ("SWITCH/DEFAULT is only provided in the Redbol emulation");
 
     REBVAL *predicate = ARG(predicate);
     if (not IS_NULLED(predicate)) {
