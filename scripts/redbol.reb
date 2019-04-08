@@ -742,6 +742,74 @@ ajoin: emulate [:unspaced]
 
 reform: emulate [:spaced]
 
+redbol-form: form: emulate [
+    function [
+        value [<opt> any-value!]
+        /unspaced "Outer level, append "" [1 2 [3 4]] => {123 4}"
+    ][
+        case [
+            issue? :value [
+                as text! value  ; e.g. Rebol2 said `form #<<` was `<<`
+            ]
+            word? :value [
+                as text! value
+            ]
+            decimal? :value [
+                ;
+                ; Regarding IEEE `double` values, Wikipedia says:
+                ;
+                ;    "The 53-bit significand precision gives from 15 to 17
+                ;     significant decimal digits precision"
+                ;
+                ; Rebol2 printed 15 digits after the decimal point.  R3-Alpha gave
+                ; 16 digits...as does Red and seemingly JavaScript.
+                ;
+                ;     rebol2>> 1 / 3
+                ;     == 0.333333333333333
+                ;
+                ;     r3-alpha>> 1 / 3
+                ;     == 0.3333333333333333
+                ;
+                ;     red>> 1 / 3
+                ;     == 0.3333333333333333
+                ;
+                ;     JavaScript> 1 / 3
+                ;     -> 0.3333333333333333  ; Chrome
+                ;     -> 0.3333333333333333  ; Firefox
+                ;
+                ; While this may seem a minor issue, generated output in diff
+                ; gets thrown off, making it hard to see what has changed.
+                ; It can't be addressed via rounding, because rounding
+                ; floating point numbers can't guarantee a digit count when
+                ; printing--since some numbers aren't evenly representible.
+                ;
+                ; This truncates the number to the right length but doesn't
+                ; round it.  That would be more complicated, and is probably
+                ; best done via C code once Redbol is an extension.
+                ;
+                value: form value
+                if not find value "E" [
+                    use [pos] [
+                        all [
+                            pos: skip (try find value ".") 15
+                            clear pos
+                        ]
+                    ]
+                ]
+                value
+            ]
+            block? value [
+                delimit: either unspaced [:lib/unspaced] [:lib/spaced]
+                delimit map-each item value [
+                    redbol-form :item
+                ]
+            ]
+            default [
+                form value
+            ]
+        ]
+    ]
+]
 
 print: emulate [
     func [
@@ -969,6 +1037,12 @@ switch: emulate [redescribe [
 )]
 
 
+for-each-nonconst: emulate [
+    reskinned [
+        body [block!]  ; no <const> annotation
+    ] adapt :for-each []  ; see RESKINNED for why this is an ADAPT for now
+]
+
 while: emulate [devoider :while]
 foreach: emulate [
     function [
@@ -980,9 +1054,9 @@ foreach: emulate [
     ][
         any [
             not block? vars
-            for-each item vars [if set-word? item [break] true]
+            for-each-nonconst item vars [if set-word? item [break] true]
         ] then [
-            return for-each :vars data body ;; normal FOREACH
+            return for-each-nonconst :vars data body  ; normal FOREACH
         ]
 
         ; Weird FOREACH, transform to WHILE: https://trello.com/c/AXkiWE5Z
@@ -1055,8 +1129,26 @@ bound?: emulate [devoider specialize 'of [property: 'binding]]
 oldsplicer: helper [
     func [action [action!]] [
         adapt :action [
-            all [not only | any-array? :series | any-path? :value] then [
-                value: as block! value ;-- guarantees splicing
+            all [not only | any-array? series | any-path? :value] then [
+                value: as block! value  ; guarantees splicing
+            ]
+
+            ; Rebol2 converted integers to their string equivalent when
+            ; appending to BINARY!.  R3-Alpha considers INTEGER! to be byte:
+            ;
+            ;     rebol2> append bin [1234]
+            ;     == #{32353731323334}
+            ;
+            ;     r3-alpha/red> append bin [1234]
+            ;     *** Script Error: value out of range: 1234
+            ;
+            ; It would also spell WORD!s as their Latin1 values.
+            ;
+            all [
+                match [any-string! binary!] series
+                (type of series) != (type of :value)  ; changing breaks /PART
+            ] then [
+                value: redbol-form/unspaced :value
             ]
         ]
     ]
