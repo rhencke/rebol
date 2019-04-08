@@ -357,14 +357,26 @@ ctx-zip: context [
         ]
 
         num-entries: 0
+        has-data-descriptor: false
         parse source [
             to local-file-sig
             some [
                 to local-file-sig 4 skip
                 (num-entries: me + 1)
                 2 skip ; version
-                copy flags: 2 skip
-                    (if not zero? flags/1 and+ 1 [return false])
+                copy flags: 2 skip (
+                    if not zero? flags/1 and+ 1 [return false]
+                    if not zero? flags/1 and+ 8 [  ; "bit 3"
+                        ;
+                        ; "If this bit is set, the fields crc-32, compressed 
+                        ; size and uncompressed size are set to zero in the 
+                        ; local header.  The correct values are put in the 
+                        ; data descriptor immediately following the compressed
+                        ; data."
+                        ;
+                        has-data-descriptor: true
+                    ]
+                )
                 copy method-number: 2 skip (
                     method-number: get-ishort method-number
                     method: select [0 store 8 deflate] method-number else [
@@ -393,6 +405,16 @@ ctx-zip: context [
                     info name
                 )
                 extrafield-length skip
+                (
+                    if has-data-descriptor [
+                        assert [
+                            compressed-size = 0
+                            uncompressed-size = 0
+                            crc = 0
+                        ]
+                        fail "Data descriptor not handled"
+                    ]
+                )
                 data: compressed-size skip
                 (
                     uncompressed-data: catch [
