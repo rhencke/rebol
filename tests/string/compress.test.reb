@@ -22,3 +22,10 @@
         (next next unzipped) = (next next list)
     ]
 )
+
+;  test a "foreign" file 
+(
+    did all [
+        unzip (unzipped: copy []) %fixtures/test.docx
+    ]
+)
