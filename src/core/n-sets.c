@@ -355,6 +355,7 @@ REBNATIVE(exclude)
         DECLARE_LOCAL (verb); // initial code did something weird w/this
         Init_Word(verb, Canon(SYM_EXCLUDE));
         REBBIN *result = Xandor_Binary(verb, bin1, bin2);
+        INIT_BITS_NOT(result, false);
         return Init_Bitset(D_OUT, Manage_Series(result));
     }
 
