@@ -375,8 +375,8 @@ extract: function [
         [integer!] 
     /index "Extract from offset position(s)"
         [any-number! logic! block!]
-    /default "Use a default value instead of blank"
-        "The value to use (will be called each time if a function)"
+    /default "Default value to use (will be called each time if a function)"
+        [any-value!]
 ][
     value: default  ; Default value is "" for any-string! output
     default: enfix :lib/default
@@ -393,14 +393,14 @@ extract: function [
             cause-error 'Script 'invalid-arg reduce [index]
         ]
         out: make (type of series) len * length of index
-        if (not default_EXTRACT) and [any-string? out] [value: copy ""]
+        if (not :value) and [any-string? out] [value: copy ""]
         iterate-skip series width [iterate index [
             val: pick series index/1 else [value]
             append/only out :val
         ]]
     ] else [
         out: make (type of series) len
-        if (not default_EXTRACT) and [any-string? out] [value: copy ""]
+        if (not :value) and [any-string? out] [value: copy ""]
         iterate-skip series width [
             val: pick series index else [value]
             append/only out :val
