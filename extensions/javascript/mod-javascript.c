@@ -1078,10 +1078,10 @@ REBNATIVE(js_native_mainthread)
     Append_Ascii(mo->series, "}\n");  // end `function() {`
     Append_Ascii(mo->series, ");");  // end `reb.RegisterId_internal(`
 
-    TERM_SERIES(mo->series);
+    TERM_SERIES(SER(mo->series));
 
     TRACE("Registering native_id %d", native_id);
-    emscripten_run_script(cs_cast(BIN_AT(mo->series, mo->offset)));
+    emscripten_run_script(cs_cast(BIN_AT(SER(mo->series), mo->offset)));
 
     Drop_Mold(mo);
 

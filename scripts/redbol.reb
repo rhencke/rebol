@@ -45,7 +45,7 @@ export: lib/func [
     {!!! `export` should be a module feature !!!}
     set-word [set-word!]
 ] lib/in lib [
-    print ["REGISTERING EMULATION EXPORT:" as word! set-word]
+    ; !!! Not actually "exporting" yet...
 ]
 
 helper: enfix lib/func [
@@ -1303,3 +1303,5 @@ write: emulate [
         ]
     ]
 ]
+
+void  ; so that `do <redbol>` doesn't show any output
