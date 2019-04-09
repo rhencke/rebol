@@ -248,6 +248,8 @@ static REBVAL *Run_Sandboxed_Group(REBVAL *group) {
 //      /provoke "Block must return a console state, group is cancellable"
 //          [block! group!]
 //      /resumable "Allow RESUME instruction (will return a PATH!)"
+//      /skin "File containing console skin, or MAKE CONSOLE! derived object"
+//          [file! object!]
 //  ]
 //
 REBNATIVE(console)
@@ -322,6 +324,7 @@ REBNATIVE(console)
                 code,  // group! or block! executed prior (or blank!)
                 result,  // prior result quoted, or error (or blank!)
                 rebL(REF(resumable)),
+                ARG(skin),
             "]", rebEND
         );
 

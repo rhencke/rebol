@@ -71,13 +71,6 @@ loud-print: redescribe [
     enclose 'print func [f] [if system/options/verbose [do f]]
 )
 
-boot-welcome:
-{Welcome to Rebol.  For more information please type in the commands below:
-
-  HELP    - For starting information
-  ABOUT   - Information about your Rebol
-  CHANGES - What's different about this version}
-
 
 ; Define base console! behaviors.  Custom console skins derive from this.
 ;
@@ -99,7 +92,12 @@ console!: make object! [
     warning: {!!}
     error: {**}  ; errors FORM themselves, so this is not used yet
     info: {(i)}  ; was `to-text #{e29398}` for "(i)" symbol, caused problems
-    greeting: _
+    greeting:
+{Welcome to Rebol.  For more information please type in the commands below:
+
+  HELP    - For starting information
+  ABOUT   - Information about your Rebol
+  CHANGES - What's different about this version}
 
     print-prompt: method [return: <void>] [
         ;
@@ -281,6 +279,8 @@ start-console: function [
     "Called when a REPL is desired after command-line processing, vs quitting"
 
     return: <void>
+    /skin "Custom skin (e.g. derived from MAKE CONSOLE!) or file"
+        [file! object!] 
     <static>
         o (system/options)  ; shorthand since options are often read/written
 ][
@@ -289,13 +289,19 @@ start-console: function [
     ; Instantiate console! object into system/console.  This is updated via
     ; %console-skin.reb if in system/options/resources
 
+    skin-file: case [
+        file? skin [skin]
+        object? skin [blank]
+        default [%console-skin.reb]
+    ]
+
     loud-print "Starting console..."
     loud-print newline
-    proto-skin: make console! []
+    proto-skin: match object! skin else [make console! []]
     skin-error: _
 
     all [
-        skin-file: %console-skin.reb
+        skin-file
         not find o/suppress skin-file
         o/resources
         exists? skin-file: join o/resources skin-file
@@ -354,7 +360,7 @@ start-console: function [
         ]
     ]
 
-    boot-print boot-welcome
+    system/console/print-greeting
 
     === VERBOSE CONSOLE SKINNING MESSAGES ===
 
@@ -391,6 +397,8 @@ ext-console-impl: function [
         [blank! quoted! error!]
     resumable "Is the RESUME function allowed to exit this console"
         [logic!]
+    skin "Console skin to use if the console has to be launched"
+        [object! file! blank!]
 ][
     === HOOK RETURN FUNCTION TO GIVE EMITTED INSTRUCTION ===
 
@@ -492,7 +500,7 @@ ext-console-impl: function [
         ;
         assert [blank? :result]
         if (unset? 'system/console) or [not system/console] [
-            emit [start-console]
+            emit [start-console/skin lit (<*> skin)]
         ]
         return <prompt>
     ]
@@ -508,7 +516,7 @@ ext-console-impl: function [
     ]
 
     if find directives #start-console [
-        emit [start-console]
+        emit [start-console/skin lit (<*> skin)]
         return <prompt>
     ]
 
@@ -545,7 +553,7 @@ ext-console-impl: function [
             return 128 + 2 ; standard cancellation exit status for bash
         ]
         if find directives #console-if-halt [
-            emit [start-console]
+            emit [start-console/skin lit (<*> skin)]
             return <prompt>
         ]
         if find directives #unskin-if-halt [
@@ -936,7 +944,10 @@ echo: function [
 ; entry point for its mechanics, we export it to lib.  But this needs a much
 ; better solution.
 ;
-append lib compose [ext-console-impl: (:ext-console-impl)]
+append lib compose [
+    console!: (ensure object! console!)
+    ext-console-impl: (:ext-console-impl)
+]
 
 ; !!! The whole host startup/console is currently very manually loaded
 ; into its own isolated context by the C startup code.  This way, changes
