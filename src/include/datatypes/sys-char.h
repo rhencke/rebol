@@ -47,6 +47,34 @@
 //   APIs like rebSpell().  All efforts are being made to make it as easy to
 //   work with a BINARY! on string-like tasks where internal 0 bytes are ok.
 //
+// * Portions of this file are derived from code from Unicode Inc, from what
+//   were ConvertUTF.h and ConvertUTF.c.  These are no longer available from
+//   Unicode.org but can be found in some other projects, including Android:
+//
+// https://android.googlesource.com/platform/external/id3lib/+/master/unicode.org/ConvertUTF.h
+// https://android.googlesource.com/platform/external/id3lib/+/master/unicode.org/ConvertUTF.c
+// https://stackoverflow.com/q/2685004/
+//
+//     Copyright 2001-2004 Unicode, Inc.
+//
+//     Disclaimer
+//
+//     This source code is provided as is by Unicode, Inc. No claims are
+//     made as to fitness for any particular purpose. No warranties of any
+//     kind are expressed or implied. The recipient agrees to determine
+//     applicability of information provided. If this file has been
+//     purchased on magnetic or optical media from Unicode, Inc., the
+//     sole remedy for any claim will be exchange of defective media
+//     within 90 days of receipt.
+//
+//     Limitations on Rights to Redistribute This Code
+//
+//     Unicode, Inc. hereby grants the right to freely use the information
+//     supplied in this file in the creation of products supporting the
+//     Unicode Standard, and to make copies of this file in any form
+//     for internal or external distribution as long as this notice
+//     remains attached.
+//
 
 #if !defined(__cplusplus)
     #define VAL_CHAR(v) \
@@ -249,4 +277,70 @@ inline static const REBYTE *Back_Scan_UTF8_Char(
         return nullptr;
 
     return bp + trail;
+}
+
+
+// Utility routine to tell whether a sequence of bytes is legal UTF-8.
+// This must be called with the length pre-determined by the first byte.
+// If not calling this from ConvertUTF8to*, then the length can be set by:
+//
+//  length = trailingBytesForUTF8[*source] + 1;
+//
+// and the sequence is illegal right away if there aren't that many bytes
+// available.
+//
+// If presented with a length > 4, this returns false.  The Unicode
+// definition of UTF-8 goes up to 4-byte sequences.
+//
+inline static bool isLegalUTF8(const REBYTE *source, int length) {
+    REBYTE a;
+    const REBYTE *srcptr = source + length;
+
+    switch (length) {
+      default:
+        return false;
+
+      case 4:
+        if ((a = (*--srcptr)) < 0x80 || a > 0xBF)
+            return false;
+        // falls through
+    case 3:
+        if ((a = (*--srcptr)) < 0x80 || a > 0xBF)
+            return false;
+        // falls through
+    case 2:
+        if ((a = (*--srcptr)) > 0xBF)
+            return false;
+        // falls through
+
+        switch (*source) {
+            // no fall-through in this inner switch
+            case 0xE0: if (a < 0xA0) return false; break;
+            case 0xED: if (a > 0x9F) return false; break;
+            case 0xF0: if (a < 0x90) return false; break;
+            case 0xF4: if (a > 0x8F) return false; break;
+            default:   if (a < 0x80) return false; break;
+        }
+
+        // falls through
+    case 1:
+        if (*source >= 0x80 && *source < 0xC2)
+            return false;
+    }
+
+    if (*source > 0xF4)
+        return false;
+
+    return true;
+}
+
+
+inline static bool isLegalUTF8Sequence(
+    const REBYTE *source,
+    const REBYTE *sourceEnd
+){
+    int length = trailingBytesForUTF8[*source] + 1;
+    if (source + length > sourceEnd)
+        return false;
+    return isLegalUTF8(source, length);
 }

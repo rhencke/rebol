@@ -172,6 +172,9 @@ not be complete.  Please amend with any corrections.
 **Unicode**
 - Copyright 2001-2004 Unicode, Inc.
 - `%src/core/s-unicode.c`
+- Author: Mark E. Davis, 1994.
+- Rev History: Rick McGowan, fixes & updates May 2001.
+  Fixes & updates, Sept 2001.
 
 **ZLIB**
 - Copyright 1995-1998 Jean-loup Gailly and Mark Adler

@@ -132,7 +132,6 @@ core: [
     s-make.c
     s-mold.c
     s-ops.c
-    s-unicode.c
 
     ; (T)ypes
     t-binary.c

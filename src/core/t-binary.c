@@ -253,9 +253,15 @@ static REBSER *MAKE_TO_Binary_Common(const REBVAL *arg)
     case REB_FILE:
     case REB_EMAIL:
     case REB_URL:
-    case REB_TAG:
-        // !!! What should REB_ISSUE do?
-        return Make_UTF8_From_Any_String(arg, VAL_LEN_AT(arg));
+    case REB_TAG: {  // !!! What should REB_ISSUE do?
+        REBSIZ offset = VAL_OFFSET_FOR_INDEX(arg, VAL_INDEX(arg));
+
+        REBSIZ size = VAL_SIZE_LIMIT_AT(NULL, arg, -1);
+
+        REBSER *bin = Make_Binary(size);
+        memcpy(BIN_HEAD(bin), BIN_AT(VAL_SERIES(arg), offset), size);
+        TERM_BIN_LEN(bin, size);
+        return bin; }
 
     case REB_BLOCK:
         Join_Binary_In_Byte_Buf(arg, -1);

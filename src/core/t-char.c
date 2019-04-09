@@ -21,8 +21,46 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
+// See %sys-char.h for notes.
 
 #include "sys-core.h"
+
+
+// Index into the table below with the first byte of a UTF-8 sequence to
+// get the number of trailing bytes that are supposed to follow it.
+// Note that *legal* UTF-8 values can't have 4 or 5-bytes. The table is
+// left as-is for anyone who may want to do such conversion, which was
+// allowed in earlier algorithms.
+//
+const char trailingBytesForUTF8[256] = {
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 3,3,3,3,3,3,3,3,4,4,4,4,5,5,5,5
+};
+
+
+// Magic values subtracted from a buffer value during UTF8 conversion.
+// This table contains as many values as there might be trailing bytes
+// in a UTF-8 sequence.
+//
+const REBUNI offsetsFromUTF8[6] = {
+    0x00000000UL, 0x00003080UL, 0x000E2080UL,
+    0x03C82080UL, 0xFA082080UL, 0x82082080UL
+};
+
+
+// Once the bits are split out into bytes of UTF-8, this is a mask OR-ed
+// into the first byte, depending on how many bytes follow.  There are
+// as many entries in this table as there are UTF-8 sequence types.
+// (I.e., one byte sequence, two byte... etc.). Remember that sequencs
+// for *legal* UTF-8 will be 4 or fewer bytes total.
+//
+const REBYTE firstByteMark[7] = { 0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC };
 
 
 //

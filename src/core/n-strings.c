@@ -1121,8 +1121,10 @@ REBNATIVE(find_script)
 //
 //  invalid-utf8?: native [
 //
-//  {Checks UTF-8 encoding; if correct, returns null else position of error.}
+//  {Checks UTF-8 encoding}
 //
+//      return: "NULL if correct, otherwise position in binary of the error"
+//          [<opt> binary!]
 //      data [binary!]
 //  ]
 //
@@ -1131,12 +1133,20 @@ REBNATIVE(invalid_utf8_q)
     INCLUDE_PARAMS_OF_INVALID_UTF8_Q;
 
     REBVAL *arg = ARG(data);
+    REBYTE *utf8 = VAL_BIN_AT(arg);
+    REBSIZ size = VAL_LEN_AT(arg);
 
-    REBYTE *bp = Check_UTF8(VAL_BIN_AT(arg), VAL_LEN_AT(arg));
-    if (not bp)
-        return nullptr;
+    REBYTE *end = utf8 + size;
 
-    Move_Value(D_OUT, arg);
-    VAL_INDEX(D_OUT) = bp - VAL_BIN_HEAD(arg);
-    return D_OUT;
+    REBCNT trail;
+    for (; utf8 != end; utf8 += trail) {
+        trail = trailingBytesForUTF8[*utf8] + 1;
+        if (utf8 + trail > end or not isLegalUTF8(utf8, trail)) {
+            Move_Value(D_OUT, arg);
+            VAL_INDEX(D_OUT) = utf8 - VAL_BIN_HEAD(arg);
+            return D_OUT;
+        }
+    }
+
+    return nullptr;  // no invalid byte found
 }

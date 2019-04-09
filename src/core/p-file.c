@@ -185,9 +185,11 @@ static void Read_File_Port(
 //
 //  Write_File_Port: C
 //
+// !!! `len` comes from /PART, it should be in characters if a string and
+// in bytes if a BINARY!.  It seems to disregard it if the data is BLOCK!
+//
 static void Write_File_Port(REBREQ *file, REBVAL *data, REBCNT len, bool lines)
 {
-    REBSER *ser;
     struct rebol_devreq *req = Req(file);
 
     if (IS_BLOCK(data)) {
@@ -204,17 +206,18 @@ static void Write_File_Port(REBREQ *file, REBVAL *data, REBCNT len, bool lines)
     }
 
     if (IS_TEXT(data)) {
-        ser = Make_UTF8_From_Any_String(data, len);
-        Manage_Series(ser);
-        req->common.data = BIN_HEAD(ser);
-        len = SER_LEN(ser);
+        REBSIZ offset = VAL_OFFSET_FOR_INDEX(data, VAL_INDEX(data));
+        REBSIZ size = VAL_SIZE_LIMIT_AT(NULL, data, len);
+
+        req->common.data = BIN_AT(VAL_SERIES(data), offset);
+        req->length = size;
         req->modes |= RFM_TEXT; // do LF => CR LF, e.g. on Windows
     }
     else {
         req->common.data = VAL_BIN_AT(data);
+        req->length = len;
         req->modes &= ~RFM_TEXT; // don't do LF => CR LF, e.g. on Windows
     }
-    req->length = len;
 
     OS_DO_DEVICE_SYNC(file, RDC_WRITE);
 }
