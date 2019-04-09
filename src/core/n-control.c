@@ -930,7 +930,7 @@ REBNATIVE(case)
                 // >> if false <some-tag>
                 // ** Script Error: if does not allow tag! for its branch...
                 //
-                fail (Error_Bad_Value_Core(D_SPARE, *specifier));
+                fail (Error_Bad_Value_Core(*v, *specifier));
             }
 
             Fetch_Next_Forget_Lookback(f); // skip next, whatever it is

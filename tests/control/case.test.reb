@@ -110,3 +110,9 @@
 (<a> = case /not [1 = 2 [<a>]])
 (<b> = case /even? [1 [<a>] 2 [<b>]])
 (<b> = case /not [1 = 1 [<a>] default [<b>]])
+
+; Errors on bad branches
+(
+    e: trap [case [true #bad]]
+    e/id = 'bad-value
+)
