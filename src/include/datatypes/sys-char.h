@@ -20,9 +20,9 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// The CHAR! datatype stores both a codepoint and the bytes of the character
-// encoded.  It's relatively inexpensive to do the encoding, and almost
-// always necessary to have it available.
+// A CHAR! value cell stores both a codepoint and the bytes of the codepoint
+// when UTF-8 encoded.  It's inexpensive to do the encoding at the time of
+// initializing the cell, and almost always necessary to have it available.
 //
 // Historically there is some disagremeent on UTF-8 codepoint maximum size:
 //
@@ -47,9 +47,9 @@
 //   APIs like rebSpell().  All efforts are being made to make it as easy to
 //   work with a BINARY! on string-like tasks where internal 0 bytes are ok.
 //
-// * Portions of this file are derived from code from Unicode Inc, from what
-//   were ConvertUTF.h and ConvertUTF.c.  These are no longer available from
-//   Unicode.org but can be found in some other projects, including Android:
+// * Portions here are derived from the files ConvertUTF.h and ConvertUTF.c,
+//   by Unicode Inc.  The files are no longer available from Unicode.org but
+//   can be found in some other projects, including Android:
 //
 // https://android.googlesource.com/platform/external/id3lib/+/master/unicode.org/ConvertUTF.h
 // https://android.googlesource.com/platform/external/id3lib/+/master/unicode.org/ConvertUTF.c
@@ -104,6 +104,19 @@ inline static const REBYTE *VAL_CHAR_ENCODED(const REBCEL *v) {
 
 
 extern const uint_fast8_t firstByteMark[7];  // defined in %t-char.c
+
+#define UNI_REPLACEMENT_CHAR    (REBUNI)0x0000FFFD
+#define UNI_MAX_BMP             (REBUNI)0x0000FFFF
+#define UNI_MAX_UTF16           (REBUNI)0x0010FFFF
+#define UNI_MAX_UTF32           (REBUNI)0x7FFFFFFF
+#define UNI_MAX_LEGAL_UTF32     (REBUNI)0x0010FFFF
+
+#define UNI_SUR_HIGH_START  (REBUNI)0xD800
+#define UNI_SUR_HIGH_END    (REBUNI)0xDBFF
+#define UNI_SUR_LOW_START   (REBUNI)0xDC00
+#define UNI_SUR_LOW_END     (REBUNI)0xDFFF
+
+#define MAX_UNI UNI_MAX_LEGAL_UTF32  // https://stackoverflow.com/a/20883643
 
 inline static uint_fast8_t Encoded_Size_For_Codepoint(REBUNI c) {
     if (c < cast(uint32_t, 0x80))
@@ -220,7 +233,7 @@ extern const uint_fast32_t offsetsFromUTF8[6];  // defined in %t-char.c
 // returned (size is not advanced).
 //
 inline static const REBYTE *Back_Scan_UTF8_Char(
-    REBUNI *out, // "UTF32" is defined as unsigned long above
+    REBUNI *out,
     const REBYTE *bp,
     REBSIZ *size
 ){
@@ -304,11 +317,11 @@ inline static bool isLegalUTF8(const REBYTE *source, int length) {
         if ((a = (*--srcptr)) < 0x80 || a > 0xBF)
             return false;
         // falls through
-    case 3:
+      case 3:
         if ((a = (*--srcptr)) < 0x80 || a > 0xBF)
             return false;
         // falls through
-    case 2:
+      case 2:
         if ((a = (*--srcptr)) > 0xBF)
             return false;
         // falls through
@@ -323,7 +336,7 @@ inline static bool isLegalUTF8(const REBYTE *source, int length) {
         }
 
         // falls through
-    case 1:
+      case 1:
         if (*source >= 0x80 && *source < 0xC2)
             return false;
     }

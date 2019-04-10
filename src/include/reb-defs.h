@@ -100,19 +100,6 @@ typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 
 typedef uint_fast32_t REBUNI;
 
-#define UNI_REPLACEMENT_CHAR    (REBUNI)0x0000FFFD
-#define UNI_MAX_BMP             (REBUNI)0x0000FFFF
-#define UNI_MAX_UTF16           (REBUNI)0x0010FFFF
-#define UNI_MAX_UTF32           (REBUNI)0x7FFFFFFF
-#define UNI_MAX_LEGAL_UTF32     (REBUNI)0x0010FFFF
-
-#define UNI_SUR_HIGH_START  (REBUNI)0xD800
-#define UNI_SUR_HIGH_END    (REBUNI)0xDBFF
-#define UNI_SUR_LOW_START   (REBUNI)0xDC00
-#define UNI_SUR_LOW_END     (REBUNI)0xDFFF
-
-#define MAX_UNI UNI_MAX_LEGAL_UTF32  // https://stackoverflow.com/a/20883643
-
 
 //=//// MEMORY POOLS //////////////////////////////////////////////////////=//
 //
@@ -379,12 +366,6 @@ enum Reb_Api_Opcode {
 // just define things here.
 //
 
-// !!! This structure varies the layout based on endianness, so that when it
-// is seen throuh the .bits field of the REBDAT union, a later date will
-// have a value that will be greater (>) than an earlier date.  This should
-// be reviewed for standards compliance; masking and shifting is generally
-// safer than bit field union tricks.
-//
 typedef struct reb_ymdz {
     unsigned year:16;
     unsigned month:4;
