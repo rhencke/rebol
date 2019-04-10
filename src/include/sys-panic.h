@@ -109,8 +109,12 @@
 //
 #if defined(INCLUDE_C_DEBUG_BREAK_NATIVE) or defined(DEBUG_COUNT_TICKS)
     #if defined(TO_HAIKU) || defined(TO_EMSCRIPTEN)
-        inline static int debug_break() {
+        inline static void debug_break() {
             int x = 0;
+          #ifdef DEBUG_STDIO_OK
+            printf("debug_break() called\n");
+            fflush(stdout);
+          #endif
             while (1) { ++x; }
             x = 0; // set next statement in debugger to here
         }

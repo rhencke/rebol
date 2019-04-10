@@ -1304,4 +1304,55 @@ write: emulate [
     ]
 ]
 
+
+; Rebol2 was extended ASCII-based, typically expected to be Latin1.  This
+; means some files depended on being able to LOAD characters that were
+; arbitrary bytes, representing the first 255 characters of unicode.
+;
+; Red, R3-Alpha, and Ren-C are UTF-8-based by default.  However, this means
+; that some Rebol2 scripts which depend on reading Latin1 files will fail.
+; One example is %pdf-maker.r, which embeds a Latin1 font metrics file as
+; compressed data in the script itself.
+;
+; It's relatively unlikely that a Latin1 file using high-bit characters would
+; decode as valid UTF-8:
+;
+; "To appear as a valid UTF-8 multi-byte sequence, a series of 2 to 4 extended
+;  ASCII 8-bit characters would have to be an unusual combination of symbols
+;  and accented letters (such as an accented vowel followed immediately by
+;  certain punctuation). In short, real-world extended ASCII character
+;  sequences which look like valid UTF-8 multi-byte sequences are unlikely."
+;
+; So what we do as a heuristic is to try UTF-8 first and fall back on Latin1
+; interpretation.  This means bad UTF-8 input that isn't Latin1 will be
+; misinterpreted...but since Rebol2 would accept any bytes, it's no worse.
+;
+hijack 'lib/transcode enclose copy :lib/transcode function [f [frame!]] [
+    trap [
+        result: lib/do copy f  ; COPY so we can DO it again if needed
+    ] then (e => [
+        if e/id != 'bad-utf8 [
+            fail e
+        ]
+
+        f/source: copy f/source
+        assert [binary? f/source]  ; invalid UTF-8 can't be in an ANY-STRING!
+        pos: f/source
+        iterate pos [
+            if pos/1 < 128 [continue]  ; ASCII
+            if pos/1 < 192 [
+                lib/insert pos #{C2}
+                pos: next pos
+                continue
+            ]
+            lib/change pos pos/1 - 64  ; want byte not FORM, use LIB/change!
+            lib/insert pos #{C3}
+            pos: next pos
+        ]
+
+        result: lib/do f  ; this time if it fails, we won't TRAP it
+    ])
+    result
+]
+
 void  ; so that `do <redbol>` doesn't show any output

@@ -48,7 +48,7 @@ const char trailingBytesForUTF8[256] = {
 // This table contains as many values as there might be trailing bytes
 // in a UTF-8 sequence.
 //
-const REBUNI offsetsFromUTF8[6] = {
+const uint_fast32_t offsetsFromUTF8[6] = {
     0x00000000UL, 0x00003080UL, 0x000E2080UL,
     0x03C82080UL, 0xFA082080UL, 0x82082080UL
 };
@@ -60,7 +60,9 @@ const REBUNI offsetsFromUTF8[6] = {
 // (I.e., one byte sequence, two byte... etc.). Remember that sequencs
 // for *legal* UTF-8 will be 4 or fewer bytes total.
 //
-const REBYTE firstByteMark[7] = { 0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC };
+const uint_fast8_t firstByteMark[7] = {
+    0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC
+};
 
 
 //

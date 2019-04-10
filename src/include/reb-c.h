@@ -673,10 +673,10 @@
             ((p) == cast(CFUNC*, cast(uintptr_t, 0xDECAFBAD)))
 
         #define IS_POINTER_SAFETRASH_DEBUG(p) \
-            ((p) == cast(CFUNC*, cast(uintptr_t, 0x5AFE5AFE)))
+            ((p) == cast(void*, cast(uintptr_t, 0x5AFE5AFE)))
 
         #define IS_POINTER_FREETRASH_DEBUG(p) \
-            ((p) == cast(CFUNC*, cast(uintptr_t, 0xF4EEF4EE)))
+            ((p) == cast(void*, cast(uintptr_t, 0xF4EEF4EE)))
     #endif
 #endif
 

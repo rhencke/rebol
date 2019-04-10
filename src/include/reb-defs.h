@@ -95,9 +95,8 @@ typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 
 //=//// UNICODE CODEPOINT /////////////////////////////////////////////////=//
 //
-// These fundamental constants came from %s-unicode.c.  We use the <stdint.h>
-// fast 32 bit unsigned for REBUNI, as there is no need for it to be a
-// standardized size (not persisted in files, etc.)
+// We use the <stdint.h> fast 32 bit unsigned for REBUNI, as it doesn't need
+// to be a standardized size (not persisted in files, etc.)
 
 typedef uint_fast32_t REBUNI;
 

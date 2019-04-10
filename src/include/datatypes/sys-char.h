@@ -103,7 +103,7 @@ inline static const REBYTE *VAL_CHAR_ENCODED(const REBCEL *v) {
 }
 
 
-extern const uint_fast8_t firstByteMark[7];  // defined in %s-unicode.c
+extern const uint_fast8_t firstByteMark[7];  // defined in %t-char.c
 
 inline static uint_fast8_t Encoded_Size_For_Codepoint(REBUNI c) {
     if (c < cast(uint32_t, 0x80))
@@ -185,8 +185,8 @@ inline static REBVAL *Init_Char_May_Fail(RELVAL *out, REBUNI uni) {
     Root_Newline_Char
 
 
-extern const char trailingBytesForUTF8[256];  // defined in %s-unicode.c
-extern const uint_fast32_t offsetsFromUTF8[6];  // defined in %s-unicode.c
+extern const char trailingBytesForUTF8[256];  // defined in %t-char.c
+extern const uint_fast32_t offsetsFromUTF8[6];  // defined in %t-char.c
 
 
 // Converts a single UTF8 code-point and returns the position *at the
