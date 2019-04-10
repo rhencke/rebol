@@ -28,16 +28,25 @@
 //
 //  <body>
 //      <div id="console_out"></div>
-//      <script src="./load-r3.js"></script>  <!-- URL must contain a `/` -->
+//      /* optional Rebol scripts: */
+//      <script type="text/rebol" src="file.reb">
+//          ...optional Rebol code...
+//      </script>
+//      ....
+//
+//      <!-- URL -----v must contain a `/` -->
+//      <script src="./load-r3.js">
+//          /* primary optional JS code */
+//          let msg = "READY!"
+//          console.log(
+//              reb.Spell("spaced [",
+//                  {reb.Xxx() API functions are now...}", reb.T(msg),
+//              "]")
+//          ) 
+//      </script>
 //      <script>
-//          load_r3.then(() => {
-//              let msg = "READY!"
-//              console.log(
-//                  reb.Spell("spaced [",
-//                      {reb.Xxx() API functions are now...}", reb.T(msg),
-//                  "]")
-//              )
-//          })
+//          load_r3
+//          .then(() => {...}) /* 2ndary optional JS code */
 //      </script>
 //  </body>
 //
@@ -209,6 +218,7 @@ console.info("Use Emterpreter => " + use_emterpreter)
 
 let is_debug = false
 let base_dir = null
+let me = document.querySelector('script[src$="/load-r3.js"]')
 
 let args = (location.search
     ? location.search.substring(1).split('&')
@@ -245,7 +255,8 @@ if (!base_dir) {
     // WARNING: for this detection to work, load-r3.js URL MUST CONTAIN '/':
     // USE './load-r3.js' INSTEAD OF 'load-r3.js'"
     //
-    base_dir = document.querySelector('script[src$="/load-r3.js"]').src
+
+    base_dir = me.src
     base_dir = base_dir.substring(0, base_dir.indexOf("load-r3.js"))
 
     if (base_dir == "http://metaeducation.s3.amazonaws.com/travis-builds/") {
@@ -545,4 +556,37 @@ let load_r3 =
         "for-each collation builtin-extensions",
             "[load-extension collation]"
     )
+  }).then(function() {
+    let scripts = document.querySelectorAll("script[type='text/rebol']")
+    let promise = Promise.resolve(null)
+    for (let i = 0; i < scripts.length; i++) {
+        let src = scripts[i].src
+        if (src) promise = promise.then(function() {
+            console.log("fetch()-ing "+src+" from host")
+            return fetch(src).then(function(response) {
+                // https://www.tjvantoll.com/2015/09/13/fetch-and-errors/
+                if (!response.ok)
+                    throw Error(response.statusText)  // handled by .catch() below
+
+                return response.text()  // text() method a promise ("USVString")
+              }).then(function(text) {
+                console.log("Running script "+src)
+                reb.Elide(text)
+                console.log("Finished running script "+src+" @ tick " + reb.Tick())
+              })
+        })
+        let code = scripts[i].innerText.trim()
+        if (code) promise = promise.then(function() {
+                return code
+              }).then(function(text) {
+                console.log("Running code "+code)
+                reb.Elide(text)
+                console.log("Finished running code "+code+" @ tick " + reb.Tick())
+              })
+    }
+    return promise
+  }).then(()=>{
+      let code = me.innerText.trim()
+      if (code) eval(code)
   })
+
