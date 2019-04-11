@@ -844,6 +844,9 @@ load-module: function [
     ]
 ]
 
+; If TRUE, IMPORT 'MOD acts as IMPORT <MOD>
+;
+force-remote-import: false 
 
 ; See also: SYS/MAKE-MODULE*, SYS/LOAD-MODULE, SYS/DO-NEEDS
 ;
@@ -857,9 +860,18 @@ import: function [
     /no-lib "Don't export to the runtime library (lib)"
     /no-user "Don't export to the user context"
 ][
+    old-force-remote-import: force-remote-import
     ; `import <name>` will look in the module library for the "actual"
     ; module to load up, and drop through.
     ;
+    ; if a module is loaded with `import <mod1>`
+    ; then every nested `import 'mod2`
+    ; is forced to `import <mod2>`
+    ;
+    if tag? module [set 'force-remote-import true]
+    if all [force-remote-import | word? module] [
+        module: to tag! module
+    ]
     if tag? module [
         tmp: (select load rebol/locale/library/modules module) else [
             cause-error 'access 'cannot-open reduce [
@@ -964,7 +976,7 @@ import: function [
             resolve/only system/contexts/user lib exports
         ]
     ]
-
+    set 'force-remote-import old-force-remote-import
     return ensure module! mod
 ]
 

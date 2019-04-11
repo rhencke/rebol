@@ -57,7 +57,12 @@ do*: function [
     ; it should be using a more "official" URL instead of on individuals
     ; websites.  There should also be some kind of local caching facility.
     ;
+    ; force-remote-import is defined in sys-load.r
+    ;
+    old-force-remote-import: force-remote-import
+
     if tag? source [
+        set 'force-remote-import true
         ; Convert value into a URL!
         source: switch source
             (load rebol/locale/library/utilities)
@@ -90,6 +95,7 @@ do*: function [
             quit :value ;-- "rethrow" the QUIT if DO/ONLY
         ]
 
+        set 'force-remote-import old-force-remote-import
         return :value ;-- returns from DO*, because of <with> return
     ]
 
