@@ -30,23 +30,6 @@
 #include <assert.h>
 #include "assert-fixes.h"
 
-// REBOL Device Identifiers:
-// Critical: Must be in same order as Device table in host-device.c
-enum {
-    RDI_SYSTEM,
-    RDI_STDIO,
-    RDI_CONSOLE,
-    RDI_FILE,
-    RDI_EVENT,
-    RDI_NET,
-    RDI_SERIAL,
-#ifdef HAS_POSIX_SIGNAL
-    RDI_SIGNAL,
-#endif
-    RDI_MAX,
-    RDI_LIMIT = 32
-};
-
 
 enum Reb_Device_Command {
     RDC_INIT,       // init device driver resources
@@ -157,18 +140,18 @@ struct rebol_device {
     uint32_t req_size;      // size of the request state
     REBREQ *pending;        // pending requests
     uint32_t flags;         // state: open, signal
+
+    REBDEV *next;  // next in linked list of registered devices
 };
 
 // Inializer (keep ordered same as above)
 #define DEFINE_DEV(w,t,v,c,m,s) \
-    EXTERN_C REBDEV w; \
-    REBDEV w = {t, v, 0, c, m, s, 0, 0}
+    REBDEV w = {t, v, 0, c, m, s, 0, 0, 0}
 
 // Request structure:       // Allowed to be extended by some devices
 struct rebol_devreq {
 
-    // Linkages:
-    uint32_t device;        // device id (dev table)
+    REBDEV *device;
     union {
         void *handle;       // OS object
         int socket;         // OS identifier
@@ -221,28 +204,18 @@ struct rebol_devreq {
         cast(struct devreq_posix_signal*, req)
 #endif
 
-// !!! Hack used for making a 64-bit value as a struct, which works in
-// 32-bit modes.  64 bits, even in 32 bit mode.  Based on the deprecated idea
-// that "devices" would not have access to Rebol datatypes, and hence would
-// not be able to communicate with Rebol directly with a TIME! or DATE!.
-// To be replaced.
-//
-// (Note: compatible with FILETIME used in Windows)
-//
-#pragma pack(4)
-typedef struct sInt64 {
-    int32_t l;
-    int32_t h;
-} FILETIME_DEVREQ;
-#pragma pack()
+// !!! These devices will all be moved to extensions, so that the core
+// evaluator does not need to be linked to the R3-Alpha device model.
 
-struct devreq_file {
-    struct rebol_devreq devreq;
-    const REBVAL *path;     // file string (in OS local format)
-    int64_t size;           // file size
-    int64_t index;          // file index position
-    FILETIME_DEVREQ time;   // file modification time (struct)
-};
+EXTERN_C REBDEV Dev_StdIO;
+EXTERN_C REBDEV Dev_File;
+EXTERN_C REBDEV Dev_Event;
+EXTERN_C REBDEV Dev_Net;
+
+#ifdef HAS_POSIX_SIGNAL
+    EXTERN_C REBDEV Dev_Signal;
+#endif
+
 
 struct devreq_net {
     struct rebol_devreq devreq;
@@ -253,28 +226,7 @@ struct devreq_net {
     void *host_info;        // for DNS usage
 };
 
-struct devreq_serial {
-    struct rebol_devreq devreq;
-    REBVAL *path;           //device path string (in OS local format)
-    void *prior_attr;       // termios: retain previous settings to revert on close
-    int32_t baud;           // baud rate of serial port
-    uint8_t data_bits;      // 5, 6, 7 or 8
-    uint8_t parity;         // odd, even, mark or space
-    uint8_t stop_bits;      // 1 or 2
-    uint8_t flow_control;   // hardware or software
-};
-
-inline static struct devreq_file* ReqFile(REBREQ *req) {
-    assert(Req(req)->device == RDI_FILE);
-    return cast(struct devreq_file*, Req(req));
-}
-
 inline static struct devreq_net *ReqNet(REBREQ *req) {
-    assert(Req(req)->device == RDI_NET);
+    assert(Req(req)->device == &Dev_Net);
     return cast(struct devreq_net*, Req(req));
-}
-
-inline static struct devreq_serial *ReqSerial(REBREQ *req) {
-    assert(Req(req)->device == RDI_SERIAL);
-    return cast(struct devreq_serial*, Req(req));
 }

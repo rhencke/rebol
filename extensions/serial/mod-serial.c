@@ -1,5 +1,5 @@
 //
-//  File: %p-serial.c
+//  File: %mod-serial.c
 //  Summary: "serial port interface"
 //  Section: ports
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
@@ -24,6 +24,10 @@
 
 #include "sys-core.h"
 
+#include "tmp-mod-serial.h"
+
+#include "req-serial.h"
+
 #define MAX_SERIAL_DEV_PATH 128
 
 //
@@ -37,7 +41,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     if (path == NULL)
         fail (Error_Invalid_Spec_Raw(spec));
 
-    REBREQ *serial = Ensure_Port_State(port, RDI_SERIAL);
+    REBREQ *serial = Ensure_Port_State(port, &Dev_Serial);
     struct rebol_devreq *req = Req(serial);
 
     // Actions for an unopened serial port:
@@ -289,6 +293,8 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 //
 REBNATIVE(get_serial_actor_handle)
 {
+    OS_REGISTER_DEVICE(&Dev_Serial);
+
     Make_Port_Actor_Handle(D_OUT, &Serial_Actor);
     return D_OUT;
 }

@@ -47,10 +47,6 @@
 
 #include "reb-host.h"
 
-#ifndef REB_CORE
-REBSER* Gob_To_Image(REBGOB *gob);
-#endif
-
 
 //
 //  Convert_Date: C
@@ -58,8 +54,15 @@ REBSER* Gob_To_Image(REBGOB *gob);
 // Convert local format of system time into standard date
 // and time structure.
 //
-REBVAL *Convert_Date(long zone, const SYSTEMTIME *stime)
+// !!! The OS_XXX APIs were not intended to pass Windows datatypes.  As an
+// interim step in phasing this API layer out, it needs to be able to be
+// used by the Windows version of the FILESYSTEM extension--as well as code
+// here.  So it takes a void pointer to a system time.
+//
+REBVAL *OS_Convert_Date(const void *systemtime, long zone)
 {
+    const SYSTEMTIME *stime = cast(const SYSTEMTIME*, systemtime);
+
     return rebValue("ensure date! (make-date-ymdsnz",
         rebI(stime->wYear), // year
         rebI(stime->wMonth), // month
@@ -95,7 +98,7 @@ REBVAL *OS_Get_Time(void)
     if (TIME_ZONE_ID_DAYLIGHT == GetTimeZoneInformation(&tzone))
         tzone.Bias += tzone.DaylightBias;
 
-    return Convert_Date(-tzone.Bias, &stime);
+    return OS_Convert_Date(&stime, -tzone.Bias);
 }
 
 
@@ -157,25 +160,6 @@ bool OS_Set_Current_Dir(const REBVAL *path)
     rebFree(path_wide);
 
     return success == TRUE;
-}
-
-
-//
-//  OS_File_Time: C
-//
-// Convert file.time to REBOL date/time format.
-// Time zone is UTC.
-//
-REBVAL *OS_File_Time(REBREQ *file)
-{
-    SYSTEMTIME stime;
-    TIME_ZONE_INFORMATION tzone;
-
-    if (TIME_ZONE_ID_DAYLIGHT == GetTimeZoneInformation(&tzone))
-        tzone.Bias += tzone.DaylightBias;
-
-    FileTimeToSystemTime(cast(FILETIME *, &ReqFile(file)->time), &stime);
-    return Convert_Date(-tzone.Bias, &stime);
 }
 
 

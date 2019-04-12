@@ -48,7 +48,7 @@ static REBREQ *Req_SIO;
 //
 void Startup_StdIO(void)
 {
-    Req_SIO = OS_MAKE_DEVREQ(RDI_STDIO);
+    Req_SIO = OS_MAKE_DEVREQ(&Dev_StdIO);
 
     // !!! "The device is already open, so this call will just setup the
     // request fields properly.

@@ -109,13 +109,19 @@ static int Get_Timezone(struct tm *utc_tm_unused)
 
 
 //
-//  Convert_Date: C
+//  OS_Convert_Date: C
 //
 // Convert local format of system time into standard date
 // and time structure (for date/time and file timestamps).
 //
-REBVAL *Convert_Date(time_t *stime, long usec)
+// !!! Because this API is being in the OS_XXX functions, the `time_t`
+// define may not be available on some OS X builds.  So it uses a void*
+// instead.
+//
+REBVAL *OS_Convert_Date(const void *time_t_stime, long usec)
 {
+    const time_t *stime = cast(const time_t*, time_t_stime);
+
     // gmtime() is badly named.  It's utc time.  Note we have to be careful as
     // it returns a system static buffer, so we have to copy the result
     // via dereference to avoid calls to localtime() inside Get_Timezone
@@ -162,7 +168,7 @@ REBVAL *OS_Get_Time(void)
     //
     time_t stime = tv.tv_sec;
 
-    return Convert_Date(&stime, tv.tv_usec);
+    return OS_Convert_Date(&stime, tv.tv_usec);
 }
 
 
@@ -187,22 +193,3 @@ int64_t OS_Delta_Time(int64_t base)
 
     return time - base;
 }
-
-
-//
-//  OS_File_Time: C
-//
-// Convert file.time to REBOL date/time format.
-// Time zone is UTC.
-//
-REBVAL *OS_File_Time(REBREQ *file)
-{
-    if (sizeof(time_t) > sizeof(ReqFile(file)->time.l)) {
-        int64_t t = ReqFile(file)->time.l;
-        t |= cast(int64_t, ReqFile(file)->time.h) << 32;
-        return Convert_Date(cast(time_t*, &t), 0);
-    }
-
-    return Convert_Date(cast(time_t *, &ReqFile(file)->time.l), 0);
-}
-

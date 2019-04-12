@@ -117,10 +117,7 @@ core: [
     n-system.c
 
     ; (P)orts
-    p-dir.c
-    p-file.c
     p-net.c
-    p-serial.c
     p-signal.c
 
     ; (S)trings
@@ -215,16 +212,13 @@ os: [
 os-windows: [
     + windows/host-lib.c
     windows/dev-stdio.c
-    windows/dev-file.c
     windows/dev-event.c
-    windows/dev-serial.c
 ]
 
 os-posix: [
     posix/host-readline.c
     posix/dev-stdio.c
     posix/dev-event.c
-    posix/dev-file.c
 
     + posix/host-browse.c
     + posix/host-library.c
@@ -238,8 +232,6 @@ os-osx: [
     posix/host-readline.c
     posix/dev-stdio.c
     posix/dev-event.c
-    posix/dev-file.c
-    posix/dev-serial.c
 
     + posix/host-browse.c
     + posix/host-library.c
@@ -253,10 +245,8 @@ os-osx: [
 ; make.r requires an `os-(os-base)` entry here for each named target.
 ;
 os-linux: [
-    ; Linux uses the POSIX file I/O for now
     posix/host-readline.c
     posix/dev-stdio.c
-    posix/dev-file.c
 
     ; It also uses POSIX for most host functions
     + posix/host-library.c
@@ -271,21 +261,16 @@ os-linux: [
     ; not be using X11 as a dependency (probably)
     posix/dev-event.c
 
-    ; dev-serial should work on Linux and posix
-    posix/dev-serial.c
-
     ; Linux supports siginfo_t-style signals
     linux/dev-signal.c
 ]
 
 ; cloned from os-linux TODO: check'n'fix !!
 os-android: [
-    ; Android uses the POSIX file I/O for now
     posix/host-readline.c
     posix/dev-stdio.c
-    posix/dev-file.c
 
-    ; It also uses POSIX for most host functions
+    ; Uses POSIX for most host functions
     + posix/host-library.c
     + posix/host-process.c
     + posix/host-time.c
@@ -298,9 +283,6 @@ os-android: [
     ; not be using X11 as a dependency (probably)
     posix/dev-event.c
 
-    ; Serial should work on Android too
-    posix/dev-serial.c
-
     ; Android don't supports siginfo_t-style signals
     ; linux/dev-signal.c
 ]
@@ -309,7 +291,6 @@ os-emscripten: [
     posix/host-readline.c
     posix/dev-stdio.c
     posix/dev-event.c
-    posix/dev-file.c
 
     + posix/host-browse.c
     + posix/host-library.c

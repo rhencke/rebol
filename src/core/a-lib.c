@@ -1935,10 +1935,8 @@ void RL_rebFail_OS(int errnum)
 //
 // !!! Another transitional tool.
 //
-REBREQ *RL_rebMake_Rebreq(int device) {
-    assert(device < RDI_MAX);
-
-    REBDEV *dev = Devices[device];
+REBREQ *RL_rebMake_Rebreq(void *device) {
+    REBDEV *dev = cast(REBDEV*, device);
     assert(dev != NULL);
 
     REBREQ *req = Make_Binary_Core(
@@ -1951,7 +1949,7 @@ REBREQ *RL_rebMake_Rebreq(int device) {
     LINK(req).custom.node = nullptr;
     MISC(req).custom.node = nullptr;
 
-    Req(req)->device = device;
+    Req(req)->device = dev;
 
     return req;
 }

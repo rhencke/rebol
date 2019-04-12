@@ -1215,7 +1215,15 @@ void Startup_Core(void)
     Startup_Pools(0);
     Startup_GC();
 
+    OS_REGISTER_DEVICE(&Dev_StdIO);
     Startup_StdIO();
+
+    OS_REGISTER_DEVICE(&Dev_Event);
+    OS_REGISTER_DEVICE(&Dev_Net);
+
+  #ifdef HAS_POSIX_SIGNAL
+    OS_REGISTER_DEVICE(&Dev_Signal);
+  #endif
 
 //=//// INITIALIZE API ////////////////////////////////////////////////////=//
 

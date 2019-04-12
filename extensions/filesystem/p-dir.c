@@ -24,6 +24,8 @@
 
 #include "sys-core.h"
 
+#include "file-req.h"
+
 
 //
 //  Read_Dir_May_Fail: C
@@ -34,7 +36,7 @@
 //
 static REBARR *Read_Dir_May_Fail(REBREQ *dir)
 {
-    REBREQ *file = OS_MAKE_DEVREQ(RDI_FILE);
+    REBREQ *file = OS_MAKE_DEVREQ(&Dev_File);
 
     TRASH_POINTER_IF_DEBUG(ReqFile(file)->path); // is output (not input)
 
@@ -126,7 +128,7 @@ static void Init_Dir_Path(
 //
 // Internal port handler for file directories.
 //
-static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
+REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 {
     REBCTX *ctx = VAL_CONTEXT(port);
     REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
@@ -181,7 +183,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         UNUSED(PAR(lines)); // handled in dispatcher
 
         if (not IS_BLOCK(state)) {     // !!! ignores /SKIP and /PART, for now
-            REBREQ *dir = OS_MAKE_DEVREQ(RDI_FILE);
+            REBREQ *dir = OS_MAKE_DEVREQ(&Dev_File);
             ReqPortCtx(dir) = ctx;
 
             Init_Dir_Path(dir, path, POL_READ);
@@ -213,7 +215,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
       create:;
 
-        REBREQ *dir = OS_MAKE_DEVREQ(RDI_FILE);
+        REBREQ *dir = OS_MAKE_DEVREQ(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
         Init_Dir_Path(dir, path, POL_WRITE); // Sets RFM_DIR too
@@ -241,7 +243,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         if (IS_BLOCK(state))
             fail (Error_Already_Open_Raw(path));
 
-        REBREQ *dir = OS_MAKE_DEVREQ(RDI_FILE);
+        REBREQ *dir = OS_MAKE_DEVREQ(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
         Init_Dir_Path(dir, path, POL_WRITE); // Sets RFM_DIR
@@ -265,7 +267,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     case SYM_DELETE: {
         Init_Blank(state);
 
-        REBREQ *dir = OS_MAKE_DEVREQ(RDI_FILE);
+        REBREQ *dir = OS_MAKE_DEVREQ(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
         Init_Dir_Path(dir, path, POL_WRITE);
@@ -300,7 +302,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         if (REF(new))
             goto create;
 
-        REBREQ *dir = OS_MAKE_DEVREQ(RDI_FILE);
+        REBREQ *dir = OS_MAKE_DEVREQ(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
         Init_Dir_Path(dir, path, POL_READ);
@@ -316,7 +318,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     case SYM_QUERY: {
         Init_Blank(state);
 
-        REBREQ *dir = OS_MAKE_DEVREQ(RDI_FILE);
+        REBREQ *dir = OS_MAKE_DEVREQ(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
         Init_Dir_Path(dir, path, POL_READ);
@@ -340,19 +342,4 @@ static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     }
 
     return R_UNHANDLED;
-}
-
-
-//
-//  get-dir-actor-handle: native [
-//
-//  {Retrieve handle to the native actor for directories}
-//
-//      return: [handle!]
-//  ]
-//
-REBNATIVE(get_dir_actor_handle)
-{
-    Make_Port_Actor_Handle(D_OUT, &Dir_Actor);
-    return D_OUT;
 }

@@ -43,50 +43,14 @@
 
 #include "reb-host.h"
 
-/***********************************************************************
-**
-**  REBOL Device Table
-**
-**      The table most be in same order as the RDI_ enums.
-**      Table is in polling priority order.
-**
-***********************************************************************/
 
-EXTERN_C REBDEV Dev_StdIO;
-EXTERN_C REBDEV Dev_File;
-EXTERN_C REBDEV Dev_Event;
-EXTERN_C REBDEV Dev_Net;
-
-// There should be a better decoupling of these devices so the core
-// does not need to know about them...
-#if defined(TO_WINDOWS) || defined(TO_LINUX)
-EXTERN_C REBDEV Dev_Serial;
-#endif
-
-#ifdef HAS_POSIX_SIGNAL
-EXTERN_C REBDEV Dev_Signal;
-#endif
-
-REBDEV *Devices[RDI_LIMIT] =
-{
-    0,
-    &Dev_StdIO,
-    0,
-    &Dev_File,
-    &Dev_Event,
-    &Dev_Net,
-
-#if defined(TO_WINDOWS) || defined(TO_LINUX)
-    &Dev_Serial,
-#else
-    NULL,
-#endif
-
-#ifdef HAS_POSIX_SIGNAL
-    &Dev_Signal,
-#endif
-    0,
-};
+// REBOL "DEVICES"
+//
+// !!! The devices are no longer a table, but a linked list.  The polling
+// priority is in the order the list is in.  If there's going to be some kind
+// of priority scheme, it would have to be added to the API for registering.
+//
+REBDEV *Devices;
 
 
 static int Poll_Default(REBDEV *dev)
@@ -177,7 +141,7 @@ void Detach_Request(REBREQ **node, REBREQ *req)
 // raised during the device code.
 //
 static REBVAL *Dangerous_Command(REBREQ *req) {
-    REBDEV *dev = Devices[Req(req)->device];
+    REBDEV *dev = Req(req)->device;
 
     int result = (dev->commands[Req(req)->command])(req);
     return rebInteger(result);
@@ -198,10 +162,7 @@ REBVAL *OS_Do_Device(REBREQ *req, enum Reb_Device_Command command)
 {
     Req(req)->command = command;
 
-    if (Req(req)->device >= RDI_MAX)
-        rebJumps("FAIL {Rebol Device Number Too Large}", rebEND);
-
-    REBDEV *dev = Devices[Req(req)->device];
+    REBDEV *dev = Req(req)->device;
     if (dev == NULL)
         rebJumps("FAIL {Rebol Device Not Found}", rebEND);
 
@@ -227,7 +188,7 @@ REBVAL *OS_Do_Device(REBREQ *req, enum Reb_Device_Command command)
     // the meantime just don't try and push trapping of errors if there's
     // not at least one Rebol state pushed.
     //
-    if (Req(req)->device == RDI_STDIO && Req(req)->command == RDC_OPEN) {
+    if (Req(req)->device == &Dev_StdIO and Req(req)->command == RDC_OPEN) {
         int result = (dev->commands[Req(req)->command])(req);
         assert(result == DR_DONE);
         UNUSED(result);
@@ -302,7 +263,7 @@ void OS_Do_Device_Sync(REBREQ *req, enum Reb_Device_Command command)
 //
 //  OS_Make_Devreq: C
 //
-REBREQ *OS_Make_Devreq(int device)
+REBREQ *OS_Make_Devreq(REBDEV *device)  // rebdev
 {
     return cast(REBREQ*, rebMake_Rebreq(device));
 }
@@ -315,7 +276,7 @@ REBREQ *OS_Make_Devreq(int device)
 //
 int OS_Abort_Device(REBREQ *req)
 {
-    REBDEV *dev = Devices[Req(req)->device];
+    REBDEV *dev = Req(req)->device;
     assert(dev != NULL);
 
     Detach_Request(&dev->pending, req);
@@ -338,16 +299,15 @@ int OS_Abort_Device(REBREQ *req)
 //
 int OS_Poll_Devices(void)
 {
-    int cnt = 0;
+    int num_changed = 0;
 
-    int d;
-    for (d = 0; d != RDI_MAX; d++) {
-        REBDEV *dev = Devices[d];
-        if (dev and Poll_Default(dev))
-            ++cnt;
+    REBDEV *dev = Devices;
+    for (; dev != nullptr; dev = dev->next) {
+        if (Poll_Default(dev))
+            ++num_changed;
     }
 
-    return cnt;
+    return num_changed;
 }
 
 
@@ -367,19 +327,33 @@ int OS_Quit_Devices(int flags)
 {
     UNUSED(flags);
 
-    int d;
-    for (d = RDI_MAX - 1; d != -1; d--) {
-        REBDEV *dev = Devices[d];
-        if (
-            dev != NULL
-            and (dev->flags & RDF_INIT)
-            and dev->commands[RDC_QUIT] != NULL
-        ){
-            dev->commands[RDC_QUIT](cast(REBREQ*, dev));
-        }
+    REBDEV *dev = Devices;
+    for (; dev != nullptr; dev = dev->next) {
+        if (not (dev->flags & RDF_INIT))
+            continue;
+
+        if (dev->commands[RDC_QUIT] == nullptr)
+            continue;
+
+        dev->commands[RDC_QUIT](cast(REBREQ*, dev));
     }
 
     return 0;
+}
+
+
+//
+//  OS_Register_Device: C
+//
+// !!! This follows the R3-Alpha model that a device is expected to be a
+// global static variable, that is registered until the program finishes.  A
+// more dynamic solution would be needed for DLLs that unload and reload...
+// because the memory for the device would "go missing"--hence it would need
+// some mechanism of unregistering.
+//
+void OS_Register_Device(REBDEV *dev) {
+    dev->next = Devices;
+    Devices = dev;
 }
 
 
@@ -411,7 +385,7 @@ int OS_Wait(unsigned int millisec, unsigned int res)
     // below does not store it".  Having eliminated stack-allocated REBREQ,
     // it's not clear if it makes sense to allocate it here vs. below.
     //
-    REBREQ *req = OS_Make_Devreq(RDI_EVENT);
+    REBREQ *req = OS_Make_Devreq(&Dev_Event);
 
     OS_REAP_PROCESS(-1, NULL, 0);
 

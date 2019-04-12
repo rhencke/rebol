@@ -37,14 +37,9 @@
 // The size is that of a binary structure used by
 // the port for storing internal information.
 //
-REBREQ *Ensure_Port_State(REBVAL *port, REBCNT device)
+REBREQ *Ensure_Port_State(REBVAL *port, void *device)
 {
-    assert(device < RDI_MAX);
-
-    REBDEV *dev = Devices[device];
-    if (not dev)
-        return nullptr;
-
+    REBDEV *dev = cast(REBDEV*, device);
     REBCTX *ctx = VAL_CONTEXT(port);
     REBVAL *state = CTX_VAR(ctx, STD_PORT_STATE);
 
@@ -57,7 +52,7 @@ REBREQ *Ensure_Port_State(REBVAL *port, REBCNT device)
     }
     else {
         assert(IS_BLANK(state));
-        req = OS_MAKE_DEVREQ(device);
+        req = OS_MAKE_DEVREQ(dev);
         ReqPortCtx(req) = ctx;  // Guarded: SERIES_INFO_MISC_NODE_NEEDS_MARK
 
         Init_Binary(state, SER(req));

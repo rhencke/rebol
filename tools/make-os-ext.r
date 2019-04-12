@@ -159,7 +159,7 @@ e-lib/emit {
     extern "C" ^{
     #endif
 
-    extern REBDEV *Devices[];
+    extern REBDEV *Devices;
 
     /*
      * The "Rebol Host" provides a "Host Lib" interface to operating system
@@ -185,7 +185,6 @@ e-lib/emit {
     typedef struct REBOL_Host_Lib {
         int size;
         unsigned int ver_sum;
-        REBDEV **devices;
 
         $[Host-Lib-Fields];
     } REBOL_HOST_LIB;
@@ -240,7 +239,6 @@ e-table/emit {
     REBOL_HOST_LIB Host_Lib_Init = {
         HOST_LIB_SIZE,
         (HOST_LIB_VER << 16) + HOST_LIB_SUM,
-        (REBDEV**)&Devices,
 
         $(Host-Instance-Fields),
     };

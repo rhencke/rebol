@@ -35,7 +35,7 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 {
     REBCTX *ctx = VAL_CONTEXT(port);
 
-    REBREQ *req = Ensure_Port_State(port, RDI_STDIO);
+    REBREQ *req = Ensure_Port_State(port, &Dev_StdIO);
 
     switch (VAL_WORD_SYM(verb)) {
       case SYM_REFLECT: {

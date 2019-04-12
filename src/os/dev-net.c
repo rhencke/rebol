@@ -149,11 +149,11 @@ DEVICE_CMD Quit_Net(REBREQ *dr)
     UNUSED(dr);
 
   #ifdef TO_WINDOWS
-    if (Devices[RDI_NET]->flags & RDF_INIT)
+    if (Dev_Net.flags & RDF_INIT)
         WSACleanup();
   #endif
 
-    Devices[RDI_NET]->flags &= ~RDF_INIT;
+    Dev_Net.flags &= ~RDF_INIT;
     return DR_DONE;
 }
 
@@ -715,7 +715,7 @@ DEVICE_CMD Accept_Socket(REBREQ *sock)
     Init_Blank(CTX_VAR(connection, STD_PORT_DATA)); // just to be sure.
     Init_Blank(CTX_VAR(connection, STD_PORT_STATE)); // just to be sure.
 
-    REBREQ *sock_new = Ensure_Port_State(CTX_ARCHETYPE(connection), RDI_NET);
+    REBREQ *sock_new = Ensure_Port_State(CTX_ARCHETYPE(connection), &Dev_Net);
 
     struct rebol_devreq *req_new = Req(sock_new);
 

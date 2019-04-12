@@ -72,6 +72,7 @@ extensions: make map! [
     Debugger -
     DNS -
     Event -
+    Filesystem -
     FFI -
     GIF -
     Gob -
@@ -82,6 +83,7 @@ extensions: make map! [
     ODBC -
     PNG -
     Process -
+    Serial -
     TCC -
     UUID -
     UTF -

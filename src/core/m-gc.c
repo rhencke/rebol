@@ -1337,13 +1337,9 @@ void Shutdown_GC(void)
 //
 static void Mark_Devices_Deep(void)
 {
-    REBDEV **devices = Host_Lib->devices;
+    REBDEV *dev = Devices;
 
-    int d;
-    for (d = 0; d != RDI_MAX; d++) {
-        REBDEV *dev = devices[d];
-        if (not dev)
-            continue;
+    for (; dev != nullptr; dev = dev->next) {
         if (not dev->pending)
             continue;
 

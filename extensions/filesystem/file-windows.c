@@ -30,6 +30,8 @@
 
 #include "reb-host.h"
 
+#include "file-req.h"
+
 // MSDN V6 missed this define:
 #ifndef INVALID_SET_FILE_POINTER
 #define INVALID_SET_FILE_POINTER ((DWORD)-1)
@@ -597,6 +599,25 @@ DEVICE_CMD Rename_File(REBREQ *file)
         rebFail_OS (GetLastError());
 
     return DR_DONE;
+}
+
+
+//
+//  File_Time_To_Rebol: C
+//
+// Convert file.time to REBOL date/time format.
+// Time zone is UTC.
+//
+REBVAL *File_Time_To_Rebol(REBREQ *file)
+{
+    SYSTEMTIME stime;
+    TIME_ZONE_INFORMATION tzone;
+
+    if (TIME_ZONE_ID_DAYLIGHT == GetTimeZoneInformation(&tzone))
+        tzone.Bias += tzone.DaylightBias;
+
+    FileTimeToSystemTime(cast(FILETIME *, &ReqFile(file)->time), &stime);
+    return OS_CONVERT_DATE(&stime, -tzone.Bias);
 }
 
 

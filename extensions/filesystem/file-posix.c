@@ -52,6 +52,8 @@
 
 #include "reb-host.h"
 
+#include "file-req.h"
+
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
@@ -594,6 +596,24 @@ DEVICE_CMD Rename_File(REBREQ *file)
         rebFail_OS (errno);
 
     return DR_DONE;
+}
+
+
+//
+//  File_Time_To_Rebol: C
+//
+// Convert file.time to REBOL date/time format.
+// Time zone is UTC.
+//
+REBVAL *File_Time_To_Rebol(REBREQ *file)
+{
+    if (sizeof(time_t) > sizeof(ReqFile(file)->time.l)) {
+        int64_t t = ReqFile(file)->time.l;
+        t |= cast(int64_t, ReqFile(file)->time.h) << 32;
+        return OS_CONVERT_DATE(cast(time_t*, &t), 0);
+    }
+
+    return OS_CONVERT_DATE(cast(time_t *, &ReqFile(file)->time.l), 0);
 }
 
 

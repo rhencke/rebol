@@ -212,7 +212,7 @@ REB_R Event_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         if (REF(new) or REF(read) or REF(write) or REF(seek) or REF(allow))
             fail (Error_Bad_Refines_Raw());
 
-        REBREQ *req = OS_MAKE_DEVREQ(RDI_EVENT);
+        REBREQ *req = OS_MAKE_DEVREQ(&Dev_Event);
 
         Req(req)->flags |= RRF_OPEN;
         REBVAL *result = OS_DO_DEVICE(req, RDC_CONNECT);
@@ -235,7 +235,7 @@ REB_R Event_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         RETURN (port); }
 
     case SYM_CLOSE: {
-        REBREQ *req = OS_MAKE_DEVREQ(RDI_EVENT);
+        REBREQ *req = OS_MAKE_DEVREQ(&Dev_Event);
 
         OS_DO_DEVICE_SYNC(req, RDC_CLOSE);
 

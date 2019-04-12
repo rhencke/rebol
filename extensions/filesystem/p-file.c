@@ -24,6 +24,8 @@
 
 #include "sys-core.h"
 
+#include "file-req.h"
+
 #define MAX_READ_MASK 0x7FFFFFFF // max size per chunk
 
 //
@@ -89,7 +91,7 @@ void Query_File_Or_Dir(REBVAL *out, REBVAL *port, REBREQ *file)
     );
     Init_Integer(CTX_VAR(ctx, STD_FILE_INFO_SIZE), ReqFile(file)->size);
 
-    REBVAL *timestamp = OS_FILE_TIME(file);
+    REBVAL *timestamp = File_Time_To_Rebol(file);
     Move_Value(CTX_VAR(ctx, STD_FILE_INFO_DATE), timestamp);
     rebRelease(timestamp);
 
@@ -274,7 +276,7 @@ static void Set_Seek(REBREQ *file, REBVAL *arg)
 //
 // Internal port handler for files.
 //
-static REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
+REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 {
     REBCTX *ctx = VAL_CONTEXT(port);
     REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
@@ -290,7 +292,7 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     else if (!IS_FILE(path))
         fail (Error_Invalid_Spec_Raw(path));
 
-    REBREQ *file = Ensure_Port_State(port, RDI_FILE);
+    REBREQ *file = Ensure_Port_State(port, &Dev_File);
     struct rebol_devreq *req = Req(file);
 
     // !!! R3-Alpha never implemented quite a number of operations on files,
@@ -638,19 +640,4 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     }
 
     return R_UNHANDLED;
-}
-
-
-//
-//  get-file-actor-handle: native [
-//
-//  {Retrieve handle to the native actor for files}
-//
-//      return: [handle!]
-//  ]
-//
-REBNATIVE(get_file_actor_handle)
-{
-    Make_Port_Actor_Handle(D_OUT, &File_Actor);
-    return D_OUT;
 }

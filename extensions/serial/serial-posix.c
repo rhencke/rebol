@@ -35,6 +35,8 @@
 
 #include "sys-core.h"
 
+#include "req-serial.h"
+
 #define MAX_SERIAL_PATH 128
 
 /* BXXX constants are defined in termios.h */

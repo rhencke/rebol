@@ -80,7 +80,7 @@ DEVICE_CMD Open_IO(REBREQ *io)
 {
     struct rebol_devreq *req = Req(io);
 
-    REBDEV *dev = Devices[req->device];
+    REBDEV *dev = req->device;
 
     // Avoid opening the console twice (compare dev and req flags):
     if (dev->flags & RDF_OPEN) {
@@ -151,7 +151,7 @@ DEVICE_CMD Open_IO(REBREQ *io)
 //
 DEVICE_CMD Close_IO(REBREQ *req)
 {
-    REBDEV *dev = Devices[Req(req)->device];
+    REBDEV *dev = Req(req)->device;
 
     Close_Stdio();
 
@@ -527,6 +527,6 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] =
 
 DEFINE_DEV(
     Dev_StdIO,
-    "Standard IO", 1, Dev_Cmds, RDC_MAX, sizeof(struct devreq_file)
+    "Standard IO", 1, Dev_Cmds, RDC_MAX, sizeof(struct rebol_devreq)
 );
 

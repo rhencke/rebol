@@ -44,6 +44,8 @@
 
 #include "sys-core.h" // for CTX_ARCHETYPE(), temporary
 
+#include "req-serial.h"
+
 #define MAX_SERIAL_DEV_PATH 128
 
 const int speeds[] = {
