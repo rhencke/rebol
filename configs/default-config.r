@@ -39,6 +39,7 @@ extensions: make map! [
     PNG +
     Process +
     Serial +
+    Signal -
     TCC -
     UUID +
     UTF +

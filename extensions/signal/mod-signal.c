@@ -24,8 +24,11 @@
 
 #include "sys-core.h"
 
-#ifdef HAS_POSIX_SIGNAL
+#include "tmp-mod-signal.h"
+
 #include <sys/signal.h>
+
+#include "signal-req.h"
 
 static void update(REBREQ *signal, REBINT len, REBVAL *arg)
 {
@@ -289,11 +292,9 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     return R_UNHANDLED;
 }
 
-#endif //HAS_POSIX_SIGNAL
-
 
 //
-//  get-signal-actor-handle: native [
+//  export get-signal-actor-handle: native [
 //
 //  {Retrieve handle to the native actor for POSIX signals}
 //
@@ -301,16 +302,9 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 //  ]
 //
 REBNATIVE(get_signal_actor_handle)
-//
-// !!! The native scanner isn't smart enough to notice REBNATIVE() inside a
-// disabled #ifdef, so a definition for this has to be provided... even if
-// it's not a build where it should be available.
 {
-#ifdef HAS_POSIX_SIGNAL
+    OS_REGISTER_DEVICE(&Dev_Signal);
+
     Make_Port_Actor_Handle(D_OUT, &Signal_Actor);
     return D_OUT;
-#else
-    UNUSED(frame_);
-    fail ("GET-SIGNAL-ACTOR-HANDLE only works in builds with POSIX signals");
-#endif
 }

@@ -23,10 +23,6 @@
 // Critical: all struct alignment must be 4 bytes (see compile options)
 //
 
-#ifdef HAS_POSIX_SIGNAL
-#include <signal.h>
-#endif
-
 #include <assert.h>
 #include "assert-fixes.h"
 
@@ -194,21 +190,8 @@ struct rebol_devreq {
 #define ReqPortCtx(req) \
     *cast(void**, rebAddrOfReqPortCtx(req))  // !!! Transitional hack
 
-#ifdef HAS_POSIX_SIGNAL
-    struct devreq_posix_signal {
-        struct rebol_devreq devreq;
-        sigset_t mask;      // signal mask
-    };
-
-    #define ReqPosixSignal(req) \
-        cast(struct devreq_posix_signal*, req)
-#endif
 
 // !!! These devices will all be moved to extensions, so that the core
 // evaluator does not need to be linked to the R3-Alpha device model.
 
 EXTERN_C REBDEV Dev_StdIO;
-
-#ifdef HAS_POSIX_SIGNAL
-    EXTERN_C REBDEV Dev_Signal;
-#endif

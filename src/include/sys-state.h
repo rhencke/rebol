@@ -30,11 +30,11 @@ struct Reb_State {
     //
     // We put the jmp_buf first, since it has alignment specifiers on Windows
     //
-#ifdef HAS_POSIX_SIGNAL
+  #ifdef HAS_POSIX_SIGNAL
     sigjmp_buf cpu_state;
-#else
+  #else
     jmp_buf cpu_state;
-#endif
+  #endif
 
     struct Reb_State *last_state;
 

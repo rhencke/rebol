@@ -116,9 +116,6 @@ core: [
     n-strings.c
     n-system.c
 
-    ; (P)orts
-    p-signal.c
-
     ; (S)trings
     s-cases.c
     s-crc.c
@@ -251,9 +248,6 @@ os-linux: [
 
     ; Linux has some kind of MIME-based opening vs. posix /usr/bin/open
     + linux/host-browse.c
-
-    ; Linux supports siginfo_t-style signals
-    linux/dev-signal.c
 ]
 
 ; cloned from os-linux TODO: check'n'fix !!
@@ -269,9 +263,6 @@ os-android: [
 
     ; Android  has some kind of MIME-based opening vs. posix /usr/bin/open
     + linux/host-browse.c
-
-    ; Android don't supports siginfo_t-style signals
-    ; linux/dev-signal.c
 ]
 
 os-emscripten: [

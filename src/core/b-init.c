@@ -1218,10 +1218,6 @@ void Startup_Core(void)
     OS_REGISTER_DEVICE(&Dev_StdIO);
     Startup_StdIO();
 
-  #ifdef HAS_POSIX_SIGNAL
-    OS_REGISTER_DEVICE(&Dev_Signal);
-  #endif
-
 //=//// INITIALIZE API ////////////////////////////////////////////////////=//
 
     // The API is one means by which variables can be made whose lifetime is

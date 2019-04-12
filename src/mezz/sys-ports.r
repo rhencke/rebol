@@ -227,14 +227,5 @@ init-schemes: func [
 
     system/schemes: make object! 10
 
-    if 4 == fourth system/version [
-        make-scheme [
-            title: "Signal"
-            name: 'signal
-            actor: get-signal-actor-handle
-            spec: system/standard/port-spec-signal
-        ]
-    ]
-
     init-schemes: 'done ; only once
 ]

@@ -32,6 +32,7 @@
 
 #include "sys-core.h"
 
+#include "signal-req.h"
 
 //
 //  Open_Signal: C

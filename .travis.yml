@@ -272,7 +272,8 @@ matrix:
         - TCC=i386-tcc
         - ARCH_CFLAGS=-m32
         - WITH_FFI="dynamic"
-        - EXTENSIONS="TCC +" # 32-bit version does not have ODBC or ZeroMQ
+        - EXTENSIONS="Signal + TCC +"
+        # 32-bit version does not have ODBC or ZeroMQ
       addons:
         apt:
           packages:
@@ -302,7 +303,7 @@ matrix:
         - TCC=tcc
         - WITH_FFI=dynamic
         - ODBC_REQUIRES_LTDL=no
-        - EXTENSIONS="ODBC + ZeroMQ + TCC +"
+        - EXTENSIONS="ODBC + ZeroMQ + TCC + Signal +"
         - ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-3.4
         - ASAN_OPTIONS=symbolize=1
       addons:
@@ -338,7 +339,8 @@ matrix:
         - RIGOROUS=yes
         - STATIC=yes
         - WITH_FFI=no
-        - EXTENSIONS=""  # no ODBC, ZeroMQ, FFI dependencies
+        - EXTENSIONS="Signal +"
+        # no ODBC, ZeroMQ, FFI dependencies
       addons:
         apt:
           packages:
