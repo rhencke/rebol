@@ -249,14 +249,6 @@ init-schemes: func [
     ] 'file
 
     make-scheme [
-        title: "DNS Lookup"
-        name: 'dns
-        actor: get-dns-actor-handle
-        spec: system/standard/port-spec-net
-        awake: func [event] [print event/type true]
-    ]
-
-    make-scheme [
         title: "TCP Networking"
         name: 'tcp
         actor: get-tcp-actor-handle

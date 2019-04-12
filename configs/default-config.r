@@ -25,6 +25,7 @@ extensions: make map! [
     Console +
     Crypt + 
     Debugger +
+    DNS +
     Event +
     FFI -
     GIF +

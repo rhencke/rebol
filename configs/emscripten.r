@@ -70,6 +70,7 @@ extensions: make map! [
     Crypt -
     Console +
     Debugger -
+    DNS -
     Event -
     FFI -
     GIF -

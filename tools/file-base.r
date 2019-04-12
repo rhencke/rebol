@@ -118,7 +118,6 @@ core: [
 
     ; (P)orts
     p-dir.c
-    p-dns.c
     p-file.c
     p-net.c
     p-serial.c
@@ -211,7 +210,6 @@ os: [
     + host-device.c
     host-table.c
     dev-net.c
-    dev-dns.c
 ]
 
 os-windows: [

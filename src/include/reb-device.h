@@ -39,7 +39,6 @@ enum {
     RDI_FILE,
     RDI_EVENT,
     RDI_NET,
-    RDI_DNS,
     RDI_SERIAL,
 #ifdef HAS_POSIX_SIGNAL
     RDI_SIGNAL,
@@ -271,7 +270,7 @@ inline static struct devreq_file* ReqFile(REBREQ *req) {
 }
 
 inline static struct devreq_net *ReqNet(REBREQ *req) {
-    assert(Req(req)->device == RDI_NET || Req(req)->device == RDI_DNS);
+    assert(Req(req)->device == RDI_NET);
     return cast(struct devreq_net*, Req(req));
 }
 

@@ -56,7 +56,6 @@ EXTERN_C REBDEV Dev_StdIO;
 EXTERN_C REBDEV Dev_File;
 EXTERN_C REBDEV Dev_Event;
 EXTERN_C REBDEV Dev_Net;
-EXTERN_C REBDEV Dev_DNS;
 
 // There should be a better decoupling of these devices so the core
 // does not need to know about them...
@@ -76,7 +75,6 @@ REBDEV *Devices[RDI_LIMIT] =
     &Dev_File,
     &Dev_Event,
     &Dev_Net,
-    &Dev_DNS,
 
 #if defined(TO_WINDOWS) || defined(TO_LINUX)
     &Dev_Serial,
