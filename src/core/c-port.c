@@ -27,8 +27,6 @@
 
 #include "sys-core.h"
 
-#define MAX_WAIT_MS 64 // Maximum millsec to sleep
-
 
 //
 //  Ensure_Port_State: C
@@ -153,95 +151,6 @@ REBINT Awake_System(REBARR *ports, bool only)
     // Awake function returns 1 for end of WAIT:
     //
     return (IS_LOGIC(result) and VAL_LOGIC(result)) ? 1 : 0;
-}
-
-
-//
-//  Wait_Ports_Throws: C
-//
-// Inputs:
-//     Ports: a block of ports or zero (on stack to avoid GC).
-//     Timeout: milliseconds to wait
-//
-// Returns:
-//     out is LOGIC! TRUE when port action happened, or FALSE for timeout
-//     if a throw happens, out will be the thrown value and returns TRUE
-//
-bool Wait_Ports_Throws(
-    REBVAL *out,
-    REBARR *ports,
-    REBCNT timeout,
-    bool only
-){
-    REBI64 base = OS_DELTA_TIME(0);
-    REBCNT time;
-    REBCNT wt = 1;
-    REBCNT res = (timeout >= 1000) ? 0 : 16;  // OS dependent?
-
-    // Waiting opens the doors to pressing Ctrl-C, which may get this code
-    // to throw an error.  There needs to be a state to catch it.
-    //
-    assert(Saved_State != NULL);
-
-    while (wt) {
-        if (GET_SIGNAL(SIG_HALT)) {
-            CLR_SIGNAL(SIG_HALT);
-
-            Init_Thrown_With_Label(out, NULLED_CELL, NAT_VALUE(halt));
-            return true; // thrown
-        }
-
-        if (GET_SIGNAL(SIG_INTERRUPT)) {
-            CLR_SIGNAL(SIG_INTERRUPT);
-
-            // !!! If implemented, this would allow triggering a breakpoint
-            // with a keypress.  This needs to be thought out a bit more,
-            // but may not involve much more than running `BREAKPOINT`.
-            //
-            fail ("BREAKPOINT from SIG_INTERRUPT not currently implemented");
-        }
-
-        REBINT ret;
-
-        // Process any waiting events:
-        if ((ret = Awake_System(ports, only)) > 0) {
-            Move_Value(out, TRUE_VALUE); // port action happened
-            return false; // not thrown
-        }
-
-        // If activity, use low wait time, otherwise increase it:
-        if (ret == 0) wt = 1;
-        else {
-            wt *= 2;
-            if (wt > MAX_WAIT_MS) wt = MAX_WAIT_MS;
-        }
-        REBVAL *pump = Get_System(SYS_PORTS, PORTS_PUMP);
-        if (not IS_BLOCK(pump))
-            fail ("system/ports/pump must be a block");
-
-        DECLARE_LOCAL (result);
-        if (Do_Any_Array_At_Throws(result, pump, SPECIFIED))
-            fail (Error_No_Catch_For_Throw(result));
-
-        if (timeout != ALL_BITS) {
-            // Figure out how long that (and OS_WAIT) took:
-            time = cast(REBCNT, OS_DELTA_TIME(base) / 1000);
-            if (time >= timeout) break;   // done (was dt = 0 before)
-            else if (wt > timeout - time) // use smaller residual time
-                wt = timeout - time;
-        }
-
-        //printf("%d %d %d\n", dt, time, timeout);
-
-        // Wait for events or time to expire:
-        OS_WAIT(wt, res);
-    }
-
-    //time = (REBCNT)OS_DELTA_TIME(base);
-    //Print("dt: %d", time);
-
-    Move_Value(out, FALSE_VALUE); // timeout;
-    return false; // not thrown
 }
 
 

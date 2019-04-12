@@ -116,4 +116,5 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] = {
     Query_Events,
 };
 
+EXTERN_C REBDEV Dev_Event;
 DEFINE_DEV(Dev_Event, "OS Events", 1, Dev_Cmds, RDC_MAX, sizeof(struct rebol_devreq));

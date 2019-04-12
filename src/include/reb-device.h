@@ -209,7 +209,6 @@ struct rebol_devreq {
 
 EXTERN_C REBDEV Dev_StdIO;
 EXTERN_C REBDEV Dev_File;
-EXTERN_C REBDEV Dev_Event;
 EXTERN_C REBDEV Dev_Net;
 
 #ifdef HAS_POSIX_SIGNAL

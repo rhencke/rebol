@@ -20,18 +20,10 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// !!! The R3-Alpha host model and eventing system is generally deprecated
-// in Ren-C, but is being kept working due to dependencies for R3/View.
-//
-// One change that was necessary in Ren-C was for payloads inside of REBVALs
-// to be split into a 64-bit aligned portion, and a common 32-bit "extra"
-// portion that would be 32-bit aligned on 32-bit platforms.  This change
-// was needed in order to write a common member of a union without
-// disengaging the rest of the payload.
-//
-// That required the Reb_Event--which was previously three 32-bit quantities,
-// to split its payload up.  Now to get a complete event structure through
-// the API, a full alias to a REBVAL is given.
+// Events are unusual for datatypes defined in extensions, because they use
+// a pre-reserved REB_EVENT byte ID in the header to identify the cell type.
+// This means they don't have to sacrifice the "EXTRA" uintptr_t field for
+// the extension type identity, and can fit an entire event in one cell.
 //
 // EVENT EXTRA CONTAINS 4 BYTES
 //
@@ -45,7 +37,6 @@
 //     "eventee": REBREQ* (for device events) or REBSER* (port or object)
 //     "data": "an x/y position or keycode (raw/decoded)"
 //
-
 
 #define REBEVT REBVAL
 
@@ -206,3 +197,6 @@ inline static REBVAL *Init_Gob(RELVAL *out, REBGOB *g) {
     VAL_GOB_INDEX(out) = 0;
     return KNOWN(out);
 }
+
+
+EXTERN_C REBDEV Dev_Event;

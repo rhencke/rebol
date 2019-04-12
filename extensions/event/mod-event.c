@@ -42,6 +42,8 @@ REBNATIVE(register_event_hooks)
 {
     EVENT_INCLUDE_PARAMS_OF_REGISTER_EVENT_HOOKS;
 
+    OS_REGISTER_DEVICE(&Dev_Event);
+
     // !!! See notes on Hook_Datatype for this poor-man's substitute for a
     // coherent design of an extensible object system (as per Lisp's CLOS)
     //
@@ -158,4 +160,323 @@ REBNATIVE(map_event)
     SET_VAL_EVENT_Y(e, ROUND_TO_INT(y));
 
     RETURN (e);
+}
+
+
+//
+//  Wait_For_Device_Events_Interruptible: C
+//
+// Check if devices need attention, and if not, then wait.
+// The wait can be interrupted by a GUI event, otherwise
+// the timeout will wake it.
+//
+// Res specifies resolution. (No wait if less than this.)
+//
+// Returns:
+//     -1: Devices have changed state.
+//      0: past given millsecs
+//      1: wait in timer
+//
+// The time it takes for the devices to be scanned is
+// subtracted from the timer value.
+//
+int Wait_For_Device_Events_Interruptible(
+    unsigned int millisec,
+    unsigned int res
+){
+    // printf("Wait_For_Device_Events_Interruptible %d\n", millisec);
+
+    int64_t base = OS_DELTA_TIME(0); // start timing
+
+    // !!! The request is created here due to a comment that said "setup for
+    // timing" and said it was okay to stack allocate it because "QUERY
+    // below does not store it".  Having eliminated stack-allocated REBREQ,
+    // it's not clear if it makes sense to allocate it here vs. below.
+    //
+    REBREQ *req = OS_MAKE_DEVREQ(&Dev_Event);
+
+    OS_REAP_PROCESS(-1, NULL, 0);
+
+    // Let any pending device I/O have a chance to run:
+    //
+    if (OS_POLL_DEVICES()) {
+        Free_Req(req);
+        return -1;
+    }
+
+    // Nothing, so wait for period of time
+
+    unsigned int delta = OS_DELTA_TIME(base) / 1000 + res;
+    if (delta >= millisec) {
+        Free_Req(req);
+        return 0;
+    }
+
+    millisec -= delta; // account for time lost above
+    Req(req)->length = millisec;
+
+    // printf("Wait: %d ms\n", millisec);
+
+    // Comment said "wait for timer or other event"
+    //
+    OS_DO_DEVICE_SYNC(req, RDC_QUERY);
+
+    Free_Req(req);
+
+    return 1;  // layer above should check delta again
+}
+
+
+#define MAX_WAIT_MS 64 // Maximum millsec to sleep
+
+
+//
+//  Wait_Ports_Throws: C
+//
+// Inputs:
+//     Ports: a block of ports or zero (on stack to avoid GC).
+//     Timeout: milliseconds to wait
+//
+// Returns:
+//     out is LOGIC! TRUE when port action happened, or FALSE for timeout
+//     if a throw happens, out will be the thrown value and returns TRUE
+//
+bool Wait_Ports_Throws(
+    REBVAL *out,
+    REBARR *ports,
+    REBCNT timeout,
+    bool only
+){
+    REBI64 base = OS_DELTA_TIME(0);
+    REBCNT time;
+    REBCNT wt = 1;
+    REBCNT res = (timeout >= 1000) ? 0 : 16;  // OS dependent?
+
+    // Waiting opens the doors to pressing Ctrl-C, which may get this code
+    // to throw an error.  There needs to be a state to catch it.
+    //
+    assert(Saved_State != NULL);
+
+    while (wt) {
+        if (GET_SIGNAL(SIG_HALT)) {
+            CLR_SIGNAL(SIG_HALT);
+
+            Init_Thrown_With_Label(out, NULLED_CELL, NAT_VALUE(halt));
+            return true; // thrown
+        }
+
+        if (GET_SIGNAL(SIG_INTERRUPT)) {
+            CLR_SIGNAL(SIG_INTERRUPT);
+
+            // !!! If implemented, this would allow triggering a breakpoint
+            // with a keypress.  This needs to be thought out a bit more,
+            // but may not involve much more than running `BREAKPOINT`.
+            //
+            fail ("BREAKPOINT from SIG_INTERRUPT not currently implemented");
+        }
+
+        REBINT ret;
+
+        // Process any waiting events:
+        if ((ret = Awake_System(ports, only)) > 0) {
+            Move_Value(out, TRUE_VALUE); // port action happened
+            return false; // not thrown
+        }
+
+        // If activity, use low wait time, otherwise increase it:
+        if (ret == 0) wt = 1;
+        else {
+            wt *= 2;
+            if (wt > MAX_WAIT_MS) wt = MAX_WAIT_MS;
+        }
+        REBVAL *pump = Get_System(SYS_PORTS, PORTS_PUMP);
+        if (not IS_BLOCK(pump))
+            fail ("system/ports/pump must be a block");
+
+        DECLARE_LOCAL (result);
+        if (Do_Any_Array_At_Throws(result, pump, SPECIFIED))
+            fail (Error_No_Catch_For_Throw(result));
+
+        if (timeout != ALL_BITS) {
+            // Figure out how long that (and OS_WAIT) took:
+            time = cast(REBCNT, OS_DELTA_TIME(base) / 1000);
+            if (time >= timeout) break;   // done (was dt = 0 before)
+            else if (wt > timeout - time) // use smaller residual time
+                wt = timeout - time;
+        }
+
+        //printf("%d %d %d\n", dt, time, timeout);
+
+        Wait_For_Device_Events_Interruptible(wt, res);
+    }
+
+    //time = (REBCNT)OS_DELTA_TIME(base);
+    //Print("dt: %d", time);
+
+    Move_Value(out, FALSE_VALUE); // timeout;
+    return false; // not thrown
+}
+
+
+//
+//  export wait: native [
+//
+//  "Waits for a duration, port, or both."
+//
+//      value [<opt> any-number! time! port! block!]
+//      /all "Returns all in a block"
+//      /only "only check for ports given in the block to this function"
+//  ]
+//
+REBNATIVE(wait)
+{
+    EVENT_INCLUDE_PARAMS_OF_WAIT;
+
+    REBCNT timeout = 0; // in milliseconds
+    REBARR *ports = NULL;
+    REBINT n = 0;
+
+    RELVAL *val;
+    if (not IS_BLOCK(ARG(value)))
+        val = ARG(value);
+    else {
+        REBVAL *block = ARG(value);
+        REBDSP dsp_orig = DSP;
+        if (Reduce_To_Stack_Throws(D_OUT, block, VAL_SPECIFIER(block)))
+            return R_THROWN;
+
+        // !!! This takes the stack array and creates an unmanaged array from
+        // it, which ends up being put into a value and becomes managed.  So
+        // it has to be protected.
+        //
+        ports = Pop_Stack_Values(dsp_orig);
+
+        for (val = ARR_HEAD(ports); NOT_END(val); val++) { // find timeout
+            if (Pending_Port(KNOWN(val)))
+                ++n;
+
+            if (IS_INTEGER(val) or IS_DECIMAL(val) or IS_TIME(val))
+                break;
+        }
+        if (IS_END(val)) {
+            if (n == 0) {
+                Free_Unmanaged_Array(ports);
+                return nullptr; // has no pending ports!
+            }
+            timeout = ALL_BITS; // no timeout provided
+        }
+    }
+
+    if (NOT_END(val)) {
+        switch (VAL_TYPE(val)) {
+        case REB_INTEGER:
+        case REB_DECIMAL:
+        case REB_TIME:
+            timeout = Milliseconds_From_Value(val);
+            break;
+
+        case REB_PORT:
+            if (not Pending_Port(KNOWN(val)))
+                return nullptr;
+            ports = Make_Array(1);
+            Append_Value(ports, KNOWN(val));
+            timeout = ALL_BITS;
+            break;
+
+        case REB_BLANK:
+            timeout = ALL_BITS; // wait for all windows
+            break;
+
+        default:
+            fail (Error_Bad_Value_Core(val, SPECIFIED));
+        }
+    }
+
+    // Prevent GC on temp port block:
+    // Note: Port block is always a copy of the block.
+    //
+    if (ports)
+        Init_Block(D_OUT, ports);
+
+    // Process port events [stack-move]:
+    if (Wait_Ports_Throws(D_OUT, ports, timeout, REF(only)))
+        return R_THROWN;
+
+    assert(IS_LOGIC(D_OUT));
+
+    if (IS_FALSEY(D_OUT)) { // timeout
+        Sieve_Ports(NULL); // just reset the waked list
+        return nullptr;
+    }
+
+    if (not ports)
+        return nullptr;
+
+    // Determine what port(s) waked us:
+    Sieve_Ports(ports);
+
+    if (not REF(all)) {
+        val = ARR_HEAD(ports);
+        if (not IS_PORT(val))
+            return nullptr;
+
+        Move_Value(D_OUT, KNOWN(val));
+    }
+
+    return D_OUT;
+}
+
+
+//
+//  export wake-up: native [
+//
+//  "Awake and update a port with event."
+//
+//      return: [logic!]
+//      port [port!]
+//      event [event!]
+//  ]
+//
+REBNATIVE(wake_up)
+//
+// Calls port update for native actors.
+// Calls port awake function.
+{
+    EVENT_INCLUDE_PARAMS_OF_WAKE_UP;
+
+    FAIL_IF_BAD_PORT(ARG(port));
+
+    REBCTX *ctx = VAL_CONTEXT(ARG(port));
+
+    REBVAL *actor = CTX_VAR(ctx, STD_PORT_ACTOR);
+    if (Is_Native_Port_Actor(actor)) {
+        //
+        // We don't pass `actor` or `event` in, because we just pass the
+        // current call info.  The port action can re-read the arguments.
+        //
+        // !!! Most of the R3-Alpha event model is around just as "life
+        // support".  Added assertion and convention here that this call
+        // doesn't throw or return meaningful data... (?)
+        //
+        DECLARE_LOCAL (verb);
+        Init_Word(verb, Canon(SYM_ON_WAKE_UP));
+        const REBVAL *r = Do_Port_Action(frame_, ARG(port), verb);
+        assert(IS_VOID(r));
+        UNUSED(r);
+    }
+
+    bool woke_up = true; // start by assuming success
+
+    REBVAL *awake = CTX_VAR(ctx, STD_PORT_AWAKE);
+    if (IS_ACTION(awake)) {
+        const bool fully = true; // error if not all arguments consumed
+
+        if (RunQ_Throws(D_OUT, fully, rebU1(awake), ARG(event), rebEND))
+            fail (Error_No_Catch_For_Throw(D_OUT));
+
+        if (not (IS_LOGIC(D_OUT) and VAL_LOGIC(D_OUT)))
+            woke_up = false;
+    }
+
+    return Init_Logic(D_OUT, woke_up);
 }

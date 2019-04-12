@@ -169,7 +169,7 @@
 // to tag a function value cell in a context as being "enfixed", hence it
 // will acquire its first argument from the left.  See SET/ENFIX and ENFIX.
 //
-// The reasion it is a generic CELL_FLAG_XXX and not an PARAMLIST_FLAG_XXX is
+// The reason it is a generic CELL_FLAG_XXX and not an PARAMLIST_FLAG_XXX is
 // so that it can be dealt with without specifically knowing that the cell
 // involved is an action.  One benefit is that testing for an enfix action
 // can be done just by looking at this bit--since only actions have it set.

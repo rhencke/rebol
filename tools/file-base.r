@@ -212,13 +212,11 @@ os: [
 os-windows: [
     + windows/host-lib.c
     windows/dev-stdio.c
-    windows/dev-event.c
 ]
 
 os-posix: [
     posix/host-readline.c
     posix/dev-stdio.c
-    posix/dev-event.c
 
     + posix/host-browse.c
     + posix/host-library.c
@@ -231,7 +229,6 @@ os-osx: [
     ; OSX uses the POSIX file I/O for now
     posix/host-readline.c
     posix/dev-stdio.c
-    posix/dev-event.c
 
     + posix/host-browse.c
     + posix/host-library.c
@@ -257,10 +254,6 @@ os-linux: [
     ; Linux has some kind of MIME-based opening vs. posix /usr/bin/open
     + linux/host-browse.c
 
-    ; Atronix dev-event.c for linux depends on X11, and core builds should
-    ; not be using X11 as a dependency (probably)
-    posix/dev-event.c
-
     ; Linux supports siginfo_t-style signals
     linux/dev-signal.c
 ]
@@ -279,10 +272,6 @@ os-android: [
     ; Android  has some kind of MIME-based opening vs. posix /usr/bin/open
     + linux/host-browse.c
 
-    ; Atronix dev-event.c for linux depends on X11, and core builds should
-    ; not be using X11 as a dependency (probably)
-    posix/dev-event.c
-
     ; Android don't supports siginfo_t-style signals
     ; linux/dev-signal.c
 ]
@@ -290,7 +279,6 @@ os-android: [
 os-emscripten: [
     posix/host-readline.c
     posix/dev-stdio.c
-    posix/dev-event.c
 
     + posix/host-browse.c
     + posix/host-library.c
