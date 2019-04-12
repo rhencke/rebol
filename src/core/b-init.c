@@ -1218,8 +1218,6 @@ void Startup_Core(void)
     OS_REGISTER_DEVICE(&Dev_StdIO);
     Startup_StdIO();
 
-    OS_REGISTER_DEVICE(&Dev_Net);
-
   #ifdef HAS_POSIX_SIGNAL
     OS_REGISTER_DEVICE(&Dev_Signal);
   #endif

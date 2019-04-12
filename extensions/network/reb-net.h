@@ -21,6 +21,8 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 
+EXTERN_C REBDEV Dev_Net;
+
 // REBOL Socket types:
 enum socket_types {
     RST_UDP     = 1 << 0,   // TCP or UDP
@@ -41,3 +43,18 @@ enum {
 };
 
 #define IPA(a,b,c,d) (a<<24 | b<<16 | c<<8 | d)
+
+struct devreq_net {
+    struct rebol_devreq devreq;
+    uint32_t local_ip;      // local address used
+    uint32_t local_port;    // local port used
+    uint32_t remote_ip;     // remote address
+    uint32_t remote_port;   // remote port
+    void *host_info;        // for DNS usage
+};
+
+inline static struct devreq_net *ReqNet(REBREQ *req) {
+    assert(Req(req)->device == &Dev_Net);
+    return cast(struct devreq_net*, Req(req));
+}
+

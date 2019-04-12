@@ -48,6 +48,7 @@
 
 #include "tmp-mod-dns.h"
 
+EXTERN_C REBDEV Dev_Net;
 
 //
 //  DNS_Actor: C

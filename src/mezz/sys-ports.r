@@ -227,24 +227,6 @@ init-schemes: func [
 
     system/schemes: make object! 10
 
-    make-scheme [
-        title: "TCP Networking"
-        name: 'tcp
-        actor: get-tcp-actor-handle
-        spec: system/standard/port-spec-net
-        info: system/standard/net-info ; for C enums
-        awake: func [event] [print ['TCP-event event/type] true]
-    ]
-
-    make-scheme [
-        title: "UDP Networking"
-        name: 'udp
-        actor: get-udp-actor-handle
-        spec: system/standard/port-spec-net
-        info: system/standard/net-info ; for C enums
-        awake: func [event] [print ['UDP-event event/type] true]
-    ]
-
     if 4 == fourth system/version [
         make-scheme [
             title: "Signal"

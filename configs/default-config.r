@@ -34,6 +34,7 @@ extensions: make map! [
     JavaScript -
     JPG +
     Locale +
+    Network +
     ODBC -
     PNG +
     Process +

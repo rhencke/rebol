@@ -117,7 +117,6 @@ core: [
     n-system.c
 
     ; (P)orts
-    p-net.c
     p-signal.c
 
     ; (S)trings
@@ -206,7 +205,6 @@ main: 'host-main.c
 os: [
     + host-device.c
     host-table.c
-    dev-net.c
 ]
 
 os-windows: [

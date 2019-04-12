@@ -35,6 +35,8 @@
 #endif
 #include "sys-core.h"
 
+#include "tmp-mod-network.h"
+
 #include "reb-net.h"
 
 #if (0)
@@ -600,7 +602,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
 
     switch (req->flags) {
     case 3171: {
-        INCLUDE_PARAMS_OF_SET_UDP_MULTICAST;
+        NETWORK_INCLUDE_PARAMS_OF_SET_UDP_MULTICAST;
 
         UNUSED(ARG(port)); // implicit from sock, which caller extracted
 
@@ -622,7 +624,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
         break; }
 
     case 2365: {
-        INCLUDE_PARAMS_OF_SET_UDP_TTL;
+        NETWORK_INCLUDE_PARAMS_OF_SET_UDP_TTL;
 
         UNUSED(ARG(port)); // implicit from sock, which caller extracted
 

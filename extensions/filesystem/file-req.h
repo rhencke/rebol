@@ -1,3 +1,5 @@
+EXTERN_C REBDEV Dev_File;
+
 // !!! Hack used for making a 64-bit value as a struct, which works in
 // 32-bit modes.  64 bits, even in 32 bit mode.  Based on the deprecated idea
 // that "devices" would not have access to Rebol datatypes, and hence would

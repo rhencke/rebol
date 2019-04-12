@@ -1,5 +1,5 @@
 //
-//  File: %p-net.c
+//  File: %mod-network.c
 //  Summary: "network port interface"
 //  Section: ports
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
@@ -25,6 +25,8 @@
 #include "sys-core.h"
 
 #include "reb-net.h"
+
+#include "tmp-mod-network.h"
 
 #define NET_BUF_SIZE 32*1024
 
@@ -496,6 +498,22 @@ static REB_R Transport_Actor(
 
 
 //
+//  export register-network-device: native [
+//
+//  {Add entity to act as hub for dispatching asynchronous network requests}
+//
+//  ]
+//
+REBNATIVE(register_network_device)
+{
+    NETWORK_INCLUDE_PARAMS_OF_REGISTER_NETWORK_DEVICE;
+
+    OS_REGISTER_DEVICE(&Dev_Net);
+    return Init_Void(D_OUT);
+}
+
+
+//
 //  TCP_Actor: C
 //
 static REB_R TCP_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
@@ -514,7 +532,7 @@ static REB_R UDP_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
 
 //
-//  get-tcp-actor-handle: native [
+//  export get-tcp-actor-handle: native [
 //
 //  {Retrieve handle to the native actor for TCP}
 //
@@ -523,13 +541,15 @@ static REB_R UDP_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 //
 REBNATIVE(get_tcp_actor_handle)
 {
+    NETWORK_INCLUDE_PARAMS_OF_GET_TCP_ACTOR_HANDLE;
+
     Make_Port_Actor_Handle(D_OUT, &TCP_Actor);
     return D_OUT;
 }
 
 
 //
-//  get-udp-actor-handle: native [
+//  export get-udp-actor-handle: native [
 //
 //  {Retrieve handle to the native actor for UDP}
 //
@@ -538,13 +558,15 @@ REBNATIVE(get_tcp_actor_handle)
 //
 REBNATIVE(get_udp_actor_handle)
 {
+    NETWORK_INCLUDE_PARAMS_OF_GET_UDP_ACTOR_HANDLE;
+
     Make_Port_Actor_Handle(D_OUT, &UDP_Actor);
     return D_OUT;
 }
 
 
 //
-//  set-udp-multicast: native [
+//  export set-udp-multicast: native [
 //
 //  {Join (or leave) an IPv4 multicast group}
 //
@@ -579,7 +601,7 @@ REBNATIVE(set_udp_multicast)
 // Reb_Device implementations go ahead and use the extension API to pick
 // that frame apart.
 {
-    INCLUDE_PARAMS_OF_SET_UDP_MULTICAST;
+    NETWORK_INCLUDE_PARAMS_OF_SET_UDP_MULTICAST;
 
     REBREQ *sock = Ensure_Port_State(ARG(port), &Dev_Net);
 
@@ -603,7 +625,7 @@ REBNATIVE(set_udp_multicast)
 
 
 //
-//  set-udp-ttl: native [
+//  export set-udp-ttl: native [
 //
 //  {Set the TTL of a UDP port}
 //
@@ -616,7 +638,7 @@ REBNATIVE(set_udp_multicast)
 //
 REBNATIVE(set_udp_ttl)
 {
-    INCLUDE_PARAMS_OF_SET_UDP_TTL;
+    NETWORK_INCLUDE_PARAMS_OF_SET_UDP_TTL;
 
     REBREQ *sock = Ensure_Port_State(ARG(port), &Dev_Net);
     struct rebol_devreq *req = Req(sock);

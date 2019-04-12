@@ -208,24 +208,7 @@ struct rebol_devreq {
 // evaluator does not need to be linked to the R3-Alpha device model.
 
 EXTERN_C REBDEV Dev_StdIO;
-EXTERN_C REBDEV Dev_File;
-EXTERN_C REBDEV Dev_Net;
 
 #ifdef HAS_POSIX_SIGNAL
     EXTERN_C REBDEV Dev_Signal;
 #endif
-
-
-struct devreq_net {
-    struct rebol_devreq devreq;
-    uint32_t local_ip;      // local address used
-    uint32_t local_port;    // local port used
-    uint32_t remote_ip;     // remote address
-    uint32_t remote_port;   // remote port
-    void *host_info;        // for DNS usage
-};
-
-inline static struct devreq_net *ReqNet(REBREQ *req) {
-    assert(Req(req)->device == &Dev_Net);
-    return cast(struct devreq_net*, Req(req));
-}

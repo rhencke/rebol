@@ -26,6 +26,8 @@
 
 #include "tmp-mod-filesystem.h"
 
+#include "file-req.h"
+
 extern REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb);
 extern REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb);
 
