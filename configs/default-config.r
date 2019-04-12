@@ -41,6 +41,7 @@ extensions: make map! [
     Serial +
     Signal -
     TCC -
+    Time +
     UUID +
     UTF +
     Vector +

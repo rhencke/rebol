@@ -63,12 +63,15 @@ hijack 'assert :verify
 
 
 delta-time: function [
-    {Delta-time - returns the time it takes to evaluate the block.}
+    {Returns the time it takes to evaluate the block}
     block [block!]
 ][
-    start: stats/timer
-    do block
-    stats/timer - start
+    ; Pre-specialize the timer function, and get the calculations lined up in
+    ; a REDUCE.  This minimizes the amount of overhead that winds up in the
+    ; result (e.g. not even setting variables is counted in the timing)
+    ;
+    timer: :lib/now/precise/time  ; Note: NOW comes from an Extension
+    do reduce [:negate :subtract :timer elide do block :timer]
 ]
 
 delta-profile: func [

@@ -37,7 +37,6 @@
 //      return: [<opt> time! integer!]
 //      /show "Print formatted results to console"
 //      /profile "Returns profiler object"
-//      /timer "High resolution time difference from start"
 //      /evals "Number of values evaluated by interpreter"
 //      /pool "Dump all series in pool"
 //          [integer!]
@@ -46,12 +45,6 @@
 REBNATIVE(stats)
 {
     INCLUDE_PARAMS_OF_STATS;
-
-    if (REF(timer))
-        return Init_Time_Nanoseconds(
-            D_OUT,
-            OS_DELTA_TIME(PG_Boot_Time) * 1000
-        );
 
     if (REF(evals)) {
         REBI64 n = Eval_Cycles + Eval_Dose - Eval_Count;
@@ -66,12 +59,26 @@ REBNATIVE(stats)
     fail (Error_Debug_Only_Raw());
 #else
     if (REF(profile)) {
-        Move_Value(D_OUT, Get_System(SYS_STANDARD, STD_STATS));
+        REBVAL *obj = rebValue("make object! [",
+            "evals:",
+            "eval-actions:",
+            "series-made:",
+            "series-freed:",
+            "series-expanded:",
+            "series-bytes:",
+            "series-recycled:",
+            "made-blocks:",
+            "made-objects:",
+            "recycles:",
+                "_",
+        "]", rebEND);
+
+        Move_Value(D_OUT, obj);
+        rebRelease(obj);
+
         if (IS_OBJECT(D_OUT)) {
             REBVAL *stats = VAL_CONTEXT_VAR(D_OUT, 1);
 
-            Init_Time_Nanoseconds(stats, OS_DELTA_TIME(PG_Boot_Time) * 1000);
-            stats++;
             Init_Integer(stats, Eval_Cycles + Eval_Dose - Eval_Count);
             stats++;
             Init_Integer(stats, 0); // no such thing as natives, only functions

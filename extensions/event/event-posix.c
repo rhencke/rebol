@@ -34,6 +34,29 @@
 
 #include "reb-host.h"
 
+//
+//  Delta_Time: C
+//
+// Return time difference in microseconds. If base = 0, then
+// return the counter. If base != 0, compute the time difference.
+//
+// NOTE: This needs to be precise, but many OSes do not
+// provide a precise time sampling method. So, if the target
+// posix OS does, add the ifdef code in here.
+//
+int64_t Delta_Time(int64_t base)
+{
+    struct timeval tv;
+    gettimeofday(&tv,0);
+
+    int64_t time = cast(int64_t, tv.tv_sec * 1000000) + tv.tv_usec;
+    if (base == 0)
+        return time;
+
+    return time - base;
+}
+
+
 extern void Done_Device(uintptr_t handle, int error);
 
 //
@@ -41,8 +64,10 @@ extern void Done_Device(uintptr_t handle, int error);
 //
 // Initialize the event device.
 //
-// Create a hidden window to handle special events,
-// such as timers and async DNS.
+// Create a hidden window to handle special events, such as timers.
+//
+// !!! This was used for asynchronous DNS at one point, but those APIs were
+// deprecated by Microsoft--see the README.md for the DNS Extension.
 //
 DEVICE_CMD Init_Events(REBREQ *dr)
 {

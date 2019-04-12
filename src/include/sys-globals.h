@@ -69,7 +69,6 @@ PVAR REBUNI *Lower_Cases;
 // Other:
 PVAR REBYTE *PG_Pool_Map;   // Memory pool size map (created on boot)
 
-PVAR REBI64 PG_Boot_Time;   // Counter when boot started
 PVAR REB_OPTS *Reb_Opts;
 
 #ifdef DEBUG_HAS_PROBE

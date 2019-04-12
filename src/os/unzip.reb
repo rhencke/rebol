@@ -286,7 +286,15 @@ ctx-zip: context [
             ]
 
             num-entries: num-entries + 1
-            date: now  ; !!! Each file gets a slightly later compression date?
+
+            ; !!! Zip builds on NOW, however this function comes from an
+            ; extension.  Yet the Unzip which lives in this same module is
+            ; needed to unpack encapping, and may be required before the
+            ; Time extension has been loaded.  A simple reference to NOW
+            ; won't find the function that didn't exist at module load time,
+            ; so use LIB/NOW to force lookup through LIB.
+            ;
+            date: lib/now  ; !!! Each file has slightly later compress date?
 
             ; is next one data or filename?
             data: if match [file! url! blank!] try :source/2 [
@@ -404,7 +412,7 @@ ctx-zip: context [
                 copy date: 2 skip (
                     date: get-msdos-date date
                     date/time: time
-                    date: date - now/zone
+                    date: date - lib/now/zone  ; see notes RE: LIB/NOW above
                 )
                 copy crc: 4 skip ( ; crc-32
                     crc: get-ilong crc

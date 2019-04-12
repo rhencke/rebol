@@ -214,7 +214,6 @@ os-posix: [
     + posix/host-browse.c
     + posix/host-library.c
     + posix/host-process.c
-    + posix/host-time.c
     + posix/host-exec-path.c
 ]
 
@@ -225,7 +224,6 @@ os-osx: [
     + posix/host-browse.c
     + posix/host-library.c
     + posix/host-process.c
-    + posix/host-time.c
     + osx/host-exec-path.c
 ]
 
@@ -239,7 +237,6 @@ os-linux: [
     ; It also uses POSIX for most host functions
     + posix/host-library.c
     + posix/host-process.c
-    + posix/host-time.c
     + posix/host-exec-path.c
 
     ; Linux has some kind of MIME-based opening vs. posix /usr/bin/open
@@ -253,7 +250,6 @@ os-android: [
     ; Uses POSIX for most host functions
     + posix/host-library.c
     + posix/host-process.c
-    + posix/host-time.c
     + posix/host-exec-path.c
 
     ; Android  has some kind of MIME-based opening vs. posix /usr/bin/open
@@ -266,7 +262,6 @@ os-emscripten: [
     + posix/host-browse.c
     + posix/host-library.c
     + posix/host-process.c
-    + posix/host-time.c
     + posix/host-exec-path.c
 ]
 

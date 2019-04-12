@@ -50,6 +50,11 @@
 #include <errno.h>
 #include <assert.h>
 
+#include <time.h>
+#ifndef timeval
+    #include <sys/time.h>  // for older systems
+#endif
+
 #include "reb-host.h"
 
 #include "file-req.h"
@@ -600,6 +605,57 @@ DEVICE_CMD Rename_File(REBREQ *file)
 
 
 //
+//  Get_Timezone: C
+//
+// Get the time zone in minutes from GMT.
+// NOT consistently supported in Posix OSes!
+// We have to use a few different methods.
+//
+// !!! "local_tm->tm_gmtoff / 60 would make the most sense,
+// but is no longer used" (said a comment)
+//
+// !!! This code is currently repeated in the time extension, until a better
+// way of sharing it is accomplished.
+//
+static int Get_Timezone(struct tm *utc_tm_unused)
+{
+    time_t now_secs;
+    time(&now_secs); // UNIX seconds (since "epoch")
+    struct tm local_tm = *localtime(&now_secs);
+
+  #if !defined(HAS_SMART_TIMEZONE)
+    //
+    // !!! The R3-Alpha host code would always give back times in UTC plus a
+    // timezone.  Then, functions like NOW would have ways of adjusting for
+    // the timezone (unless you asked to do something like NOW/UTC), but
+    // without taking daylight savings time into account.
+    //
+    // We don't want to return a fake UTC time to the caller for the sake of
+    // keeping the time zone constant.  So this should return e.g. GMT-7
+    // during pacific daylight time, and GMT-8 during pacific standard time.
+    // Get that effect by erasing the is_dst flag out of the local time.
+    //
+    local_tm.tm_isdst = 0;
+  #endif
+
+    // mktime() function inverts localtime()... there is no equivalent for
+    // gmtime().  However, we feed it a gmtime() as if it were the localtime.
+    // Then the time zone can be calculated by diffing it from a mktime()
+    // inversion of a suitable local time.
+    //
+    // !!! For some reason, R3-Alpha expected the caller to pass in a utc tm
+    // structure pointer but then didn't use it, choosing to make another call
+    // to gmtime().  Review.
+    //
+    UNUSED(utc_tm_unused);
+    time_t now_secs_gm = mktime(gmtime(&now_secs));
+
+    double diff = difftime(mktime(&local_tm), now_secs_gm);
+    return cast(int, diff / 60);
+}
+
+
+//
 //  File_Time_To_Rebol: C
 //
 // Convert file.time to REBOL date/time format.
@@ -607,13 +663,40 @@ DEVICE_CMD Rename_File(REBREQ *file)
 //
 REBVAL *File_Time_To_Rebol(REBREQ *file)
 {
+    time_t stime;
+
     if (sizeof(time_t) > sizeof(ReqFile(file)->time.l)) {
         int64_t t = ReqFile(file)->time.l;
         t |= cast(int64_t, ReqFile(file)->time.h) << 32;
-        return OS_CONVERT_DATE(cast(time_t*, &t), 0);
+        stime = t;
     }
+    else
+        stime = ReqFile(file)->time.l;
 
-    return OS_CONVERT_DATE(cast(time_t *, &ReqFile(file)->time.l), 0);
+    // gmtime() is badly named.  It's utc time.  Note we have to be careful as
+    // it returns a system static buffer, so we have to copy the result
+    // via dereference to avoid calls to localtime() inside Get_Timezone
+    // from corrupting the buffer before it gets used.
+    //
+    // !!! Consider usage of the thread-safe variants, though they are not
+    // available on all older systems.
+    //
+    struct tm utc_tm = *gmtime(&stime);
+
+    int zone = Get_Timezone(&utc_tm);
+
+    return rebValue("ensure date! (make-date-ymdsnz",
+        rebI(utc_tm.tm_year + 1900),  // year
+        rebI(utc_tm.tm_mon + 1),  // month
+        rebI(utc_tm.tm_mday),  // day
+        rebI(
+            utc_tm.tm_hour * 3600
+            + utc_tm.tm_min * 60
+            + utc_tm.tm_sec
+        ),  // secs
+        rebI(0),  // nanoseconds (file times don't have this)
+        rebI(zone),  // zone
+    ")", rebEND);
 }
 
 

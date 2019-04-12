@@ -20,9 +20,6 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// This provides the ability to launch a web browser or file
-// browser on the host.
-//
 
 #ifndef __cplusplus
     // See feature_test_macros(7)
@@ -50,20 +47,6 @@
 #ifndef PATH_MAX
 #define PATH_MAX 4096  // generally lacking in Posix
 #endif
-
-#ifdef USE_GTK_FILECHOOSER
-int os_create_file_selection (void          *libgtk,
-                              char          *buf,
-                              int           len,
-                              const char    *title,
-                              const char    *path,
-                              int           save,
-                              int           multiple);
-
-int os_init_gtk(void *libgtk);
-#endif
-
-void OS_Destroy_Graphics(void);
 
 
 //

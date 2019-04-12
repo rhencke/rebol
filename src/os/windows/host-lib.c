@@ -84,49 +84,6 @@ REBVAL *OS_Convert_Date(const void *systemtime, long zone)
 
 
 //
-//  OS_Get_Time: C
-//
-// Get the current system date/time in UTC plus zone offset (mins).
-//
-REBVAL *OS_Get_Time(void)
-{
-    SYSTEMTIME stime;
-    TIME_ZONE_INFORMATION tzone;
-
-    GetSystemTime(&stime);
-
-    if (TIME_ZONE_ID_DAYLIGHT == GetTimeZoneInformation(&tzone))
-        tzone.Bias += tzone.DaylightBias;
-
-    return OS_Convert_Date(&stime, -tzone.Bias);
-}
-
-
-//
-//  OS_Delta_Time: C
-//
-// Return time difference in microseconds. If base = 0, then
-// return the counter. If base != 0, compute the time difference.
-//
-// Note: Requires high performance timer.
-//      Q: If not found, use timeGetTime() instead ?!
-//
-int64_t OS_Delta_Time(int64_t base)
-{
-    LARGE_INTEGER time;
-    if (not QueryPerformanceCounter(&time))
-        rebJumps("PANIC {Missing high performance timer}", rebEND);
-
-    if (base == 0) return time.QuadPart; // counter (may not be time)
-
-    LARGE_INTEGER freq;
-    QueryPerformanceFrequency(&freq);
-
-    return ((time.QuadPart - base) * 1000) / (freq.QuadPart / 1000);
-}
-
-
-//
 //  OS_Get_Current_Dir: C
 //
 // Return the current directory path as a FILE!.  Result should be freed

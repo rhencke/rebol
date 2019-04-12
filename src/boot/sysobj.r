@@ -366,21 +366,6 @@ standard: make object! [
             _
     ]
 
-    stats: make object! [ ; port stats
-        timer:      ; timer (nanos)
-        evals:      ; evaluations
-        eval-actions:
-        series-made:
-        series-freed:
-        series-expanded:
-        series-bytes:
-        series-recycled:
-        made-blocks:
-        made-objects:
-        recycles:
-            _
-    ]
-
     ; !!! "Type specs" were an unfinished R3-Alpha concept, that when you said
     ; SPEC-OF INTEGER! or similar, you would not just get a textual name for
     ; it but optionally other information (like numeric limits).  The gist is

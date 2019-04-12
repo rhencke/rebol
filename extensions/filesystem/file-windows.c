@@ -617,7 +617,17 @@ REBVAL *File_Time_To_Rebol(REBREQ *file)
         tzone.Bias += tzone.DaylightBias;
 
     FileTimeToSystemTime(cast(FILETIME *, &ReqFile(file)->time), &stime);
-    return OS_CONVERT_DATE(&stime, -tzone.Bias);
+
+    return rebValue("ensure date! (make-date-ymdsnz",
+        rebI(stime.wYear),  // year
+        rebI(stime.wMonth),  // month
+        rebI(stime.wDay),  // day
+        rebI(
+            stime.wHour * 3600 + stime.wMinute * 60 + stime.wSecond
+        ),  // "secs"
+        rebI(1000000 * stime.wMilliseconds), // nano
+        rebI(-tzone.Bias),  // zone
+    ")", rebEND);
 }
 
 

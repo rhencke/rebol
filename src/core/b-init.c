@@ -1208,7 +1208,6 @@ void Startup_Core(void)
     Saved_State = NULL;
 
     Ensure_Basics();
-    PG_Boot_Time = OS_DELTA_TIME(0);
 
 //=//// INITIALIZE MEMORY AND ALLOCATORS //////////////////////////////////=//
 

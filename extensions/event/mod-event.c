@@ -186,7 +186,7 @@ int Wait_For_Device_Events_Interruptible(
 ){
     // printf("Wait_For_Device_Events_Interruptible %d\n", millisec);
 
-    int64_t base = OS_DELTA_TIME(0); // start timing
+    int64_t base = Delta_Time(0); // start timing
 
     // !!! The request is created here due to a comment that said "setup for
     // timing" and said it was okay to stack allocate it because "QUERY
@@ -206,7 +206,7 @@ int Wait_For_Device_Events_Interruptible(
 
     // Nothing, so wait for period of time
 
-    unsigned int delta = OS_DELTA_TIME(base) / 1000 + res;
+    unsigned int delta = Delta_Time(base) / 1000 + res;
     if (delta >= millisec) {
         Free_Req(req);
         return 0;
@@ -247,7 +247,7 @@ bool Wait_Ports_Throws(
     REBCNT timeout,
     bool only
 ){
-    REBI64 base = OS_DELTA_TIME(0);
+    REBI64 base = Delta_Time(0);
     REBCNT time;
     REBCNT wt = 1;
     REBCNT res = (timeout >= 1000) ? 0 : 16;  // OS dependent?
@@ -299,7 +299,7 @@ bool Wait_Ports_Throws(
 
         if (timeout != ALL_BITS) {
             // Figure out how long that (and OS_WAIT) took:
-            time = cast(REBCNT, OS_DELTA_TIME(base) / 1000);
+            time = cast(REBCNT, Delta_Time(base) / 1000);
             if (time >= timeout) break;   // done (was dt = 0 before)
             else if (wt > timeout - time) // use smaller residual time
                 wt = timeout - time;
@@ -310,7 +310,7 @@ bool Wait_Ports_Throws(
         Wait_For_Device_Events_Interruptible(wt, res);
     }
 
-    //time = (REBCNT)OS_DELTA_TIME(base);
+    //time = (REBCNT)Delta_Time(base);
     //Print("dt: %d", time);
 
     Move_Value(out, FALSE_VALUE); // timeout;

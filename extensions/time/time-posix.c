@@ -48,17 +48,18 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/wait.h>
-#include <time.h>
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
 
+#include <time.h>
+#ifndef timeval
+    #include <sys/time.h>  // for older systems
+#endif
+
 #include "reb-host.h"
 
 
-#ifndef timeval // for older systems
-#include <sys/time.h>
-#endif
 
 //
 //  Get_Timezone: C
@@ -70,13 +71,16 @@
 // !!! "local_tm->tm_gmtoff / 60 would make the most sense,
 // but is no longer used" (said a comment)
 //
+// !!! This code is currently repeated in the filesystem extension, until a
+// better way of sharing it is accomplished.
+//
 static int Get_Timezone(struct tm *utc_tm_unused)
 {
     time_t now_secs;
     time(&now_secs); // UNIX seconds (since "epoch")
     struct tm local_tm = *localtime(&now_secs);
 
-#if !defined(HAS_SMART_TIMEZONE)
+  #if !defined(HAS_SMART_TIMEZONE)
     //
     // !!! The R3-Alpha host code would always give back times in UTC plus a
     // timezone.  Then, functions like NOW would have ways of adjusting for
@@ -89,7 +93,7 @@ static int Get_Timezone(struct tm *utc_tm_unused)
     // Get that effect by erasing the is_dst flag out of the local time.
     //
     local_tm.tm_isdst = 0;
-#endif
+  #endif
 
     // mktime() function inverts localtime()... there is no equivalent for
     // gmtime().  However, we feed it a gmtime() as if it were the localtime.
@@ -109,52 +113,11 @@ static int Get_Timezone(struct tm *utc_tm_unused)
 
 
 //
-//  OS_Convert_Date: C
-//
-// Convert local format of system time into standard date
-// and time structure (for date/time and file timestamps).
-//
-// !!! Because this API is being in the OS_XXX functions, the `time_t`
-// define may not be available on some OS X builds.  So it uses a void*
-// instead.
-//
-REBVAL *OS_Convert_Date(const void *time_t_stime, long usec)
-{
-    const time_t *stime = cast(const time_t*, time_t_stime);
-
-    // gmtime() is badly named.  It's utc time.  Note we have to be careful as
-    // it returns a system static buffer, so we have to copy the result
-    // via dereference to avoid calls to localtime() inside Get_Timezone
-    // from corrupting the buffer before it gets used.
-    //
-    // !!! Consider usage of the thread-safe variants, though they are not
-    // available on all older systems.
-    //
-    struct tm utc_tm = *gmtime(stime);
-
-    int zone = Get_Timezone(&utc_tm);
-
-    return rebValue("ensure date! (make-date-ymdsnz",
-        rebI(utc_tm.tm_year + 1900), // year
-        rebI(utc_tm.tm_mon + 1), // month
-        rebI(utc_tm.tm_mday), // day
-        rebI(
-            utc_tm.tm_hour * 3600
-            + utc_tm.tm_min * 60
-            + utc_tm.tm_sec
-        ), // secs
-        rebI(usec * 1000), // nano
-        rebI(zone), // zone
-    ")", rebEND);
-}
-
-
-//
-//  OS_Get_Time: C
+//  Get_Current_Datetime_Value: C
 //
 // Get the current system date/time in UTC plus zone offset (mins).
 //
-REBVAL *OS_Get_Time(void)
+REBVAL *Get_Current_Datetime_Value(void)
 {
     struct timeval tv;
     struct timezone * const tz_ptr = NULL; // obsolete
@@ -168,28 +131,28 @@ REBVAL *OS_Get_Time(void)
     //
     time_t stime = tv.tv_sec;
 
-    return OS_Convert_Date(&stime, tv.tv_usec);
-}
+    // gmtime() is badly named.  It's utc time.  Note we have to be careful as
+    // it returns a system static buffer, so we have to copy the result
+    // via dereference to avoid calls to localtime() inside Get_Timezone
+    // from corrupting the buffer before it gets used.
+    //
+    // !!! Consider usage of the thread-safe variants, though they are not
+    // available on all older systems.
+    //
+    struct tm utc_tm = *gmtime(&stime);
 
+    int zone = Get_Timezone(&utc_tm);
 
-//
-//  OS_Delta_Time: C
-//
-// Return time difference in microseconds. If base = 0, then
-// return the counter. If base != 0, compute the time difference.
-//
-// NOTE: This needs to be precise, but many OSes do not
-// provide a precise time sampling method. So, if the target
-// posix OS does, add the ifdef code in here.
-//
-int64_t OS_Delta_Time(int64_t base)
-{
-    struct timeval tv;
-    gettimeofday(&tv,0);
-
-    int64_t time = cast(int64_t, tv.tv_sec * 1000000) + tv.tv_usec;
-    if (base == 0)
-        return time;
-
-    return time - base;
+    return rebValue("ensure date! (make-date-ymdsnz",
+        rebI(utc_tm.tm_year + 1900),  // year
+        rebI(utc_tm.tm_mon + 1),  // month
+        rebI(utc_tm.tm_mday),  // day
+        rebI(
+            utc_tm.tm_hour * 3600
+            + utc_tm.tm_min * 60
+            + utc_tm.tm_sec
+        ),  // secs
+        rebI(tv.tv_usec * 1000),  // nano
+        rebI(zone),  // zone
+    ")", rebEND);
 }

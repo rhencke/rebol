@@ -472,10 +472,21 @@ REBTYPE(Logic)
             fail (Error_Bad_Refines_Raw());
 
         if (REF(seed)) {
-            // random/seed false restarts; true randomizes
-            Set_Random(b1 ? cast(REBINT, OS_DELTA_TIME(0)) : 1);
-            return nullptr;
+            //
+            // !!! For some reason, a random LOGIC! used OS_DELTA_TIME, while
+            // it wasn't used elsewhere:
+            //
+            //     /* random/seed false restarts; true randomizes */
+            //     Set_Random(b1 ? cast(REBINT, OS_DELTA_TIME(0)) : 1);
+            //
+            // This created a dependency on the host's model for time, which
+            // the core is trying to be agnostic about.  This one appearance
+            // for getting a random LOGIC! was a non-sequitur which was in
+            // the way of moving time to an extension, so it was removed.
+            //
+            fail ("LOGIC! random seed currently not implemented");
         }
+
         if (Random_Int(REF(secure)) & 1)
             return Init_True(D_OUT);
         return Init_False(D_OUT); }

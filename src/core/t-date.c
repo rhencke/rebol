@@ -1063,8 +1063,8 @@ setDate:
 //          "1 to 31"
 //      seconds [integer!]
 //          "3600 for each hour, 60 for each minute"
-//      nano [integer!]
-//      zone [integer!]
+//      nano [blank! integer!]
+//      zone [blank! integer!]
 //  ]
 //
 REBNATIVE(make_date_ymdsnz)
@@ -1083,10 +1083,14 @@ REBNATIVE(make_date_ymdsnz)
     VAL_MONTH(D_OUT) = VAL_INT32(ARG(month));
     VAL_DAY(D_OUT) = VAL_INT32(ARG(day));
 
-    VAL_DATE(D_OUT).zone = VAL_INT32(ARG(zone)) / ZONE_MINS;
+    if (IS_BLANK(ARG(zone)))
+        VAL_DATE(D_OUT).zone = NO_DATE_ZONE;
+    else
+        VAL_DATE(D_OUT).zone = VAL_INT32(ARG(zone)) / ZONE_MINS;
 
+    REBI64 nano = IS_BLANK(ARG(nano)) ? 0 : VAL_INT64(ARG(nano));
     PAYLOAD(Time, D_OUT).nanoseconds
-        = SECS_TO_NANO(VAL_INT64(ARG(seconds))) + VAL_INT64(ARG(nano));
+        = SECS_TO_NANO(VAL_INT64(ARG(seconds))) + nano;
 
     assert(Does_Date_Have_Time(D_OUT));
     return D_OUT;

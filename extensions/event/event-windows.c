@@ -38,6 +38,29 @@ HWND Event_Handle = 0;          // Used for async DNS
 static int Timer_Id = 0;        // The timer we are using
 
 
+//
+//  Delta_Time: C
+//
+// Return time difference in microseconds. If base = 0, then
+// return the counter. If base != 0, compute the time difference.
+//
+// Note: Requires high performance timer.
+//      Q: If not found, use timeGetTime() instead ?!
+//
+int64_t Delta_Time(int64_t base)
+{
+    LARGE_INTEGER time;
+    if (not QueryPerformanceCounter(&time))
+        rebJumps("PANIC {Missing high performance timer}", rebEND);
+
+    if (base == 0) return time.QuadPart; // counter (may not be time)
+
+    LARGE_INTEGER freq;
+    QueryPerformanceFrequency(&freq);
+
+    return ((time.QuadPart - base) * 1000) / (freq.QuadPart / 1000);
+}
+
 
 //
 //  REBOL_Event_Proc: C
