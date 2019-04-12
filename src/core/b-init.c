@@ -1215,9 +1215,6 @@ void Startup_Core(void)
     Startup_Pools(0);
     Startup_GC();
 
-    OS_REGISTER_DEVICE(&Dev_StdIO);
-    Startup_StdIO();
-
 //=//// INITIALIZE API ////////////////////////////////////////////////////=//
 
     // The API is one means by which variables can be made whose lifetime is
@@ -1473,10 +1470,6 @@ void Shutdown_Core(void)
     Shutdown_String();
     Shutdown_Scanner();
     Shutdown_Char_Cases();
-
-    // This calls through the Host_Lib table, which Shutdown_Api() nulls out.
-    //
-    Shutdown_StdIO();
 
     Shutdown_Api();
 

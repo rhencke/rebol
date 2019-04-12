@@ -84,7 +84,7 @@ REBNATIVE(mold)
 //
 //  write-stdout: native [
 //
-//  "Write text to standard output, or raw BINARY! (for control codes / CGI)"
+//  "Boot-only implementation of WRITE-STDOUT (HIJACK'd by STDIO module)"
 //
 //      return: [<opt> void!]
 //      value [<blank> text! char! binary!]
@@ -92,45 +92,33 @@ REBNATIVE(mold)
 //  ]
 //
 REBNATIVE(write_stdout)
+//
+// This code isn't supposed to run during normal bootup.  But for debugging
+// we don't want a parallel set of PRINT operations and specializations just
+// on the off chance something goes wrong in boot.  So this stub is present
+// to do debug I/O.
 {
     INCLUDE_PARAMS_OF_WRITE_STDOUT;
 
     REBVAL *v = ARG(value);
 
+  #if defined(NDEBUG)
+    UNUSED(v);
+    fail ("Boot cannot print output in release build, must load I/O module");
+  #else
     if (IS_BINARY(v)) {
-        //
-        // It is sometimes desirable to write raw binary data to stdout.  e.g.
-        // e.g. CGI scripts may be hooked up to stream data for a download,
-        // and not want the bytes interpreted in any way.  (e.g. not changed
-        // from UTF-8 to wide characters, or not having CR turned into CR LF
-        // sequences).
-        //
-        Prin_OS_String(VAL_BIN_AT(v), VAL_LEN_AT(v), OPT_ENC_RAW);
+        PROBE(v);
     }
-    else if (IS_CHAR(v)) {
-        //
-        // Useful for `write-stdout newline`, etc.
-        //
-        // !!! Temporarily just support ASCII codepoints, since making a
-        // codepoint out of a string pre-UTF8-everywhere makes a REBUNI string.
-        //
-        if (VAL_CHAR(v) > 0x7f)
-            fail ("non-ASCII CHAR! output temporarily disabled.");
-        Prin_OS_String(cast(REBYTE*, &VAL_CHAR(v)), 1, OPT_ENC_0);
+    else if (IS_TEXT(v)) {
+        printf("%s", STR_HEAD(VAL_STRING(v)));
+        fflush(stdout);
     }
     else {
-        assert(IS_TEXT(v));
-
-        // !!! Should be passing the STRING!, so the printing port gets the
-        // number of codepoints as well as the UTF-8 size.
-        //
-        REBSIZ utf8_size;
-        const REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v);
-
-        Prin_OS_String(utf8, utf8_size, OPT_ENC_0);
+        assert(IS_CHAR(v));
+        printf("%s", VAL_CHAR_ENCODED(v));
     }
-
     return Init_Void(D_OUT);
+  #endif
 }
 
 

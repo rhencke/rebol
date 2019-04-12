@@ -34,7 +34,6 @@
 
 #include "sys-core.h"
 
-static REBREQ *Req_SIO;
 
 
 /***********************************************************************
@@ -42,119 +41,6 @@ static REBREQ *Req_SIO;
 **  Lower Level Print Interface
 **
 ***********************************************************************/
-
-//
-//  Startup_StdIO: C
-//
-void Startup_StdIO(void)
-{
-    Req_SIO = OS_MAKE_DEVREQ(&Dev_StdIO);
-
-    // !!! "The device is already open, so this call will just setup the
-    // request fields properly.
-
-    REBVAL *result = OS_DO_DEVICE(Req_SIO, RDC_OPEN);
-    assert(result == NULL); // !!! API not initialized yet, "pending" is a lie
-    UNUSED(result);
-}
-
-
-//
-//  Shutdown_StdIO: C
-//
-void Shutdown_StdIO(void)
-{
-    // !!! There is no OS_FREE_DEVREQ.  Should there be?  Should this
-    // include an OS_ABORT_DEVICE?
-    //
-    Free_Req(Req_SIO);
-}
-
-
-//
-//  Print_OS_Line: C
-//
-// Print a new line.
-//
-void Print_OS_Line(void)
-{
-    // !!! Don't put const literal directly into mutable Req_SIO->data
-
-    static REBYTE newline[] = "\n";
-
-    Req(Req_SIO)->common.data = newline;
-    Req(Req_SIO)->length = 1;
-    Req(Req_SIO)->actual = 0;
-
-    REBVAL *result = OS_DO_DEVICE(Req_SIO, RDC_WRITE);
-    assert(result != NULL);
-    assert(not IS_ERROR(result));
-    rebRelease(result);
-}
-
-
-//
-//  Prin_OS_String: C
-//
-// Print a string (with no line terminator).
-//
-// The encoding options are OPT_ENC_XXX flags OR'd together.
-//
-void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
-{
-    struct rebol_devreq *req = Req(Req_SIO);
-
-    req->flags |= RRF_FLUSH;
-    if (opts & OPT_ENC_RAW)
-        req->modes &= ~RFM_TEXT;
-    else
-        req->modes |= RFM_TEXT;
-
-    req->actual = 0;
-
-    DECLARE_LOCAL (temp);
-    SET_END(temp);
-
-    // !!! The historical division of labor between the "core" and the "host"
-    // is that the host doesn't know how to poll for cancellation.  So data
-    // gets broken up into small batches and it's this loop that has access
-    // to the core "Do_Signals_Throws" query.  Hence one can send a giant
-    // string to the OS_DO_DEVICE with RDC_WRITE and be able to interrupt it,
-    // even though that device request could block forever in theory.
-    //
-    // There may well be a better way to go about this.
-    //
-    req->common.data = m_cast(REBYTE*, utf8); // !!! promises to not write
-    while (size > 0) {
-        if (Do_Signals_Throws(temp))
-            fail (Error_No_Catch_For_Throw(temp));
-
-        assert(IS_END(temp));
-
-        // !!! Req_SIO->length is actually the "size", e.g. number of bytes.
-        //
-        if (size <= 1024)
-            req->length = size;
-        else if (not (opts & OPT_ENC_RAW))
-            req->length = 1024;
-        else {
-            // Correct for UTF-8 batching so we don't span an encoded
-            // character, back off until we hit a valid leading character.
-            // Start by scanning 4 bytes back since that's the longest valid
-            // UTF-8 encoded character.
-            //
-            req->length = 1020;
-            while ((req->common.data[req->length] & 0xC0) == 0x80)
-                ++req->length;
-            assert(req->length <= 1024);
-        }
-
-        OS_DO_DEVICE_SYNC(Req_SIO, RDC_WRITE);
-
-        req->common.data += req->length;
-        size -= req->length;
-    }
-}
 
 
 //

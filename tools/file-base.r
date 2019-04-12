@@ -206,12 +206,10 @@ os: [
 
 os-windows: [
     + windows/host-lib.c
-    windows/dev-stdio.c
 ]
 
 os-posix: [
     posix/host-readline.c
-    posix/dev-stdio.c
 
     + posix/host-browse.c
     + posix/host-library.c
@@ -223,7 +221,6 @@ os-posix: [
 os-osx: [
     ; OSX uses the POSIX file I/O for now
     posix/host-readline.c
-    posix/dev-stdio.c
 
     + posix/host-browse.c
     + posix/host-library.c
@@ -238,7 +235,6 @@ os-osx: [
 ;
 os-linux: [
     posix/host-readline.c
-    posix/dev-stdio.c
 
     ; It also uses POSIX for most host functions
     + posix/host-library.c
@@ -253,7 +249,6 @@ os-linux: [
 ; cloned from os-linux TODO: check'n'fix !!
 os-android: [
     posix/host-readline.c
-    posix/dev-stdio.c
 
     ; Uses POSIX for most host functions
     + posix/host-library.c
@@ -267,7 +262,6 @@ os-android: [
 
 os-emscripten: [
     posix/host-readline.c
-    posix/dev-stdio.c
 
     + posix/host-browse.c
     + posix/host-library.c
