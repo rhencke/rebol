@@ -42,7 +42,7 @@
 #include <sys/wait.h>
 #include <errno.h>
 
-#include "reb-host.h"
+#include "sys-core.h"
 
 //
 //  Delta_Time: C

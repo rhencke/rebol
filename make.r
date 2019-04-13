@@ -1121,27 +1121,12 @@ libr3-core: make rebmake/object-library-class [
     ]
 ]
 
-os-file-block: get bind
-    (to word! join "os-" system-config/os-base)
-    file-base
-
-remove-each plus os-file-block [plus = '+] ;remove the '+ sign, we don't care here
-remove-each plus file-base/os [plus = '+] ;remove the '+ sign, we don't care here
-
-libr3-os: make libr3-core [
-    name: 'libr3-os
+main: make libr3-core [
+    name: 'main
 
     definitions: join ["REB_CORE"] app-config/definitions
-    includes: join app-config/includes %prep/os ; generator may modify
-    cflags: copy app-config/cflags ; generator may modify
-
-    depends: map-each s append copy file-base/os os-file-block [
-        gen-obj/dir s src-dir/os/%
-    ]
-]
-
-main: make libr3-os [
-    name: 'main
+    includes: join app-config/includes %prep/os  ; generator may modify
+    cflags: copy app-config/cflags  ; generator may modify
 
     depends: reduce [
         either user-config/main
@@ -1451,7 +1436,6 @@ prep: make rebmake/entry-class [
             {GIT_COMMIT=$(GIT_COMMIT)}
         ]
         keep [{$(REBOL)} tools-dir/make-host-init.r]
-        keep [{$(REBOL)} tools-dir/make-os-ext.r]
         keep [{$(REBOL)} tools-dir/make-reb-lib.r]
 
         for-each ext all-extensions [
@@ -1532,15 +1516,6 @@ add-new-obj-folders: function [
 ]
 
 folders: copy [%objs/ %objs/main/]
-for-each file os-file-block [
-    ;
-    ; For better or worse, original R3-Alpha didn't use FILE! in %file-base.r
-    ; for filenames.  Note that `+` markers should be removed by this point.
-    ;
-    file: join %objs/ (ensure [word! path!] file)
-    path: first split-path (ensure file! file)
-    find folders path else [append folders path]
-]
 add-new-obj-folders ext-objs folders
 
 app: make rebmake/application-class [
@@ -1548,7 +1523,6 @@ app: make rebmake/application-class [
     output: %r3 ;no suffix
     depends: compose [
         (libr3-core)
-        (libr3-os)
         ((ext-objs))
         ((app-config/libraries))
         (main)
@@ -1577,7 +1551,6 @@ library: make rebmake/dynamic-library-class [
     output: %libr3 ;no suffix
     depends: compose [
         (libr3-core)
-        ((libr3-os))
         ((ext-objs))
         ((app-config/libraries))
     ]
@@ -1709,7 +1682,6 @@ solution: make rebmake/solution-class [
         prep
         ext-objs
         libr3-core
-        libr3-os
         main
         app
         library

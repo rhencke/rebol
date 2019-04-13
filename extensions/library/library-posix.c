@@ -44,7 +44,7 @@
 #include <errno.h>
 #include <assert.h>
 
-#include "reb-host.h"
+#include "sys-core.h"
 
 
 #ifndef NO_DL_LIB

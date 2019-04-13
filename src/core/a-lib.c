@@ -82,14 +82,7 @@
 
 #include "sys-core.h"
 
-
-// "Linkage back to HOST functions. Needed when we compile as a DLL
-// in order to use the OS_* macro functions."
-//
-#ifdef REB_API  // Included by C command line
-    const REBOL_HOST_LIB *Host_Lib = nullptr;
-    EXTERN_C REBOL_HOST_LIB Host_Lib_Init;
-#endif
+static bool PG_Api_Initialized = false;
 
 
 //
@@ -103,7 +96,7 @@
 // proper moment in the boot.
 //
 void RL_rebEnterApi_internal(void) {
-    if (not Host_Lib)
+    if (not PG_Api_Initialized)
         panic ("rebStartup() not called before API call");
 }
 
@@ -328,6 +321,8 @@ REBVAL *RL_rebRepossess(void *ptr, size_t size)
 //
 void Startup_Api(void)
 {
+    assert(not PG_Api_Initialized);
+    PG_Api_Initialized = true;
 }
 
 
@@ -339,8 +334,8 @@ void Startup_Api(void)
 //
 void Shutdown_Api(void)
 {
-    assert(Host_Lib);
-    Host_Lib = nullptr;
+    assert(PG_Api_Initialized);
+    PG_Api_Initialized = false;
 }
 
 
@@ -350,36 +345,8 @@ void Shutdown_Api(void)
 // This function will allocate and initialize all memory structures used by
 // the REBOL interpreter. This is an extensive process that takes time.
 //
-// `lib` is the host lib table (OS_XXX functions) which Rebol core does not
-// take for granted--and assumes a host must provide to operate.  An example
-// of this would be that getting the current UTC date and time varies from OS
-// to OS, so for the NOW native to be implemented it has to call something
-// outside of standard C...e.g. OS_GET_TIME().  So even though NOW is in the
-// core, it will be incomplete without having that function supplied.
-//
-// !!! Increased modularization of the core, and new approaches, are making
-// this concept obsolete.  For instance, the NOW native might not even live
-// in the core, but be supplied by a "Timer Extension" which is considered to
-// be sandboxed and non-core enough that having platform-specific code in it
-// is not a problem.  Also, hooks can be supplied in the form of natives that
-// are later HIJACK'd by some hosts (see PANIC and FAIL), as a way of
-// injecting richer platform-or-scenario-specific code into a more limited
-// default host operation.  It is expected that the OS_XXX functions will
-// eventually disappear completely.
-//
 void RL_rebStartup(void)
 {
-    if (Host_Lib)
-        panic ("rebStartup() called when it's already started");
-
-    Host_Lib = &Host_Lib_Init;
-
-    if (Host_Lib->size < HOST_LIB_SIZE)
-        panic ("Host-lib wrong size");
-
-    if (((HOST_LIB_VER << 16) + HOST_LIB_SUM) != Host_Lib->ver_sum)
-        panic ("Host-lib wrong version/checksum");
-
     Startup_Core();
 }
 
@@ -1900,138 +1867,6 @@ void RL_rebFail_OS(int errnum)
     DECLARE_LOCAL (temp);
     Init_Error(temp, error);
     rebJumps("fail", temp, rebEND);
-}
-
-
-//=//// TRANSITIONAL TOOLS FOR REBREQ/DEVICE MIGRATION ////////////////////=//
-//
-// !!! To do I/O, R3-Alpha had the concept of "simple" devices, which would
-// represent abstractions of system services (Dev_Net would abstract the
-// network layer, Dev_File the filesystem, etc.)
-//
-// There were a fixed list of commands these devices would handle (OPEN,
-// CONNECT, READ, WRITE, CLOSE, QUERY).  Further parameterization was done
-// with the fields of a specialized C structure called a REBREQ.
-//
-// This layer was code solely used by Rebol, and needed access to data
-// resident in Rebol types.  For instance: if one is to ask to read from a
-// file, it makes sense to use Rebol's FILE!.  And if one is reading into an
-// existing BINARY! buffer, it makes sense to give the layer the BINARY!.
-// But there was an uneasy situation of saying that these REBREQ could not
-// speak in Rebol types, resulting in things like picking pointers out of
-// the guts of Rebol cells and invoking unknown interactions with the GC by
-// putting them into a C struct.
-//
-// Ren-C is shifting the idea to where a REBREQ is actually a REBARR, and
-// able to hold full values (for starters, a REBSER* containing binary data
-// of what used to be in a REBREQ...which is actually how PORT!s held a
-// REBREQ in their state previously).  However, the way the device layer was
-// written it does not have access to the core API.
-//
-
-
-//
-//  rebMake_Rebreq: RL_API
-//
-// !!! Another transitional tool.
-//
-REBREQ *RL_rebMake_Rebreq(void *device) {
-    REBDEV *dev = cast(REBDEV*, device);
-    assert(dev != NULL);
-
-    REBREQ *req = Make_Binary_Core(
-        dev->req_size,
-        SERIES_FLAG_LINK_NODE_NEEDS_MARK | SERIES_FLAG_MISC_NODE_NEEDS_MARK
-    );
-    memset(BIN_HEAD(req), 0, dev->req_size);
-    TERM_BIN_LEN(req, dev->req_size);
-
-    LINK(req).custom.node = nullptr;
-    MISC(req).custom.node = nullptr;
-
-    Req(req)->device = dev;
-
-    return req;
-}
-
-
-#if defined(NDEBUG)
-    #define ASSERT_REBREQ(req) \
-        NOOP
-#else
-    inline static void ASSERT_REBREQ(REBREQ *req) {  // basic sanity check
-        assert(BIN_LEN(req) >= sizeof(struct rebol_devreq));
-        assert(GET_SERIES_FLAG(req, LINK_NODE_NEEDS_MARK));
-        assert(GET_SERIES_FLAG(req, MISC_NODE_NEEDS_MARK));
-    }
-#endif
-
-
-//
-//  rebReq: RL_API
-//
-// !!! Transitional - extract content pointer for REBREQ
-//
-void *RL_rebReq(REBREQ *req) {
-    ASSERT_REBREQ(req);
-    return BIN_HEAD(req);  // Req() casts this to `struct rebol_devreq*`
-}
-
-
-//
-//  rebAddrOfNextReq: RL_API
-//
-// !!! Transitional - get `next_req` field hidden in REBSER structure LINK().
-// Being in this spot (instead of inside the binary content of the request)
-// means the chain of requests can be followed by GC.
-//
-void **RL_rebAddrOfNextReq(REBREQ *req) {
-    ASSERT_REBREQ(req);
-    return (void**)&LINK(req).custom.node;  // NextReq() dereferences
-}
-
-
-//
-//  rebAddrOfReqPortCtx: RL_API
-//
-// !!! Transitional - get `port_ctx` field hidden in REBSER structure MISC().
-// Being in this spot (instead of inside the binary content of the request)
-// means the chain of requests can be followed by GC.
-//
-void **RL_rebAddrOfReqPortCtx(REBREQ *req) {
-    ASSERT_REBREQ(req);
-    return (void**)&MISC(req).custom.node;  // ReqPortCtx() dereferences
-}
-
-
-//
-//  rebEnsure_Req_Managed: RL_API
-//
-// !!! Transitional - Lifetime management of REBREQ in R3-Alpha was somewhat
-// unclear, with them being created sometimes on the stack, and sometimes
-// linked into a pending list if a request turned out to be synchronous and
-// not need the request to live longer.  To try and design for efficiency,
-// Append_Request() currently is the only place that manages the request for
-// asynchronous handling...other clients are expected to free.
-//
-// !!! Some requests get Append_Request()'d multiple times, apparently.
-// Review the implications, but just going with making it legal to manage
-// something multiple times for now.
-//
-void RL_rebEnsure_Req_Managed(REBREQ *req) {
-    ASSERT_REBREQ(req);
-    Ensure_Series_Managed(req);
-}
-
-
-//
-//  rebFree_Req: RL_API
-//
-// !!! Another transitional tool - see notes on rebManageReq()
-//
-void RL_rebFree_Req(REBREQ *req) {
-    ASSERT_REBREQ(req);
-    Free_Unmanaged_Series(req);
 }
 
 

@@ -403,21 +403,6 @@ e-lib/emit {
     #define REBVAL struct Reb_Value
 
     /*
-     * !!! VERY transitional tool - in order to decouple the interpreter from
-     * R3-Alpha's device model (and still keep that code as an optional
-     * extension in the build for those who need it), REBREQ has become a
-     * series instead of a raw C struct.  That gives it the necessary features
-     * to be GC marked--either by holding cells in it as an array, or using
-     * LINK()/MISC() with SERIES_INFO_XXX_IS_CUSTOM_NODE.  But it stores
-     * binary data in that series for now, and clients of REBREQ do not have
-     * access to APIs for the internals of REBSER.  For the moment, libRebol
-     * has a few service routines to bridge the gap...until a better solution
-     * is articulated.
-     */
-    struct Reb_Request;
-    #define REBREQ struct Reb_Series
-
-    /*
      * `wchar_t` is a pre-Unicode abstraction, whose size varies per-platform
      * and should be avoided where possible.  But Win32 standardizes it to
      * 2 bytes in size for UTF-16, and uses it pervasively.  So libRebol

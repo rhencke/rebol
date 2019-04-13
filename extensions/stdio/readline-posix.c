@@ -36,21 +36,12 @@
     #include <termios.h>
 #endif
 
-#include "reb-host.h"
+#include "sys-core.h"
 
 // Configuration:
 #define TERM_BUF_LEN 4096   // chars allowed per line
 #define READ_BUF_LEN 64     // chars per read()
 #define MAX_HISTORY  300    // number of lines stored
-
-enum {
-    BEL = 7,
-    BS = 8,
-    LF = 10,
-    CR = 13,
-    ESC = 27,
-    DEL = 127
-};
 
 #define CHAR_LEN(c) (1 + trailingBytesForUTF8[c])
 
@@ -413,25 +404,6 @@ static void Show_Line(STD_TERM *term, int blanks)
     Write_Char(BS,  blanks);
     Write_Char(BS,  Strlen_UTF8(term->buffer+term->pos, len));
 }
-
-
-// Just by looking at the first byte of a UTF-8 character sequence, you can
-// tell how many additional bytes it will require.
-//
-// !!! This table is already in Rebol Core.  Really whatever logic gets used
-// should be shareable here, but it's just getting pasted in here as a
-// "temporary" measure.
-//
-static const char trailingBytesForUTF8[256] = {
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 3,3,3,3,3,3,3,3,4,4,4,4,5,5,5,5
-};
 
 
 //

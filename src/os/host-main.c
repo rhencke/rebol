@@ -304,7 +304,7 @@ int main(int argc, char *argv_ansi[])
 
     int exit_status = rebUnboxInteger(rebR(result), rebEND);
 
-    OS_QUIT_DEVICES(0);
+    OS_Quit_Devices(0);
 
     const bool clean = false; // process exiting, not necessary
     rebShutdown(clean); // Note: debug build runs a clean shutdown anyway

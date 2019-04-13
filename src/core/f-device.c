@@ -41,16 +41,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "reb-host.h"
-
-
-// REBOL "DEVICES"
-//
-// !!! The devices are no longer a table, but a linked list.  The polling
-// priority is in the order the list is in.  If there's going to be some kind
-// of priority scheme, it would have to be added to the API for registering.
-//
-REBDEV *Devices;
+#include "sys-core.h"
 
 
 static int Poll_Default(REBDEV *dev)
@@ -158,10 +149,8 @@ static REBVAL *Dangerous_Command(REBREQ *req) {
 // (DR_PEND) and negative numbers for errors.  As the device model is revamped
 // the concept is to return the actual result, NULL if pending, or an ERROR!.
 //
-REBVAL *OS_Do_Device(REBREQ *req, enum Reb_Device_Command command)
+REBVAL *OS_Do_Device(REBREQ *req)
 {
-    Req(req)->command = command;
-
     REBDEV *dev = Req(req)->device;
     if (dev == NULL)
         rebJumps("FAIL {Rebol Device Not Found}", rebEND);
@@ -180,20 +169,6 @@ REBVAL *OS_Do_Device(REBREQ *req, enum Reb_Device_Command command)
 
     if (dev->commands[Req(req)->command] == NULL)
         rebJumps("FAIL {Invalid Command for Rebol Device}", rebEND);
-
-    // !!! Currently the StdIO port is initialized before Rebol's startup
-    // code ever runs.  This is to allow debug messages to be printed during
-    // boot.  That means it's too early to be pushing traps, having errors,
-    // or really using any REBVALs at all.  Review the dependency, but in
-    // the meantime just don't try and push trapping of errors if there's
-    // not at least one Rebol state pushed.
-    //
-    if (Req(req)->device == &Dev_StdIO and Req(req)->command == RDC_OPEN) {
-        int result = (dev->commands[Req(req)->command])(req);
-        assert(result == DR_DONE);
-        UNUSED(result);
-        return NULL;
-    }
 
     // !!! R3-Alpha had it so when an error was raised from a "device request"
     // it would give back DR_ERROR and the caller would have to interpret an
@@ -242,30 +217,23 @@ REBVAL *OS_Do_Device(REBREQ *req, enum Reb_Device_Command command)
 
 
 //
-//  OS_Do_Device_Sync: C
-//
-// Convenience routine that wraps OS_DO_DEVICE for simple requests.
-//
-// !!! Because the device layer is deprecated, the relevant inelegance of
-// this is not particularly important...more important is that the API
-// handles and error mechanism works.
-//
-void OS_Do_Device_Sync(REBREQ *req, enum Reb_Device_Command command)
-{
-    REBVAL *result = OS_DO_DEVICE(req, command);
-    assert(result != NULL); // should be synchronous
-    if (rebDid("error?", result, rebEND))
-        rebJumps("FAIL", result, rebEND);
-    rebRelease(result); // ignore result
-}
-
-
-//
 //  OS_Make_Devreq: C
 //
-REBREQ *OS_Make_Devreq(REBDEV *device)  // rebdev
+REBREQ *OS_Make_Devreq(REBDEV *dev)
 {
-    return cast(REBREQ*, rebMake_Rebreq(device));
+    REBREQ *req = Make_Binary_Core(
+        dev->req_size,
+        SERIES_FLAG_LINK_NODE_NEEDS_MARK | SERIES_FLAG_MISC_NODE_NEEDS_MARK
+    );
+    memset(BIN_HEAD(req), 0, dev->req_size);
+    TERM_BIN_LEN(req, dev->req_size);
+
+    LINK(req).custom.node = nullptr;
+    MISC(req).custom.node = nullptr;
+
+    Req(req)->device = dev;
+
+    return req;
 }
 
 
@@ -301,7 +269,7 @@ int OS_Poll_Devices(void)
 {
     int num_changed = 0;
 
-    REBDEV *dev = Devices;
+    REBDEV *dev = PG_Device_List;
     for (; dev != nullptr; dev = dev->next) {
         if (Poll_Default(dev))
             ++num_changed;
@@ -327,7 +295,7 @@ int OS_Quit_Devices(int flags)
 {
     UNUSED(flags);
 
-    REBDEV *dev = Devices;
+    REBDEV *dev = PG_Device_List;
     for (; dev != nullptr; dev = dev->next) {
         if (not (dev->flags & RDF_INIT))
             continue;
@@ -352,6 +320,6 @@ int OS_Quit_Devices(int flags)
 // some mechanism of unregistering.
 //
 void OS_Register_Device(REBDEV *dev) {
-    dev->next = Devices;
-    Devices = dev;
+    dev->next = PG_Device_List;
+    PG_Device_List = dev;
 }

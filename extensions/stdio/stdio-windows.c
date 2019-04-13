@@ -35,6 +35,8 @@
 //
 #include "sys-core.h"
 
+EXTERN_C REBDEV Dev_StdIO;
+
 static HANDLE Stdout_Handle = nullptr;
 static HANDLE Stdin_Handle = nullptr;
 

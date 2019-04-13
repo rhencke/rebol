@@ -1,11 +1,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
 #include <windows.h>
+#undef IS_ERROR
+
 #include <process.h>
 #include <assert.h>
 
-#include "reb-host.h"
+#include "sys-core.h"
 
 
 //

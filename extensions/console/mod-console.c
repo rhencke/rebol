@@ -45,23 +45,6 @@
 #include "tmp-mod-console.h"
 
 
-extern REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb);
-
-//
-//  get-console-actor-handle: native [
-//
-//  {Retrieve handle to the native actor for console}
-//
-//      return: [handle!]
-//  ]
-//
-REBNATIVE(get_console_actor_handle)
-{
-    Make_Port_Actor_Handle(D_OUT, &Console_Actor);
-    return D_OUT;
-}
-
-
 //=//// USER-INTERRUPT/HALT HANDLING (Ctrl-C, Escape, etc.) ///////////////=//
 //
 // There's clearly contention for what a user-interrupt key sequence should

@@ -1337,7 +1337,7 @@ void Shutdown_GC(void)
 //
 static void Mark_Devices_Deep(void)
 {
-    REBDEV *dev = Devices;
+    REBDEV *dev = PG_Device_List;
 
     for (; dev != nullptr; dev = dev->next) {
         if (not dev->pending)

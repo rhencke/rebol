@@ -62,6 +62,7 @@ core: [
         ;
         <msc:/wd5045> ;-- https://stackoverflow.com/q/50399940
     ]
+    f-device.c
     [
         f-dtoa.c
         
@@ -183,47 +184,10 @@ made: [
     make-headers.r      include/tmp-internals.h
 
     make-host-init.r    include/host-init.h
-    make-os-ext.r       include/host-lib.h
     make-reb-lib.r      include/rebol.h
 ]
 
-;
-; NOTE: In the following file lists, a (+) preceding a file is indicative that
-; it is to be searched for comment blocks around the function prototypes
-; that indicate the function is to be gathered to be put into the host-lib.h
-; exports.  (This is similar to what make-headers.r does when it runs over
-; the Rebol Core sources, except for the host.)
-;
-
 main: 'host-main.c
-
-os: [
-    + host-device.c
-    host-table.c
-]
-
-os-windows: [
-]
-
-os-posix: [
-    posix/host-readline.c
-]
-
-os-osx: [
-    posix/host-readline.c
-]
-
-os-linux: [
-    posix/host-readline.c
-]
-
-os-android: [
-    posix/host-readline.c
-]
-
-os-emscripten: [
-    posix/host-readline.c
-]
 
 boot-files: [
     version.r

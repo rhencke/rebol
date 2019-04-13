@@ -150,6 +150,8 @@ PVAR REBACT *PG_Dummy_Action;
 PVAR REBEVL PG_Eval_Maybe_Stale_Throws; // Evaluator (REBFRM in, returns bool)
 PVAR REBNAT PG_Dispatch;  // Dispatcher (REBFRM in, returns REBVAL*)
 
+PVAR REBDEV *PG_Device_List;  // Linked list of R3-Alpha-style "devices"
+
 
 /***********************************************************************
 **

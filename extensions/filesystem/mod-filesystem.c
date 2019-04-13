@@ -42,7 +42,7 @@ extern REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb);
 //
 REBNATIVE(get_file_actor_handle)
 {
-    OS_REGISTER_DEVICE(&Dev_File);
+    OS_Register_Device(&Dev_File);
 
     Make_Port_Actor_Handle(D_OUT, &File_Actor);
     return D_OUT;

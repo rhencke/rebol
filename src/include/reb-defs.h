@@ -393,3 +393,17 @@ typedef REBARR REBGOB;
 
 typedef REBARR REBSTU;
 typedef REBARR REBFLD;
+
+
+//=//// R3-ALPHA DEVICE / DEVICE REQUEST //////////////////////////////////=//
+//
+// In order to decouple the interpreter from R3-Alpha's device model (and
+// still keep that code as optional in the build for those who need it),
+// REBREQ has become a series instead of a raw C struct.  That gives it the
+// necessary features to be GC marked--either by holding cells in it as an
+// array, or using LINK()/MISC() with SERIES_INFO_XXX_IS_CUSTOM_NODE.
+//
+struct Reb_Request;
+#define REBREQ struct Reb_Series
+struct rebol_device;
+#define REBDEV struct rebol_device

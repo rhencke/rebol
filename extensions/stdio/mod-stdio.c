@@ -27,7 +27,24 @@
 
 #include "tmp-mod-stdio.h"
 
-EXTERN_C REBDEV Dev_Stdio;
+EXTERN_C REBDEV Dev_StdIO;
+
+
+extern REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb);
+
+//
+//  get-console-actor-handle: native [
+//
+//  {Retrieve handle to the native actor for console}
+//
+//      return: [handle!]
+//  ]
+//
+REBNATIVE(get_console_actor_handle)
+{
+    Make_Port_Actor_Handle(D_OUT, &Console_Actor);
+    return D_OUT;
+}
 
 
 //
@@ -37,16 +54,14 @@ EXTERN_C REBDEV Dev_Stdio;
 //
 REBNATIVE(register_stdio_device)
 {
-    OS_REGISTER_DEVICE(&Dev_StdIO);
+    OS_Register_Device(&Dev_StdIO);
 
-    REBREQ *req = OS_MAKE_DEVREQ(&Dev_StdIO);
+    REBREQ *req = OS_Make_Devreq(&Dev_StdIO);
 
     // !!! "The device is already open, so this call will just setup the
-    // request fields properly.
+    // request fields properly." (?)
 
-    REBVAL *result = OS_DO_DEVICE(req, RDC_OPEN);
-    assert(result == NULL); // !!! API not initialized yet, "pending" is a lie
-    UNUSED(result);
+    OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
     Free_Req(req);
 
@@ -63,7 +78,7 @@ REBNATIVE(register_stdio_device)
 //
 void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
 {
-    REBREQ *rebreq = OS_MAKE_DEVREQ(&Dev_StdIO);
+    REBREQ *rebreq = OS_Make_Devreq(&Dev_StdIO);
     struct rebol_devreq *req = Req(rebreq);
 
     req->flags |= RRF_FLUSH;
@@ -132,7 +147,7 @@ void Print_OS_Line(void)
 
     static REBYTE newline[] = "\n";
 
-    REBREQ *req = OS_MAKE_DEVREQ(&Dev_StdIO);
+    REBREQ *req = OS_Make_Devreq(&Dev_StdIO);
 
     Req(req)->common.data = newline;
     Req(req)->length = 1;

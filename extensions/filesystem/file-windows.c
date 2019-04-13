@@ -24,11 +24,14 @@
 //
 
 #include <stdio.h>
+
 #include <windows.h>
+#undef IS_ERROR
+
 #include <process.h>
 #include <assert.h>
 
-#include "reb-host.h"
+#include "sys-core.h"
 
 #include "file-req.h"
 

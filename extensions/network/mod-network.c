@@ -508,7 +508,7 @@ REBNATIVE(register_network_device)
 {
     NETWORK_INCLUDE_PARAMS_OF_REGISTER_NETWORK_DEVICE;
 
-    OS_REGISTER_DEVICE(&Dev_Net);
+    OS_Register_Device(&Dev_Net);
     return Init_Void(D_OUT);
 }
 

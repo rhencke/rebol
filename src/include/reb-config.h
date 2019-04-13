@@ -20,10 +20,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// This is the first file included.  It is included by both
-// reb-host.h and sys-core.h, and all Rebol code can include
-// one (and only one) of those...based on whether the file is
-// part of the core or in the "host".
+// This is the first file included by %sys-core.h.
 //
 // Many of the flags controlling the build (such as
 // the TO_<target> definitions) come from -DTO_<target> in the

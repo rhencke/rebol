@@ -25,7 +25,9 @@
 //
 
 #include <windows.h>
-#include "reb-host.h"
+#undef IS_ERROR
+
+#include "sys-core.h"
 
 #ifndef HWND_MESSAGE
 #define HWND_MESSAGE (HWND)-3

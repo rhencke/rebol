@@ -42,7 +42,7 @@ REBNATIVE(register_event_hooks)
 {
     EVENT_INCLUDE_PARAMS_OF_REGISTER_EVENT_HOOKS;
 
-    OS_REGISTER_DEVICE(&Dev_Event);
+    OS_Register_Device(&Dev_Event);
 
     // !!! See notes on Hook_Datatype for this poor-man's substitute for a
     // coherent design of an extensible object system (as per Lisp's CLOS)
@@ -193,7 +193,7 @@ int Wait_For_Device_Events_Interruptible(
     // below does not store it".  Having eliminated stack-allocated REBREQ,
     // it's not clear if it makes sense to allocate it here vs. below.
     //
-    REBREQ *req = OS_MAKE_DEVREQ(&Dev_Event);
+    REBREQ *req = OS_Make_Devreq(&Dev_Event);
 
     // !!! This was an API addded to the HostKit at some point.  It was only
     // called here in event processing, so it's moved to the event extension.
@@ -202,7 +202,7 @@ int Wait_For_Device_Events_Interruptible(
 
     // Let any pending device I/O have a chance to run:
     //
-    if (OS_POLL_DEVICES()) {
+    if (OS_Poll_Devices()) {
         Free_Req(req);
         return -1;
     }

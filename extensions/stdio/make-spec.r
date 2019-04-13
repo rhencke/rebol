@@ -7,14 +7,15 @@ includes: [
 ]
 
 depends: compose [
-    (switch system-config/os-base [
+    %stdio/p-stdio.c
+
+    ((switch system-config/os-base [
         'Windows [
             [%stdio/stdio-windows.c]
         ]
 
         default [
-            [%stdio/stdio-posix.c]
+            [%stdio/stdio-posix.c %stdio/readline-posix.c]
         ]
-    ])
+    ]))
 ]
-

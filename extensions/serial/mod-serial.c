@@ -293,7 +293,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 //
 REBNATIVE(get_serial_actor_handle)
 {
-    OS_REGISTER_DEVICE(&Dev_Serial);
+    OS_Register_Device(&Dev_Serial);
 
     Make_Port_Actor_Handle(D_OUT, &Serial_Actor);
     return D_OUT;

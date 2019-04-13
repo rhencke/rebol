@@ -180,8 +180,6 @@
 
 #include "sys-panic.h"
 
-#include "reb-device.h"
-
 // !!! Definitions for the memory allocator generally don't need to be
 // included by all clients, though currently it is necessary to indicate
 // whether a "node" is to be allocated from the REBSER pool or the REBGOB
@@ -535,7 +533,7 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "datatypes/sys-map.h"
 #include "datatypes/sys-varargs.h"
 
-#include "host-lib.h"
+#include "reb-device.h"
 
 /***********************************************************************
 **

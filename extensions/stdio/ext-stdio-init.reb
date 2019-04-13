@@ -9,6 +9,15 @@ REBOL [
 
 register-stdio-device
 
+sys/make-scheme [
+    title: "Console Access"
+    name: 'console
+    actor: get-console-actor-handle
+]
+
+system/ports/input: open [scheme: 'console]
+
+
 ; During boot, there shouldn't be any output.  However, it would be annoying
 ; to have to write different versions of every PRINT-based debug routine out
 ; there which might be used after boot, just because it might be used before.

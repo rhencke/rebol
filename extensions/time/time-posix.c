@@ -57,7 +57,7 @@
     #include <sys/time.h>  // for older systems
 #endif
 
-#include "reb-host.h"
+#include "sys-core.h"
 
 
 

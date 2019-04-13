@@ -303,7 +303,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 //
 REBNATIVE(get_signal_actor_handle)
 {
-    OS_REGISTER_DEVICE(&Dev_Signal);
+    OS_Register_Device(&Dev_Signal);
 
     Make_Port_Actor_Handle(D_OUT, &Signal_Actor);
     return D_OUT;

@@ -28,6 +28,8 @@
 
 #include "sys-core.h"
 
+EXTERN_C REBDEV Dev_StdIO;
+
 //
 //  Console_Actor: C
 //

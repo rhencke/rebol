@@ -20,7 +20,27 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Critical: all struct alignment must be 4 bytes (see compile options)
+// !!! To do I/O, R3-Alpha had the concept of "simple" devices, which would
+// represent abstractions of system services (Dev_Net would abstract the
+// network layer, Dev_File the filesystem, etc.)
+//
+// There were a fixed list of commands these devices would handle (OPEN,
+// CONNECT, READ, WRITE, CLOSE, QUERY).  Further parameterization was done
+// with the fields of a specialized C structure called a REBREQ.
+//
+// This layer was code solely used by Rebol, and needed access to data
+// resident in Rebol types.  For instance: if one is to ask to read from a
+// file, it makes sense to use Rebol's FILE!.  And if one is reading into an
+// existing BINARY! buffer, it makes sense to give the layer the BINARY!.
+// But there was an uneasy situation of saying that these REBREQ could not
+// speak in Rebol types, resulting in things like picking pointers out of
+// the guts of Rebol cells and invoking unknown interactions with the GC by
+// putting them into a C struct.
+//
+// Ren-C is shifting the idea to where a REBREQ is actually a REBARR, and
+// able to hold full values (for starters, a REBSER* containing binary data
+// of what used to be in a REBREQ...which is actually how PORT!s held a
+// REBREQ in their state previously).
 //
 
 #include <assert.h>
@@ -119,9 +139,6 @@ enum {
     SERIAL_FLOW_CONTROL_SOFTWARE
 };
 
-// Forward references:
-typedef struct rebol_device REBDEV;
-
 // Commands:
 typedef int32_t (*DEVICE_CMD_CFUNC)(REBREQ *req);
 #define DEVICE_CMD int32_t // Used to define
@@ -175,23 +192,97 @@ struct rebol_devreq {
     uint32_t actual;        // length actually transferred
 };
 
-#define Req(req) \
-    cast(struct rebol_devreq*, rebReq(req))  // !!! Transitional hack
 
+#if defined(NDEBUG)
+    #define ASSERT_REBREQ(req) \
+        NOOP
+#else
+    inline static void ASSERT_REBREQ(REBREQ *req) {  // basic sanity check
+        assert(BIN_LEN(req) >= sizeof(struct rebol_devreq));
+        assert(GET_SERIES_FLAG(req, LINK_NODE_NEEDS_MARK));
+        assert(GET_SERIES_FLAG(req, MISC_NODE_NEEDS_MARK));
+    }
+#endif
+
+inline static struct rebol_devreq *Req(REBREQ *req) {
+    ASSERT_REBREQ(req);
+    return cast(struct rebol_devreq*, BIN_HEAD(req));
+}
+
+
+// Get `next_req` field hidden in REBSER structure LINK().
+// Being in this spot (instead of inside the binary content of the request)
+// means the chain of requests can be followed by GC.
+//
+inline static void **AddrOfNextReq(REBREQ *req) {
+    ASSERT_REBREQ(req);
+    return cast(void**, &LINK(req).custom.node);  // NextReq() dereferences
+}
 #define NextReq(req) \
-    *cast(REBREQ**, rebAddrOfNextReq(req))  // !!! Transitional hack
+    *cast(REBREQ**, AddrOfNextReq(req))
 
-#define Ensure_Req_Managed(req) \
-    rebEnsure_Req_Managed(req)  // !!! Transitional hack
 
-#define Free_Req(req) \
-    rebFree_Req(req)  // !!! Transitional hack
-
+// Get `port_ctx` field hidden in REBSER structure MISC().
+// Being in this spot (instead of inside the binary content of the request)
+// means the chain of requests can be followed by GC.
+//
+inline static void **AddrOfReqPortCtx(REBREQ *req) {
+    ASSERT_REBREQ(req);
+    return cast(void**, &MISC(req).custom.node);  // ReqPortCtx() dereferences
+}
 #define ReqPortCtx(req) \
-    *cast(void**, rebAddrOfReqPortCtx(req))  // !!! Transitional hack
+    *cast(REBCTX**, AddrOfReqPortCtx(req))  // !!! Transitional hack
 
 
-// !!! These devices will all be moved to extensions, so that the core
-// evaluator does not need to be linked to the R3-Alpha device model.
+// !!! Transitional - Lifetime management of REBREQ in R3-Alpha was somewhat
+// unclear, with them being created sometimes on the stack, and sometimes
+// linked into a pending list if a request turned out to be synchronous and
+// not need the request to live longer.  To try and design for efficiency,
+// Append_Request() currently is the only place that manages the request for
+// asynchronous handling...other clients are expected to free.
+//
+// !!! Some requests get Append_Request()'d multiple times, apparently.
+// Review the implications, but just going with making it legal to manage
+// something multiple times for now.
+//
+inline static void Ensure_Req_Managed(REBREQ *req) {
+    ASSERT_REBREQ(req);
+    Ensure_Series_Managed(req);
+}
 
-EXTERN_C REBDEV Dev_StdIO;
+
+inline static void Free_Req(REBREQ *req) {
+    ASSERT_REBREQ(req);
+    Free_Unmanaged_Series(req);
+}
+
+
+// Reb_Device_Command is not available in %tmp-internals.h, so we use this
+// inline function to put it into the request and call the device (that's
+// what it did anyway.)
+//
+inline static REBVAL *OS_DO_DEVICE(
+    REBREQ *req,
+    enum Reb_Device_Command command
+){
+    Req(req)->command = command;
+    return OS_Do_Device(req);
+}
+
+
+// Convenience routine that wraps OS_DO_DEVICE for simple requests.
+//
+// !!! Because the device layer is deprecated, the relevant inelegance of
+// this is not particularly important...more important is that the API
+// handles and error mechanism works.
+//
+inline static void OS_DO_DEVICE_SYNC(
+    REBREQ *req,
+    enum Reb_Device_Command command
+){
+    REBVAL *result = OS_DO_DEVICE(req, command);
+    assert(result != NULL);  // should be synchronous
+    if (rebDid("error?", result, rebEND))
+        rebJumps("FAIL", result, rebEND);
+    rebRelease(result);  // ignore result
+}

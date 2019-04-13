@@ -36,7 +36,7 @@
 //
 static REBARR *Read_Dir_May_Fail(REBREQ *dir)
 {
-    REBREQ *file = OS_MAKE_DEVREQ(&Dev_File);
+    REBREQ *file = OS_Make_Devreq(&Dev_File);
 
     TRASH_POINTER_IF_DEBUG(ReqFile(file)->path); // is output (not input)
 
@@ -183,7 +183,7 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         UNUSED(PAR(lines)); // handled in dispatcher
 
         if (not IS_BLOCK(state)) {     // !!! ignores /SKIP and /PART, for now
-            REBREQ *dir = OS_MAKE_DEVREQ(&Dev_File);
+            REBREQ *dir = OS_Make_Devreq(&Dev_File);
             ReqPortCtx(dir) = ctx;
 
             Init_Dir_Path(dir, path, POL_READ);
@@ -215,7 +215,7 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
       create:;
 
-        REBREQ *dir = OS_MAKE_DEVREQ(&Dev_File);
+        REBREQ *dir = OS_Make_Devreq(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
         Init_Dir_Path(dir, path, POL_WRITE); // Sets RFM_DIR too
@@ -243,7 +243,7 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         if (IS_BLOCK(state))
             fail (Error_Already_Open_Raw(path));
 
-        REBREQ *dir = OS_MAKE_DEVREQ(&Dev_File);
+        REBREQ *dir = OS_Make_Devreq(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
         Init_Dir_Path(dir, path, POL_WRITE); // Sets RFM_DIR
@@ -267,7 +267,7 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     case SYM_DELETE: {
         Init_Blank(state);
 
-        REBREQ *dir = OS_MAKE_DEVREQ(&Dev_File);
+        REBREQ *dir = OS_Make_Devreq(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
         Init_Dir_Path(dir, path, POL_WRITE);
@@ -302,7 +302,7 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         if (REF(new))
             goto create;
 
-        REBREQ *dir = OS_MAKE_DEVREQ(&Dev_File);
+        REBREQ *dir = OS_Make_Devreq(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
         Init_Dir_Path(dir, path, POL_READ);
@@ -318,7 +318,7 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     case SYM_QUERY: {
         Init_Blank(state);
 
-        REBREQ *dir = OS_MAKE_DEVREQ(&Dev_File);
+        REBREQ *dir = OS_Make_Devreq(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
         Init_Dir_Path(dir, path, POL_READ);

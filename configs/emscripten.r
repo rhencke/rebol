@@ -87,6 +87,7 @@ extensions: make map! [
     Process -
     Serial -
     Signal -
+    Stdio -
     TCC -
     Time -
     UUID -

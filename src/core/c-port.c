@@ -50,7 +50,7 @@ REBREQ *Ensure_Port_State(REBVAL *port, void *device)
     }
     else {
         assert(IS_BLANK(state));
-        req = OS_MAKE_DEVREQ(dev);
+        req = OS_Make_Devreq(dev);
         ReqPortCtx(req) = ctx;  // Guarded: SERIES_INFO_MISC_NODE_NEEDS_MARK
 
         Init_Binary(state, SER(req));
