@@ -560,28 +560,38 @@ let load_r3 =
     let scripts = document.querySelectorAll("script[type='text/rebol']")
     let promise = Promise.resolve(null)
     for (let i = 0; i < scripts.length; i++) {
-        let src = scripts[i].src
-        if (src) promise = promise.then(function() {
-            console.log("fetch()-ing "+src+" from host")
-            return fetch(src).then(function(response) {
-                // https://www.tjvantoll.com/2015/09/13/fetch-and-errors/
-                if (!response.ok)
-                    throw Error(response.statusText)  // handled by .catch() below
+        let url = scripts[i].src  // remotely specified via link
+        if (url)
+            promise = promise.then(function() {
+                console.log('fetch()-ing <script src="' + url + '">')
+                return fetch(url).then(function(response) {
+                    // https://www.tjvantoll.com/2015/09/13/fetch-and-errors/
+                    if (!response.ok)
+                        throw Error(response.statusText)
 
-                return response.text()  // text() method a promise ("USVString")
-              }).then(function(text) {
-                console.log("Running script "+src)
-                reb.Elide(text)
-                console.log("Finished running script "+src+" @ tick " + reb.Tick())
-              })
-        })
-        let code = scripts[i].innerText.trim()
-        if (code) promise = promise.then(function() {
+                    return response.text()  // returns promise ("USVString")
+                  })
+                })
+
+        let code = scripts[i].innerText.trim()  // literally in <script> tag
+        if (code)
+            promise = promise.then(function () {
                 return code
-              }).then(function(text) {
-                console.log("Running code "+code)
-                reb.Elide(text)
-                console.log("Finished running code "+code+" @ tick " + reb.Tick())
+            })
+
+        if (code || url)  // promise was augmented to return source code
+            promise = promise.then(function (text) {
+                console.log("Running <script> code " + code || src)
+
+                // !!! The do { } is necessary here in case the code is a
+                // Module or otherwise needs special processing.  Otherwise,
+                // `Rebol [Type: Module ...] <your code>` will just evaluate
+                // Rebol to an object and throw it away, and evaluate the spec
+                // block to itself and throw that away.  The mechanics for
+                // recognizing that special pattern are in do.
+                //
+                reb.Elide("do {" + text + "}")
+                console.log("Finished <script> code @ tick " + reb.Tick())
               })
     }
     return promise

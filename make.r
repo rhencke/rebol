@@ -678,7 +678,7 @@ switch user-config/debug [
             ; even things like DEBUG_FRAME_LABELS adds a tiny bit!)
             ;
             "DEBUG_STDIO_OK"
-            "DEBUG_PROBE_OK"
+            "DEBUG_HAS_PROBE"
             "INCLUDE_C_DEBUG_BREAK_NATIVE"
 
             ; Adds CALLGRIND, see REBNATIVE(callgrind) for implementation
