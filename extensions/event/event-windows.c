@@ -63,6 +63,28 @@ int64_t Delta_Time(int64_t base)
 
 
 //
+//  Reap_Process: C
+//
+// pid:
+//      > 0, a single process
+//      -1, any child process
+// flags:
+//      0: return immediately
+//
+//      Return -1 on error
+//
+int Reap_Process(int pid, int *status, int flags)
+{
+    UNUSED(pid);
+    UNUSED(status);
+    UNUSED(flags);
+
+    // !!! It seems that processes don't need to be "reaped" on Windows (?)
+    return 0;
+}
+
+
+//
 //  REBOL_Event_Proc: C
 //
 // The minimal default event handler.

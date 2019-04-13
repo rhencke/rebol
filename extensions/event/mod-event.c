@@ -195,7 +195,10 @@ int Wait_For_Device_Events_Interruptible(
     //
     REBREQ *req = OS_MAKE_DEVREQ(&Dev_Event);
 
-    OS_REAP_PROCESS(-1, NULL, 0);
+    // !!! This was an API addded to the HostKit at some point.  It was only
+    // called here in event processing, so it's moved to the event extension.
+    //
+    Reap_Process(-1, NULL, 0);
 
     // Let any pending device I/O have a chance to run:
     //

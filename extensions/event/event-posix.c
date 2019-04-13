@@ -26,10 +26,20 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 
+#if !defined( __cplusplus) && defined(TO_LINUX)
+    // See feature_test_macros(7)
+    // This definition is redundant under C++
+    #define _GNU_SOURCE  // Needed for pipe2 on Linux
+#endif
+
+#include <assert.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <errno.h>
 
 #include "reb-host.h"
@@ -54,6 +64,24 @@ int64_t Delta_Time(int64_t base)
         return time;
 
     return time - base;
+}
+
+
+//
+//  Reap_Process: C
+//
+// pid:
+//     > 0, a single process
+//     -1, any child process
+//
+// flags:
+//     0: return immediately
+//
+// Return -1 on error
+//
+int Reap_Process(int pid, int *status, int flags)
+{
+    return waitpid(pid, status, flags == 0? WNOHANG : 0);
 }
 
 

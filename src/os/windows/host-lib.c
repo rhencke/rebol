@@ -181,28 +181,6 @@ CFUNC *OS_Find_Function(void *dll, const char *funcname)
 
 
 //
-//  OS_Reap_Process: C
-//
-// pid:
-//      > 0, a single process
-//      -1, any child process
-// flags:
-//      0: return immediately
-//
-//      Return -1 on error
-//
-int OS_Reap_Process(int pid, int *status, int flags)
-{
-    UNUSED(pid);
-    UNUSED(status);
-    UNUSED(flags);
-
-    // !!! It seems that process doesn't need to be reaped on Windows
-    return 0;
-}
-
-
-//
 //  OS_Get_Current_Exec: C
 //
 // Return the current executable path as a FILE!.  The result should be freed
