@@ -1,5 +1,5 @@
 //
-//  File: %host-lib.c
+//  File: %library-windows.c
 //  Summary: {OS API function library called by REBOL interpreter}
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
@@ -20,23 +20,6 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// This module is parsed for function declarations used to
-// build prototypes, tables, and other definitions. To change
-// function arguments requires a rebuild of the REBOL library.
-//
-// This module provides the functions that REBOL calls
-// to interface to the native (host) operating system.
-// REBOL accesses these functions through the structure
-// defined in host-lib.h (auto-generated, do not modify).
-//
-// compile with -DUNICODE for Win32 wide char API
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// WARNING: The function declarations here cannot be modified without also
-// modifying those found in the other OS host-lib files!  Do not even modify
-// the argument names.
-//
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -49,48 +32,12 @@
 
 
 //
-//  Convert_Date: C
-//
-// Convert local format of system time into standard date
-// and time structure.
-//
-// !!! The OS_XXX APIs were not intended to pass Windows datatypes.  As an
-// interim step in phasing this API layer out, it needs to be able to be
-// used by the Windows version of the FILESYSTEM extension--as well as code
-// here.  So it takes a void pointer to a system time.
-//
-REBVAL *OS_Convert_Date(const void *systemtime, long zone)
-{
-    const SYSTEMTIME *stime = cast(const SYSTEMTIME*, systemtime);
-
-    return rebValue("ensure date! (make-date-ymdsnz",
-        rebI(stime->wYear), // year
-        rebI(stime->wMonth), // month
-        rebI(stime->wDay), // day
-        rebI(
-            stime->wHour * 3600 + stime->wMinute * 60 + stime->wSecond
-        ), // "secs"
-        rebI(1000000 * stime->wMilliseconds), // nano
-        rebI(zone), // zone
-    ")", rebEND);
-}
-
-
-/***********************************************************************
-**
-**  OS Library Functions
-**
-***********************************************************************/
-
-
-
-//
-//  OS_Open_Library: C
+//  Open_Library: C
 //
 // Load a DLL library and return the handle to it.
 // If zero is returned, error indicates the reason.
 //
-void *OS_Open_Library(const REBVAL *path)
+void *Open_Library(const REBVAL *path)
 {
     // While often when communicating with the OS, the local path should be
     // fully resolved, the LoadLibraryW() function searches DLL directories by
@@ -111,22 +58,22 @@ void *OS_Open_Library(const REBVAL *path)
 
 
 //
-//  OS_Close_Library: C
+//  Close_Library: C
 //
 // Free a DLL library opened earlier.
 //
-void OS_Close_Library(void *dll)
+void Close_Library(void *dll)
 {
     FreeLibrary((HINSTANCE)dll);
 }
 
 
 //
-//  OS_Find_Function: C
+//  Find_Function: C
 //
 // Get a DLL function address from its string name.
 //
-CFUNC *OS_Find_Function(void *dll, const char *funcname)
+CFUNC *Find_Function(void *dll, const char *funcname)
 {
     // !!! See notes about data pointers vs. function pointers in the
     // definition of CFUNC.  This is trying to stay on the right side

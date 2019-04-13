@@ -135,7 +135,6 @@ core: [
     t-decimal.c
     t-function.c
     t-integer.c
-    t-library.c
     t-logic.c
     t-map.c
     t-money.c
@@ -204,37 +203,26 @@ os: [
 ]
 
 os-windows: [
-    + windows/host-lib.c
 ]
 
 os-posix: [
     posix/host-readline.c
-    + posix/host-library.c
 ]
 
 os-osx: [
     posix/host-readline.c
-    + posix/host-library.c
 ]
 
-; The Rebol open source build did not differentiate between linux and simply
-; posix builds.  However Atronix R3/View uses a different `os-base` name.
-; make.r requires an `os-(os-base)` entry here for each named target.
-;
 os-linux: [
     posix/host-readline.c
-    + posix/host-library.c
 ]
 
-; cloned from os-linux TODO: check'n'fix !!
 os-android: [
     posix/host-readline.c
-    + posix/host-library.c
 ]
 
 os-emscripten: [
     posix/host-readline.c
-    + posix/host-library.c
 ]
 
 boot-files: [

@@ -1573,7 +1573,7 @@ app: make rebmake/application-class [
 ]
 
 library: make rebmake/dynamic-library-class [
-    name: 'library
+    name: 'libr3
     output: %libr3 ;no suffix
     depends: compose [
         (libr3-core)

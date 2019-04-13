@@ -24,6 +24,17 @@
 
 #include "sys-core.h"
 
+#include "sys-library.h"
+
+#include "tmp-mod-library.h"
+
+
+REBTYP *EG_Library_Type = nullptr;  // (E)xtension (G)lobal LIBRARY! type
+
+
+extern void *Open_Library(const REBVAL *path);
+extern void Close_Library(void *dll);
+extern CFUNC *Find_Function(void *dll, const char *funcname);
 
 //
 //  CT_Library: C
@@ -54,13 +65,13 @@ REB_R MAKE_Library(
     if (!IS_FILE(arg))
         fail (Error_Unexpected_Type(REB_FILE, VAL_TYPE(arg)));
 
-    void *fd = OS_OPEN_LIBRARY(arg);
+    void *fd = Open_Library(arg);
 
     if (fd == NULL)
         fail (arg);
 
     REBARR *singular = Alloc_Singular(NODE_FLAG_MANAGED);
-    RESET_CUSTOM_CELL(ARR_SINGLE(singular), PG_Library_Type, CELL_MASK_NONE);
+    RESET_CUSTOM_CELL(ARR_SINGLE(singular), EG_Library_Type, CELL_MASK_NONE);
     VAL_LIBRARY_SINGULAR_NODE(ARR_SINGLE(singular)) = NOD(singular);
 
     LINK(singular).fd = fd;
@@ -111,7 +122,7 @@ REBTYPE(Library)
             // allow to CLOSE an already closed library
         }
         else {
-            OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
+            Close_Library(VAL_LIBRARY_FD(lib));
             LINK(VAL_LIBRARY(lib)).fd = NULL;
         }
         return nullptr; }
@@ -125,24 +136,22 @@ REBTYPE(Library)
 
 
 //
-//  Startup_Library_Datatype: C
+//  register-library-hooks: native [
 //
-// The LIBRARY! datatype is important to loading extensions in the first
-// place (e.g. if extension types live in DLLs, how would the LIBRARY! type
-// load out of a DLL?)  So generally it shouldn't be in an extension.
+//  {Register the LIBRARY! datatype (so MAKE LIBRARY! [] etc. work)}
 //
-// However, they are uncommon types to have instances of (relative to things
-// like INTEGER!, BLOCK!, or WORD!).  And they require a series node
-// allocation.  So they don't really need all three platform pointers in a
-// cell available...making them a good candidate for not using the scarce
-// basic cell kinds.  Hence they are registered as extension types.
+//      return: [void!]
+//      generics [block!]
+//  ]
 //
-void Startup_Library_Datatype(void) {
-    //
+REBNATIVE(register_library_hooks)
+{
+    LIBRARY_INCLUDE_PARAMS_OF_REGISTER_LIBRARY_HOOKS;
+
     // !!! See notes on Hook_Datatype for this poor-man's substitute for a
     // coherent design of an extensible object system (as per Lisp's CLOS)
     //
-    PG_Library_Type = Hook_Datatype(
+    EG_Library_Type = Hook_Datatype(
         "http://datatypes.rebol.info/library",
         "external library reference",
         &T_Library,
@@ -153,14 +162,62 @@ void Startup_Library_Datatype(void) {
         &MF_Library
     );
 
-    Extend_Generics_Someday(EMPTY_BLOCK);  // !!! See comments, extends CLOSE
+    Extend_Generics_Someday(ARG(generics));  // !!! See comments
+
+    return Init_Void(D_OUT);
 }
 
 
 //
-//  Shutdown_Library_Datatype: C
+//  run-library-collator: native [
 //
-void Shutdown_Library_Datatype(void) {
-    Unhook_Datatype(PG_Library_Type);
-    PG_Library_Type = nullptr;
+//  {Execute a function in a DLL or other library that returns a REBVAL*}
+//
+//      return: [<opt> any-value!]
+//      library [library!]
+//      linkname [text!]
+//  ]
+//
+REBNATIVE(run_library_collator)
+{
+    LIBRARY_INCLUDE_PARAMS_OF_RUN_LIBRARY_COLLATOR;
+
+    // !!! This code used to check for loading an already loaded
+    // extension.  It looked in an "extensions list", but now that the
+    // extensions are modules really this should just be the same as
+    // looking in the modules list.  Such code should be in usermode
+    // (very awkward in C).  The only unusual C bit was:
+    //
+    //     // found the existing extension, decrease the reference
+    //     // added by MAKE_library
+    //     //
+    //     OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
+    //
+
+    CFUNC *cfunc = Find_Function(
+        VAL_LIBRARY_FD(ARG(library)),
+        cs_cast(STR_HEAD(VAL_STRING(ARG(linkname))))
+    );
+    if (cfunc == nullptr)
+        fail ("Could not find collator function in library");
+
+    return (*cast(COLLATE_CFUNC*, cfunc))();
+}
+
+
+//
+//  unregister-library-hooks: native [
+//
+//  {Unregister the LIBRARY! datatype (MAKE LIBRARY! will fail)}
+//
+//  ]
+//
+REBNATIVE(unregister_library_hooks)
+{
+    LIBRARY_INCLUDE_PARAMS_OF_UNREGISTER_LIBRARY_HOOKS;
+
+    Unhook_Datatype(EG_Library_Type);
+    EG_Library_Type = nullptr;
+
+    return Init_Void(D_OUT);
 }

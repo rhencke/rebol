@@ -139,32 +139,22 @@ REBNATIVE(load_extension)
     else { // It's a DLL, must locate and call its RX_Collate() function
         assert(IS_FILE(ARG(where)));
 
-        //Check_Security(SYM_EXTENSION, POL_EXEC, val);
+        REBVAL *lib_api = rebValue("make library!", ARG(where), rebEND);
 
-        MAKE_Library(lib, REB_CUSTOM, nullptr, ARG(where));
+        REBVAL *details_block = rebValue(
+            "run-library-collator", lib_api, "{RX_Collate}",
+        rebEND);
 
-        // !!! This code used to check for loading an already loaded
-        // extension.  It looked in an "extensions list", but now that the
-        // extensions are modules really this should just be the same as
-        // looking in the modules list.  Such code should be in usermode
-        // (very awkward in C).  The only unusual C bit was:
-        //
-        //     // found the existing extension, decrease the reference
-        //     // added by MAKE_library
-        //     //
-        //     OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
-        //
-
-        CFUNC *collator = OS_FIND_FUNCTION(VAL_LIBRARY_FD(lib), "RX_Collate");
-        if (not collator) {
-            OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
+        if (not details_block or not IS_BLOCK(details_block)) {
+            rebElide("close", lib_api, rebEND);
             fail (Error_Bad_Extension_Raw(ARG(where)));
         }
 
-        REBVAL *details_block = (*cast(COLLATE_CFUNC*, collator))();
-        assert(IS_BLOCK(details_block));
         details = VAL_ARRAY(details_block);
         rebRelease(details_block);
+
+        Move_Value(lib, lib_api);
+        rebRelease(lib_api);
     }
 
     assert(ARR_LEN(details) == IDX_COLLATOR_MAX);

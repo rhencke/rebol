@@ -33,6 +33,7 @@ extensions: make map! [
     Gob +
     JavaScript -
     JPG +
+    Library +
     Locale +
     Network +
     ODBC -

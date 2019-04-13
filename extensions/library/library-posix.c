@@ -1,5 +1,5 @@
 //
-//  File: %host-library.c
+//  File: %library-posix.c
 //  Summary: "POSIX Library-related functions"
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
@@ -33,7 +33,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <poll.h>
-#include <fcntl.h>              /* Obtain O_* constant definitions */
+#include <fcntl.h>  // Includes `O_XXX` constant definitions
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -48,17 +48,17 @@
 
 
 #ifndef NO_DL_LIB
-#include <dlfcn.h>
+    #include <dlfcn.h>
 #endif
 
 
 //
-//  OS_Open_Library: C
+//  Open_Library: C
 //
 // Load a DLL library and return the handle to it.
 // If zero is returned, error indicates the reason.
 //
-void *OS_Open_Library(const REBVAL *path)
+void *Open_Library(const REBVAL *path)
 {
   #ifdef NO_DL_LIB
     return nullptr;
@@ -85,26 +85,26 @@ void *OS_Open_Library(const REBVAL *path)
 
 
 //
-//  OS_Close_Library: C
+//  Close_Library: C
 //
 // Free a DLL library opened earlier.
 //
-void OS_Close_Library(void *dll)
+void Close_Library(void *dll)
 {
-#ifndef NO_DL_LIB
+  #ifndef NO_DL_LIB
     dlclose(dll);
-#endif
+  #endif
 }
 
 
 //
-//  OS_Find_Function: C
+//  Find_Function: C
 //
 // Get a DLL function address from its string name.
 //
-CFUNC *OS_Find_Function(void *dll, const char *funcname)
+CFUNC *Find_Function(void *dll, const char *funcname)
 {
-#ifndef NO_DL_LIB
+  #ifndef NO_DL_LIB
     // !!! See notes about data pointers vs. function pointers in the
     // definition of CFUNC.  This is trying to stay on the right side
     // of the specification, but OS APIs often are not standard C.  So
@@ -116,7 +116,7 @@ CFUNC *OS_Find_Function(void *dll, const char *funcname)
     CFUNC *fp;
     *cast(void**, &fp) = dlsym(dll, funcname);
     return fp;
-#else
-    return NULL;
-#endif
+  #else
+    return nullptr;
+  #endif
 }

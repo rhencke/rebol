@@ -535,8 +535,6 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "datatypes/sys-map.h"
 #include "datatypes/sys-varargs.h"
 
-#include "datatypes/sys-library.h"  // maybe should be defined in an extension
-
 #include "host-lib.h"
 
 /***********************************************************************

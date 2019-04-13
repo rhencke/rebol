@@ -79,6 +79,7 @@ extensions: make map! [
     Image -
     JavaScript +
     JPG -
+    Library -
     Locale -
     Network -
     ODBC -
