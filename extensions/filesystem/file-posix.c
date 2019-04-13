@@ -40,12 +40,18 @@
 //
 #define _POSIX_C_SOURCE 199309L
 
+#ifndef __cplusplus
+    // See feature_test_macros(7)
+    // This definition is redundant under C++
+    #define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#include <fcntl.h>  // includes `O_XXX` constant definitions
 #include <dirent.h>
 #include <errno.h>
 #include <assert.h>
@@ -60,7 +66,11 @@
 #include "file-req.h"
 
 #ifndef O_BINARY
-#define O_BINARY 0
+    #define O_BINARY 0
+#endif
+
+#ifndef PATH_MAX
+    #define PATH_MAX 4096  // generally lacking in Posix
 #endif
 
 
@@ -698,6 +708,169 @@ REBVAL *File_Time_To_Rebol(REBREQ *file)
         rebI(zone),  // zone
     ")", rebEND);
 }
+
+
+//
+//  Get_Current_Dir_Value: C
+//
+// Return the current directory path as a FILE!.  The result should be freed
+// with rebRelease()
+//
+REBVAL *Get_Current_Dir_Value(void)
+{
+    char *path = rebAllocN(char, PATH_MAX);
+
+    if (getcwd(path, PATH_MAX - 1) == 0) {
+        rebFree(path);
+        return rebBlank();
+    }
+
+    REBVAL *result = rebValue(
+        "local-to-file/dir", rebT(path),
+        rebEND
+    );
+
+    rebFree(path);
+    return result;
+}
+
+
+//
+//  Set_Current_Dir_Value: C
+//
+// Set the current directory to local path. Return FALSE
+// on failure.
+//
+bool Set_Current_Dir_Value(const REBVAL *path)
+{
+    char *path_utf8 = rebSpell("file-to-local/full", path, rebEND);
+
+    int chdir_result = chdir(path_utf8);
+
+    rebFree(path_utf8);
+
+    return chdir_result == 0;
+}
+
+
+#ifdef TO_OSX
+    // Should include <mach-o/dyld.h> ?
+    #ifdef __cplusplus
+    extern "C"
+    #endif
+    int _NSGetExecutablePath(char* buf, uint32_t* bufsize);
+
+
+    //
+    //  Get_Current_Exec: C
+    //
+    // Return the current executable path as a STRING!.  The result should be
+    // freed with rebRelease()
+    //
+    REBVAL *Get_Current_Exec(void)
+    {
+        uint32_t path_size = 1024;
+
+        char *path_utf8 = rebAllocN(char, path_size);
+
+        int r = _NSGetExecutablePath(path_utf8, &path_size);
+        if (r == -1) { // buffer is too small
+            assert(path_size > 1024); // path_size should now hold needed size
+
+            rebFree(path_utf8);
+            path_utf8 = rebAllocN(char, path_size);
+
+            int r = _NSGetExecutablePath(path_utf8, &path_size);
+            if (r != 0) {
+                rebFree(path_utf8);
+                return nullptr;
+            }
+        }
+
+        // Note: _NSGetExecutablePath returns "a path" not a "real path",
+        // and it could be a symbolic link.
+
+        char *resolved_path_utf8 = realpath(path_utf8, NULL);
+        if (resolved_path_utf8) {
+            REBVAL *result = rebValue(
+                "local-to-file", rebT(resolved_path_utf8),
+                rebEND
+            );
+            rebFree(path_utf8);
+            free(resolved_path_utf8); // NOTE: realpath() uses malloc()
+            return result;
+        }
+
+        REBVAL *result = rebValue(
+            "local-to-file", rebT(path_utf8), // just return unresolved path
+            rebEND
+        );
+        rebFree(path_utf8);
+        return result;
+    }
+
+#else  // not TO_OSX
+
+    #if defined(HAVE_PROC_PATHNAME)
+        #include <sys/sysctl.h>
+    #endif
+
+    //
+    //  Get_Current_Exec: C
+    //
+    // Return the current executable path as a FILE!
+    //
+    // https://stackoverflow.com/questions/1023306/
+    //
+    REBVAL *Get_Current_Exec(void)
+    {
+      #if !defined(PROC_EXEC_PATH) && !defined(HAVE_PROC_PATHNAME)
+        return nullptr;
+      #else
+        char *buffer;
+        const char *self;
+          #if defined(PROC_EXEC_PATH)
+            buffer = NULL;
+            self = PROC_EXEC_PATH;
+          #else //HAVE_PROC_PATHNAME
+            int mib[4] = {
+                CTL_KERN,
+                KERN_PROC,
+                KERN_PROC_PATHNAME,
+                -1 //current process
+            };
+            buffer = rebAllocN(char, PATH_MAX + 1);
+            size_t len = PATH_MAX + 1;
+            if (sysctl(mib, sizeof(mib), buffer, &len, NULL, 0) != 0) {
+                rebFree(buffer);
+                return nullptr;
+            }
+            self = buffer;
+        #endif
+
+        char *path_utf8 = rebAllocN(char, PATH_MAX);
+        int r = readlink(self, path_utf8, PATH_MAX);
+
+        if (buffer)
+            rebFree(buffer);
+
+        if (r < 0) {
+            rebFree(path_utf8);
+            return nullptr;
+        }
+
+        path_utf8[r] = '\0';
+
+        REBVAL *result = rebValue(
+            "local-to-file", rebT(path_utf8),
+            rebEND
+        );
+        rebFree(path_utf8);
+        return result;
+      #endif
+    }
+
+#endif
 
 
 /***********************************************************************

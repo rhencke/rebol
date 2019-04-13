@@ -275,22 +275,6 @@ int main(int argc, char *argv_ansi[])
 
     rebRelease(host_code_group);
 
-    // While some people may think that argv[0] in C contains the path to
-    // the running executable, this is not necessarily the case.  The actual
-    // method for getting the current executable path is OS-specific:
-    //
-    // https://stackoverflow.com/q/1023306/
-    // http://stackoverflow.com/a/933996/211160
-    //
-    // It's not foolproof, so it might come back blank.  The console code can
-    // then decide if it wants to fall back on argv[0]
-    //
-    REBVAL *exec_path = OS_GET_CURRENT_EXEC();
-    rebElide(
-        "system/options/boot: lib/ensure [blank! file!]", rebR(exec_path),
-        rebEND
-    );
-
     // This runs the HOST-START, which returns *requests* to execute
     // arbitrary code by way of its return results.  The TRAP and CATCH
     // are thus here to intercept bugs *in HOST-START itself*.

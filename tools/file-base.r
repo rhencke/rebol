@@ -119,7 +119,6 @@ core: [
     ; (S)trings
     s-cases.c
     s-crc.c
-    s-file.c
     s-find.c
     s-make.c
     s-mold.c
@@ -210,19 +209,12 @@ os-windows: [
 
 os-posix: [
     posix/host-readline.c
-
-    + posix/host-browse.c
     + posix/host-library.c
-    + posix/host-exec-path.c
 ]
 
 os-osx: [
-    ; OSX uses the POSIX file I/O for now
     posix/host-readline.c
-
-    + posix/host-browse.c
     + posix/host-library.c
-    + osx/host-exec-path.c
 ]
 
 ; The Rebol open source build did not differentiate between linux and simply
@@ -231,33 +223,18 @@ os-osx: [
 ;
 os-linux: [
     posix/host-readline.c
-
-    ; It also uses POSIX for most host functions
     + posix/host-library.c
-    + posix/host-exec-path.c
-
-    ; Linux has some kind of MIME-based opening vs. posix /usr/bin/open
-    + linux/host-browse.c
 ]
 
 ; cloned from os-linux TODO: check'n'fix !!
 os-android: [
     posix/host-readline.c
-
-    ; Uses POSIX for most host functions
     + posix/host-library.c
-    + posix/host-exec-path.c
-
-    ; Android  has some kind of MIME-based opening vs. posix /usr/bin/open
-    + linux/host-browse.c
 ]
 
 os-emscripten: [
     posix/host-readline.c
-
-    + posix/host-browse.c
     + posix/host-library.c
-    + posix/host-exec-path.c
 ]
 
 boot-files: [

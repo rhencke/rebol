@@ -194,6 +194,7 @@ host-script-pre-load: function [
     ]
 ]
 
+get-current-exec: file-to-local: local-to-file: what-dir: change-dir: _
 
 host-start: function [
     "Usermode command-line processing: handles args, security, scripts"
@@ -205,6 +206,8 @@ host-start: function [
     about usage license ;-- exported to lib, see notes
     <static>
         o (system/options) ;-- shorthand since options are often read/written
+    <with>
+        get-current-exec file-to-local local-to-file what-dir change-dir
 ][
     ; !!! The whole host startup/console is currently very manually loaded
     ; into its own isolated context by the C startup code.  This way, changes
@@ -342,6 +345,30 @@ host-start: function [
     for-each collation builtin-extensions [
         load-extension collation
     ]
+
+    ; While some people may think that argv[0] in C contains the path to
+    ; the running executable, this is not necessarily the case.  The actual
+    ; method for getting the current executable path is OS-specific:
+    ;
+    ; https://stackoverflow.com/q/1023306/
+    ; http://stackoverflow.com/a/933996/211160
+    ;
+    ; It's not foolproof, so it might come back blank.  The console code can
+    ; then decide if it wants to fall back on argv[0]
+    ;
+    get-current-exec:
+        lib/get-current-exec: :system/modules/Filesystem/get-current-exec
+
+    local-to-file: lib/local-to-file:
+        :system/modules/Filesystem/local-to-file
+    
+    file-to-local: lib/file-to-local:
+        :system/modules/Filesystem/file-to-local
+
+    what-dir: lib/what-dir: :system/modules/Filesystem/what-dir
+    change-dir: lib/change-dir: :system/modules/Filesystem/change-dir
+
+    system/options/boot: lib/ensure [blank! file!] get-current-exec
 
     === HELPER FUNCTIONS ===
 

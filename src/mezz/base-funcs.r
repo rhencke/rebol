@@ -320,6 +320,22 @@ dig-action-meta-fields: function [value [action!]] [
 ]
 
 
+what-dir: function [  ; This can be HIJACK'd by a "smarter" version
+    {Returns the current directory path}
+    return: [<opt> file! url!]
+][
+    return opt system/options/current-path
+]
+
+change-dir: function [  ; This can be HIJACK'd by a "smarter" version
+    {Changes the current path (where scripts with relative paths will be run).}
+    return: [file! url!]
+    path [file! url!]
+][
+    system/options/current-path: path
+]
+
+
 redescribe: function [
     {Mutate action description with new title and/or new argument notes.}
 

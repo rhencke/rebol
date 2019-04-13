@@ -83,42 +83,6 @@ REBVAL *OS_Convert_Date(const void *systemtime, long zone)
 ***********************************************************************/
 
 
-//
-//  OS_Get_Current_Dir: C
-//
-// Return the current directory path as a FILE!.  Result should be freed
-// with rebRelease()
-//
-REBVAL *OS_Get_Current_Dir(void)
-{
-    DWORD len = GetCurrentDirectory(0, NULL); // length, incl terminator.
-    WCHAR *path = rebAllocN(WCHAR, len);
-    GetCurrentDirectory(len, path);
-
-    REBVAL *result = rebValue(
-        "local-to-file/dir", rebR(rebTextWide(path)),
-    rebEND);
-    rebFree(path);
-    return result;
-}
-
-
-//
-//  OS_Set_Current_Dir: C
-//
-// Set the current directory to local path.  Return false on failure.
-//
-bool OS_Set_Current_Dir(const REBVAL *path)
-{
-    WCHAR *path_wide = rebSpellWide("file-to-local/full", path, rebEND);
-
-    BOOL success = SetCurrentDirectory(path_wide);
-
-    rebFree(path_wide);
-
-    return success == TRUE;
-}
-
 
 //
 //  OS_Open_Library: C
@@ -177,30 +141,4 @@ CFUNC *OS_Find_Function(void *dll, const char *funcname)
     //DWORD err = GetLastError();
 
     return cast(CFUNC*, fp);
-}
-
-
-//
-//  OS_Get_Current_Exec: C
-//
-// Return the current executable path as a FILE!.  The result should be freed
-// with rebRelease()
-//
-REBVAL *OS_Get_Current_Exec(void)
-{
-    WCHAR *path = rebAllocN(WCHAR, MAX_PATH);
-
-    DWORD r = GetModuleFileName(NULL, path, MAX_PATH);
-    if (r == 0) {
-        rebFree(path);
-        return rebBlank();
-    }
-    path[r] = '\0'; // May not be NULL-terminated if buffer is not big enough
-
-    REBVAL *result = rebValue(
-        "local-to-file", rebR(rebTextWide(path)),
-    rebEND);
-    rebFree(path);
-
-    return result;
 }
