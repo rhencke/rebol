@@ -176,8 +176,6 @@ to-js-type: func [
     s [text!] "C type as string"
 ][
     case [
-        s = "intptr_t" [<promise>]  ; distinct handling for return vs. arg
-
         ; APIs dealing with `char *` means UTF-8 bytes.  While C must memory
         ; manage such strings (at the moment), the JavaScript wrapping assumes
         ; input parameters should be JS strings that are turned into temp
@@ -217,7 +215,8 @@ to-js-type: func [
             "int"
             "unsigned int"
             "double"
-            "long"
+            "intptr_t"
+            "uintptr_t"
             "int64_t"
             "uint32_t"
             "size_t"
@@ -277,16 +276,14 @@ map-each-api [
         fail ["API name must start with `reb`" name]
     ]
 
-    js-returns: (to-js-type returns) else [
+    js-returns: any [
+        if find name "Promise" [<promise>]
+        to-js-type returns
         fail ["No JavaScript return mapping for type" returns]
     ]
 
     js-param-types: try collect* [
         for-each [type var] paramlist [
-            if type = "intptr_t" [  ; e.g. <promise>
-                keep "'number'"
-                continue
-            ]
             keep to-js-type type else [
                 fail [
                     {No JavaScript argument mapping for type} type

@@ -390,7 +390,7 @@ void RL_rebShutdown(bool clean)
 // If the executable is built with tick counting, this will return the tick
 // without requiring any Rebol code to run (which would disrupt the tick).
 //
-long RL_rebTick(void)
+uintptr_t RL_rebTick(void)
 {
   #ifdef DEBUG_COUNT_TICKS
     return cast(long, TG_Tick);
@@ -848,7 +848,7 @@ bool RL_rebNot(unsigned char quotes, const void *p, va_list *vaptr)
 // an integer for INTEGER!, LOGIC!, CHAR!...assume it's most common so the
 // short name is worth it.
 //
-long RL_rebUnbox(unsigned char quotes, const void *p, va_list *vaptr)
+intptr_t RL_rebUnbox(unsigned char quotes, const void *p, va_list *vaptr)
 {
     DECLARE_LOCAL (result);
     Run_Va_May_Fail(result, quotes, p, vaptr);  // calls va_end()
@@ -872,8 +872,11 @@ long RL_rebUnbox(unsigned char quotes, const void *p, va_list *vaptr)
 //
 //  rebUnboxInteger: RL_API
 //
-long RL_rebUnboxInteger(unsigned char quotes, const void *p, va_list *vaptr)
-{
+intptr_t RL_rebUnboxInteger(
+    unsigned char quotes,
+    const void *p,
+    va_list *vaptr
+){
     DECLARE_LOCAL (result);
     Run_Va_May_Fail(result, quotes, p, vaptr);  // calls va_end()
 
@@ -1867,6 +1870,40 @@ void RL_rebFail_OS(int errnum)
     DECLARE_LOCAL (temp);
     Init_Error(temp, error);
     rebJumps("fail", temp, rebEND);
+}
+
+
+//
+//  api-transient: native [
+//
+//  {Produce an API handle pointer (returned via INTEGER!) for a value}
+//
+//      return: "Heap address of the autoreleasing (rebR()) API handle"
+//          [integer!]
+//      value [<opt> any-value!]
+//  ]
+//
+REBNATIVE(api_transient)
+{
+    INCLUDE_PARAMS_OF_API_TRANSIENT;
+
+    REBVAL *v = Move_Value(Alloc_Value(), ARG(value));
+    REBARR *a = Singular_From_Cell(v);
+    SET_ARRAY_FLAG(a, SINGULAR_API_RELEASE);
+
+    // Regarding adddresses in WASM:
+    //
+    // "In wasm32, address operands and offset attributes have type i32"
+    // "In wasm64, address operands and offsets have type i64"
+    //
+    // "Note that the value types i32 and i64 are not inherently signed or
+    //  unsigned. The interpretation of these types is determined by
+    //  individual operators."
+    //
+    // :-/  Well, which is it?  R3-Alpha integers were signed 64-bit, Ren-C is
+    // targeting arbitrary precision...use signed as status quo for now.
+    //
+    return Init_Integer(D_OUT, cast(intptr_t, a));  // ...or, `uintptr_t` ??
 }
 
 
