@@ -27,7 +27,7 @@
 //=//// EXAMPLE ///////////////////////////////////////////////////////////=//
 //
 //  <body>
-//      <div id="console_out"></div>
+//      <div id="replpad"></div>
 //      /* optional Rebol scripts: */
 //      <script type="text/rebol" src="file.reb">
 //          ...optional Rebol code...
@@ -73,7 +73,7 @@
 //
 // Mobile web browsers frequently do not have the "Ctrl-Shift-I" option to
 // open developer tools.  To assist in debugging, if the page you are loading
-// the library from has a `#console_out` element, then we hook it up to mirror
+// the library from has a `#replpad` element, then we hook it up to mirror
 // whatever gets written via console.log(), console.warn(), etc.
 
 let temp_elem = document.createElement("div")
@@ -99,53 +99,26 @@ var escape_text = function (text) {
     return temp_elem.innerHTML  // so <my-tag> now becomes &lt;my-tag&gt;
 }
 
-var console_out = null
-
-var write_console = function (text, html) {
-    if (! console_out) {alert(text);return}
-
-    // If not html and just code, for now assume that any TAG-like things
-    // should not be interpreted by the browser.  So escape
-    //
-    if (!html)
-        text = escape_text(text)
-
-    let line = console_out.lastChild
-    if (!line)
-        console_out.appendChild(
-            line = load("<div class='line'>&zwnj;</div>")
-        )
-
-    // Split string into pieces.  Note that splitting a string of just "\n"
-    // will give ["", ""].
-    //
-    // Each newline means making a new div, but if there's no newline (e.g.
-    // only "one piece") then no divs will be added.
-    //
-    let pieces = text.split("\n")
-    line.innerHTML += pieces.shift()  // shift() takes first element
-    while (pieces.length)
-        console_out.appendChild(
-            load("<div class='line'>&zwnj;" + pieces.shift() + "</div>")
-        )
-    console_out.scrollTop = console_out.scrollHeight
-}
+var replpad = null
 
 let try_set_console = function() {
-    console_out = document.getElementById("console_out")
-    if (!console_out)
+    replpad = document.getElementById("replpad")
+    if (!replpad)
         return false  // DOM may not be loaded yet; we'll try this twice
 
     let rewired = function (old_handler, classname) {
         return (txt) => {
-            write_console (
-                '<span class="'+classname+'">' 
-                + escape_text(txt)
-                + '</span>\n'
-                , true
-            )
-
             old_handler(txt)  // also show message in browser developer tools
+            if (!replpad) return
+            replpad.appendChild(
+                load(
+                    "<div class='line "
+                    + classname + "'>&zwnj;"
+                    + escape_text(txt)
+                    + "</div>"
+                )
+            )
+            replpad.scrollTop = replpad.scrollHeight
         }
     }
 
