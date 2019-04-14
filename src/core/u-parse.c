@@ -435,7 +435,7 @@ static const RELVAL *Get_Parse_Value(
 REB_R Process_Group_For_Parse(
     REBFRM *f,
     REBVAL *cell,
-    const RELVAL *group
+    const RELVAL *group  // may be same as `cell`
 ){
   #if 0
     // !!! Unfortunately, the bootstrap process still loads source and molds
@@ -450,6 +450,11 @@ REB_R Process_Group_For_Parse(
         fail ("Doubled group behavior is now performed by GET-GROUP!");
     }
   #endif
+
+    // `cell` may equal `group`, read its type before Do() overwrites `cell`
+    bool inject =
+        IS_GET_GROUP(group)  // plain groups always discard
+        or Is_Any_Doubled_Group(group);  // !!! Temp hack, see note 
 
     assert(IS_GROUP(group) or IS_GET_GROUP(group));
     REBSPC *derived = Derive_Specifier(P_RULE_SPECIFIER, group);
@@ -466,15 +471,8 @@ REB_R Process_Group_For_Parse(
     if (P_POS > SER_LEN(P_INPUT))
         P_POS = SER_LEN(P_INPUT);
 
-    if (
-        IS_NULLED(cell) // even for GET-GROUP!, null evals are discarded
-        or not (
-            IS_GET_GROUP(group) // plain groups always discard
-            or Is_Any_Doubled_Group(group) // !!! Temp hack, see above
-        )
-    ){
+    if (not inject or IS_NULLED(cell))  // even GET-GROUP! discards nulls
         return R_INVISIBLE;
-    }
 
     return cell;
 }
@@ -1497,7 +1495,7 @@ REBNATIVE(subparse)
 
           process_group:;
 
-            rule = Process_Group_For_Parse(f, save, P_RULE);
+            rule = Process_Group_For_Parse(f, save, rule);
             if (rule == R_THROWN) {
                 Move_Value(P_OUT, save);
                 return R_THROWN;

@@ -71,12 +71,12 @@ inline static bool Do_Feed_To_End_Maybe_Stale_Throws(
 
 inline static bool Do_Any_Array_At_Throws(
     REBVAL *out,
-    const RELVAL *any_array,
+    const RELVAL *any_array,  // same as `out` is allowed
     REBSPC *specifier
 ){
-    Init_Void(out);
-
     DECLARE_FEED_AT_CORE (feed, any_array, specifier);
+
+    Init_Void(out);  // ^-- *after* feed initialization (if any_array == out)
 
     bool threw = Do_Feed_To_End_Maybe_Stale_Throws(out, feed);
     CLEAR_CELL_FLAG(out, OUT_MARKED_STALE);
