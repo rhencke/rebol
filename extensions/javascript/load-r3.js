@@ -27,7 +27,6 @@
 //=//// EXAMPLE ///////////////////////////////////////////////////////////=//
 //
 //  <body>
-//      <div id="replpad"></div>
 //      /* optional Rebol scripts: */
 //      <script type="text/rebol" src="file.reb">
 //          ...optional Rebol code...
@@ -45,8 +44,8 @@
 //          ) 
 //      </script>
 //      <script>
-//          load_r3
-//          .then(() => {...}) /* 2ndary optional JS code */
+//          reb.Startup({...})  /* pass in optional configuration object */
+//              .then(() => {...})  /* secondary optional JS code */
 //      </script>
 //  </body>
 //
@@ -65,74 +64,75 @@
 //   "it shouldn't have breaking protocol changes", over the long run it
 //   really shouldn't...so try to keep its dependencies simple as possible.
 //
+// * Loading "modules" in JavaScript is an inexact science to begin with, and
+//   it goes without saying that working with WebAssembly and Emscripten makes
+//   things a lot more..."organic".  If you're the sort of person who knows
+//   how to make the load process more rigorous, your insights would be
+//   highly valued--so please do make suggestions, no matter how small.
+//
 
 'use strict'  // <-- FIRST statement! https://stackoverflow.com/q/1335851
 
 
-//=//// SIMULATED DEVELOPER CONSOLE INSIDE BROWSER WINDOW /////////////////=//
+//=//// ENTIRE SCRIPT IS WRAPPED IN REB.STARTUP() FUNCTION ////////////////=//
 //
-// Mobile web browsers frequently do not have the "Ctrl-Shift-I" option to
-// open developer tools.  To assist in debugging, if the page you are loading
-// the library from has a `#replpad` element, then we hook it up to mirror
-// whatever gets written via console.log(), console.warn(), etc.
+// This script only exports one function.  So we can use the function itself
+// as the "module pattern", instead of an anonymous closure:
+//
+// https://medium.com/@tkssharma/javascript-module-pattern-b4b5012ada9f
+//
+// Two global objects are exported.  One is `Module`, which is how Emscripten
+// expects to get its configuration parameters (as properties of that global
+// object), so the startup function must initialize it with all the necessary
+// properties and callbacks.
+//
+// The other object is `reb` which is the container for the API.  The reason
+// all the APIs are in an object (e.g. `reb.Elide()` instead of `rebElide()`)
+// is because Node.js doesn't allow global functions, so the only way to get
+// an API would be through something like `let reb = require('rebol')`.
+//
+// It may look like reb.Startup() takes two parameters.  But if you read all
+// the way to the bottom of the file, you'll see `console` is passed in with
+// `bind` so that it can be overridden by a local variable with that name.
+// The override helps us make sure we don't accidentally type something like
+// `console.log` and not redirect through the `config.log` function.
+//
+// !!! In some editors (like Visual Studio) it seems impossible to stop it
+// from indenting due to this function, no matter how many settings you turn
+// off.  If you have that problem, comment out the function temporarily.
+//
 
-let temp_elem = document.createElement("div")
+var reb = {}  // This aggregator is where we put all the Rebol APIs
 
-var load = function (html) {
-    temp_elem.innerHTML = html
-    var loaded = temp_elem.firstChild
-    temp_elem.removeChild(loaded)  // https://trello.com/c/64iJBijV
-    if (temp_elem.firstChild) {
-        alert("load() created more than one element" + temp_elem.innerHTML)
-        temp_elem.innerHTML = ""  // https://trello.com/c/1P2jwTmZ
-    }
-    return loaded
+var Module  // Emscripten expects this to be global and set up with options
+
+reb.Startup = function(console_in, config_in) {  // only ONE arg, see above!
+
+
+//=//// CONFIGURATION OBJECT //////////////////////////////////////////////=//
+//
+// More options will be added in the future, but for starters we let you
+// hook the status messages that are sent to the console by default.  This is
+// important for debugging in mobile browsers especially, where access to the
+// console.log() output may not be available via Ctrl-Shift-I or otherwise.
+
+const default_config = {
+    log: console_in.log,
+    info: console_in.info,
+    error: console_in.error,
+    warn: console_in.warn
 }
 
-var escape_text = function (text) {
-    // escape text using
-    // the browser's internal mechanisms.
-    //
-    // https://stackoverflow.com/q/6234773/
-    //
-    temp_elem.innerText = text  // assignable property, assumes literal text
-    return temp_elem.innerHTML  // so <my-tag> now becomes &lt;my-tag&gt;
-}
+let console = undefined;  // force use e.g. of config.log(), not console.log()
 
-var replpad = null
-
-let try_set_console = function() {
-    replpad = document.getElementById("replpad")
-    if (!replpad)
-        return false  // DOM may not be loaded yet; we'll try this twice
-
-    let rewired = function (old_handler, classname) {
-        return (txt) => {
-            old_handler(txt)  // also show message in browser developer tools
-            if (!replpad) return
-            replpad.appendChild(
-                load(
-                    "<div class='line "
-                    + classname + "'>&zwnj;"
-                    + escape_text(txt)
-                    + "</div>"
-                )
-            )
-            replpad.scrollTop = replpad.scrollHeight
-        }
-    }
-
-    console.info = rewired(console.info, "info")
-    console.log = rewired(console.log, "log")
-    console.warn = rewired(console.warn, "warn")
-    console.error = rewired(console.error, "error")
-
-    return true
-}
-
-if (!try_set_console()) {  // DOM may not have been loaded, try when it is
-    document.addEventListener('DOMContentLoaded', try_set_console)
-}
+// Mimic jQuery "extend" (non-deeply) to derive from default config
+// https://stackoverflow.com/a/39188108/211160
+//
+var config
+if (config_in)  // config is optional, you can just say `load_r3()`
+    config = Object.assign({}, default_config, config_in)
+else
+    config = default_config
 
 
 //=//// PICK BUILD BASED ON BROWSER CAPABILITIES //////////////////////////=//
@@ -154,16 +154,14 @@ if (!try_set_console()) {  // DOM may not have been loaded, try when it is
 // loader does the necessary detection to decide which version the host
 // environment is capable of running.
 
-if (typeof WebAssembly !== "object") {
+if (typeof WebAssembly !== "object")
     throw Error("Your browser doesn't support WebAssembly.")
-}
 
-if (typeof Promise !== "function") {
+if (typeof Promise !== "function")
     throw Error("Your browser doesn't support Promise.")
-}
 
 let hasShared = typeof SharedArrayBuffer !== "undefined"
-console.info("Has SharedArrayBuffer => " + hasShared)
+config.info("Has SharedArrayBuffer => " + hasShared)
 
 let hasThreads = false
 if (hasShared) {
@@ -172,12 +170,12 @@ if (hasShared) {
     });
     hasThreads = (test.buffer instanceof SharedArrayBuffer)
 }
-console.info("Has Threads => " + hasThreads)
+config.info("Has Threads => " + hasThreads)
 
 let use_emterpreter = ! hasThreads
 let os_id = (use_emterpreter ? "0.16.1" : "0.16.2")
 
-console.info("Use Emterpreter => " + use_emterpreter)
+config.info("Use Emterpreter => " + use_emterpreter)
 
 
 //=//// PARSE SCRIPT LOCATION FOR LOADER OPTIONS //////////////////////////=//
@@ -211,7 +209,7 @@ for (let i = 0; i < args.length; i++) {
 if (is_debug) {
     let old_alert = window.alert
     window.alert = function(message) {
-        console.error(message)
+        config.error(message)
         old_alert(message)
         debugger
     }
@@ -239,13 +237,6 @@ if (!base_dir) {
 }
 
 
-// THE NAME OF THIS VARIABLE MUST BE SYNCED WITH
-// https://metaeducation.s3.amazonaws.com/travis-builds/${OS_ID}/zzz_git_commit.js
-// that contains `git_commit = ${GIT_COMMIT_SHORT}`
-// See .travis.yml
-//
-let git_commit = ""
-
 // Note these are "promiser" functions, because if they were done as a promise
 // it would need to have a .catch() clause attached to it here.  This way, it
 // can just use the catch of the promise chain it's put into.)
@@ -265,12 +256,32 @@ let load_js_promiser = (url) => new Promise(function(resolve, reject) {
     }
 })
 
-let git_commit_promiser = (os_id) => {
-    if (base_dir == "https://metaeducation.s3.amazonaws.com/travis-builds/") {
-        return load_js_promiser(base_dir + os_id + "/zzz_git_commit.js")
-    } else {
-        return Promise.resolve(null)
+// For hosted builds, this variable is fetched from:
+// https://metaeducation.s3.amazonaws.com/travis-builds/${OS_ID}/last-deploy.short-hash
+// that contains `${GIT_COMMIT_SHORT}`, see comments in .travis.yml
+// If not fetching a particular commit, it must be set to at least ""
+//
+let git_commit = undefined
+
+let assign_git_commit_promiser = (os_id) => {  // assigns, but no return value
+    if (base_dir != "https://metaeducation.s3.amazonaws.com/travis-builds/") {
+        git_commit = ""
+        return Promise.resolve(undefined)
     }
+    return fetch(base_dir + os_id + "/last-deploy.short-hash")
+      .then((response) => {
+
+        // https://www.tjvantoll.com/2015/09/13/fetch-and-errors/
+        if (!response.ok)
+            throw Error(response.statusText)  // handled by .catch() below
+        return response.text()  // text() returns a "UVString" Promise
+
+      }).then((text) => {
+
+        git_commit = text
+        return Promise.resolve(undefined)
+
+      })
 }
 
 let lib_suffixes = [
@@ -349,7 +360,7 @@ function libRebolComponentURL(suffix) {  // suffix includes the dot
 }
 
 
-var Module = {  // Can't use `let` here: https://stackoverflow.com/a/36140613/
+Module = {  // Note that this is assigning a global
     //
     // For errors like:
     //
@@ -373,7 +384,7 @@ var Module = {  // Can't use `let` here: https://stackoverflow.com/a/36140613/
         //
         // https://stackoverflow.com/q/46332699
         //
-        console.info("Module.locateFile() asking for .wasm address of " + s)
+        config.info("Module.locateFile() asking for .wasm address of " + s)
 
         let stem = s.substr(0, s.indexOf('.'))
         let suffix = s.substr(s.indexOf('.'))
@@ -453,13 +464,13 @@ let runtime_init_promise = new Promise(function(resolve, reject) {
 let bytecode_promiser
 if (!use_emterpreter)
     bytecode_promiser = () => {
-        console.info("Not emterpreted libr3.js, not requesting bytecode")
+        config.info("Not emterpreted libr3.js, not requesting bytecode")
         return Promise.resolve()
     }
 else {
     bytecode_promiser = () => {
         let url = libRebolComponentURL(".bytecode")
-        console.info("Emterpreted libr3.js, requesting bytecode from:" + url)
+        config.info("Emterpreted libr3.js, requesting bytecode from:" + url)
 
         return fetch(url)
           .then(function(response) {
@@ -478,26 +489,23 @@ else {
 }
 
 
-// Initialization is written as a series of promises for, uh, "simplicity".
-//
-// !!! Review use of Promise.all() for steps which could be run in parallel.
-//
-let load_r3 =
-  git_commit_promiser(os_id) // set git_commit
+return assign_git_commit_promiser(os_id)  // sets git_commit
   .then(bytecode_promiser)  // needs git_commit
   .then(function() {
-      load_js_promiser(libRebolComponentURL(".js"))
+
+    load_js_promiser(libRebolComponentURL(".js"))
+
   }).then(function() {
-    console.info('Loading/Running ' + libRebolComponentURL(".js") + '...')
-    if (use_emterpreter) {
-      console.warn("Using Emterpreter is SLOW! Be patient...")
-    }
+
+    config.info('Loading/Running ' + libRebolComponentURL(".js") + '...')
+    if (use_emterpreter)
+        config.warn("Using Emterpreter is SLOW! Be patient...")
 
     return runtime_init_promise
 
   }).then(function() {  // emscripten's onRuntimeInitialized() has no args
 
-    console.info('Executing Rebol boot code...')
+    config.info('Executing Rebol boot code...')
     reb.Startup()
 
     // Scripts have to have an idea of what the "current directory is" when
@@ -517,14 +525,17 @@ let load_r3 =
     else
         base_url = url.slice(0, url.lastIndexOf('/')) + '/'
 
-    reb.Elide("change-dir system/options/path: as url!", reb.T(base_url))
+    // Note: this sets `system/options/path`, so that functions like DO can
+    // locate relative FILE!s, e.g. `do %script.reb` knows where to look.
+    //
+    reb.Elide("change-dir as url!", reb.T(base_url))
 
     // There is currently no method to dynamically load extensions with
     // r3.js, so the only extensions you can load are those that are picked
     // to be built-in while compiling the lib.  The "JavaScript extension" is
     // essential--it contains JS-NATIVE and JS-AWAITER.
     //
-    console.info('Initializing extensions')
+    config.info('Initializing extensions')
     reb.Elide(
         "for-each collation builtin-extensions",
             "[load-extension collation]"
@@ -536,7 +547,7 @@ let load_r3 =
         let url = scripts[i].src  // remotely specified via link
         if (url)
             promise = promise.then(function() {
-                console.log('fetch()-ing <script src="' + url + '">')
+                config.log('fetch()-ing <script src="' + url + '">')
                 return fetch(url).then(function(response) {
                     // https://www.tjvantoll.com/2015/09/13/fetch-and-errors/
                     if (!response.ok)
@@ -554,7 +565,7 @@ let load_r3 =
 
         if (code || url)  // promise was augmented to return source code
             promise = promise.then(function (text) {
-                console.log("Running <script> code " + code || src)
+                config.log("Running <script> code " + code || src)
 
                 // !!! The do { } is necessary here in case the code is a
                 // Module or otherwise needs special processing.  Otherwise,
@@ -564,7 +575,7 @@ let load_r3 =
                 // recognizing that special pattern are in do.
                 //
                 reb.Elide("do {" + text + "}")
-                console.log("Finished <script> code @ tick " + reb.Tick())
+                config.log("Finished <script> code @ tick " + reb.Tick())
               })
     }
     return promise
@@ -573,3 +584,15 @@ let load_r3 =
       if (code) eval(code)
   })
 
+
+//=//// END ANONYMOUS CLOSURE USED AS MODULE //////////////////////////////=//
+//
+// To help catch cases where `console.log` is used instead of `config.log`,
+// we declare a local `console` to force errors.  But we want to be able to
+// use the standard console in the default configuration, so we have to pass
+// it in so it can be used by another name in the inner scope.
+//
+// Using bind() just lets us do this by removing a parameter from the 2-arg
+// function (and passing `this` as null, which is fine since we don't use it.)
+
+}.bind(null, console)

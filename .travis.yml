@@ -1010,9 +1010,20 @@ script:
            mv libr3.worker.js "${OS_ID}/lib${NEW_NAME}.worker.js"
       fi
 
-    # Keep note of GIT_COMMIT_SHORT
-    - echo "git_commit = '${GIT_COMMIT_SHORT}'" > ${OS_ID}/zzz_git_commit.js
-    # 'zzz' in the hope it will the latest uploaded file
+    # Each ${OS_ID} directory contains several builds.  Because those builds
+    # are served statically from S3, we don't have a query to serve the most
+    # recent one that successfully built (based on a date or other property).
+    # So we *try* to write a file with a fixed name in that directory, and
+    # *if the deploy succeeds* it will identify the latest *probably-valid*
+    # build ID...it can be obtained via a CORS fetch() request.
+    #
+    - echo "${GIT_COMMIT_SHORT}" > ${OS_ID}/last-deploy.short-hash
+
+    # Web Browsers are picky about the MIME type of WebAssembly files.  If
+    # it's not `application/wasm` then it complains.  The `deploy` upload
+    # mechanic in Travis has no way to specify this property, so we use the
+    # command-line `aws` tool to do the upload of the .wasm file.
+    #
     - |
       if [[ ${TRAVIS_BRANCH} = "master" && ( $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ) ]]
       then
