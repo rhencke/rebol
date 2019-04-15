@@ -177,7 +177,17 @@ do*: function [
         ; Eval the block or make the module, returned
         either is-module [ ; Import the module and set the var
             catch/quit [
-                result: import module/mixin hdr code (opt do-needs/no-user hdr)
+                import module/mixin hdr code (opt do-needs/no-user hdr)
+
+                ; !!! It would be nice if you could modularize a script and
+                ; still be able to get a result.  Until you can, make module
+                ; execution return void so that it doesn't give a verbose
+                ; output when you DO it (so you can see whatever the script
+                ; might have PRINT-ed)
+                ;
+                ; https://github.com/rebol/rebol-issues/issues/2373
+                ;
+                set/any lit result: void
             ] then :finalizer/quit
         ][
             do-needs hdr  ; Load the script requirements

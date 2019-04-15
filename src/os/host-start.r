@@ -361,7 +361,7 @@ host-start: function [
 
     local-to-file: lib/local-to-file:
         :system/modules/Filesystem/local-to-file
-    
+
     file-to-local: lib/file-to-local:
         :system/modules/Filesystem/file-to-local
 
