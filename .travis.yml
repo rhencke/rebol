@@ -1017,7 +1017,8 @@ script:
     # *if the deploy succeeds* it will identify the latest *probably-valid*
     # build ID...it can be obtained via a CORS fetch() request.
     #
-    - echo "${GIT_COMMIT_SHORT}" > ${OS_ID}/last-deploy.short-hash
+    # -n option means "no newline at end"
+    - echo -n "${GIT_COMMIT_SHORT}" > ${OS_ID}/last-deploy.short-hash
 
     # Web Browsers are picky about the MIME type of WebAssembly files.  If
     # it's not `application/wasm` then it complains.  The `deploy` upload
@@ -1029,12 +1030,18 @@ script:
       then
         for i in $OS_ID/*
         do
+            # last-deploy.short-hash must be the last uploaded file
+            if [[ $i = ${OS_ID}/last-deploy.short-hash ]]
+            then continue
+            fi
             case $i in
                 *.wasm) OPT_TYPE="--content-type application/wasm" ;;
                 *) OPT_TYPE="" ;;
             esac
             $AWS s3 cp $i s3://${AWS_S3_BUCKET_NAME}/travis-builds/$i $OPT_TYPE
         done
+        # last-deploy.short-hash must be the last uploaded file
+        $AWS s3 cp ${OS_ID}/last-deploy.short-hash s3://${AWS_S3_BUCKET_NAME}/travis-builds/last-deploy.short-hash
       fi
 
     # Return whether the build succeeded or not to Travis.  If this succeeded 
