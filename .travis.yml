@@ -87,6 +87,12 @@ git:
 #
 env:
   global:
+    #
+    # This script deploys the build products to s3, but does not use the
+    # `deploy` feature of Travis.  It instead uses the `aws` command-line tool
+    # in order to get more fine-grained control on what MIME types the files
+    # have, as well as to specify the order in which files are uploaded.
+    #
     # YOU MAY SEE ERRORS ON SECURE VARIABLES IF NOT ON THE MAIN REPOSITORY!
     #
     # e.g. "The previous command failed, possibly due to a malformed secure
@@ -555,11 +561,6 @@ install:
 
   - |
     if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]; then
-      pip3 install awscli --upgrade --user
-      export AWS=`find /Users/travis/Library/Python/3.7 -name aws`
-      echo ===== AWS=$AWS
-      $AWS --version
-      echo =====
       git clone --depth 1 https://github.com/emscripten-core/emsdk
       cd emsdk
       ./emsdk update
@@ -568,6 +569,21 @@ install:
       source emsdk_env.sh
       cd ..
     fi
+
+    # Install the AWS command-line tool for uploading to s3 (which we use
+    # instead of Travis's `deploy`)
+  - |
+    if [[ $TRAVIS_OS_NAME = osx ]]; then
+      pip3 install awscli --upgrade --user
+      export AWS="$(find /Users/travis/Library/Python/3.7 -name aws)"
+    else
+      pip install awscli --upgrade --user
+      export AWS="$(which aws)"
+    fi
+    echo ===== AWS=$AWS
+    $AWS --version
+    echo =====
+
 
 script:
     # whatever home directory Travis put us in, build there
@@ -1010,60 +1026,49 @@ script:
            mv libr3.worker.js "${OS_ID}/lib${NEW_NAME}.worker.js"
       fi
 
-    # Each ${OS_ID} directory contains several builds.  Because those builds
-    # are served statically from S3, we don't have a query to serve the most
-    # recent one that successfully built (based on a date or other property).
-    # So we *try* to write a file with a fixed name in that directory, and
-    # *if the deploy succeeds* it will identify the latest *probably-valid*
-    # build ID...it can be obtained via a CORS fetch() request.
-    #
-    # -n option means "no newline at end"
-    - echo -n "${GIT_COMMIT_SHORT}" > ${OS_ID}/last-deploy.short-hash
-
     # Web Browsers are picky about the MIME type of WebAssembly files.  If
     # it's not `application/wasm` then it complains.  The `deploy` upload
     # mechanic in Travis has no way to specify this property, so we use the
     # command-line `aws` tool to do the upload of the .wasm file.
     #
+    # We also want to control the *order* in which files are uploaded, which
+    # Travis's deploy does not support.  For how the keys are kept secure
+    # despite publishing this upload script, see:
+    #
+    # http://stackoverflow.com/a/42547424/211160
+    #
     - |
-      if [[ ${TRAVIS_BRANCH} = "master" && ( $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ) ]]
+      if [[ ${TRAVIS_BRANCH} = "master" ]]
       then
         for i in $OS_ID/*
         do
-            # last-deploy.short-hash must be the last uploaded file
-            if [[ $i = ${OS_ID}/last-deploy.short-hash ]]
-            then continue
-            fi
             case $i in
                 *.wasm) OPT_TYPE="--content-type application/wasm" ;;
                 *) OPT_TYPE="" ;;
             esac
             $AWS s3 cp $i s3://${AWS_S3_BUCKET_NAME}/travis-builds/$i $OPT_TYPE
         done
-        # last-deploy.short-hash must be the last uploaded file
-        $AWS s3 cp ${OS_ID}/last-deploy.short-hash s3://${AWS_S3_BUCKET_NAME}/travis-builds/last-deploy.short-hash
+
+        # Each ${OS_ID} directory contains several builds for recent commits.
+        # Since they are served statically from S3, we don't have a query to
+        # serve the most recent one that successfully built (based on a date
+        # or other property).  So we write a file with a fixed name in that
+        # directory to identify the last build...it can be obtained via a
+        # CORS fetch() request.
+        #
+        # However, the upload might take a while...or fail part way through.
+        # Hence, we make this the last file uploaded--so that when the browser
+        # tries to fetch files for that ID, they'll all be there.
+
+        # -n option to echo means "no newline at end" (it's not a "text file"
+        # so there is no standard enforcing that it have one...and it's
+        # easier in the client to not have it)
+        #
+        echo -n "${GIT_COMMIT_SHORT}" > ${OS_ID}/last-deploy.short-hash
+        $AWS s3 cp ${OS_ID}/last-deploy.short-hash s3://${AWS_S3_BUCKET_NAME}/travis-builds/${OS_ID}/last-deploy.short-hash
       fi
 
     # Return whether the build succeeded or not to Travis.  If this succeeded 
     # then the deploy step to S3 will run.  Parentheses create a "subshell"
     #
     - (exit "${R3_EXIT_STATUS}")  # http://stackoverflow.com/a/10457902
-
-
-# After everything is finished (e.g. script section above), upload build 
-# product to Amazon S3.  For how the configuration works and manages to keep
-# the private key secure, see:
-#
-# http://stackoverflow.com/a/42547424/211160
-#
-deploy:
-    provider: s3
-    access_key_id: "$AWS_ACCESS_KEY_ID"
-    secret_access_key: "$AWS_SECRET_ACCESS_KEY"
-    bucket: "$AWS_S3_BUCKET_NAME"
-    skip_cleanup: true
-    upload-dir: travis-builds
-    on:
-        condition: ${OS_ID} != "0.16.1"
-        condition: ${OS_ID} != "0.16.2"
-
