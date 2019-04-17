@@ -184,7 +184,15 @@ console!: make object! [
 
     print-info: method [s] [print [info reduce s]]
 
-    print-greeting: method [] [boot-print greeting]
+    print-greeting: method [] [
+        boot-print [
+            "Rebol 3 (Ren-C branch)"
+            mold compose [version: (system/version) build: (system/build)]
+            newline
+        ]
+
+        boot-print greeting
+    ]
 
     print-gap: method [] [print newline]
 
@@ -344,12 +352,6 @@ start-console: function [
 
     if o/about [
         boot-print make-banner boot-banner  ; the fancier banner
-    ] else [
-        boot-print [
-            "Rebol 3 (Ren-C branch)"
-            mold compose [version: (system/version) build: (system/build)]
-            newline
-        ]
     ]
 
     system/console/print-greeting
