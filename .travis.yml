@@ -189,7 +189,7 @@ matrix:
     # prescriptive and annoying reason.
     #
     - os: osx
-      osx_image: xcode8.2  # try an older XCode (on OS X 10.12)
+      osx_image: xcode8.3  # try an older XCode (on OS X 10.12)
       language: cpp
       env:
         - NUMBER=3

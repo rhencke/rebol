@@ -41,7 +41,7 @@
 //     REBVAL *item2 = ...;
 //     REBVAL *item3 = ...;
 //
-//     REBARR *result = rebValue(
+//     REBVAL *result = rebValue(
 //         "if not", item1, "[\n",
 //             item2, "| print {Close brace separate from content}\n",
 //         "] else [\n",

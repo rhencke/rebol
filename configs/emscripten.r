@@ -32,10 +32,8 @@ use-wasm: default [true]
 ; There was some issue with WASM threading being disabled in 2018 due to
 ; Spectre vulnerabilities in SharedArrayBuffer.  This seems to be mitigated,
 ; and approaches are now focusing on assuming that the thread-based solution
-; will be available.  The emterpreter method is preserved as a fallback, but
-; should not be used without good reason--only basic features are implemented.
+; will be available.
 ;
-
 if javascript-environment = #node [
     use-emterpreter: default [true]  ; no PTHREAD in Emscripten Node.js yet
 ] else [

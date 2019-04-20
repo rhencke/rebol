@@ -283,7 +283,7 @@ struct Reb_Promise_Info {
     struct Reb_Promise_Info *next;
 };
 
-struct Reb_Promise_Info *PG_Promises;  // Singly-linked list
+struct Reb_Promise_Info *PG_Workers;  // Singly-linked list
 
 #if defined(USE_PTHREADS)
 
@@ -294,15 +294,15 @@ struct Reb_Promise_Info *PG_Promises;  // Singly-linked list
     static pthread_mutex_t PG_Main_Mutex;
     static pthread_cond_t PG_Main_Cond;
 
-    static pthread_t PG_Promise_Thread;
-    static pthread_mutex_t PG_Promise_Mutex;
-    static pthread_cond_t PG_Promise_Cond;
+    static pthread_t PG_Worker_Thread;
+    static pthread_mutex_t PG_Worker_Mutex;
+    static pthread_cond_t PG_Worker_Cond;
 
     // Information cannot be exchanged between the worker thread and the main
     // thread via JavaScript values, so they are proxied between threads as
     // heap pointers via these globals.
     //
-    static REBVAL *PG_Promise_Result;
+    static REBVAL *PG_Worker_Result;
     static REBVAL *PG_Native_Result;
 
     inline static void ASSERT_ON_MAIN_THREAD() {  // in a browser, this is GUI
@@ -311,7 +311,7 @@ struct Reb_Promise_Info *PG_Promises;  // Singly-linked list
     }
 
     inline static void ASSERT_ON_PROMISE_THREAD() {
-        if (not pthread_equal(pthread_self(), PG_Promise_Thread))
+        if (not pthread_equal(pthread_self(), PG_Worker_Thread))
             assert(!"Didn't expect to be on MAIN thread but was\n");
     }
 #else
@@ -382,8 +382,8 @@ EXTERN_C intptr_t RL_rebPromise(REBFLGS flags, void *p, va_list *vaptr)
     struct Reb_Promise_Info *info = ALLOC(struct Reb_Promise_Info);
     info->state = PROMISE_STATE_QUEUEING;
     info->promise_id = cast(intptr_t, code);
-    info->next = PG_Promises;
-    PG_Promises = info;
+    info->next = PG_Workers;
+    PG_Workers = info;
 
     EM_ASM(
         { setTimeout(function() { _RL_rebIdle_internal(); }, 0); }
@@ -427,7 +427,7 @@ REBVAL *Run_Array_Dangerous(void *opaque) {
 //
 void *promise_worker(void *vargp)
 {
-    assert(IS_POINTER_END_DEBUG(vargp));  // unused arg (reads PG_Promises)
+    assert(IS_POINTER_END_DEBUG(vargp));  // unused arg (reads PG_Workers)
 
     ASSERT_ON_PROMISE_THREAD();
 
@@ -440,15 +440,15 @@ void *promise_worker(void *vargp)
         // (the signal comes from rebIdle(), which blocks the MAIN)
         //
         TRACE("promise_worker() => waiting on promise condition");
-        pthread_cond_wait(&PG_Promise_Cond, &PG_Promise_Mutex);
-        pthread_mutex_unlock(&PG_Promise_Mutex);
+        pthread_cond_wait(&PG_Worker_Cond, &PG_Worker_Mutex);
+        pthread_mutex_unlock(&PG_Worker_Mutex);
         TRACE("promise_worker() => got signal to start running promise");
 
         // There should be a promise ready to run if we're awoken here.
 
-        struct Reb_Promise_Info *info = PG_Promises;
+        struct Reb_Promise_Info *info = PG_Workers;
         REBARR *code = ARR(Pointer_From_Heapaddr(info->promise_id));
-        assert(IS_POINTER_END_DEBUG(PG_Promise_Result));
+        assert(IS_POINTER_END_DEBUG(PG_Worker_Result));
         assert(info->state == PROMISE_STATE_QUEUEING);
         info->state = PROMISE_STATE_RUNNING;
 
@@ -482,7 +482,7 @@ void *promise_worker(void *vargp)
             }
         }
 
-        PG_Promise_Result = result;
+        PG_Worker_Result = result;
 
         // Signal MAIN to unblock.  (Any time rebIdle() is unblocked, it needs
         // to check promise_result to see if it's ready, or if there's a
@@ -522,10 +522,11 @@ REBVAL *Get_Native_Result(heapaddr_t frame_id)
     }
 #endif
 
-void Invoke_Js_Body_On_Main(REBFRM *f)
+void On_Main_So_Invoke_Js_Body(REBFRM *f)
 {
-    ASSERT_ON_MAIN_THREAD();
-    struct Reb_Promise_Info *info = PG_Promises;
+    ASSERT_ON_MAIN_THREAD();  // be sure you're on MAIN before calling this
+ 
+    struct Reb_Promise_Info *info = PG_Workers;
 
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     bool is_awaiter = VAL_LOGIC(ARR_AT(details, IDX_JS_NATIVE_IS_AWAITER));
@@ -533,7 +534,7 @@ void Invoke_Js_Body_On_Main(REBFRM *f)
     heapaddr_t native_id = Native_Id_For_Action(FRM_PHASE(f));
     heapaddr_t frame_id = Frame_Id_For_Frame_May_Outlive_Call(f);
 
-    TRACE("Invoke_Js_Body_On_Main(%s)", Frame_Label_Or_Anonymous_UTF8(f));
+    TRACE("On_Main_So_Invoke_Js_Body(%s)", Frame_Label_Or_Anonymous_UTF8(f));
 
     if (is_awaiter) {
         //
@@ -572,7 +573,7 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
 {
     ASSERT_ON_MAIN_THREAD();
 
-    struct Reb_Promise_Info *info = PG_Promises;
+    struct Reb_Promise_Info *info = PG_Workers;
 
     // Each call to rebPromise() queues an idle cycle, but we never process
     // more than one promise per idle.  (We may not finish a promise depending
@@ -592,7 +593,6 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
 
   #if defined(USE_EMTERPRETER)
 
-    assert(code);
     assert(info->state == PROMISE_STATE_QUEUEING);
     info->state = PROMISE_STATE_RUNNING;
 
@@ -620,17 +620,18 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
   #else  // PTHREAD model
 
     // Harder (but worth it to be able to run WASM direct and not through a
-    // bloated and slow bytecode!)  We spawn a thread and have to forcibly
-    // block the MAIN so it doesn't keep running (because it could potentially
-    // execute more libRebol code and crash the running promise--Rebol isn't
-    // multithreaded.)
+    // bloated and slow bytecode!)  We signal a worker thread to do the
+    // actual execution.  While it is, we forcibly block the MAIN thread we
+    // are currently on here so it doesn't keep running (because it could
+    // potentially execute more libRebol code and crash the running promise--
+    // Rebol isn't multithreaded.)
 
-    // We're about to signal the promise, which may turn around and signal
+    // We're about to signal the worker, which may turn around and signal
     // us right back...be sure we guard the signaling so we don't miss it.
     //
     pthread_mutex_lock(&PG_Main_Mutex);
 
-    // We guarantee that the MAIN is at the top level and not running API code,
+    // We're certain this MAIN is at the top level and not running API code,
     // so it's time to signal the promise to make some progress.
     //
     if (info->state == PROMISE_STATE_QUEUEING)
@@ -643,9 +644,9 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
         TRACE("rebIdle() => waking up JavaScript_Dispatcher after throw");
     else
         assert(!"rebIdle() bad promise state");
-    pthread_mutex_lock(&PG_Promise_Mutex);
-    pthread_cond_signal(&PG_Promise_Cond);
-    pthread_mutex_unlock(&PG_Promise_Mutex);
+    pthread_mutex_lock(&PG_Worker_Mutex);
+    pthread_cond_signal(&PG_Worker_Cond);
+    pthread_mutex_unlock(&PG_Worker_Mutex);
 
     // Have to put the MAIN on hold so it doesn't make any libRebol API calls
     // while the promise is running its own code that might make some.
@@ -660,12 +661,12 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
     // finished or it is suspended waiting on a condition to continue.
 
     if (info->state == PROMISE_STATE_RESOLVED) {
-        result = PG_Promise_Result;
-        ENDIFY_POINTER_IF_DEBUG(PG_Promise_Result);
+        result = PG_Worker_Result;
+        ENDIFY_POINTER_IF_DEBUG(PG_Worker_Result);
     }
     else if (info->state == PROMISE_STATE_REJECTED) {
-        result = PG_Promise_Result;
-        ENDIFY_POINTER_IF_DEBUG(PG_Promise_Result);
+        result = PG_Worker_Result;
+        ENDIFY_POINTER_IF_DEBUG(PG_Worker_Result);
     }
     else {
         // We didn't finish, and the reason we're unblocking is because a
@@ -678,8 +679,8 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
         REBARR *details = ACT_DETAILS(phase);
         bool is_awaiter = VAL_LOGIC(ARR_AT(details, IDX_JS_NATIVE_IS_AWAITER));
 
-        TRACE("rebIdle() => Invoke_Js_Body_On_Main()");
-        Invoke_Js_Body_On_Main(FS_TOP);
+        TRACE("rebIdle() => On_Main_So_Invoke_Js_Body()");
+        On_Main_So_Invoke_Js_Body(FS_TOP);
 
         if (not is_awaiter) {
             //
@@ -735,8 +736,8 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
             );
         }
 
-        assert(PG_Promises == info);
-        PG_Promises = info->next;
+        assert(PG_Workers == info);
+        PG_Workers = info->next;
         FREE(struct Reb_Promise_Info, info);
     }
 
@@ -758,7 +759,7 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
 EXTERN_C void RL_rebSignalAwaiter_internal(intptr_t frame_id, int rejected) {
     ASSERT_ON_MAIN_THREAD();
 
-    struct Reb_Promise_Info *info = PG_Promises;
+    struct Reb_Promise_Info *info = PG_Workers;
     assert(info->state == PROMISE_STATE_AWAITING);
 
     if (rejected == 0) {
@@ -860,7 +861,7 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
 
     TRACE("JavaScript_Dispatcher(%s)", Frame_Label_Or_Anonymous_UTF8(f));
 
-    struct Reb_Promise_Info *info = PG_Promises;
+    struct Reb_Promise_Info *info = PG_Workers;
     if (is_awaiter) {
         if (info == nullptr)
             fail ("JavaScript /AWAITER can only be called from rebPromise()");
@@ -872,7 +873,7 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
 
   #if defined(USE_EMTERPRETER)  // on MAIN thread (by definition)
 
-    Invoke_Js_Body_On_Main(f);
+    On_Main_So_Invoke_Js_Body(f);
 
     // We don't know exactly what MAIN event is going to trigger and cause a
     // resolve() to happen.  It could be a timer, it could be a fetch(),
@@ -906,8 +907,25 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
     // service routine with no need to yield.
     //
     if (pthread_equal(pthread_self(), PG_Main_Thread)) {
+        //
+        // !!! This assertion didn't seem to take into account the case where
+        // you call an awaiter from within a function that's part of a
+        // resolve callback, e.g.
+        //
+        //     x: js-awaiter [] {
+        //         return reb.Promise((resolve, reject) => {
+        //             resolve(() => { reb.Elide("print {Hi}"); })
+        //         })
+        //     }
+        //
+        // Since PRINT has an awaiter character, it may actually be run
+        // direct from the main thread.  This should be able to work :-/ but
+        // due to the resolve not having been run yet there's still an
+        // awaiter in-flight, so it has problems.  Review.
+        //
         assert(not is_awaiter);
-        Invoke_Js_Body_On_Main(f);
+
+        On_Main_So_Invoke_Js_Body(f);
         result = Get_Native_Result(frame_id);
     }
     else {
@@ -921,7 +939,7 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
         // but might miss the signal if there weren't coordination that the
         // signal would only be given when we were waiting.
         //
-        pthread_mutex_lock(&PG_Promise_Mutex);
+        pthread_mutex_lock(&PG_Worker_Mutex);
 
         TRACE("JavaScript_Dispatcher() => signaling MAIN wakeup");
         pthread_mutex_lock(&PG_Main_Mutex);
@@ -932,8 +950,8 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
         // (or rejected...TBD)
         //
         TRACE("JavaScript_Dispatcher() => suspending for native result");
-        pthread_cond_wait(&PG_Promise_Cond, &PG_Promise_Mutex);
-        pthread_mutex_unlock(&PG_Promise_Mutex);
+        pthread_cond_wait(&PG_Worker_Cond, &PG_Worker_Mutex);
+        pthread_mutex_unlock(&PG_Worker_Mutex);
         TRACE("JavaScript_Dispatcher() => native result was signaled");
 
         result = PG_Native_Result;
@@ -1130,18 +1148,18 @@ REBNATIVE(init_javascript_extension)
     ret |= pthread_cond_init(&PG_Main_Cond, nullptr);
 
     ret |= pthread_create(
-        &PG_Promise_Thread,
+        &PG_Worker_Thread,
         nullptr,  // pthread attributes (optional)
         &promise_worker,
         m_cast(REBVAL*, END_NODE)  // unused arg (reads global state directly)
     );
-    ret |= pthread_mutex_init(&PG_Promise_Mutex, nullptr);
-    ret |= pthread_cond_init(&PG_Promise_Cond, nullptr);
+    ret |= pthread_mutex_init(&PG_Worker_Mutex, nullptr);
+    ret |= pthread_cond_init(&PG_Worker_Cond, nullptr);
 
     if (ret != 0)
         fail ("non-zero pthread API result in INIT-JAVASCRIPT-EXTENSION");
 
-    ENDIFY_POINTER_IF_DEBUG(PG_Promise_Result);
+    ENDIFY_POINTER_IF_DEBUG(PG_Worker_Result);
     ENDIFY_POINTER_IF_DEBUG(PG_Native_Result);
   #endif
 
