@@ -259,22 +259,22 @@ append api-objects make object! [
 
 append api-objects make object! [
     spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
-    name: "rebSignalResolve_internal"  ; !!! see %mod-javascript.c
+    name: "rebSignalResolveNative_internal"  ; !!! see %mod-javascript.c
     returns: "void"
     paramlist: ["intptr_t" frame_id]
     proto: unspaced [
-        "void rebSignalResolve_internal(intptr_t frame_id)"
+        "void rebSignalResolveNative_internal(intptr_t frame_id)"
     ]
     is-variadic: false
 ]
 
 append api-objects make object! [
     spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
-    name: "rebSignalReject_internal"  ; !!! see %mod-javascript.c
+    name: "rebSignalRejectNative_internal"  ; !!! see %mod-javascript.c
     returns: "void"
     paramlist: ["intptr_t" frame_id]
     proto: unspaced [
-        "void rebSignalReject_internal(intptr_t frame_id)"
+        "void rebSignalRejectNative_internal(intptr_t frame_id)"
     ]
     is-variadic: false
 ]
@@ -502,29 +502,43 @@ e-cwrap/emit {
     reb.RunNative_internal = function(id, frame_id) {
         if (!(id in RL_JS_NATIVES))
             throw Error("Can't dispatch " + id + " in JS_NATIVES table")
-        var result = RL_JS_NATIVES[id]()
-        if (result === undefined)  /* `return;` or `return undefined;` */
-            result = reb.Void()  /* treat equivalent to VOID! value return */
-        else if (result === null)  /* explicit result, e.g. `return null;` */
-            result = 0
-        else if (Number.isInteger(result))
-            {}  /* treat as REBVAL* heap address (TBD: object wrap?) */
-        else
-            throw Error("JS-NATIVE must return null, undefined, or REBVAL*")
 
-        /* store the result for consistency with emterpreter's asynchronous
-         * need to save JS value across emterpreter_sleep_with_yield()
-         */
-        RL_JS_NATIVES[frame_id] = result
-    }
+        let native = RL_JS_NATIVES[id]
 
-    /* If using the emterpreter, the awaiter's resolve() is rather limited,
-     * as it can't call any libRebol APIs.  The workaround is to let it take
-     * a function and then let the awaiter call that function with RL_Await.
-     */
-    reb.RunNativeAwaiter_internal = function(id, frame_id) {
-        if (!(id in RL_JS_NATIVES))
-            throw Error("Can't dispatch " + id + " in JS_NATIVES table")
+        if (! native.is_awaiter) {  /* set on function object at creation */
+            var result
+            var rejected
+            try {
+                result = native()
+                rejected = false
+            }
+            catch(e) {
+                result = e
+                console.log(e)
+                rejected = true
+            }
+
+            if (result === undefined)  /* `return;` or `return undefined;` */
+                result = reb.Void()  /* equivalent to VOID! value return */
+            else if (result === null)  /* explicit, e.g. `return null;` */
+                result = 0
+            else if (Number.isInteger(result))
+                {}  /* treat as REBVAL* heap address (TBD: object wrap?) */
+            else
+                throw Error("JS-NATIVE must return null, undefined, REBVAL*")
+
+            /* store the result for consistency with emterpreter's asynchronous
+             * need to save JS value across emterpreter_sleep_with_yield().
+             * consistency also gives a way to differentiate failure from an
+             * ordinary return result.
+             */
+            RL_JS_NATIVES[frame_id] = result
+            if (rejected)
+                _RL_rebSignalRejectNative_internal(frame_id)
+            else
+                _RL_rebSignalResolveNative_internal(frame_id)
+            return
+        }
 
         /* Is an `async` function and hence returns a Promise.  In JS, you
          * can't synchronously determine if it is a resolved Promise, e.g.
@@ -536,8 +550,8 @@ e-cwrap/emit {
          * Hence you have to pre-announce if you're writing a JS-AWAITER or
          * plain JS-NATIVE (which doesn't use an async function)
          */
-        RL_JS_NATIVES[id]()
-          .then(function(arg) {
+        native()
+          .then(function(res) {
 
             if (arguments.length > 1)
                 throw Error("JS-AWAITER's resolve() takes 1 argument")
@@ -550,22 +564,32 @@ e-cwrap/emit {
              * undefined...such auto-conversions may expand in scope.
              */
 
-            if (arg === undefined)  /* `resolve()`, `resolve(undefined)` */
+            if (res === undefined)  /* `resolve()`, `resolve(undefined)` */
                 {}  /* allow it */
-            else if (arg === null)  /* explicitly, e.g. `resolve(null)` */
+            else if (res === null)  /* explicitly, e.g. `resolve(null)` */
                 {}  /* allow it */
-            else if (typeof arg == "function")
-                {}  /* emterpreter can't make REBVAL* during sleep w/yield */
-            else if (typeof arg !== "number") {
-                console.log("typeof " + typeof arg)
-                console.log(arg)
+            else if (typeof res == "function") {
+                /*
+                 * If using the emterpreter, the awaiter's resolve() is rather
+                 * limited, as it can't call emterpreted functions during the
+                 * emscripten_sleep_with_yield().  That makes it hard to make
+                 * a REBVAL* to resolve() with.  Workaround is to accept a
+                 * JavaScript function, and call it when fetching the result.
+                 *
+                 * (so allow it)
+                 */
+            }
+            else if (typeof res !== "number") {
+                console.log("typeof " + typeof res)
+                console.log(res)
                 throw Error("AWAITER resolve takes REBVAL*, null, undefined")
             }
 
-            RL_JS_NATIVES[frame_id] = arg  /* stow for RL_Await */
-            _RL_rebSignalResolve_internal(frame_id)
+            RL_JS_NATIVES[frame_id] = res  /* stow result */
+            _RL_rebSignalResolveNative_internal(frame_id)
 
-          }).catch(function(arg) {
+          }).catch(function(rej) {
+            console.log(rej)
 
             if (arguments.length > 1)
                 throw Error("JS-AWAITER's reject() takes 1 argument")
@@ -578,11 +602,11 @@ e-cwrap/emit {
              * Rebol values here.
              */
 
-            if (typeof arg == "number")
+            if (typeof rej == "number")
                 console.log("Suspicious numeric throw() in JS-AWAITER");
 
-            RL_JS_NATIVES[frame_id] = arg  /* stow for RL_Await */
-            _RL_rebSignalReject_internal(frame_id)
+            RL_JS_NATIVES[frame_id] = rej  /* stow result */
+            _RL_rebSignalRejectNative_internal(frame_id)
           })
 
         /* Just fall through back to Idle, who lets the GUI loop spin back
