@@ -41,6 +41,14 @@
 //
 //   https://www.cs.cmu.edu/afs/cs/academic/class/15492-f07/www/pthreads.html
 //
+// * Here are quick links to the relevant headers:
+//
+//   https://github.com/emscripten-core/emscripten/blob/master/system/include/emscripten/emscripten.h
+//   https://github.com/emscripten-core/emscripten/blob/master/system/include/emscripten/em_asm.h
+//
+// * If the code block in the EM_ASM() family of functions contains a comma,
+//   then wrap the whole code block inside parentheses ().
+//
 
 // Older emscripten.h do an #include of <stdio.h>, so %sys-core.h must allow
 // it until this: https://github.com/emscripten-core/emscripten/pull/8089
@@ -745,99 +753,104 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
 }
 
 
-// This is rebSignalAwaiter() and not rebResolveAwaiter() which passes in a
-// resolution value because the emterpreter build can't really pass a REBVAL*.
+// This is rebSignalResolve() and not rebResolve() which passes in a value to
+// resolve with, because the emterpreter build can't really pass a REBVAL*.
 // All the APIs it would need to make REBVAL* are unavailable.  So it instead
 // pokes a JavaScript function where it can be found when no longer in
-// emscripten_sleep_with_yield(), then reb.GetAwaiterResult_internal() is used
-// to ask for that value later.
+// emscripten_sleep_with_yield().
 //
 // The pthreads build *could* take a value and poke it into the promise info.
 // But it's not worth it to wire up two different protocols on the JavaScript
 // side.  It should be rethought if someday the emterpreter version is axed.
 //
-EXTERN_C void RL_rebSignalAwaiter_internal(intptr_t frame_id, int rejected) {
+EXTERN_C void RL_rebSignalResolve_internal(intptr_t frame_id) {
     ASSERT_ON_MAIN_THREAD();
 
     struct Reb_Promise_Info *info = PG_Workers;
     assert(info->state == PROMISE_STATE_AWAITING);
 
-    if (rejected == 0) {
-        TRACE("reb.SignalAwaiter_internal() => signaling resolve");
+    TRACE("reb.SignalResolve_internal()");
 
-        // If we resolved the awaiter, we didn't resolve the overall promise,
-        // but just pushed it back into the running state.
-        //
-        info->state = PROMISE_STATE_RUNNING;
+    // If we resolved the awaiter, we didn't resolve the overall promise,
+    // but just pushed it back into the running state.
+    //
+    info->state = PROMISE_STATE_RUNNING;
 
-      #if defined(USE_PTHREADS)
-        Proxy_Native_Result_To_Worker(frame_id);
-      #endif
+  #if defined(USE_PTHREADS)
+    Proxy_Native_Result_To_Worker(frame_id);
+  #endif
 
-        // !!! "The above only signaled.  The awaiter will get the actual
-        // result with reb.GetAwaiterResult_internal()."  Still true?
-    }
-    else {
-        assert(rejected == 1);
-        TRACE("reb.SignalAwaiter_internal() => signaling reject");
+    // !!! "The above only signaled.  The awaiter will get the actual
+    // result with reb.GetAwaiterResult_internal()."  Still true?
+}
 
-        // !!! Rejecting an awaiter basically means the promise as a whole
-        // failed, I'd assume?
-        //
-        info->state = PROMISE_STATE_REJECTED;
 
-      #if defined(USE_PTHREADS)
-        //
-        // This signal is happening during the .catch() clause of the internal
-        // routine that runs natives.  But it happens after it is no longer
-        // on the stack, e.g. 
-        //
-        //     async function js_awaiter_impl() { throw 1020; }
-        //     function js_awaiter_invoker() {
-        //         js_awaiter_impl().catch(function() {
-        //              console.log("prints second")  // we're here now
-        //         })
-        //         console.log("prints first")  // fell through to GUI pump
-        //     }
-        //
-        // So the js_awaiter_invoker() is not on the stack, this is an async
-        // resolution even if the throw was called directly like that.
-        //
-        // In the long term it may be possible for Rebol constructs like
-        // TRAP or CATCH to intercept a JavaScript-thrown error.  If they
-        // did they may ask for more work to be done on the GUI so it would
-        // need to be in idle for that (otherwise the next thing it ran
-        // could always be assumed as the result to the await).
-        //
-        // But if the Rebol construct could catch a JS throw, it would need
-        // to convert it somehow to a Rebol value.  That conversion would
-        // have to be done right now--or there'd have to be some specific
-        // protocol for coming back and requesting it.
-        //
-        // But what we have to do is unblock the JS-AWAITER that's running
-        // with a throw so it can finish.  We do not want to do the promise
-        // rejection until it is.  We make that thrown value the frame so
-        // we can get the ID back out of it (and so it doesn't GC, so the
-        // lifetime lasts long enough to not conflate IDs in the table).
-        //
-        // Note: We don't want to fall through to the main thread's message
-        // pump so long as any code is running on the worker that's using Rebol
-        // features.  A stray setTimeout() message might get processed while
-        // the R_THROW is being unwound, and use a Rebol API which would
-        // be contentious with running code on another thread.  Block, and
-        // it should be unblocked to let the catch() clause run.
-        //
-        // We *could* do mutex management here and finish up the signal
-        // sequence.  But we can't on the emterpreted build, because it has
-        // to unwind that asm.js stack safely, so we could only call the
-        // reject here for pthread.  Pipe everything through idle so both
-        // emterpreter and not run the reject on GUI from the same stack.
-        //
-        EM_ASM(
-            { setTimeout(function() { _RL_rebIdle_internal(); }, 0); }
-        );  // note `_RL` (leading underscore means no cwrap)
-      #endif
-    }
+// See notes on rebSignalResolve()
+//
+EXTERN_C void RL_rebSignalReject_internal(intptr_t frame_id) {
+    ASSERT_ON_MAIN_THREAD();
+
+    struct Reb_Promise_Info *info = PG_Workers;
+    assert(info->state == PROMISE_STATE_AWAITING);
+
+    TRACE("reb.SignalReject_internal()");
+
+    // !!! Rejecting an awaiter basically means the promise as a whole
+    // failed, I'd assume?
+    //
+    info->state = PROMISE_STATE_REJECTED;
+
+  #if defined(USE_PTHREADS)
+    //
+    // This signal is happening during the .catch() clause of the internal
+    // routine that runs natives.  But it happens after it is no longer
+    // on the stack, e.g. 
+    //
+    //     async function js_awaiter_impl() { throw 1020; }
+    //     function js_awaiter_invoker() {
+    //         js_awaiter_impl().catch(function() {
+    //              console.log("prints second")  // we're here now
+    //         })
+    //         console.log("prints first")  // fell through to GUI pump
+    //     }
+    //
+    // So the js_awaiter_invoker() is not on the stack, this is an async
+    // resolution even if the throw was called directly like that.
+    //
+    // In the long term it may be possible for Rebol constructs like
+    // TRAP or CATCH to intercept a JavaScript-thrown error.  If they
+    // did they may ask for more work to be done on the GUI so it would
+    // need to be in idle for that (otherwise the next thing it ran
+    // could always be assumed as the result to the await).
+    //
+    // But if the Rebol construct could catch a JS throw, it would need
+    // to convert it somehow to a Rebol value.  That conversion would
+    // have to be done right now--or there'd have to be some specific
+    // protocol for coming back and requesting it.
+    //
+    // But what we have to do is unblock the JS-AWAITER that's running
+    // with a throw so it can finish.  We do not want to do the promise
+    // rejection until it is.  We make that thrown value the frame so
+    // we can get the ID back out of it (and so it doesn't GC, so the
+    // lifetime lasts long enough to not conflate IDs in the table).
+    //
+    // Note: We don't want to fall through to the main thread's message
+    // pump so long as any code is running on the worker that's using Rebol
+    // features.  A stray setTimeout() message might get processed while
+    // the R_THROW is being unwound, and use a Rebol API which would
+    // be contentious with running code on another thread.  Block, and
+    // it should be unblocked to let the catch() clause run.
+    //
+    // We *could* do mutex management here and finish up the signal
+    // sequence.  But we can't on the emterpreted build, because it has
+    // to unwind that asm.js stack safely, so we could only call the
+    // reject here for pthread.  Pipe everything through idle so both
+    // emterpreter and not run the reject on GUI from the same stack.
+    //
+    EM_ASM(
+        { setTimeout(function() { _RL_rebIdle_internal(); }, 0); }
+    );  // note `_RL` (leading underscore means no cwrap)
+  #endif
 }
 
 
@@ -1069,10 +1082,9 @@ REBNATIVE(js_native_mainthread)
     Append_Ascii(mo->series, ", ");
 
     // A JS-AWAITER can only be triggered from Rebol on the worker thread as
-    // part of a rebPromise().  The function itself has no return value, as
-    // it does its work by either resolve() or reject().  Making it an async
-    // function means it will return an ES6 Promise, and allows use of the
-    // AWAIT JavaScript feature inside the body:
+    // part of a rebPromise().  Making it an async function means it will
+    // return an ES6 Promise, and allows use of the AWAIT JavaScript feature
+    // inside the body:
     //
     // https://javascript.info/async-await
     //
@@ -1096,10 +1108,14 @@ REBNATIVE(js_native_mainthread)
     Append_Ascii(mo->series, "}\n");  // end `function() {`
     Append_Ascii(mo->series, ");");  // end `reb.RegisterId_internal(`
 
+    // The javascript code for registering the function body is now the last
+    // thing in the mold buffer.  Get a pointer to it.
+    //
     TERM_SERIES(SER(mo->series));
+    const char *js = cs_cast(BIN_AT(SER(mo->series), mo->offset));
 
     TRACE("Registering native_id %d", native_id);
-    emscripten_run_script(cs_cast(BIN_AT(SER(mo->series), mo->offset)));
+    emscripten_run_script(js);
 
     Drop_Mold(mo);
 

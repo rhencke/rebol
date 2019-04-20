@@ -233,6 +233,11 @@ to-js-type: func [
 
 
 ; Add special API objects only for JavaScript
+;
+; The `_internal` APIs don't really need reb.XXX entry points (they are called
+; directly as _RL_rebXXX()).  But having them in this list makes it easier to
+; process them with the other APIs on matters like EMSCRIPTEN_KEEPALIVE and
+; EMTERPRETER_BLACKLIST.
 
 append api-objects make object! [
     spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
@@ -254,20 +259,33 @@ append api-objects make object! [
 
 append api-objects make object! [
     spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
-    name: "rebSignalAwaiter_internal"  ; !!! see %mod-javascript.c
+    name: "rebSignalResolve_internal"  ; !!! see %mod-javascript.c
     returns: "void"
     paramlist: ["intptr_t" frame_id]
     proto: unspaced [
-        "void rebSignalAwaiter_internal(intptr_t frame_id)"
+        "void rebSignalResolve_internal(intptr_t frame_id)"
     ]
     is-variadic: false
 ]
 
+append api-objects make object! [
+    spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
+    name: "rebSignalReject_internal"  ; !!! see %mod-javascript.c
+    returns: "void"
+    paramlist: ["intptr_t" frame_id]
+    proto: unspaced [
+        "void rebSignalReject_internal(intptr_t frame_id)"
+    ]
+    is-variadic: false
+]
+
+
 map-each-api [
-    if find [
-        "rebStartup"  ; no rebEnterApi, extra initialization in its wrapper
-        "rebEnterApi_internal"  ; called as _RL_rebEnterApi_internal
-    ] name [
+    if find name "_internal" [  ; called as _RL_rebXXX(), don't need reb.XXX()
+        continue
+    ]
+
+    if name = "rebStartup" [  ; the reb.Startup() is offered by load_r3.js
         continue
     ]
 
@@ -545,7 +563,7 @@ e-cwrap/emit {
             }
 
             RL_JS_NATIVES[frame_id] = arg  /* stow for RL_Await */
-            _RL_rebSignalAwaiter_internal(frame_id, 0)  /* 0 = resolve */
+            _RL_rebSignalResolve_internal(frame_id)
 
           }).catch(function(arg) {
 
@@ -564,7 +582,7 @@ e-cwrap/emit {
                 console.log("Suspicious numeric throw() in JS-AWAITER");
 
             RL_JS_NATIVES[frame_id] = arg  /* stow for RL_Await */
-            _RL_rebSignalAwaiter_internal(frame_id, 1)  /* 1 = reject */
+            _RL_rebSignalReject_internal(frame_id)
           })
 
         /* Just fall through back to Idle, who lets the GUI loop spin back
