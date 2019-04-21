@@ -41,18 +41,22 @@
 //
 //   https://www.cs.cmu.edu/afs/cs/academic/class/15492-f07/www/pthreads.html
 //
-// * Here are quick links to the relevant headers:
-//
-//   https://github.com/emscripten-core/emscripten/blob/master/system/include/emscripten/emscripten.h
-//   https://github.com/emscripten-core/emscripten/blob/master/system/include/emscripten/em_asm.h
-//
 // * If the code block in the EM_ASM() family of functions contains a comma,
-//   then wrap the whole code block inside parentheses ().
+//   then wrap the whole code block inside parentheses ().  See the examples
+//   which are cited in %em_asm.h
 //
-// * Use of the MAIN_THREAD_EM_ASM functions are being reviewed.  But the
-//   main weak point is that when you're finished running a JS-AWAITER you
-//   want the worker thread to stay blocked...it has to, because it has no
-//   result to return yet.
+// * Emscripten's pthread build thankfully includes MAIN_THREAD_EM_ASM.  It's
+//   useful, but can't take care of *all* of our mutex/signaling concerns  The
+//   reason is that when you're finished running a JS-AWAITER you want the
+//   worker thread to stay blocked even though the code you asked to run has
+//   synchronously finished.  The only way around this would be if you could
+//   use `await` (you can't...and also it would limit error handling)
+//
+// * We used to block the main thread while Rebol code for a promise was
+//   running on the worker.  But it's rude to lock up the main thread while
+//   Rebol is running long operations (JS might want to repaint or do some
+//   other handling in parallel) -or- it might want to ask for cancellation.
+//   So another way needs to be found.
 //
 
 // Older emscripten.h do an #include of <stdio.h>, so %sys-core.h must allow
@@ -68,6 +72,11 @@
 
 #include <limits.h>  // for UINT_MAX
 
+// Quick source links for emscripten.h and em_asm.h (which it includes):
+//
+// https://github.com/emscripten-core/emscripten/blob/master/system/include/emscripten/emscripten.h
+// https://github.com/emscripten-core/emscripten/blob/master/system/include/emscripten/em_asm.h
+//
 #include <emscripten.h>
 
 #if defined(USE_EMTERPRETER) == defined(USE_PTHREADS)
@@ -77,16 +86,16 @@
 #if defined(USE_PTHREADS)
     #include <pthread.h>  // C11 threads not much better (and less portable)
 
+    static pthread_t PG_Main_Thread;
+    static pthread_t PG_Worker_Thread;
+
     // For why pthread conditions need a mutex:
     // https://stackoverflow.com/q/2763714/
 
-    static pthread_t PG_Main_Thread;
-    static pthread_mutex_t PG_Main_Mutex;
-    static pthread_cond_t PG_Main_Cond;
-
-    static pthread_t PG_Worker_Thread;
-    static pthread_mutex_t PG_Worker_Mutex;
-    static pthread_cond_t PG_Worker_Cond;
+    static pthread_mutex_t PG_Promise_Mutex;
+    static pthread_cond_t PG_Promise_Cond;  // when new promise is queued
+    static pthread_mutex_t PG_Await_Mutex;
+    static pthread_cond_t PG_Await_Cond;  // when JS-AWAITER resolves/rejects
 
     #define ON_MAIN_THREAD \
         pthread_equal(pthread_self(), PG_Main_Thread)
@@ -123,6 +132,18 @@
 // debugging the JavaScript extension itself.  These are some interim hacks
 // for doing that until better ideas come along.
 
+#ifdef DEBUG_JAVASCRIPT_SILENT_TRACE
+
+    // Trace output can influence the behavior of the system so that race
+    // conditions or other things don't manifest.  This is tricky.  If this
+    // happens we can add to the silent trace buffer.
+    //
+    static char PG_Silent_Trace_Buf[64000] = "";
+
+    EXTERN_C intptr_t RL_rebGetSilentTrace_internal(void) {
+      { return cast(intptr_t, cast(void*, PG_Silent_Trace_Buf)); }
+#endif
+
 #ifdef DEBUG_JAVASCRIPT_EXTENSION
     #undef assert  // if it was defined (most emscripten builds are NDEBUG)
     #define assert(expr) \
@@ -131,7 +152,7 @@
             exit(0); \
         } } while (0)
 
-    bool PG_JS_Trace = false;  // Can be turned on/off with JS-TRACE native
+    static bool PG_JS_Trace = false;  // Turned on/off with JS-TRACE native
 
     #define TRACE(...)  /* variadic, but emscripten is at least C99! :-) */ \
         do { if (PG_JS_Trace) { \
@@ -150,7 +171,7 @@
         p = m_cast(REBVAL*, END_NODE)
 
     #define IS_POINTER_END_DEBUG(p) \
-        cast(void*, p) == cast(void*, m_cast(REBVAL*, END_NODE))
+        (p == m_cast(REBVAL*, END_NODE))
 
     // One of the best pieces of information to follow for a TRACE() is what
     // the EM_ASM() calls.  So printing the JavaScript sent to execute is
@@ -325,7 +346,7 @@ struct Reb_Promise_Info {
     struct Reb_Promise_Info *next;
 };
 
-static struct Reb_Promise_Info *PG_Workers;  // Singly-linked list
+static struct Reb_Promise_Info *PG_Promises;  // Singly-linked list
 
 
 enum Reb_Native_State {
@@ -339,8 +360,6 @@ enum Reb_Native_State {
 // thread via JavaScript values, so they are proxied between threads as
 // heap pointers via these globals.
 //
-static REBVAL *PG_Promise_Result;
-
 static REBVAL *PG_Native_Result;
 static enum Reb_Native_State PG_Native_State;
 
@@ -407,12 +426,21 @@ EXTERN_C intptr_t RL_rebPromise(REBFLGS flags, void *p, va_list *vaptr)
     struct Reb_Promise_Info *info = ALLOC(struct Reb_Promise_Info);
     info->state = PROMISE_STATE_QUEUEING;
     info->promise_id = cast(intptr_t, code);
-    info->next = PG_Workers;
-    PG_Workers = info;
+    info->next = PG_Promises;
+    PG_Promises = info;
 
+  #ifdef USE_EMTERPRETER
     EM_ASM(
         { setTimeout(function() { _RL_rebIdle_internal(); }, 0); }
     );  // note `_RL` (leading underscore means no cwrap)
+  #else
+    pthread_mutex_lock(&PG_Promise_Mutex);
+    pthread_cond_signal(&PG_Promise_Cond);
+    pthread_mutex_unlock(&PG_Promise_Mutex);
+
+    // Note: Because the promise resolves via MAIN_THREAD_EM_ASM, it shouldn't
+    // be possible for resolution to happen before the promise is wrapped up.
+  #endif
 
     return info->promise_id;
 }
@@ -447,9 +475,9 @@ REBVAL *Run_Array_Dangerous(void *opaque) {
 
 void RunPromise(void)
 {
-    assert(IS_POINTER_END_DEBUG(PG_Promise_Result));  // result returned here
+    TRACE("RunPromise() called");
 
-    struct Reb_Promise_Info *info = PG_Workers;
+    struct Reb_Promise_Info *info = PG_Promises;
     assert(info->state == PROMISE_STATE_QUEUEING);
     info->state = PROMISE_STATE_RUNNING;
 
@@ -465,11 +493,24 @@ void RunPromise(void)
 
     struct ArrayAndBool x;  // bool needed to know if it failed
     x.code = code;
-    PG_Promise_Result = rebRescue(&Run_Array_Dangerous, &x);
+    REBVAL *result = rebRescue(&Run_Array_Dangerous, &x);
+    assert(not result or not IS_NULLED(result));  // NULL is nullptr in API
 
     if (info->state == PROMISE_STATE_REJECTED) {
-        assert(IS_FRAME(PG_Promise_Result));
+        assert(IS_FRAME(result));
         TRACE("RunPromise() => promise is rejecting due to...something (?)");
+
+        // Note: Expired, can't use VAL_CONTEXT
+        //
+        assert(IS_FRAME(result));
+        REBNOD *frame_ctx = VAL_NODE(result);
+        heapaddr_t throw_id = Heapaddr_From_Pointer(frame_ctx);
+
+        MAIN_THREAD_EM_ASM(
+            { reb.RejectPromise_internal($0, $1); },
+            info->promise_id,  // => $0 (table entry will be freed)
+            throw_id  // => $1 (table entry will be freed)
+        );
     }
     else {
         assert(info->state == PROMISE_STATE_RUNNING);
@@ -480,249 +521,100 @@ void RunPromise(void)
             // Run_Array_Dangerous() itself...or a failure rebRescue()
             // caught...
             //
-            assert(IS_ERROR(PG_Promise_Result));
+            assert(IS_ERROR(result));
             info->state = PROMISE_STATE_REJECTED;
             TRACE("RunPromise() => promise is rejecting due to error");
         }
         else {
             info->state = PROMISE_STATE_RESOLVED;
             TRACE("RunPromise() => promise is resolving");
+
+            MAIN_THREAD_EM_ASM(
+                { reb.ResolvePromise_internal($0, $1); },
+                info->promise_id,  // => $0 (table entry will be freed)
+                result  // => $1 (recipient takes over handle)
+            );
         }
     }
+
+    rebRelease(result);
+
+    assert(PG_Promises == info);
+    PG_Promises = info->next;
+    FREE(struct Reb_Promise_Info, info);
 }
 
 
 #if defined(USE_PTHREADS)
-
-// Worker pthread that loops, picks up promise work items, and runs the
-// associated array of code.
-//
-void *promise_worker(void *vargp)
-{
-    assert(IS_POINTER_END_DEBUG(vargp));  // unused arg (reads PG_Workers)
-
-    ASSERT_ON_PROMISE_THREAD();
-
-    // This loop should have a signal to exit cleanly and shut down the
-    // worker thread: https://forum.rebol.info/t/960
     //
-    while (true) {
-        //
-        // Wait until we're signaled that MAIN won't make any libRebol calls.
-        // (the signal comes from rebIdle(), which blocks the MAIN)
-        //
-        TRACE("promise_worker() => waiting on promise condition");
-        pthread_cond_wait(&PG_Worker_Cond, &PG_Worker_Mutex);
-        pthread_mutex_unlock(&PG_Worker_Mutex);
-        TRACE("promise_worker() => got signal to start running promise");
+    // Worker pthread that loops, picks up promise work items, and runs the
+    // associated array of code.
+    //
+    void *promise_worker(void *vargp) {
+        assert(IS_POINTER_END_DEBUG(vargp));  // unused (reads PG_Promises)
 
-        // There should be a promise ready to run if we're awoken here.
+        ASSERT_ON_PROMISE_THREAD();
+
+        // This loop should have a signal to exit cleanly and shut down the
+        // worker thread: https://forum.rebol.info/t/960
         //
-        RunPromise();
+        while (true) {
+            TRACE("promise_worker() => waiting on promise request");
+            pthread_mutex_lock(&PG_Promise_Mutex);
+            pthread_cond_wait(&PG_Promise_Cond, &PG_Promise_Mutex);
+            pthread_mutex_unlock(&PG_Promise_Mutex);
+            TRACE("promise_worker() => got signal to start running promise");
 
-        // Signal MAIN to unblock.  (Any time rebIdle() is unblocked, it needs
-        // to check promise_result to see if it's ready, or if there's a
-        // request to run some other code)
-        //
-        pthread_mutex_lock(&PG_Main_Mutex);
-        pthread_cond_signal(&PG_Main_Cond);
-        pthread_mutex_unlock(&PG_Main_Mutex);
-        TRACE("promise_worker() => MAIN unblocked, finishing up");
-    }
-}
-
-#endif  // defined(USE_PTHREADS)
-
-
-REBVAL *Get_Native_Result(heapaddr_t frame_id)
-{
-    ASSERT_ON_MAIN_THREAD();
-    heapaddr_t result_addr = EM_ASM_INT(
-        { return reb.GetNativeResult_internal($0) },
-        frame_id  // => $0
-    );
-    return VAL(Pointer_From_Heapaddr(result_addr));
-}
-
-#ifdef USE_PTHREADS
-    void Proxy_Native_Result_To_Worker(heapaddr_t frame_id) {
-        //
-        // We can get the result now...and need to.  (We won't be able to
-        // access MAIN variables from the WORKER thread.)
-        //
-        assert(IS_POINTER_END_DEBUG(PG_Native_Result));
-        PG_Native_Result = Get_Native_Result(frame_id);
-        struct Reb_Promise_Info *info = PG_Workers;
-        if (info != nullptr) {
-            EM_ASM(
-                { setTimeout(function() { _RL_rebIdle_internal(); }, 0); }
-            );  // note `_RL` (leading underscore means no cwrap)
+            RunPromise();  // should be ready to go if we're awoken here
         }
     }
 #endif
 
-void On_Main_So_Invoke_Js_Body(REBFRM *f)
-{
-    ASSERT_ON_MAIN_THREAD();  // be sure you're on MAIN before calling this
- 
-     if (PG_Native_State != NATIVE_STATE_NONE)
-        assert(!"Cannot call JS-NATIVE during JS-NATIVE at this time");
-
-    PG_Native_State = NATIVE_STATE_RUNNING;
-
-    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
-    bool is_awaiter = VAL_LOGIC(ARR_AT(details, IDX_JS_NATIVE_IS_AWAITER));
-
-    heapaddr_t native_id = Native_Id_For_Action(FRM_PHASE(f));
-    heapaddr_t frame_id = Frame_Id_For_Frame_May_Outlive_Call(f);
-
-    TRACE("On_Main_So_Invoke_Js_Body(%s)", Frame_Label_Or_Anonymous_UTF8(f));
-
-    // Whether it's an awaiter or not (e.g. whether it has an `async` JS
-    // function as the body), the same interface is used to call the function.
-    // It will communicate whether an error happened or not through the
-    // `rebSignalResolveNative()` or `rebSignalRejectNative()` either way,
-    // and the results are fetched with the same mechanic.
-   
-    struct Reb_Promise_Info *info = PG_Workers;
-    if (is_awaiter)
-        assert(info and info->state == PROMISE_STATE_RUNNING);
-    else
-        assert(not info or info->state == PROMISE_STATE_RUNNING);
-
-    EM_ASM(
-        { reb.RunNative_internal($0, $1) },
-        native_id,  // => $0
-        frame_id  // => $1
-    );
-}
+#if defined(USE_EMTERPRETER)
+    //
+    // In the emterpreter build, rebPromise() defers to run until there is no
+    // JavaScript above it or after it on the MAIN thread stack.
+    //
+    // Inside this call, emscripten_sleep_with_yield() can sneakily make us
+    // fall through to the main loop.  We don't notice it here--it's invisible
+    // to the C code being yielded.  -BUT- the JS callsite for rebIdle() would
+    // notice, as it would seem rebIdle() had finished...when really what's
+    // happening is that the bytecode interpreter is putting it into suspended
+    // animation--which it will bring it out of with a setTimeout.
+    //
+    // (This is why there shouldn't be any meaningful JS on the stack above
+    // this besides the rebIdle() call itself.)
+    //
+    EXTERN_C void RL_rebIdle_internal(void)  // NO user JS code on stack!
+    {
+        TRACE("rebIdle() => begin emterpreting promise code");
+        RunPromise();
+        TRACE("rebIdle() => finished emterpreting promise code");
+    }
+#endif
 
 
-// This is the code that rebPromise() defers to run until there is no
-// JavaScript above it or after it on the MAIN thread stack.  This makes it
-// safe to use emscripten_sleep_with_yield() inside of it in the emterpreter
-// build, and it purposefully holds up the MAIN from running in the pthread
-// version so that both threads don't call libRebol APIs at once.
+// The protocol for JavaScript returning Rebol API values to Rebol is to do
+// so with functions that either "resolve" (succeed) or "reject" (e.g. fail).
+// Even non-async functions use the callbacks, so that they can signal a
+// failure bubbling up out of them as distinct from success.
 //
-EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
-{
+// Those callbacks always happen on the main thread.  But the code that wants
+// the result may be Rebol running on the worker, or yielded emterpreter code
+// that can't actually process the value yet.  So the values are stored in
+// a table associated with the call frame's ID.  This pulls that out into the
+// PG_Native_Result variable.
+//
+void Sync_Native_Result(heapaddr_t frame_id) {
     ASSERT_ON_MAIN_THREAD();
 
-    struct Reb_Promise_Info *info = PG_Workers;
+    heapaddr_t result_addr = EM_ASM_INT(
+        { return reb.GetNativeResult_internal($0) },
+        frame_id  // => $0
+    );
 
-  #if defined(USE_EMTERPRETER)
-
-    // The "simple" case: we actually stay on the MAIN thread, and JS-AWAITER
-    // can call emscripten_sleep_with_yield()...which will just post any
-    // requests to continue as a setTimeout().  Emscripten does all the work.
-    //
-    TRACE("rebIdle() => begin emterpreting promise code");
-    RunPromise();
-
-  #else  // PTHREAD model
-
-    // Harder (but worth it to be able to run WASM direct and not through a
-    // bloated and slow bytecode!)  We signal a worker thread to do the
-    // actual execution.  While it is, we forcibly block the MAIN thread we
-    // are currently on here so it doesn't keep running (because it could
-    // potentially execute more libRebol code and crash the running promise--
-    // Rebol isn't multithreaded.)
-
-    // We're about to signal the worker, which may turn around and signal
-    // us right back...be sure we guard the signaling so we don't miss it.
-    //
-    pthread_mutex_lock(&PG_Main_Mutex);
-
-    // We're certain this MAIN is at the top level and not running API code,
-    // so it's time to signal the promise to make some progress.
-    //
-    if (info->state == PROMISE_STATE_QUEUEING)
-        TRACE("rebIdle() => waking up worker to start promise");
-    else if (info->state == PROMISE_STATE_AWAITING)
-        TRACE("rebIdle() => waking up worker to resume after awaiting");
-    else if (info->state == PROMISE_STATE_RUNNING)
-        TRACE("rebIdle() => waking up worker after non-awaiter native");
-    else if (info->state == PROMISE_STATE_REJECTED)
-        TRACE("rebIdle() => waking up JavaScript_Dispatcher after throw");
-    else
-        assert(!"rebIdle() bad promise state");
-    pthread_mutex_lock(&PG_Worker_Mutex);
-    pthread_cond_signal(&PG_Worker_Cond);
-    pthread_mutex_unlock(&PG_Worker_Mutex);
-
-    // Have to put the MAIN on hold so it doesn't make any libRebol API calls
-    // while the promise is running its own code that might make some.
-    //
-    TRACE("rebIdle() => blocking MAIN until wakeup signal");
-    pthread_cond_wait(&PG_Main_Cond, &PG_Main_Mutex);
-    pthread_mutex_unlock(&PG_Main_Mutex);
-    TRACE("rebIdle() => MAIN unblocked");
-
-    // The MAIN can be unblocked for several reasons--but in all of these
-    // the promise thread should not be running right now.  Either it is
-    // finished or it is suspended waiting on a condition to continue.
-
-    if (info->state == PROMISE_STATE_RUNNING) {
-        //
-        // We didn't finish, and the reason we're unblocking is because a
-        // JS-NATIVE wants to run.  It wants us to run the body text of the
-        // JavaScript here on the MAIN, because that's where it is useful.
-        //
-        REBACT *phase = FRM_PHASE(FS_TOP);
-        assert(ACT_DISPATCHER(phase) == &JavaScript_Dispatcher);
-
-        REBARR *details = ACT_DETAILS(phase);
-        bool is_awaiter = VAL_LOGIC(ARR_AT(details, IDX_JS_NATIVE_IS_AWAITER));
-
-        TRACE("rebIdle() => On_Main_So_Invoke_Js_Body()");
-        On_Main_So_Invoke_Js_Body(FS_TOP);
-
-        // The awaiter *might* have called resolve() or reject() in its body.
-        // we could handle that and loop here, but the average case is that
-        // it called JavaScript to do some MAIN work.  Since any resolve() or
-        // reject() requeues rebIdle() anyway, have that case handled by the
-        // next run of rebIdle() vs. a goto above here.
-    }
-  #endif
-
-    if (info->state == PROMISE_STATE_RUNNING) {
-        // Not finished
-    }
-    else {
-        assert(not PG_Promise_Result or not IS_NULLED(PG_Promise_Result));
-
-        if (info->state == PROMISE_STATE_RESOLVED) {
-            EM_ASM(
-                { reb.ResolvePromise_internal($0, $1); },
-                info->promise_id,  // => $0 (table entry will be freed)
-                PG_Promise_Result  // => $1 (recipient takes over handle)
-            );
-        }
-        else {
-            assert(info->state == PROMISE_STATE_REJECTED);
-
-            // Note: Expired, can't use VAL_CONTEXT
-            //
-            assert(IS_FRAME(PG_Promise_Result));
-            REBNOD *frame_ctx = VAL_NODE(PG_Promise_Result);
-            heapaddr_t throw_id = Heapaddr_From_Pointer(frame_ctx);
-
-            EM_ASM(
-                { reb.RejectPromise_internal($0, $1); },
-                info->promise_id,  // => $0 (table entry will be freed)
-                throw_id  // => $1 (table entry will be freed)
-            );
-        }
-
-        rebRelease(PG_Promise_Result);
-        ENDIFY_POINTER_IF_DEBUG(PG_Promise_Result);
-
-        assert(PG_Workers == info);
-        PG_Workers = info->next;
-        FREE(struct Reb_Promise_Info, info);
-    }
-
-    TRACE("rebIdle() => exiting to generic MAIN processing");
+    assert(IS_POINTER_END_DEBUG(PG_Native_Result));
+    PG_Native_Result = VAL(Pointer_From_Heapaddr(result_addr));
 }
 
 
@@ -740,18 +632,24 @@ EXTERN_C void RL_rebSignalResolveNative_internal(intptr_t frame_id) {
     ASSERT_ON_MAIN_THREAD();
     TRACE("reb.SignalResolveNative_internal()");
 
-    // If we resolved the awaiter, we didn't resolve the overall promise,
-    // but just pushed it back into the running state.
-    //
+    struct Reb_Promise_Info *info = PG_Promises;
+
+  #if defined(USE_PTHREADS)
+    if (info and info->state == PROMISE_STATE_AWAITING)
+        pthread_mutex_lock(&PG_Await_Mutex);
+  #endif
+
     assert(PG_Native_State == NATIVE_STATE_RUNNING);
     PG_Native_State = NATIVE_STATE_RESOLVED;
 
   #if defined(USE_PTHREADS)
-    Proxy_Native_Result_To_Worker(frame_id);
-  #endif
+    Sync_Native_Result(frame_id);  // must get now if worker is to receive it
 
-    // !!! "The above only signaled.  The awaiter will get the actual
-    // result with reb.GetAwaiterResult_internal()."  Still true?
+    if (info and info->state == PROMISE_STATE_AWAITING) {
+        pthread_cond_signal(&PG_Await_Cond);  // no effect if nothing waiting
+        pthread_mutex_unlock(&PG_Await_Mutex);
+    }
+  #endif
 }
 
 
@@ -760,6 +658,13 @@ EXTERN_C void RL_rebSignalResolveNative_internal(intptr_t frame_id) {
 EXTERN_C void RL_rebSignalRejectNative_internal(intptr_t frame_id) {
     ASSERT_ON_MAIN_THREAD();
     TRACE("reb.SignalRejectNative_internal()");
+
+    struct Reb_Promise_Info *info = PG_Promises;
+
+  #if defined(USE_PTHREADS)
+    if (info and info->state == PROMISE_STATE_AWAITING)
+        pthread_mutex_lock(&PG_Await_Mutex);
+  #endif
 
     assert(PG_Native_State == NATIVE_STATE_RUNNING);
     PG_Native_State = NATIVE_STATE_REJECTED;
@@ -811,9 +716,32 @@ EXTERN_C void RL_rebSignalRejectNative_internal(intptr_t frame_id) {
     // reject here for pthread.  Pipe everything through idle so both
     // emterpreter and not run the reject on GUI from the same stack.
     //
-    Proxy_Native_Result_To_Worker(frame_id);
+    Sync_Native_Result(frame_id);  // must get now if worker is to receive it
+
+    if (info and info->state == PROMISE_STATE_AWAITING) {
+        pthread_cond_signal(&PG_Await_Cond);  // no effect if nothing waiting
+        pthread_mutex_unlock(&PG_Await_Mutex);
+    }
   #endif
 }
+
+#ifdef USE_PTHREADS
+    //
+    // When workers ask to synchronously run a JS-AWAITER on the main thread,
+    // there is a time window left open between the completion of the function
+    // and when the worker receives control back.  This makes a race condition
+    // for any resolve() or reject() signals which might happen between when
+    // the main execution finishes and when the worker enters a wait state
+    // for the result.  So before the blocking call to main returns control,
+    // we slip in a lock of a mutex to prevent a signal being sent before the
+    // worker is ready for it.
+    //
+    EXTERN_C void RL_rebTakeAwaitLock_internal(intptr_t frame_id)
+    {
+        TRACE("reb.TakeAwaitLock_internal()");
+        pthread_mutex_lock(&PG_Await_Mutex);
+    }
+#endif
 
 
 //
@@ -829,6 +757,7 @@ EXTERN_C void RL_rebSignalRejectNative_internal(intptr_t frame_id) {
 //
 REB_R JavaScript_Dispatcher(REBFRM *f)
 {
+    heapaddr_t native_id = Native_Id_For_Action(FRM_PHASE(f));
     heapaddr_t frame_id = Frame_Id_For_Frame_May_Outlive_Call(f);
 
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
@@ -836,17 +765,35 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
 
     TRACE("JavaScript_Dispatcher(%s)", Frame_Label_Or_Anonymous_UTF8(f));
 
-    struct Reb_Promise_Info *info = PG_Workers;
+    struct Reb_Promise_Info *info = PG_Promises;
     if (is_awaiter) {
         if (info == nullptr)
             fail ("JavaScript /AWAITER can only be called from rebPromise()");
         if (info->state != PROMISE_STATE_RUNNING)
             fail ("Cannot call JavaScript /AWAITER during another await");
     }
+    else
+        assert(not info or info->state == PROMISE_STATE_RUNNING);
+
+    if (PG_Native_State != NATIVE_STATE_NONE)
+        assert(!"Cannot call JS-NATIVE during JS-NATIVE at this time");
+
+    assert(IS_POINTER_END_DEBUG(PG_Native_Result));
+    PG_Native_State = NATIVE_STATE_RUNNING;
+
+    // Whether it's an awaiter or not (e.g. whether it has an `async` JS
+    // function as the body), the same interface is used to call the function.
+    // It will communicate whether an error happened or not through the
+    // `rebSignalResolveNative()` or `rebSignalRejectNative()` either way,
+    // and the results are fetched with the same mechanic.
 
   #if defined(USE_EMTERPRETER)  // on MAIN thread (by definition)
 
-    On_Main_So_Invoke_Js_Body(f);
+    EM_ASM(
+        { reb.RunNative_internal($0, $1) },
+        native_id,  // => $0
+        frame_id  // => $1
+    );
 
     // We don't know exactly what MAIN event is going to trigger and cause a
     // resolve() to happen.  It could be a timer, it could be a fetch(),
@@ -869,7 +816,7 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
     }
     TRACE("JavaScript_Dispatcher() => end sleep_with_yield() loop");
 
-    PG_Native_Result = Get_Native_Result(frame_id);
+    Sync_Native_Result(frame_id);
   #else
     // If we're already on the MAIN thread, then we're just calling a JS
     // service routine with no need to yield.
@@ -893,38 +840,56 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
         //
         assert(not is_awaiter);
 
-        On_Main_So_Invoke_Js_Body(f);
+        EM_ASM(
+            { reb.RunNative_internal($0, $1) },
+            native_id,  // => $0
+            frame_id  // => $1
+        );
+
+        // Because we were on the main thread we know it's not an awaiter,
+        // and hence it must have been resolved while the body was run.
+        // (We wouldn't be able to wait for an asynchronous signal on the
+        // GUI thread if we blocked here!  This is why reb.Promise() exists!)
     }
     else {
         // We are not using the emterpreter, so we have to block our return
         // on a condition, while signaling the MAIN that it can go ahead and
         // run.  The MAIN has to actually run the JS code.
 
-        assert(IS_POINTER_END_DEBUG(PG_Native_Result));
+        info->state = PROMISE_STATE_AWAITING;
 
-        // We are going to be signaled when a resolve() or reject() happens,
-        // but might miss the signal if there weren't coordination that the
-        // signal would only be given when we were waiting.
-        //
-        pthread_mutex_lock(&PG_Worker_Mutex);
+        MAIN_THREAD_EM_ASM(  // blocking call
+            {
+                reb.RunNative_internal($0, $1);  // `;` is necessary here 
+                _RL_rebTakeAwaitLock_internal();
+            },
+            native_id,  // => $0
+            frame_id  // => $1
+        );
 
-        TRACE("JavaScript_Dispatcher() => signaling MAIN wakeup");
-        pthread_mutex_lock(&PG_Main_Mutex);
-        pthread_cond_signal(&PG_Main_Cond);
-        pthread_mutex_unlock(&PG_Main_Mutex);
+        // While there may have been a resolve or reject during the execution,
+        // we guarantee that between then and now there hasn't been one that
+        // the signal for could be missed...see rebTakeWorkerLock_internal().
 
-        // Block until the MAIN says that what we're awaiting on is resolved
-        // (or rejected...TBD)
-        //
-        TRACE("JavaScript_Dispatcher() => suspending for native result");
-        pthread_cond_wait(&PG_Worker_Cond, &PG_Worker_Mutex);
-        pthread_mutex_unlock(&PG_Worker_Mutex);
-        TRACE("JavaScript_Dispatcher() => native result was signaled");
+        if (PG_Native_State == NATIVE_STATE_RUNNING) {  // no result...*yet*
+            TRACE("JavaScript_Dispatcher() => suspending for native result");
+            pthread_cond_wait(&PG_Await_Cond, &PG_Await_Mutex);
+            TRACE("JavaScript_Dispatcher() => native result was signaled");
+        }
+        else {
+            assert(
+                PG_Native_State == NATIVE_STATE_REJECTED
+                or PG_Native_State == NATIVE_STATE_RESOLVED
+            );
+            TRACE("JavaScript_Dispatcher() => function result during body");
+        }
 
-        // MAIN should be locked again at this point
+        info->state = PROMISE_STATE_RUNNING;
+        pthread_mutex_unlock(&PG_Await_Mutex);
     }
   #endif
 
+    assert(not IS_POINTER_END_DEBUG(PG_Native_Result));
     if (PG_Native_Result == nullptr)
         Init_Nulled(f->out);
     else {
@@ -941,7 +906,7 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
     // a way that breaks asm.js execution and bypasses the cleanup needed)
     // 
     if (PG_Native_State == NATIVE_STATE_REJECTED) {
-        
+
         // !!! Testing at the moment to see if a throw can at least not cause
         // a crash (?)  The throw currently goes up and gets caught by
         // someone, can we see what happens?
@@ -957,8 +922,90 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
 }
 
 
+// The table mapping IDs to JavaScript objects only exists on the main thread.
+// See notes at callsite about why MAIN_THREAD_EM_ASM() can't run "scripts".
+// Thus the JS-NATIVE generator calls this as a service routine that it can
+// ask to be executed by proxy to the main thread.
 //
-//  export js-native-mainthread: native [
+EXTERN_C void RL_rebRegisterNative_internal(intptr_t native_id) {
+    ASSERT_ON_MAIN_THREAD();
+
+    REBACT *act = ACT(Pointer_From_Heapaddr(native_id));
+
+    REBARR *details = ACT_DETAILS(act);
+    RELVAL *source = ARR_AT(details, IDX_NATIVE_BODY);
+    bool is_awaiter = VAL_LOGIC(ARR_AT(details, IDX_JS_NATIVE_IS_AWAITER));
+
+    // The generation of the function called by JavaScript.  It takes no
+    // arguments, as giving it arguments would make calling it more complex
+    // as well as introduce several issues regarding mapping legal Rebol
+    // names to names for JavaScript parameters.  libRebol APIs must be used
+    // to access the arguments out of the frame.
+
+    DECLARE_MOLD (mo);
+    Push_Mold(mo);
+
+    Append_Ascii(mo->series, "let f = ");  // variable we store function in
+
+    // By not using `new function` we avoid escaping of the string literal.
+    // We also have the option of making it an async function in the future
+    // if we wanted to...which would allow `await` in the body.
+
+    // A JS-AWAITER can only be triggered from Rebol on the worker thread as
+    // part of a rebPromise().  Making it an async function means it will
+    // return an ES6 Promise, and allows use of the AWAIT JavaScript feature
+    // inside the body:
+    //
+    // https://javascript.info/async-await
+    //
+    // Using plain return inside an async function returns a fulfilled promise
+    // while using AWAIT causes the execution to pause and return a pending
+    // promise.  When that promise is fulfilled it will jump back in and
+    // pick up code on the line after that AWAIT.
+    //
+    if (is_awaiter)
+        Append_Ascii(mo->series, "async ");
+
+    // We do not try to auto-translate the Rebol arguments into JS args.  It
+    // would make calling it more complex, and introduce several issues of
+    // mapping Rebol names to legal JavaScript identifiers.  reb.Arg() or
+    // reb.ArgR() must be used to access the arguments out of the frame.
+    //
+    Append_Ascii(mo->series, "function () {");
+    Append_String(mo->series, source, VAL_LEN_AT(source));
+    Append_Ascii(mo->series, "};\n");  // end `function() {`
+
+    if (is_awaiter)
+        Append_Ascii(mo->series, "f.is_awaiter = true;\n");
+    else
+        Append_Ascii(mo->series, "f.is_awaiter = false;\n");
+
+    REBYTE id_buf[60];  // !!! Why 60?  Copied from MF_Integer()
+    REBINT len = Emit_Integer(id_buf, native_id);
+
+    // Rebol cannot hold onto JavaScript objects directly, so there has to be
+    // a table mapping some numeric ID (that we *can* hold onto) to the
+    // corresponding JS function entity.
+    //
+    Append_Ascii(mo->series, "reb.RegisterId_internal(");
+    Append_Ascii_Len(mo->series, s_cast(id_buf), len);
+    Append_Ascii(mo->series, ", f);\n");
+
+    // The javascript code for registering the function body is now the last
+    // thing in the mold buffer.  Get a pointer to it.
+    //
+    TERM_SERIES(SER(mo->series));
+    const char *js = cs_cast(BIN_AT(SER(mo->series), mo->offset));
+
+    TRACE("Registering native_id %ld", cast(long, native_id));
+    emscripten_run_script(js);
+
+    Drop_Mold(mo);
+}
+
+
+//
+//  export js-native: native [
 //
 //  {Create ACTION! from textual JavaScript code, works only on main thread}
 //
@@ -966,29 +1013,14 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
 //      spec "Function specification (similar to the one used by FUNCTION)"
 //          [block!]
 //      source "JavaScript code as a text string" [text!]
-//      /awaiter "implicit resolve()/reject() parameters signal return result"
+//      /awaiter "Uses async JS function, invocation will implicitly `await`"
 //  ]
 //
-REBNATIVE(js_native_mainthread)
-//
-// !!! As a temporary workaround to make sure all JS-NATIVEs get registered
-// on the main thread, the JS-NATIVE itself runs JavaScript which then calls
-// this function.  It thus very inefficiently reuses the code for proxying
-// natives to the main thread.  But it runs through the right code path
-// and shows what mechanism we should reuse (just in a better way).
+REBNATIVE(js_native)
 //
 // Note: specialized as JS-AWAITER in %ext-javascript-init.reb
 {
-    JAVASCRIPT_INCLUDE_PARAMS_OF_JS_NATIVE_MAINTHREAD;
-
-    // The use of the worker is for running Rebol code, when that code may
-    // need to hold its state in suspended animation while JavaScript runs.
-    // But the JavaScript *always* runs on the main/GUI thread.  So the
-    // table matching integers to code lives only on the GUI thread (and
-    // due to the rules of JavaScript web workers, is not visible to the
-    // worker thread).
-    //
-    ASSERT_ON_MAIN_THREAD();
+    JAVASCRIPT_INCLUDE_PARAMS_OF_JS_NATIVE;
 
     REBVAL *spec = ARG(spec);
     REBVAL *source = ARG(source);
@@ -1020,73 +1052,17 @@ REBNATIVE(js_native_mainthread)
     //
     Init_Logic(ARR_AT(details, IDX_JS_NATIVE_IS_AWAITER), REF(awaiter));
 
-    // The generation of the function called by JavaScript.  It takes no
-    // arguments, as giving it arguments would make calling it more complex
-    // as well as introduce several issues regarding mapping legal Rebol
-    // names to names for JavaScript parameters.  libRebol APIs must be used
-    // to access the arguments out of the frame.
-
-    DECLARE_MOLD (mo);
-    Push_Mold(mo);
-
-    Append_Ascii(mo->series, "let f =");  // variable we store function in
-
-    // By not using `new function` we avoid escaping of the string literal.
-    // We also have the option of making it an async function in the future
-    // if we wanted to...which would allow `await` in the body.
-
-    // A JS-AWAITER can only be triggered from Rebol on the worker thread as
-    // part of a rebPromise().  Making it an async function means it will
-    // return an ES6 Promise, and allows use of the AWAIT JavaScript feature
-    // inside the body:
+    // In the pthread build, if we're on the worker we have to synchronously
+    // run the registration on the main thread.  Continuing without blocking
+    // would be bad (what if they run the function right after declaring it?)
     //
-    // https://javascript.info/async-await
+    // However, there is no `main_thread_emscripten_run_script()`.  :-(
+    // But there is MAIN_THREAD_EM_ASM(), so call a service routine w/that.
+    // (The EM_ASMs compile JS inline directly with limited parameterization.
+    // If we tried to use it with the text of a whole function body to add
+    // to JS here, we'd have to escape it for `eval()-ing`...it gets ugly.)
     //
-    // Using plain return inside an async function returns a fulfilled promise
-    // while using AWAIT causes the execution to pause and return a pending
-    // promise.  When that promise is fulfilled it will jump back in and
-    // pick up code on the line after that AWAIT.
-    //
-    if (REF(awaiter))
-        Append_Ascii(mo->series, "async ");
-
-    // We do not try to auto-translate the Rebol arguments into JS args.  It
-    // would make calling it more complex, and introduce several issues of
-    // mapping Rebol names to legal JavaScript identifiers.  reb.Arg() or
-    // reb.ArgR() must be used to access the arguments out of the frame.
-    //
-    Append_Ascii(mo->series, "function () {");
-
-    Append_String(mo->series, source, VAL_LEN_AT(source));
-
-    Append_Ascii(mo->series, "};\n");  // end `function() {`
-
-    if (REF(awaiter))
-        Append_Ascii(mo->series, "f.is_awaiter = true;\n");
-    else
-        Append_Ascii(mo->series, "f.is_awaiter = false;\n");
-
-    REBYTE id_buf[60];  // !!! Why 60?  Copied from MF_Integer()
-    REBINT len = Emit_Integer(id_buf, native_id);
-
-    // Rebol cannot hold onto JavaScript objects directly, so there has to be
-    // a table mapping some numeric ID (that we *can* hold onto) to the
-    // corresponding JS function entity.
-    //
-    Append_Ascii(mo->series, "reb.RegisterId_internal(");
-    Append_Ascii_Len(mo->series, s_cast(id_buf), len);
-    Append_Ascii(mo->series, ", f);");
-
-    // The javascript code for registering the function body is now the last
-    // thing in the mold buffer.  Get a pointer to it.
-    //
-    TERM_SERIES(SER(mo->series));
-    const char *js = cs_cast(BIN_AT(SER(mo->series), mo->offset));
-
-    TRACE("Registering native_id %d", native_id);
-    emscripten_run_script(js);
-
-    Drop_Mold(mo);
+    MAIN_THREAD_EM_ASM("_RL_rebRegisterNative_internal($0)", native_id);
 
     // !!! Natives on the stack can specify where APIs like reb.Run() should
     // look for bindings.  For the moment, set user natives to use the user
@@ -1129,8 +1105,6 @@ REBNATIVE(init_javascript_extension)
     int ret = 0;
 
     PG_Main_Thread = pthread_self();  // remember for debug checks
-    ret |= pthread_mutex_init(&PG_Main_Mutex, nullptr);
-    ret |= pthread_cond_init(&PG_Main_Cond, nullptr);
 
     ret |= pthread_create(
         &PG_Worker_Thread,
@@ -1138,14 +1112,14 @@ REBNATIVE(init_javascript_extension)
         &promise_worker,
         m_cast(REBVAL*, END_NODE)  // unused arg (reads global state directly)
     );
-    ret |= pthread_mutex_init(&PG_Worker_Mutex, nullptr);
-    ret |= pthread_cond_init(&PG_Worker_Cond, nullptr);
+    ret |= pthread_mutex_init(&PG_Promise_Mutex, nullptr);
+    ret |= pthread_cond_init(&PG_Promise_Cond, nullptr);
+    ret |= pthread_mutex_init(&PG_Await_Mutex, nullptr);
+    ret |= pthread_cond_init(&PG_Await_Cond, nullptr);
 
     if (ret != 0)
         fail ("non-zero pthread API result in INIT-JAVASCRIPT-EXTENSION");
   #endif
-
-    ENDIFY_POINTER_IF_DEBUG(PG_Promise_Result);
 
     ENDIFY_POINTER_IF_DEBUG(PG_Native_Result);
     PG_Native_State = NATIVE_STATE_NONE;

@@ -1436,7 +1436,9 @@ prep: make rebmake/entry-class [
             {GIT_COMMIT=$(GIT_COMMIT)}
         ]
         keep [{$(REBOL)} tools-dir/make-host-init.r]
-        keep [{$(REBOL)} tools-dir/make-reb-lib.r]
+        keep [{$(REBOL)} tools-dir/make-reb-lib.r
+            unspaced [{OS_ID=} system-config/id]
+        ]
 
         for-each ext all-extensions [
             keep [{$(REBOL)} tools-dir/prep-extension.r

@@ -250,10 +250,12 @@ append api-objects make object! [
 
 append api-objects make object! [
     spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
-    name: "rebIdle_internal"  ; !!! see %mod-javascript.c
+    name: "rebRegisterNative_internal"  ; !!! see %mod-javascript.c
     returns: "void"
-    paramlist: []
-    proto: "void rebIdle_internal(void)"
+    paramlist: ["intptr_t" native_id]
+    proto: unspaced [
+        "void rebRegisterNative_internal(intptr_t native_id)"
+    ]
     is-variadic: false
 ]
 
@@ -277,6 +279,41 @@ append api-objects make object! [
         "void rebSignalRejectNative_internal(intptr_t frame_id)"
     ]
     is-variadic: false
+]
+
+if args/OS_ID = "0.16.2" [  ; APIs for only for pthreads build
+    append api-objects make object! [
+        spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
+        name: "rebTakeAwaitLock_internal"  ; !!! see %mod-javascript.c
+        returns: "void"
+        paramlist: ["intptr_t" native_id]
+        proto: unspaced [
+            "void rebTakeAwaitLock_internal(void)"
+        ]
+        is-variadic: false
+    ]
+] else [  ; APIs only for emterpreter build
+    append api-objects make object! [
+        spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
+        name: "rebIdle_internal"  ; !!! see %mod-javascript.c
+        returns: "void"
+        paramlist: []
+        proto: "void rebIdle_internal(void)"
+        is-variadic: false
+    ]
+]
+
+if false [  ; Only used if DEBUG_JAVASCRIPT_SILENT_TRACE (how to know here?)
+    append api-objects make object! [
+        spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
+        name: "rebGetSilentTrace_internal"  ; !!! see %mod-javascript.c
+        returns: "intptr_t"
+        paramlist: []
+        proto: unspaced [
+            "intptr_t rebGetSilentTrace_internal(void)"
+        ]
+        is-variadic: false
+    ]
 ]
 
 
@@ -655,6 +692,15 @@ e-cwrap/emit {
         reb.UnregisterId_internal(promise_id)
     }
 }
+
+if false [  ; Only used if DEBUG_JAVASCRIPT_SILENT_TRACE (how to know here?)
+    e-cwrap/emit {
+        reb.GetSilentTrace_internal = function() {
+            return UTF8ToString(_RL_rebGetSilentTrace_internal())
+        }
+    }
+]
+
 e-cwrap/write-emitted
 
 
