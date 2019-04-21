@@ -1105,8 +1105,8 @@ fail: function [
 
 generate: function [ "Make a generator."
     init [block!] "Init code"
-    condition [block! blank!] "while condition"
-    iteration [block!] "m"
+    condition [block! blank!] "While condition"
+    iteration [block!] "Step code"
 ][
     words: make block! 2
     for-each x reduce [init condition iteration] [
@@ -1120,9 +1120,9 @@ generate: function [ "Make a generator."
     words: unique words
     spec: flatten map-each w words [reduce [<static> w]]
     append spec [<static> count]
-    insert spec [/reset init [block!]]
+    insert spec [/reset [block!]]
     body: compose/deep [
-        if reset [count: init return]
+        if reset [count: reset return]
         if block? count [
             result: bind count 'count
             count: 1
