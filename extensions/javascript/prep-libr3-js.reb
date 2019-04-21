@@ -540,58 +540,9 @@ e-cwrap/emit {
         if (!(id in RL_JS_NATIVES))
             throw Error("Can't dispatch " + id + " in JS_NATIVES table")
 
-        let native = RL_JS_NATIVES[id]
-
-        if (! native.is_awaiter) {  /* set on function object at creation */
-            var result
-            var rejected
-            try {
-                result = native()
-                rejected = false
-            }
-            catch(e) {
-                result = e
-                console.log(e)
-                rejected = true
-            }
-
-            if (result === undefined)  /* `return;` or `return undefined;` */
-                result = reb.Void()  /* equivalent to VOID! value return */
-            else if (result === null)  /* explicit, e.g. `return null;` */
-                result = 0
-            else if (Number.isInteger(result))
-                {}  /* treat as REBVAL* heap address (TBD: object wrap?) */
-            else
-                throw Error("JS-NATIVE must return null, undefined, REBVAL*")
-
-            /* store the result for consistency with emterpreter's asynchronous
-             * need to save JS value across emterpreter_sleep_with_yield().
-             * consistency also gives a way to differentiate failure from an
-             * ordinary return result.
-             */
-            RL_JS_NATIVES[frame_id] = result
-            if (rejected)
-                _RL_rebSignalRejectNative_internal(frame_id)
-            else
-                _RL_rebSignalResolveNative_internal(frame_id)
-            return
-        }
-
-        /* Is an `async` function and hence returns a Promise.  In JS, you
-         * can't synchronously determine if it is a resolved Promise, e.g.
-         *
-         *     async function f() { return 1020; }  // auto-promise-ifies it
-         *     f().then(function() { console.log("prints second"); });
-         *     console.log("prints first");  // doesn't care it's fulfilled
-         *
-         * Hence you have to pre-announce if you're writing a JS-AWAITER or
-         * plain JS-NATIVE (which doesn't use an async function)
-         */
-        native()
-          .then(function(res) {
-
+        let resolver = function(res) {
             if (arguments.length > 1)
-                throw Error("JS-AWAITER's resolve() takes 1 argument")
+                throw Error("JS-NATIVE's return/resolve() takes 1 argument")
 
             /* JS-AWAITER results become Rebol ACTION! returns, and must be
              * received by arbitrary Rebol code.  Hence they can't be any old
@@ -619,13 +570,16 @@ e-cwrap/emit {
             else if (typeof res !== "number") {
                 console.log("typeof " + typeof res)
                 console.log(res)
-                throw Error("AWAITER resolve takes REBVAL*, null, undefined")
+                throw Error(
+                    "JS-NATIVE return/resolve takes REBVAL*, null, undefined"
+                )
             }
 
             RL_JS_NATIVES[frame_id] = res  /* stow result */
             _RL_rebSignalResolveNative_internal(frame_id)
+        }
 
-          }).catch(function(rej) {
+        let rejecter = function(rej) {
             console.log(rej)
 
             if (arguments.length > 1)
@@ -644,13 +598,32 @@ e-cwrap/emit {
 
             RL_JS_NATIVES[frame_id] = rej  /* stow result */
             _RL_rebSignalRejectNative_internal(frame_id)
-          })
+        }
 
-        /* Just fall through back to Idle, who lets the GUI loop spin back
-         * to where something should hopefully trigger the then() or the
-         * catch() branches above to either let the calling rebPromise() keep
-         * going or be rejected.
-         */
+        let native = RL_JS_NATIVES[id]
+        if (native.is_awaiter) {
+            native().then(resolver).catch(rejecter)
+
+            /* resolve() or reject() cannot be signaled yet...JavaScript does
+             * not distinguish synchronously fulfilled results:
+             *
+             *     async function f() { return 1020; }  // auto-promise-ifies
+             *     f().then(function() { console.log("prints second"); });
+             *     console.log("prints first");  // doesn't care it's resolved
+             *
+             * Hence the caller must wait for a resolve/reject signal.
+             */
+        }
+        else {
+            try {
+                resolver(native())
+            }
+            catch(e) {
+                rejecter(e)
+            }
+
+            /* resolve() or reject() guaranteed to be signaled in this case */
+        }
     }
 
     reb.GetNativeResult_internal = function(frame_id) {
@@ -665,6 +638,13 @@ e-cwrap/emit {
         if (result === undefined)
             return reb.Void()
         return result
+    }
+
+    reb.GetNativeError_internal = function(frame_id) {
+        var result = RL_JS_NATIVES[frame_id]  /* resolution or rejection */
+        reb.UnregisterId_internal(frame_id)
+
+        return reb.Value("make error!", reb.T(result.toString()))
     }
 
     reb.ResolvePromise_internal = function(promise_id, rebval) {

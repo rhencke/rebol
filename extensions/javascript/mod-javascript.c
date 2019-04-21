@@ -252,9 +252,19 @@ static REBCTX *js_throw_nocatch_converter(REBVAL *thrown)
     // to do maneuvers to get the information off the GUI thread and to
     // remove the thrown object from the table.  First test the concept.
 
-    return Error_User(
-        "JavaScript error not in rebPromise()! (TBD: extract string here)"
+    assert(IS_HANDLE(VAL_THROWN_LABEL(thrown)));
+    CATCH_THROWN(thrown, thrown);
+    assert(IS_FRAME(thrown));
+
+    heapaddr_t frame_id = Heapaddr_From_Pointer(VAL_NODE(thrown));
+
+    heapaddr_t error_addr = MAIN_THREAD_EM_ASM_INT(
+        { return reb.GetNativeError_internal($0) },
+        frame_id  // => $0
     );
+
+    REBVAL *error = VAL(Pointer_From_Heapaddr(error_addr));
+    return VAL_CONTEXT(error);
 }
 
 inline static REB_R Init_Throw_For_Frame_Id(REBVAL *out, heapaddr_t frame_id)
@@ -715,8 +725,13 @@ EXTERN_C void RL_rebSignalRejectNative_internal(intptr_t frame_id) {
     // to unwind that asm.js stack safely, so we could only call the
     // reject here for pthread.  Pipe everything through idle so both
     // emterpreter and not run the reject on GUI from the same stack.
+
+    // * The JavaScript was running on the GUI thread
+    // * What is raised to JavaScript is always a JavaScript error, even if
+    //   it is a proxy error for something that happened in a Rebol call.
+    // * We leave the error in the table.
     //
-    Sync_Native_Result(frame_id);  // must get now if worker is to receive it
+    /* Sync_Native_Result(frame_id); */
 
     if (info and info->state == PROMISE_STATE_AWAITING) {
         pthread_cond_signal(&PG_Await_Cond);  // no effect if nothing waiting
@@ -889,16 +904,6 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
     }
   #endif
 
-    assert(not IS_POINTER_END_DEBUG(PG_Native_Result));
-    if (PG_Native_Result == nullptr)
-        Init_Nulled(f->out);
-    else {
-        assert(not IS_NULLED(PG_Native_Result));  // API uses nullptr only
-        Move_Value(f->out, PG_Native_Result);
-        rebRelease(PG_Native_Result);
-    }
-    ENDIFY_POINTER_IF_DEBUG(PG_Native_Result);
-
     // See notes on frame_id above for how the context's heap address is used
     // to identify the thrown JavaScript object in a mapping table, so that
     // when this throw reaches the top it can be supplied to the caller.
@@ -912,9 +917,18 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
         // someone, can we see what happens?
 
         PG_Native_State = NATIVE_STATE_NONE;
-
         return Init_Throw_For_Frame_Id(f->out, frame_id);
     }
+
+    assert(not IS_POINTER_END_DEBUG(PG_Native_Result));
+    if (PG_Native_Result == nullptr)
+        Init_Nulled(f->out);
+    else {
+        assert(not IS_NULLED(PG_Native_Result));  // API uses nullptr only
+        Move_Value(f->out, PG_Native_Result);
+        rebRelease(PG_Native_Result);
+    }
+    ENDIFY_POINTER_IF_DEBUG(PG_Native_Result);
 
     assert(PG_Native_State == NATIVE_STATE_RESOLVED);
     PG_Native_State = NATIVE_STATE_NONE;
