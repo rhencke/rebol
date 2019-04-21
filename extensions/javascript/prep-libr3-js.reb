@@ -470,8 +470,8 @@ e-cwrap/emit {
         else
             throw Error("Unknown array type in reb.Binary " + typeof array)
 
-        let binary = reb.UninitializedBinary_internal(view.length)
-        let head = reb.BinaryHead_internal(binary)
+        let binary = _RL_rebUninitializedBinary_internal(view.length)
+        let head = _RL_rebBinaryHead_internal(binary)
         writeArrayToMemory(view, head)  /* uses Int8Array.set() on HEAP8 */
 
         return binary

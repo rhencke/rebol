@@ -49,6 +49,11 @@
 // * If the code block in the EM_ASM() family of functions contains a comma,
 //   then wrap the whole code block inside parentheses ().
 //
+// * Use of the MAIN_THREAD_EM_ASM functions are being reviewed.  But the
+//   main weak point is that when you're finished running a JS-AWAITER you
+//   want the worker thread to stay blocked...it has to, because it has no
+//   result to return yet.
+//
 
 // Older emscripten.h do an #include of <stdio.h>, so %sys-core.h must allow
 // it until this: https://github.com/emscripten-core/emscripten/pull/8089
@@ -82,12 +87,6 @@
     static pthread_t PG_Worker_Thread;
     static pthread_mutex_t PG_Worker_Mutex;
     static pthread_cond_t PG_Worker_Cond;
-
-    // Information cannot be exchanged between the worker thread and the main
-    // thread via JavaScript values, so they are proxied between threads as
-    // heap pointers via these globals.
-    //
-    static REBVAL *PG_Promise_Result;
 
     #define ON_MAIN_THREAD \
         pthread_equal(pthread_self(), PG_Main_Thread)
@@ -336,6 +335,12 @@ enum Reb_Native_State {
     NATIVE_STATE_REJECTED
 };
 
+// Information cannot be exchanged between the worker thread and the main
+// thread via JavaScript values, so they are proxied between threads as
+// heap pointers via these globals.
+//
+static REBVAL *PG_Promise_Result;
+
 static REBVAL *PG_Native_Result;
 static enum Reb_Native_State PG_Native_State;
 
@@ -440,6 +445,53 @@ REBVAL *Run_Array_Dangerous(void *opaque) {
 }
 
 
+void RunPromise(void)
+{
+    assert(IS_POINTER_END_DEBUG(PG_Promise_Result));  // result returned here
+
+    struct Reb_Promise_Info *info = PG_Workers;
+    assert(info->state == PROMISE_STATE_QUEUEING);
+    info->state = PROMISE_STATE_RUNNING;
+
+    REBARR *code = ARR(Pointer_From_Heapaddr(info->promise_id));
+    assert(NOT_SERIES_FLAG(code, MANAGED));  // took off so it didn't GC
+    SET_SERIES_FLAG(code, MANAGED);  // but need it back on to execute it
+
+    // We run the code using rebRescue() so that if there are errors, we
+    // will be able to trap them.  the difference between `throw()`
+    // and `reject()` in JS is subtle.
+    //
+    // https://stackoverflow.com/q/33445415/
+
+    struct ArrayAndBool x;  // bool needed to know if it failed
+    x.code = code;
+    PG_Promise_Result = rebRescue(&Run_Array_Dangerous, &x);
+
+    if (info->state == PROMISE_STATE_REJECTED) {
+        assert(IS_FRAME(PG_Promise_Result));
+        TRACE("RunPromise() => promise is rejecting due to...something (?)");
+    }
+    else {
+        assert(info->state == PROMISE_STATE_RUNNING);
+
+        if (x.failed) {
+            //
+            // Note this could be an uncaught throw error, raised by the
+            // Run_Array_Dangerous() itself...or a failure rebRescue()
+            // caught...
+            //
+            assert(IS_ERROR(PG_Promise_Result));
+            info->state = PROMISE_STATE_REJECTED;
+            TRACE("RunPromise() => promise is rejecting due to error");
+        }
+        else {
+            info->state = PROMISE_STATE_RESOLVED;
+            TRACE("RunPromise() => promise is resolving");
+        }
+    }
+}
+
+
 #if defined(USE_PTHREADS)
 
 // Worker pthread that loops, picks up promise work items, and runs the
@@ -465,44 +517,8 @@ void *promise_worker(void *vargp)
         TRACE("promise_worker() => got signal to start running promise");
 
         // There should be a promise ready to run if we're awoken here.
-
-        struct Reb_Promise_Info *info = PG_Workers;
-        REBARR *code = ARR(Pointer_From_Heapaddr(info->promise_id));
-        assert(IS_POINTER_END_DEBUG(PG_Promise_Result));
-        assert(info->state == PROMISE_STATE_QUEUEING);
-        info->state = PROMISE_STATE_RUNNING;
-
-        // We run the code using rebRescue() so that if there are errors, we
-        // will be able to trap them.  the difference between `throw()`
-        // and `reject()` in JS is subtle.
         //
-        // https://stackoverflow.com/q/33445415/
-
-        struct ArrayAndBool x;  // bool needed to know if it failed
-        x.code = code;
-        REBVAL *result = rebRescue(&Run_Array_Dangerous, &x);
-        if (info->state == PROMISE_STATE_REJECTED)
-            assert(IS_FRAME(result));
-        else {
-            assert(info->state == PROMISE_STATE_RUNNING);
-
-            if (x.failed) {
-                //
-                // Note this could be an uncaught throw error, raised by the
-                // Run_Array_Dangerous() itself...or a failure rebRescue()
-                // caught...
-                //
-                assert(IS_ERROR(result));
-                info->state = PROMISE_STATE_REJECTED;
-                TRACE("promise_worker() => error unblocked MAIN => reject");
-            }
-            else {
-                info->state = PROMISE_STATE_RESOLVED;
-                TRACE("promise_worker() => unblock MAIN => resolve");
-            }
-        }
-
-        PG_Promise_Result = result;
+        RunPromise();
 
         // Signal MAIN to unblock.  (Any time rebIdle() is unblocked, it needs
         // to check promise_result to see if it's ready, or if there's a
@@ -594,47 +610,14 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
 
     struct Reb_Promise_Info *info = PG_Workers;
 
-    // Each call to rebPromise() queues an idle cycle, but we never process
-    // more than one promise per idle.  (We may not finish a promise depending
-    // on how many JS-NATIVE and JS-AWAITER calls there are.)  There should
-    // always be at least one promise to be dealt with--maybe an unfinished
-    // one from before.
-    //
-    assert(info != nullptr);
-
-    REBARR *code = ARR(Pointer_From_Heapaddr(info->promise_id));
-    if (info->state == PROMISE_STATE_QUEUEING) {
-        assert(NOT_SERIES_FLAG(code, MANAGED));  // took off so it didn't GC
-        SET_SERIES_FLAG(code, MANAGED);  // but need it back on to execute it
-    }
-
-    REBVAL *result;
-
   #if defined(USE_EMTERPRETER)
-
-    assert(info->state == PROMISE_STATE_QUEUEING);
-    info->state = PROMISE_STATE_RUNNING;
 
     // The "simple" case: we actually stay on the MAIN thread, and JS-AWAITER
     // can call emscripten_sleep_with_yield()...which will just post any
     // requests to continue as a setTimeout().  Emscripten does all the work.
     //
     TRACE("rebIdle() => begin emterpreting promise code");
-
-    struct ArrayAndBool x;
-    x.code = code;
-    result = rebRescue(&Run_Array_Dangerous, &x);
-    assert(info->state == PROMISE_STATE_RUNNING);
-
-    if (x.failed) {
-        assert(IS_ERROR(result));
-        info->state = PROMISE_STATE_REJECTED;
-        TRACE("rebIdle() => error in emterpreted promise => reject");
-    }
-    else {
-        info->state = PROMISE_STATE_RESOLVED;
-        TRACE("rebIdle() => successful emterpreted promise => resolve");
-    }
+    RunPromise();
 
   #else  // PTHREAD model
 
@@ -679,15 +662,8 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
     // the promise thread should not be running right now.  Either it is
     // finished or it is suspended waiting on a condition to continue.
 
-    if (info->state == PROMISE_STATE_RESOLVED) {
-        result = PG_Promise_Result;
-        ENDIFY_POINTER_IF_DEBUG(PG_Promise_Result);
-    }
-    else if (info->state == PROMISE_STATE_REJECTED) {
-        result = PG_Promise_Result;
-        ENDIFY_POINTER_IF_DEBUG(PG_Promise_Result);
-    }
-    else {
+    if (info->state == PROMISE_STATE_RUNNING) {
+        //
         // We didn't finish, and the reason we're unblocking is because a
         // JS-NATIVE wants to run.  It wants us to run the body text of the
         // JavaScript here on the MAIN, because that's where it is useful.
@@ -706,35 +682,29 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
         // it called JavaScript to do some MAIN work.  Since any resolve() or
         // reject() requeues rebIdle() anyway, have that case handled by the
         // next run of rebIdle() vs. a goto above here.
-
-        result = m_cast(REBVAL*, END_NODE);  // avoid compiler warning
     }
   #endif
 
-    if (
-        info->state == PROMISE_STATE_AWAITING
-        or info->state == PROMISE_STATE_RUNNING
-    ){
+    if (info->state == PROMISE_STATE_RUNNING) {
         // Not finished
     }
     else {
-        if (IS_NULLED(result)) {
-            rebRelease(result);
-            result = nullptr;
-        }
+        assert(not PG_Promise_Result or not IS_NULLED(PG_Promise_Result));
 
         if (info->state == PROMISE_STATE_RESOLVED) {
             EM_ASM(
                 { reb.ResolvePromise_internal($0, $1); },
                 info->promise_id,  // => $0 (table entry will be freed)
-                result  // => $1 (recipient takes over handle)
+                PG_Promise_Result  // => $1 (recipient takes over handle)
             );
         }
         else {
             assert(info->state == PROMISE_STATE_REJECTED);
 
-            assert(IS_FRAME(result));  // Note: Expired, can't use VAL_CONTEXT
-            REBNOD *frame_ctx = VAL_NODE(result);
+            // Note: Expired, can't use VAL_CONTEXT
+            //
+            assert(IS_FRAME(PG_Promise_Result));
+            REBNOD *frame_ctx = VAL_NODE(PG_Promise_Result);
             heapaddr_t throw_id = Heapaddr_From_Pointer(frame_ctx);
 
             EM_ASM(
@@ -743,6 +713,9 @@ EXTERN_C void RL_rebIdle_internal(void)  // can be NO user JS code on stack!
                 throw_id  // => $1 (table entry will be freed)
             );
         }
+
+        rebRelease(PG_Promise_Result);
+        ENDIFY_POINTER_IF_DEBUG(PG_Promise_Result);
 
         assert(PG_Workers == info);
         PG_Workers = info->next;
@@ -1170,12 +1143,12 @@ REBNATIVE(init_javascript_extension)
 
     if (ret != 0)
         fail ("non-zero pthread API result in INIT-JAVASCRIPT-EXTENSION");
+  #endif
 
     ENDIFY_POINTER_IF_DEBUG(PG_Promise_Result);
 
     ENDIFY_POINTER_IF_DEBUG(PG_Native_Result);
     PG_Native_State = NATIVE_STATE_NONE;
-  #endif
 
     return Init_Void(D_OUT);
 }
