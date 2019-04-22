@@ -635,8 +635,8 @@ const REBYTE *Scan_Decimal(
 
     RESET_VAL_HEADER(out, REB_DECIMAL, CELL_MASK_NONE);
 
-    const char *se;
-    VAL_DECIMAL(out) = STRTOD(s_cast(buf), &se);
+    char *se;
+    VAL_DECIMAL(out) = strtod(s_cast(buf), &se);
 
     // !!! TBD: need check for NaN, and INF
 

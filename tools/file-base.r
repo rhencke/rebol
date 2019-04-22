@@ -66,11 +66,18 @@ core: [
     [
         f-dtoa.c
         
-        ; f-dtoa.c comes from a third party, and should be updated from their
-        ; code if they change their policies, including Spectre mitigation:
+        ; f-dtoa.c comes from a third party and is an old file.  There is an
+        ; updated package, but it is not a single-file...rather something with
+        ; a complex build process.  If it were to be updated, it would need
+        ; to be done through a process that extracted it in a way to fit into
+        ; the ethos of the Rebol build process.
         ;
-        <msc:/wd5045> ;-- https://stackoverflow.com/q/50399940
+        ; Hence we add tolerance for warnings that the file has.
+        ;
+        <msc:/wd5045>  ; https://stackoverflow.com/q/50399940
+        <msc:/wd4146>  ; unary minus operator applied to unsigned type
 
+        <no-sign-compare>
         <no-uninitialized>
         <implicit-fallthru>
     ]
