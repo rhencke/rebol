@@ -181,7 +181,6 @@ matrix:
         - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS=-  # requests inclusion of no extensions (default?)
 
-
     # [3] OSX x64, debug, clang++
     #
     # !!! Can't do all warnings as errors, because in clang the switch for
@@ -189,7 +188,7 @@ matrix:
     # prescriptive and annoying reason.
     #
     - os: osx
-      osx_image: xcode10.1
+      osx_image: xcode8.3  # try an older XCode (on OS X 10.12)
       language: cpp
       env:
         - NUMBER=3
@@ -221,7 +220,7 @@ matrix:
     # at least one build.
     #
     - os: osx
-      osx_image: xcode10.1 # try a newer XCode (on OS X 10.12)
+      osx_image: xcode9.1 # try a newer XCode (on OS X 10.12)
       language: cpp
       env:
         - NUMBER=4
@@ -244,7 +243,7 @@ matrix:
     # dependencies on things like ODBC and ZeroMQ, it doesn't include them.
     #
     - os: osx
-      osx_image: xcode10.1
+      osx_image: xcode7.3  # try an older XCode and OS X image (OS X 10.11)
       language: c
       env:
         - NUMBER=5
@@ -261,6 +260,7 @@ matrix:
        # The "Brew" OS X package installer appears to have stopped maintaining
        # their service on this older system.  It hangs.  So just don't use it.
        # Note: TCC extension has not been implemented for Mac
+
 
     # [6] Linux x86, release, gcc
     #
@@ -570,24 +570,37 @@ install:
       cd ..
     fi
 
+  - |
+    # Check PIP installation
+    #
+    if pip --version; then PIP=pip; fi
+    if pip2 --version; then PIP=pip2; fi
+    if pip3 --version; then PIP=pip3; fi
+    if $PIP --version
+    then echo PIP=$PIP
+    else echo "!!! PIP NOT FOUND !!!"; exit 1
+    fi
+
+  - |
     # Install the AWS command-line tool for uploading to s3 (which we use
     # instead of Travis's `deploy`)
-  - |
-    if [[ $TRAVIS_OS_NAME = osx ]]; then
-      pip3 install awscli --upgrade --user
-      export AWS="$(find /Users/travis/Library/Python/3.7 -name aws)"
+    if $PIP install awscli --upgrade --user
+    then echo AWS installed
     else
-      pip install awscli --upgrade --user
-      export AWS="$(which aws)"
+        echo "!!! AWS not installed !!!"
+        exit 1
     fi
-    echo ===== AWS=$AWS
-    $AWS --version
-    echo =====
-
+    
+    AWS="$(find /Users/travis/Library/Python/ -name aws)"
+    if aws --version; then AWS=aws;fi
+    if $AWS --version
+    then echo AWS=$AWS
+    else echo "!!! AWS NOT FOUND !!!"; exit 1
+    fi
 
 script:
-    # whatever home directory Travis put us in, build there
     - |
+      # whatever home directory Travis put us in, build there
       TOP_DIR="$(pwd)"  # https://stackoverflow.com/a/10795195/
 
     - |
