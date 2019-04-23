@@ -256,7 +256,9 @@ REBNATIVE(shove)
 //      source [
 //          <blank>  ; opts out of the DO, returns null
 //          block!  ; source code in block form
+//          sym-block!  ; same
 //          group!  ; same as block (or should it have some other nuance?)
+//          sym-group!  ; same
 //          text!  ; source code in text form
 //          binary!  ; treated as UTF-8
 //          url!  ; load code from URL via protocol
@@ -296,7 +298,9 @@ REBNATIVE(do)
 
     switch (VAL_TYPE(source)) {
       case REB_BLOCK:
-      case REB_GROUP: {
+      case REB_SYM_BLOCK:
+      case REB_GROUP:
+      case REB_SYM_GROUP: {
         if (Do_Any_Array_At_Throws(D_OUT, source, SPECIFIED))
             return R_THROWN;
         return D_OUT; }
