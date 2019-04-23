@@ -428,6 +428,15 @@ Special internal defines used by RT, not Host-Kit developers:
   #if 0
     #define DEBUG_BINDING_NAME_MATCH
   #endif
+
+    // Bitfields are poorly specified, and so even if it looks like your bits
+    // should pack into a struct exactly, they might not.  Only try this on
+    // Linux, where it has seemed to work out (MinGW64 build on Cygwin made
+    // invalid REBVAL sizes with this on)
+    //
+    #if GCC_VERSION_AT_LEAST(7, 0) && ENDIAN_LITTLE && TO_LINUX
+        #define DEBUG_USE_BITFIELD_HEADER_PUNS
+    #endif
 #endif
 
 

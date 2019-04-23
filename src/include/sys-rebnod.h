@@ -206,7 +206,11 @@ inline static uintptr_t FLAG_SECOND_UINT16(uint16_t u)
 // easily, so sync with %rebser.h or %rebval.h if they do...and double check
 // against the FLAG_BIT_LEFT(xx) numbers if anything seems fishy.
 //
-#if !defined(NDEBUG) && GCC_VERSION_AT_LEAST(7, 0) && ENDIAN_LITTLE
+// Note: Bitfields are notoriously underspecified, and there's no way to do
+// `#if sizeof(struct Reb_Series_Header_Pun) <= sizeof(uint32_t)`.  Hence
+// the DEBUG_USE_BITFIELD_HEADER_PUNS flag should be set with caution.
+//
+#ifdef DEBUG_USE_BITFIELD_HEADER_PUNS
     struct Reb_Series_Header_Pun {
         int _07_cell_always_false:1;
         int _06_stack:1;
@@ -330,7 +334,7 @@ union Reb_Header {
   #if !defined(NDEBUG)
     char bytes_pun[4];
 
-    #if GCC_VERSION_AT_LEAST(7, 0) && ENDIAN_LITTLE
+    #ifdef DEBUG_USE_BITFIELD_HEADER_PUNS
         struct Reb_Series_Header_Pun series_pun;
         struct Reb_Value_Header_Pun value_pun;
         struct Reb_Info_Header_Pun info_pun;

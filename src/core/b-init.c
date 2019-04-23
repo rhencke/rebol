@@ -66,7 +66,7 @@ static void Ensure_Basics(void)
     // file, line, and tick of their initialization (or last TOUCH_CELL()).
     // Define UNUSUAL_REBVAL_SIZE to bypass this check.
 
-    size_t sizeof_REBVAL = sizeof(REBVAL);
+    size_t sizeof_REBVAL = sizeof(REBVAL);  // in variable avoids warning
   #if defined(UNUSUAL_REBVAL_SIZE)
     if (sizeof_REBVAL % ALIGN_SIZE != 0)
         panic ("size of REBVAL does not evenly divide by ALIGN_SIZE");
@@ -83,16 +83,13 @@ static void Ensure_Basics(void)
 
     //=//// CHECK REBSER INFO PLACEMENT ///////////////////////////////////=//
 
-    // The REBSER is designed to place the `info` bits exactly after a REBVAL
-    // so they can do double-duty as also a terminator for that REBVAL when
-    // enumerated as an ARRAY.  Put the offest into a variable to avoid the
-    // constant-conditional-expression warning.
+    // REBSER places the `info` bits exactly after a REBVAL so they can do
+    // double-duty as terminator for that REBVAL when enumerated as an ARRAY.
 
-    size_t offsetof_REBSER_info = offsetof(REBSER, info);
-    if (
-        offsetof_REBSER_info - offsetof(REBSER, content) != sizeof(REBVAL)
-    ){
-        panic ("bad structure alignment for internal array termination");
+    blockscope {
+        size_t offset = offsetof(REBSER, info);  // in variable avoids warning
+        if (offset - offsetof(REBSER, content) != sizeof(REBVAL))
+            panic ("bad structure alignment for internal array termination");
     }
 
     //=//// CHECK BYTE-ORDERING SENSITIVE FLAGS //////////////////////////=//
