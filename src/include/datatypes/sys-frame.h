@@ -863,3 +863,19 @@ inline static void Drop_Action(REBFRM *f) {
 inline static void Enter_Native(REBFRM *f) {
     SET_SERIES_INFO(f->varlist, HOLD); // may or may not be managed
 }
+
+
+// Shared code for type checking the return result.  It's used by the
+// Returner_Dispatcher(), but custom dispatchers use it to (e.g. JS-NATIVE)
+//
+inline static void FAIL_IF_BAD_RETURN_TYPE(REBFRM *f) {
+    REBACT *phase = FRM_PHASE(f);
+    REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
+    assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
+
+    // Typeset bits for locals in frames are usually ignored, but the RETURN:
+    // local uses them for the return types of a function.
+    //
+    if (not Typecheck_Including_Quoteds(typeset, f->out))
+        fail (Error_Bad_Return_Type(f, VAL_TYPE(f->out)));
+}

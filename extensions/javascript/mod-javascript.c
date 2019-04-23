@@ -932,6 +932,8 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
 
     assert(PG_Native_State == NATIVE_STATE_RESOLVED);
     PG_Native_State = NATIVE_STATE_NONE;
+
+    FAIL_IF_BAD_RETURN_TYPE(f);
     return f->out;
 }
 
@@ -1039,7 +1041,11 @@ REBNATIVE(js_native)
     REBVAL *spec = ARG(spec);
     REBVAL *source = ARG(source);
 
-    REBARR *paramlist = Make_Paramlist_Managed_May_Fail(spec, MKF_MASK_NONE);
+    REBARR *paramlist = Make_Paramlist_Managed_May_Fail(
+        spec,
+        MKF_RETURN | MKF_KEYWORDS
+    );
+
     REBACT *native = Make_Action(
         paramlist,
         &JavaScript_Dispatcher,

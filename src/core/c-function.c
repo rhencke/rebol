@@ -1536,16 +1536,7 @@ REB_R Returner_Dispatcher(REBFRM *f)
     if (Interpreted_Dispatch_Throws(f->out, f))
         return R_THROWN;
 
-    REBACT *phase = FRM_PHASE(f);
-    REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
-    assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
-
-    // Typeset bits for locals in frames are usually ignored, but the RETURN:
-    // local uses them for the return types of a function.
-    //
-    if (not Typecheck_Including_Quoteds(typeset, f->out))
-        fail (Error_Bad_Return_Type(f, VAL_TYPE(f->out)));
-
+    FAIL_IF_BAD_RETURN_TYPE(f);
     return f->out;
 }
 
