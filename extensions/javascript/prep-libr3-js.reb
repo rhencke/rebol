@@ -318,11 +318,12 @@ if false [  ; Only used if DEBUG_JAVASCRIPT_SILENT_TRACE (how to know here?)
 
 
 map-each-api [
-    if find name "_internal" [  ; called as _RL_rebXXX(), don't need reb.XXX()
-        continue
+    any [
+        find name "_internal"  ; called as _RL_rebXXX(), don't need reb.XXX()
+        name = "rebStartup"  ; the reb.Startup() is offered by load_r3.js
+        name = "rebBytes"  ; JS variant returns array that knows its size
     ]
-
-    if name = "rebStartup" [  ; the reb.Startup() is offered by load_r3.js
+    then [
         continue
     ]
 
@@ -512,6 +513,24 @@ e-cwrap/emit {
         writeArrayToMemory(view, head)  /* uses Int8Array.set() on HEAP8 */
 
         return binary
+    }
+
+    /* While there's `writeArrayToMemory()` offered by the API, it doesn't
+     * seem like there's a similar function for reading.  Review:
+     *
+     * https://stackoverflow.com/a/53605865
+     */
+    reb.Bytes = function(binary) {
+        let ptr = _RL_rebBinaryAt_internal(binary)
+        let size = _RL_rebBinarySizeAt_internal(binary)
+
+        var view = new Uint8Array(Module.HEAPU8.buffer, ptr, size)
+
+        /* Copy method: https://stackoverflow.com/a/22114687/211160
+         */
+        var buffer = new ArrayBuffer(size)
+        new Uint8Array(buffer).set(view)
+        return buffer
     }
 
     /*

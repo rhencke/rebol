@@ -549,6 +549,24 @@ unsigned char *RL_rebBinaryHead_internal(const REBVAL *binary)
 
 
 //
+//  rebBinaryAt_internal: RL_API
+//
+unsigned char *RL_rebBinaryAt_internal(const REBVAL *binary)
+{
+    return VAL_BIN_AT(binary);
+}
+
+
+//
+//  rebBinarySizeAt_internal: RL_API
+//
+unsigned int RL_rebBinarySizeAt_internal(const REBVAL *binary)
+{
+    return VAL_LEN_AT(binary);
+}
+
+
+//
 //  rebSizedText: RL_API
 //
 // If utf8 does not contain valid UTF-8 data, this may fail().
