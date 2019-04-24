@@ -322,7 +322,20 @@ static void cleanup_js_native(const REBVAL *v) {
     REBARR *paramlist = ARR(VAL_HANDLE_POINTER(REBARR*, v));
     heapaddr_t native_id = Native_Id_For_Action(ACT(paramlist));
     assert(native_id < UINT_MAX);
-    EM_ASM(
+
+    // The GC can be triggered when we're running Rebol code on either the
+    // GUI thread or worker thread (in the USE_PTHREADS build).  If we're on
+    // the worker we have to ask the main thread to remove the table entry
+    // for the native.  We can do it asynchronously assuming that all these
+    // queued asynchronous requests will be processed before an ensuing
+    // synchronous request.
+    //
+    // !!! If a lot of JS items are GC'd, it's going to be inefficient to
+    // pile these onto the GUI.  Especially if the main thread is blocked for
+    // some reason.  All the pending GCs should probably be queued together
+    // in a batch, so `reb.UnregisterId_internal([304, 1020, ...])`.
+    //
+    MAIN_THREAD_ASYNC_EM_ASM(
         { reb.UnregisterId_internal($0); },  // don't leak map[int->JS funcs]
         native_id  // => $0
     );
