@@ -322,6 +322,7 @@ map-each-api [
         find name "_internal"  ; called as _RL_rebXXX(), don't need reb.XXX()
         name = "rebStartup"  ; the reb.Startup() is offered by load_r3.js
         name = "rebBytes"  ; JS variant returns array that knows its size
+        name = "rebHalt"  ; JS variant augmented to cancel JS promises too
     ]
     then [
         continue
@@ -541,7 +542,114 @@ e-cwrap/emit {
      * the ACTION! (turned into an integer)
      */
 
-    var RL_JS_NATIVES = {};
+    let RL_JS_NATIVES = {}  /* !!! would a Map be more performant? */
+    let RL_JS_CANCELABLES = new Set()  /* American spelling has one 'L' */
+    const RL_JS_ERROR_HALTED = Error("Halted by Escape, reb.Halt(), or HALT")
+
+    /* If we just used raw ES6 Promises there would be no way for a signal to
+     * cancel them.  Whether it was a setTimeout(), a fetch(), or otherwise...
+     * control would not be yielded.  So we wrap returned promises from a
+     * JS-AWAITER based on how Promises are made cancelable in React.js, and
+     * the C code EM_ASM()-calls the cancel() method on reb.Halt():
+     *
+     * https://stackoverflow.com/a/37492399
+     *
+     * !!! The original code returned an object which was not itself a
+     * promise, but provided a cancel method.  But we add cancel() to the
+     * promise itself, because an async function would not be able to
+     * return a "wrapped" promise to provide its own cancellation.
+     *
+     * !!! This is conceived as a generic API which someone might be able to
+     * use in the body of a JS-AWAITER (e.g. with `await`).  But right now,
+     * there's no way to find those promises.  All cancelable promises would
+     * have to be tracked, and when resolve() or reject() was called the
+     * tracking entries in the table would have to be removed...with all
+     * actively cancelable promises canceled by reb.Halt().  TBD.
+     */
+    reb.Cancelable = (promise) => {
+        /*
+         * We are going to put this promise into a set, which we call cancel()
+         * on in case of a reb.Halt().  This means even if a promise was
+         * already cancellable, we have to hook its resolve() and reject()
+         * to take it out of the set for normal non-canceled operation.
+         *
+         * !!! For efficiency we could fold this into reb.Promise(), so that
+         * if someone does `await reb.Promise()` they don't have to explicitly
+         * make it cancelable, but we'd have to recognize Rebol promises.
+         */
+
+        let cancel  /* defined inside promise scope, but added to promise */
+
+        let cancelable = new Promise((resolve, reject) => {
+            let wasCanceled = false
+
+            promise.then((val) => {
+                if (wasCanceled) {
+                    /* it was rejected already, just ignore... */
+                }
+                else {
+                    resolve(val)
+                    RL_JS_CANCELABLES.delete(cancelable)
+                }
+            })
+            promise.catch((error) => {
+                if (wasCanceled) {
+                    /* else it was rejected already, just ignore... */
+                }
+                else {
+                    reject(error)
+                    RL_JS_CANCELABLES.delete(cancelable)
+                }
+            })
+
+            cancel = function() {
+                if (typeof promise.cancel === 'function') {
+                    /*
+                     * Is there something we can do for interoperability with
+                     * a promise that was aleady cancellable (e.g. a BlueBird
+                     * cancellable promise)?  If we chain to that cancel, can
+                     * we still control what kind of error signal is given?
+                     *
+                     * http://bluebirdjs.com/docs/api/cancellation.html
+                     */
+                }
+
+                wasCanceled = true
+                reject(RL_JS_ERROR_HALTED)
+
+                /* !!! Supposedly it is safe to iterate and delete at the
+                 * same time.  If not, RL_JS_CANCELABLES would need to be
+                 * copied by the iteration to allow this deletion:
+                 *
+                 * https://stackoverflow.com/q/28306756/
+                 */
+                RL_JS_CANCELABLES.delete(cancelable)
+            }
+        })
+        cancelable.cancel = cancel
+
+        RL_JS_CANCELABLES.add(cancelable)  /* reb.Halt() calls if in set */
+        return cancelable
+    }
+
+    reb.Halt = function() {
+        /*
+         * Standard request to the interpreter not to perform any more Rebol
+         * evaluations...next evaluator step forces a THROW of a HALT signal.
+         */
+        _RL_rebHalt()
+
+        /* For JavaScript, we additionally take any JS Promises which were
+         * registered via reb.Cancelable() and ask them to cancel.  The
+         * cancelability is automatically added to any promises that are used
+         * as the return result for a JS-AWAITER, but the user can explicitly
+         * request augmentation for promises that they manually `await`.
+         */
+        RL_JS_CANCELABLES.forEach(promise => {
+            promise.cancel()
+        })
+    }
+
 
     reb.RegisterId_internal = function(id, fn) {
         if (id in RL_JS_NATIVES)
@@ -621,7 +729,12 @@ e-cwrap/emit {
 
         let native = RL_JS_NATIVES[id]
         if (native.is_awaiter) {
-            native().then(resolver).catch(rejecter)
+            /*
+             * There is no built in capability of ES6 promises to cancel, but
+             * we make the promise given back cancelable.
+             */
+            let promise = reb.Cancelable(native())
+            promise.then(resolver).catch(rejecter)  /* cancel causes reject */
 
             /* resolve() or reject() cannot be signaled yet...JavaScript does
              * not distinguish synchronously fulfilled results:
@@ -662,8 +775,10 @@ e-cwrap/emit {
     reb.GetNativeError_internal = function(frame_id) {
         var result = RL_JS_NATIVES[frame_id]  /* resolution or rejection */
         reb.UnregisterId_internal(frame_id)
+        if (result == RL_JS_ERROR_HALTED)
+            return 0  /* in halt state, can't run more code, will throw! */
 
-        return reb.Value("make error!", reb.T(result.toString()))
+        return reb.Value("make error!", reb.T(String(result)))
     }
 
     reb.ResolvePromise_internal = function(promise_id, rebval) {

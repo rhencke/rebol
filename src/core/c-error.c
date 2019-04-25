@@ -1183,12 +1183,6 @@ REBCTX *Error_No_Catch_For_Throw(REBVAL *thrown)
     DECLARE_LOCAL (arg);
     CATCH_THROWN(arg, thrown);
 
-    if (IS_HANDLE(label)) {
-        NOCATCH_FUNC *uncaught
-            = cast(NOCATCH_FUNC*, VAL_HANDLE_CFUNC(label));
-        return (*uncaught)(label);
-    }
-
     return Error_No_Catch_Raw(arg, label);
 }
 

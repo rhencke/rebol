@@ -124,12 +124,3 @@ static inline void CATCH_THROWN(
     SET_END(&TG_Thrown_Label_Debug);
   #endif
 }
-
-
-// A feature was added for the JavaScript build for when a HANDLE! is used
-// as an R_THROW label.  It waits until the last minute for an uncaught throw
-// until the function in the handle is used to stringify a JavaScript throw()
-// into a Rebol error.  If the JS code like a rebPromise() catches it first,
-// it will use that to get the original JS object.
-//
-typedef REBCTX* (NOCATCH_FUNC)(const REBVAL *thrown);

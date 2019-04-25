@@ -224,6 +224,27 @@ inline static heapaddr_t Heapaddr_From_Pointer(void *p) {
 inline static void* Pointer_From_Heapaddr(heapaddr_t addr)
   { return cast(void*, cast(intptr_t, addr)); }
 
+static void cleanup_js_object(const REBVAL *v) {
+    heapaddr_t id = Heapaddr_From_Pointer(VAL_HANDLE_VOID_POINTER(v));
+
+    // The GC can be triggered when we're running Rebol code on either the
+    // GUI thread or worker thread (in the USE_PTHREADS build).  If we're on
+    // the worker we have to ask the main thread to remove the table entry
+    // for the native.  We can do it asynchronously assuming that all these
+    // queued asynchronous requests will be processed before an ensuing
+    // synchronous request.
+    //
+    // !!! If a lot of JS items are GC'd, it's going to be inefficient to
+    // pile these onto the GUI.  Especially if the main thread is blocked for
+    // some reason.  All the pending GCs should probably be queued together
+    // in a batch, so `reb.UnregisterId_internal([304, 1020, ...])`.
+    //
+    MAIN_THREAD_ASYNC_EM_ASM(
+        { reb.UnregisterId_internal($0); },  // don't leak map[int->JS funcs]
+        id  // => $0
+    );
+}
+
 
 //=//// FRAME ID AND THROWING /////////////////////////////////////////////=//
 //
@@ -246,47 +267,6 @@ inline static heapaddr_t Frame_Id_For_Frame_May_Outlive_Call(REBFRM* f) {
     return Heapaddr_From_Pointer(frame_ctx);
 }
 
-static REBCTX *js_throw_nocatch_converter(REBVAL *thrown)
-{
-    // If this is a pthread build and we're not on the main thread, we have
-    // to do maneuvers to get the information off the GUI thread and to
-    // remove the thrown object from the table.  First test the concept.
-
-    assert(IS_HANDLE(VAL_THROWN_LABEL(thrown)));
-    CATCH_THROWN(thrown, thrown);
-    assert(IS_FRAME(thrown));
-
-    heapaddr_t frame_id = Heapaddr_From_Pointer(VAL_NODE(thrown));
-
-    heapaddr_t error_addr = MAIN_THREAD_EM_ASM_INT(
-        { return reb.GetNativeError_internal($0) },
-        frame_id  // => $0
-    );
-
-    REBVAL *error = VAL(Pointer_From_Heapaddr(error_addr));
-    return VAL_CONTEXT(error);
-}
-
-inline static REB_R Init_Throw_For_Frame_Id(REBVAL *out, heapaddr_t frame_id)
-{
-    // Note that once the throw is performed, the context will be expired.
-    // VAL_CONTEXT() will fail, so VAL_NODE() must be used to extract the
-    // heap address.
-    //
-    REBCTX *frame_ctx = CTX(Pointer_From_Heapaddr(frame_id));
-    REBVAL *frame = CTX_ARCHETYPE(frame_ctx);
-
-    // Use NOCATCH_FUNC trick in the throw machinery, so that we can bubble
-    // the throw up and see if we find a rebPromise() which is equipped to
-    // unpack a JavaScript object.  If not, the function converts to a
-    // Rebol ERROR! failure.
-    //
-    DECLARE_LOCAL (handle);
-    Init_Handle_Cfunc(handle, cast(CFUNC*, &js_throw_nocatch_converter));
-
-    return Init_Thrown_With_Label(out, frame, handle);
-}
-
 
 //=//// JS-NATIVE PER-ACTION! DETAILS /////////////////////////////////////=//
 //
@@ -307,7 +287,7 @@ inline static REB_R Init_Throw_For_Frame_Id(REBVAL *out, heapaddr_t frame_id)
 inline static heapaddr_t Native_Id_For_Action(REBACT *act)
   { return Heapaddr_From_Pointer(ACT_PARAMLIST(act)); }
 
-#define IDX_JS_NATIVE_HANDLE \
+#define IDX_JS_NATIVE_OBJECT \
     IDX_NATIVE_MAX  // handle gives hookpoint for GC of table entry
 
 #define IDX_JS_NATIVE_IS_AWAITER \
@@ -317,29 +297,6 @@ inline static heapaddr_t Native_Id_For_Action(REBACT *act)
     (IDX_JS_NATIVE_IS_AWAITER + 1)
 
 REB_R JavaScript_Dispatcher(REBFRM *f);
-
-static void cleanup_js_native(const REBVAL *v) {
-    REBARR *paramlist = ARR(VAL_HANDLE_POINTER(REBARR*, v));
-    heapaddr_t native_id = Native_Id_For_Action(ACT(paramlist));
-    assert(native_id < UINT_MAX);
-
-    // The GC can be triggered when we're running Rebol code on either the
-    // GUI thread or worker thread (in the USE_PTHREADS build).  If we're on
-    // the worker we have to ask the main thread to remove the table entry
-    // for the native.  We can do it asynchronously assuming that all these
-    // queued asynchronous requests will be processed before an ensuing
-    // synchronous request.
-    //
-    // !!! If a lot of JS items are GC'd, it's going to be inefficient to
-    // pile these onto the GUI.  Especially if the main thread is blocked for
-    // some reason.  All the pending GCs should probably be queued together
-    // in a batch, so `reb.UnregisterId_internal([304, 1020, ...])`.
-    //
-    MAIN_THREAD_ASYNC_EM_ASM(
-        { reb.UnregisterId_internal($0); },  // don't leak map[int->JS funcs]
-        native_id  // => $0
-    );
-}
 
 
 //=//// GLOBAL PROMISE STATE //////////////////////////////////////////////=//
@@ -482,12 +439,7 @@ REBVAL *Run_Array_Dangerous(void *opaque) {
 
     REBVAL *result = Alloc_Value();
     if (Do_At_Mutable_Throws(result, x->code, 0, SPECIFIED)) {
-        if (IS_HANDLE(VAL_THROWN_LABEL(result))) {
-            CATCH_THROWN(result, result);
-            assert(IS_FRAME(result));
-            return result;
-        }
-
+        TRACE("Run_Array_Dangerous() is converting a throw to a failure");
         fail (Error_No_Catch_For_Throw(result));
     }
 
@@ -517,6 +469,7 @@ void RunPromise(void)
     struct ArrayAndBool x;  // bool needed to know if it failed
     x.code = code;
     REBVAL *result = rebRescue(&Run_Array_Dangerous, &x);
+    TRACE("RunPromise() finished Run_Array_Dangerous()");
     assert(not result or not IS_NULLED(result));  // NULL is nullptr in API
 
     if (info->state == PROMISE_STATE_REJECTED) {
@@ -832,19 +785,19 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
     //
     TRACE("JavaScript_Dispatcher() => begin sleep_with_yield() loop");
     while (PG_Native_State == NATIVE_STATE_RUNNING) {  // !!! volatile?
-        if (Eval_Signals & SIG_HALT) {
-            //
-            // !!! TBD: How to handle halts?  We're spinning here, so the
-            // MAIN should theoretically have a chance to write some cancel.
-            // Is it a reject()?
-            //
-            Eval_Signals &= ~SIG_HALT; // don't preserve state once observed
-        }
-        emscripten_sleep_with_yield(50); // no resolve(), no reject() calls...
+        //
+        // Note that reb.Halt() can force promise rejection, by way of the
+        // triggering of a cancellation signal.  See implementation notes for
+        // `reb.CancelAllCancelables_internal()`.
+        //
+        emscripten_sleep_with_yield(50);
     }
     TRACE("JavaScript_Dispatcher() => end sleep_with_yield() loop");
 
-    Sync_Native_Result(frame_id);
+    if (PG_Native_State == NATIVE_STATE_RESOLVED)
+        Sync_Native_Result(frame_id);
+    else
+        assert(PG_Native_State == NATIVE_STATE_REJECTED);
   #else
     // If we're already on the MAIN thread, then we're just calling a JS
     // service routine with no need to yield.
@@ -904,12 +857,14 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
             pthread_cond_wait(&PG_Await_Cond, &PG_Await_Mutex);
             TRACE("JavaScript_Dispatcher() => native result was signaled");
         }
-        else {
-            assert(
-                PG_Native_State == NATIVE_STATE_REJECTED
-                or PG_Native_State == NATIVE_STATE_RESOLVED
-            );
+        else
             TRACE("JavaScript_Dispatcher() => function result during body");
+
+        if (PG_Native_State == NATIVE_STATE_REJECTED)
+            TRACE("JavaScript_Dispatcher() => native signaled reject");
+        else {
+            assert(PG_Native_State == NATIVE_STATE_RESOLVED);
+            TRACE("JavaScript_Dispatcher() => native signaled resolve");
         }
 
         info->state = PROMISE_STATE_RUNNING;
@@ -917,20 +872,53 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
     }
   #endif
 
-    // See notes on frame_id above for how the context's heap address is used
-    // to identify the thrown JavaScript object in a mapping table, so that
-    // when this throw reaches the top it can be supplied to the caller.
-    // (We don't want to unsafely EM_ASM() throw from within a Rebol call in
-    // a way that breaks asm.js execution and bypasses the cleanup needed)
-    // 
     if (PG_Native_State == NATIVE_STATE_REJECTED) {
-
-        // !!! Testing at the moment to see if a throw can at least not cause
-        // a crash (?)  The throw currently goes up and gets caught by
-        // someone, can we see what happens?
+        //
+        // !!! Ultimately we'd like to make it so JavaScript code catches the
+        // unmodified error that was throw()'n out of the JavaScript, or if
+        // Rebol code calls javascript that calls Rebol that errors...it would
+        // "tunnel" the error through and preserve the identity as best it
+        // could.  But for starters, the transformations are lossy.
 
         PG_Native_State = NATIVE_STATE_NONE;
-        return Init_Throw_For_Frame_Id(f->out, frame_id);
+
+        // !!! The GetNativeError_internal() code calls libRebol to build the
+        // error, via `reb.Value("make error!", ...)`.  But this means that
+        // if the evaluator has had a halt signaled, that would be the code
+        // that would convert it to a throw.  For now, the halt signal is
+        // communicated uniquely back to us as 0.
+        //
+        heapaddr_t error_addr = MAIN_THREAD_EM_ASM_INT(
+            { return reb.GetNativeError_internal($0) },
+            frame_id  // => $0
+        );
+
+        if (error_addr == 0) { // !!! signals a halt...not a normal error
+            TRACE("JavaScript_Dispatcher() => throwing a halt");
+
+            // We clear the signal now that we've reacted to it.  (If we did
+            // not, then when the console tried to continue running to handle
+            // the throw it would have problems.)
+            //
+            // !!! Is there a good time to do this where we might be able to
+            // call GetNativeError_internal()?  Or is this a good moment to
+            // know it's "handled"?
+            //
+            CLR_SIGNAL(SIG_HALT);
+
+            return Init_Thrown_With_Label(
+                f->out,
+                NULLED_CELL,
+                NAT_VALUE(halt)
+            );
+        }
+
+        REBVAL *error = VAL(Pointer_From_Heapaddr(error_addr));
+        REBCTX *ctx = VAL_CONTEXT(error);
+        rebRelease(error);  // !!! failing, so not actually needed (?)
+
+        TRACE("Calling fail() with error context");
+        fail (ctx);
     }
 
     assert(not IS_POINTER_END_DEBUG(PG_Native_Result));
@@ -975,10 +963,6 @@ EXTERN_C void RL_rebRegisterNative_internal(intptr_t native_id) {
     Push_Mold(mo);
 
     Append_Ascii(mo->series, "let f = ");  // variable we store function in
-
-    // By not using `new function` we avoid escaping of the string literal.
-    // We also have the option of making it an async function in the future
-    // if we wanted to...which would allow `await` in the body.
 
     // A JS-AWAITER can only be triggered from Rebol on the worker thread as
     // part of a rebPromise().  Making it an async function means it will
@@ -1107,10 +1091,10 @@ REBNATIVE(js_native)
     );
 
     Init_Handle_Cdata_Managed(
-        ARR_AT(details, IDX_JS_NATIVE_HANDLE),
+        ARR_AT(details, IDX_JS_NATIVE_OBJECT),
         ACT_PARAMLIST(native),
         0,
-        &cleanup_js_native
+        &cleanup_js_object
     );
 
     TERM_ARRAY_LEN(details, IDX_JS_NATIVE_MAX);
