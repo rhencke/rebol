@@ -46,7 +46,9 @@ args: parse-args system/options/args
 output-dir: system/options/path/prep
 mkdir/deep output-dir/include
 
-extensions: either any-string? :args/EXTENSIONS [split args/EXTENSIONS #":"][[]]
+extensions: map-each e (split args/EXTENSIONS #":") [
+    to-c-name e  ; so SOME-EXTENSION becomes SOME_EXTENSION for C macros
+]
 
 e: (make-emitter
     "Boot Modules" output-dir/include/tmp-boot-extensions.inc)
@@ -66,7 +68,7 @@ e/emit {
      */
     static COLLATE_CFUNC *Builtin_Extension_Collators[] = {
         RX_COLLATE_NAME($[Extensions]),
-        nullptr /* Just for guaranteeing length > 0, as C++ requires it */
+        nullptr  /* Just for guaranteeing length > 0, as C++ requires it */
     };
 }
 

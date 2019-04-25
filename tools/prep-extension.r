@@ -1,7 +1,7 @@
 REBOL [
     System: "REBOL [R3] Language Interpreter and Run-time Environment"
     Title: "Generate extention native header files"
-    File: %make-ext-native.r ;-- EMIT-HEADER uses to indicate emitting script
+    File: %prep-extension.r  ; EMIT-HEADER uses to indicate emitting script
     Rights: {
         Copyright 2017 Atronix Engineering
         Copyright 2017-2018 Rebol Open Source Contributors
@@ -310,7 +310,7 @@ script-compressed: gzip (script-uncompressed: read script-name)
 e/emit {
     #include "sys-core.h" /* !!! Could this just use "rebol.h"? */
 
-    #include "tmp-mod-${mod}.h" /* for REBNATIVE() forward decls */
+    #include "tmp-mod-$<mod>.h" /* for REBNATIVE() forward decls */
 
     /*
      * Gzip compression of $<Script-Name> (no \0 terminator in array)

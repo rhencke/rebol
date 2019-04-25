@@ -114,15 +114,22 @@ cscape: function [
                     bind code item
                 ]
             ]
-            sub: (try do code) or [copy "/* _ */"]  ; replaced in post-phase
+            sub: try do code
 
-            sub: switch mode [
-                #cname [to-c-name sub]
-                #unspaced [either block? sub [unspaced sub] [form sub]]
-                #delimit [delimit (unspaced [suffix newline]) sub]
+            sub: switch mode [  ; still want to make sure mode is good
+                #cname [try to-c-name sub]
+                #unspaced [
+                    case [
+                        blank? sub [blank]
+                        block? sub [unspaced sub]
+                        default [form sub]
+                    ]
+                ]
+                #delimit [try delimit (unspaced [suffix newline]) sub]
 
                 fail ["Invalid CSCAPE mode:" mode]
             ]
+            sub: default [copy "/* _ */"]  ; replaced in post phase
 
             case [
                 all [any-upper | not any-lower] [uppercase sub]

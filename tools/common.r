@@ -34,9 +34,9 @@ spaced-tab: unspaced [space space space space]
 to-c-name: function [
     {Take a Rebol value and transliterate it as a (likely) valid C identifier}
 
-    return: [text!]
+    return: [<opt> text!]
     value "Will be converted to text (via UNSPACED if BLOCK!)"
-        [text! block! word!]
+        [<blank> text! block! word!]
     /scope "#global or #local, see http://stackoverflow.com/questions/228783/"
         [issue!]
 ][

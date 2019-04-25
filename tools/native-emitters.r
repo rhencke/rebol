@@ -114,9 +114,9 @@ emit-include-params-macro: function [
         ]
     ]
 
-    prefix: either ext [unspaced [ext "_"]] [""]
+    prefix: try if ext [unspaced [ext "_"]]
     e/emit [prefix word items] {
-        #define $<PREFIX>INCLUDE_PARAMS_OF_${WORD} \
+        #define ${PREFIX}INCLUDE_PARAMS_OF_${WORD} \
             $[Items]; \
             Enter_Native(frame_);
     }
