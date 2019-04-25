@@ -60,7 +60,16 @@ toolset: [
     ld %emcc
 ]
 
-optimize: "z"  ; `-Oz` asks for even more extreme size optimization than `-Os`
+; Using the -Os or -Oz size optimizations will drastically improve the size
+; of the download...cutting it in as much as half compared to -O2.  But it
+; comes at a cost of not inlining, which winds up meaning more than just
+; slower in the browser: the intrinsic limit of how many JS/WASM functions it
+; lets be on the stack is hit sooner.  We can do per-file optimization choices
+; so the #prefer-O2-optimization flag is set on the %c-eval.c file, which
+; overrides this "s" optimization.  (It won't override `-Oz` which is supposed
+; to be a more extreme size optimization, but seems about the same.)
+;
+optimize: "s"
 
 extensions: make map! [
     BMP -

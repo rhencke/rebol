@@ -152,6 +152,8 @@ gen-obj: func [
     <local>
     flags
 ][
+    prefer-O2: false  ; overrides -Os setting to give -O2, e.g. for %c-eval.c
+
     flags: make block! 8
 
     ; Microsoft shouldn't bother having the C warning that foo() in standard
@@ -221,6 +223,11 @@ gen-obj: func [
                     <msc:/wd4127>
                 ]
 
+                #prefer-O2-optimization [
+                    prefer-O2: true
+                    _
+                ]
+
                 default [
                     ensure [text! tag!] flag
                 ]
@@ -231,7 +238,7 @@ gen-obj: func [
 
     append flags opt F  ; cflags
 
-    make rebmake/object-file-class compose/only [
+    make rebmake/object-file-class compose [
         source: to-file case [
             dir [join dir s]
             main [s]
@@ -244,6 +251,7 @@ gen-obj: func [
         cflags: either empty? flags [_] [flags]
         definitions: D
         includes: I
+        ((if prefer-O2 [[optimization: #prefer-O2-optimization]]))
     ]
 ]
 

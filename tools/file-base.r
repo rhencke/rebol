@@ -29,7 +29,17 @@ core: [
     c-do.c
     c-context.c
     c-error.c
-    c-eval.c
+    [
+        c-eval.c
+
+        ; There are several good reasons to optimize the evaluator itself even
+        ; if one is doing a "size-biased" build.  It's not just about wanting
+        ; the critical code to be faster--but also, since it recurses, if
+        ; stack frames aren't flattened out then they add up...and may blow
+        ; internal limits (like in a web browser for JS/WASM calls)
+        ;
+        #prefer-O2-optimization
+    ]
     c-function.c
     c-path.c
     c-port.c

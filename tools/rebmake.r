@@ -993,6 +993,16 @@ object-file-class: make object! [
         /E "only preprocessing"
     ][
         cc: any [compiler default-compiler]
+
+        if optimization = #prefer-O2-optimization [
+            any [
+                not set? 'O
+                O = "s"
+            ] then [
+                O: 2  ; don't override e.g. "-Oz"
+            ]
+        ]
+
         cc/command/I/D/F/O/g/(PIC)/(E) output source
             compose [((opt includes)) ((opt I))]
             compose [((opt definitions)) ((opt D))]
@@ -1288,8 +1298,8 @@ makefile: make generator-class [
     ][
         newlined collect-lines [switch entry/class [
 
-            ;; Makefile variable, defined on a line by itself
-            ;;
+            ; Makefile variable, defined on a line by itself
+            ;
             #variable [
                 keep either entry/default [
                     [entry/name either nmake? ["="]["?="] entry/default]
@@ -1299,17 +1309,17 @@ makefile: make generator-class [
             ]
 
             #entry [
-                ;;
-                ;; First line in a makefile entry is the target followed by
-                ;; a colon and a list of dependencies.  Usually the target is
-                ;; a file path on disk, but it can also be a "phony" target
-                ;; that is just a word:
-                ;;
-                ;; https://stackoverflow.com/q/2145590/
-                ;;
+                ;
+                ; First line in a makefile entry is the target followed by
+                ; a colon and a list of dependencies.  Usually the target is
+                ; a file path on disk, but it can also be a "phony" target
+                ; that is just a word:
+                ;
+                ; https://stackoverflow.com/q/2145590/
+                ;
                 keep collect-text [
                     case [
-                        word? entry/target [ ;; like "clean" in `make clean`
+                        word? entry/target [  ; like `clean` in `make clean`
                             keep [entry/target ":"]
                             keep ".PHONY"
                         ]
@@ -1339,24 +1349,24 @@ makefile: make generator-class [
                     ]
                 ]
 
-                ;; After the line with its target and dependencies are the
-                ;; lines of shell code that run to build the target.  These
-                ;; may use escaped makefile variables that get substituted.
-                ;;
+                ; After the line with its target and dependencies are the
+                ; lines of shell code that run to build the target.  These
+                ; may use escaped makefile variables that get substituted.
+                ;
                 for-each cmd (ensure [block! blank!] entry/commands) [
                     c: ((match text! cmd) else [gen-cmd cmd]) else [continue]
-                    if empty? c [continue] ;; !!! Review why this happens
-                    keep [tab c] ;; makefiles demand TAB codepoint :-(
+                    if empty? c [continue]  ; !!! Review why this happens
+                    keep [tab c]  ; makefiles demand TAB codepoint :-(
                 ]
             ]
 
             fail ["Unrecognized entry class:" entry/class]
         ] keep ""] ;-- final keep just adds an extra newline
 
-        ;; !!! Adding an extra newline here unconditionally means variables
-        ;; in the makefile get spaced out, which isn't bad--but it wasn't done
-        ;; in the original rebmake.r.  This could be rethought to leave it
-        ;; to the caller to decide to add the spacing line or not
+        ; !!! Adding an extra newline here unconditionally means variables
+        ; in the makefile get spaced out, which isn't bad--but it wasn't done
+        ; in the original rebmake.r.  This could be rethought to leave it
+        ; to the caller to decide to add the spacing line or not
     ]
 
     emit: method [
