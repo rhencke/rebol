@@ -184,16 +184,7 @@ inline static REBVAL *DS_AT(REBDSP d) {
 //
 
 
-#if defined(TO_EMSCRIPTEN) && defined(USE_PTHREADS)
-
-    // !!! R3-Alpha's non-C-standard answer to stack overflows does not work
-    // when using pthreads, because the thread's stack is going to be a
-    // different point of reference to compare against for overflow.  Review.
-    //
-    #define C_STACK_OVERFLOWING(address_of_local_var) \
-        false
-
-#elif defined(OS_STACK_GROWS_UP)
+#if defined(OS_STACK_GROWS_UP)
 
     #define C_STACK_OVERFLOWING(address_of_local_var) \
         (cast(uintptr_t, (address_of_local_var)) >= TG_Stack_Limit)
@@ -211,8 +202,15 @@ inline static REBVAL *DS_AT(REBDSP d) {
             : cast(uintptr_t, (address_of_local_var)) <= TG_Stack_Limit)
 #endif
 
-#define STACK_BOUNDS (2*1024*1024) // note: need a better way to set it !!
-// Also: made somewhat smaller than linker setting to allow trapping it
+
+// !!! This could be made configurable.  However, it needs to be initialized
+// early in the boot process.  It may be that some small limit is used enough
+// for boot, that can be expanded by native calls later.
+//
+// !!! Had note that said "made somewhat smaller than linker setting to allow
+// trapping it".  But there's no corresponding linker setting.
+//
+#define DEFAULT_STACK_BOUNDS (2*1024*1024)
 
 // Since stack overflows are memory-related errors, don't try to do any
 // error allocations...just use an already made error.

@@ -452,6 +452,32 @@ void RunPromise(void)
 {
     TRACE("RunPromise() called");
 
+    uintptr_t saved_stack_limit = TG_Stack_Limit;  // !!! Ugly workaround
+
+    // !!! Stack overflows are usually checked via a limit calculated at boot
+    // time.  See caveats about this approach in Set_Stack_Limit().  But
+    // additionally, those limits are only applicable for the main thread...
+    // and they are larger than work in browsers.  To catch the most common
+    // stack overflows, we reset the boot calculated limit during a promise--
+    // which at least covers user code in the web console.
+    //
+    // !!! An issue in the emscripten build is that you run up against a limit
+    // of how many JavaScript functions can be on the stack at one time...each
+    // EM_ASM() call makes one, and each API entry point makes one...they add
+    // up.  This is unrelated to the data stack space taken for C variables,
+    // though somewhat proportional to it (by way of evaluator recursions).
+    // We cut the stack size a bit based on empirical observations of when
+    // browsers seem to have a problem.
+    //
+    // !!! Factoring into how many JS function recursions there are is the use
+    // of optimization levels like -Os or -Oz.  These avoid inlining, which
+    // means more JavaScript/WASM stack calls to do the same amount of work...
+    // leading to the invisible limit being hit sooner.  We should always
+    // compile %c-eval.c with -O2 to try and avoid too many recursions, so
+    // see #prefer-O2-optimization in %file-base.r.
+    //
+    Set_Stack_Limit(&saved_stack_limit, DEFAULT_STACK_BOUNDS / 5);
+
     struct Reb_Promise_Info *info = PG_Promises;
     assert(info->state == PROMISE_STATE_QUEUEING);
     info->state = PROMISE_STATE_RUNNING;
@@ -518,6 +544,8 @@ void RunPromise(void)
     assert(PG_Promises == info);
     PG_Promises = info->next;
     FREE(struct Reb_Promise_Info, info);
+
+    TG_Stack_Limit = saved_stack_limit;
 }
 
 
@@ -1165,6 +1193,25 @@ REBNATIVE(js_trace)
   #endif
 
     return Init_Void(D_OUT);
+}
+
+
+//
+//  export js-stacklimit: native [
+//
+//  {Internal tracing tool reporting the stack level and how long to limit}
+//
+//  ]
+//
+REBNATIVE(js_stacklimit)
+{
+    JAVASCRIPT_INCLUDE_PARAMS_OF_JS_STACKLIMIT;
+    
+    REBDSP dsp_orig = DSP;
+
+    Init_Integer(DS_PUSH(), cast(uintptr_t, &dsp_orig));  // local pointer
+    Init_Integer(DS_PUSH(), TG_Stack_Limit);
+    return Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
 }
 
 
