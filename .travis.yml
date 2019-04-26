@@ -947,9 +947,21 @@ script:
       fi
       echo $R3_EXIT_STATUS
 
-    # Esmcripten build: copy load-r3.js to travis-builds/
-    # (it's not in subdir of 0.16.x because loader needs to pick between them)
     - |
+      if [[ $R3_EXIT_STATUS != 0 ]]
+      then exit $R3_EXIT_STATUS
+      fi
+    
+    - |
+      if [[ ${TRAVIS_BRANCH} != "master" || ${TRAVIS_PULL_REQUEST} != "false" ]]
+      then exit 0 # skip the deploy step
+      fi
+
+# DEPLOY STEP:
+
+    - |
+      # Esmcripten build: copy load-r3.js to travis-builds/
+      # (it's not in subdir of 0.16.x because loader needs to pick between them)
       if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]
       then
         cp ../extensions/javascript/load-r3.js .
@@ -1051,37 +1063,35 @@ script:
     # http://stackoverflow.com/a/42547424/211160
     #
     - |
-      if [[ ${TRAVIS_BRANCH} = "master" && ${TRAVIS_PULL_REQUEST} = "false" ]]
-      then
-        for i in $OS_ID/*
-        do
-            case $i in
-                *.wasm) OPT_TYPE="--content-type application/wasm" ;;
-                *) OPT_TYPE="" ;;
-            esac
-            $AWS s3 cp $i s3://${AWS_S3_BUCKET_NAME}/travis-builds/$i $OPT_TYPE
-        done
+      FAIL=""
+      for i in $OS_ID/*
+      do
+          case $i in
+              *.wasm) OPT_TYPE="--content-type application/wasm" ;;
+              *) OPT_TYPE="" ;;
+          esac
+          if ! $AWS s3 cp $i s3://${AWS_S3_BUCKET_NAME}/travis-builds/$i $OPT_TYPE
+          then FAIL="yes"; break
+          fi
+      done
+      if [[ $FAIL ]]; then exit 1; fi
 
-        # Each ${OS_ID} directory contains several builds for recent commits.
-        # Since they are served statically from S3, we don't have a query to
-        # serve the most recent one that successfully built (based on a date
-        # or other property).  So we write a file with a fixed name in that
-        # directory to identify the last build...it can be obtained via a
-        # CORS fetch() request.
-        #
-        # However, the upload might take a while...or fail part way through.
-        # Hence, we make this the last file uploaded--so that when the browser
-        # tries to fetch files for that ID, they'll all be there.
+      # Each ${OS_ID} directory contains several builds for recent commits.
+      # Since they are served statically from S3, we don't have a query to
+      # serve the most recent one that successfully built (based on a date
+      # or other property).  So we write a file with a fixed name in that
+      # directory to identify the last build...it can be obtained via a
+      # CORS fetch() request.
+      #
+      # However, the upload might take a while...or fail part way through.
+      # Hence, we make this the last file uploaded--so that when the browser
+      # tries to fetch files for that ID, they'll all be there.
 
-        # -n option to echo means "no newline at end" (it's not a "text file"
-        # so there is no standard enforcing that it have one...and it's
-        # easier in the client to not have it)
-        #
-        echo -n "${GIT_COMMIT_SHORT}" > ${OS_ID}/last-deploy.short-hash
-        $AWS s3 cp ${OS_ID}/last-deploy.short-hash s3://${AWS_S3_BUCKET_NAME}/travis-builds/${OS_ID}/last-deploy.short-hash
+      # -n option to echo means "no newline at end" (it's not a "text file"
+      # so there is no standard enforcing that it have one...and it's
+      # easier in the client to not have it)
+      #
+      echo -n "${GIT_COMMIT_SHORT}" > ${OS_ID}/last-deploy.short-hash
+      if ! $AWS s3 cp ${OS_ID}/last-deploy.short-hash s3://${AWS_S3_BUCKET_NAME}/travis-builds/${OS_ID}/last-deploy.short-hash
+      then exit 1
       fi
-
-    # Return whether the build succeeded or not to Travis.  If this succeeded 
-    # then the deploy step to S3 will run.  Parentheses create a "subshell"
-    #
-    - (exit "${R3_EXIT_STATUS}")  # http://stackoverflow.com/a/10457902
