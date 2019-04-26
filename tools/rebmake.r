@@ -465,8 +465,8 @@ gcc: make compiler-class [
         /F "cflags" [block!]
         /O "opt-level" [any-value!]  ; !!! datatypes?
         /g "debug" [any-value!]  ; !!! datatypes?
-        /PIC
-        /E
+        /PIC "https://en.wikipedia.org/wiki/Position-independent_code"
+        /E "only preprocessing"
     ][
         collect-text [
             keep (file-to-local/pass exec-file else [
@@ -556,8 +556,9 @@ cl: make compiler-class [
         /F "cflags" [block!]
         /O "opt-level" [any-value!]  ; !!! datatypes?
         /g "debug" [any-value!]  ; !!! datatypes?
-        /PIC "Position-Independent Code (ignored for Microsoft CL compiler)"
-        /E
+        /PIC "https://en.wikipedia.org/wiki/Position-independent_code"
+        ; Note: PIC is ignored for this Microsoft CL compiler handler
+        /E "only preprocessing"
     ][
         collect-text [
             keep ("cl" unless file-to-local/pass exec-file)
@@ -989,7 +990,7 @@ object-file-class: make object! [
         /F "extra cflags (override)" [block!]
         /O "opt-level" [any-value!]  ; !!! datatypes?
         /g "dbg" [any-value!]  ; !!! datatypes?
-        /PIC "Position Independent Code"
+        /PIC "https://en.wikipedia.org/wiki/Position-independent_code"
         /E "only preprocessing"
     ][
         cc: any [compiler default-compiler]
@@ -1001,6 +1002,7 @@ object-file-class: make object! [
             ] then [
                 O: 2  ; don't override e.g. "-Oz"
             ]
+            optimization: false
         ]
 
         cc/command/I/D/F/O/g/(PIC)/(E) output source
@@ -1018,7 +1020,7 @@ object-file-class: make object! [
     gen-entries: method [
         return: [object!]
         parent [object!]
-        /PIC
+        /PIC "https://en.wikipedia.org/wiki/Position-independent_code"
     ][
         assert [
             find [

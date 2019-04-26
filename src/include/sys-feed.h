@@ -32,7 +32,7 @@
 // past, so once va_arg() is called it forgets the previous value...and
 // since values may also be fabricated from text it can get complicated.
 //
-// Another reason for the strictness is to help reign in the evaluator design
+// Another reason for the strictness is to help rein in the evaluator design
 // to keep it within a certain boundary of complexity.
 
 

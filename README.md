@@ -124,7 +124,7 @@ source code.  If you're not familiar with the source and what kinds of changes
 require rebuilding which parts, you should probably do full builds.
 
 As a design goal, compiling Ren-C requires [very little beyond ANSI C89][15].
-Attempts to reign in compiler dependencies have been a large amount of work,
+Attempts to rein in compiler dependencies have been a large amount of work,
 and it still supports a [number of older platforms][16].  However, if it is
 compiled with a C++ compiler then there is significantly more static analysis
 at build time, to catch errors.
