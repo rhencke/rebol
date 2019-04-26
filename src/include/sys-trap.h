@@ -181,7 +181,7 @@
 //
 #define PUSH_TRAP(e,s) \
     do { \
-        assert(Saved_State or (DSP == 0 and FS_TOP == FS_BOTTOM)); \
+        /* assert(Saved_State or (DSP == 0 and FS_TOP == FS_BOTTOM)); */ \
         Snap_State_Core(s); \
         (s)->last_state = Saved_State; \
         Saved_State = (s); \
