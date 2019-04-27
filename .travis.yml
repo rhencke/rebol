@@ -954,11 +954,6 @@ script:
       then exit $R3_EXIT_STATUS
       fi
     
-    - |
-      if [[ ${TRAVIS_BRANCH} != "master" || ${TRAVIS_PULL_REQUEST} != "false" ]]
-      then exit 0 # skip the deploy step
-      fi
-
 # DEPLOY STEP:
 
     # By default a web worker cannot be loaded cross-domain.  We want to be
@@ -1057,18 +1052,28 @@ script:
     # http://stackoverflow.com/a/42547424/211160
     #
     - |
-      FAIL=""
-      for i in $OS_ID/*
-      do
-          case $i in
-              *.wasm) OPT_TYPE="--content-type application/wasm" ;;
-              *) OPT_TYPE="" ;;
-          esac
-          if ! $AWS s3 cp $i s3://${AWS_S3_BUCKET_NAME}/travis-builds/$i $OPT_TYPE
-          then FAIL="yes"; break
-          fi
-      done
-      if [[ $FAIL ]]; then exit 1; fi
+      if [[ ${TRAVIS_BRANCH} != "master" || ${TRAVIS_PULL_REQUEST} != "false" || ${R3_EXIT_STATUS} != 0 ]]
+      then exit 0 # skip the deploy step
+      fi
+
+      function upload {
+        case $1 in
+          *.wasm) OPT_TYPE="--content-type application/wasm" ;;
+          *) OPT_TYPE="" ;;
+        esac
+        rm -f _
+        $AWS s3 cp $1 s3://${AWS_S3_BUCKET_NAME}/travis-builds/$1 $OPT_TYPE
+        $AWS s3 cp s3://${AWS_S3_BUCKET_NAME}/travis-builds/$1 _
+        if cmp $1 _
+        then
+          echo === UPLOADED $1 ===
+        else
+          echo === UPLOAD $1 FAILED ===
+          exit 1
+        fi
+      }
+
+      for i in $OS_ID/*; do upload $i; done
 
       # Each ${OS_ID} directory contains several builds for recent commits.
       # Since they are served statically from S3, we don't have a query to
@@ -1086,16 +1091,15 @@ script:
       # easier in the client to not have it)
       #
       echo -n "${GIT_COMMIT_SHORT}" > ${OS_ID}/last-deploy.short-hash
-      if ! $AWS s3 cp ${OS_ID}/last-deploy.short-hash s3://${AWS_S3_BUCKET_NAME}/travis-builds/${OS_ID}/last-deploy.short-hash
-      then exit 1
-      fi
+      upload ${OS_ID}/last-deploy.short-hash
 
       # Esmcripten build: copy load-r3.js to travis-builds/
       # (not in subdir of 0.16.x because loader needs to pick between them)
       #
       if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]
       then
-          if ! $AWS s3 cp ../extensions/javascript/load-r3.js s3://${AWS_S3_BUCKET_NAME}/travis-builds/load-r3.js
-          then exit 1
-          fi
+          cp ../extensions/javascript/load-r3.js .
+          upload load-r3.js
       fi
+
+# vim: set et sw=2:
