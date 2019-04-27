@@ -959,14 +959,6 @@ script:
 
 # DEPLOY STEP:
 
-    - |
-      # Esmcripten build: copy load-r3.js to travis-builds/
-      # (it's not in subdir of 0.16.x because loader needs to pick between them)
-      if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]
-      then
-        cp ../extensions/javascript/load-r3.js .
-      fi
-
     # By default a web worker cannot be loaded cross-domain.  We want to be
     # able to host pthread-enabled build (0.16.2), so we use a workaround that
     # uses CORS-enabled fetch() to get the worker JS as a Blob, and runs that.
@@ -1094,4 +1086,14 @@ script:
       echo -n "${GIT_COMMIT_SHORT}" > ${OS_ID}/last-deploy.short-hash
       if ! $AWS s3 cp ${OS_ID}/last-deploy.short-hash s3://${AWS_S3_BUCKET_NAME}/travis-builds/${OS_ID}/last-deploy.short-hash
       then exit 1
+      fi
+
+      # Esmcripten build: copy load-r3.js to travis-builds/
+      # (not in subdir of 0.16.x because loader needs to pick between them)
+      #
+      if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]
+      then
+          if ! $AWS s3 cp ../extensions/javascript/load-r3.js s3://${AWS_S3_BUCKET_NAME}/travis-builds/load-r3.js
+          then exit 1
+          fi
       fi
