@@ -23,14 +23,15 @@
 //
 
 #ifdef TO_WINDOWS
-#ifdef _MSC_VER
-#pragma comment(lib, "rpcrt4.lib")
-#endif
-    #include <windows.h>
+  #ifdef _MSC_VER
+    #pragma comment(lib, "rpcrt4.lib")
+  #endif
 
-    #ifdef IS_ERROR
-        #undef IS_ERROR //winerror.h defines, Rebol has a different meaning
-    #endif
+    #define WIN32_LEAN_AND_MEAN  // trim down the Win32 headers
+    #include <windows.h>
+    #undef IS_ERROR  // winerror.h defines, Rebol has a different meaning
+
+    #include <rpc.h>  // for UuidCreate()
 #elif defined(TO_OSX)
     #include <CoreFoundation/CFUUID.h>
 #else

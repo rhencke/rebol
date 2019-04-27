@@ -71,7 +71,7 @@
 // Some esoteric platforms may have a more hidden form of 64-bit support,
 // e.g. this case from R3-Alpha for "Windows VC6 nonstandard typing":
 //
-//     #ifdef WEIRD_INT_64
+//     #if (defined(_MSC_VER) && (_MSC_VER <= 1200))
 //         typedef _int64 i64;
 //         typedef unsigned _int64 u64;
 //         #define I64_C(c) c ## I64

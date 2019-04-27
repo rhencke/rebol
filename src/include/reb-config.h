@@ -106,34 +106,16 @@ Special internal defines used by RT, not Host-Kit developers:
 #endif
 
 #ifdef TO_WINDOWS
-    #define OS_DIR_SEP '\\'         // file path separator (Thanks Bill.)
-
-    #if (defined(_MSC_VER) && (_MSC_VER <= 1200))
-        #define WEIRD_INT_64        // non-standard MSVC int64 declarations
-    #else
-        #define HAS_LL_CONSTS
-    #endif
-
-    #define OS_WIDE_CHAR            // REBWCHAR used strings passed to OS API
-    #include <wchar.h>
-
     // ASCII strings to Integer
     #define ATOI                    // supports it
     #define ATOI64                  // supports it
     #define ITOA64                  // supports it
 
-    #define HAS_ASYNC_DNS           // supports it
-
-    #define NO_TTY_ATTRIBUTES       // used in read-line.c
-
     // Used when we build REBOL as a DLL:
     #define API_EXPORT __declspec(dllexport)
     #define API_IMPORT __declspec(dllimport)
 
-    #define WIN32_LEAN_AND_MEAN     // trim down the Win32 headers
 #else
-    #define OS_DIR_SEP '/'          // rest of the world uses it
-
     #define API_IMPORT
     // Note: Unsupported by gcc 2.95.3-haiku-121101
     // (We #undef it in the Haiku section)

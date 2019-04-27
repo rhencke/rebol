@@ -24,6 +24,7 @@
 // used for more than just windowing.
 //
 
+#define WIN32_LEAN_AND_MEAN  // trim down the Win32 headers
 #include <windows.h>
 #undef IS_ERROR
 

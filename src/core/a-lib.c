@@ -1760,6 +1760,7 @@ void *RL_rebDeflateDetectAlloc(
 //
 #ifdef TO_WINDOWS
     #undef IS_ERROR // windows has its own meaning for this.
+    #define WIN32_LEAN_AND_MEAN  // trim down the Win32 headers
     #include <windows.h>
 #else
     #include <errno.h>

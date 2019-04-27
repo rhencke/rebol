@@ -318,6 +318,8 @@ system-definitions: make object! [
     BEN: "ENDIAN_BIG"             ; big endian byte order
     LEN: "ENDIAN_LITTLE"          ; little endian byte order
 
+    ; !!! This doesn't seem to be used anywhere in the code.
+    ;
     LLC: "HAS_LL_CONSTS"          ; supports e.g. 0xffffffffffffffffLL
     ;LL?: _                       ; might have LL consts, reb-config.h checks
 

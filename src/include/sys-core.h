@@ -41,7 +41,7 @@
 // include something like <windows.h> would be linked in as "host code".  Yet
 // if a file wishes to include %sys-core.h and <windows.h>, it should do:
 //
-//     #define UNICODE // enable unicode OS API in windows.h
+//     #define WIN32_LEAN_AND_MEAN  // usually desirable for leaner inclusion
 //     #include <windows.h>
 //
 //     /* #include any non-Rebol windows dependencies here */

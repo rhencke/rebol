@@ -22,6 +22,7 @@
 //
 
 #ifdef TO_WINDOWS
+    #define WIN32_LEAN_AND_MEAN  // trim down the Win32 headers
     #include <windows.h>
 #endif
 #include <locale.h>

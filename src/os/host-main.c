@@ -38,9 +38,12 @@
 #include <assert.h>
 
 #ifdef TO_WINDOWS
-    #undef _WIN32_WINNT // https://forum.rebol.info/t/326/4
-    #define _WIN32_WINNT 0x0501 // Minimum API target: WinXP
+    #undef _WIN32_WINNT  // https://forum.rebol.info/t/326/4
+    #define _WIN32_WINNT 0x0501  // Minimum API target: WinXP
+    #define WIN32_LEAN_AND_MEAN  // trim down the Win32 headers
     #include <windows.h>
+
+    #include <shellapi.h>  // for CommandLineToArgvW()
 
     #undef IS_ERROR // %windows.h defines this, but so does %sys-core.h
 #endif

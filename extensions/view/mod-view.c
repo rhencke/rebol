@@ -34,7 +34,11 @@
 //
 
 #ifdef TO_WINDOWS
+    // `#define WIN32_LEAN_AND_MEAN` seems to omit FNERR_BUFFERTOOSMALL :-/
     #include <windows.h>
+
+    #include <commdlg.h>
+
     #include <process.h>
     #include <shlobj.h>
 
