@@ -205,22 +205,6 @@ static bool Subparse_Throws(
 ){
     assert(ANY_SERIES_KIND(CELL_KIND(VAL_UNESCAPED(input))));
 
-    // Since SUBPARSE is a native that the user can call directly, and it
-    // is "effectively variadic" reading its instructions inline out of the
-    // `where` of execution, it has to handle the case where the frame it
-    // is given is at an END.
-    //
-    // However, as long as this wrapper is testing for ends, rather than
-    // use that test to create an END state to feed to subparse, it can
-    // just return.  This is because no matter what, empty rules means a match
-    // with no items advanced.
-    //
-    if (IS_END(rules_feed->value)) {  // !!! Should caller check instead?
-        *interrupted_out = false;
-        Init_Integer(out, VAL_INDEX(VAL_UNESCAPED(input)));
-        return false;
-    }
-
     DECLARE_FRAME (f, rules_feed, EVAL_MASK_DEFAULT);
 
     Push_Frame(out, f);  // checks for C stack overflow
@@ -1451,7 +1435,16 @@ REBNATIVE(subparse)
     REBINT mincount = 1; // min pattern count
     REBINT maxcount = 1; // max pattern count
 
-    while (NOT_END(P_RULE)) {
+  #if defined(DEBUG_ENSURE_FRAME_EVALUATES)
+    //
+    // For the same reasons that the evaluator always wants to run through and
+    // not shortcut, PARSE wants to.  This makes it better for tracing and
+    // hooking, and presents Ctrl-C opportunities.
+    //
+    f->was_eval_called = true;
+  #endif
+
+    while (true) {  // not `while (NOT_END`, see DEBUG_ENSURE_FRAME_EVALUATES
 
         /* Print_Parse_Index(f); */
         UPDATE_EXPRESSION_START(f);
@@ -1471,14 +1464,17 @@ REBNATIVE(subparse)
         // BAR!s cannot be abstracted.  If they could be, then you'd have to
         // run all GET-GROUP! `:(...)` to find them in alternates lists.
 
-        if (IS_BAR(P_RULE)) { // reached BAR! without a match failure, good!
+        const RELVAL *rule = P_RULE;  // start w/rule in block, may eval/fetch
+
+        if (IS_END(rule))
+            goto do_signals;
+
+        if (IS_BAR(rule)) { // reached BAR! without a match failure, good!
             //
             // Note: First test, so `[| ...anything...]` is a "no-op" match
             //
             return Init_Integer(P_OUT, P_POS); // indicate match @ current pos
         }
-
-        const RELVAL *rule = P_RULE; // start w/rule in block, may eval/fetch
 
     //=//// (GROUP!) AND :(GET-GROUP!) PROCESSING /////////////////////////=//
 
@@ -1493,7 +1489,7 @@ REBNATIVE(subparse)
             // up and gets another group.  In theory this could continue
             // indefinitely, but for now a GET-GROUP! can't return another.
 
-          process_group:;
+          process_group:
 
             rule = Process_Group_For_Parse(f, save, rule);
             if (rule == R_THROWN) {
@@ -1514,6 +1510,8 @@ REBNATIVE(subparse)
             // we already gave the GC and cancellation a chance to run.  But
             // if not, we might want to do it here... (?)
 
+          do_signals:
+
             assert(Eval_Count >= 0);
             if (--Eval_Count == 0) {
                 SET_END(P_CELL);
@@ -1528,6 +1526,9 @@ REBNATIVE(subparse)
         }
 
         UPDATE_TICK_DEBUG(nullptr);  // wait after GC to identify *last* tick
+
+        if (IS_END(rule))
+            break;  // done all the things we need to do for end position
 
     //=//// ANY-WORD!/ANY-PATH! PROCESSING ////////////////////////////////=//
 

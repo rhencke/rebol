@@ -115,6 +115,31 @@ inline static bool Eval_Throws(REBFRM *f) {
     return false;
 }
 
+// If you're sure the evaluator isn't hooked, it seems no point in asking to
+// "evaluate" a 1 (if there's nothing enfix after it).  You can take an inert
+// optimization.  But if the evaluator is hooked with a trace or stepwise
+// debugging, you can't skip out on the real call--it would skip the hook.
+//
+// Note that some optimizations can be dangerous beyond skipping tracing or
+// debugging.  e.g. if `cycle []` runs, even if it's not hooked to see the
+// trace of "I'm running an empty block", the tight loop without calling the
+// evaluator could miss the check for if a halt via Ctrl-C/etc. was requested:
+//
+// https://github.com/rebol/rebol-issues/issues/2229
+//
+// It would be possible to ask routines like CYCLE to do explicit checks for
+// the halt signal.  But the choice made is simply not to optimize a DO of an
+// empty block--considering the case to be too rare to be worth optimizing,
+// when weighed against predictable evaluator behavior.  So code using this
+// should be very rare instances.
+//
+// !!! In the spirit of simplification, it may be that this test should not
+// exist at all.  It is included for the sake of experimentation, but may
+// be removed if there appears to be no point in maintaining the complexity.
+//
+#define OPTIMIZATIONS_OK \
+    (PG_Eval_Maybe_Stale_Throws == &Eval_Internal_Maybe_Stale_Throws)
+
 
 // Even though ANY_INERT() is a quick test, you can't skip the cost of frame
 // processing--due to enfix.  But a feed only looks ahead one unit at a time,
@@ -129,13 +154,10 @@ inline static bool Did_Init_Inert_Optimize_Complete(
     assert(not (*flags & EVAL_FLAG_POST_SWITCH));  // we might set it
     assert(not IS_END(feed->value));  // would be wasting time to call
 
-    if (not ANY_INERT(feed->value)) {
-        SET_END(out);  // Have to Init() out one way or another...
+    if (not ANY_INERT(feed->value) or not OPTIMIZATIONS_OK) {
+        SET_END(out);  // Have to Init() `out` one way or another...
         return false;  // general case evaluation requires a frame
     }
-
-    if (PG_Eval_Maybe_Stale_Throws != &Eval_Internal_Maybe_Stale_Throws)
-        return false;  // don't want to subvert tracing or other hooks
 
     Literal_Next_In_Feed(out, feed);
 
@@ -332,9 +354,6 @@ inline static bool Eval_Step_In_Va_Throws_Core(
 ){
     DECLARE_VA_FEED (feed, opt_first, vaptr, feed_flags);
 
-    if (IS_END(feed->value))
-        return false;
-
     DECLARE_FRAME (f, feed, eval_flags);
 
     Push_Frame(out, f);
@@ -361,7 +380,7 @@ inline static bool Eval_Value_Throws(
     const RELVAL *value,  // e.g. a BLOCK! here would just evaluate to itself!
     REBSPC *specifier
 ){
-    if (ANY_INERT(value)) {
+    if (ANY_INERT(value) and OPTIMIZATIONS_OK) {
         Derelativize(out, value, specifier);
         return false;  // fast things that don't need frames (should inline)
     }

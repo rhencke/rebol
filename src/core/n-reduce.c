@@ -46,8 +46,8 @@ bool Reduce_To_Stack_Throws(
 
     Push_Frame(nullptr, f);
 
-    while (NOT_END(*v)) {
-        bool line = GET_CELL_FLAG(*v, NEWLINE_BEFORE);
+    do {
+        bool line = IS_END(*v) ? false : GET_CELL_FLAG(*v, NEWLINE_BEFORE);
 
         if (Eval_Step_Throws(out, f)) {
             DS_DROP_TO(dsp_orig);
@@ -55,7 +55,7 @@ bool Reduce_To_Stack_Throws(
             return true;
         }
 
-        if (IS_END(out)) { // e.g. `reduce [comment "hi"]`
+        if (IS_END(out)) {  // e.g. `reduce []` or `reduce [comment "hi"]`
             assert(IS_END(*v));
             break;
         }
@@ -72,7 +72,7 @@ bool Reduce_To_Stack_Throws(
 
         if (line)
             SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
-    }
+    } while (NOT_END(*v));
 
     Drop_Frame_Unbalanced(f); // Drop_Frame() asserts on accumulation
     return false;
@@ -181,6 +181,10 @@ REB_R Compose_To_Stack_Core(
     SHORTHAND (v, f->feed->value, NEVERNULL(const RELVAL*));
 
     Push_Frame(nullptr, f);
+
+  #if defined(DEBUG_ENSURE_FRAME_EVALUATES)
+    f->was_eval_called = true;  // lie since we're using frame for enumeration
+  #endif
 
     for (; NOT_END(*v); Fetch_Next_Forget_Lookback(f)) {
         const REBCEL *cell = VAL_UNESCAPED(*v);

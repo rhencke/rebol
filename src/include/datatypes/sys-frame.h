@@ -313,7 +313,11 @@ inline static void Push_Frame_No_Varlist(REBVAL *out, REBFRM *f)
     // If the source for the frame is a REBARR*, then we want to temporarily
     // lock that array against mutations.  
     //
-    if (FRM_IS_VALIST(f)) {
+    if (IS_END(f->feed->value)) {  // don't take hold on empty feeds
+        assert(IS_POINTER_TRASH_DEBUG(f->feed->pending));
+        assert(NOT_FEED_FLAG(f->feed, TOOK_HOLD));
+    }
+    else if (FRM_IS_VALIST(f)) {
         //
         // There's nothing to put a hold on while it's a va_list-based frame.
         // But a GC might occur and "Reify" it, in which case the array
@@ -413,6 +417,10 @@ pop:;
 
 
 inline static void Drop_Frame_Core(REBFRM *f) {
+  #ifdef DEBUG_ENSURE_FRAME_EVALUATES
+    assert(f->was_eval_called);  // must call evaluator--even on empty array
+  #endif
+
   #if defined(DEBUG_EXPIRED_LOOKBACK)
     free(f->stress);
   #endif
@@ -461,6 +469,10 @@ inline static void Prep_Frame_Core(
     f->dsp_orig = DS_Index;
     f->flags = Endlike_Header(flags);
     TRASH_POINTER_IF_DEBUG(f->out);
+
+  #ifdef DEBUG_ENSURE_FRAME_EVALUATES
+    f->was_eval_called = false;
+  #endif
 }
 
 #define DECLARE_FRAME(name,feed,flags) \

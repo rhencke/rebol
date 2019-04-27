@@ -579,7 +579,7 @@ bool Form_Reduce_Throws(
     bool pending = false;  // pending delimiter output, *if* more non-nulls
     bool nothing = true;  // any elements seen so far have been null or blank
 
-    while (NOT_END(f->feed->value)) {
+    do {
         if (Eval_Step_Throws(out, f)) {
             Drop_Mold(mo);
             Abort_Frame(f);
@@ -609,7 +609,7 @@ bool Form_Reduce_Throws(
             Form_Value(mo, out);
             pending = true;
         }
-    }
+    } while (NOT_END(f->feed->value));
 
     if (nothing)
         Init_Nulled(out);

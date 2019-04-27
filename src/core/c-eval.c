@@ -437,6 +437,10 @@ void Push_Enfix_Action(REBFRM *f, const REBVAL *action, REBSTR *opt_label)
 //
 bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 {
+  #ifdef DEBUG_ENSURE_FRAME_EVALUATES
+    f->was_eval_called = true;  // see definition for why this flag exists
+  #endif
+
     // These shorthands help readability, and any decent compiler optimizes
     // such things out.  Note it means you refer to `next` via `*next`.
     // (This is ensured by the C++ build, that you don't say `if (next)...`)
@@ -552,14 +556,22 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
     assert(NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT));
     SET_CELL_FLAG(f->out, OUT_MARKED_STALE);  // internal use flag only
 
+    UPDATE_EXPRESSION_START(f); // !!! See FRM_INDEX() for caveats
+
+    // If asked to evaluate `[]` then we have now done all the work the
+    // evaluator needs to do--including marking the output stale.
+    //
+    // See DEBUG_ENSURE_FRAME_EVALUATES for why an empty array does not
+    // bypass calling into the evaluator.
+    //
+    if (kind.byte == REB_0_END)
+        goto finished;
+
     gotten = *next_gotten;
     v = Lookback_While_Fetching_Next(f);
-    // ^-- can't just `v = *next` as fetch may overwrite--request a lookback!
+    // ^-- can't just `v = *next`, fetch may overwrite--request lookback!
 
-    assert(kind.byte != REB_0_END);
     assert(kind.byte == KIND_BYTE_UNCHECKED(v));
-
-    UPDATE_EXPRESSION_START(f); // !!! See FRM_INDEX() for caveats
 
   reevaluate: ;  // meaningful semicolon--subsequent macro may declare things
 

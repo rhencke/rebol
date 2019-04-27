@@ -394,6 +394,21 @@ Special internal defines used by RT, not Host-Kit developers:
     //
     #define INCLUDE_TEST_LIBREBOL_NATIVE
 
+    // Note: We enforce going through the evaluator and not "skipping out" on
+    // the frame generation in case it is hooked and something like a debug
+    // step wanted to see it.  Or also, if you write `cycle []` there has to
+    // be an opportunity for Do_Signals_Throws() to check for cancellation
+    // via Ctrl-C.)
+    //
+    // This ties into a broader question of considering empty blocks to be
+    // places that are debug step or breakpoint opportunities, so we make
+    // sure you use `do { eval } while (NOT_END(...))` instead of potentially
+    // skipping that opportunity with `while (NOT_END(...)) { eval }`:
+    //
+    // https://github.com/rebol/rebol-issues/issues/2229
+    //
+    #define DEBUG_ENSURE_FRAME_EVALUATES
+
     // !!! Checking the memory alignment is an important invariant but may be
     // overkill to run on all platforms at all times.  It requires the
     // DEBUG_CELL_WRITABILITY flag to be enabled, since it's the moment of

@@ -387,9 +387,9 @@ void Reify_Va_To_Array_In_Frame(
         } while (NOT_END(f->feed->value));
 
         if (truncated)
-            f->feed->index = 2; // skip the --optimized-out--
+            f->feed->index = 2;  // skip the --optimized-out--
         else
-            f->feed->index = 1; // position at start of the extracted values
+            f->feed->index = 1;  // position at start of the extracted values
     }
     else {
         assert(IS_POINTER_TRASH_DEBUG(f->feed->pending));
@@ -400,26 +400,32 @@ void Reify_Va_To_Array_In_Frame(
         f->feed->index = 0;
     }
 
-    assert(not f->feed->vaptr); // feeding forward should have called va_end
+    assert(not f->feed->vaptr);  // feeding forward should have called va_end
 
-    f->feed->array = Pop_Stack_Values(dsp_orig);
-    Manage_Array(f->feed->array); // held alive while frame running
-
-    // The array just popped into existence, and it's tied to a running
-    // frame...so safe to say we're holding it.  (This would be more complex
-    // if we reused the empty array if dsp_orig == DSP, since someone else
-    // might have a hold on it...not worth the complexity.)
-    //
-    assert(NOT_FEED_FLAG(f->feed, TOOK_HOLD));
-    SET_SERIES_INFO(f->feed->array, HOLD);
-    SET_FEED_FLAG(f->feed, TOOK_HOLD);
+    if (DSP == dsp_orig)
+        f->feed->array = EMPTY_ARRAY;  // don't bother making new empty array
+    else {
+        f->feed->array = Pop_Stack_Values(dsp_orig);
+        Manage_Array(f->feed->array);  // held alive while frame running
+    }
 
     if (truncated)
-        f->feed->value = ARR_AT(f->feed->array, 1); // skip `--optimized--`
+        f->feed->value = ARR_AT(f->feed->array, 1);  // skip `--optimized--`
     else
         f->feed->value = ARR_HEAD(f->feed->array);
 
-    f->feed->pending = f->feed->value + 1;
+    // The array just popped into existence, and it's tied to a running
+    // frame...so safe to say we're holding it (if not at the end).
+    //
+    if (IS_END(f->feed->value))
+        TRASH_POINTER_IF_DEBUG(f->feed->pending);
+    else {
+        f->feed->pending = f->feed->value + 1;
+
+        assert(NOT_FEED_FLAG(f->feed, TOOK_HOLD));
+        SET_SERIES_INFO(f->feed->array, HOLD);
+        SET_FEED_FLAG(f->feed, TOOK_HOLD);
+    }
 }
 
 

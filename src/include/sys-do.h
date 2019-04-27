@@ -51,11 +51,6 @@ inline static bool Do_Feed_To_End_Maybe_Stale_Throws(
     REBVAL *out,  // must be initialized, unchanged if all empty/invisible
     struct Reb_Feed *feed  // feed mechanics always call va_end() if va_list
 ){
-    if (IS_END(feed->value)) {
-        SET_CELL_FLAG(out, OUT_MARKED_STALE);
-        return false;
-    }
-
     DECLARE_FRAME (f, feed, EVAL_MASK_DEFAULT);
 
     bool threw;

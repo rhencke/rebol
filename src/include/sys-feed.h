@@ -608,7 +608,10 @@ inline static void Prep_Array_Feed(
     }
 
     feed->gotten = nullptr;
-    assert(IS_END(feed->value) or READABLE(feed->value, __FILE__, __LINE__));
+    if (IS_END(feed->value))
+        TRASH_POINTER_IF_DEBUG(feed->pending);
+    else
+        assert(READABLE(feed->value, __FILE__, __LINE__));
 }
 
 #define DECLARE_ARRAY_FEED(name,array,index,specifier) \

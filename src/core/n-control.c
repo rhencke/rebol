@@ -721,25 +721,24 @@ REBNATIVE(all)
     DECLARE_FRAME_AT (f, ARG(block), EVAL_MASK_DEFAULT);
     Push_Frame(nullptr, f);
 
-    Init_Nulled(D_OUT); // default return result
+    Init_Nulled(D_OUT);  // so `all []` sees stale falsey value, returns null
 
-    while (NOT_END(f->feed->value)) {
+    do {
         if (Eval_Step_Maybe_Stale_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return R_THROWN;
         }
 
-        if (IS_FALSEY(D_OUT)) { // any false/blank/null will trigger failure
+        if (IS_FALSEY(D_OUT)) {  // any false/blank/null will trigger failure
             Abort_Frame(f);
             return nullptr;
         }
-
-    }
+    } while (NOT_END(f->feed->value));
 
     Drop_Frame(f);
 
     CLEAR_CELL_FLAG(D_OUT, OUT_MARKED_STALE);  // `all [true elide 1 + 2]`
-    return D_OUT; // successful ALL when the last D_OUT assignment is truthy
+    return D_OUT;  // successful ALL when the last D_OUT assignment is truthy
 }
 
 
@@ -763,7 +762,7 @@ REBNATIVE(any)
 
     Init_Nulled(D_OUT);  // preload output with falsey value
 
-    while (NOT_END(f->feed->value)) {
+    do {
         if (Eval_Step_Maybe_Stale_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return R_THROWN;
@@ -773,7 +772,7 @@ REBNATIVE(any)
             Abort_Frame(f);
             return D_OUT;
         }
-    }
+    } while (NOT_END(f->feed->value));
 
     Drop_Frame(f);
     return nullptr;
@@ -803,20 +802,20 @@ REBNATIVE(none)
 
     Init_Nulled(D_OUT);  // preload output with falsey value
 
-    while (NOT_END(f->feed->value)) {
+    do {
         if (Eval_Step_Maybe_Stale_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return R_THROWN;
         }
 
-        if (IS_TRUTHY(D_OUT)) { // any true results mean failure
+        if (IS_TRUTHY(D_OUT)) {  // any true results mean failure
             Abort_Frame(f);
             return nullptr;
         }
-    }
+    } while (NOT_END(f->feed->value));
 
     Drop_Frame(f);
-    return Init_True(D_OUT); // !!! suggests LOGIC! on failure, bad?
+    return Init_True(D_OUT);  // !!! suggests LOGIC! on failure, bad?
 }
 
 
@@ -865,7 +864,9 @@ REBNATIVE(case)
 
     Push_Frame(nullptr, f);
 
-    for (; Init_Nulled(D_OUT), NOT_END(*v);) {
+    while (true) {
+
+        Init_Nulled(D_OUT);  // forget previous result, new case running
 
         // Feed the frame forward one step for predicate argument.
         //
@@ -874,7 +875,6 @@ REBNATIVE(case)
         // true/false answer *and* know what the right hand argument was, for
         // full case coverage and for DEFAULT to work.
 
-        SET_CELL_FLAG(D_OUT, OUT_MARKED_STALE);
         if (Eval_Step_Maybe_Stale_Throws(D_OUT, f))
             goto threw;
 
