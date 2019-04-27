@@ -226,20 +226,6 @@ console!: make object! [
             ]
         ]
 
-        ; We put the last-result into the code stream, so you can say:
-        ;
-        ;     >> 1 + 2
-        ;     == 3
-        ;
-        ;     >> * 5
-        ;     == 15
-        ;
-        ; https://forum.rebol.info/t/1071
-        ;
-        if (not empty? b) and [not void? :last-result] [
-            insert/only b uneval :last-result
-        ]
-
         b
     ]
 
