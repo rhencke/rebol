@@ -47,6 +47,12 @@
 build/*
 build-*/*
 
+# The prebuilt directory is also ignored (see README.md in the directory)
+# Edits to the README.md should be noticed, however.
+#
+prebuilt/*
+!prebuilt/README.md
+
 
 #################
 ## Eclipse

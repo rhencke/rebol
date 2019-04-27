@@ -518,6 +518,10 @@ matrix:
 install:
   - |
     if [[ $TRAVIS_OS_NAME = linux ]]; then
+      cd prebuilt
+      wget https://s3.amazonaws.com/r3bootstraps/r3-linux-x64-8994d23
+      chmod +x ./r3-linux-x64-8994d23
+      cd ..
       export R3_MAKE=../prebuilt/r3-linux-x64-8994d23
     fi
 
@@ -542,21 +546,19 @@ install:
 
         brew install unixodbc  # for ODBC extension
         brew install zmq  # for ZeroMQ extension
-
-        export R3_MAKE=../prebuilt/r3-osx-x64-8994d23
-      else
-        # Brew was being installed even on minimal release builds, making it
-        # unnoticed that there was a .dylib dependency from the bootstrap
-        # release executable on ZeroMQ and ODBC.  This old debug build was
-        # captured at the same version number as the bootstrap executables.
-        # Use it for now until the next capture for the old OS X.
-        #
-        cd prebuilt
-        wget http://hostilefork.com/media/shared/ren-c/r3-osx-x64-8994d23-debug
-        chmod +x ./r3-osx-x64-8994d23-debug
-        cd ..
-        export R3_MAKE="../prebuilt/r3-osx-x64-8994d23-debug"
       fi
+
+      # Brew was being installed even on minimal release builds, making it
+      # unnoticed that there was a .dylib dependency from the bootstrap
+      # release executable on ZeroMQ and ODBC.  This old debug build was
+      # captured at the same version number as the bootstrap executables.
+      # Use it for now until the next capture for the old OS X.
+      #
+      cd prebuilt
+      wget https://s3.amazonaws.com/r3bootstraps/r3-osx-x64-8994d23-debug
+      chmod +x ./r3-osx-x64-8994d23-debug
+      cd ..
+      export R3_MAKE="../prebuilt/r3-osx-x64-8994d23-debug"
     fi
 
   - |
