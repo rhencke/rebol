@@ -54,10 +54,6 @@
 // * At time of writing, a hosted version of load-r3.js and the WebAssembly
 //   build products is available at:
 //
-//   https://dd498l1ilnrxu.cloudfront.net/travis-builds/load-r3.js
-//
-//   That CloudFront version should load a bit faster than the underlying URL:
-//
 //   https://metaeducation.s3.amazonaws.com/travis-builds/load-r3.js
 //
 // * As noted in the comment in the example, the URL for %load-r3.js currently
@@ -206,7 +202,7 @@ for (let i = 0; i < args.length; i++) {
     } else if (args[i] == 'local') {
         base_dir = "./"
     } else if (args[i] == 'remote') {
-        base_dir = "https://dd498l1ilnrxu.cloudfront.net/travis-builds/"
+        base_dir = "https://metaeducation.s3.amazonaws.com/travis-builds/"
     }
 }
 
@@ -234,12 +230,10 @@ if (!base_dir) {
     base_dir = me.src
     base_dir = base_dir.substring(0, base_dir.indexOf("load-r3.js"))
 
-    // Correct http => https
-    //
-    if (base_dir == "http://metaeducation.s3.amazonaws.com/travis-builds/")
+    if (base_dir == "http://metaeducation.s3.amazonaws.com/travis-builds/") {
+        // correct http => https
         base_dir = "https://metaeducation.s3.amazonaws.com/travis-builds/"
-    if (base_dir == "http://dd498l1ilnrxu.cloudfront.net/travis-builds/")
-        base_dir = "https://dd498l1ilnrxu.cloudfront.net/travis-builds"
+    }
 }
 
 
@@ -270,10 +264,7 @@ let load_js_promiser = (url) => new Promise(function(resolve, reject) {
 let git_commit = undefined
 
 let assign_git_commit_promiser = (os_id) => {  // assigns, but no return value
-    if (
-        base_dir != "https://metaeducation.s3.amazonaws.com/travis-builds/"
-        && base_dir != "https://dd498l1ilnrxu.cloudfront.net/travis-builds/"
-    ){
+    if (base_dir != "https://metaeducation.s3.amazonaws.com/travis-builds/") {
         git_commit = ""
         return Promise.resolve(undefined)
     }
