@@ -766,7 +766,7 @@ struct Reb_Frame {
 // Unlike a dispatcher, its result is always in the frame's ->out cell, and
 // the boolean result only tells you whether or not it threw.
 //
-typedef bool (*REBEVL)(REBFRM * const);
+typedef bool (REBEVL)(REBFRM * const);
 
 
 #if !defined(DEBUG_CHECK_CASTS)

@@ -76,7 +76,7 @@ extensions: make map! [
     Clipboard -
     Crypt -
     Console +
-    Debugger -
+    Debugger +
     DNS -
     Event -
     Filesystem -

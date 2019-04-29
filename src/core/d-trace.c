@@ -376,7 +376,7 @@ REB_R Traced_Dispatch_Hook(REBFRM * const f)
     //
     bool last_phase = (ACT_UNDERLYING(phase) == phase);
 
-    REBEVL saved_eval = PG_Eval_Maybe_Stale_Throws;
+    REBEVL *saved_eval = PG_Eval_Maybe_Stale_Throws;
     PG_Eval_Maybe_Stale_Throws = &Traced_Eval_Hook_Throws;
 
     REB_R r = Dispatch_Internal(f);

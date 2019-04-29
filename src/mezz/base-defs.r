@@ -250,6 +250,7 @@ eval func [
     word?:
     set-word?:
     get-word?:
+    sym-word?:
     issue?:
     binary?:
     text?:
@@ -261,12 +262,15 @@ eval func [
     path?:
     set-path?:
     get-path?:
+    sym-path?:
     block?:
     set-block?:
     get-block?:
+    sym-block?:
     group?:
     get-group?:
     set-group?:
+    sym-group?:
     map?:
     datatype?:
     typeset?:

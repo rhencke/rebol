@@ -12,7 +12,13 @@ REBOL [
         concepts involved in that is that things like mappings of integers
         to frames is all part of the userspace code's responsibility.
 
-        Original code was in C, but is being migrated out.
+        !!! This is a port to usermode of what was very experimental C code.
+        So it is *doubly* experimental.  The primary hope is to show the
+        "shape" of the debugger and that the evaluator is exposing the
+        information it would need.  Ideally this would be abstracted across
+        the hoops one must jump through to implement a single-threaded
+        debugger vs. a threaded/interprocess-focused implementation (e.g.
+        via a debug://` PORT!)
     }
 ]
 
@@ -66,8 +72,10 @@ backtrace*: function [
 
     f: start
 
-    stack: collect [while [f: try parent of f] [
-        if action of f = :console [
+    stack: collect [while [f: parent of f] [
+        a: action of f
+
+        if :a = :console [
             ;
             ; For now, just skip any CONSOLE frames in the list.  It might
             ; be better to show them in some circumstances, but really they
@@ -78,8 +86,9 @@ backtrace*: function [
 
         if not pending? f [
             if first-frame and [any [
-                action of f = :pause
-                action of f = :breakpoint
+                true  ; !!! Now these are ADAPT, try just zeroing first frame
+                :a = :pause
+                :a = :breakpoint
             ]][
                 ; Omitting breakpoints from the list entirely presents a
                 ; skewed picture of what's going on.  But giving them
@@ -112,7 +121,7 @@ backtrace*: function [
                 ]
             ] else [
                 assert [action? :level]
-                if action of f <> :level [
+                if (action of f) <> :level [
                     continue
                 ]
             ]
@@ -204,19 +213,162 @@ backtrace*: function [
 backtrace: function [
     {Prints out a backtrace at the current location}
 
-    return: []
+    return: <void>
 ][
     stack: backtrace* binding of 'return _
     print mold/only stack
 ]
 
 
+; Make adaptation of a breakpoint that lets you know it happened with a
+; message.  (By using ADAPT you won't see both BREAKPOINT and BREAKPOINT* on
+; the stack during BACKTRACE...it uses only one frame.)
+;
+breakpoint: adapt 'breakpoint* [
+    system/console/print-info "BREAKPOINT hit"
+]
+
+
+; The debugger gives its stack analysis in terms of FRAME!s, and in order to
+; keep the API and design of FRAME!s manageable they are always associated
+; with an ACTION!.  This means there's no user-exposed concept exposing the
+; "implementation stack", e.g. no exposure of GROUP!s that are executing as
+; if they are their own stack levels.  So when an interrupt is caused by
+; single stepping it won't have any point of reference on the stack without
+; some function call associated.  So stepping "synthesizes a frame" out of
+; thin air by using INTERRUPT, which is like a breakpoint but that the
+; backtrace mechanics can choose not to show.
+;
+interrupt: adapt 'breakpoint* [
+    ;
+    ; !!! INTERRUPT doesn't currently print anything; it's assumed that
+    ; changing the prompt would be enough (though a status bar message would
+    ; be a good idea in a GUI environment)
+]
+
+
+; !!! Putting the console into usermode code and having a customizable "skin"
+; (with sandboxing of expressions run on behalf of the skin vs. user
+; evaluations) is a pretty complex idea.  Going to having more than one
+; skin in effect raises more questions, since the currently in-effect skin
+; was assumed to be `system/console/skin`.
+;
+; So there are many open issues with that.  For right now, what happens is
+; that nested console sessions keep track of `system/console/skin` and put
+; it back when they are done, so it always represents the current skin.  We
+; add some customizations on the base console for the debugger, but these
+; will not interact with shortcuts in the non-debugger skin at this time.
+
+debug-console-skin: make console! [
+    greeting:
+{!! Entering *EXPERIMENTAL* Debug Console that only barely works for a demo.
+Expect crashes and mayhem.  But see BACKTRACE, RESUME, and STEP.}
+
+    base-frame: _
+    focus-frame: _
+    focus-index: _
+
+    print-greeting: method [return: <void>] [
+        ;
+        ; We override in order to avoid printing out the redundant Rebol
+        ; version information (and to print the greeting only once, which
+        ; maybe the default PRINT-GREETING should know to do to).
+        ;
+        if greeting [
+            print newline
+            print greeting
+            greeting: _
+        ]
+        base-frame: parent of parent of binding of 'return
+        focus-frame: parent of parent of base-frame
+        focus-index: 1
+    ]
+
+    print-prompt: function [] [
+        ;
+        ; If a debug frame is in focus then show it in the prompt, e.g.
+        ; as `if:|4|>>` to indicate stack frame 4 is being examined, and
+        ; it was an `if` statement...so it will be used for binding (you
+        ; can examine the condition and branch for instance)
+        ;
+        if focus-frame [
+            if label of focus-frame [
+                write-stdout unspaced [label of focus-frame ":"]
+            ]
+            write-stdout unspaced ["|" focus-index "|"]
+        ]
+
+        ; We don't want to use PRINT here because it would put the cursor on
+        ; a new line.
+        ;
+        write-stdout unspaced prompt
+        write-stdout space
+    ]
+
+    dialect-hook: method [
+        {Receives code block, parse/transform, send back to CONSOLE eval}
+        b [block!]
+    ][
+        if empty? b [
+            print-info "Interpreting empty input as STEP"
+            return [step]
+        ]
+
+        all [
+            1 = length of b
+            integer? :b/1
+        ] then [
+            print-info "Interpreting integer input as DEBUG"
+            return compose [debug (b/1)]
+        ]
+
+        if focus-frame [
+            bind b focus-frame
+        ]
+        return b
+    ]
+]
+
+
 debug: function [
     {Dialect for interactive debugging, see documentation for details}
+    return: <void>
     'value [<opt> integer! frame! action! block!]
         {Stack level to inspect or dialect block, or enter debug mode}
 ][
-    fail "Native DEBUG function hasn't been re-implemented in usermode yet"
+    if not integer? :value [
+        fail "Since switching to usermode, for now DEBUG only takes INTEGER!"
+    ]
+
+    frame: backtrace* debug-console-skin/base-frame value else [
+        fail ["FRAME! does not exist for" value]
+    ]
+
+    debug-console-skin/focus-frame: frame
+    debug-console-skin/focus-index: value
 ]
 
-sys/export [backtrace debug]
+
+locals: function [return: <void>] [
+    print [debug-console-skin/focus-frame]
+]
+
+
+debug-console: adapt 'console [
+    resumable: true
+
+    ; The debug skin is made as a global object, so changes to the skin will
+    ; persist between invocations for BREAKPOINTs or STEPs.
+    ;
+    skin: debug-console-skin
+]
+
+
+; !!! INTERRUPT shouldn't actually be exported; but the way it's run currently
+; it is only looked up in the lib context, since it is running outside of
+; any native in this module (e.g. it's running from an evaluator hook).  So
+; to be found, it has to be exported for now.  The hook will need some amount
+; of associated state at some point, which means that STEP (or whatever
+; registers the hook) could make INTERRUPT part of that state at that time.
+;
+sys/export [backtrace debug locals breakpoint interrupt]

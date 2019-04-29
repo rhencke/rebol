@@ -7,7 +7,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Copyright 2016-2018 Rebol Open Source Contributors
+// Copyright 2016-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -227,11 +227,11 @@ static REBVAL *Run_Sandboxed_Group(REBVAL *group) {
 //
 //  {Runs customizable Read-Eval-Print Loop, may "provoke" code before input}
 //
-//      return: "Integer if QUIT result, path if RESUME instruction"
-//          [integer! path!]
+//      return: "Exit code, RESUME instruction, or handle to evaluator hook"
+//          [integer! sym-group! handle!]
 //      /provoke "Block must return a console state, group is cancellable"
 //          [block! group!]
-//      /resumable "Allow RESUME instruction (will return a PATH!)"
+//      /resumable "Allow RESUME instruction (will return a SYM-GROUP!)"
 //      /skin "File containing console skin, or MAKE CONSOLE! derived object"
 //          [file! object!]
 //  ]
@@ -249,6 +249,15 @@ REBNATIVE(console)
 {
     CONSOLE_INCLUDE_PARAMS_OF_CONSOLE;
 
+    // !!! The initial usermode console implementation was geared toward a
+    // single `system/console` object.  But the debugger raised the issue of
+    // nested sessions which might have a different skin.  So save whatever
+    // the console object was if it is being overridden.
+
+    REBVAL *old_console = rebValue(":system/console", rebEND);
+    if (REF(skin))
+        rebElide("system/console: _", rebEND);  // !!! needed for now
+
     // We only enable halting (e.g. Ctrl-C, or Escape, or whatever) when user
     // code is running...not when the HOST-CONSOLE function itself is, or
     // during startup.  (Enabling it during startup would require a special
@@ -265,7 +274,7 @@ REBNATIVE(console)
     // is supposed to be "invisible" and not show up on the stack...as if
     // it were part of the C codebase, even though it isn't written in C)
     //
-    REBEVL saved_eval_hook = PG_Eval_Maybe_Stale_Throws;
+    REBEVL *saved_eval_hook = PG_Eval_Maybe_Stale_Throws;
     REBNAT saved_dispatch_hook = PG_Dispatch;
 
     // !!! While the new mode of TRACE (and other code hooking function
@@ -343,7 +352,7 @@ REBNATIVE(console)
         if (rebDidQ("integer?", code, rebEND))
             break;  // when HOST-CONSOLE returns INTEGER! it means exit code
 
-        if (rebDidQ("path?", code, rebEND)) {
+        if (rebDidQ("match [sym-group! handle!]", code, rebEND)) {
             assert(REF(resumable));
             break;
         }
@@ -406,104 +415,7 @@ REBNATIVE(console)
     if (was_halting_enabled)
         Enable_Halting();
 
+    rebElideQ("system/console:", rebR(old_console), rebEND);
+
     return code;  // http://stackoverflow.com/q/1101957/
-}
-
-
-// Index values for the properties in a "resume instruction" (see notes on
-// REBNATIVE(resume))
-//
-enum {
-    RESUME_INST_MODE = 0,   // FALSE if /WITH, TRUE if /DO, BLANK! if default
-    RESUME_INST_PAYLOAD,    // code block to /DO or value of /WITH
-    RESUME_INST_TARGET,     // unwind target, BLANK! to return from breakpoint
-    RESUME_INST_MAX
-};
-
-
-//
-//  export resume: native [
-//
-//  {Resume after a breakpoint, can evaluate code in the breaking context.}
-//
-//      /with "Return the given value as return value from BREAKPOINT"
-//          [any-value!]
-//      /do "Evaluate given code as return value from BREAKPOINT"
-//          [block!]
-//  ]
-//
-REBNATIVE(resume)
-//
-// The CONSOLE makes a wall to prevent arbitrary THROWs and FAILs from ending
-// a level of interactive inspection.  But RESUME is special, and makes a very
-// specific instruction (with a throw /NAME of the RESUME native) to signal a
-// desire to end the interactive session.
-//
-// When the BREAKPOINT native gets control back from CONSOLE, it interprets
-// and executes the instruction.  This offers the additional benefit that
-// each host doesn't have to rewrite interpretation in the hook--they only
-// need to recognize a RESUME throw and pass the argument back.
-//
-// !!! Initially, this supported /AT:
-//
-//      /at
-//          "Return from another call up stack besides the breakpoint"
-//      level [frame! action! integer!]
-//          "Stack level to target in unwinding (can be BACKTRACE #)"
-//
-// While an interesting feature, it's not currently a priority.
-{
-    CONSOLE_INCLUDE_PARAMS_OF_RESUME;
-
-    if (REF(with) && REF(do)) {
-        //
-        // /WITH and /DO both dictate a default return result, (/DO evaluates
-        // and /WITH does not)  They are mutually exclusive.
-        //
-        fail (Error_Bad_Refines_Raw());
-    }
-
-    // We don't actually want to run the code for a /DO here.  If we tried
-    // to run code from this stack level--and it failed or threw without
-    // some special protocol--we'd stay stuck in the breakpoint's sandbox.
-    //
-    // The /DO code we received needs to actually be run by the host's
-    // breakpoint hook, once it knows that non-local jumps to above the break
-    // level (throws, returns, fails) actually intended to be "resuming".
-
-    REBARR *instruction = Make_Array(RESUME_INST_MAX);
-
-    if (REF(with)) {
-        Init_False(ARR_AT(instruction, RESUME_INST_MODE)); // don't DO
-        Move_Value(ARR_AT(instruction, RESUME_INST_PAYLOAD), ARG(with));
-    }
-    else if (REF(do)) {
-        Init_True(ARR_AT(instruction, RESUME_INST_MODE)); // DO value
-        Move_Value(ARR_AT(instruction, RESUME_INST_PAYLOAD), ARG(do));
-    }
-    else {
-        Init_Blank(ARR_AT(instruction, RESUME_INST_MODE)); // use default
-        Init_Blank(ARR_AT(instruction, RESUME_INST_PAYLOAD));
-    }
-
-    // For /AT feature, currently not supported
-    //
-    Init_Blank(ARR_AT(instruction, RESUME_INST_TARGET));
-
-    TERM_ARRAY_LEN(instruction, RESUME_INST_MAX);
-
-    // We put the resume instruction into a PATH! just to make it a little
-    // bit more unusual than a BLOCK!.  More hardened approaches might put
-    // a special symbol as a "magic number" or somehow version the protocol,
-    // but for now we'll assume that the only decoder is BREAKPOINT and it
-    // will be kept in sync.
-    //
-    DECLARE_LOCAL (cell);
-    Init_Path(cell, instruction);
-
-    // Throw the instruction with the name of the RESUME function.  (Note:
-    // there is no NAT_VALUE() for extensions, yet)
-    //
-    Init_Action_Maybe_Bound(D_OUT, FRM_PHASE(frame_), FRM_BINDING(frame_));
-    return Init_Thrown_With_Label(D_OUT, cell, D_OUT);
 }

@@ -91,32 +91,23 @@ console!: make object! [
   ABOUT   - Information about your Rebol
   CHANGES - What's different about this version}
 
+    print-greeting: method [
+        return: <void>
+        {Adds live elements to static greeting content (build #, version)}
+    ][
+        boot-print [
+            "Rebol 3 (Ren-C branch)"
+            mold compose [version: (system/version) build: (system/build)]
+            newline
+        ]
+
+        boot-print greeting
+    ]
+
     print-prompt: method [return: <void>] [
         ;
-        ; !!! Previously the HOST-CONSOLE hook explicitly took an (optional)
-        ; FRAME! where a debug session was focused and a stack depth integer,
-        ; which was put into the prompt.  This feature is not strictly
-        ; necessary (just helpful), and made HOST-CONSOLE seem less generic.
-        ; It would make more sense for aspects of the debugger's state to
-        ; be picked up from the environment somewhere (who's to say the
-        ; focus-frame and focus-level are the only two relevant things)?
-        ;
-        ; For now, comment out the feature...and assume if it came back it
-        ; would be grafted here in the PRINT-PROMPT.
-        ;
-        comment [
-            ; If a debug frame is in focus then show it in the prompt, e.g.
-            ; as `if:|4|>>` to indicate stack frame 4 is being examined, and
-            ; it was an `if` statement...so it will be used for binding (you
-            ; can examine the condition and branch for instance)
-            ;
-            if focus-frame [
-                if label of focus-frame [
-                    write-stdout unspaced [label of focus-frame ":"]
-                ]
-                write-stdout unspaced ["|" focus-level "|"]
-            ]
-        ]
+        ; Note: See example override in skin in the Debugger extension, which
+        ; adds the stack "level" number and "current" function name.
 
         ; We don't want to use PRINT here because it would put the cursor on
         ; a new line.
@@ -184,16 +175,6 @@ console!: make object! [
 
     print-info: method [s] [print [info reduce s]]
 
-    print-greeting: method [] [
-        boot-print [
-            "Rebol 3 (Ren-C branch)"
-            mold compose [version: (system/version) build: (system/build)]
-            newline
-        ]
-
-        boot-print greeting
-    ]
-
     print-gap: method [] [print newline]
 
     === BEHAVIOR (can be overridden) ===
@@ -211,20 +192,11 @@ console!: make object! [
         {Receives code block, parse/transform, send back to CONSOLE eval}
         b [block!]
     ][
-        ; !!! As with the notes on PRINT-PROMPT, the concept that the
-        ; debugger parameterizes the HOST-CONSOLE function directly is being
-        ; phased out.  So things like showing the stack level in the prompt,
-        ; or binding code into the frame with focus, is something that would
-        ; be the job of a "debugger skin" which extracts its parameterization
-        ; from the environment.  Once these features are thought out more,
-        ; that skin can be implemented (or the default skin can just look
-        ; for debug state, and not apply debug skinning if it's not present.)
+        ; By default we do nothing.  But see the Debug console skin for
+        ; example of binding the code to the currently "focused" FRAME!, or
+        ; this example on the forum of injecting the last value:
         ;
-        comment [
-            if focus-frame [
-                bind code focus-frame
-            ]
-        ]
+        ; https://forum.rebol.info/t/1071
 
         b
     ]
@@ -369,8 +341,8 @@ start-console: function [
 ext-console-impl: function [
     {Rebol ACTION! that is called from C in a loop to implement the console}
 
-    return: "Code submission for C caller to run in a sandbox, or exit status"
-        [block! group! integer! path!]  ; Note: RETURN is hooked below!!!
+    return: "Code for C caller to sandbox, exit status, RESUME code, or hook"
+        [block! group! integer! sym-group! handle!]  ; RETURN is hooked below!
     prior "BLOCK! or GROUP! that last invocation of HOST-CONSOLE requested"
         [blank! block! group!]
     result "Quoted result from evaluating PRIOR, or non-quoted error"
@@ -416,7 +388,7 @@ ext-console-impl: function [
         {Hooked RETURN function which finalizes any gathered EMIT lines}
 
         state "Describes the RESULT that the next call to HOST-CONSOLE gets"
-            [integer! tag! group! datatype! path!]
+            [integer! tag! group! datatype! sym-group! handle!]
         <with> instruction prior
         <local> return-to-c (:return)  ; capture HOST-CONSOLE's RETURN
     ][
@@ -458,8 +430,10 @@ ext-console-impl: function [
                 assert [empty? instruction]
                 state
             ]
-            path! [  ; means "resume instruction"
-                assert [empty? instruction]
+            sym-group! [  ; means "resume instruction"
+                state
+            ]
+            handle! [  ; means "evaluator hook request" (handle is the hook)
                 state
             ]
             default [
@@ -556,11 +530,12 @@ ext-console-impl: function [
     ; result so the program can continue.
 
     all [
+        set? 'lib/resume
         error? :result
         result/id = 'no-catch
-        :result/arg2 = :RESUME  ; throw's /NAME
+        :result/arg2 = :LIB/RESUME  ; throw's /NAME
     ] then [
-        assert [path? :result/arg1]
+        assert [match [sym-group! handle!] :result/arg1]
         if not resumable [
             e: make error! "Can't RESUME top-level CONSOLE (use QUIT to exit)"
             e/near: result/near
