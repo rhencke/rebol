@@ -846,7 +846,7 @@ load-module: function [
 
 ; If TRUE, IMPORT 'MOD acts as IMPORT <MOD>
 ;
-force-remote-import: false 
+force-remote-import: false
 
 ; See also: SYS/MAKE-MODULE*, SYS/LOAD-MODULE, SYS/DO-NEEDS
 ;

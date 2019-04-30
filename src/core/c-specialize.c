@@ -908,7 +908,7 @@ bool Make_Invocation_Frame_Throws(
 
     REBSTR *opt_label = nullptr; // !!! for now
     Push_Action(f, VAL_ACTION(action), VAL_BINDING(action));
-    Begin_Action(f, opt_label);
+    Begin_Prefix_Action(f, opt_label);
 
     // Use this special mode where we ask the dispatcher not to run, just to
     // gather the args.  Push_Action() checks that it's not set, so we don't

@@ -127,7 +127,7 @@ void Startup_Frame_Stack(void)
     Push_Action(f, PG_Dummy_Action, UNBOUND);
 
     REBSTR *opt_label = nullptr;
-    Begin_Action(f, opt_label);
+    Begin_Prefix_Action(f, opt_label);
     assert(IS_END(f->arg));
     f->param = END_NODE; // signal all arguments gathered
     f->arg = m_cast(REBVAL*, END_NODE);

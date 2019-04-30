@@ -412,19 +412,6 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
 }
 
 
-void Push_Enfix_Action(REBFRM *f, const REBVAL *action, REBSTR *opt_label)
-{
-    Push_Action(f, VAL_ACTION(action), VAL_BINDING(action));
-
-    CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);  // *after* push, invisibles cache
-
-    Begin_Action(f, opt_label);
-
-    SET_EVAL_FLAG(f, RUNNING_ENFIX);
-    SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
-}
-
-
 //
 //  Eval_Internal_Maybe_Stale_Throws: C
 //
@@ -517,8 +504,14 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         CLEAR_EVAL_FLAG(f, REEVALUATE_CELL);
 
         if (GET_CELL_FLAG(f->u.reval.value, ENFIXED)) {
-            Push_Enfix_Action(f, f->u.reval.value, nullptr);
-            Fetch_Next_Forget_Lookback(f);  // advances f->at
+            Push_Action(
+                f,
+                VAL_ACTION(f->u.reval.value),
+                VAL_BINDING(f->u.reval.value)
+            );
+            Begin_Enfix_Action(f, nullptr);  // invisible cache NO_LOOKAHEAD
+
+            Fetch_Next_Forget_Lookback(f);
 
             kind.byte = REB_ACTION;  // must init for UNEVALUATED check
             goto process_action;
@@ -674,12 +667,8 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
     // Wasn't the at-end exception, so run normal enfix with right winning.
 
     Push_Action(f, VAL_ACTION(gotten), VAL_BINDING(gotten));
-    Begin_Action(f, VAL_WORD_SPELLING(v));
+    Begin_Enfix_Action(f, VAL_WORD_SPELLING(v));
 
-    SET_EVAL_FLAG(f, RUNNING_ENFIX);
-    SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
-
-    CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
     kind.byte = REB_ACTION;  // for consistency in the UNEVALUATED check
     goto process_action;
 
@@ -745,7 +734,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         REBSTR *opt_label = nullptr;  // not run from WORD!/PATH!, "nameless"
 
         Push_Action(f, VAL_ACTION(v), VAL_BINDING(v));
-        Begin_Action(f, opt_label);
+        Begin_Prefix_Action(f, opt_label);
 
         // We'd like `10 -> = 5 + 5` to work, and to do so it reevaluates in
         // a new frame, but has to run the `=` as "getting its next arg from
@@ -771,7 +760,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
       process_action: // Note: Also jumped to by the redo_checked code
 
       #if !defined(NDEBUG)
-        assert(f->original); // set by Begin_Action()
+        assert(f->original);  // set by Begin_Action()
         Do_Process_Action_Checks_Debug(f);
       #endif
 
@@ -1693,7 +1682,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             // This might be interesting or it might be bugs waiting to
             // happen, trying it out of curiosity for now.
             //
-            Begin_Action(f, opt_label);
+            Begin_Prefix_Action(f, opt_label);
             assert(NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT));
             SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
 
@@ -1752,12 +1741,11 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             }
 
             Push_Action(f, act, VAL_BINDING(gotten));
-            Begin_Action(f, VAL_WORD_SPELLING(v)); // use word as label
-
-            if (GET_CELL_FLAG(gotten, ENFIXED)) {
-                SET_EVAL_FLAG(f, RUNNING_ENFIX); // Push_Action() disallows
-                SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
-            }
+            Begin_Action_Core(
+                f,
+                VAL_WORD_SPELLING(v),  // use word as label
+                GET_CELL_FLAG(gotten, ENFIXED)
+            );
             goto process_action;
         }
 
@@ -1884,7 +1872,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                 fail ("Use `<-` with invisibles fetched from PATH!");
 
             Push_Action(f, VAL_ACTION(where), VAL_BINDING(where));
-            Begin_Action(f, opt_label);
+            Begin_Prefix_Action(f, opt_label);
 
             if (where == f->out)
                 Expire_Out_Cell_Unless_Invisible(f);
@@ -2054,7 +2042,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             // being experimented with letting it take more.)
             //
             Push_Action(f, VAL_ACTION(spare), VAL_BINDING(spare));
-            Begin_Action(f, nullptr); // no label
+            Begin_Prefix_Action(f, nullptr);  // no label
 
             kind.byte = REB_ACTION;
             assert(NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT));
@@ -2351,10 +2339,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         Push_Action(f, NAT_ACTION(path_0), binding);
 
         REBSTR *opt_label = nullptr;
-        Begin_Action(f, opt_label);
-
-        SET_EVAL_FLAG(f, RUNNING_ENFIX);
-        SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
+        Begin_Enfix_Action(f, opt_label);
 
         Fetch_Next_Forget_Lookback(f);  // advances f->value
         goto process_action;
@@ -2505,14 +2490,15 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
     }
 
     CLEAR_FEED_FLAG(f->feed, DEFERRING_ENFIX);
-    CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
 
     // An evaluative lookback argument we don't want to defer, e.g. a normal
     // argument or a deferable one which is not being requested in the context
     // of parameter fulfillment.  We want to reuse the f->out value and get it
     // into the new function's frame.
 
-    Push_Enfix_Action(f, *next_gotten, VAL_WORD_SPELLING(*next));
+    Push_Action(f, VAL_ACTION(*next_gotten), VAL_BINDING(*next_gotten));
+    Begin_Enfix_Action(f, VAL_WORD_SPELLING(*next));
+
     Fetch_Next_Forget_Lookback(f);  // advances next
     goto process_action;
 

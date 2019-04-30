@@ -210,7 +210,7 @@ static bool Subparse_Throws(
     Push_Frame(out, f);  // checks for C stack overflow
     Push_Action(f, NAT_ACTION(subparse), UNBOUND);
 
-    Begin_Action(f, Canon(SYM_SUBPARSE));
+    Begin_Prefix_Action(f, Canon(SYM_SUBPARSE));
 
     f->param = END_NODE; // informs infix lookahead
     f->arg = m_cast(REBVAL*, END_NODE);
@@ -438,7 +438,7 @@ REB_R Process_Group_For_Parse(
     // `cell` may equal `group`, read its type before Do() overwrites `cell`
     bool inject =
         IS_GET_GROUP(group)  // plain groups always discard
-        or Is_Any_Doubled_Group(group);  // !!! Temp hack, see note 
+        or Is_Any_Doubled_Group(group);  // !!! Temp hack, see note
 
     assert(IS_GROUP(group) or IS_GET_GROUP(group));
     REBSPC *derived = Derive_Specifier(P_RULE_SPECIFIER, group);

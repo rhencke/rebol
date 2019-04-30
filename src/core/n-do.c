@@ -454,7 +454,7 @@ REBNATIVE(do)
         FRM_BINDING(f) = VAL_BINDING(source); // !!! should archetype match?
 
         REBSTR *opt_label = nullptr;
-        Begin_Action(f, opt_label);
+        Begin_Prefix_Action(f, opt_label);
 
         bool threw = Eval_Throws(f);
 
@@ -826,7 +826,7 @@ REBNATIVE(applique)
     INIT_FRM_PHASE(f, VAL_ACTION(applicand));
     FRM_BINDING(f) = VAL_BINDING(applicand);
 
-    Begin_Action(f, opt_label);
+    Begin_Prefix_Action(f, opt_label);
 
     bool action_threw = Eval_Throws(f);
 

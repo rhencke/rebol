@@ -607,7 +607,7 @@ REBNATIVE(match)
             | EVAL_FLAG_FULLY_SPECIALIZED
             | EVAL_FLAG_PROCESS_ACTION;
 
-        Begin_Action(f, opt_label);
+        Begin_Prefix_Action(f, opt_label);
 
         bool threw = Eval_Throws(f);
 

@@ -488,7 +488,7 @@ inline static void Prep_Frame_Core(
     DECLARE_FRAME(name, &TG_Frame_Feed_End, flags)
 
 
-inline static void Begin_Action(REBFRM *f, REBSTR *opt_label)
+inline static void Begin_Action_Core(REBFRM *f, REBSTR *opt_label, bool enfix)
 {
     assert(NOT_EVAL_FLAG(f, RUNNING_ENFIX));
     assert(NOT_FEED_FLAG(f->feed, DEFERRING_ENFIX));
@@ -505,7 +505,38 @@ inline static void Begin_Action(REBFRM *f, REBSTR *opt_label)
 
     assert(NOT_EVAL_FLAG(f, REQUOTE_NULL));
     f->requotes = 0;
+
+    // There's a current state for the FEED_FLAG_NO_LOOKAHEAD which invisible
+    // actions want to put back as it was when the invisible operation ends.
+    // (It gets overwritten during the invisible's own argument gathering).
+    // Cache it on the varlist and put it back when an R_INVISIBLE result
+    // comes back.
+    //
+    if (GET_ACTION_FLAG(f->original, IS_INVISIBLE)) {
+        if (GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)) {
+            assert(GET_EVAL_FLAG(f, FULFILLING_ARG));
+            CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
+            SET_SERIES_INFO(f->varlist, TELEGRAPH_NO_LOOKAHEAD);
+        }
+    }
+
+    if (enfix) {
+        SET_EVAL_FLAG(f, RUNNING_ENFIX);  // set for duration of function call
+        SET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);  // only set during first arg
+
+        // All the enfix call sites cleared this flag on the feed, so it was
+        // moved into the Begin_Enfix_Action() case.  Note this has to be done
+        // *after* the existing flag state has been captured for invisibles.
+        //
+        CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
+    }
 }
+
+#define Begin_Enfix_Action(f,opt_label) \
+    Begin_Action_Core((f), (opt_label), true)
+
+#define Begin_Prefix_Action(f,opt_label) \
+    Begin_Action_Core((f), (opt_label), false)
 
 
 // Allocate the series of REBVALs inspected by a function when executed (the
@@ -628,22 +659,6 @@ inline static void Push_Action(
 
     assert(NOT_SERIES_FLAG(f->varlist, MANAGED));
     assert(NOT_SERIES_INFO(f->varlist, INACCESSIBLE));
-
-    // There's a current state for the FEED_FLAG_NO_LOOKAHEAD which invisible
-    // actions want to put back as it was when the invisible operation ends.
-    // (It gets overwritten during the invisible's own argument gathering).
-    // Cache it on the varlist and put it back when an R_INVISIBLE result
-    // comes back.
-    //
-    // !!! Should this go in Begin_Action?
-    //
-    if (GET_ACTION_FLAG(act, IS_INVISIBLE)) {
-        if (GET_FEED_FLAG(f->feed, NO_LOOKAHEAD)) {
-            assert(GET_EVAL_FLAG(f, FULFILLING_ARG));
-            CLEAR_FEED_FLAG(f->feed, NO_LOOKAHEAD);
-            SET_SERIES_INFO(f->varlist, TELEGRAPH_NO_LOOKAHEAD);
-        }
-    }
 }
 
 
