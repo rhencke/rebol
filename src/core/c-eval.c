@@ -1792,14 +1792,14 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 // current frame is not reused, as the source array from which values are
 // being gathered changes.
 //
-// Empty groups vaporize, as do ones that only consist of invisibles.
-// However, they cannot combine with surrounding code, e.g.
+// Empty groups vaporize, as do ones that only consist of invisibles.  If
+// this is not desired, one should use DO or lead with `(void ...)`
 //
 //     >> 1 + 2 (comment "vaporize")
 //     == 3
 //
 //     >> 1 + () 2
-//     ** Script error: + is missing its value2 argument
+//     == 3
 
       case REB_GROUP: {
         *next_gotten = nullptr;  // arbitrary code changes fetched variables
@@ -1812,6 +1812,20 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         //
         if (Do_Feed_To_End_Maybe_Stale_Throws(f->out, subfeed))
             goto return_thrown;
+
+        // We want `3 = (1 + 2 ()) 4` to not treat the 1 + 2 as "stale", thus
+        // skipping it and trying to compare `3 = 4`.  But `3 = () 1 + 2`
+        // should consider the empty group stale.
+        //
+        if (IS_END(f->out)) {
+            if (IS_END(*next))
+                goto finished;  // nothing after to try evaluating
+
+            gotten = *next_gotten;
+            v = Lookback_While_Fetching_Next(f);
+            kind.byte = KIND_BYTE(v);
+            goto reevaluate;
+        }
 
         CLEAR_CELL_FLAG(f->out, UNEVALUATED);  // `(1)` considered evaluative
         break; }

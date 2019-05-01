@@ -290,3 +290,10 @@
 (null? spaced [])
 (null? spaced [comment "hi"])
 (null? spaced [()])
+
+
+; GROUP!s are able to "vaporize" if they are empty or invisible
+; https://forum.rebol.info/t/permissive-group-invisibility/1153
+;
+(() 1 + () 2 = () 3)
+((comment "one") 1 + (comment "two") 2 = (comment "three") 3)

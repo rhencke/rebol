@@ -878,17 +878,13 @@ REBNATIVE(case)
         if (Eval_Step_Maybe_Stale_Throws(D_OUT, f))
             goto threw;
 
-        if (GET_CELL_FLAG(D_OUT, OUT_MARKED_STALE))  // could've been COMMENT
-            goto reached_end;
-
         if (IS_END(*v)) {
-            //
-            // !!! We don't want to do a IS_TRUTHY() test on something that
-            // is going to fall out, because voids are legal there.  But what
-            // about `case [... default [...] comment "?"]`
-            //
+            CLEAR_CELL_FLAG(D_OUT, OUT_MARKED_STALE);
             goto reached_end;
         }
+
+        if (GET_CELL_FLAG(D_OUT, OUT_MARKED_STALE))
+            continue;  // a COMMENT, but not at end.
 
         bool matched;
         if (IS_NULLED(predicate)) {
