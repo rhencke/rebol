@@ -54,12 +54,17 @@ REBNATIVE(eval)
     //
     UNUSED(ARG(expressions));
 
+    REBVAL *v = ARG(value);
+
+    bool enfix = IS_ACTION(v) and GET_ACTION_FLAG(VAL_ACTION(v), ENFIXED);
+
     REBFLGS flags = EVAL_MASK_DEFAULT;
     if (Reevaluate_In_Subframe_Maybe_Stale_Throws(
         Init_Void(D_OUT),  // `eval lit (comment "this gives void vs. error")`
         frame_,
         ARG(value),
-        flags
+        flags,
+        enfix
     ))
         return R_THROWN;
 
@@ -164,8 +169,11 @@ REBNATIVE(shove)
     // Even if the function isn't enfix, say it is.  This permits things
     // like `5 + 5 -> subtract 7` to give 3.
     //
-    if (REF(enfix) and IS_ACTION(shovee))
-        SET_CELL_FLAG(shovee, ENFIXED);  // so that `add 1 2 -> 3` is 7
+    if (REF(enfix) and IS_ACTION(shovee)) {
+        //
+        // This is currently explicitly passed to the Reevaluate() function
+        // below.  It's so that `add 1 2 -> 3` is 7
+    }
     else
         Fetch_Next_Forget_Lookback(f);  // so that `10 -> = 5 + 5` is true
 
@@ -222,7 +230,8 @@ REBNATIVE(shove)
         D_OUT,
         frame_,
         shovee,
-        flags
+        flags,
+        REF(enfix)
     )){
         rebRelease(composed_set_path);  // ok if nullptr
         return R_THROWN;

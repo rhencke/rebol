@@ -217,7 +217,7 @@ help: function [
                 print ["No information on" topic "(has no value)"]
                 return
             ]
-            enfixed: enfixed? topic
+            enfixed: did all [action? :value | enfixed? :value]
         ]
     ] else [
         ; !!! There may be interesting meanings to apply to things like

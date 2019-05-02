@@ -419,7 +419,7 @@ e-types/write-emitted
 
 e-hooks: make-emitter "Built-in Type Hooks" core/tmp-type-hooks.c
 
-hookname: enfix func [
+hookname: enfixed func [
     return: [text!]
     'prefix [text!] "quoted prefix, e.g. T_ for T_Action"
     t [object!] "type record (e.g. a row out of %types.r)"

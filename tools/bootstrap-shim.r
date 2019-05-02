@@ -48,6 +48,21 @@ trap [
 
 print "== SHIMMING OLDER R3 TO MODERN LANGUAGE DEFINITIONS =="
 
+; Enfixedness was conceived as not a property of an action itself, but of a
+; particular relationship between a word and an action.  While this had some
+; benefits, it became less and less relevant in a world of "opportunistic
+; left quoting constructs":
+;
+; https://forum.rebol.info/t/moving-enfixedness-back-into-the-action/1156
+;
+; Since the old version of ENFIX didn't affect its argument, you didn't need
+; to say `+: enfix copy :add`.  But for efficiency, you likely would want to
+; mutate most functions directly (though this concept is being reviewed).  In
+; any case, "enfixed" suggests creating a tweaked version distinct from
+; mutating directly.
+;
+enfixed: enfix :enfix
+
 ; COLLECT was changed back to default to returning an empty block on no
 ; collect, but it is built on a null collect lower-level primitive COLLECT*
 ;
@@ -150,8 +165,8 @@ modernize-action: function [
 func: adapt 'func [set [spec body] modernize-action spec body]
 function: adapt 'function [set [spec body] modernize-action spec body]
 
-meth: enfix adapt 'meth [set [spec body] modernize-action spec body]
-method: enfix adapt 'method [set [spec body] modernize-action spec body]
+meth: enfixed adapt 'meth [set [spec body] modernize-action spec body]
+method: enfixed adapt 'method [set [spec body] modernize-action spec body]
 
 trim: adapt 'trim [ ;; there's a bug in TRIM/AUTO in 8994d23
     if auto [

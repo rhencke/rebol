@@ -185,10 +185,8 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
             Init_Blank(var);
             break; // fix bug#708
         }
-        else {
-            assert(NOT_CELL_FLAG(&word[1], ENFIXED));
+        else
             Derelativize(var, &word[1], VAL_SPECIFIER(arg));
-        }
     }
 
 collect_end:
@@ -537,7 +535,7 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
     //
     REBVAL *src = CTX_VARS_HEAD(original);
     for (; NOT_END(src); ++src, ++dest) {
-        Move_Var(dest, src); // keep CELL_FLAG_ENFIXED, ARG_MARKED_CHECKED
+        Move_Var(dest, src); // keep ARG_MARKED_CHECKED
 
         REBFLGS flags = 0; // !!! Review
         Clonify(dest, flags, types);

@@ -30,21 +30,12 @@ export: lib/func [
     print ["REGISTERING WARNING EXPORT:" as word! set-word]
 ]
 
-checked: enfix lib/func [
+checked: enfixed lib/func [
     return: <void>
     :set-word [set-word!]
     code [block!]
 ] lib/in lib [
     set set-word do in lib code
-    export set-word
-]
-
-checked-enfix: enfix lib/func [
-    return: <void>
-    :set-word [set-word!]
-    code [block!]
-] lib/in lib [
-    set/enfix set-word do in lib code
     export set-word
 ]
 
@@ -137,8 +128,8 @@ reform: deprecated [
     {REFORM's functionality is replaced by SPACED}
 ]
 
-unless: checked-enfix [
-    function [
+unless: checked [
+    enfixed function [
         {Returns left hand side, unless the right hand side is a value}
 
         return: [<opt> any-value!]

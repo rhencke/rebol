@@ -17,16 +17,11 @@ REBOL [
         of all infix ops would appear to process left-to-right, e.g.
         `1 + 2 * 3` would be 9.
 
-        Ren-C does not have an "OP!" function type, it just has ACTION!, but
-        a WORD! can be SET with the /ENFIX refinement.  This indicates that
-        when the function is dispatched through that word, it should get its
-        first parameter from the left.  However it will obey the parameter
-        conventions of the original function (including quoting).  Hence since
-        ADD has normal parameter conventions, `+: enfix :add` would wind up
-        with `1 + 2 * 3` as 7.
+        Ren-C does not have an "OP!" function type, it just has ACTION!, and
+        there is increased fluidity on how actions may optionally interact
+        with a left-hand argument (even opportunistically):
 
-        So a new parameter convention indicated by ISSUE! is provided to get
-        the "#tight" behavior of OP! arguments in R3-Alpha.
+        https://forum.rebol.info/t/1156
     }
 ]
 
@@ -64,7 +59,7 @@ for-each [math-op function-name] [
     or+     union
     xor+    difference
 ][
-    set/enfix math-op (get function-name)
+    set math-op enfixed (get function-name)
 ]
 
 
@@ -98,14 +93,14 @@ for-each [comparison-op function-name] compose [
     ; !!! See discussion about the future of comparison operators:
     ; https://forum.rebol.info/t/349
     ;
-    set/enfix comparison-op (get function-name)
+    set comparison-op enfixed (get function-name)
 ]
 
 
 ; Lambdas are experimental quick function generators via a symbol.
 ; The identity is used to shake up enfix ordering.
 ;
-set/enfix (r3-alpha-lit "=>") :lambda
+set (r3-alpha-lit "=>") enfixed :lambda
 
 ; <- is the SHOVE operator.  It grabs whatever is on the left and uses it as
 ; the first argument to whatever operation is on its right hand side.  It
@@ -122,21 +117,21 @@ set/enfix (r3-alpha-lit "=>") :lambda
 ;     >> 10 -> lib/= 5 + 5
 ;     == #[true]
 ;
-set/enfix (r3-alpha-lit "<-") :shove/enfix
-set/enfix (r3-alpha-lit "->") :shove
+set (r3-alpha-lit "<-") enfixed :shove/enfix
+set (r3-alpha-lit "->") enfixed :shove
 
 
 ; The -- and ++ operators were deemed too "C-like", so ME was created to allow
 ; `some-var: me + 1` or `some-var: me / 2` in a generic way.  They share code
 ; with SHOVE, so it's folded into the implementation of that.
 
-me: enfix redescribe [
+me: enfixed redescribe [
     {Update variable using it as the left hand argument to an enfix operator}
 ](
     :shove/set/enfix  ; /ENFIX so `x: 1 | x: me + 1 * 10` is 20, not 11
 )
 
-my: enfix redescribe [
+my: enfixed redescribe [
     {Update variable using it as the first argument to a prefix operator}
 ](
     :shove/set
@@ -149,5 +144,5 @@ my: enfix redescribe [
 ; `return: []`) permit a more flexible version of the mechanic.
 
 set (r3-alpha-lit "<|") tweak copy :eval-all 'postpone on
-set/enfix (r3-alpha-lit "|>") tweak copy :shove 'postpone on
+set (r3-alpha-lit "|>") tweak enfixed :shove 'postpone on
 ||: :once-bar

@@ -163,7 +163,11 @@ inline static bool Did_Init_Inert_Optimize_Complete(
 
     if (KIND_BYTE_UNCHECKED(feed->value) == REB_WORD) {
         feed->gotten = Try_Get_Opt_Var(feed->value, feed->specifier);
-        if (not feed->gotten or NOT_CELL_FLAG(feed->gotten, ENFIXED)) {
+        if (
+            not feed->gotten
+            or not IS_ACTION(feed->gotten)
+            or NOT_ACTION_FLAG(VAL_ACTION(feed->gotten), ENFIXED)
+        ){
             CLEAR_FEED_FLAG(feed, NO_LOOKAHEAD);
             return true;  // not enfixed
         }
@@ -282,8 +286,12 @@ inline static bool Reevaluate_In_Subframe_Maybe_Stale_Throws(
     REBVAL *out,
     REBFRM *f,
     const REBVAL *reval,
-    REBFLGS flags
+    REBFLGS flags,
+    bool enfix
 ){
+    if (enfix)
+        flags |= EVAL_FLAG_RUNNING_ENFIX;
+
     DECLARE_FRAME (subframe, f->feed, flags | EVAL_FLAG_REEVALUATE_CELL);
     subframe->u.reval.value = reval;
 

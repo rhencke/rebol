@@ -156,7 +156,7 @@
         foo: function [/A [integer!] :/B [<skip> word!]] [
             reduce [/A (A) /B (try :B)]
         ]
-        foob: enfix :foo/b
+        foob: enfixed :foo/b
         true
     )
 

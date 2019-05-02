@@ -236,7 +236,8 @@ REBVAL *Spawn_Interrupt_Dangerous(void *opaque)
         f->out,
         f,
         interrupt,
-        flags
+        flags,
+        false  // interrupt is not enfixed
     )){
         rebRelease(interrupt);  // ok if nullptr
         return R_THROWN;

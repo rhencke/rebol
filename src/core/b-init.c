@@ -483,6 +483,8 @@ REBVAL *Make_Native(
     );
 
     SET_ACTION_FLAG(act, IS_NATIVE);
+    if (enfix)
+        SET_ACTION_FLAG(act, ENFIXED);
 
     REBARR *details = ACT_DETAILS(act);
 
@@ -509,8 +511,6 @@ REBVAL *Make_Native(
     //
     REBVAL *var = Append_Context(VAL_CONTEXT(module), name, 0);
     Init_Action_Unbound(var, act);
-    if (enfix)
-        SET_CELL_FLAG(var, ENFIXED);
 
     return var;
 }

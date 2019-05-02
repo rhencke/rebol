@@ -249,14 +249,16 @@ REBNATIVE(load_extension)
             dispatchers[i],
             module
         );
+        UNUSED(native);  // added by Make_Native to module
 
         // !!! Unloading is a feature that was entertained in the original
         // extension model, but support was sketchy.  So unloading is not
         // currently enabled, but mark the native with an "unloadable" flag
         // if it's in a DLL...as a reminder to revisit the issue.
         //
-        if (not IS_BLANK(lib))
-            SET_ACTION_FLAG(VAL_ACTION(native), UNLOADABLE_NATIVE);
+        if (not IS_BLANK(lib)) {
+            /*SET_ACTION_FLAG(VAL_ACTION(native), UNLOADABLE_NATIVE);*/
+        }
 
         // !!! The mechanics of exporting is something modules do and have to
         // get right.  We shouldn't recreate that process here, just gather

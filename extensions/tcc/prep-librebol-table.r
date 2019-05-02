@@ -31,7 +31,7 @@ REBOL [
 
 change-dir %../../
 
-do %tools/r2r3-future.r
+do %tools/bootstrap-shim.r
 
 do %tools/common.r
 args: parse-args system/options/args

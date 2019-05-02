@@ -605,7 +605,6 @@ void Set_Opt_Polymorphic_May_Fail(
     const RELVAL *setval,
     REBSPC *setval_specifier,
     bool any,
-    bool enfix,
     bool hard
 ){
     if (IS_VOID(setval)) {
@@ -613,17 +612,12 @@ void Set_Opt_Polymorphic_May_Fail(
             fail (Error_Need_Non_Void_Core(target_orig, target_specifier));
     }
 
-    if (enfix and not IS_ACTION(setval))
-        fail ("Attempt to SET/ENFIX on a non-ACTION!");
-
     const REBCEL *target = VAL_UNESCAPED(target_orig);
     enum Reb_Kind kind = CELL_KIND(target);
 
     if (ANY_WORD_KIND(kind)) {
         REBVAL *var = Sink_Var_May_Fail(target, target_specifier);
         Derelativize(var, setval, setval_specifier);
-        if (enfix)
-            SET_CELL_FLAG(var, ENFIXED);
     }
     else if (ANY_PATH_KIND(kind)) {
         DECLARE_LOCAL (specific);
@@ -643,8 +637,6 @@ void Set_Opt_Polymorphic_May_Fail(
             flags |= EVAL_FLAG_PATH_HARD_QUOTE;
         else
             flags |= EVAL_FLAG_NO_PATH_GROUPS;
-        if (enfix)
-            flags |= EVAL_FLAG_SET_PATH_ENFIXED;
 
         DECLARE_LOCAL (dummy);
         if (Eval_Path_Throws_Core(
@@ -679,7 +671,6 @@ void Set_Opt_Polymorphic_May_Fail(
 //          "Value or block of values (NULL means unset)"
 //      /any "Allow ANY-VALUE! assignments (e.g. do not error on VOID!)"
 //      /hard "Do not evaluate GROUP!s in PATH! (assume pre-COMPOSE'd)"
-//      /enfix "ACTION! calls through this word get first arg from left"
 //      /single "If target and value are blocks, set each to the same value"
 //      /some "blank values (or values past end of block) are not set."
 //  ]
@@ -712,7 +703,6 @@ REBNATIVE(set)
             IS_BLANK(value) and REF(some) ? NULLED_CELL : value,
             SPECIFIED,
             REF(any),
-            REF(enfix),
             REF(hard)
         );
 
@@ -747,7 +737,6 @@ REBNATIVE(set)
                 ? VAL_SPECIFIER(value)
                 : SPECIFIED,
             REF(any),
-            REF(enfix),
             REF(hard)
         );
     }
@@ -759,10 +748,10 @@ REBNATIVE(set)
 //
 //  try: native [
 //
-//  {Turn nulls/voids into blanks, all else passes through (see also: OPT)}
+//  {Turn nulls into blanks, all non-voids pass through (see also: OPT)}
 //
-//      return: [any-value!]
-//          {blank if input was null, or original value otherwise}
+//      return: "blank if input was null, or original value otherwise"
+//          [any-value!]
 //      optional [<opt> any-value!]
 //  ]
 //
@@ -882,29 +871,45 @@ REBNATIVE(unset)
 //
 //  {TRUE if looks up to a function and gets first argument before the call}
 //
-//      source [any-word! any-path!]
+//      action [action!]
 //  ]
 //
 REBNATIVE(enfixed_q)
 {
     INCLUDE_PARAMS_OF_ENFIXED_Q;
 
-    REBVAL *source = ARG(source);
+    return Init_Logic(
+        D_OUT,
+        GET_ACTION_FLAG(VAL_ACTION(ARG(action)), ENFIXED)
+    );
+}
 
-    if (ANY_WORD(source)) {
-        const REBVAL *var = Get_Opt_Var_May_Fail(source, SPECIFIED);
 
-        assert(NOT_CELL_FLAG(var, ENFIXED) or IS_ACTION(var));
-        return Init_Logic(D_OUT, GET_CELL_FLAG(var, ENFIXED));
-    }
-    else {
-        assert(ANY_PATH(source));
+//
+//  enfixed: native [
+//
+//  {For making enfix functions, e.g `+: enfix :add` (copies)}
+//
+//      action [action!]
+//  ]
+//
+REBNATIVE(enfixed)
+//
+// !!! Because ENFIX was non mutating previously in terms of behavior, the
+// new more traditional native has had its name changed.  For efficiency,
+// a mutating version for ENFIX may be introduced.
+{
+    INCLUDE_PARAMS_OF_ENFIXED;
 
-        DECLARE_LOCAL (temp);
-        Get_Path_Core(temp, source, SPECIFIED);
-        assert(NOT_CELL_FLAG(temp, ENFIXED) or IS_ACTION(temp));
-        return Init_Logic(D_OUT, GET_CELL_FLAG(temp, ENFIXED));
-    }
+    if (GET_ACTION_FLAG(VAL_ACTION(ARG(action)), ENFIXED))
+        fail (
+            "ACTION! is already enfixed (review callsite, enfix changed"
+            " https://forum.rebol.info/t/1156"
+        );
+
+    REBVAL *copy = rebValueQ("copy", ARG(action), rebEND);
+    SET_ACTION_FLAG(VAL_ACTION(copy), ENFIXED);
+    return copy;
 }
 
 

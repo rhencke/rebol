@@ -130,7 +130,7 @@ STATIC_ASSERT(EVAL_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 // flags, and may or may not be worth it for the feature.
 
 
-//=//// EVAL_FLAG_RUNNING_ENFIX + EVAL_FLAG_SET_PATH_ENFIXED //////////////=//
+//=//// EVAL_FLAG_RUNNING_ENFIX ///////////////////////////////////////////=//
 //
 // IF NOT(EVAL_FLAG_PATH_MODE)...
 //
@@ -140,21 +140,18 @@ STATIC_ASSERT(EVAL_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 // as normal.  There's no good place to hold the memory that one is doing an
 // enfix fulfillment besides a bit on the frame itself.
 //
+// It is also used to indicate to a EVAL_FLAG_REEVALUATE_CELL frame whether
+// to run an ACTION! cell as enfix or not.  The reason this may be overridden
+// on what's in the action can be seen in the REBNATIVE(shove) code.
+//
 // IF EVAL_FLAG_PATH_MODE...
 //
-// The way setting of paths is historically designed, it can't absolutely
-// give back a location of a variable to be set...since sometimes the result
-// is generated, or accessed as a modification of an immediate value.  This
-// complicates the interface to where the path dispatcher must be handed
-// the value to set and copy itself if necessary.  But CELL_MASK_COPIED does
-// not carry forward CELL_FLAG_ENFIXED in the assignment.  This flag tells
-// a frame used with SET-PATH! semantics to make its final assignment enfix.
+// (unused)
 
 #define EVAL_FLAG_16 \
     FLAG_LEFT_BIT(16)
 
 #define EVAL_FLAG_RUNNING_ENFIX         EVAL_FLAG_16
-#define EVAL_FLAG_SET_PATH_ENFIXED      EVAL_FLAG_16
 
 
 //=//// EVAL_FLAG_DIDNT_LEFT_QUOTE_PATH ///////////////////////////////////=//

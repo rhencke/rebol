@@ -176,13 +176,13 @@
     ARRAY_FLAG_29
 
 
-//=//// PARAMLIST_FLAG_UNLOADABLE_NATIVE //////////////////////////////////=//
+//=//// PARAMLIST_FLAG_ENFIXED ////////////////////////////////////////////=//
 //
-// !!! Currently there isn't support for unloading extensions once they have
-// been loaded.  Previously, this flag was necessary to indicate a native was
-// in a DLL, and something like it may become necessary again.
+// An enfix function gets its first argument from its left.  For a time, this
+// was the property of a binding and not an ACTION! itself.  This was an
+// attempt at simplification which caused more problems than it solved.
 //
-#define PARAMLIST_FLAG_UNLOADABLE_NATIVE \
+#define PARAMLIST_FLAG_ENFIXED \
     ARRAY_FLAG_30
 
 

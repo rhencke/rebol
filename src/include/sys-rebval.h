@@ -163,23 +163,13 @@
     FLAG_LEFT_BIT(19)
 
 
-//=//// CELL_FLAG_ENFIXED /////////////////////////////////////////////////=//
+//=//// CELL_FLAG_20 //////////////////////////////////////////////////////=//
 //
-// In Ren-C, there is only one kind of function (ACTION!).  But it's possible
-// to tag a function value cell in a context as being "enfixed", hence it
-// will acquire its first argument from the left.  See SET/ENFIX and ENFIX.
+// Reserved for future use... however for the moment it is used to mark
+// partial refinements, see usage in %c-special.c.  (This could probably
+// multplex with some other bit.)
 //
-// The reason it is a generic CELL_FLAG_XXX and not an PARAMLIST_FLAG_XXX is
-// so that it can be dealt with without specifically knowing that the cell
-// involved is an action.  One benefit is that testing for an enfix action
-// can be done just by looking at this bit--since only actions have it set.
-//
-// But also, this bit is not copied by Move_Value.  As a result, if you say
-// something like `foo: :+`, foo will contain the non-enfixed form of the
-// function.  To do that would require more nuance in Move_Value if it were
-// an PARAMLIST_FLAG_XXX, testing for action-ness vs. just masking it out.
-//
-#define CELL_FLAG_ENFIXED \
+#define CELL_FLAG_20 \
     FLAG_LEFT_BIT(20)
 #define CELL_FLAG_PUSH_PARTIAL \
     FLAG_LEFT_BIT(20)
@@ -303,7 +293,7 @@ inline static union Reb_Header Endlike_Header(uintptr_t bits) {
 
 #define CELL_MASK_COPY \
     ~(CELL_MASK_PERSIST | NODE_FLAG_MARKED | CELL_FLAG_PROTECTED \
-        | CELL_FLAG_ENFIXED | CELL_FLAG_UNEVALUATED)
+        | CELL_FLAG_UNEVALUATED)
 
 
 //=//// CELL's `EXTRA` FIELD DEFINITION ///////////////////////////////////=//

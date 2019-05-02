@@ -38,7 +38,7 @@
 ; the TAKE is called, but theorized that's still more useful than erroring.
 [
     (
-        normal: enfix function [v [integer! <...>]] [
+        normal: enfixed function [v [integer! <...>]] [
             sum: 0
             while [not tail? v] [
                 sum: sum + take v
@@ -55,7 +55,7 @@
     (30 = do [multiply 3 9 normal]) ;-- seen as ((multiply 3 (9 normal))
 ][
     (
-        defers: enfix function [v [integer! <...>]] [
+        defers: enfixed function [v [integer! <...>]] [
             sum: 0
             while [not tail? v] [
                 sum: sum + take v
@@ -73,7 +73,7 @@
     (28 = do [multiply 3 9 defers]) ;-- seen as (multiply 3 9) defers))
 ][
     (
-        soft: enfix function ['v [any-value! <...>]] [
+        soft: enfixed function ['v [any-value! <...>]] [
             collect [
                 while [not tail? v] [
                     keep/only take v
@@ -91,7 +91,7 @@
     ([7] = do [(1 + 2) (3 + 4) soft])
 ][
     (
-        hard: enfix function [:v [any-value! <...>]] [
+        hard: enfixed function [:v [any-value! <...>]] [
             collect [
                 while [not tail? v] [
                     keep/only take v

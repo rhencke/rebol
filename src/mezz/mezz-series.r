@@ -379,7 +379,7 @@ extract: function [
         [any-value!]
 ][
     value: default  ; Default value is "" for any-string! output
-    default: enfix :lib/default
+    default: :lib/default
 
     if zero? width [return make (type of series) 0]  ; avoid an infinite loop
     len: either positive? width [  ; Length to preallocate

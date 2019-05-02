@@ -51,7 +51,7 @@ modulo: function [
     r
 ]
 
-mod: enfix :modulo
+mod: enfixed :modulo
 
 sign-of: func [
     "Returns sign of number as 1, 0, or -1 (to use as multiplier)."

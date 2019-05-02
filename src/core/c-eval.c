@@ -448,6 +448,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         | EVAL_FLAG_REEVALUATE_CELL
         | EVAL_FLAG_NEXT_ARG_FROM_OUT
         | EVAL_FLAG_FULFILL_ONLY  // can be requested or <blank> can trigger
+        | EVAL_FLAG_RUNNING_ENFIX  // can be requested with REEVALUATE_CELL
     );  // should be unchanged on exit
   #endif
 
@@ -503,7 +504,12 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
         CLEAR_EVAL_FLAG(f, REEVALUATE_CELL);
 
-        if (GET_CELL_FLAG(f->u.reval.value, ENFIXED)) {
+        // The re-evaluate functionality may not want to heed the enfix state
+        // in the action itself.  See REBNATIVE(shove)'s /ENFIX for instance.
+        // So we go by the state of EVAL_FLAG_RUNNING_ENFIX on entry.
+        //
+        if (GET_EVAL_FLAG(f, RUNNING_ENFIX)) {
+            CLEAR_EVAL_FLAG(f, RUNNING_ENFIX);  // for assertion
             Push_Action(
                 f,
                 VAL_ACTION(f->u.reval.value),
@@ -588,8 +594,11 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
     assert(not *next_gotten);  // Fetch_Next_In_Frame() cleared it
     *next_gotten = Try_Get_Opt_Var(*next, *specifier);
 
-    if (not *next_gotten or NOT_CELL_FLAG(*next_gotten, ENFIXED))
+    if (not *next_gotten or not IS_ACTION(*next_gotten))
         goto give_up_backward_quote_priority;  // note only ACTION! is ENFIXED
+
+    if (NOT_ACTION_FLAG(VAL_ACTION(*next_gotten), ENFIXED))
+        goto give_up_backward_quote_priority;
 
     if (NOT_ACTION_FLAG(VAL_ACTION(*next_gotten), QUOTES_FIRST))
         goto give_up_backward_quote_priority;
@@ -722,15 +731,13 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 //==//// ACTION! /////////////////////////////////////////////////////////==//
 //
 // If an action makes it to the SWITCH statement, that means it is either
-// literally an action value in the array (`do compose [(:+) 1 2]`) or is
+// literally an action value in the array (`do compose [1 (:+) 2]`) or is
 // being retriggered via EVAL.
 //
 // Most action evaluations are triggered from a WORD! or PATH!, which jumps in
 // at the `process_action` label.
 
       case REB_ACTION: {
-        assert(NOT_CELL_FLAG(v, ENFIXED));  // only WORD!s, via process_action
-
         REBSTR *opt_label = nullptr;  // not run from WORD!/PATH!, "nameless"
 
         Push_Action(f, VAL_ACTION(v), VAL_BINDING(v));
@@ -1726,7 +1733,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         if (IS_ACTION(gotten)) {  // before IS_NULLED() is common case
             REBACT *act = VAL_ACTION(gotten);
 
-            if (GET_CELL_FLAG(gotten, ENFIXED)) {
+            if (GET_ACTION_FLAG(act, ENFIXED)) {
                 if (
                     GET_ACTION_FLAG(act, POSTPONES_ENTIRELY)
                     or GET_ACTION_FLAG(act, DEFERS_LOOKBACK)
@@ -1744,7 +1751,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             Begin_Action_Core(
                 f,
                 VAL_WORD_SPELLING(v),  // use word as label
-                GET_CELL_FLAG(gotten, ENFIXED)
+                GET_ACTION_FLAG(act, ENFIXED)
             );
             goto process_action;
         }
@@ -1869,7 +1876,8 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         }
 
         if (IS_ACTION(where)) {  // try this branch before fail on void+null
-            //
+            REBACT *act = VAL_ACTION(where);
+
             // PATH! dispatch is costly and can error in more ways than WORD!:
             //
             //     e: trap [do make block! ":a"] e/id = 'not-bound
@@ -1877,12 +1885,12 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             //
             // Plus with GROUP!s in a path, their evaluations can't be undone.
             //
-            if (GET_CELL_FLAG(where, ENFIXED))
+            if (GET_ACTION_FLAG(act, ENFIXED))
                 fail ("Use `<-` to shove left enfix operands into PATH!s");
 
             // !!! Review if invisibles can be supported without ->
             //
-            if (GET_ACTION_FLAG(VAL_ACTION(where), IS_INVISIBLE))
+            if (GET_ACTION_FLAG(act, IS_INVISIBLE))
                 fail ("Use `<-` with invisibles fetched from PATH!");
 
             Push_Action(f, VAL_ACTION(where), VAL_BINDING(where));
@@ -2144,7 +2152,6 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                     ? VAL_SPECIFIER(f->out)
                     : SPECIFIED,
                 false,  // not /ANY, e.g. voids are not legal
-                false,  // doesn't set enfixedly
                 false  // doesn't use "hard" semantics on groups in paths
             );
         }
@@ -2382,8 +2389,9 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
     // unbound word).  It'll be an error, but that code path raises it for us.
 
     if (
-        not *next_gotten  // v-- note that only ACTIONs have CELL_FLAG_ENFIXED
-        or NOT_CELL_FLAG(*next_gotten, ENFIXED)
+        not *next_gotten
+        or not IS_ACTION(*next_gotten)
+        or not GET_ACTION_FLAG(VAL_ACTION(*next_gotten), ENFIXED)
     ){
       lookback_quote_too_late: // run as if starting new expression
 

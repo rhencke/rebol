@@ -72,7 +72,7 @@ inline static bool Vararg_Op_If_No_Advance_Handled(
         const REBVAL *child_gotten = Try_Get_Opt_Var(opt_look, specifier);
 
         if (child_gotten and VAL_TYPE(child_gotten) == REB_ACTION) {
-            if (GET_CELL_FLAG(child_gotten, ENFIXED)) {
+            if (GET_ACTION_FLAG(VAL_ACTION(child_gotten), ENFIXED)) {
                 if (
                     pclass == REB_P_NORMAL or
                     GET_ACTION_FLAG(VAL_ACTION(child_gotten), DEFERS_LOOKBACK)

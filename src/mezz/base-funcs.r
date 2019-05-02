@@ -31,7 +31,7 @@ assert: func [
 ]
 
 
-maybe: enfix func [
+maybe: enfixed func [
     "Set word or path to a default value if that value is a value"
 
     return: [<opt> any-value!]
@@ -473,7 +473,7 @@ redescribe [
 ] :function
 
 
-so: enfix func [
+so: enfixed func [
     {Postfix assertion which won't keep running if left expression is false}
 
     return: [<opt> any-value!]
@@ -498,7 +498,7 @@ so: enfix func [
 tweak :so 'postpone on
 
 
-matched: enfix redescribe [
+matched: enfixed redescribe [
     "Assert that the left hand side--when fully evaluated--MATCHES the right"
 ](
     enclose :matches function [f [frame!]] [
@@ -521,7 +521,7 @@ tweak :matched 'postpone on
 match?: chain [:match | :value?]
 
 
-was: enfix redescribe [
+was: enfixed redescribe [
     "Assert that the left hand side--when fully evaluated--IS the right"
 ](
     function [left [<opt> any-value!] right [<opt> any-value!]] [
@@ -563,7 +563,7 @@ gunzip: redescribe [
 )
 
 
-default*: enfix redescribe [
+default*: enfixed redescribe [
     {Would be the same as DEFAULT/ONLY if paths could dispatch infix}
 ](
     specialize 'default [only: true]
@@ -801,7 +801,7 @@ once-bar: func [
 ]
 
 
-method: enfix func [
+method: enfixed func [
     {FUNCTION variant that creates an ACTION! implicitly bound in a context}
 
     return: [action!]
@@ -816,7 +816,7 @@ method: enfix func [
     set member bind (function compose [((spec)) <in> ((context))] body) context
 ]
 
-meth: enfix func [
+meth: enfixed func [
     {FUNC variant that creates an ACTION! implicitly bound in a context}
 
     return: [action!]

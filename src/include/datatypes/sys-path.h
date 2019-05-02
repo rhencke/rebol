@@ -144,11 +144,10 @@ inline static bool Set_Path_Throws_Core(
 }
 
 
-inline static void Set_Path_Core(
+inline static void Set_Path_Core(  // !!! Appears to be unused.  Unnecessary?
     const RELVAL *any_path,
     REBSPC *specifier,
-    const REBVAL *setval,
-    bool enfix
+    const REBVAL *setval
 ){
     assert(ANY_PATH(any_path)); // *could* work on ANY_ARRAY(), actually
 
@@ -158,8 +157,6 @@ inline static void Set_Path_Core(
     DECLARE_LOCAL (out);
 
     REBFLGS flags = EVAL_FLAG_NO_PATH_GROUPS;
-    if (enfix)
-        flags |= EVAL_FLAG_SET_PATH_ENFIXED;
 
     if (Eval_Path_Throws_Core(
         out,

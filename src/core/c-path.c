@@ -159,17 +159,10 @@ bool Next_Path_Throws(REBPVS *pvs)
             panic ("Path dispatch isn't allowed to throw, only GROUP!s");
 
           case REB_R_INVISIBLE: // dispatcher assigned target with opt_setval
-            if (GET_EVAL_FLAG(pvs, SET_PATH_ENFIXED))
-                fail ("Path setting was not via an enfixable reference");
             break; // nothing left to do, have to take the dispatcher's word
 
           case REB_R_REFERENCE: { // dispatcher wants a set *if* at end of path
             Move_Value(pvs->u.ref.cell, PVS_OPT_SETVAL(pvs));
-
-            if (GET_EVAL_FLAG(pvs, SET_PATH_ENFIXED)) {
-                assert(IS_ACTION(PVS_OPT_SETVAL(pvs)));
-                SET_CELL_FLAG(pvs->u.ref.cell, ENFIXED);
-            }
             break; }
 
           case REB_R_IMMEDIATE: {
@@ -187,9 +180,6 @@ bool Next_Path_Throws(REBPVS *pvs)
             // pvs->u.ref.  So in the example case of `month/year:`, that
             // would be the CTX_VAR() where month was found initially, and so
             // we write the updated bits from pvs->out there.
-
-            if (GET_EVAL_FLAG(pvs, SET_PATH_ENFIXED))
-                fail ("Can't enfix a write into an immediate value");
 
             if (not pvs->u.ref.cell)
                 fail ("Can't update temporary immediate value via SET-PATH!");
@@ -260,8 +250,6 @@ bool Next_Path_Throws(REBPVS *pvs)
             );
             if (was_const) // can't Inherit_Const(), flag would be overwritten
                 SET_CELL_FLAG(pvs->out, CONST);
-            if (GET_CELL_FLAG(pvs->u.ref.cell, ENFIXED))
-                SET_CELL_FLAG(pvs->out, ENFIXED);
 
             // Leave the pvs->u.ref as-is in case the next update turns out
             // to be R_IMMEDIATE, and it is needed.
@@ -328,9 +316,6 @@ bool Eval_Path_Throws_Core(
 ){
     assert(index == 0); // !!! current rule, immutable proxy w/AS may relax it
 
-    if (flags & EVAL_FLAG_SET_PATH_ENFIXED)
-        assert(opt_setval); // doesn't make any sense for GET-PATH! or PATH!
-
     while (KIND_BYTE(ARR_AT(array, index)) == REB_BLANK)
         ++index; // pre-feed any blanks
 
@@ -379,12 +364,8 @@ bool Eval_Path_Throws_Core(
 
         Move_Value(pvs->out, KNOWN(pvs->u.ref.cell));
 
-        if (IS_ACTION(pvs->out)) {
-            if (GET_CELL_FLAG(pvs->u.ref.cell, ENFIXED))
-                SET_CELL_FLAG(pvs->out, ENFIXED);
-
+        if (IS_ACTION(pvs->out))
             pvs->opt_label = VAL_WORD_SPELLING(*v);
-        }
     }
     else if (
         IS_GROUP(*v)

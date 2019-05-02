@@ -1,5 +1,5 @@
 ; datatypes/op.r
-(enfixed? '+)
+(enfixed? :+)
 (error? trap [enfixed? 1])
 (action? get '+)
 

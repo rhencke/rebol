@@ -28,22 +28,12 @@ c-break-debug: :c-debug-break ;-- easy to mix up
 
 lit: :literal ;-- because it's shorter
 
-set/enfix lit enfix: func [
-    "Convenience helper for making enfix functions, e.g `+: enfix :add`"
-
-    return: <void> "`x: y: enfix :z` wouldn't enfix x, so returns void"
-    :target [set-word! set-path!]
-    action [action!]
-][
-    set/enfix target :action
-]
-
-|: enfix func [
+|: enfixed func [
     "Expression barrier - invisible so it vanishes, but blocks evaluation"
     return: []
     discarded [<opt> <end> any-value!]
 ][
-    ;-- Note: actually *faster* than a native, due to Commenter_Dispatcher()
+    ; Note: actually *faster* than a native, due to Commenter_Dispatcher()
 ]
 
 tweak :| 'postpone on
@@ -78,21 +68,9 @@ tweak :then 'defer on
 tweak :also 'defer on
 
 
-; Convenience helper for making enfixed functions
-
-set/enfix lit enfix: func [
-    "Convenience version of SET/ENFIX, e.g `+: enfix :add`"
-    return: <void> "`x: y: enfix :z` wouldn't enfix x, so returns void"
-    :target [set-word! set-path!]
-    action [action!]
-][
-    set/enfix target :action
-]
-
-
 ; Common "Invisibles"
 
-comment: enfix func [
+comment: enfixed func [
     {Ignores the argument value, but does no evaluation (see also ELIDE).}
 
     return: []
@@ -114,7 +92,7 @@ elide: func [
 ][
 ]
 
-nihil: enfix func [
+nihil: enfixed func [
     {Arity-0 form of COMMENT}
     return: [] {Evaluator will skip result}
 ][

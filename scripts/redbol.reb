@@ -48,7 +48,7 @@ export: lib/func [
     ; !!! Not actually "exporting" yet...
 ]
 
-helper: enfix lib/func [
+helper: enfixed lib/func [
     return: <void>
     :set-word [set-word!]
     code [block!]
@@ -56,22 +56,13 @@ helper: enfix lib/func [
     set set-word do in lib code
 ]
 
-emulate: enfix lib/func [
+emulate: enfixed lib/func [
     return: [<opt> any-value!]
     :set-word [set-word!]
     code [block!]
 ] lib/in lib [
     set/any set-word do in lib code  ; SET/ANY, needs to emulate VOID!
     elide export set-word
-]
-
-emulate-enfix: enfix lib/func [
-    return: <void>
-    :set-word [set-word!]
-    code [block!]
-] lib/in lib [
-    set/enfix set-word do in lib code
-    export set-word
 ]
 
 
@@ -991,9 +982,9 @@ decompress: emulate [
     ]
 ]
 
-and: emulate-enfix [:intersect]
-or: emulate-enfix [:union]
-xor: emulate-enfix [:difference]
+and: emulate [enfixed :intersect]
+or: emulate [enfixed :union]
+xor: emulate [enfixed :difference]
 
 ; Ren-C NULL means no branch ran, Rebol2 this is communicated by #[none]
 ; Ren-C #[void] when branch ran w/null result, Rebol2 would call that #[unset]

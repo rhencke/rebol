@@ -124,7 +124,7 @@ dump-to-newline: adapt 'dump [
     ]
 ]
 
-dumps: enfix function [
+dumps: enfixed function [
     {Fast generator for dumping function that uses assigned name for prefix}
 
     return: [action!]
@@ -262,7 +262,7 @@ summarize-obj: function [
 ; Notice that if line breaks occur internal to an element on the line, that
 ; is detected, and lets that element be the last commented element.
 ;
-**: enfix function [
+**: enfixed function [
     {Comment until end of line, or end of current BLOCK!/GROUP!}
 
     return: []
