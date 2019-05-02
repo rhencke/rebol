@@ -345,6 +345,8 @@ void Mold_Array_At(
     if (sep[0])
         Append_Codepoint(mo->series, sep[0]);
 
+    bool first_item = true;
+
     RELVAL *item = ARR_AT(a, index);
     while (NOT_END(item)) {
         if (GET_CELL_FLAG(item, NEWLINE_BEFORE)) {
@@ -353,8 +355,15 @@ void Mold_Array_At(
                 indented = true;
             }
 
-            New_Indented_Line(mo);
+            // If doing a MOLD/ONLY then a leading newline should not be
+            // added, e.g. `mold/only new-line [a b] true` should not give
+            // a newline at the start.
+            //
+            if (sep[1] != '\0' or not first_item)
+                New_Indented_Line(mo);
         }
+
+        first_item = false;
 
         Mold_Value(mo, item);
 
