@@ -176,7 +176,15 @@ ask: function [
             write-stdout space  ; space after prompt is implicit
         ]
 
-        line: read-stdin
+        line: read-stdin else [
+            ;
+            ; NULL signals a "cancel" was recieved by reading standard input.
+            ; This is distinct from HALT (would not return from READ-STDIN).
+            ; Whether or not ASK should use "soft failure" via null, just keep
+            ; asking, or somehow disable cancellation is open for debate.
+            ;
+            return null
+        ]
 
         ; The original ASK would TRIM the output, so no leading or trailing
         ; space.  This assumes that is the caller's responsibility.
