@@ -77,16 +77,23 @@ clean-path: function [
 ]
 
 
-input: function [
+read-stdin: function [
     {Inputs a line of text from the console. New-line character is removed.}
 
     return: "Null if the input was aborted (via ESCAPE, Ctrl-D, etc.)"
         [<opt> text!]
-
-    ; https://github.com/rebol/rebol-issues/issues/476#issuecomment-441417774
-    ;
-    ; /hide "Mask input with a * character"
+    /hide "Mask input with a * character"
 ][
+    if hide [
+        fail [
+            "READ-STDIN/HIDE not yet implemented:"
+            https://github.com/rebol/rebol-issues/issues/476
+        ]
+    ]
+
+    ; !!! R3-Alpha's input port was not opened until first INPUT.  You won't
+    ; find a comprehensive document explaining the full ramifications.
+    ;
     all [
         port? system/ports/input
         open? system/ports/input
@@ -124,15 +131,73 @@ input: function [
 
 
 ask: function [
-    {Ask the user for input.}
+    {Ask the user for input}
 
-    return: [text!]
-    question "Prompt to user"
-        [any-series!]
-    /hide "mask input with *"
+    return: "Null if the input was aborted (via ESCAPE, Ctrl-D, etc.)"
+        [<opt> any-value!]
+    question "Prompt to user, datatype to request, or dialect block"
+        [block! text! datatype!]
+    /hide "mask input with * (Rebol2 feature, not yet implemented)"
+    ; !!! What about /MULTILINE ?
 ][
-    write-stdout either block? question [spaced question] [question]
-    trim either hide [input/hide] [input]
+    if hide [
+        fail [
+            "ASK/HIDE not yet implemented:"
+            https://github.com/rebol/rebol-issues/issues/476
+        ]
+    ]
+
+    ; This is a limited implementation just to get the ball rolling; could
+    ; do much more: https://forum.rebol.info/t/1124
+    ;
+    prompt: _
+    type: text!
+    switch type of question [
+        text! [prompt: question]  ; `ask "Input:"` doesn't filter type
+        datatype! [type: question]  ; `ask text!` has no prompt (like INPUT)
+        block! [
+            parse question [
+                opt [set prompt: text!]
+                opt [set word: word! (type: ensure datatype! get word)]
+            ] else [
+                fail "ASK currently only supports [{Prompt:} datatype!]"
+            ]
+        ]
+        fail
+    ]
+
+    ; Loop indefinitely so long as the input can't be converted to the type
+    ; requested (and there's no cancellation).  Print prompt each time.  Note
+    ; that if TEXT! is requested, conversion cannot fail.
+    ;
+    cycle [
+        if prompt [
+            write-stdout prompt
+            write-stdout space  ; space after prompt is implicit
+        ]
+
+        line: read-stdin
+
+        ; The original ASK would TRIM the output, so no leading or trailing
+        ; space.  This assumes that is the caller's responsibility.
+        ;
+        if type = text! [return line]
+
+        e: trap [return to type line]
+
+        ; !!! The actual error trapped during the conversion may contain more
+        ; useful information than just saying "** Invalid input".  But there's
+        ; no API for a "light" printing of errors.  Scrub out all the extra
+        ; information from the error so it isn't as verbose.
+        ;
+        e/file: _
+        e/line: _
+        e/where: _
+        e/near: _
+        print [e]
+
+        ; Keep cycling...
+    ]
 ]
 
 

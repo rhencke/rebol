@@ -29,6 +29,12 @@ REBOL [
 enfix: :enfixed
 
 
+; INPUT is deprecated--but making sure ASK TEXT! works for its purpose first
+; https://forum.rebol.info/t/1124
+;
+input: does [ask text!]
+
+
 === EXTENSION DATATYPE DEFINITIONS ===
 
 ; Even though Ren-C does not build in things like IMAGE! or GOB! to the core,

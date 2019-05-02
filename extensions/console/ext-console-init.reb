@@ -185,7 +185,7 @@ console!: make object! [
         return: "null if canceled, otherwise processed text line input"
             [<opt> text!]
     ][
-        input
+        ask text!
     ]
 
     dialect-hook: method [
@@ -792,6 +792,5 @@ append lib compose [
     ; the object key would be gathered as a local.
     ;
     why: (ensure action! :why)
-    echo: (ensure action! :echo)
     upgrade: (ensure action! :upgrade)
 ]
