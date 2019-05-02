@@ -65,3 +65,7 @@ ldflags: compose [
 ]
 
 libraries: [%tcc]
+
+requires: [
+    Filesystem  ; uses LOCAL-TO-FILE
+]

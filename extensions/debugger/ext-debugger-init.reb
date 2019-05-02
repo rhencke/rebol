@@ -1,8 +1,10 @@
 REBOL [
     Title: "Debugger Extension"
     Name: Debugger
+
     Type: Module
-    Options: [isolate]
+    Options: []  ; !!! If ISOLATE, wouldn't see LIB/PRINT changes, etc.
+
     Version: 1.0.0
     License: {Apache 2.0}
 
@@ -20,6 +22,89 @@ REBOL [
         debugger vs. a threaded/interprocess-focused implementation (e.g.
         via a debug://` PORT!)
     }
+]
+
+
+; !!! Putting the console into usermode code and having a customizable "skin"
+; (with sandboxing of expressions run on behalf of the skin vs. user
+; evaluations) is a pretty complex idea.  Going to having more than one
+; skin in effect raises more questions, since the currently in-effect skin
+; was assumed to be `system/console/skin`.
+;
+; So there are many open issues with that.  For right now, what happens is
+; that nested console sessions keep track of `system/console/skin` and put
+; it back when they are done, so it always represents the current skin.  We
+; add some customizations on the base console for the debugger, but these
+; will not interact with shortcuts in the non-debugger skin at this time.
+
+debug-console-skin: make console! [
+    greeting:
+{!! Entering *EXPERIMENTAL* Debug Console that only barely works for a demo.
+Expect crashes and mayhem.  But see BACKTRACE, RESUME, and STEP.}
+
+    base-frame: _
+    focus-frame: _
+    focus-index: _
+
+    print-greeting: method [return: <void>] [
+        ;
+        ; We override in order to avoid printing out the redundant Rebol
+        ; version information (and to print the greeting only once, which
+        ; maybe the default PRINT-GREETING should know to do to).
+        ;
+        if greeting [
+            print newline
+            print greeting
+            greeting: _
+        ]
+        base-frame: parent of parent of binding of 'return
+        focus-frame: parent of parent of base-frame
+        focus-index: 1
+    ]
+
+    print-prompt: function [] [
+        ;
+        ; If a debug frame is in focus then show it in the prompt, e.g.
+        ; as `if:|4|>>` to indicate stack frame 4 is being examined, and
+        ; it was an `if` statement...so it will be used for binding (you
+        ; can examine the condition and branch for instance)
+        ;
+        if focus-frame [
+            if label of focus-frame [
+                write-stdout unspaced [label of focus-frame ":"]
+            ]
+            write-stdout unspaced ["|" focus-index "|"]
+        ]
+
+        ; We don't want to use PRINT here because it would put the cursor on
+        ; a new line.
+        ;
+        write-stdout unspaced prompt
+        write-stdout space
+    ]
+
+    dialect-hook: method [
+        {Receives code block, parse/transform, send back to CONSOLE eval}
+        b [block!]
+    ][
+        if empty? b [
+            print-info "Interpreting empty input as STEP"
+            return [step]
+        ]
+
+        all [
+            1 = length of b
+            integer? :b/1
+        ] then [
+            print-info "Interpreting integer input as DEBUG"
+            return compose [debug (b/1)]
+        ]
+
+        if focus-frame [
+            bind b focus-frame
+        ]
+        return b
+    ]
 ]
 
 
@@ -215,7 +300,10 @@ backtrace: function [
 
     return: <void>
 ][
-    stack: backtrace* binding of 'return _
+    ; We could backtrace relative to `binding of 'return`, but this would
+    ; mean `>> if true [backtrace]` would see that IF in the trace.
+    ;
+    stack: backtrace* debug-console-skin/base-frame _
     print mold/only stack
 ]
 
@@ -244,89 +332,6 @@ interrupt: adapt 'breakpoint* [
     ; !!! INTERRUPT doesn't currently print anything; it's assumed that
     ; changing the prompt would be enough (though a status bar message would
     ; be a good idea in a GUI environment)
-]
-
-
-; !!! Putting the console into usermode code and having a customizable "skin"
-; (with sandboxing of expressions run on behalf of the skin vs. user
-; evaluations) is a pretty complex idea.  Going to having more than one
-; skin in effect raises more questions, since the currently in-effect skin
-; was assumed to be `system/console/skin`.
-;
-; So there are many open issues with that.  For right now, what happens is
-; that nested console sessions keep track of `system/console/skin` and put
-; it back when they are done, so it always represents the current skin.  We
-; add some customizations on the base console for the debugger, but these
-; will not interact with shortcuts in the non-debugger skin at this time.
-
-debug-console-skin: make console! [
-    greeting:
-{!! Entering *EXPERIMENTAL* Debug Console that only barely works for a demo.
-Expect crashes and mayhem.  But see BACKTRACE, RESUME, and STEP.}
-
-    base-frame: _
-    focus-frame: _
-    focus-index: _
-
-    print-greeting: method [return: <void>] [
-        ;
-        ; We override in order to avoid printing out the redundant Rebol
-        ; version information (and to print the greeting only once, which
-        ; maybe the default PRINT-GREETING should know to do to).
-        ;
-        if greeting [
-            print newline
-            print greeting
-            greeting: _
-        ]
-        base-frame: parent of parent of binding of 'return
-        focus-frame: parent of parent of base-frame
-        focus-index: 1
-    ]
-
-    print-prompt: function [] [
-        ;
-        ; If a debug frame is in focus then show it in the prompt, e.g.
-        ; as `if:|4|>>` to indicate stack frame 4 is being examined, and
-        ; it was an `if` statement...so it will be used for binding (you
-        ; can examine the condition and branch for instance)
-        ;
-        if focus-frame [
-            if label of focus-frame [
-                write-stdout unspaced [label of focus-frame ":"]
-            ]
-            write-stdout unspaced ["|" focus-index "|"]
-        ]
-
-        ; We don't want to use PRINT here because it would put the cursor on
-        ; a new line.
-        ;
-        write-stdout unspaced prompt
-        write-stdout space
-    ]
-
-    dialect-hook: method [
-        {Receives code block, parse/transform, send back to CONSOLE eval}
-        b [block!]
-    ][
-        if empty? b [
-            print-info "Interpreting empty input as STEP"
-            return [step]
-        ]
-
-        all [
-            1 = length of b
-            integer? :b/1
-        ] then [
-            print-info "Interpreting integer input as DEBUG"
-            return compose [debug (b/1)]
-        ]
-
-        if focus-frame [
-            bind b focus-frame
-        ]
-        return b
-    ]
 ]
 
 
