@@ -192,6 +192,7 @@
 
 #include "sys-rebval.h" // REBVAL structure definition
 #include "sys-rebser.h" // REBSER series definition (embeds REBVAL definition)
+#include "sys-rebarr.h" // REBARR and ARR()
 #include "sys-rebact.h" // REBACT and ACT()
 #include "sys-rebctx.h" // REBCTX and CTX()
 

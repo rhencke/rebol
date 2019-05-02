@@ -46,31 +46,6 @@
 //
 
 
-// Ordinary source arrays use their ->link field to point to an interned file
-// name string (or URL string) from which the code was loaded.  If a series
-// was not created from a file, then the information from the source that was
-// running at the time is propagated into the new second-generation series.
-//
-#define LINK_FILE_NODE(s)       LINK(s).custom.node
-#define LINK_FILE(s)            STR(LINK_FILE_NODE(s))
-
-
-// These token-pasting based macros allow the callsites to be shorter, since
-// they don't have to say ARRAY and FLAG twice.
-
-#define SET_ARRAY_FLAG(s,name) \
-    (cast(REBSER*, ARR(s))->header.bits |= ARRAY_FLAG_##name)
-
-#define GET_ARRAY_FLAG(s,name) \
-    ((cast(REBSER*, ARR(s))->header.bits & ARRAY_FLAG_##name) != 0)
-
-#define CLEAR_ARRAY_FLAG(s,name) \
-    (cast(REBSER*, ARR(s))->header.bits &= ~ARRAY_FLAG_##name)
-
-#define NOT_ARRAY_FLAG(s,name) \
-    ((cast(REBSER*, ARR(s))->header.bits & ARRAY_FLAG_##name) == 0)
-
-
 // HEAD, TAIL, and LAST refer to specific value pointers in the array.  An
 // empty array should have an END marker in its head slot, and since it has
 // no last value then ARR_LAST should not be called (this is checked in
