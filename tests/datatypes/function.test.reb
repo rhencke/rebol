@@ -415,7 +415,7 @@
 
 [#539 https://github.com/metaeducation/ren-c/issues/755 (
     f: func [return: <void>] [
-        use [x] [return]  ; 
+        use [x] [return]
         42
     ]
     void? f

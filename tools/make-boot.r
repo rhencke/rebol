@@ -701,18 +701,36 @@ e-errfuncs/write-emitted
 
 === LOAD BOOT MEZZANINE FUNCTIONS ===
 
+; The %base-xxx.r and %mezz-xxx.r files are not run through LOAD.  This is
+; because the r3.exe being used to bootstrap may be older than the Rebol it
+; is building...and if LOAD is used then it means any new changes to the
+; scanner couldn't be used without an update to the bootstrap executable.
+;
+; However, %sys-xxx.r is a library of calls that are made available to Rebol
+; by means of static ID numbers.  The way the #define-s for these IDs were
+; made involved LOAD-ing the objects.  While we could rewrite that not to do
+; a LOAD as well, keep it how it was for the moment.
+
 mezz-files: load %../mezz/boot-files.r  ; base, sys, mezz
 
-for-each section [boot-base boot-sys boot-mezz] [
-    set section make block! 200
-    for-each file first mezz-files [
-        append get section load join %../mezz/ file
+for-each section [:boot-base boot-sys :boot-mezz] [
+    if word? section [
+        set section s: make block! 200
+        for-each file first mezz-files [
+            append s load join %../mezz/ file
+        ]
+        append s _  ; !!! would <section-done> be better?
     ]
-
-    ; Make section evaluation return a BLANK! (something like <section-done>
-    ; may be better, but calling code is C and that complicates checking).
-    ;
-    append get section _
+    else [
+        set section s: make text! 20000
+        append/line s "["
+        for-each file first mezz-files [
+            text: stripload join %../mezz/ file  ; doesn't use LOAD to strip
+            append/line s text
+        ]
+        append/line s "_"  ; !!! would <section-done> be better?
+        append/line s "]"
+    ]
 
     mezz-files: next mezz-files
 ]
@@ -764,9 +782,9 @@ sections: [
     boot-typespecs
     boot-errors
     boot-sysobj
-    boot-base
+    :boot-base
     boot-sys
-    boot-mezz
+    :boot-mezz
 ]
 
 boot-natives: load boot/tmp-natives.r
@@ -803,8 +821,20 @@ boot-typespecs: collect [
 
 ; Create main code section (compressed)
 
-write-if-changed boot/tmp-boot-block.r mold reduce sections
-data: to-binary mold/flat reduce sections
+boot-molded: copy ""
+append/line boot-molded "["
+for-each sec sections [
+    if get-word? sec [  ; wasn't LOAD-ed (no bootstrap compatibility issues)
+        append boot-molded get sec
+    ]
+    else [  ; was LOAD-ed for easier analysis (makes bootstrap complicated)
+        append/line boot-molded mold/flat get sec
+    ]
+]
+append/line boot-molded "]"
+
+write-if-changed boot/tmp-boot-block.r boot-molded
+data: as binary! boot-molded
 
 compressed: gzip data
 
@@ -842,7 +872,7 @@ nids: collect [
 
 fields: collect [
     for-each word sections [
-        word: form word
+        word: form as word! word
         remove/part word 5 ; boot_
         keep cscape/with {RELVAL ${word}} 'word
     ]

@@ -132,7 +132,12 @@ text-line-of: function [
     parse text [
         any [
             to newline cursor:
-            ((lesser? index of cursor idx))
+
+            ; IF deprecated in Ren-C, but :(...) with logic not available
+            ; in the bootstrap build.
+            ;
+            if (lesser? index of cursor idx)
+
             advance
         ]
         advance

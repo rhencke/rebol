@@ -305,6 +305,11 @@ dest: join output-dir join %tmp- inc-name
 
 e: make-emitter "Ext custom init code" dest
 
+; Review: This does not use STRIPLOAD but encodes the script as C bytes
+; verbatim--comments and whitespace and all.  That may be desirable if there
+; is some way to view or extract the source.  It could also be a build option
+; to use the STRIPLOAD function for further compression.
+;
 script-compressed: gzip (script-uncompressed: read script-name)
 
 e/emit {

@@ -497,3 +497,11 @@
     b = [d e f]
     s = {Hello}
 ])
+
+
+(did all [
+    parse text: "a ^/ " [
+        any [newline remove [to end] | "a" [remove [to newline]] | skip]
+    ]
+    text = "a^/"
+])

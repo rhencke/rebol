@@ -251,56 +251,53 @@ REBNATIVE(generic)
 
 
 //
-//  Add_Lib_Keys_Bootstrap_R3_Cant_Make: C
+//  Add_Lib_Keys_For_Unscannable_Set_Words: C
 //
 // In order for the bootstrap to assign values to library words, they have to
 // exist in the bootstrap context.  The way they get into the context is by
 // a scan for top-level SET-WORD!s in the %sys-xxx.r and %mezz-xxx.r files.
 //
-// However, not all Rebols agree.  For instance, R3-Alpha didn't allow
-// set-words like /: and <=:  Older Ren-C treated | as a BAR! datatype, and
-// nto as a WORD!.  The words can be gotten with `pick [/] 1` or similar, but
-// they cannot be SET because there's nothing in the context to bind them to,
-// since no SET-WORD! was picked up in the scan.
+// ...BUT, R3-Alpha didn't resolve how to make get the SET-WORD! versions of
+// things like `<:`.  There is contention with scan patterns for tags that
+// were never reconciled.  So long as they can't be scanned as SET-WORD!,
+// they have to be put into the lib context manually.
 //
-// As a workaround, this just adds the words to the context manually.  Then,
-// however the words are created, it will be possible to bind them and set
-// them to things.  What needs to be put in the list depends on how old an
-// executable can be used for bootstrap.
+// !!! Now that %base-xxx.r and %mezz-xxx.r aren't actually LOAD-ed by the
+// bootstrapping executable (they are just READ and have their text munged
+// by PARSE), this really isn't a bootstrap limitiation.  As soon as the
+// scanner is fixed to make SET-WORD!s for things, the entry in this table
+// isn't needed...no need to update the bootstrap executable.
 //
-// !!! It would likely be better if the bootstrap executable weren't LOAD-ing
-// and MOLD-ing out source in the first place, but doing whatever work it
-// needed to do with PARSE on the strings directly.  That would avoid this.
-//
-static void Add_Lib_Keys_Bootstrap_R3_Cant_Make(void)
+static void Add_Lib_Keys_For_Unscannable_Set_Words(void)
 {
     const char *names[] = {
         "<",
         ">",
 
-        "<=", // less than or equal !!! https://forum.rebol.info/t/349/11
-        "=>", // Lambda function, quotes optional left argument
+        "<=",  // less than or equal !!! https://forum.rebol.info/t/349/11
+        // `=>:` actually works as a SET-WORD!, used for lambda functions
 
-        ">=", // greater than or equal to
-        "=<", // equal to or less than
+        ">=",  // greater than or equal to
+        "=<",  // equal to or less than
 
-        "<>", // not equal (the chosen meaning, as opposed to "empty tag")
+        "<>",  // not equal (the chosen meaning, as opposed to "empty tag")
 
-        "->", // enfix path op, "SHOVE": https://trello.com/c/Kg9A45b5
-        "<-", // Non-null implicit GROUP! begin, e.g. `7 = 1 + <- 2 * 3`
+        // https://forum.rebol.info/t/1039
+        "->",  // enfix path op, "SHOVE": https://trello.com/c/Kg9A45b5
+        "<-",  // "SHOVE" variation
 
-        "|>", // Evaluate to next single expression, but do ones afterward
-        "<|", // Evaluate to previous expression, but do rest (like ALSO)
+        "|>",  // Evaluate to next single expression, but do ones afterward
+        "<|",  // Evaluate to previous expression, but do rest (like ALSO)
 
-        "|", // Was a BAR! datatype, now returned to WORD!-space
-        NULL
+        nullptr
     };
 
     REBCNT i;
     for (i = 0; names[i] != NULL; ++i) {
         REBSTR *str = Intern_UTF8_Managed(cb_cast(names[i]), strlen(names[i]));
         REBVAL *val = Append_Context(Lib_Context, NULL, str);
-        Init_Nulled(val); // functions will fill in (no-op, since void already)
+        assert(IS_NULLED(val));
+        UNUSED(val);
     }
 }
 
@@ -1304,7 +1301,7 @@ void Startup_Core(void)
     Startup_Typesets();
 
     Startup_True_And_False();
-    Add_Lib_Keys_Bootstrap_R3_Cant_Make();
+    Add_Lib_Keys_For_Unscannable_Set_Words();
 
 //=//// RUN CODE BEFORE ERROR HANDLING INITIALIZED ////////////////////////=//
 

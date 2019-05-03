@@ -190,6 +190,7 @@ then
 remove
 insert
 change
+if  ; deprecated: https://forum.rebol.info/t/968/7
 fail
 reject
 while
@@ -201,7 +202,6 @@ mark  ; Ren-C addition
 accept
 break
 ; ^--prep words above
-    if  ; removed: https://forum.rebol.info/t/968/7
     return  ; removed: https://github.com/metaeducation/ren-c/pull/898
 ; v--match words below
 skip

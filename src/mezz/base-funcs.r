@@ -125,7 +125,7 @@ function: func [
     parse spec [any [
         <void> (append new-spec <void>)
     |
-        ((either var [[
+        :(either var '[
             set var: [
                 match [any-word! 'word!]
                 | ahead any-path! into [blank! word!]
@@ -143,13 +143,13 @@ function: func [
             copy other some text! (
                 append/only new-spec spaced other  ; spec notes
             )
-        ]][[
+        ] '[
             set var: set-word! (  ; locals legal anywhere
                 append exclusions var
                 append new-spec var
                 var: _
             )
-        ]]))
+        ])
     |
         other:
         group! (

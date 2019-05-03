@@ -372,3 +372,86 @@ relative-to-path: func [
     append base target
     to-file delimit "/" base
 ]
+
+
+stripload: function [
+    {Get an equivalent to MOLD/FLAT (plus no comments) without using LOAD}
+
+    return: "[header contents] or just contents, w/o comments or indentation"
+        [text! block!]
+    file "File to read without using LOAD (avoids bootstrap scan differences)"
+        [file!]
+    /header "Request a block with both the header and contents (no [])"
+][
+    text: as text! read file
+    contents: find/tail text "^/]"
+
+    if header [
+        if not header: copy/part (find/tail text "[") (find text "^/]") [
+            fail ["Couldn't locate header in STRIPLOAD of" file]
+        ]
+    ]
+
+    ; Removing spacing and comments from a Rebol file is not exactly trivial
+    ; without LOAD.  But not impossible...and any tough cases in the mezzanine
+    ; can be dealt with by hand.
+    ;
+    ; Note: This also removes newlines, which may not ultimately be desirable.
+    ; The line numbering information, if preserved, could help correlate with
+    ; lines in the original files.  That would require preserving some info
+    ; about the file of origin, though.
+
+    pushed: copy []  ; <Q>uoted or <B>raced string delimiter stack
+
+    comment-or-space-rule: [
+        ;
+        ; Note: IF is deprecated in PARSE, and `:(...)` should be used instead
+        ; once the bootstrap executable supports it.
+        ;
+        if (empty? pushed)  ; string not in effect, okay to proceed
+
+        while [
+            remove [some space]
+            |
+            ahead ";" remove [to [newline | end]]
+        ]
+    ]
+
+    parse contents [
+        while [  ; https://github.com/rebol/rebol-issues/issues/1401
+            newline [while [comment-or-space-rule remove newline]]
+            |
+            [ahead [any space ";"]] comment-or-space-rule
+            |
+            "^^{"  ; (actually `^{`) escaped brace, never count
+            |
+            "^^}"  ; (actually `^}`) escaped brace, never count
+            |
+            "{" (if <Q> != last pushed [append pushed <B>])
+            |
+            "}" (if <B> = last pushed [take/last pushed])
+            |
+            {"} (
+                case [
+                    <Q> = last pushed [take/last pushed]
+                    empty? pushed [append pushed <Q>]
+                ]
+            )
+            |
+            skip
+        ]
+        end
+    ] else [
+        fail ["STRIPLOAD failed to munge out comments for" file]
+    ]
+
+    if not empty? pushed [
+        fail ["String delimiter stack imbalance while parsing" file]
+    ]
+
+    if header [
+        return reduce [header contents]
+    ]
+
+    return contents
+]

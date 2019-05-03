@@ -38,23 +38,17 @@ print "--- Make Host Init Code ---"
 write-c-file: function [
     return: <void>
     c-file
-    code
+    source "The molded representation of the rebol source"
+        [text!]
 ][
     e: make-emitter "Host custom init code" c-file
 
-    data: either system/version > 2.7.5 [
-        mold/flat/only code ; crashes 2.7
-    ][
-        mold/only code
-    ]
-    append data newline ; BUG? why does MOLD not provide it?
-
-    compressed: gzip data
+    compressed: gzip source
 
     e/emit 'compressed {
         /*
          * Gzip compression of host initialization code
-         * Originally $<length of data> bytes
+         * Originally $<length of source> bytes
          */
         #define REB_INIT_SIZE $<length of compressed>
         const unsigned char Reb_Init_Code[REB_INIT_SIZE] = {
@@ -66,55 +60,66 @@ write-c-file: function [
 ]
 
 
-load-files: function [
-    file-list
+; !!! The "host protocols" are embedded in a way that is very similar to the
+; extensions.  However, they do not have any native code directly associated
+; with them.  The models for modules should likely be unified.
+;
+; But what's happening here is just that the header and contents of the
+; modules are being put into blocks so that the caller can instantiate them
+; at the time they choose, by reading blocks out of the HOST-PROT variable.
+
+buf: make text! 200000
+append/line buf "host-prot: ["
+
+
+for-each file [
+    %prot-tls.r  ; TLS Transport Layer Security (a.k.a. the "S" in HTTPS)
+    %prot-http.r  ; HTTP Client Protocol (HTTPS if used with TLS)
 ][
-    data: make block! 100
-    for-each file file-list [
-        print ["loading:" file]
-        file: load/header file
-        header: take file
-        if header/type = 'module [
-            file: compose/deep [
-                import module
-                [
-                    title: (header/title)
-                    version: (header/version)
-                    name: (header/name)
-                ][
-                    (file)
-                ]
-            ]
-            ;probe file/2
-        ]
-        append data file
-    ]
-    data
+    set [header: contents:] stripload/header join %../mezz/ file
+    append/line buf "["
+    append/line buf header
+    append/line buf "]"
+    append/line buf "["
+    append/line buf contents
+    append/line buf "]"
 ]
 
-host-code: load-files [
-    %encap.reb
-    %unzip.reb
-    %host-start.r
+append/line buf "]"
+
+
+; In order to get the whole process rolling for the r3.exe, it needs to do
+; command line processing and read any encapped code out of the executable.
+; It would likely want to build on ZIP files to do this, so the unzip script
+; is embedded as well.
+;
+; !!! Unlike the %prot-http.r and %prot-tls.r, this would be a difficult
+; process to abstract to extensions...since de-encapping might be important
+; to booting to the point of being able to load anything at all.
+
+for-each file [%encap.reb %unzip.reb %host-start.r] [
+    print ["loading:" file]
+
+    set [header: contents:] stripload/header file
+
+    is-module: false  ; currently none of these three files are modules
+    if is-module [
+        append/line buf "import module ["
+        append/line buf header
+        append/line buf "]["
+        append/line buf contents
+        append/line buf "]"
+    ] else [
+        append/line buf contents
+    ]
 ]
 
 ; `do host-code` evaluates to the HOST-START function, so it is easily found
 ; as the result of running the code in %host-main.c
 ;
-append host-code [:host-start]
+append/line buf ":host-start"
 
-file-base: make object! load %../../tools/file-base.r
 
-; copied from make-boot.r
-host-protocols: make block! 2
-for-each file file-base/prot-files [
-    m: load/all join %../mezz/ file
-    assert ['REBOL = m/1]
-    spec: ensure block! m/2
-    contents: skip m 2
-    append host-protocols compose/only [(spec) (contents)]
-]
+write-if-changed output-dir/os/tmp-host-start.r buf  ; for inspection
 
-insert host-code compose/only [host-prot: (host-protocols)]
-
-write-c-file output-dir/os/tmp-host-start.inc host-code
+write-c-file output-dir/os/tmp-host-start.inc buf  ; actual usage as C file

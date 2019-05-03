@@ -97,10 +97,8 @@ for-each [comparison-op function-name] compose [
 ]
 
 
-; Lambdas are experimental quick function generators via a symbol.
-; The identity is used to shake up enfix ordering.
-;
-set (r3-alpha-lit "=>") enfixed :lambda
+=>: enfixed :lambda  ; quick function generator
+
 
 ; <- is the SHOVE operator.  It grabs whatever is on the left and uses it as
 ; the first argument to whatever operation is on its right hand side.  It

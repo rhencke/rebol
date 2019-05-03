@@ -421,30 +421,12 @@ REB_R Process_Group_For_Parse(
     REBVAL *cell,
     const RELVAL *group  // may be same as `cell`
 ){
-  #if 0
-    // !!! Unfortunately, the bootstrap process still loads source and molds
-    // it out.  This dependency needs to go away.  Until it does, GET-GROUP!
-    // can't be used in mezzanine code...so doubled groups remain as an
-    // alternative expression.
-    //
-    if (Is_Any_Doubled_Group(group)) {
-      #if !defined(NDEBUG)
-        PROBE(group);
-      #endif
-        fail ("Doubled group behavior is now performed by GET-GROUP!");
-    }
-  #endif
-
     // `cell` may equal `group`, read its type before Do() overwrites `cell`
-    bool inject =
-        IS_GET_GROUP(group)  // plain groups always discard
-        or Is_Any_Doubled_Group(group);  // !!! Temp hack, see note
+    bool inject = IS_GET_GROUP(group);  // plain groups always discard
 
     assert(IS_GROUP(group) or IS_GET_GROUP(group));
     REBSPC *derived = Derive_Specifier(P_RULE_SPECIFIER, group);
 
-    // Evaluator should optimize execution of a GROUP! with only one element.
-    //
     if (Do_Any_Array_At_Throws(cell, group, derived))
         return R_THROWN;
 
@@ -1819,6 +1801,39 @@ REBNATIVE(subparse)
                     FETCH_NEXT_RULE(f);
                     continue;
 
+                  // IF is deprecated in favor of `:(<logic!>)`.  But it is
+                  // currently used for bootstrap.  Remove once the bootstrap
+                  // executable is updated to have GET-GROUP!s.  Substitution:
+                  //
+                  //    (go-on?: either condition [[accept]][[reject]])
+                  //    go-on?
+                  //
+                  case SYM_IF: {
+                    FETCH_NEXT_RULE(f);
+                    if (IS_END(P_RULE))
+                        fail (Error_Parse_End());
+
+                    if (not IS_GROUP(P_RULE))
+                        fail (Error_Parse_Rule());
+
+                    DECLARE_LOCAL (condition);
+                    if (Do_Any_Array_At_Throws(  // note: might GC
+                        condition,
+                        P_RULE,
+                        P_RULE_SPECIFIER
+                    )) {
+                        Move_Value(P_OUT, condition);
+                        return R_THROWN;
+                    }
+
+                    FETCH_NEXT_RULE(f);
+
+                    if (IS_TRUTHY(condition))
+                        continue;
+
+                    P_POS = NOT_FOUND;
+                    goto post_match_processing; }
+
                   case SYM_ACCEPT:
                   case SYM_BREAK: {
                     //
@@ -1858,9 +1873,6 @@ REBNATIVE(subparse)
                     Print_Parse_Index(f);
                     FETCH_NEXT_RULE(f);
                     continue;
-
-                  case SYM_IF:
-                    fail ("IF removed from PARSE, use LOGIC!");
 
                   case SYM_RETURN:
                     fail ("RETURN removed from PARSE, use (THROW ...)");
