@@ -87,7 +87,7 @@ for-each-line: function [
     ]
 ]
 
-lines-exceeding: function [ ;-- !!! Doesn't appear used, except in tests (?)
+lines-exceeding: function [  ; !!! Doesn't appear used, except in tests (?)
     {Return the line numbers of lines exceeding line-length.}
 
     return: [<opt> block!]

@@ -104,7 +104,7 @@ inline static bool Do_At_Mutable_Maybe_Stale_Throws(
         FEED_MASK_DEFAULT  // different: does not 
     );
 
-    return Do_Feed_To_End_Maybe_Stale_Throws(out, feed);;
+    return Do_Feed_To_End_Maybe_Stale_Throws(out, feed);
 }
 
 inline static bool Do_At_Mutable_Throws(

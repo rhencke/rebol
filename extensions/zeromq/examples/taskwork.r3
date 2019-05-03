@@ -9,35 +9,32 @@ REBOL [
     }
 ]
 
-;import %extload.r3
-;import %zmqext.rx
-
 import %helpers.r3
 
 to-msec: func [string] [(to integer! string) / 1000]
 
 ctx: zmq-init 1
 
-;; Socket to receive messages on
+; Socket to receive messages on
+;
 receiver: zmq-socket ctx 'pull
 zmq-connect receiver tcp://localhost:5557
 
-;; Socket to send messages to
+; Socket to send messages to
+;
 sender: zmq-socket ctx 'push
 zmq-connect sender tcp://localhost:5558
 
-;; Process tasks forever
+; Process tasks forever
+;
 forever [
     string: s-recv receiver
 
-    ;; Simple progress indicator for the viewer
-    write-stdout unspaced [string "."]
+    write-stdout unspaced [string "."]  ; simple progress indicator
 
-    ;; Do the work
-    wait to-msec string
+    wait to-msec string  ; do the work
 
-    ;; Send results to sink
-    s-send sender ""
+    s-send sender ""  ; send results to sink
 ]
 
 zmq-close receiver

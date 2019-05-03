@@ -165,7 +165,7 @@ REBTYPE(Quoted)
 //      if soft and [match [group! get-word! get-path!] :value] [
 //          eval value
 //      ] else [
-//          :value ;-- also sets unevaluated bit, how could a user do so?
+//          :value  ; also sets unevaluated bit, how could a user do so?
 //      ]
 //  ]
 //

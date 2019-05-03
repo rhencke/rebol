@@ -28,8 +28,8 @@ make object! [
     position: _
     success: _
 
-    ;; TEST-SOURCE-RULE matches the internal text of a test
-    ;; even if that text is invalid rebol syntax.
+    ; TEST-SOURCE-RULE matches the internal text of a test, even if that text
+    ; is invalid rebol syntax.
 
     set 'test-source-rule [
         any [
@@ -48,9 +48,9 @@ make object! [
                 |
             ["{" | {"}] :position break
                 |
-            "[" test-source-rule "]" ;-- plain BLOCK! in code for a test
+            "[" test-source-rule "]"  ; plain BLOCK! in code for a test
                 |
-            "(" test-source-rule ")" ;-- plain GROUP! in code for a test
+            "(" test-source-rule ")"  ; plain GROUP! in code for a test
                 |
             ";" [thru newline | to end]
                 |
@@ -106,7 +106,7 @@ make object! [
         ]
 
         types: context [
-            wsp: cmt: val: tst: grpb: grpe: flg: fil: isu: str: end: _
+            wsp: cmt: val: tst: grpb: grpe: flg: fil: isu: str: url: end: _
         ]
 
         flags: copy []
@@ -140,21 +140,23 @@ make object! [
 
         grouped-tests: [
             "[" (type: in types 'grpb) emit-token
+            opt [
+                any-wsp single-value
+                :(text? value) (type: in types 'str)
+                emit-token
+            ]
             any [
                 any-wsp single-value
                 [
-                    ((tag? value)) (
+                    :(tag? value) (
                         type: in types 'flag
                         append flags value
                     )
                         |
-                    ((issue? value)) (type: in types 'isu)
+                    :(issue? value) (type: in types 'isu)
+                        |
+                    :(url? value) (type: in types 'url)
                 ]
-                emit-token
-            ]
-            opt [
-                any-wsp single-value
-                ((text? value)) (type: in types 'str)
                 emit-token
             ]
             any [any-wsp single-test emit-token]
@@ -176,12 +178,12 @@ make object! [
                 |
             single-value
             [
-                ((tag? get 'value)) (
+                :(tag? get 'value) (
                     type: in types 'flg
                     append flags value
                 )
                 |
-                ((file? get 'value)) (
+                :(file? get 'value) (
                     type: in types 'fil
                     collect-tests collected-tests value
                     print ["file:" mold test-file]

@@ -177,7 +177,7 @@ trim: function [
             rule: blank!
 
             if not any [head_TRIM tail_TRIM] [
-                head_TRIM: tail_TRIM: true ;-- plain TRIM => TRIM/HEAD/TAIL
+                head_TRIM: tail_TRIM: true  ; plain TRIM => TRIM/HEAD/TAIL
             ]
         ]
 
@@ -219,7 +219,7 @@ trim: function [
             ]
 
             if not any [head_TRIM tail_TRIM] [
-                head_TRIM: tail_TRIM: true ;-- plain TRIM => TRIM/HEAD/TAIL
+                head_TRIM: tail_TRIM: true  ; plain TRIM => TRIM/HEAD/TAIL
             ]
         ]
     ] else [
@@ -239,7 +239,7 @@ trim: function [
         ]
 
         tail_TRIM [
-            parse series [while [remove [some rule end] | skip] end] ;-- #2289
+            parse series [while [remove [some rule end] | skip] end]  ; #2289
         ]
     ] then [
         return series

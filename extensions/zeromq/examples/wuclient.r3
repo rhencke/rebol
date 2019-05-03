@@ -7,23 +7,23 @@ REBOL [
     }
 ]
 
-;import %extload.r3
-;import %zmqext.rx
-
 import %helpers.r3
 
 ctx: zmq-init 1
 
-;; 0MQ socket to talk to server
+; 0MQ socket to talk to server
+;
 print "Collecting updates from weather server ..."
 subscriber: zmq-socket ctx 'sub
 zmq-connect subscriber tcp://localhost:5556
 
-;; Subscribe to zipcode, default is NYC, 10001
+; Subscribe to zipcode, default is NYC, 10001
+;
 filter: to-integer any [attempt [try first system/options/args] 10001]
 zmq-setsockopt subscriber 'subscribe as binary! form filter
 
-;; Process 100 updates
+; Process 100 updates
+;
 num-updates: 100
 total-temp: 0
 loop num-updates [

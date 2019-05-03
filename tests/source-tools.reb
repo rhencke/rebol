@@ -199,7 +199,7 @@ rebsource: context [
                                 )
                                 append
                                     non-std-func-space: default [copy []]
-                                    line ;-- should it be appending BLANK! ?
+                                    line  ; should it be appending BLANK! ?
                             ]
                         ]
                     ]
@@ -417,7 +417,7 @@ rebsource: context [
                 ]
             ]
 
-            opt item ;-- blanked items are to be filtered out
+            opt item  ; blanked items are to be filtered out
         ]
     ]
 

@@ -105,11 +105,10 @@
     data = [a [b [c <success>] <success>] <success>]
 )
 
-; https://github.com/metaeducation/ren-c/issues/633
-(
+[https://github.com/metaeducation/ren-c/issues/633 (
     e: trap [repeat x 1 [append foo: [] x]]
     e/id = 'const-value
-)
+)]
 
 
 ; Functions mark their body CONST by default

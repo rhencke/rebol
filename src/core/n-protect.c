@@ -32,7 +32,7 @@
 //
 //      return: [<opt> any-value!]
 //      value "Argument to change access to (can be locked or not)"
-//          [<opt> any-value!] ;-- INTEGER!, etc. someday
+//          [<opt> any-value!]  ; INTEGER!, etc. someday
 //  ]
 //
 REBNATIVE(const) {
@@ -77,7 +77,7 @@ REBNATIVE(const_q) {
 //      return: "Same as input -- no errors are given if locked or immediate"
 //          [<opt> any-value!]
 //      value "Argument to change access to (if such access can be granted)"
-//          [<opt> any-value!] ;-- INTEGER!, etc. someday
+//          [<opt> any-value!]  ; INTEGER!, etc. someday
 //  ]
 //
 REBNATIVE(mutable)

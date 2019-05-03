@@ -139,15 +139,16 @@
 (0 == eval 0)
 (1 == eval 1)
 (#a == eval #a)
-;-- CC#2101, #1434
-(
+
+[#2101 #1434 (
     a-value: first ['a/b]
     all [
         lit-path? a-value
         path? eval :a-value
         (as path! :a-value) == (eval :a-value)
     ]
-)
+)]
+
 (
     a-value: first ['a]
     all [
@@ -182,7 +183,7 @@
     a-value: first [a/b:]
     all [
         set-path? :a-value
-        error? trap [eval :a-value] ;-- no value to assign after it...
+        error? trap [eval :a-value]  ; no value to assign after it...
     ]
 )
 (

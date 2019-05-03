@@ -272,16 +272,17 @@ extension-class: make object! [
     libraries: _
     ldflags: _
 
-    hook: _ ;; FILE! of extension-specific Rebol script to run during rebmake
+    hook: _  ; FILE! of extension-specific Rebol script to run during rebmake
 
-    ;internal
+    ; Internal Fields
+
     sequence: _ ; the sequence in which the extension should be loaded
     visited: false
 
     directory: method [
-        return: [text!] ;; Should this be [file!]?
+        return: [text!]  ; Should this be [file!]?
     ][
-        lowercase to text! name ;; !!! Should remember where it was found
+        lowercase to text! name  ; !!! Should remember where it was found
     ]
 ]
 
@@ -680,7 +681,7 @@ switch user-config/debug [
     ;
     'callgrind [
         cfg-symbols: true
-        append app-config/cflags "-g" ;; for symbols
+        append app-config/cflags "-g"  ; for symbols
         app-config/debug: off
 
         append app-config/definitions [
@@ -814,7 +815,7 @@ append app-config/cflags opt switch user-config/rigorous [
     #[true] 'yes 'on 'true [
         cfg-rigorous: true
         compose [
-            <gnu:-Werror> <msc:/WX>;-- convert warnings to errors
+            <gnu:-Werror> <msc:/WX>  ; convert warnings to errors
 
             ; If you use pedantic in a C build on an older GNU compiler,
             ; (that defaults to thinking it's a C89 compiler), it will
@@ -1107,8 +1108,8 @@ append app-config/definitions reduce [
     unspaced ["TO_" uppercase replace/all to-text system-config/os-name "-" "_"]
 ]
 
-;; Add user settings
-;;
+; Add user settings
+;
 append app-config/definitions opt user-config/definitions
 append app-config/includes opt user-config/includes
 append app-config/cflags opt user-config/cflags
@@ -1216,7 +1217,7 @@ for-each [label list] reduce [
 ][
     print label
     for-each ext list [
-        print collect [ ;-- CHAR! values don't auto-space in Ren-C PRINT
+        print collect [  ; CHAR! values don't auto-space in Ren-C PRINT
             keep ["ext:" ext/name #":" space #"["]
             for-each mod ext/modules [
                 keep to-text mod/name

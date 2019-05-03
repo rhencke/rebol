@@ -248,7 +248,7 @@ elf-format: context [
                     name-end: ensure binary! find name-start #{00}
                     section-name: to-text copy/part name-start name-end
                     if name = section-name [
-                        return index ;-- sh_offset, sh_size, etc. are set
+                        return index  ; sh_offset, sh_size, etc. are set
                     ]
                     index: index + 1
                 )
@@ -268,7 +268,7 @@ elf-format: context [
 
         <in> self
     ][
-        assert [e_phoff < offset] ;-- program headers are before any changes
+        assert [e_phoff < offset]  ; program headers are before any changes
 
         parse skip executable e_phoff [
             e_phnum [
@@ -281,7 +281,7 @@ elf-format: context [
             fail "Error updating offsets in program headers"
         ]
 
-        assert [e_shoff >= offset] ;-- section headers are after any changes
+        assert [e_shoff >= offset]  ; section headers are after any changes
 
         parse skip executable e_shoff [
             e_shnum [
@@ -786,7 +786,7 @@ pe-format: context [
         COFF-header/number-of-sections section-rule
         end-of-section-header:
 
-        ;-- !!! stop here, no END ?
+        ; !!! stop here, no END ?
     ]
     size-of-section-header: 40 ;size of one entry
 

@@ -13,8 +13,8 @@
     [1 2 3 4] = foo 1 2 3 4
 )
 
+; leaked VARARGS! cannot be accessed after call is over
 (
-    ;-- leaked VARARGS! cannot be accessed after call is over
     error? trap [take eval (foo: func [x [integer! <...>]] [x])]
 )
 
@@ -52,7 +52,7 @@
     (11 = do [10 normal])
     (21 = do [10 20 normal])
     (31 = do [x: 30 | y: 'x | 1 2 x normal])
-    (30 = do [multiply 3 9 normal]) ;-- seen as ((multiply 3 (9 normal))
+    (30 = do [multiply 3 9 normal])  ; seen as ((multiply 3 (9 normal))
 ][
     (
         defers: enfixed function [v [integer! <...>]] [
@@ -70,7 +70,7 @@
     (11 = do [10 defers])
     (21 = do [10 20 defers])
     (31 = do [x: 30 | y: 'x | 1 2 x defers])
-    (28 = do [multiply 3 9 defers]) ;-- seen as (multiply 3 9) defers))
+    (28 = do [multiply 3 9 defers])  ; seen as (multiply 3 9) defers))
 ][
     (
         soft: enfixed function ['v [any-value! <...>]] [

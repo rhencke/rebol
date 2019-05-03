@@ -94,8 +94,8 @@ encap: compose [
         ;
         'Windows [
             reduce [
-                config-tccdir/include ;; typically %(...)/win32/include
-                config-tccdir/lib ;; typically %(...)/win32/lib
+                config-tccdir/include  ; typically %(...)/win32/include
+                config-tccdir/lib  ; typically %(...)/win32/lib
             ]
         ]
 
@@ -108,7 +108,7 @@ encap: compose [
         'Posix
         'Android
         'Linux [
-            config-tccdir/include ;; somewhere in /usr/lib, or tcc root
+            config-tccdir/include  ; somewhere in /usr/lib, or tcc root
 
             ; No additional libs (besides libtcc1.a), TCC is compatible with
             ; GNU libc and other libraries on standard linux distributions.

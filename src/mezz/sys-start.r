@@ -35,7 +35,7 @@ finish-init-core: func [
     return: <void>
     boot-mezz [block!]
         {Mezzanine code loaded as part of the boot block in Startup_Core()}
-    <local> tmp ;-- need to get JOIN, SYSTEM, and other bits for COMPOSE
+    <local> tmp  ; need to get JOIN, SYSTEM, and other bits for COMPOSE
 ][
     ; Remove the reference through which this function we are running is
     ; found, so it's invisible to the user and can't run again (but leave

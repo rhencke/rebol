@@ -175,5 +175,5 @@
 ; While Rebol2 would keep the units of the input as MONEY! if you used a non
 ; MONEY! value to round to, R3-Alpha seems to have changed this.  #1470
 ;
-(2.6 = round/even/to $2.55 1E-1) ;-- adopts type of rounding unit
-($2.6 = round/even/to $2.55 $1E-1) ;-- keeps MONEY!
+(2.6 = round/even/to $2.55 1E-1)  ; adopts type of rounding unit
+($2.6 = round/even/to $2.55 $1E-1)  ; keeps MONEY!

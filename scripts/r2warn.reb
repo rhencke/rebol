@@ -159,7 +159,7 @@ unless: checked [
 switch: checked [
     adapt 'switch [
         for-each c cases [
-            lib/all [ ;-- SWITCH's /ALL would override
+            lib/all [  ; SWITCH's /ALL would override
                 match [word! path!] c
                 not find [elide comment default] c
                 'null <> c
@@ -253,7 +253,7 @@ also: checked [
                 {See: https://trello.com/c/Y03HJTY4}
             ]
         ]
-        ;-- fall through to normal ALSO implementation
+        ; fall through to normal ALSO implementation
     ]
 ]
 
@@ -295,7 +295,7 @@ try: checked [
                 {TRY now converts nulls to blanks, passing through ANY-VALUE!}
             ]
         ]
-        ;-- fall through to native TRY implementation
+        ; fall through to native TRY implementation
     ]
 ]
 

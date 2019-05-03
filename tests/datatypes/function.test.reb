@@ -413,9 +413,9 @@
     1 == a-value/local 1
 )
 
-[#539 (
+[#539 https://github.com/metaeducation/ren-c/issues/755 (
     f: func [return: <void>] [
-        use [x] [return] ;-- https://github.com/metaeducation/ren-c/issues/755
+        use [x] [return]  ; 
         42
     ]
     void? f

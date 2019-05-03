@@ -19,7 +19,7 @@ pi: 3.14159265358979323846
 
 cos: :cosine/radians
 sin: :sine/radians
-tan: :tangent/radians ;; contentious with color "tan" (in CSS and elsewhere)
+tan: :tangent/radians  ; contentious with color "tan" (in CSS and elsewhere)
 acos: :arccosine/radians
 asin: :arcsine/radians
 atan: :arctangent/radians

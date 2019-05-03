@@ -18,9 +18,9 @@
 (null = make integer! blank)
 (null = make object! blank)
 
-(null? to blank! _) ;-- TO's universal protocol for blank 2nd argument
-(null? to _ 1) ;-- TO's universal protocol for blank 1st argument
-(error? trap [to blank! 1]) ;-- no other types allow "conversion" to blank
+(null? to blank! _)  ; TO's universal protocol for blank 2nd argument
+(null? to _ 1)  ; TO's universal protocol for blank 1st argument
+(error? trap [to blank! 1])  ; no other types allow "conversion" to blank
 
 ("_" = mold blank)
 [#1666 #1650 (

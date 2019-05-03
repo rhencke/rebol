@@ -11,8 +11,7 @@
 ("a  " = find "  a  " make bitset! [not 1 - 32])
 
 
-; https://github.com/metaeducation/ren-c/issues/825
-(
+[https://github.com/metaeducation/ren-c/issues/825 (
     cs: charset [#"^(FFFE)" - #"^(FFFF)"]
     all [
         find cs #"^(FFFF)"
@@ -26,4 +25,4 @@
         not find cs #"^(FFFE)"
         not find cs #"^(FFFD)"
     ]
-)
+)]

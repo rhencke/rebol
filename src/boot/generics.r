@@ -45,7 +45,7 @@ REBOL [
     }
 ]
 
-;-- Binary Math & Logic
+; Binary Math & Logic
 
 add: generic [
     {Returns the addition of two values.}
@@ -96,7 +96,7 @@ intersect: generic [
     value1 [
         logic! integer! char! tuple!  ; math
         any-array! any-string! bitset! typeset!  ; sets
-        binary! ;-- ???
+        binary!  ; ???
     ]
     value2 [
         logic! integer! char! tuple!  ; math
@@ -147,7 +147,7 @@ difference: generic [
 ]
 
 
-;-- Unary
+; Unary
 
 negate: generic [
     {Changes the sign of a number.}
@@ -198,7 +198,7 @@ even?: generic [
     number [any-number! char! date! money! time! pair!]
 ]
 
-;-- Series Navigation
+; Series Navigation
 
 skip: generic [
     {Returns the series forward or backward from the current position.}
@@ -220,7 +220,7 @@ at: generic [
         {Don't clip to the boundaries of the series (return blank if beyond)}
 ]
 
-;-- Series Search
+; Series Search
 
 find: generic [
     {Searches for the position where a matching value is found}
@@ -275,7 +275,7 @@ put: generic [
     /case {Perform a case-sensitive search}
 ]
 
-;-- Making, copying, modifying
+; Making, copying, modifying
 
 copy: generic [
     {Copies a series, object, or other value.}
@@ -407,7 +407,7 @@ sort: generic [
     /reverse "Reverse sort order"
 ]
 
-;-- Port actions:
+; Port actions:
 
 create: generic [
     {Send port a create request.}

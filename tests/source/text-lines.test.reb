@@ -1,5 +1,5 @@
-;; Tests for text-lines.reb
-;; Included as they are part of the build and source tests.
+; Tests for text-lines.reb
+; Included as they are part of the build and source tests.
 
 (; Setup test.
     do %../tools/common.r
@@ -7,7 +7,7 @@
     true
 )
 
-;; encode-lines
+; encode-lines
 
 ({**^/} = encode-lines copy {} {**} {  })
 ({**  x^/} = encode-lines copy {x} {**} {  })
@@ -17,7 +17,7 @@
 ({**  x^/**    y^/**      z^/} = encode-lines copy {x^/  y^/    z} {**} {  })
 ("**^/**^/**^/" = encode-lines copy {^/^/} {**} {  })
 
-;; decode-lines
+; decode-lines
 
 ({} = decode-lines copy {} {**} {} )
 ({} = decode-lines copy {**^/} {**} {  } )
@@ -29,14 +29,14 @@
 ({^/^/} = decode-lines copy "**^/**  ^/**^/" {**} {  })
 ({^/^/} = decode-lines copy "**^/**^/**^/" {**} {  })
 
-;; lines-exceeding
+; lines-exceeding
 
 (null? lines-exceeding 0 {})
 (null? lines-exceeding 1 {})
 ([1] = lines-exceeding 0 {x})
 ([2] = lines-exceeding 0 {^/x})
 
-;; text-line-of
+; text-line-of
 
 (null? text-line-of {})
 (1 = text-line-of {x})

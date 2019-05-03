@@ -25,17 +25,17 @@ start-response: func [port res <local> code text type body] [
         "Content-length:" space (length of body) CR LF
         CR LF
     ]
-    ;; Manual chunking is only necessary because of several bugs in R3's
-    ;; networking stack (mainly cc#2098 & cc#2160; in some constellations also
-    ;; cc#2103). Once those are fixed, we should directly use R3's internal
-    ;; chunking instead: `write port body`.
+    ; Manual chunking is only necessary because of several bugs in R3's
+    ; networking stack (mainly cc#2098 & cc#2160; in some constellations also
+    ; cc#2103). Once those are fixed, we should directly use R3's internal
+    ; chunking instead: `write port body`.
     port/locals: copy body
 ]
 
 send-chunk: func [port] [
-    ;; Trying to send data >32'000 bytes at once will trigger R3's internal
-    ;; chunking (which is buggy, see above). So we cannot use chunks >32'000
-    ;; for our manual chunking.
+    ; Trying to send data >32'000 bytes at once will trigger R3's internal
+    ; chunking (which is buggy, see above). So we cannot use chunks >32'000
+    ; for our manual chunking.
     either empty? port/locals [
         _
     ][

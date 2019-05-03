@@ -5,7 +5,6 @@ Rebol [
     file:    %changes-file.reb
     author:  "Barry Walsh (draegtun)"
     date:    21-Jun-2017
-    ;; needs:   [2.102.0] ;; Ren/C
     version: 0.1.8
     history: [
         0.1.0  30-May-2017  {Protoype. Created initial cherry-pick-map from commits}
@@ -18,7 +17,7 @@ Rebol [
         0.1.7  21-Jun-2017  {related commits are now automatically "not notable"}
         0.1.8  21-Jun-2017  {Fix related links}
     ]
-    license: {Apache License 2.0} ;; Same as Rebol 3
+    license: {Apache License 2.0}  ; Same as Rebol 3
     exports: [make-changes-file make-changes-block get-git-log]
 ]
 
@@ -29,12 +28,12 @@ Rebol [
 change!: make object! []
 
 category!: make object! [
-    Added:      make block! 0  ;; new feature
-    Changed:    make block! 0  ;; changes (to existing functionality)
-    Deprecated: make block! 0  ;; marked for removing in upcoming releases
-    Fixed:      make block! 0  ;; bug fix
-    Removed:    make block! 0  ;; removed feature
-    Security:   make block! 0  ;; Security fix/change
+    Added:      make block! 0  ; new feature
+    Changed:    make block! 0  ; changes (to existing functionality)
+    Deprecated: make block! 0  ; marked for removing in upcoming releases
+    Fixed:      make block! 0  ; bug fix
+    Removed:    make block! 0  ; removed feature
+    Security:   make block! 0  ; Security fix/change
 ]
 
 release!: make object! [
@@ -66,7 +65,7 @@ make-changes-block: function [
     {Read in git-commit block, process notable changes returning Changes-block}
     commits [block!] {Rebolised git commit-log}
 ][
-    block: reduce [make release! []]  ;; Changes-block
+    block: reduce [make release! []]  ; Changes-block
 
     add-change: function [
         {Add changes object to its correct place in Changes-block (by release > category type)}
@@ -74,23 +73,26 @@ make-changes-block: function [
     ][
         category: select co 'type
 
-        ;; new release?
+        ; new release?
         if attempt [v: co/version] [
             append block make release! [
                 version: v
                 date: co/date
                 changes: make category! []
             ]
-        ]    
+        ]
 
-        ;; append change to changes
+        ; append change to changes
         append block/(length of block)/changes/:category co
     ]
 
     for-each c commits [
         if notable? commit: load c [
-            ;; add date
-            ;append commit compose [date: (load first split commit/date-string space)]
+            comment [  ; !!! This was commented out, why?
+                append commit compose [
+                    date: (load first split commit/date-string space)
+                ]
+            ]
             append commit compose [date: (12-12-2012)]
 
             add-change make change! commit
@@ -100,9 +102,8 @@ make-changes-block: function [
     block
 ]
 
-parse-credits-for-authors: function [ 
+parse-credits-for-authors: function [  ; used as switch in github-user-name
     {Produces a block of author => [@github-name] mapping from CREDITS.md}
-    ;; NB. used as switch in github-user-name func
     return: [block!]
     credits-file [file!] {CREDITS.md file}
 ][
@@ -116,10 +117,10 @@ parse-credits-for-authors: function [
                 [{-} | {*}] space {[} copy github-name: to {](https://github.com/} (
                     keep compose/deep [(author) [(github-name)]]
 
-                    ;; some cases use space trimmed author
+                    ; some cases use space trimmed author
                     keep compose/deep [(trim/all copy author) [(github-name)]]
 
-                    ;; some cases github username was used for author
+                    ; some cases github username was used for author
                     keep compose/deep [(next github-name) [(github-name)]]
                 )
                 | skip
@@ -139,11 +140,11 @@ notable?: function [
         cherry-pick (load-cherry-pick-map)
         related (make block! 0)
 ][
-    if find related c/commit [return false]    ;; related commits are not notable
+    if find related c/commit [return false]  ; related commits are not notable
 
     numbers: charset "1234567890"
 
-    ;; Let try and categorise type of commit (default is 'Changed)
+    ; Let's try and categorize type of commit (default is 'Changed)
     category: 'Changed
     parse text: c/summary [[
         opt "* "
@@ -155,12 +156,12 @@ notable?: function [
     ] end]
     append c compose [type: lit (category)]
 
-    ;; record any bug#NNNN or CC (CureCode) found
+    ; record any bug#NNNN or CC (CureCode) found
     cc: make block! 0
     parse text [
         any [
               "bug#" copy cc-num: some numbers (
-                append c [type: 'Fixed]   ;; it's a bug fix!
+                append c [type: 'Fixed]  ; it's a bug fix!
                 append cc to-integer cc-num
               )
             | ["cc " | "cc"]
@@ -171,22 +172,22 @@ notable?: function [
     ]
     if not empty? cc [append c compose/only [cc: (cc)]]
 
-    ;; if find commit in our cherry-pick map then apply logic / meta info
+    ; if find commit in our cherry-pick map then apply logic / meta info
     if cherry-value: select cherry-pick c/commit [
         switch cherry-value [
-            'yes  [return true]       ;; This is a notable change so use (as-is)
-            'no   [return false]      ;; NOT notable so skip
+            'yes [return true]  ; This is a notable change so use (as-is)
+            'no [return false]  ; NOT notable so skip
         ]
 
-        ;; so must be block?
+        ; so must be block?
         if not block? cherry-value [
             fail {Invalid rule in cherry-pick-map.reb}
         ]
 
-        ;; record related commits to force to be not notable later
+        ; record related commits to force to be not notable later
         if iggy: select cherry-value 'related [append related iggy]
 
-        ;; update commit block with rule info & return true (is notable)
+        ; update commit block with rule info & return true (is notable)
         append c cherry-value
         return true
     ]
@@ -195,13 +196,13 @@ notable?: function [
     ; so not been cherry-picked, so last checks for notability
     ;
 
-    ;; if starts with "* " then it is notable
+    ; if starts with "* " then it is notable
     if {* } = copy/part text 2 [return true]
 
-    ;; If CureCode then it is notable
+    ; If CureCode then it is notable
     if not empty? cc [return true]
 
-    ;; this not a notable change
+    ; this not a notable change
     false
 ]
 
@@ -222,12 +223,15 @@ make-changes-file: function [
     authors: parse-credits-for-authors credits-file
 
     github-user-name: function [
-        {Match Author in commit-log with github username in CREDITS.md. If not found return author}
-        author [text!] {Author name in commit log}
+        {Match Author in commit-log with github username in CREDITS.md}
+        return: "If not found, returns input author text as-is"
+            [text!]
+        author "Author name in commit log"
+            [text!] 
     ][
         any [
             switch author authors
-            switch trim/all copy author authors   ;; try again with space trimmed author
+            switch trim/all copy author authors  ; try again w/space trimmed
             author
         ]
     ]
@@ -247,44 +251,45 @@ make-changes-file: function [
     ][
         text: copy co/summary
 
-        ;; remove any preceding * or - from summary
+        ; remove any preceding * or - from summary
         if find [{* } {- }] copy/part text 2 [remove/part text 2]
 
         unspaced [
             {``` } text { ```} space
 
-            ;; github username or git author name
+            ; github username or git author name
             " *" github-user-name co/author "* | "
 
-            ;; short commit hash
+            ; short commit hash
             md-link co/commit join-all [url/ren-c co/commit]
 
-            ;; any related hash (cherry-pick collated)
+            ; any related hash (cherry-pick collated)
             if related: select co 'related [
                 map-each n related [
                     md-link n join-all [url/ren-c n]
                 ]
             ]
 
-            ;; show issues
-            ;;if issues: select co 'issues [
-            ;;   unspaced [sp form issues]
-            ;;]
-
-            ;; show CC issues
-            ;; For now just list them
-            if cc: select co 'cc [
-                map-each n cc [
-                    md-link join-all [{#CC-} n]  join-all [url/rebol-issues n]
+            ; show issues
+            comment [
+                if issues: select co 'issues [
+                    unspaced [sp form issues]
                 ]
             ]
 
-            ;; wiki link
+            ; show CC issues (for now just list them)
+            if cc: select co 'cc [
+                map-each n cc [
+                    md-link join-all [{#CC-} n] join-all [url/rebol-issues n]
+                ]
+            ]
+
+            ; wiki link
             if wiki: select co 'wiki [
                 md-link "wiki" wiki
             ]
 
-            ;; show trello link
+            ; show trello link
             if trello: select co 'trello [
                 md-link "trello" trello
             ]
@@ -309,11 +314,11 @@ make-changes-file: function [
     ; Write out new CHANGES file
     ;
 
-    write changes template/1   ;; template top
+    write changes template/1  ; template top
 
-    ;; summary text for each change
+    ; summary text for each change
     for-each release changes-block [
-        ;; ## [version]
+        ; ## [version]
         write-line either release/date [
             [
                 {## [} release/version {]}
@@ -325,17 +330,17 @@ make-changes-file: function [
             ]
         ]
 
-        ;; ### Category (type)
+        ; ### Category (type)
         for-each type (words of release/changes) [
             if not empty? release/changes/:type [
                 write-line [{### } type]
 
-                ;; - Change
+                ; - Change
                 for-each co release/changes/:type [write-change-text co]
             ]
         ]
     ]
 
-    write changes template/2   ;; template bottom
+    write changes template/2  ; template bottom
     close changes
 ]

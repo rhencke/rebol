@@ -263,7 +263,7 @@ help: function [
                 %.MD
             ]
         ] else [
-            remove back tail of item ;-- it's a DATATYPE!, so remove the !
+            remove back tail of item  ; it's a DATATYPE!, so remove the !
             browse join-all [
                 http://www.rebol.com/r3/docs/datatypes/
                 item
@@ -315,12 +315,12 @@ help: function [
     ; help for complex function derivations is a research project in its
     ; own right.  So it tends to break--test it as much as possible.
 
-    space4: unspaced [space space space space] ;-- use instead of tab
+    space4: unspaced [space space space space]  ; use instead of tab
 
     print "USAGE:"
 
-    args: _ ;-- plain arguments
-    refinements: _ ;-- refinements and refinement arguments
+    args: _  ; plain arguments
+    refinements: _  ; refinements and refinement arguments
 
     parse parameters of :value [
         copy args any [word! | get-word! | lit-word! | issue!]
@@ -404,7 +404,7 @@ help: function [
                 select fields/parameter-notes to-word param
             )
 
-            ;-- parameter name and type line
+            ; parameter name and type line
             if type and [not refinement? param] [
                 print unspaced [space4 param space "[" type "]"]
             ] else [
@@ -482,10 +482,9 @@ source: function [
         return
     ]
 
-    ;; ACTION!
-    ;;
-    ;; The system doesn't preserve the literal spec, so it must be rebuilt
-    ;; from combining the the META-OF information.
+    ; ACTION!
+    ; The system doesn't preserve the literal spec, so it must be rebuilt
+    ; from combining the the META-OF information.
 
     write-stdout unspaced [
         mold name ":" space "make action! [" space mold spec-of :f
@@ -497,11 +496,11 @@ source: function [
     ; used.  For the moment, BODY OF hands back limited information.  Review.
     ;
     switch type of (body: body of :f) [
-        block! [ ;-- FUNC, FUNCTION, PROC, PROCEDURE or (DOES of a BLOCK!)
+        block! [  ; FUNC, FUNCTION, PROC, PROCEDURE or (DOES of a BLOCK!)
             print [mold body "]"]
         ]
 
-        frame! [ ;-- SPECIALIZE (or DOES of an ACTION!)
+        frame! [  ; SPECIALIZE (or DOES of an ACTION!)
             print [mold body "]"]
         ]
     ] else [
@@ -528,7 +527,7 @@ what: function [
     ctx: copy all [set? 'name try select system/modules :name ] else [lib]
 
     for-each [word val] ctx [
-        ;-- word val
+        ; word val
         if (action? :val) [
             arg: either args [
                 mold parameters of :val

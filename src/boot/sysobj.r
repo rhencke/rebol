@@ -473,96 +473,6 @@ view: make object! [
     ]
 ]
 
-;;stats: _
-
-;user-license: context [
-;   name:
-;   email:
-;   id:
-;   message:
-;       _
-;]
-
-
-
-; (returns value)
-
-;       model:      ; Network, File, Driver
-;       type:       ; bytes, integers, values
-;       user:       ; User data
-
-;       host:
-;       port-id:
-;       user:
-;       pass:
-;       target:
-;       path:
-;       proxy:
-;       access:
-;       allow:
-;       buffer-size:
-;       limit:
-;       handler:
-;       status:
-;       size:
-;       date:
-;       sub-port:
-;       locals:
-;       state:
-;       timeout:
-;       local-ip:
-;       local-service:
-;       remote-service:
-;       last-remote-service:
-;       direction:
-;       key:
-;       strength:
-;       algorithm:
-;       block-chaining:
-;       init-vector:
-;       padding:
-;       async-modes:
-;       remote-ip:
-;       local-port:
-;       remote-port:
-;       backlog:
-;       device:
-;       speed:
-;       data-bits:
-;       parity:
-;       stop-bits:
-;           _
-;       rts-cts: true
-;       user-data:
-;       awake:
-
-;   port-flags: make object! [
-;       direct:
-;       pass-thru:
-;       open-append:
-;       open-new:
-;           _
-;   ]
-
-;   email: make object! [ ; Email header object
-;       To:
-;       CC:
-;       BCC:
-;       From:
-;       Reply-To:
-;       Date:
-;       Subject:
-;       Return-Path:
-;       Organization:
-;       Message-Id:
-;       Comment:
-;       X-REBOL:
-;       MIME-Version:
-;       Content-Type:
-;       Content:
-;           _
-;   ]
-
 user: make object! [
    name:           ; User's name
    home:           ; The HOME environment variable
@@ -571,34 +481,8 @@ user: make object! [
    identities: []
 ]
 
-;network: make object! [
-;   host: ""        ; Host name of the user's computer
-;   host-address: 0.0.0.0 ; Host computer's TCP-IP address
-;   trace: _
-;]
+console: _  ; console (repl) object created by the console extension
 
-console: _         ;; console (repl) object created in host-start (os/host-start.r)
-
-; Below is original console construct (unused and comment-out in r3/ren-c)
-; Left here for reference (for future development)
-;
-;console: make object! [
-;   hide-types: _    ; types not to print
-;   history: _       ; Log of user inputs
-;   keys: _          ; Keymap for special key
-;   prompt:  {>> }   ; Specifies the prompt
-;   result:  {== }   ; Specifies result
-;   escape:  {(escape)} ; Indicates an escape
-;   busy:    {|/-\}  ; Spinner for network progress
-;   tab-size: 4      ; default tab size
-;   break: true      ; whether escape breaks or not
-;]
-
-;           decimal: #"."   ; The character used as the decimal point in decimal and money vals
-;           sig-digits: _    ; Significant digits to use for decimals ; blank for normal printing
-;           date-sep: #"-"  ; The character used as the date separator
-;           date-month-num: false   ; True if months are displayed as numbers; False for names
-;           time-sep: #":"  ; The character used as the time separator
 
 cgi: make object! [ ; CGI environment variables
        server-software:
@@ -620,11 +504,6 @@ cgi: make object! [ ; CGI environment variables
        content-length: _
        other-headers: []
 ]
-;   browser-type: 0
-
-;   trace:          ; True if the --trace flag was specified
-;   help: _         ; True if the --help flags was specified
-;   halt: _         ; halt after script
 
 ; Boot process does a sanity check that this evaluation ends with BLANK!
 _

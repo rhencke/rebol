@@ -8,13 +8,13 @@
     (path? load "#[path! [[a] 1]]")
 ]
 
-;; ANY-PATH! are no longer positional
-;;(
-;;    all [
-;;        path? a: load "#[path! [[a b c] 2]]"
-;;        2 == index? a
-;;    ]
-;;)
+; ANY-PATH! are no longer positional
+;(
+;    all [
+;        path? a: load "#[path! [[a b c] 2]]"
+;        2 == index? a
+;    ]
+;)
 
 ("a/b" = mold 'a/b)
 (

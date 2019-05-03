@@ -367,8 +367,8 @@ clos: emulate [:func]
 closure!: emulate [:action!]
 closure?: emulate [:action?]
 
-true?: emulate [:did?] ;-- better name https://trello.com/c/Cz0qs5d7
-false?: emulate [:not?] ;-- better name https://trello.com/c/Cz0qs5d7
+true?: emulate [:did?]  ; better name https://trello.com/c/Cz0qs5d7
+false?: emulate [:not?]  ; better name https://trello.com/c/Cz0qs5d7
 
 comment: emulate [
     func [
@@ -598,7 +598,7 @@ parse: emulate [
         case_PARSE: case
         case: :lib/case
 
-        comment [all_PARSE: all] ;-- Not used
+        comment [all_PARSE: all]  ; Not used
         all: :lib/all
 
         switch type of rules [

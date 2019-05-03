@@ -574,7 +574,7 @@ REB_R MAKE_Error(
         //
         // String argument to MAKE ERROR! makes a custom error from user:
         //
-        //     code: _ ;-- default is blank
+        //     code: _  ; default is blank
         //     type: _
         //     id: _
         //     message: "whatever the string was"

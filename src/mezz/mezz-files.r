@@ -332,7 +332,7 @@ in-dir: function [
 
     ; You don't want the block to be done if the change-dir fails, for safety.
 
-    do block ;-- return result
+    do block  ; return result
 
     elide (change-dir old-dir)
 ]

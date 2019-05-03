@@ -42,10 +42,10 @@ info?: function [
 exists?: func [
     {Returns the type of a file or URL if it exists, otherwise blank.}
     return: [<opt> word!]
-        "FILE, DIR, or null" ;; should return LOGIC!, FILETYPE OF separate
+        "FILE, DIR, or null"  ; should return LOGIC!, FILETYPE OF separate
     target [file! url! blank!]
 ][
-    if blank? target [return null] ;; https://forum.rebol.info/t/954
+    if blank? target [return null]  ; https://forum.rebol.info/t/954
 
     if url? target [
         return info?/only target
@@ -60,7 +60,7 @@ size-of: size?: function [
     target [file! url!]
 ][
     all [
-        info: attempt [info? target] ;-- !!! Why not let the error report?
+        info: attempt [info? target]  ; !!! Why not let the error report?
         info/size
     ]
 ]
@@ -71,7 +71,7 @@ modified?: function [
     target [file! url!]
 ][
     all [
-        info: attempt [info? target] ;-- !!! Why not let the error report?
+        info: attempt [info? target]  ; !!! Why not let the error report?
         info/date
     ]
 ]
@@ -111,7 +111,7 @@ make-dir: func [
     /deep "Create subdirectories too"
     <local> dirs end created
 ][
-    path: dirize path ;-- append slash (if needed)
+    path: dirize path  ; append slash (if needed)
     assert [dir? path]
 
     if exists? path [return path]

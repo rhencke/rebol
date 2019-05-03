@@ -2208,7 +2208,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             if (
                 *ss->begin == '\0'  // `foo/`
                 or IS_LEX_ANY_SPACE(*ss->begin)  // `foo/ bar`
-                or *ss->begin == ';'  // `foo/;--bar`
+                or *ss->begin == ';'  // `foo/;bar`
             ){
                 // Don't bother scanning recursively if we don't have to.
                 // Note we still might come up empty (e.g. `foo/)`)

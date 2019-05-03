@@ -15,10 +15,9 @@ s-recv: function [
     msg: zmq-msg-alloc
     zmq-msg-init msg
 
-    zmq-recv socket msg ;-- defaults to blocking
+    zmq-recv socket msg  ; defaults to blocking
 
-    ;; Copy binary data from message.
-    data: zmq-msg-data msg
+    data: zmq-msg-data msg  ; Copy binary data from message
 
     zmq-msg-close msg
     zmq-msg-free msg
@@ -39,10 +38,10 @@ s-send: function [
 
     zmq-msg-init-data msg data
 
-    e: try zmq-send socket msg ;-- defaults to blocking
+    e: try zmq-send socket msg  ; defaults to blocking
 
     zmq-msg-close msg
     zmq-msg-free msg
 
-    opt match word! e ;-- assume they don't care about the size?
+    opt match word! e  ; assume they don't care about the size?
 ]

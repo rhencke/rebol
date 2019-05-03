@@ -168,7 +168,7 @@ function: adapt 'function [set [spec body] modernize-action spec body]
 meth: enfixed adapt 'meth [set [spec body] modernize-action spec body]
 method: enfixed adapt 'method [set [spec body] modernize-action spec body]
 
-trim: adapt 'trim [ ;; there's a bug in TRIM/AUTO in 8994d23
+trim: adapt 'trim [  ; there's a bug in TRIM/AUTO in 8994d23
     if auto [
         while [(not tail? series) and [series/1 = LF]] [
             take series
@@ -186,7 +186,7 @@ mutable: func [x [any-value!]] [
     :x
 ]
 
-lit: :quote ;; Renamed due to the QUOTED! datatype
+lit: :quote  ; Renamed due to the QUOTED! datatype
 quote: null
 uneval: func [x [<opt> any-value!]] [
     switch type of x [

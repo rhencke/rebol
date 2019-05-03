@@ -20,7 +20,7 @@ depends: [
         ; trigger slowdown.  It is not a priority to rewrite, given
         ; that some other vetted 3rd party JPG code should be used.
         ;
-        <msc:/wd5045> ;-- https://stackoverflow.com/q/50399940
+        <msc:/wd5045>  ; https://stackoverflow.com/q/50399940
     ]
 
     [
@@ -29,7 +29,7 @@ depends: [
         ; See above remarks on Spectre.  This may be a priority to
         ; address, if bigint is used in INTEGER!.
         ;
-        <msc:/wd5045> ;-- https://stackoverflow.com/q/50399940
+        <msc:/wd5045>  ; https://stackoverflow.com/q/50399940
     ]
 
     %crypt/dh/dh.c

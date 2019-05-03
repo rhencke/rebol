@@ -763,7 +763,7 @@ inline static REBVAL *Derelativize(
 
 inline static REBSPC *Derive_Specifier(REBSPC *parent, const REBCEL *item) {
     if (IS_SPECIFIC(item))
-        return VAL_SPECIFIER(KNOWN(item));;
+        return VAL_SPECIFIER(KNOWN(item));
     return parent;
 }
 

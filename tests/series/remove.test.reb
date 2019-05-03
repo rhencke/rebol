@@ -21,7 +21,7 @@
 )(
     #{0102} = take/part copy #{010203} 2
 )(
-    #{0203} = take/part copy next #{010203} 100 ;-- should clip
+    #{0203} = take/part copy next #{010203} 100  ; should clip
 )
 
 (
@@ -31,5 +31,5 @@
 )(
     "ab" = take/part copy "abc" 2
 )(
-    "bc" = take/part copy next "abc" 100 ;-- should clip
+    "bc" = take/part copy next "abc" 100  ; should clip
 )

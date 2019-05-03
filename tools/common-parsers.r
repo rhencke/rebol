@@ -117,7 +117,7 @@ proto-parser: context [
     eoh: _ ; End of file header.
 
     process: func [return: <void> text] [
-        parse text [grammar/rule] ;-- Review: no END (return result unused?)
+        parse text [grammar/rule]  ; Review: no END (return result unused?)
     ]
 
     grammar: context bind [

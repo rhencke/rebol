@@ -806,7 +806,7 @@ REBNATIVE(zmq_poll)
 //
 //      pollin 1
 //      pollout 2
-//      ;pollerr 4 ;; not for 0MQ sockets (& we can't use standard sockets)
+//      ;pollerr 4  ; not for 0MQ sockets (& we can't use standard sockets)
 {
     ZEROMQ_INCLUDE_PARAMS_OF_ZMQ_POLL;
 
@@ -916,7 +916,7 @@ REBNATIVE(zmq_version) {
 
     return rebValue(
         "make tuple! [", rebI(major), rebI(minor), rebI(patch), "]"
-    );;
+    );
 }
 
 

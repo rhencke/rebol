@@ -1,7 +1,7 @@
-;; Ren-C's QUOTED! is a generic and arbitrary-depth variant of the
-;; LIT-XXX! types from historical Rebol.
-
-;; SET and GET should see through escaping and work anyway
+; Ren-C's QUOTED! is a generic and arbitrary-depth variant of the
+; LIT-XXX! types from historical Rebol.
+;
+; SET and GET should see through escaping and work anyway
 
 (
     unset 'a
@@ -17,7 +17,7 @@
     [<seta> <setb>] = get ['a '''''''b]
 )
 
-;; Test basic binding, e.g. to make sure functions detect SET-WORD!
+; Test basic binding, e.g. to make sure functions detect SET-WORD!
 
 (
     x: 10
@@ -34,7 +34,7 @@
     x = 10 and (y = 20)
 )
 
-;; Try again, but set a QUOTED! (and not WORD! that results from literal)
+; Try again, but set a QUOTED! (and not WORD! that results from literal)
 
 (
     x: 10
@@ -51,7 +51,7 @@
     x = 10 and (y = 20)
 )
 
-;; Now exceed the size of a literal that can be overlaid in a cell
+; Now exceed the size of a literal that can be overlaid in a cell
 
 (
     x: 10
@@ -69,11 +69,11 @@
 )
 
 
-;; Deeply escaped words try to efficiently share bindings between different
-;; escapings.  But words in Rebol are historically atomic w.r.t. binding...
-;; doing a bind on a word returns a new word, vs. changing the binding of
-;; the word you put in.  Mechanically this means a changed binding must
-;; detach a deep literal from its existing cell and make new one.
+; Deeply escaped words try to efficiently share bindings between different
+; escapings.  But words in Rebol are historically atomic w.r.t. binding...
+; doing a bind on a word returns a new word, vs. changing the binding of
+; the word you put in.  Mechanically this means a changed binding must
+; detach a deep literal from its existing cell and make new one.
 (
     a: 0
     o1: make object! [a: 1]
@@ -116,17 +116,17 @@
 ('''[a b c] = '''''[a b c])
 
 
-(quoted! = kind of lit 'foo) ;; low level "KIND"
-((uneval word!) = type of lit 'foo) ;; higher-level "TYPE"
+(quoted! = kind of lit 'foo)  ; low level "KIND"
+((uneval word!) = type of lit 'foo)  ; higher-level "TYPE"
 ((type of lit ''[a b c]) = uneval/depth block! 2)
 
 
-;; Some generic actions have been tweaked to know to extend their
-;; behavior and incorporate escaping into their results.  This is
-;; not necessarily such a "weird" idea, given that you could do
-;; things like append to a LIT-PATH!.  However, it should be
-;; controlled by something in the function spec vs. be a random
-;; list that added the behavior.
+; Some generic actions have been tweaked to know to extend their
+; behavior and incorporate escaping into their results.  This is
+; not necessarily such a "weird" idea, given that you could do
+; things like append to a LIT-PATH!.  However, it should be
+; controlled by something in the function spec vs. be a random
+; list that added the behavior.
 
 ((lit ''''3) == add lit ''''1 2)
 
@@ -139,7 +139,7 @@
 ((lit '(1 2 3 <four>)) == append ''(1 2 3) <four>)
 
 
-;; All escaped values are truthy, regardless of what it is they are escaping
+; All escaped values are truthy, regardless of what it is they are escaping
 
 (did lit '_)
 (did lit '#[false])
@@ -155,12 +155,11 @@
 ('''a/b/c/d/e/f = join lit '''a/b/c 'd/e/f)
 
 
-;; An escaped word that can't fit in a cell and has to do an additional
-;; allocation will reuse that cell if it can (e.g. on each deliteralization
-;; step).  However, if that contains an ANY-WORD!, then a binding operation
-;; on that word will create a new cell allocation...similar to how bindings
-;; in LIT-WORD! could not be mutated, only create a new LIT-WORD!.
-;;
+; An escaped word that can't fit in a cell and has to do an additional
+; allocation will reuse that cell if it can (e.g. on each deliteralization
+; step).  However, if that contains an ANY-WORD!, then a binding operation
+; on that word will create a new cell allocation...similar to how bindings
+; in LIT-WORD! could not be mutated, only create a new LIT-WORD!.
 (
     a: 0
     o1: make object! [a: 1]
@@ -175,7 +174,7 @@
     ]
 )
 
-;; Smoke test for literalizing items of every type
+; Smoke test for literalizing items of every type
 
 (
     for-each item compose [
@@ -248,9 +247,9 @@
 )
 
 
-;; Want to allow direct assignment from a quoted void, this assists in the
-;; generality of MAKE OBJECT! being able to quote a void and thus represent
-;; and object with fields in the void state.
+; Want to allow direct assignment from a quoted void, this assists in the
+; generality of MAKE OBJECT! being able to quote a void and thus represent
+; and object with fields in the void state.
 
 (
     did all [

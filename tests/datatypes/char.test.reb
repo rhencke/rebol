@@ -144,9 +144,9 @@
 (#"^(00)" = to char! 0)
 ({#"a"} = mold #"a")
 
-(char? #"^(00)") ;-- minimmum codepoint
+(char? #"^(00)")  ; minimmum codepoint
 
-(char? #"^(ff)") ;-- no longer the maximum
+(char? #"^(ff)")  ; no longer the maximum
 
 (0 = subtract #"^(00)" #"^(00)")
 (-1 = subtract #"^(00)" #"^(01)")

@@ -380,7 +380,7 @@ REBNATIVE(inflate)
 //  {Decodes binary-coded string (BASE-64 default) to binary value.}
 //
 //      return: [binary!]
-//          ;-- Comment said "we don't know the encoding" of the return binary
+//          ; Comment said "we don't know the encoding" of the return binary
 //      value [binary! text!]
 //      /base "The base to convert from: 64, 16, or 2 (defaults to 64)"
 //          [integer!]

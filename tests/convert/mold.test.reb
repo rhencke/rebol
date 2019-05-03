@@ -47,7 +47,7 @@
 ]
 
 
-;-- NEW-LINE markers
+; NEW-LINE markers
 
 [
     (did block: copy [a b c])

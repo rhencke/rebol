@@ -51,7 +51,7 @@ make object! compose [
             ]
 
             elide (
-                print mold test-block ;-- !!! make this an option
+                print mold test-block  ; !!! make this an option
 
                 set* lit result: entrap test-block
                 recycle

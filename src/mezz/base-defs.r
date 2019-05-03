@@ -24,9 +24,9 @@ REBOL [
 
 ; Start with basic debugging
 
-c-break-debug: :c-debug-break ;-- easy to mix up
+c-break-debug: :c-debug-break  ; easy to mix up
 
-lit: :literal ;-- because it's shorter
+lit: :literal  ; because it's shorter
 
 |: enfixed func [
     "Expression barrier - invisible so it vanishes, but blocks evaluation"
@@ -39,7 +39,7 @@ lit: :literal ;-- because it's shorter
 tweak :| 'postpone on
 
 
-??: ;; shorthand form to use in debug sessions, not intended to be committed
+??:  ; shorthand form to use in debug sessions, not intended to be committed
 probe: func [
     {Debug print a molded value and returns that same value.}
 
@@ -76,9 +76,9 @@ comment: enfixed func [
     return: []
         {The evaluator will skip over the result (not seen, not even void)}
     returned [<opt> <end> any-value!]
-        {The returned value.} ;-- by protocol of enfixed `return: []`
+        {The returned value.}  ; by protocol of enfixed `return: []`
     :discarded [block! any-string! binary! any-scalar!]
-        "Literal value to be ignored." ;-- `comment print "hi"` disallowed
+        "Literal value to be ignored."  ; `comment print "hi"` disallowed
 ][
 ]
 
@@ -125,11 +125,11 @@ nihil: enfixed func [
 ;
 next: specialize 'skip [
     offset: 1
-    only: true ;-- don't clip (return null if already at head of series)
+    only: true  ; don't clip (return null if already at head of series)
 ]
 back: specialize 'skip [
     offset: -1
-    only: true ;-- don't clip (return null if already at tail of series)
+    only: true  ; don't clip (return null if already at tail of series)
 ]
 
 bound?: chain [specialize 'reflect [property: 'binding] | :value?]
@@ -149,7 +149,7 @@ newlined: chain [
         |
     func [t [<opt> text!]] [
         if unset? 't [return null]
-        append t newline ;; Terminal newline is POSIX standard, more useful
+        append t newline  ; Terminal newline is POSIX standard, more useful
     ]
 ]
 
@@ -203,7 +203,7 @@ eval func [
 ][
     while [not equal? <end> set-word: take* set-word...] [
         type-name: copy as text! set-word
-        change back tail of type-name "!" ;-- change ? at tail to !
+        change back tail of type-name "!"  ; change ? at tail to !
         tester: typechecker (get bind (as word! type-name) set-word)
         set set-word :tester
 
@@ -275,18 +275,18 @@ eval func [
     <end>
 
 
-;; Note: `LIT-WORD!: UNEVAL WORD!` and `LIT-PATH!: UNEVAL PATH!` is actually
-;; set up in %b-init.c.  Also LIT-WORD! and LIT-PATH! are handled specially in
-;; %words.r for bootstrap compatibility as a parse keyword.
+; Note: `LIT-WORD!: UNEVAL WORD!` and `LIT-PATH!: UNEVAL PATH!` is actually
+; set up in %b-init.c.  Also LIT-WORD! and LIT-PATH! are handled specially in
+; %words.r for bootstrap compatibility as a parse keyword.
 
 lit-word?: func [value [<opt> any-value!]] [
-    lit-word! == type of :value  ;; note plain = would not work here
+    lit-word! == type of :value  ; note plain = would not work here
 ]
 to-lit-word: func [value [any-value!]] [
     uneval to word! dequote :value
 ]
 lit-path?: func [value [<opt> any-value!]] [
-    lit-path! == type of :value  ;; note plain = would not work here
+    lit-path! == type of :value  ; note plain = would not work here
 ]
 to-lit-path: func [value [any-value!]] [
     uneval to path! dequote :value
@@ -295,7 +295,7 @@ to-lit-path: func [value [any-value!]] [
 refinement?: func [value [<opt> any-value!]] [
     did all [
         path? :value
-        equal? length of value 2 ;; Called by FUNCTION when = not defined yet
+        equal? length of value 2  ; Called by FUNCTION when = not defined yet
         blank? :value/1
         word? :value/2
     ]

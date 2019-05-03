@@ -556,7 +556,7 @@ config-system: function [
         {Version ID (blank means guess)}
 ][
     version: switch type of hint [
-        blank! [ ;-- Try same version as this r3-make was built with
+        blank! [  ; Try same version as this r3-make was built with
             to tuple! reduce [0 system/version/4 system/version/5]
         ]
         text! [load hint]
@@ -564,18 +564,14 @@ config-system: function [
     ]
 
     if not tuple? version [
-        print mold type of version
-        wait 5
         fail ["Expected OS_ID tuple like 0.3.1, not:" version]
     ]
 
     result: _
     for-each-system s [
         if s/id = version [
-            result: copy s ;-- RETURN won't work in R3-Alpha in FOR-EACH-XXX
+            result: copy s  ; could RETURN, but sanity-check whole table
         ]
-
-        ; Could do the sanity check here, as long as we're enumerating...
     ]
 
     if not result [

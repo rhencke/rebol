@@ -824,7 +824,7 @@ static void kill_process(pid_t pid, int signal)
 //
 //  "Send signal to a process"
 //
-//      return: [void!] ;-- !!! might this return pid or signal (?)
+//      return: [void!]  ; !!! might this return pid or signal (?)
 //      pid [integer!]
 //          {The process ID}
 //      signal [integer!]

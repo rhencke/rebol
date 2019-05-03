@@ -184,12 +184,11 @@
     not parse "abcd" rule: ["ab" (remove back tail of rule) "cd" end]
 ])
 
-(
-    https://github.com/metaeducation/ren-c/issues/377
+[https://github.com/metaeducation/ren-c/issues/377 (
     o: make object! [a: 1]
     parse s: "a" [o/a: skip end]
     o/a = s
-)
+)]
 
 ; A couple of tests for the problematic DO operation
 
@@ -420,28 +419,30 @@
 )
 
 
-; KEEP without blocks
-; https://github.com/metaeducation/ren-c/issues/935
+[
+    {KEEP without blocks}
+    https://github.com/metaeducation/ren-c/issues/935
 
-(did all [
-    did parse "aaabbb" [collect x [keep some "a" keep some "b"] end]
-    x = ["aaa" "bbb"]
-])
+    (did all [
+        did parse "aaabbb" [collect x [keep some "a" keep some "b"] end]
+        x = ["aaa" "bbb"]
+    ])
 
-(did all [
-    parse "aaabbb" [collect x [keep to "b"] to end]
-    x = ["aaa"]
-])
+    (did all [
+        parse "aaabbb" [collect x [keep to "b"] to end]
+        x = ["aaa"]
+    ])
 
-(did all [
-    parse "aaabbb" [
-        collect outer [
-            some [collect inner keep some "a" | keep some "b"]
+    (did all [
+        parse "aaabbb" [
+            collect outer [
+                some [collect inner keep some "a" | keep some "b"]
+            ]
         ]
-    ]
-    outer = ["bbb"]
-    inner = ["aaa"]
-])
+        outer = ["bbb"]
+        inner = ["aaa"]
+    ])
+]
 
 
 ; Multi-byte characters and strings present a lot of challenges.  There should

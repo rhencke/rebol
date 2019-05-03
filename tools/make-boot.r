@@ -95,11 +95,13 @@ product: to-word any [try get 'args/PRODUCT | "core"]
 platform-data: context [type: 'windows]
 build: context [features: [help-strings]]
 
-;-- Fetch platform specifications:
-;init-build-objects/platform platform
-;platform-data: platforms/:platform
-;build: platform-data/builds/:product
-
+; !!! "Fetch platform specifications" (was commented out)
+;
+comment [
+    init-build-objects/platform platform
+    platform-data: platforms/:platform
+    build: platform-data/builds/:product
+]
 
 === MAKE VERSION INFORMATION AVAILABLE TO CORE C CODE ===
 
@@ -661,7 +663,7 @@ for-each [sw-cat list] boot-errors [
         if block? message [  ; can have N GET-WORD! substitution slots
             parse message [any [get-word! (arity: arity + 1) | skip] end]
         ] else [
-            ensure text! message ;-- textual message, no arguments
+            ensure text! message  ; textual message, no arguments
         ]
 
         ; Camel Case and make legal for C (e.g. "not-found*" => "Not_Found_P")

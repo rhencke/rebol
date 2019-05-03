@@ -8,7 +8,7 @@ REBOL [
     ; work) could break the mezzanine.  For the time being, just use DO to
     ; run it in user, as with other pieces of bootstrap.
     ;
-    ;-- Type: 'module --
+    ; Type: 'module
 
     Rights: {
         Copyright 2017 Atronix Engineering
@@ -37,7 +37,7 @@ REBOL [
     }
 ]
 
-rebmake: make object! [ ;-- hack to workaround lack of Type: 'module
+rebmake: make object! [  ; hack to workaround lack of Type: 'module
 
 default-compiler: _
 default-linker: _
@@ -73,7 +73,7 @@ filter-flag: function [
     prefix [text!]
         {gnu -> GCC-compatible compilers, msc -> Microsoft C}
 ][
-    if not tag? flag [return flag] ;-- no filtering
+    if not tag? flag [return flag]  ; no filtering
 
     parse to text! flag [
         copy header: to ":"
@@ -470,7 +470,7 @@ gcc: make compiler-class [
     ][
         collect-text [
             keep (file-to-local/pass exec-file else [
-                to text! name ;; the "gcc" may get overridden as "g++"
+                to text! name  ; the "gcc" may get overridden as "g++"
             ])
 
             keep either E ["-E"]["-c"]
@@ -530,10 +530,10 @@ gcc: make compiler-class [
     ]
 ]
 
-;; !!! In the original rebmake.r, tcc was a full copy of the GCC code, while
-;; clang was just `make gcc [name: 'clang]`.  TCC was not used as a compiler
-;; for Rebol itself--only to do some preprocessing of %sys-core.i, but this
-;; mechanism is no longer used (see %extensions/tcc/README.md)
+; !!! In the original rebmake.r, tcc was a full copy of the GCC code, while
+; clang was just `make gcc [name: 'clang]`.  TCC was not used as a compiler
+; for Rebol itself--only to do some preprocessing of %sys-core.i, but this
+; mechanism is no longer used (see %extensions/tcc/README.md)
 
 tcc: make gcc [
     name: 'tcc
@@ -632,19 +632,19 @@ linker-class: make object! [
         searches [block! blank!]
         ldflags [block! any-string! blank!]
     ][
-        ... ;-- overridden
+        ...  ; overridden
     ]
     check: does [
-        ... ;-- overridden
+        ...  ; overridden
     ]
 ]
 
 ld: make linker-class [
-    ;;
-    ;; Note that `gcc` is used as the ld executable by default.  There are
-    ;; some switches (such as -m32) which it seems `ld` does not recognize,
-    ;; even when processing a similar looking link line.
-    ;;
+    ;
+    ; Note that `gcc` is used as the ld executable by default.  There are
+    ; some switches (such as -m32) which it seems `ld` does not recognize,
+    ; even when processing a similar looking link line.
+    ;
     name: 'ld
     version: _
     exec-file: _
@@ -696,13 +696,6 @@ ld: make linker-class [
     ][
         opt switch dep/class [
             #object-file [
-                comment [ ;-- !!! This was commented out, why?
-                    if find words-of dep 'depends [
-                        for-each ddep dep/depends [
-                            dump ddep
-                        ]
-                    ]
-                ]
                 file-to-local dep/output
             ]
             #dynamic-extension [
@@ -893,7 +886,7 @@ link: make linker-class [
                 file-to-local to-file dep/output
             ]
             #dynamic-extension [
-                comment [import file] ;-- static property is ignored
+                comment [import file]  ; static property is ignored
 
                 either tag? dep/output [
                     filter-flag dep/output id
@@ -1363,7 +1356,7 @@ makefile: make generator-class [
             ]
 
             fail ["Unrecognized entry class:" entry/class]
-        ] keep ""] ;-- final keep just adds an extra newline
+        ] keep ""]  ; final keep just adds an extra newline
 
         ; !!! Adding an extra newline here unconditionally means variables
         ; in the makefile get spaced out, which isn't bad--but it wasn't done
@@ -1508,7 +1501,7 @@ Execution: make generator-class [
     ][
         switch target/class [
             #variable [
-                _ ;-- already been taken care of by PREPARE
+                _  ; already been taken care of by PREPARE
             ]
             #entry [
                 if all [
@@ -1607,8 +1600,8 @@ Execution: make generator-class [
 
 visual-studio: make generator-class [
     solution-format-version: "12.00"
-    tools-version: "15.0" ;-- "15.00" warns in 'Detailed' MSBuild output
-    target-win-version: "10.0.17134.0" ;-- should autodetect
+    tools-version: "15.0"  ; "15.00" warns in 'Detailed' MSBuild output
+    target-win-version: "10.0.17134.0"  ; should autodetect
     platform-tool-set: "v141"
     platform: cpu: "x64"
     build-type: "Release"
@@ -2227,4 +2220,4 @@ vs2015: make visual-studio [
     platform-tool-set: "v140"
 ]
 
-] ;-- end of `rebmake: make object!` workaround for lack of `Type: 'module`
+]  ; end of `rebmake: make object!` workaround for lack of `Type: 'module`

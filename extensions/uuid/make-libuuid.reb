@@ -161,9 +161,9 @@ for-each [file fix] files [
         "->" target LF
     ]
 
-    if :fix [data: fix data] ;-- correct compiler warnings
+    if :fix [data: fix data]  ; correct compiler warnings
 
-    replace/all data tab {    } ;-- spaces not tabs
+    replace/all data tab {    }  ; spaces not tabs
 
     write target data
 ]

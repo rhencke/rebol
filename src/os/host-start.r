@@ -202,10 +202,10 @@ host-start: function [
     argv {Raw command line argument block received by main() as STRING!s}
         [block!]
     <with>
-    host-start host-prot ;-- unset when finished with them
-    about usage license ;-- exported to lib, see notes
+    host-start host-prot  ; unset when finished with them
+    about usage license  ; exported to lib, see notes
     <static>
-        o (system/options) ;-- shorthand since options are often read/written
+        o (system/options)  ; shorthand since options are often read/written
     <with>
         get-current-exec file-to-local local-to-file what-dir change-dir
 ][
@@ -256,18 +256,18 @@ host-start: function [
         state "Describes the RESULT that the next call to HOST-CONSOLE gets"
             [integer! tag! group! datatype!]
         <with> instruction prior
-        <local> return-to-c (:return) ;-- capture HOST-CONSOLE's RETURN
+        <local> return-to-c (:return)  ; capture HOST-CONSOLE's RETURN
     ][
         switch state [
             <start-console> [
-                ;-- Done actually via #start-console, but we return something
+                ; Done actually via #start-console, but we return something
             ]
             <prompt> [
                 emit [system/console/print-gap]
                 emit [system/console/print-prompt]
                 emit [reduce [
                     system/console/input-hook
-                ]] ;-- gather first line (or BLANK!), put in BLOCK!
+                ]]  ; gather first line (or BLANK!), put in BLOCK!
             ]
             <halt> [
                 emit [halt]
@@ -287,15 +287,15 @@ host-start: function [
         ]
 
         return-to-c switch type of state [
-            integer! [ ;-- just tells the calling C loop to exit() process
+            integer! [  ; just tells the calling C loop to exit() process
                 assert [empty? instruction]
                 state
             ]
-            datatype! [ ;-- type assertion, how to enforce this?
+            datatype! [  ; type assertion, how to enforce this?
                 emit spaced ["^-- Result should be" an state]
                 instruction
             ]
-            group! [ ;-- means "submit user code"
+            group! [  ; means "submit user code"
                 assert [empty? instruction]
                 state
             ]
@@ -433,12 +433,12 @@ host-start: function [
         {Return platform specific resources path.}
         return: [<opt> file!]
     ][
-        ;; lives under systems/options/home
+        ; lives under systems/options/home
 
         path: join o/home switch system/platform/1 [
             'Windows [%REBOL/]
         ] else [
-            %.rebol/     ;; default *nix (covers Linux, MacOS (OS X) and Unix)
+            %.rebol/  ; default *nix (covers Linux, MacOS (OS X) and Unix)
         ]
 
         return if exists? path [path]
@@ -458,9 +458,9 @@ host-start: function [
 
     sys/script-pre-load-hook: :host-script-pre-load
 
-    do-string: _ ;-- will be set if a string is given with --do
+    do-string: _  ; will be set if a string is given with --do
 
-    quit-when-done: _ ;-- by default run CONSOLE
+    quit-when-done: _  ; by default run CONSOLE
 
     ; Process the option syntax out of the command line args in order to get
     ; the intended arguments.  TAKEs each option string as it goes so the
@@ -524,7 +524,7 @@ host-start: function [
             ) fail
         |
             "--about" end (
-                o/about: true   ;; show full banner (ABOUT) on startup
+                o/about: true  ; show full banner (ABOUT) on startup
             )
         |
             "--breakpoint" end (
@@ -537,7 +537,7 @@ host-start: function [
             )
         |
             "--debug" end (
-                ;-- was coerced to BLOCK! before, but what did this do?
+                ; was coerced to BLOCK! before, but what did this do?
                 ;
                 o/debug: to logic! param-or-die "DEBUG"
             )
@@ -546,15 +546,15 @@ host-start: function [
                 ;
                 ; A string of code to run, e.g. `r3 --do "print {Hello}"`
                 ;
-                o/quiet: true ;-- don't print banner, just run code string
-                quit-when-done: default [true] ;-- override blank, not false
+                o/quiet: true  ; don't print banner, just run code string
+                quit-when-done: default [true]  ; override blank, not false
 
                 emit {Use /ONLY so that QUIT/WITH quits, vs. return DO value}
                 emit [do/only (<*> param-or-die "DO")]
             )
         |
             ["--halt" | "-h"] end (
-                quit-when-done: false ;-- overrides true
+                quit-when-done: false  ; overrides true
             )
         |
             ["--help" | "-?"] end (
@@ -597,7 +597,7 @@ host-start: function [
             "--suppress" end (
                 param: param-or-die "SUPPRESS"
                 o/suppress: if param = "*" [
-                    ;; suppress all known start-up files
+                    ; suppress all known start-up files
                     [%rebol.reb %user.reb %console-skin.reb]
                 ] else [
                     make block! param
@@ -612,21 +612,21 @@ host-start: function [
             )
         |
             "-s" end (
-                o/secure: 'allow ;-- "secure-min"
+                o/secure: 'allow  ; "secure-min"
             )
         |
             "+s" end (
-                o/secure: 'quit ;-- "secure-max"
+                o/secure: 'quit  ; "secure-max"
                 die "SECURE is disabled (never finished for R3-Alpha)"
             )
         |
             "--script" end (
                 o/script: local-to-file param-or-die "SCRIPT"
-                quit-when-done: default [true] ;-- overrides blank, not false
+                quit-when-done: default [true]  ; overrides blank, not false
             )
         |
             ["-t" | "--trace"] end (
-                trace on ;-- did they mean trace just the script/DO code?
+                trace on  ; did they mean trace just the script/DO code?
             )
         |
             "--verbose" end (
@@ -634,12 +634,12 @@ host-start: function [
             )
         |
             ["-v" | "-V" | "--version"] end (
-                boot-print ["Rebol 3" system/version] ;-- version tuple
+                boot-print ["Rebol 3" system/version]  ; version tuple
                 quit-when-done: default [true]
             )
         |
             "-w" end (
-                ;-- No window; not currently applicable
+                ; No window; not currently applicable
             )
         |
             [copy cli-option: [["--" | "-" | "+"] to end ]] (
@@ -675,7 +675,7 @@ host-start: function [
     ; things could affect this, e.g. a complex userspace TRACE which was
     ; run during boot.
     ;
-    attempt [c-debug-break-at/compensate 1000] ;-- fails in release build
+    attempt [c-debug-break-at/compensate 1000]  ; fails in release build
 
     ; As long as there was no `--script` pased on the command line explicitly,
     ; the first item after the options is implicitly the script.
@@ -687,17 +687,17 @@ host-start: function [
 
     ; Whatever is left is the positional arguments, available to the script.
     ;
-    o/args: argv ;-- whatever's left is positional args
+    o/args: argv  ; whatever's left is positional args
 
 
     boot-embedded: get-encap system/options/boot
 
     if any [boot-embedded o/script] [o/quiet: true]
 
-    ;-- Set option/paths for /path, /boot, /home, and script path (for SECURE)
+    ; Set option/paths for /path, /boot, /home, and script path (for SECURE)
     o/path: what-dir  ;dirize any [o/path o/home]
 
-    ;-- !!! this was commented out.  Is it important?
+    ; !!! this was commented out.  Is it important?
     comment [
         if slash <> first o/boot [o/boot: clean-path o/boot]
     ]
@@ -712,7 +712,7 @@ host-start: function [
         ]
     ]
 
-    ;-- Convert command line arg strings as needed:
+    ; Convert command line arg strings as needed:
     script-args: o/args ; save for below
 
     ; version, import, secure are all of valid type or blank
@@ -721,9 +721,8 @@ host-start: function [
     for-each [spec body] host-prot [module spec body]
     host-prot: 'done
 
-    ;-- Setup SECURE configuration (a NO-OP for min boot)
-    ;; Note: After refactoring `file` was removed from above.
-    ;;       file (below) -> o/bin (would have been same)
+    ; "Setup SECURE configuration (a NO-OP for min boot)"
+    ; !!! SECURE was not finished in R3-Alpha
 
 comment [
     lib/secure case [
@@ -779,7 +778,7 @@ comment [
 
     (switch type of boot-embedded [
         blank! [
-            false ;-- signal the `AND []` that there's no embedded code
+            false  ; signal the `AND []` that there's no embedded code
         ]
         binary! [ ; single script
             code: load/header/type boot-embedded 'unbound

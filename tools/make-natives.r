@@ -29,9 +29,9 @@ verbose: false
 
 unsorted-buffer: make text! 20000
 
-process: func [
+process: function [
     file
-    ; <with> the-file ;-- note external variable (can't do this in R3-Alpha)
+    <with> the-file
 ][
     the-file: file
     if verbose [probe [file]]
@@ -96,7 +96,7 @@ append output-buffer mold/only load src-dir/boot/generics.r
 
 append output-buffer unspaced [
     newline
-    "_ ;-- C code expects BLANK! evaluation result, at present" newline
+    "_  ; C code expects BLANK! evaluation result, at present" newline
     newline
 ]
 

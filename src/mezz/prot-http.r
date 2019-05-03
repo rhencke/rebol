@@ -561,13 +561,13 @@ check-data: function [
 
     res: false
     awaken-wait-loop: does [
-        not res so res: true ;-- prevent timeout when reading big data
+        not res so res: true  ; prevent timeout when reading big data
     ]
 
     case [
         headers/transfer-encoding = "chunked" [
             data: conn/data
-            port/data: default [ ;-- only clear at request start
+            port/data: default [  ; only clear at request start
                 make binary! length of data
             ]
             out: port/data

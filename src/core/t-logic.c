@@ -337,7 +337,7 @@ REBNATIVE(xor)
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      right "Expression that's also always evaluated (can't short circuit)"
-//          [<opt> any-value!] ;-- not a literal GROUP! as with XOR
+//          [<opt> any-value!]  ; not a literal GROUP! as with XOR
 //  ]
 //
 REBNATIVE(unless)

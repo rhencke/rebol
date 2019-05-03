@@ -114,9 +114,7 @@ function: func [
     new-body: _
     statics: _
     defaulters: _
-    var: <dummy> ;-- want to enter PARSE with truthy state (gets overwritten)
-
-    ;; dump [spec]
+    var: <dummy>  ; want to enter PARSE with truthy state (gets overwritten)
 
     ; Gather the SET-WORD!s in the body, excluding the collected ANY-WORD!s
     ; that should not be considered.  Note that COLLECT is not defined by
@@ -134,19 +132,19 @@ function: func [
             ](
                 append new-spec var
 
-                ;-- exclude args/refines
+                ; exclude args/refines
                 append exclusions either any-path? var [var/2] [var]
             )
             |
             set other: block! (
-                append/only new-spec other ;-- data type blocks
+                append/only new-spec other  ; data type blocks
             )
             |
             copy other some text! (
-                append/only new-spec spaced other ;-- spec notes
+                append/only new-spec spaced other  ; spec notes
             )
         ]][[
-            set var: set-word! ( ;-- locals legal anywhere
+            set var: set-word! (  ; locals legal anywhere
                 append exclusions var
                 append new-spec var
                 var: _
@@ -168,8 +166,8 @@ function: func [
             ]
         )
     |
-        (var: _) ;-- everything below this line resets var
-        fail ;-- failing here means rolling over to next rule
+        (var: _)  ; everything below this line resets var
+        false  ; failing here means rolling over to next rule
     |
         <local>
         any [set var: word! (other: _) opt set other: group! (
@@ -177,12 +175,12 @@ function: func [
             append exclusions var
             if other [
                 defaulters: default [copy []]
-                append defaulters compose/deep [ ;-- always sets
+                append defaulters compose/deep [  ; always sets
                     (as set-word! var) (uneval do other)
                 ]
             ]
         )]
-        (var: _) ;-- don't consider further GROUP!s or variables
+        (var: _)  ; don't consider further GROUP!s or variables
     |
         <in> (
             new-body: default [
@@ -203,7 +201,7 @@ function: func [
         <with> any [
             set other: [word! | path!] (append exclusions other)
         |
-            text! ;-- skip over as commentary
+            text!  ; skip over as commentary
         ]
     |
         <static> (
@@ -237,8 +235,6 @@ function: func [
 
     locals: collect-words/deep/set/ignore body exclusions
 
-    ;; dump [{before} statics new-spec exclusions]
-
     if statics [
         statics: make object! statics
         bind new-body statics
@@ -252,8 +248,6 @@ function: func [
     for-each loc locals [
         append new-spec to set-word! loc
     ]
-
-    ;; dump [{after} new-spec defaulters]
 
     func new-spec either defaulters [
         append/only defaulters as group! any [new-body body]
@@ -289,7 +283,7 @@ dig-action-meta-fields: function [value [action!]] [
 
     inherit-frame: function [parent [<blank> frame!]] [
         child: make frame! :value
-        for-each param words of child [ ;-- `for-each param child` locks child
+        for-each param words of child [  ; `for-each param child` locks child
             child/(param): maybe select parent param
         ]
         return child
@@ -366,7 +360,7 @@ redescribe: function [
                 fail [{PARAMETER-NOTES in META-OF is not a FRAME!} notes]
             ]
 
-          ;; !!! Getting error on equality test from expired frame...review
+          ; !!! Getting error on equality test from expired frame...review
           comment [
             if not equal? :value (action of notes) [
                 fail [{PARAMETER-NOTES in META-OF frame mismatch} notes]
@@ -383,14 +377,14 @@ redescribe: function [
     ; but to reuse archetypal ones.  Also to limit the total number of
     ; variations that clients like HELP have to reason about.)
     ;
-    on-demand-notes: does [ ;-- was a DOES CATCH, removed during DOES tweaking
+    on-demand-notes: does [  ; was a DOES CATCH, removed during DOES tweaking
         on-demand-meta
 
         if find meta 'parameter-notes [
             fields: dig-action-meta-fields :value
 
-            meta: _ ;-- need to get a parameter-notes field in the OBJECT!
-            on-demand-meta ;-- ...so this loses SPECIALIZEE, etc.
+            meta: _  ; need to get a parameter-notes field in the OBJECT!
+            on-demand-meta  ; ...so this loses SPECIALIZEE, etc.
 
             description: meta/description: fields/description
             notes: meta/parameter-notes: fields/parameter-notes
@@ -464,7 +458,7 @@ redescribe: function [
         meta/parameter-notes: _
     ]
 
-    :value ;-- should have updated the meta
+    :value  ; should have updated the meta
 ]
 
 
@@ -605,7 +599,7 @@ really: func [
     {FAIL if value is null, otherwise pass it through}
 
     return: [any-value!]
-    value [any-value!] ;-- always checked for null, since no <opt>
+    value [any-value!]  ; always checked for null, since no <opt>
 ][
     ; While DEFAULT requires a BLOCK!, REALLY does not.  Catch mistakes such
     ; as `x: really [...]`
@@ -669,9 +663,9 @@ attempt: func [
     code [block! action!]
 ][
     trap [
-        return do code ;; VOIDIFY of null avoids conflation, but is overkill
+        return do code  ; VOIDIFY of null avoids conflation, but is overkill
     ]
-    null ;; don't look at trapped error value, just return null
+    null  ; don't look at trapped error value, just return null
 ]
 
 for-next: redescribe [
@@ -691,7 +685,7 @@ iterate-skip: redescribe [
 ](
     specialize enclose 'for-skip function [f] [
         if blank? word: f/word [return null]
-        f/word: uneval to word! word ;-- do not create new virtual binding
+        f/word: uneval to word! word  ; do not create new virtual binding
         saved: f/series: get word
 
         ; !!! https://github.com/rebol/rebol-issues/issues/2331
@@ -750,7 +744,7 @@ lock-of: redescribe [
 )
 
 
-;-- => cannot be loaded by R3-Alpha, or even earlier Ren-C
+; => cannot be loaded by R3-Alpha, or even earlier Ren-C
 ;
 lambda: function [
     {Convenience variadic wrapper for MAKE ACTION!}
@@ -787,12 +781,12 @@ once-bar: func [
     :lookahead [any-value! <...>]
     look:
 ][
-    take* right ;-- returned value
+    take* right  ; returned value
 
     elide any [
         tail? right
             |
-        '|| = look: take lookahead ;-- hack...recognize selfs
+        '|| = look: take lookahead  ; hack...recognize selfs
     ] else [
         fail 'right [
             "|| expected single expression, found residual of" :look

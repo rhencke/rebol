@@ -101,7 +101,7 @@ cipher-suites: [
         <rsa> aes@ [size 16 block 16 iv 16] #sha1 [size 20]
     ]
     #{00 35} [
-        TLS_RSA_WITH_AES_256_CBC_SHA ;-- https://example.com will do this one
+        TLS_RSA_WITH_AES_256_CBC_SHA  ; https://example.com will do this one
         <rsa> aes@ [size 32 block 16 iv 16] #sha1 [size 20]
     ]
     #{00 32} [
@@ -139,7 +139,7 @@ emit: function [
     if block? code [
         while [code: sync-invisibles code] [
             if set-word? code/1 [
-                set code/1 tail ctx/msg ;-- save position
+                set code/1 tail ctx/msg  ; save position
                 code: my next
             ] else [
                 code: evaluate/set code 'result else [break]
@@ -234,8 +234,8 @@ parse-asn: function [
     ;
     class-types ([universal@ application@ context-specific@ private@])
 ][
-    data-start: data ;-- may not be at head
-    index: does [1 + offset-of data-start data] ;-- calculates effective index
+    data-start: data  ; may not be at head
+    index: does [1 + offset-of data-start data]  ; calculates effective index
 
     mode: #type
     class: _
@@ -263,7 +263,7 @@ parse-asn: function [
 
             #size [
                 size: byte and+ 127
-                if not zero? (byte and+ 128) [ ;-- long form
+                if not zero? (byte and+ 128) [  ; long form
                     old-size: size
                     size: to-integer/unsigned copy/part next data old-size
                     data: skip data old-size
@@ -299,7 +299,7 @@ parse-asn: function [
 
                     context-specific@ [
                         keep/only/line compose/deep [(tag) [(val) (size)]]
-                        parse-asn copy/part data size ;-- !!! ensures valid?
+                        parse-asn copy/part data size  ; !!! ensures valid?
                     ]
                 ]
 
@@ -510,15 +510,15 @@ client-hello: function [
     ;
     comment [
         emit ctx [
-            #{00 0b 00 04 03 00 01 02} ;-- ec_point_formats
+            #{00 0b 00 04 03 00 01 02}  ; ec_point_formats
 
-            #{00 23 00 00} ;-- SessionTicket TLS
+            #{00 23 00 00}  ; SessionTicket TLS
 
-            #{00 0f 00 01 01} ;-- heartbeat
+            #{00 0f 00 01 01}  ; heartbeat
 
             #{00 0a 00 1c 00 1a 00 17 00 19 00 1c 00
              1b 00 18 00 1a 00 16 00 0e 00 0d 00 0b 00 0c 00
-             09 00 0a} ;-- supported_groups
+             09 00 0a}  ; supported_groups
         ]
     ]
 
@@ -724,7 +724,7 @@ encrypt-data: function [
     /type
         [binary!] "application data is default"
 ][
-    type: default [#{17}] ;-- #application
+    type: default [#{17}]  ; #application
 
     ; GenericBlockCipher: https://tools.ietf.org/html/rfc5246#section-6.2.3.2
 
@@ -786,7 +786,7 @@ encrypt-data: function [
     ;
     if ctx/version > 1.0 [
         insert data ctx/client-iv
-        unset in ctx 'client-iv ;-- avoid accidental reuse
+        unset in ctx 'client-iv  ; avoid accidental reuse
     ]
 
     return data
@@ -856,9 +856,9 @@ parse-messages: function [
         2 <server-hello>
         11 <certificate>
         12 <server-key-exchange>
-        13 certificate-request@ ;-- not yet implemented
+        13 certificate-request@  ; not yet implemented
         14 #server-hello-done
-        15 certificate-verify@ ;-- note yet implemented
+        15 certificate-verify@  ; not yet implemented
         16 <client-key-exchange>
         20 <finished>
     ])
@@ -918,7 +918,7 @@ parse-messages: function [
             )
             debug ["depadding..."]
             if ctx/version > 1.0 [
-                unset in ctx 'server-iv ;-- avoid reuse in TLS 1.1 and above
+                unset in ctx 'server-iv  ; avoid reuse in TLS 1.1 and above
             ]
         ]
         debug ["data:" data]
@@ -1235,7 +1235,7 @@ prf: function [
     {(P)suedo-(R)andom (F)unction, generates arbitrarily long binaries}
 
     return: [binary!]
-    ctx [object!] ;-- needed for ctx/version, prf changed in TLS 1.2
+    ctx [object!]  ; needed for ctx/version, prf changed in TLS 1.2
     secret [binary!]
     label [text! binary!]
     seed [binary!]
@@ -1339,7 +1339,7 @@ do-commands: function [
         some [
             set cmd: [
                 <client-hello> (
-                    client-hello/version ctx [1.0 1.2] ;-- min/max versioning
+                    client-hello/version ctx [1.0 1.2]  ; min/max versioning
                 )
                 | <client-key-exchange> (
                     client-key-exchange ctx
@@ -1737,10 +1737,10 @@ sys/make-scheme [
                 switch port/state/crypt-method [
                     aes@ [
                         if port/state/encrypt-stream [
-                            port/state/encrypt-stream: _ ;-- will be GC'd
+                            port/state/encrypt-stream: _  ; will be GC'd
                         ]
                         if port/state/decrypt-stream [
-                            port/state/decrypt-stream: _ ;-- will be GC'd
+                            port/state/decrypt-stream: _  ; will be GC'd
                         ]
                     ]
                 ] else [

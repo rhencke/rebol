@@ -16,7 +16,7 @@ REBOL [
     }
 ]
 
-any-value! ;-- signal typesets start (SYM_ANY_VALUE_X hardcoded reference)
+any-value!  ; signal typesets start (SYM_ANY_VALUE_X hardcoded reference)
 any-word!
 any-path!
 any-number!
@@ -24,7 +24,7 @@ any-scalar!
 any-series!
 any-string!
 any-context!
-any-array! ;-- replacement for ANY-BLOCK! that doesn't conflate with BLOCK!
+any-array!  ; replacement for ANY-BLOCK! that doesn't conflate with BLOCK!
 
 ;-----------------------------------------------------------------------------
 ; Signal that every earlier numbered symbol is for a typeset or datatype...
@@ -46,9 +46,9 @@ struct!  ; !!! for molding, temporary
 library!  ; !!! for molding, temporary
 
 
-generic ;-- used in boot, see %generics.r
+generic  ; used in boot, see %generics.r
 
-export ;-- used in extensions
+export  ; used in extensions
 
 ; The PICK action was killed in favor of a native that uses the same logic
 ; as path processing.  Code still remains for processing PICK, and ports or
@@ -167,8 +167,8 @@ throw
 ; NOTE: may become something more specific than WORD!
 exit
 quit
-;break ;-- covered by parse below
-;return ;-- covered by parse below
+;break  ; covered by parse below
+;return  ; covered by parse below
 continue
 
 subparse  ; recursions of parse use this for REBNATIVE(subparse) in backtrace
@@ -208,11 +208,11 @@ skip
 to
 thru
 quote
-literal ;-- should both LIT and LITERAL be supported, or just LIT?
+literal  ; should both LIT and LITERAL be supported, or just LIT?
 lit
-lit-word! ;-- !!! compatibility hack; not a DATATYPE!, so parse keyword
-lit-path! ;-- !!! compatibility hack; not a DATATYPE!, so parse keyword
-refinement! ;-- !!! compatibility hack; not a DATATYPE!, so parse keyword
+lit-word!  ; !!! compatibility hack; not a DATATYPE!, so parse keyword
+lit-path!  ; !!! compatibility hack; not a DATATYPE!, so parse keyword
+refinement!  ; !!! compatibility hack; not a DATATYPE!, so parse keyword
 match
 do
 into

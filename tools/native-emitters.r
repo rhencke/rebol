@@ -38,7 +38,7 @@ emit-native-proto: function [
                     (mold the-file) (line)
                 ]
             )]
-            opt block! ;-- optional body
+            opt block!  ; optional body
             [
                 end
             |

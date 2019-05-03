@@ -383,7 +383,7 @@ void Rebind_Values_Deep(
 //
 //     x-word: none
 //     for-each x [1 2 3] [x-word: 'x | break]
-//     get x-word ;-- returns 3
+//     get x-word  ; returns 3
 //
 // Ren-C adds a feature of letting LIT-WORD!s be used to indicate that the
 // loop variable should be written into the existing bound variable that the

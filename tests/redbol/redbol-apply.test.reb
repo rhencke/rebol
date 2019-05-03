@@ -77,26 +77,17 @@
 (action! == redbol-apply (specialize 'of [property: 'type]) [:print])
 (get-word! == redbol-apply/only (specialize 'of [property: 'type]) [:print])
 
-;-- #1760 --
 
-(
-    1 == eval func [] [redbol-apply does [] [return 1] 2]
-)
-(
-    1 == eval func [] [redbol-apply func [a] [a] [return 1] 2]
-)
-(
-    1 == eval func [] [redbol-apply does [] [return 1]]
-)
-(
-    1 == eval func [] [redbol-apply func [a] [a] [return 1]]
-)
-(
-    1 == eval func [] [redbol-apply func [a b] [a] [return 1 2]]
-)
-(
-    1 == eval func [] [redbol-apply func [a b] [a] [2 return 1]]
-)
+[
+    #1760
+
+    (1 == eval func [] [redbol-apply does [] [return 1] 2])
+    (1 == eval func [] [redbol-apply func [a] [a] [return 1] 2])
+    (1 == eval func [] [redbol-apply does [] [return 1]])
+    (1 == eval func [] [redbol-apply func [a] [a] [return 1]])
+    (1 == eval func [] [redbol-apply func [a b] [a] [return 1 2]])
+    (1 == eval func [] [redbol-apply func [a b] [a] [2 return 1]])
+]
 
 (
     null? redbol-apply func [

@@ -124,7 +124,7 @@ emit-directive: function [return: <void> directive] [
 
 process: function [
     file
-    <with> the-file ;-- global we set
+    <with> the-file  ; global we set
 ][
     ; !!! is DELINE necessary?
     data: deline to-text read the-file: file
@@ -136,11 +136,11 @@ process: function [
 
 ;-------------------------------------------------------------------------
 
-;-- !!! Note the #ifdef conditional handling here is weird, and is based on
-;-- the emitter state.  So it would take work to turn this into something
-;-- that would collect the symbols and then insert them into the emitter
-;-- all at once.  The original code seems a bit improvised, and could use a
-;-- more solid mechanism.
+; !!! Note the #ifdef conditional handling here is weird, and is based on
+; the emitter state.  So it would take work to turn this into something
+; that would collect the symbols and then insert them into the emitter
+; all at once.  The original code seems a bit improvised, and could use a
+; more solid mechanism.
 
 
 boot-natives: load output-dir/boot/tmp-natives.r
@@ -240,7 +240,7 @@ sys-globals.parser: context [
     id: _
 
     process: func [return: <void> text] [
-        parse text grammar/rule ;-- Review: no END (return result unused?)
+        parse text grammar/rule  ; Review: no END (return result unused?)
     ]
 
     grammar: context bind [
@@ -263,14 +263,14 @@ sys-globals.parser: context [
 
         declaration: [
             some [opt wsp [copy id identifier | not #";" punctuator] ] #";" thru newline (
-                ;;
-                ;; !!! Not used now, but previously was for user natives:
-                ;;
-                ;; https://forum.rebol.info/t/952/3
-                ;;
-                ;; Keeping the PARSE rule in case it's useful, but if it
-                ;; causes problems before it gets used again then it is
-                ;; probably okay to mothball it to that forum thread.
+                ;
+                ; !!! Not used now, but previously was for user natives:
+                ;
+                ; https://forum.rebol.info/t/952/3
+                ;
+                ; Keeping the PARSE rule in case it's useful, but if it
+                ; causes problems before it gets used again then it is
+                ; probably okay to mothball it to that forum thread.
             )
         ]
 
@@ -280,11 +280,11 @@ sys-globals.parser: context [
                 any [not newline c-pp-token]
             ] eol
             (
-                ;; Here is where it would call processing of conditional data
-                ;; on the symbols.  This is how it would compensate for the
-                ;; preprocessor, so things that were #ifdef'd out would not
-                ;; make it into the list.
-                ;;
+                ; Here is where it would call processing of conditional data
+                ; on the symbols.  This is how it would compensate for the
+                ; preprocessor, so things that were #ifdef'd out would not
+                ; make it into the list.
+                ;
                 comment [process-conditional data parse.position e-syms]
             )
         ]
@@ -326,7 +326,7 @@ parse native-list [
         opt 'enfix
         ['native | and path! into ['native to end]]
         set spec: block!
-        opt block! ;-- optional body if native/body
+        opt block!  ; optional body if native/body
         (
             emit-include-params-macro e-params name spec
             e-params/emit newline

@@ -27,9 +27,8 @@ REBOL [
 print*: :print
 
 
-;-- If the host wants to know if a script or module is loaded, e.g. to
-;   print out a message.  (Printing directly from this code would be
-;   presumptuous.)
+; If the host wants to know if a script or module is loaded, e.g. to print out
+; a message.  (Printing directly from this code would be presumptuous.)
 ;
 script-pre-load-hook: _
 
@@ -92,11 +91,11 @@ do*: function [
         if original-path [change-dir original-path]
 
         if quit_FINALIZER and 'only [
-            quit :value ;-- "rethrow" the QUIT if DO/ONLY
+            quit :value  ; "rethrow" the QUIT if DO/ONLY
         ]
 
         set 'force-remote-import old-force-remote-import
-        return :value ;-- returns from DO*, because of <with> return
+        return :value  ; returns from DO*, because of <with> return
     ]
 
     ; If a file is being mentioned as a DO location and the "current path"
@@ -139,7 +138,7 @@ do*: function [
             ;
             ;     do "append {abc} {de}"
             ;
-            set* lit result: do code ;-- !!! pass args implicitly?
+            set* lit result: do code  ; !!! pass args implicitly?
         ] then :finalizer/quit
     ] else [
         ; Otherwise we are in script mode.  When we run a script, the
@@ -171,7 +170,7 @@ do*: function [
         ]
 
         if set? 'script-pre-load-hook [
-            script-pre-load-hook is-module hdr ;-- chance to print it out
+            script-pre-load-hook is-module hdr  ; chance to print it out
         ]
 
         ; Eval the block or make the module, returned

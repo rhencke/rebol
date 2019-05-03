@@ -310,13 +310,13 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         switch (property) {
         case SYM_INDEX:
-            return Init_Integer(D_OUT, ReqFile(file)->index + 1);;
+            return Init_Integer(D_OUT, ReqFile(file)->index + 1);
 
         case SYM_LENGTH:
             //
             // Comment said "clip at zero"
             ///
-            return Init_Integer(D_OUT, ReqFile(file)->size - ReqFile(file)->index);;
+            return Init_Integer(D_OUT, ReqFile(file)->size - ReqFile(file)->index);
 
         case SYM_HEAD:
             ReqFile(file)->index = 0;

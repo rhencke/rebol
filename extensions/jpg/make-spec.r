@@ -23,7 +23,7 @@ depends: [
         ; trigger slowdown.  It is not a priority to rewrite, given
         ; that some other vetted 3rd party JPG code should be used.
         ;
-        <msc:/wd5045> ;-- https://stackoverflow.com/q/50399940
+        <msc:/wd5045>  ; https://stackoverflow.com/q/50399940
     ]
 ]
 includes: [

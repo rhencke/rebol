@@ -81,12 +81,12 @@ for-each [comparison-op function-name] compose [
     >       greater?
     >=      greater-or-equal?
 
-    <=      lesser-or-equal? ;-- !!! https://forum.rebol.info/t/349/11
+    <=      lesser-or-equal?  ; !!! https://forum.rebol.info/t/349/11
 
-    !=      not-equal? ;-- !!! http://www.rebol.net/r3blogs/0017.html
+    !=      not-equal?  ; !!! http://www.rebol.net/r3blogs/0017.html
 
-    ==      strict-equal? ;-- !!! https://forum.rebol.info/t/349
-    !==     strict-not-equal? ;-- !!! bad pairing, most would think !=
+    ==      strict-equal?  ; !!! https://forum.rebol.info/t/349
+    !==     strict-not-equal?  ; !!! bad pairing, most would think !=
 
     =?      same?
 ][

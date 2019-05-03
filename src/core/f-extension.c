@@ -106,7 +106,7 @@ REBNATIVE(builtin_extensions)
 //
 //      return: [module!]
 //      where "Path to extension file or block of builtin extension details"
-//          [file! block!] ;-- !!! Should it take a LIBRARY! instead?
+//          [file! block!]  ; !!! Should it take a LIBRARY! instead?
 //      /no-user "Do not export to the user context"
 //      /no-lib "Do not export to the lib context"
 //  ]

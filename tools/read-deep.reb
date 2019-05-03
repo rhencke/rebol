@@ -11,14 +11,14 @@ REBOL [
     Purpose: "Recursive READ strategies."
 ]
 
-;; read-deep-seq aims to be as simple as possible. I.e. relative paths
-;; can be derived after the fact.  It uses a state to next state approach
-;; which means client code can use it iteratively which is useful to avoid
-;; reading the full tree up front, or for sort/merge type routines.
-;; The root (seed) path is included as the first result.
-;; Output can be made relative by stripping the root (seed) path from
-;; each returned file.
-;;
+; read-deep-seq aims to be as simple as possible. I.e. relative paths
+; can be derived after the fact.  It uses a state to next state approach
+; which means client code can use it iteratively which is useful to avoid
+; reading the full tree up front, or for sort/merge type routines.
+; The root (seed) path is included as the first result.
+; Output can be made relative by stripping the root (seed) path from
+; each returned file.
+;
 
 read-deep-seq: function [
     {Iterative read deep.}
@@ -33,8 +33,8 @@ read-deep-seq: function [
     item
 ]
 
-;; read-deep provide convenience over read-deep-seq.
-;;
+; read-deep provide convenience over read-deep-seq.
+;
 
 read-deep: function [
     {Return files and folders using recursive read strategy.}
@@ -51,7 +51,7 @@ read-deep: function [
     queue: compose [((root))]
 
     while [not tail? queue] [
-        append result taker queue ;-- Possible null
+        append result taker queue  ; Possible null
     ]
 
     if not full [

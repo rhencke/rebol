@@ -19,19 +19,22 @@ REBOL [
 ; NOTE: The system is not fully booted at this point, so only simple
 ; expressions are allowed. Anything else will crash the boot.
 
-;-- Standard constants:
+; Standard constants
+
 on:  true
 off: false
 yes: true
 no:  false
 zero: 0
 
-;-- Special values:
+; Special values
+
 REBOL: system
 sys: system/contexts/sys
 lib: system/contexts/lib
 
-;-- Char constants:
+; Char constants
+
 NUL:       #"^(NULL)"
 space:     #" "
 SP:        space
@@ -46,7 +49,8 @@ escape:    #"^(ESC)"
 CR:        #"^M"
 LF:        newline
 
-;-- Function synonyms:
+; Function synonyms
+
 to-logic: :did?
 to-value: :try
 min: :minimum
@@ -65,5 +69,5 @@ void: func [
     "Function returning void result (alternative for `#[void]`)"
     return: <void>
 ][
-    ;-- Note: actually *faster* than a native, due to Void_Dispatcher()
+    ; Note: actually *faster* than a native, due to Void_Dispatcher()
 ]

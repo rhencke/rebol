@@ -1057,6 +1057,7 @@ script:
       fi
 
       function upload {
+        # Note that `;;` is specific to bash's `case`, unrelated to `;`
         case $1 in
           *.wasm) OPT_TYPE="--content-type application/wasm" ;;
           *) OPT_TYPE="" ;;

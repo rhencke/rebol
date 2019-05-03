@@ -120,7 +120,7 @@ dump-to-newline: adapt 'dump [
             ]
             take extra
         ]
-        extra: make varargs! [] ;-- don't allow more takes
+        extra: make varargs! []  ; don't allow more takes
     ]
 ]
 

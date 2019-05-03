@@ -319,9 +319,9 @@ fix-const-char: func [
 
 do %common.r
 
-;;
-;; Generate %sys-zlib.h Aggregate Header File
-;;
+;
+; Generate %sys-zlib.h Aggregate Header File
+;
 
 header-lines: copy []
 
@@ -352,9 +352,9 @@ write/lines join-all [path-include file-include] header-lines
 
 
 
-;;
-;; Generate %u-zlib.c Aggregate Source File
-;;
+;
+; Generate %u-zlib.c Aggregate Source File
+;
 
 source-lines: copy []
 

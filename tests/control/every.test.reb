@@ -40,7 +40,7 @@
     did all [
         false = every x [1 2 7] [
             sum: me + x
-            if even? x [continue] ;; acts as `continue null`, get "falsified"
+            if even? x [continue]  ; acts as `continue null`, get "falsified"
             true
         ]
         10 = sum

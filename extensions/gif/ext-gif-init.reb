@@ -10,4 +10,4 @@ REBOL [
 sys/register-codec* 'gif %.gif
     :identify-gif?
     :decode-gif
-    _ ;-- currently no GIF encoder
+    _  ; currently no GIF encoder

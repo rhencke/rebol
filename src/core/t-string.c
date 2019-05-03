@@ -556,7 +556,7 @@ REB_R PD_String(
         //     == path!
         //
         //     >> x/bar
-        //     == %foo/bar ;-- a FILE!
+        //     == %foo/bar  ; a FILE!
         //
         // This can only be done with evaluations, since FILE! and URL! have
         // slashes in their literal form:

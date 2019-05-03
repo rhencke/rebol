@@ -1273,7 +1273,7 @@ const REBYTE *Scan_Any(
     // The range for a curly braced string may span multiple lines, and some
     // files may have CR and LF in the data:
     //
-    //     {line one ;-- imagine this is CR LF...not just LF
+    //     {line one  ; imagine this line has CR LF...not just LF
     //     line two}
     //
     // Despite the presence of the CR in the source file, the scanned literal

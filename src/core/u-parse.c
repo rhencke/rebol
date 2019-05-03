@@ -1097,7 +1097,7 @@ static REBIXO To_Thru_Non_Block_Rule(
 // !!! The way this feature was expressed in R3-Alpha isolates it from
 // participating in iteration or as the target of an outer rule, e.g.
 //
-//     parse [1 + 2] [set var do [lit 3]] ;-- var gets 1, not 3
+//     parse [1 + 2] [set var do [lit 3]]  ; var gets 1, not 3
 //
 // Other problems arise since the caller doesn't know about the trickiness
 // of this evaluation, e.g. this won't work either:

@@ -134,8 +134,8 @@ inline static bool Single_Test_Throws(
     // invoked inline, and disallow them on non-actions to help discern them
     // (maybe relax that later)
     //
-    //    maybe [integer! :even?] 4 ;-- this is ok
-    //    maybe [:integer! even?] 4 ;-- this is not
+    //    maybe [integer! :even?] 4  ; this is ok
+    //    maybe [:integer! even?] 4  ; this is not
     //
     if (
         test_kind == REB_WORD
@@ -463,15 +463,15 @@ REBNATIVE(also)  // see `tweak :also #defer on` in %base-defs.r
 //          [<opt> any-value!]
 //      'test "Typeset membership, LOGIC! to test for truth, filter function"
 //          [
-//              word! ;-- GET to find actual test
-//              action! get-word! get-path! ;-- arity-1 filter function
-//              path! ;-- AND'd tests
-//              block! ;-- OR'd tests
-//              datatype! typeset! ;-- literals accepted
-//              logic! ;-- tests TO-LOGIC compatibility
-//              tag! ;-- just <opt> for now
-//              integer! ;-- matches length of series
-//              quoted! ;-- same test, but make quote level part of the test
+//              word!  ; GET to find actual test
+//              action! get-word! get-path!  ; arity-1 filter function
+//              path!  ; AND'd tests
+//              block!  ; OR'd tests
+//              datatype! typeset!  ; literals accepted
+//              logic!  ; tests TO-LOGIC compatibility
+//              tag!  ; just <opt> for now
+//              integer!  ; matches length of series
+//              quoted!  ; same test, but make quote level part of the test
 //          ]
 //       value [<opt> any-value!]
 //      'branch "Branch to run on non-matches, passed VALUE if ACTION!"
@@ -504,15 +504,15 @@ REBNATIVE(either_match)
 //          [<opt> any-value!]
 //      'test "Typeset membership, LOGIC! to test for truth, filter function"
 //          [
-//              word! ;-- GET to find actual test
-//              action! get-word! get-path! ;-- arity-1 filter function
-//              path! ;-- AND'd tests
-//              block! ;-- OR'd tests
-//              datatype! typeset! ;-- literals accepted
-//              logic! ;-- tests TO-LOGIC compatibility
-//              tag! ;-- just <opt> for now
-//              integer! ;-- matches length of series
-//              quoted! ;-- same test, but make quote level part of the test
+//              word!  ; GET to find actual test
+//              action! get-word! get-path!  ; arity-1 filter function
+//              path!  ; AND'd tests
+//              block!  ; OR'd tests
+//              datatype! typeset!  ; literals accepted
+//              logic!  ; tests TO-LOGIC compatibility
+//              tag!  ; just <opt> for now
+//              integer!  ; matches length of series
+//              quoted!  ; same test, but make quote level part of the test
 //          ]
 //      :args [<opt> any-value! <...>]
 //  ]
@@ -679,15 +679,15 @@ REBNATIVE(match)
 //       value [<opt> any-value!]
 //      'test "Typeset membership, LOGIC! to test for truth, filter function"
 //          [
-//              word! ;-- GET to find actual test
-//              action! get-word! get-path! ;-- arity-1 filter function
-//              path! ;-- AND'd tests
-//              block! ;-- OR'd tests
-//              datatype! typeset! ;-- literals accepted
-//              logic! ;-- tests TO-LOGIC compatibility
-//              tag! ;-- just <opt> for now
-//              integer! ;-- matches length of series
-//              quoted! ;-- same test, but make quote level part of the test
+//              word!  ; GET to find actual test
+//              action! get-word! get-path!  ; arity-1 filter function
+//              path!  ; AND'd tests
+//              block!  ; OR'd tests
+//              datatype! typeset!  ; literals accepted
+//              logic!  ; tests TO-LOGIC compatibility
+//              tag!  ; just <opt> for now
+//              integer!  ; matches length of series
+//              quoted!  ; same test, but make quote level part of the test
 //          ]
 //  ]
 //

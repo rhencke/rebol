@@ -41,7 +41,7 @@
     (error? e) and [e/id = 'out-of-range]
 )
 
-;-- Making a block from an action will iterate the action until it gives null
+; Making a block from an action will iterate the action until it gives null
 
 (
     make-one-thru-five: function [<static> count (0)] [

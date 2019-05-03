@@ -70,7 +70,7 @@ core: [
         ; but isn't very central to Ren-C.  It is not a priority to audit
         ; it for speed, so allow it to be slow if MSVC compiles with /Qspectre
         ;
-        <msc:/wd5045> ;-- https://stackoverflow.com/q/50399940
+        <msc:/wd5045>  ; https://stackoverflow.com/q/50399940
     ]
     f-device.c
     [
@@ -97,7 +97,7 @@ core: [
         ; At time of writing there are 4 Spectre mitigations, which should
         ; be looked at and rewritten when there is time:
         ;
-        <msc:/wd5045> ;-- https://stackoverflow.com/q/50399940
+        <msc:/wd5045>  ; https://stackoverflow.com/q/50399940
     ]
     f-extension.c
     f-int.c
@@ -185,7 +185,7 @@ core: [
         ; Zlib is an active project so it would be worth it to check to see
         ; if minor patches for subverting Spectre mitigation would be taken.
         ;
-        <msc:/wd5045> ;-- https://stackoverflow.com/q/50399940
+        <msc:/wd5045>  ; https://stackoverflow.com/q/50399940
     ]
 ]
 
@@ -211,7 +211,7 @@ boot-files: [
 ]
 
 mezz-files: [
-    ;-- There were some of these in the R3/View build
+    ; There were some of these in the R3/View build
 ]
 
 prot-files: [

@@ -20,9 +20,9 @@
 )
 
 
-;;
-;; "Mold Stack" tests
-;;
+;
+; "Mold Stack" tests
+;
 
 ; Nested unspaced
 (

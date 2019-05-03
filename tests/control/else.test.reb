@@ -29,9 +29,7 @@
     success
 )
 
-(
-    ; https://github.com/metaeducation/ren-c/issues/510
-
+[https://github.com/metaeducation/ren-c/issues/510 (
     c: func [i] [
         return if i < 15 [30] else [4]
     ]
@@ -46,7 +44,7 @@
         30 = d 10
         4 = d 20
     ]
-)
+)]
 
 ; Hard quotes need to account for enfix deferral
 (

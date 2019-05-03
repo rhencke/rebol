@@ -7,14 +7,12 @@ REBOL [
     }
 ]
 
-;import %extload.r3
-;import %zmqext.rx
-
 import %helpers.r3
 
 ctx: zmq-init 1
 
-;; Socket to talk to server.
+; Socket to talk to server.
+;
 print "Connecting to hello world server ..."
 socket: zmq-socket ctx 'req
 zmq-connect socket tcp://localhost:5555

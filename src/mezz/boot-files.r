@@ -12,7 +12,7 @@ REBOL [
     Note: "Used by %make/make-boot.r"
 ]
 
-;-- base: low-level boot in lib context:
+; base: low-level boot in lib context:
 [
     %base-constants.r
     %base-defs.r
@@ -22,7 +22,7 @@ REBOL [
     %base-files.r
 ]
 
-;-- sys: low-level sys context:
+; sys: low-level sys context:
 [
     %sys-base.r
     %sys-ports.r
@@ -31,7 +31,7 @@ REBOL [
     %sys-start.r
 ]
 
-;-- lib: mid-level lib context:
+; lib: mid-level lib context:
 [
     %mezz-types.r
     %mezz-func.r
@@ -43,15 +43,7 @@ REBOL [
     %mezz-files.r
     %mezz-shell.r
     %mezz-math.r
-    %mezz-help.r ; depends on DUMP-OBJ in %mezz-dump.r
+    %mezz-help.r  ; depends on DUMP-OBJ in %mezz-dump.r
     %mezz-colors.r
-    %mezz-tail.r
     %mezz-legacy.r
-]
-
-;-- protocols:
-[
-    ;moved to file-base and loaded by host-start.r
-    ;%prot-http.r
-    ;%prot-tls.r
 ]

@@ -20,23 +20,23 @@
 (10 = match :even? 10)
 (null = match :even? 3)
 
-;; !!! MATCH is a tricky action that quotes its first argument, -but- if it
-;; is a word that calls an action, it builds a frame and invokes that action.
-;; It's taking on some of the responsibility of the evaluator, and is hence
-;; experimental and problematic.  Currently we error on quoted WORD!s, until
-;; such time as the feature is thought out more to know exactly what it
-;; should do...as it wouldn't see the quote if it were thought of as eval'ing.
-;;
-;; (null = match 'odd? 20)
-;; (7 = match 'odd? 7)
+; !!! MATCH is a tricky action that quotes its first argument, -but- if it
+; is a word that calls an action, it builds a frame and invokes that action.
+; It's taking on some of the responsibility of the evaluator, and is hence
+; experimental and problematic.  Currently we error on quoted WORD!s, until
+; such time as the feature is thought out more to know exactly what it
+; should do...as it wouldn't see the quote if it were thought of as eval'ing.
+;
+; (null = match 'odd? 20)
+; (7 = match 'odd? 7)
 
 (void? match blank! _)
 (null = match blank! 10)
 (null = match blank! false)
 
 
-;; Quoting levels are taken into account with the rule, and the number of
-;; quotes is summed with whatever is found in the lookup.
+; Quoting levels are taken into account with the rule, and the number of
+; quotes is summed with whatever is found in the lookup.
 
 (lit 'foo = match 'word! lit 'foo)
 (null = match 'word! lit foo)

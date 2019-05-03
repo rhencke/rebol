@@ -78,7 +78,7 @@ proto-count: 0
 module-header: _
 
 source.text: read c-src
-if system/version > 2.100.0 [ ;-- !!! Why is this necessary?
+if system/version > 2.100.0 [  ; !!! Why is this necessary?
     source.text: deline to-text source.text
 ] 
 
@@ -95,7 +95,7 @@ c-natives: make block! 128
 unsorted-buffer: make text! 20000
 proto-parser/emit-proto: :emit-native-proto
 
-the-file: c-src ;-- global used for comments in the native emitter
+the-file: c-src  ; global used for comments in the native emitter
 
 proto-parser/process source.text
 
@@ -136,7 +136,7 @@ native-defs: collect [
             keep make natdef compose/only [
                 export: (n-export)
                 name: lit (to word! n-name)
-                spec: (n-spec) ;-- includes NATIVE or NATIVE/BODY
+                spec: (n-spec)  ; includes NATIVE or NATIVE/BODY
                 platforms: (try copy n-platforms)
             ]
         )
@@ -162,7 +162,7 @@ num-natives: 0
 for-each native native-defs [
     catch [
         if blank? native/platforms [
-            throw true ;-- no PLATFORM: in def means it's on all platforms
+            throw true  ; no PLATFORM: in def means it's on all platforms
         ]
         for-each plat native/platforms [
             case [
@@ -179,9 +179,9 @@ for-each native native-defs [
                 fail ["Unrecognized platform spec:" mold plat]
             ]
         ]
-        null ;-- not needed in newer Ren-C (CATCH w/no throw is NULL)
+        null  ; not needed in newer Ren-C (CATCH w/no throw is NULL)
     ] else [
-        continue ;-- not supported
+        continue  ; not supported
     ] 
 
     num-natives: num-natives + 1

@@ -7,28 +7,25 @@ REBOL [
     }
 ]
 
-;import %extload.r3
-;import %zmqext.rx
-
 import %helpers.r3
 
 ctx: zmq-init 1
 
-;; Socket to talk to clients.
+; Socket to talk to clients.
+;
 socket: zmq-socket ctx 'rep
 zmq-bind socket tcp://*:5555
 
 forever [
-    ;; Wait for next request from client.
-    s-recv socket
+    s-recv socket  ; Wait for next request from client
     print "Received Hello"
 
-    wait 1 ;; Do some 'work'.
+    wait 1  ; Do some 'work'.
 
-    ;; Send reply back to client.
-    s-send socket "World"
+    s-send socket "World"  ; Send reply back to client
 ]
 
-;; We never get here, but if we did, this would be how we end.
+; We never get here, but if we did, this would be how we end.
+
 zmq-close socket
 zmq-term ctx

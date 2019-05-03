@@ -177,7 +177,7 @@ replace: function [
             ; quote backwards and (for instance) fetch value...but it *could*
             ; quote pos and find out it's called `pos` (for instance).
         ][
-            value: :replacement ;-- inert value, might be null
+            value: :replacement  ; inert value, might be null
         ]
 
         target: change/part pos :value len
@@ -449,18 +449,18 @@ collect*-with: func [
 
     <local> out keeper
 ][
-    ;-- Derive from APPEND to inherit /ONLY, /LINE, /DUP automatically
+    ; Derive from APPEND to inherit /ONLY, /LINE, /DUP automatically
 
     keeper: specialize (
-        ;-- SPECIALIZE in order to remove series argument
+        ; SPECIALIZE in order to remove series argument
 
         enclose 'append function [f [frame!] <with> out] [
-            ;-- ENCLOSE (vs. ADAPT) in order to alter return result
+            ; ENCLOSE (vs. ADAPT) in order to alter return result
 
-            if null? :f/value [return null] ;-- doesn't "count" as collected
+            if null? :f/value [return null]  ; doesn't "count" as collected
 
-            f/series: out: default [make block! 16] ;-- won't return null now
-            :f/value ;-- ELIDE leaves as result (F/VALUE invalid after DO F)
+            f/series: out: default [make block! 16]  ; won't return null now
+            :f/value  ; ELIDE leaves as result (F/VALUE invalid after DO F)
             elide do f
         ]
     )[
@@ -468,11 +468,11 @@ collect*-with: func [
     ]
 
     either word? name [
-        ;-- body not bound to word, use FUNC do binding work
+        ; body not bound to word, use FUNC do binding work
 
         eval func compose [(name) [action!] <with> return] body :keeper
     ][
-        ;-- lit-word! means variable exists, just set it and DO body as-is
+        ; lit-word! means variable exists, just set it and DO body as-is
 
         set name :keeper
         do body
@@ -494,7 +494,7 @@ collect*: redescribe [
 collect: redescribe [
     {Evaluate body, and return block of values collected via KEEP function.
     Returns empty block if nothing KEEPed.}
-] chain [ ;; Gives empty block instead of null if no keeps
+] chain [  ; Gives empty block instead of null if no keeps
     :collect*
         |
     specialize 'else [branch: [copy []]]
@@ -699,7 +699,7 @@ find-all: function [
     verify [any-series? orig: get series]
     while [any [
         | set series find get series :value
-        | (set series orig | false) ;-- reset series and break loop
+        | (set series orig | false)  ; reset series and break loop
     ]][
         do body
         series: next series

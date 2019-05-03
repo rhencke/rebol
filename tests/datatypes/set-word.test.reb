@@ -36,8 +36,7 @@
     (error? e) and [e/id = 'scan-invalid]
 )]
 
-; https://github.com/metaeducation/ren-c/issues/876
-[(
+[https://github.com/metaeducation/ren-c/issues/876 (
     e: trap [1 x: ()]
     e/id = 'need-non-end
 )(

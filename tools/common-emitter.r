@@ -204,7 +204,7 @@ make-emitter: function [
     /temporary "DO-NOT-EDIT warning (automatic if file begins with 'tmp-')"
 
     <with>
-    system ;-- The `System:` SET-WORD! below overrides the global for access
+    system  ; The `System:` SET-WORD! below overrides the global for access
 ][
     if not by: system/script/header/file [
         fail [

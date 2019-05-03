@@ -154,21 +154,21 @@ binary-to-c: function [
 ][
     out: make text! 6 * (length of data)
     while [not tail? data] [
-        ;-- grab hexes in groups of 8 bytes
+        ; grab hexes in groups of 8 bytes
         hexed: enbase/base (copy/part data 8) 16
         data: skip data 8
         for-each [digit1 digit2] hexed [
             append out unspaced [{0x} digit1 digit2 {,} space]
         ]
 
-        take/last out ;-- drop the last space
+        take/last out  ; drop the last space
         if tail? data [
-            take/last out ;-- lose that last comma
+            take/last out  ; lose that last comma
         ]
-        append out newline ;-- newline after each group, and at end
+        append out newline  ; newline after each group, and at end
     ]
 
-    ;-- Sanity check (should be one more byte in source than commas out)
+    ; Sanity check (should be one more byte in source than commas out)
     parse out [
         (comma-count: 0)
         some [thru "," (comma-count: comma-count + 1)]

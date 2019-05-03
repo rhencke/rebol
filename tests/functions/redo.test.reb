@@ -51,10 +51,10 @@
 (
     foo: func [n i [integer!]] [
         if n = 0 [
-            return <success> ;-- impossible for this case
+            return <success>  ; impossible for this case
         ]
         n: n - 1
-        i: #some-junk ;-- type check should fail on redo
+        i: #some-junk  ; type check should fail on redo
         redo 'return
     ]
 
