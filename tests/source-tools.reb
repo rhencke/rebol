@@ -77,6 +77,7 @@ rebsource: context [
     source-paths: [
         %src/
         %tests/
+        %extensions/
     ]
 
     extensions: [
@@ -85,16 +86,29 @@ rebsource: context [
         %.reb rebol
     ]
 
+    ; Third party files don't obey Rebol source rules, so don't bother to
+    ; check them.
+    ;
+    ; !!! Should be sure whitelisted files actually exist by trying to READ
+    ; them...this list had gotten stale.
+    ;
     whitelisted: [
-        %src/core/u-bmp.c
-        %src/core/u-compress.c
-        %src/core/u-gif.c
-        %src/core/u-jpg.c
-        %src/core/u-md5.c
-        %src/core/u-png.c
-        %src/core/u-sha1.c
         %src/core/u-zlib.c
-    ] ; Not analysed ...
+        %src/core/f-dtoa.c
+
+        %extensions/bmp/mod-bmp.c
+
+        %extensions/gif/mod-gif.c
+
+        %extensions/jpg/u-jpg.c
+
+        %extensions/png/lodepng.h
+        %extensions/png/lodepng.c
+
+        %extensions/crypt/sha1/u-sha1.c
+
+        %extensions/crypt/md5/u-md5.c
+    ]
 
 
     log-emit: function [

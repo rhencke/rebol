@@ -55,65 +55,178 @@
 
 #include "sha256/sha256.h" // depends on %reb-c.h for u8, u32, u64
 
+#include "sys-zlib.h"  // needed for the ADLER32 hash
+
 #include "tmp-mod-crypt.h"
 
+
+// !!! Rebol2/R3-Alpha historically had a polymorphic CHECKSUM function which
+// you would pass a WORD! identifying which hash you wanted.  It had no
+// extension model whereby usermode code could add more checksums (as either
+// native code or Rebol code)...there was a fixed C table of checksums.
 //
-//  init-crypto: native [
+// How this would shape up is an open question.  However, since there is no
+// need for the checksum in the interpreter core, it is moved out to the
+// Crypt extension.  Ideally each would be its own extension.
+
+#include "md5/u-md5.h"  // exposed via CHECKSUM
+#include "sha1/u-sha1.h"  // exposed via CHECKSUM
+
+
+// Table of has functions and parameters:
+static struct {
+    REBYTE *(*digest)(const REBYTE *, REBCNT, REBYTE *);
+    void (*init)(void *);
+    void (*update)(void *, const REBYTE *, REBCNT);
+    void (*final)(REBYTE *, void *);
+    int (*ctxsize)(void);
+    REBSYM sym;
+    REBCNT len;
+    REBCNT hmacblock;
+} digests[] = {
+
+    {SHA1, SHA1_Init, SHA1_Update, SHA1_Final, SHA1_CtxSize, SYM_SHA1, 20, 64},
+    {MD5, MD5_Init, MD5_Update, MD5_Final, MD5_CtxSize, SYM_MD5, 16, 64},
+
+    {NULL, NULL, NULL, NULL, NULL, SYM_0, 0, 0}
+
+};
+
 //
-//  {Initialize random number generators and OS-provided crypto services}
+//  export checksum: native [
 //
-//      return: [void!]
+//  "Computes a checksum, CRC, or hash."
+//
+//      data [binary!]
+//      /part "Length of data"
+//          [any-value!]
+//      /tcp "Returns an Internet TCP 16-bit checksum"
+//      /secure "Returns a cryptographically secure checksum"
+//      /hash "Returns a hash value with given size"
+//          [integer!]
+//      /method "Method to use (SHA1, MD5, CRC32)"
+//          [word!]
+//      /key "Returns keyed HMAC value"
+//          [binary! text!]
 //  ]
 //
-REBNATIVE(init_crypto)
+REBNATIVE(checksum)
 {
-    CRYPT_INCLUDE_PARAMS_OF_INIT_CRYPTO;
+    CRYPT_INCLUDE_PARAMS_OF_CHECKSUM;
 
-  #ifdef TO_WINDOWS
-    if (!CryptAcquireContextW(
-        &gCryptProv, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT
-    )) {
-        // !!! There is no good way to return failure here as the
-        // routine is designed, and it appears that in some cases
-        // a zero initialization worked in the past.  Assert in the
-        // debug build but continue silently otherwise.
-        assert(false);
-        gCryptProv = 0;
-    }
-  #else
-    rng_fd = open("/dev/urandom", O_RDONLY);
-    if (rng_fd == -1) {
-        // We don't crash the release client now, but we will later
-        // if they try to generate random numbers
-        assert(false);
-    }
-  #endif
+    REBCNT len = Part_Len_May_Modify_Index(ARG(data), ARG(part));
+    REBYTE *data = VAL_RAW_DATA_AT(ARG(data));  // after Part_Len, may change
 
-    return Init_Void(D_OUT);
+    REBSYM sym;
+    if (REF(method)) {
+        sym = VAL_WORD_SYM(ARG(method));
+        if (sym == SYM_0)  // not in %words.r, no SYM_XXX constant
+            fail (PAR(method));
+    }
+    else
+        sym = SYM_SHA1;
+
+    // If method, secure, or key... find matching digest:
+    if (REF(method) || REF(secure) || REF(key)) {
+        if (sym == SYM_CRC32) {
+            if (REF(secure) || REF(key))
+                fail (Error_Bad_Refines_Raw());
+
+            // CRC32 is typically an unsigned 32-bit number and uses the full
+            // range of values.  Yet Rebol chose to export this as a signed
+            // integer via CHECKSUM.  Perhaps (?) to generate a value that
+            // could be used by Rebol2, as it only had 32-bit signed INTEGER!.
+            //
+            REBINT crc32 = cast(int32_t, crc32_z(0L, data, len));
+            return Init_Integer(D_OUT, crc32);
+        }
+
+        if (sym == SYM_ADLER32) {
+            if (REF(secure) || REF(key))
+                fail (Error_Bad_Refines_Raw());
+
+            // adler32() is a Saphirion addition since 64-bit INTEGER! was
+            // available in Rebol3, and did not convert the unsigned result
+            // of the adler calculation to a signed integer.
+            //
+            uLong adler = z_adler32(0L, data, len);
+            return Init_Integer(D_OUT, adler);
+        }
+
+        REBCNT i;
+        for (i = 0; i != sizeof(digests) / sizeof(digests[0]); i++) {
+            if (!SAME_SYM_NONZERO(digests[i].sym, sym))
+                continue;
+
+            REBSER *digest = Make_Series(digests[i].len + 1, sizeof(char));
+
+            if (not REF(key))
+                digests[i].digest(data, len, BIN_HEAD(digest));
+            else {
+                REBCNT blocklen = digests[i].hmacblock;
+
+                REBYTE tmpdigest[20]; // size must be max of all digest[].len
+
+                REBSIZ key_size;
+                const REBYTE *key_bytes = VAL_BYTES_AT(&key_size, ARG(key));
+
+                if (key_size > blocklen) {
+                    digests[i].digest(key_bytes, key_size, tmpdigest);
+                    key_bytes = tmpdigest;
+                    key_size = digests[i].len;
+                }
+
+                REBYTE ipad[64]; // size must be max of all digest[].hmacblock
+                memset(ipad, 0, blocklen);
+                memcpy(ipad, key_bytes, key_size);
+
+                REBYTE opad[64]; // size must be max of all digest[].hmacblock
+                memset(opad, 0, blocklen);
+                memcpy(opad, key_bytes, key_size);
+
+                REBCNT j;
+                for (j = 0; j < blocklen; j++) {
+                    ipad[j] ^= 0x36; // !!! why do people write this kind of
+                    opad[j] ^= 0x5c; // thing without a comment? !!! :-(
+                }
+
+                char *ctx = ALLOC_N(char, digests[i].ctxsize());
+                digests[i].init(ctx);
+                digests[i].update(ctx,ipad,blocklen);
+                digests[i].update(ctx, data, len);
+                digests[i].final(tmpdigest,ctx);
+                digests[i].init(ctx);
+                digests[i].update(ctx,opad,blocklen);
+                digests[i].update(ctx,tmpdigest,digests[i].len);
+                digests[i].final(BIN_HEAD(digest),ctx);
+
+                FREE_N(char, digests[i].ctxsize(), ctx);
+            }
+
+            TERM_BIN_LEN(digest, digests[i].len);
+            return Init_Binary(D_OUT, digest);
+        }
+
+        fail (PAR(method));
+    }
+    else if (REF(tcp)) {
+        REBINT ipc = Compute_IPC(data, len);
+        Init_Integer(D_OUT, ipc);
+    }
+    else if (REF(hash)) {
+        REBINT sum = VAL_INT32(ARG(hash));
+        if (sum <= 1)
+            sum = 1;
+
+        REBINT hash = Hash_Bytes(data, len) % sum;
+        Init_Integer(D_OUT, hash);
+    }
+    else
+        Init_Integer(D_OUT, Compute_CRC24(data, len));
+
+    return D_OUT;
 }
 
-
-//
-//  shutdown-crypto: native [
-//
-//  {Shut down random number generators and OS-provided crypto services}
-//
-//  ]
-//
-REBNATIVE(shutdown_crypto)
-{
-    CRYPT_INCLUDE_PARAMS_OF_SHUTDOWN_CRYPTO;
-
-  #ifdef TO_WINDOWS
-    if (gCryptProv != 0)
-        CryptReleaseContext(gCryptProv, 0);
-  #else
-    if (rng_fd != -1)
-        close(rng_fd);
-  #endif
-
-    return Init_Void(D_OUT);
-}
 
 
 static void cleanup_rc4_ctx(const REBVAL *v)
@@ -624,4 +737,63 @@ REBNATIVE(sha256)
     REBYTE *buf = rebAllocN(REBYTE, SHA256_BLOCK_SIZE);
     sha256_final(&ctx, buf);
     return rebRepossess(buf, SHA256_BLOCK_SIZE);
+}
+
+
+//
+//  init-crypto: native [
+//
+//  {Initialize random number generators and OS-provided crypto services}
+//
+//      return: [void!]
+//  ]
+//
+REBNATIVE(init_crypto)
+{
+    CRYPT_INCLUDE_PARAMS_OF_INIT_CRYPTO;
+
+  #ifdef TO_WINDOWS
+    if (!CryptAcquireContextW(
+        &gCryptProv, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT
+    )) {
+        // !!! There is no good way to return failure here as the
+        // routine is designed, and it appears that in some cases
+        // a zero initialization worked in the past.  Assert in the
+        // debug build but continue silently otherwise.
+        assert(false);
+        gCryptProv = 0;
+    }
+  #else
+    rng_fd = open("/dev/urandom", O_RDONLY);
+    if (rng_fd == -1) {
+        // We don't crash the release client now, but we will later
+        // if they try to generate random numbers
+        assert(false);
+    }
+  #endif
+
+    return Init_Void(D_OUT);
+}
+
+
+//
+//  shutdown-crypto: native [
+//
+//  {Shut down random number generators and OS-provided crypto services}
+//
+//  ]
+//
+REBNATIVE(shutdown_crypto)
+{
+    CRYPT_INCLUDE_PARAMS_OF_SHUTDOWN_CRYPTO;
+
+  #ifdef TO_WINDOWS
+    if (gCryptProv != 0)
+        CryptReleaseContext(gCryptProv, 0);
+  #else
+    if (rng_fd != -1)
+        close(rng_fd);
+  #endif
+
+    return Init_Void(D_OUT);
 }

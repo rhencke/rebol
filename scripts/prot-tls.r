@@ -60,6 +60,24 @@ REBOL [
     }
 ]
 
+; !!! There was a /SECURE refinement to RANDOM, which implemented the
+; following after generating the REBI64 into a tmp variable:
+;
+;     REBYTE srcbuf[20], dstbuf[20];
+;
+;     memcpy(srcbuf, &tmp, sizeof(tmp));
+;     memset(srcbuf + sizeof(tmp), *(REBYTE*)&tmp, 20 - sizeof(tmp));
+;
+;     SHA1(srcbuf, 20, dstbuf);
+;     memcpy(&tmp, dstbuf, sizeof(tmp));
+;
+; It's not entirely clear how much more secure that makes it.  In any case,
+; SHA1 was removed from the core.  We could do it in userspace if it were
+; deemed important.
+;
+random-secure: function [range [integer!]] [random range]
+
+
 version-to-bytes: [
     1.0 #{03 01}
     1.1 #{03 02}
@@ -411,7 +429,7 @@ client-hello: function [
     ;
     ctx/client-random: to-bin to-integer difference now/precise 1-Jan-1970 4
     random/seed now/time/precise
-    loop 28 [append ctx/client-random (random/secure 256) - 1]
+    loop 28 [append ctx/client-random (random-secure 256) - 1]
 
     cs-data: join-all map-each item cipher-suites [
         if binary? item [item]
@@ -538,7 +556,7 @@ client-key-exchange: function [
             ; generate pre-master-secret
             ctx/pre-master-secret: copy ctx/ver-bytes
             random/seed now/time/precise
-            loop 46 [append ctx/pre-master-secret (random/secure 256) - 1]
+            loop 46 [append ctx/pre-master-secret (random-secure 256) - 1]
 
             ; encrypt pre-master-secret
             rsa-key: rsa-make-key
@@ -736,7 +754,7 @@ encrypt-data: function [
         ;  which is equal to the SecurityParameters.block_size."
         ;
         ctx/client-iv: copy #{}
-        loop ctx/block-size [append ctx/client-iv (random/secure 256) - 1]
+        loop ctx/block-size [append ctx/client-iv (random-secure 256) - 1]
     ]
 
     ; Message Authentication Code

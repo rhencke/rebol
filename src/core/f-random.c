@@ -121,17 +121,21 @@ static REBI64 ran_arr_cycle(void)
 //
 REBI64 Random_Int(bool secure)
 {
-    REBI64 tmp;
-    tmp = ran_arr_next();
+    REBI64 tmp = ran_arr_next();
 
     if (secure) {
-        REBYTE srcbuf[20], dstbuf[20];
+        fail (
+            "/SECURE relied on SHA1, which is now in the Crypt extension"
+            " and not the core build.  Speak up if you need a workaround."
+        );
+
+        /*REBYTE srcbuf[20], dstbuf[20];
 
         memcpy(srcbuf, &tmp, sizeof(tmp));
         memset(srcbuf + sizeof(tmp), *(REBYTE*)&tmp, 20 - sizeof(tmp));
 
         SHA1(srcbuf, 20, dstbuf);
-        memcpy(&tmp, dstbuf, sizeof(tmp));
+        memcpy(&tmp, dstbuf, sizeof(tmp));*/
     }
 
     return tmp;

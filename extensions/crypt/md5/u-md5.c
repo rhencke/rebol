@@ -3,8 +3,6 @@
 //#include <stdio.h> // !!! No <stdio.h> in Ren-C release builds
 #include <stdlib.h>
 
-#define MD5_DEFINED
-
 #define MD5_CBLOCK  64
 #define MD5_LBLOCK  16
 #define MD5_BLOCK   16
@@ -21,10 +19,7 @@ typedef struct MD5state_st {
     int num;
 } MD5_CTX;
 
-EXTERN_C void MD5_Init(MD5_CTX *c);
-EXTERN_C void MD5_Update(MD5_CTX *c, const unsigned char *data, MD5_LONG len);
-EXTERN_C void MD5_Final(unsigned char *md, MD5_CTX *c);
-EXTERN_C int MD5_CtxSize(void);
+#include "md5/u-md5.h"  // exposed via CHECKSUM
 
 #define ULONG   MD5_LONG
 #define UCHAR   unsigned char
@@ -158,7 +153,8 @@ EXTERN_C int MD5_CtxSize(void);
 
 static void md5_block(MD5_CTX *c, MD5_LONG *p);
 
-void MD5_Init(MD5_CTX *c) {
+void MD5_Init(void *c_opaque) {
+    MD5_CTX *c = cast(MD5_CTX*, c_opaque);
     c->A=INIT_DATA_A;
     c->B=INIT_DATA_B;
     c->C=INIT_DATA_C;
@@ -168,8 +164,10 @@ void MD5_Init(MD5_CTX *c) {
     c->num=0;
 }
 
-void MD5_Update(MD5_CTX *c, const unsigned char *data, MD5_LONG len)
+void MD5_Update(void *c_opaque, const REBYTE *data, REBCNT len)
 {
+    MD5_CTX *c = cast(MD5_CTX*, c_opaque);
+
     ULONG *p;
     int sw,sc;
     ULONG l;
@@ -346,8 +344,10 @@ static void md5_block(MD5_CTX *c, ULONG *X)
     c->D+=D&0xffffffffL;
 }
 
-void MD5_Final(unsigned char *md, MD5_CTX *c)
+void MD5_Final(unsigned char *md, void *c_opaque)
 {
+    MD5_CTX *c = cast(MD5_CTX*, c_opaque);
+
     int i,j;
     ULONG l;
     ULONG *p;
@@ -391,9 +391,6 @@ int MD5_CtxSize(void) {
     return sizeof(MD5_CTX);
 }
 
-//
-//  MD5: C
-//
 REBYTE *MD5(const REBYTE *data, REBCNT data_len, REBYTE *md)
 {
     static unsigned char m[MD5_DIGEST_LENGTH];

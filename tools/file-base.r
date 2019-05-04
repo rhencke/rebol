@@ -169,13 +169,8 @@ core: [
 
     ; (U)??? (3rd-party code extractions)
     u-compress.c
-    [u-md5.c <implicit-fallthru>]
     u-parse.c
     [
-        u-sha1.c
-        <implicit-fallthru>
-        <no-hidden-local>
-    ][
         u-zlib.c
 
         <no-make-header>
