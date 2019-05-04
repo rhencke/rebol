@@ -200,7 +200,7 @@ uneval: func [x [<opt> any-value!]] [
 
 join: :join-of
 join-of: func [] [
-    fail 'return [
+    fail 'return [  ; bootstrap EXE does not support @word
         "JOIN has returned to Rebol2 semantics, JOIN-OF is no longer needed"
         https://forum.rebol.info/t/its-time-to-join-together/1030
     ]

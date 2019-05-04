@@ -76,7 +76,7 @@ context: specialize 'make [type: object!]
 
 
 quote: func [] [
-    fail 'return [
+    fail @return [
         "LIT (or LITERAL) has replaced QUOTE.  QUOTE is currently not"
         "defined to make it easier to find cases and fix them.  It will"
         "ultimately be re-introduced as a way to add quote levels to an"
@@ -163,7 +163,7 @@ prin: function [
 
 
 join-of: func [] [
-    fail 'return [
+    fail @return [
         "JOIN has returned to Rebol2 semantics, JOIN-OF is no longer needed"
         https://forum.rebol.info/t/its-time-to-join-together/1030
     ]
@@ -223,7 +223,7 @@ forever: :cycle
 
 
 apply: func [dummy:] [
-    fail 'dummy [
+    fail @dummy [
         {APPLY is being reverted to a reimagination of the positional}
         {APPLY from Rebol2/R3-Alpha, but with a different way of dealing with}
         {refinements.  The Ren-C APPLY experiment has been moved to the name}
@@ -236,7 +236,7 @@ apply: func [dummy:] [
 
 hijack 'find adapt copy :find [
     if reverse or 'last [
-        fail 'reverse [
+        fail @reverse [
             {/REVERSE and /LAST on FIND have been deprecated.  Use FIND-LAST}
             {or FIND-REVERSE specializations: https://forum.rebol.info/t/1126}
         ]

@@ -98,27 +98,27 @@ cipher-suites: [
 
     #{00 2F} [
         TLS_RSA_WITH_AES_128_CBC_SHA
-        <rsa> aes@ [size 16 block 16 iv 16] #sha1 [size 20]
+        <rsa> @aes [size 16 block 16 iv 16] #sha1 [size 20]
     ]
     #{00 35} [
         TLS_RSA_WITH_AES_256_CBC_SHA  ; https://example.com will do this one
-        <rsa> aes@ [size 32 block 16 iv 16] #sha1 [size 20]
+        <rsa> @aes [size 32 block 16 iv 16] #sha1 [size 20]
     ]
     #{00 32} [
         TLS_DHE_DSS_WITH_AES_128_CBC_SHA
-        <dhe-dss> aes@ [size 16 block 16 iv 16] #sha1 [size 20]
+        <dhe-dss> @aes [size 16 block 16 iv 16] #sha1 [size 20]
     ]
     #{00 38} [
         TLS_DHE_DSS_WITH_AES_256_CBC_SHA
-        <dhe-dss> aes@ [size 32 block 16 iv 16] #sha1 [size 20]
+        <dhe-dss> @aes [size 32 block 16 iv 16] #sha1 [size 20]
     ]
     #{00 33} [
         TLS_DHE_RSA_WITH_AES_128_CBC_SHA
-        <dhe-rsa> aes@ [size 16 block 16 iv 16] #sha1 [size 20]
+        <dhe-rsa> @aes [size 16 block 16 iv 16] #sha1 [size 20]
     ]
     #{00 39} [
         TLS_DHE_RSA_WITH_AES_256_CBC_SHA
-        <dhe-rsa> aes@ [size 32 block 16 iv 16] #sha1 [size 20]
+        <dhe-rsa> @aes [size 32 block 16 iv 16] #sha1 [size 20]
     ]
 ]
 
@@ -229,10 +229,7 @@ parse-asn: function [
         <bmp-string>
     ])
 
-    ; !!! Older Rebols (used for bootstrap) dont' support leading @, but
-    ; that is what these should be.  Trailing @ in the meantime.
-    ;
-    class-types ([universal@ application@ context-specific@ private@])
+    class-types ([@universal @application @context-specific @private])
 ][
     data-start: data  ; may not be at head
     index: does [1 + offset-of data-start data]  ; calculates effective index
@@ -250,10 +247,10 @@ parse-asn: function [
                 class: pick class-types 1 + shift byte -6
 
                 switch class [
-                    universal@ [
+                    @universal [
                         tag: pick universal-tags 1 + (byte and+ 31)
                     ]
-                    context-specific@ [
+                    @context-specific [
                         tag: <context-specific>
                         val: byte and+ 31
                     ]
@@ -285,7 +282,7 @@ parse-asn: function [
 
             #value [
                 switch class [
-                    universal@ [
+                    @universal [
                         val: copy/part data size
                         keep/only/line compose/deep/only [
                             (tag) [
@@ -297,7 +294,7 @@ parse-asn: function [
                         ]
                     ]
 
-                    context-specific@ [
+                    @context-specific [
                         keep/only/line compose/deep [(tag) [(val) (size)]]
                         parse-asn copy/part data size  ; !!! ensures valid?
                     ]
@@ -765,7 +762,7 @@ encrypt-data: function [
     ]
 
     switch ctx/crypt-method [
-        aes@ [
+        @aes [
             ctx/encrypt-stream: default [
                 aes-key ctx/client-crypt-key ctx/client-iv
             ]
@@ -799,7 +796,7 @@ decrypt-data: function [
     data [binary!]
 ][
     switch ctx/crypt-method [
-        aes@ [
+        @aes [
             ctx/decrypt-stream: default [
                 aes-key/decrypt ctx/server-crypt-key ctx/server-iv
             ]
@@ -1261,14 +1258,14 @@ prf: function [
         s-2: copy at secret mid + either odd? len [0] [1]
 
         p-md5: copy #{}
-        a: seed ; A(0)
+        a: seed  ; A(0)
         while [output-length > length of p-md5] [
             a: checksum/method/key a 'md5 s-1 ; A(n)
             append p-md5 checksum/method/key join-all [a seed] 'md5 s-1
         ]
 
         p-sha1: copy #{}
-        a: seed ; A(0)
+        a: seed  ; A(0)
         while [output-length > length of p-sha1] [
             a: checksum/method/key a 'sha1 s-2 ; A(n)
             append p-sha1 checksum/method/key join-all [a seed] 'sha1 s-2
@@ -1286,7 +1283,7 @@ prf: function [
     ; hash function: https://tools.ietf.org/html/rfc5246#section-5
 
     p-sha256: copy #{}
-    a: seed ; A(0)
+    a: seed  ; A(0)
     while [output-length > length of p-sha256] [
         a: hmac-sha256 secret a
         append p-sha256 hmac-sha256 secret join-all [a seed]
@@ -1639,15 +1636,17 @@ sys/make-scheme [
                     select (ensure block! second find suite issue!) 'size
                 ]
 
-                crypt-method: does [first find suite email!]
+                crypt-method: does [first find suite sym-word!]
                 crypt-size: does [
-                    select (ensure block! second find suite email!) 'size
+                    select (ensure block! second find suite sym-word!) 'size
                 ]
                 block-size: does [
-                    try select (ensure block! second find suite email!) 'block
+                    try select (
+                        ensure block! second find suite sym-word!
+                    ) 'block
                 ]
                 iv-size: does [
-                    try select (ensure block! second find suite email!) 'iv
+                    try select (ensure block! second find suite sym-word!) 'iv
                 ]
 
                 client-crypt-key: _
@@ -1735,7 +1734,7 @@ sys/make-scheme [
             ;
             if port/state/suite [
                 switch port/state/crypt-method [
-                    aes@ [
+                    @aes [
                         if port/state/encrypt-stream [
                             port/state/encrypt-stream: _  ; will be GC'd
                         ]

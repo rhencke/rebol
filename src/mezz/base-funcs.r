@@ -47,7 +47,7 @@ maybe: enfixed func [
         ; While DEFAULT requires a BLOCK!, MAYBE does not.  Catch mistakes
         ; such as `x: maybe [...]`
         ;
-        fail 'optional [
+        fail @optional [
             "Literal" type of :optional "used w/MAYBE, use () if intentional"
         ]
     ]
@@ -476,7 +476,7 @@ so: enfixed func [
     feed [<opt> <end> any-value! <...>]
 ][
     if not condition [
-        fail 'condition make error! [
+        fail @condition make error! [
             type: 'Script
             id: 'assertion-failure
             arg1: compose [((:condition)) so]
@@ -500,7 +500,7 @@ matched: enfixed redescribe [
         value: :f/value  ; returned value
 
         if not do f [
-            fail 'f make error! [
+            fail @f make error! [
                 type: 'Script
                 id: 'assertion-failure
                 arg1: compose [(:value) matches (:test)]
@@ -520,7 +520,7 @@ was: enfixed redescribe [
 ](
     function [left [<opt> any-value!] right [<opt> any-value!]] [
         if :left != :right [
-            fail 'return make error! [
+            fail @return make error! [
                 type: 'Script
                 id: 'assertion-failure
                 arg1: compose [(:left) is (:right)]
@@ -605,7 +605,7 @@ really: func [
     ; as `x: really [...]`
     ;
     if semiquoted? 'value [
-        fail 'value [
+        fail @value [
             "Literal" type of :value "used w/REALLY, use () if intentional"
         ]
     ]
@@ -633,7 +633,7 @@ find-last: redescribe [
 ](
     adapt 'find-reverse [
         if not any-series? series [
-            fail 'series "Can only use FIND-LAST on ANY-SERIES!"
+            fail @series "Can only use FIND-LAST on ANY-SERIES!"
         ]
 
         series: tail of series  ; can't use plain TAIL due to /TAIL refinement
@@ -788,7 +788,7 @@ once-bar: func [
             |
         '|| = look: take lookahead  ; hack...recognize selfs
     ] else [
-        fail 'right [
+        fail @right [
             "|| expected single expression, found residual of" :look
         ]
     ]
@@ -1026,7 +1026,7 @@ fail: function [
     {Interrupts execution by reporting an error (a TRAP can intercept it).}
 
     :blame "Point to variable or parameter to blame"
-        [<skip> 'word! 'path!]
+        [<skip> sym-word! sym-path!]
     reason "ERROR! value, message text, or failure spec"
         [<end> error! text! block!]
     /where "Frame or parameter at which to indicate the error originated"
@@ -1047,13 +1047,13 @@ fail: function [
     ; !!! PATH! doesn't do BINDING OF, and in the general case it couldn't
     ; tell you where it resolved to without evaluating, just do WORD! for now.
     ;
-    frame: try match frame! binding of try match 'word! :blame
+    frame: try match frame! binding of try match sym-word! :blame
 
     error: switch type of :reason [
         error! [reason]
         text! [make error! reason]
         block! [
-            make error! (spaced reason else [
+            make error! (spaced reason else '[
                 Type: 'Script
                 id: 'unknown-error
             ])
@@ -1062,24 +1062,24 @@ fail: function [
         not set? 'reason so make error! compose [
             Type: 'Script
             ((case [
-                frame and [set? blame] [[
+                frame and [set? blame] '[
                     id: 'invalid-arg
                     arg1: label of frame
                     arg2: blame
                     arg3: get blame
-                ]]
-                frame and [unset? blame] [[
+                ]
+                frame and [unset? blame] '[
                     id: 'no-arg
                     arg1: label of frame
                     arg2: blame
-                ]]
-                :blame and [set? blame] [[
+                ]
+                :blame and [set? blame] '[
                     id: 'bad-value
                     arg1: get blame
-                ]]
-                default [[
+                ]
+                default '[
                     id: 'unknown-error
-                ]]
+                ]
             ]))
         ]
     ]
@@ -1089,9 +1089,9 @@ fail: function [
         ; If no specific location specified, and error doesn't already have a
         ; location, make it appear to originate from the frame calling FAIL.
         ;
-        where: default [frame or [binding of 'reason]]
+        where: default [frame or [binding of 'return]]
 
-        set-location-of-error error where  ; !!! must this be a native?
+        set-location-of-error error where  ; !!! why is this native?
     ]
 
     do ensure error! error  ; raise to nearest TRAP up the stack (if any)
