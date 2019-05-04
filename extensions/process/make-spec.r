@@ -21,3 +21,5 @@ depends: switch system-config/os-base [
 includes: copy [
     %prep/extensions/process ;for %tmp-extensions-process-init.inc
 ]
+
+requires: 'Filesystem  ; for FILE-TO-LOCAL in CALL

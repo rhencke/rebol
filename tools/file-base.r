@@ -204,7 +204,7 @@ made: [
     make-reb-lib.r      include/rebol.h
 ]
 
-main: 'host-main.c
+main: 'main.c
 
 boot-files: [
     version.r

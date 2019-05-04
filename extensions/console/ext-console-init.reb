@@ -22,7 +22,7 @@ REBOL [
         https://github.com/r3n/reboldocs/wiki/User-and-Console
 
         The HOST-CONSOLE Rebol function is invoked in a loop by a small C
-        main function (see %host-main.c).  HOST-CONSOLE does not itself run
+        main function (see %main/main.c).  HOST-CONSOLE does not itself run
         arbitrary user code with DO.  That would be risky, because it actually
         is not allowed to fail or be canceled with Ctrl-C.  Instead, it just
         gathers input...and produces a block which is returned to C to
@@ -52,14 +52,14 @@ REBOL [
 boot-print: redescribe [
     "Prints during boot when not quiet."
 ](
-    ; !!! Duplicates code in %host-start.r, where this isn't exported.
+    ; !!! Duplicates code in %main-startup.reb, where this isn't exported.
     enclose 'print func [f] [if not system/options/quiet [do f]]
 )
 
 loud-print: redescribe [
     "Prints during boot when verbose."
 ](
-    ; !!! Duplicates code in %host-start.r, where this isn't exported.
+    ; !!! Duplicates code in %main-startup.reb, where this isn't exported.
     enclose 'print func [f] [if system/options/verbose [do f]]
 )
 

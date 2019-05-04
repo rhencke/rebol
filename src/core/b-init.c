@@ -1420,6 +1420,8 @@ void Startup_Core(void)
 //
 void Shutdown_Core(void)
 {
+    OS_Quit_Devices(0);  // !!! %main.c used to call this before rebShutdown()
+
   #if !defined(NDEBUG)
     Check_Memory_Debug(); // old R3-Alpha check, call here to keep it working
   #endif

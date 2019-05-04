@@ -1140,13 +1140,13 @@ main: make libr3-core [
     name: 'main
 
     definitions: join ["REB_CORE"] app-config/definitions
-    includes: join app-config/includes %prep/os  ; generator may modify
+    includes: join app-config/includes %prep/main  ; generator may modify
     cflags: copy app-config/cflags  ; generator may modify
 
     depends: reduce [
         either user-config/main
         [gen-obj/main user-config/main]
-        [gen-obj/dir file-base/main src-dir/os/%]
+        [gen-obj/dir file-base/main src-dir/main/%]
     ]
 ]
 
@@ -1450,7 +1450,6 @@ prep: make rebmake/entry-class [
             unspaced [{OS_ID=} system-config/id]
             {GIT_COMMIT=$(GIT_COMMIT)}
         ]
-        keep [{$(REBOL)} tools-dir/make-host-init.r]
         keep [{$(REBOL)} tools-dir/make-reb-lib.r
             unspaced [{OS_ID=} system-config/id]
         ]
@@ -1491,6 +1490,8 @@ prep: make rebmake/entry-class [
                 ]
             ]
         ]
+
+        keep [{$(REBOL)} src-dir/main/prep-main.reb]
     ]
     depends: reduce [
         reb-tool

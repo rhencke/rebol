@@ -1,8 +1,10 @@
 REBOL [
     System: "REBOL [R3] Language Interpreter and Run-time Environment"
-    Title: "Command line processing and startup code called by %host-main.c"
+    Title: "Command line processing and startup code called by %main.c"
+    File: %main-startup.r
     Rights: {
         Copyright 2012 REBOL Technologies
+        Copyright 2012-2019 Rebol Open Source Contributors
         REBOL is a trademark of REBOL Technologies
     }
     License: {
@@ -10,18 +12,15 @@ REBOL [
         See: http://www.apache.org/licenses/LICENSE-2.0
     }
     Description: {
-        Codebases using the Rebol interpreter can vary widely, and might not
-        have command line arguments or user interface at all.
+        This is the Rebol code called by %main.c that handles things like
+        loading boot extensions, doing command-line processing, and getting
+        things otherwise set up for running the console.
 
-        This is a beginning attempt to factor out what used to be in
-        R3-Alpha's %sys-start.r and executed by RL_Start().  By making the
-        Startup_Core() routine more lightweight, it's possible to get the system
-        up to a point where it's possible to use Rebol code to do things like
-        command-line processing.
-
-        Still more factoring should be possible, so that different executables
-        (R3/Core, R3/View, Ren Garden) might reuse large parts of the
-        initialization, if they need to do things in common.
+        Because it is run early, this is before several things have been
+        established.  That includes a Ctrl-C handler.  It therefore should
+        not be running any user code directly.  Instead it should return a
+        request of code to be handed to the console extension to be provoked
+        with (see the /PROVOKE refinement of CONSOLE for more information).
     }
 ]
 
@@ -194,20 +193,30 @@ host-script-pre-load: function [
     ]
 ]
 
-get-current-exec: file-to-local: local-to-file: what-dir: change-dir: _
+; !!! This file is bound into lib, along with adding its top-level SET-WORD!s
+; to lib.  Due to the way the lib and user contexts work, these functions
+; from the Process and Filesystem extensions would not be bound, because
+; they are loaded after the code has started running:
+;
+; https://forum.rebol.info/t/the-real-story-about-user-and-lib-contexts/764
+;
+; We could use them via `lib/<whatever>`, but then each callsite would have to
+; document the issue.  So we make them SET-WORD!s added to lib up front, so
+; the lib modification gets picked up.
+;
+get-current-exec: file-to-local: local-to-file: what-dir: change-dir: null
 
-host-start: function [
+
+main-startup: function [
     "Usermode command-line processing: handles args, security, scripts"
 
     argv {Raw command line argument block received by main() as STRING!s}
         [block!]
     <with>
-    host-start host-prot  ; unset when finished with them
+    main-startup host-prot  ; unset when finished with them
     about usage license  ; exported to lib, see notes
     <static>
         o (system/options)  ; shorthand since options are often read/written
-    <with>
-        get-current-exec file-to-local local-to-file what-dir change-dir
 ][
     ; !!! The whole host startup/console is currently very manually loaded
     ; into its own isolated context by the C startup code.  This way, changes
@@ -235,7 +244,7 @@ host-start: function [
             [block! issue! text!]
         <with> instruction
     ][
-        really switch type of item [
+        switch type of item [
             issue! [
                 if not empty? instruction [append/line instruction '|]
                 insert instruction item
@@ -247,6 +256,7 @@ host-start: function [
                 if not empty? instruction [append/line instruction '|]
                 append/line instruction compose/deep <*> item
             ]
+            unreachable
         ]
     ]
 
@@ -356,18 +366,6 @@ host-start: function [
     ; It's not foolproof, so it might come back blank.  The console code can
     ; then decide if it wants to fall back on argv[0]
     ;
-    get-current-exec:
-        lib/get-current-exec: :system/modules/Filesystem/get-current-exec
-
-    local-to-file: lib/local-to-file:
-        :system/modules/Filesystem/local-to-file
-
-    file-to-local: lib/file-to-local:
-        :system/modules/Filesystem/file-to-local
-
-    what-dir: lib/what-dir: :system/modules/Filesystem/what-dir
-    change-dir: lib/change-dir: :system/modules/Filesystem/change-dir
-
     system/options/boot: lib/ensure [blank! file!] get-current-exec
 
     === HELPER FUNCTIONS ===
@@ -495,9 +493,8 @@ host-start: function [
     ; --do "..." or script arguments, and they will be run in a sequence.
     ;
     ; The instruction block is run in a sandbox which prevents cancellation
-    ; or failure from crashing the interpreter.  (HOST-START is not allowed
-    ; to cancel or fail--it is an implementation helper called from
-    ; HOST-CONSOLE, which is special.  See notes in HOST-CONSOLE.)
+    ; or failure from crashing the interpreter.  (MAIN-STARTUP is not allowed
+    ; to cancel or fail.  See notes in %src/main/README.md)
     ;
     ; The directives at the start of the instruction dictate that Ctrl-C
     ; during the startup instruction will exit with code 130, and any errors
@@ -839,7 +836,7 @@ comment [
         emit [do/only/args (<*> o/script) (<*> script-args)]
     ]
 
-    host-start: 'done
+    main-startup: 'done
 
     if quit-when-done [
         emit [quit 0]

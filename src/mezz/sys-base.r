@@ -74,7 +74,10 @@ do*: function [
 
     ; Note that DO of file path evaluates in the directory of the target file.
     ;
-    original-path: what-dir
+    ; !!! There are some issues with this idea of preserving the path--one of
+    ; which is that WHAT-DIR may return null.
+    ;
+    original-path: try what-dir
     original-script: _
 
     finalizer: func [

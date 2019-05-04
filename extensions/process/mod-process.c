@@ -291,7 +291,7 @@ REBNATIVE(terminate)
 
     if (getpid() == VAL_INT32(ARG(pid))) {
         // signal is not as reliable for this purpose
-        // it's caught in host-main.c as to stop the evaluation
+        // it's caught in main.c as to stop the evaluation
         fail ("Use QUIT or EXIT-REBOL to terminate current process, instead");
     }
     kill_process(VAL_INT32(ARG(pid)), SIGTERM);

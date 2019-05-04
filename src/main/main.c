@@ -1,13 +1,13 @@
 //
-//  File: %host-main.c
-//  Summary: "Host environment main entry point"
+//  File: %main.c
+//  Summary: "Console application main entry point"
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2018 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -20,9 +20,8 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// %host-main.c is the original entry point for the open-sourced R3-Alpha.
-// Depending on whether it was POSIX or Windows, it would define either a
-// `main()` or `WinMain()`, and implemented a very rudimentary console.
+// This contains the main() routine, which uses the libRebol API to start up
+// an interactive console system for environments that can compile C.
 //
 // On POSIX systems it uses <termios.h> to implement line editing:
 //
@@ -31,6 +30,12 @@
 // On Windows it uses the Console API:
 //
 // https://msdn.microsoft.com/en-us/library/ms682087.aspx
+//
+// Very little work is done in C.  For instance, the command line arguments
+// are processed using PARSE by Rebol code that is embedded into the
+// executable as compressed bytes.  And the majority of the console behavior
+// is defined by Rebol code in %extensions/console (though it has some of
+// its own C to handle things like 
 //
 
 #include <stdlib.h>
@@ -44,12 +49,25 @@
     #include <windows.h>
 
     #include <shellapi.h>  // for CommandLineToArgvW()
-
-    #undef IS_ERROR // %windows.h defines this, but so does %sys-core.h
 #endif
 
+#include "pstdint.h"  // stdint.h for building w/pre-C99 compilers--see notes
+#include "pstdint.h"  // stdbool.h for building w/pre-C99 compilers--see notes
 
-#include "sys-core.h"
+// This file should only use the external API.  However, it can be helpful in
+// debug situations to have access to PROBE() and other internal features.
+//
+#if !defined(DEBUG_MAIN_USING_SYS_CORE)
+    #define REBOL_EXPLICIT_END  // for building w/pre-C99 compilers--see notes
+    #include "rebol.h"  // note: includes pstdint.h and pstdbool.h by default
+#else
+    #undef IS_ERROR  // windows.h has its own definition of this macro
+    #include "sys-core.h"
+#endif
+
+#include "assert-fixes.h"  // see file for notes
+
+#include "reb-c.h"  // provides cast(), UNUSED(), etc.
 
 
 // Initialization done by rebStartup() is intended to be as basic as possible
@@ -58,12 +76,13 @@
 // a working evaluator.  This includes PARSE to process the command line
 // parameters, or PRINT to output boot banners.
 //
-// The %make-host-init.r file takes the %host-start.r script and turns it
-// into a compressed binary C literal.  That literal can be LOADed and
-// executed to return the HOST-START function, which takes the command line
-// arguments as an array of STRING! and handles it from there.
+// The %prep-main.reb script bundles the %main-startup.reb with some other
+// files, and turns the bundle into a compressed binary C literal.  That
+// literal can be LOADed and executed to return the MAIN-STARTUP function,
+// which takes the command line arguments as an array of STRING! and handles
+// it from there.
 //
-#include "tmp-host-start.inc"
+#include "tmp-main-startup.inc"
 
 
 #ifdef TO_WINDOWS
@@ -166,17 +185,17 @@
 int main(int argc, char *argv_ansi[])
 {
     // Note: By default, Ctrl-C is not hooked or handled.  This is done by
-    // the console extension.  Halting should not be possible while the
-    // mezzanine is loading.
+    // the console extension (%extensions/console).  Halting should not be
+    // possible while the mezzanine is loading.
 
     rebStartup();
 
     // With interpreter startup done, we want to turn the platform-dependent
     // argument strings into a block of Rebol strings as soon as possible.
     // That way the command line argument processing can be taken care of by
-    // PARSE in the HOST-STARTUP user function, instead of C code!
+    // PARSE in the MAIN-STARTUP user function, instead of C code!
     //
-    REBVAL *argv_block = rebValue("lib/copy []", rebEND);
+    REBVAL *argv_block = rebValue("copy []", rebEND);
 
   #ifdef TO_WINDOWS
     //
@@ -192,7 +211,7 @@ int main(int argc, char *argv_ansi[])
     int i;
     for (i = 0; i != argc; ++i) {
         if (argv_ucs2[i] == nullptr)
-            continue; // !!! Comment here said "shell bug" (?)
+            continue;  // !!! R3-Alpha commented here saying "shell bug" (?)
 
         // Note: rebTextWide() currently only supports UCS-2, so codepoints
         // needing more than two bytes to be represented will cause a failure.
@@ -202,98 +221,74 @@ int main(int argc, char *argv_ansi[])
         rebEND);
     }
   #else
-    // Just take the ANSI C "char*" args...which should ideally be in UTF8.
+    // Just take the ANSI C "char*" args...which should ideally be in UTF-8.
     //
     int i = 0;
     for (; i != argc; ++i) {
         if (argv_ansi[i] == nullptr)
-            continue; // !!! Comment here said "shell bug" (?)
+            continue;  // !!! R3-Alpha commented here saying "shell bug" (?)
 
         rebElide("append", argv_block, rebT(argv_ansi[i]), rebEND);
     }
   #endif
 
-    size_t host_utf8_size;
-    const int max = -1; // decompressed size is stored in gzip
-    void *host_utf8_bytes = rebGunzipAlloc(
-        &host_utf8_size,
-        &Reb_Init_Code[0],
-        REB_INIT_SIZE,
+    size_t startup_utf8_size;
+    const int max = -1;  // decompressed size is stored in gzip
+    void *startup_utf8_bytes = rebGunzipAlloc(
+        &startup_utf8_size,
+        &Main_Startup_Code[0],
+        MAIN_STARTUP_SIZE,
         max
     );
 
     // The inflated data was allocated with rebMalloc, and hence can be
     // repossessed as a BINARY!
     //
-    REBVAL *host_bin = rebRepossess(host_utf8_bytes, host_utf8_size);
+    REBVAL *startup_bin = rebRepossess(startup_utf8_bytes, startup_utf8_size);
 
-    // Use TRANSCODE to get a BLOCK! from the BINARY!
+    // !!! The startup code isn't really set up to run as a Module, though it
+    // probably should be.  This is a carry-over of what some %sys-core.h
+    // code was doing...adding top-level set-words to the lib context, while
+    // binding everything to lib.  What you avoid by running this in the
+    // user context is getting an importation of every word mentioned in the
+    // host startup file...that's a lot of words, like CONSOLE.  And once the
+    // word is imported from lib as NULL, if it gets added later (e.g. by
+    // loading extensions) it won't update:
     //
-    REBVAL *host_code_group = rebValue(
-        "use [end code] [",
-            "end: lib/transcode/file 'code", rebR(host_bin),  // release bin
-                "%tmp-host-start.inc",
-            "assert [empty? end]",
-            "as group! code"
-        "]",
-    rebEND); // turn into group so it can run without a DO in stack trace
-
-    // Create a new context specifically for startup.  This way, changes
-    // to the user context should hopefully not affect it...e.g. if the user
-    // redefines PRINT in their script, the console should keep working.
+    // https://forum.rebol.info/t/764
     //
-    // !!! In the API source here calling methods textually, the current way
-    // of insulating by using lib, e.g. `rebValue("lib/error?", ...)`, is still
-    // using *the user context's notion of `lib`*.  So if they said `lib: 10`
-    // then the console would die.  General API point to consider, as the
-    // design emerges.
+    // R3-Alpha didn't resolve these issues, so for now the code is mostly
+    // just following what it did before...yet pushing more and more of it
+    // out through a user-friendly API.  But fundamental work is needed.
     //
-    REBCTX *startup_ctx = Alloc_Context_Core(
-        REB_OBJECT,
-        80,
-        NODE_FLAG_MANAGED // no PUSH_GC_GUARD needed, gets referenced
-    );
-
-    // Bind words that can be found in lib context (don't add any new words)
-    //
-    // !!! Directly binding to lib means that the startup *could* screw up and
-    // overwrite lib declarations.  It should probably import its own copy,
-    // just in case.  (Lib should also be protected by default)
-    //
-    Bind_Values_Deep(VAL_ARRAY_HEAD(host_code_group), Lib_Context);
-
-    // Do two passes on the startup context.  One to find SET-WORD!s at the
-    // top level and add them to the context, and another pass to deeply bind
-    // to those declarations.
-    //
-    Bind_Values_Set_Midstream_Shallow(
-        VAL_ARRAY_HEAD(host_code_group),
-        startup_ctx
-    );
-    Bind_Values_Deep(VAL_ARRAY_HEAD(host_code_group), startup_ctx);
-
-    REBVAL *host_start = rebValue(host_code_group, rebEND);
-    if (rebNot("action?", rebQ1(host_start), rebEND))
-        rebJumps("PANIC-VALUE", rebQ1(host_start), rebEND);
-
-    rebRelease(host_code_group);
-
-    // This runs the HOST-START, which returns *requests* to execute
-    // arbitrary code by way of its return results.  The TRAP and CATCH
-    // are thus here to intercept bugs *in HOST-START itself*.
-    //
-    REBVAL *trapped = rebValue(
-        "lib/entrap [",  // HOST-START action! takes one argument (argv[])
-            host_start, rebR(argv_block),
+    REBVAL *main_startup = rebValue(
+        "use [code] [",
+            "transcode 'code", rebR(startup_bin),
+            "bind/only/set code lib",  // only ADD top level set-word!s to lib
+            "bind code lib",  // but BIND to anything else that exists in lib
+            "do code",
         "]",
     rebEND);
-    rebRelease(host_start);
 
-    if (rebDid("lib/error?", trapped, rebEND)) // error in HOST-START itself
-        rebJumps("lib/PANIC", trapped, rebEND);
+    if (rebNot("action?", rebQ1(main_startup), rebEND))
+        rebJumps("PANIC-VALUE", rebQ1(main_startup), rebEND);  // terminates
 
-    REBVAL *code = rebValue("lib/first", trapped, rebEND); // entrap []'s output
-    rebRelease(trapped); // don't need the outer block any more
+    // This runs the MAIN-STARTUP, which returns *requests* to execute
+    // arbitrary code by way of its return results.  The ENTRAP is thus here
+    // to intercept bugs *in MAIN-STARTUP itself*.
+    //
+    REBVAL *trapped = rebValue(
+        "entrap [",  // MAIN-STARTUP action! takes one argument (argv[])
+            main_startup, rebR(argv_block),
+        "]",
+    rebEND);
+    rebRelease(main_startup);
+
+    if (rebDid("error?", trapped, rebEND))  // error in MAIN-STARTUP itself
+        rebJumps("PANIC", trapped, rebEND);  // terminates
+
+    REBVAL *code = rebValue("first", trapped, rebEND); // entrap's output
+    rebRelease(trapped);  // don't need the outer block any more
 
     // !!! For the moment, the CONSOLE extension does all the work of running
     // usermode code or interpreting exit codes.  This requires significant
@@ -307,10 +302,8 @@ int main(int argc, char *argv_ansi[])
 
     int exit_status = rebUnboxInteger(rebR(result), rebEND);
 
-    OS_Quit_Devices(0);
+    const bool clean = false;  // process exiting, not necessary
+    rebShutdown(clean);  // Note: debug build runs a clean shutdown anyway
 
-    const bool clean = false; // process exiting, not necessary
-    rebShutdown(clean); // Note: debug build runs a clean shutdown anyway
-
-    return exit_status; // http://stackoverflow.com/q/1101957/
+    return exit_status;  // http://stackoverflow.com/q/1101957/
 }

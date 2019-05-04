@@ -383,15 +383,6 @@ stripload: function [
         [file!]
     /header "Request a block with both the header and contents (no [])"
 ][
-    text: as text! read file
-    contents: find/tail text "^/]"
-
-    if header [
-        if not header: copy/part (find/tail text "[") (find text "^/]") [
-            fail ["Couldn't locate header in STRIPLOAD of" file]
-        ]
-    ]
-
     ; Removing spacing and comments from a Rebol file is not exactly trivial
     ; without LOAD.  But not impossible...and any tough cases in the mezzanine
     ; can be dealt with by hand.
@@ -417,7 +408,7 @@ stripload: function [
         ]
     ]
 
-    parse contents [
+    rule: [
         while [  ; https://github.com/rebol/rebol-issues/issues/1401
             newline [while [comment-or-space-rule remove newline]]
             |
@@ -441,8 +432,22 @@ stripload: function [
             skip
         ]
         end
-    ] else [
-        fail ["STRIPLOAD failed to munge out comments for" file]
+    ]
+
+    text: as text! read file
+    contents: find/tail text "^/]"
+
+    if header [
+        if not header: copy/part (find/tail text "[") (find text "^/]") [
+            fail ["Couldn't locate header in STRIPLOAD of" file]
+        ]
+        parse header rule else [
+            fail ["STRIPLOAD failed to munge header of" file]
+        ]
+    ]
+
+    parse contents rule else [
+        fail ["STRIPLOAD failed to munge contents of" file]
     ]
 
     if not empty? pushed [

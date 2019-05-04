@@ -170,6 +170,80 @@
 #endif
 
 
+//=//// FEATURE TESTING AND ATTRIBUTE MACROS //////////////////////////////=//
+//
+// Feature testing macros __has_builtin() and __has_feature() were originally
+// a Clang extension, but GCC added support for them.  If compiler doesn't
+// have them, default all features unavailable.
+//
+// http://clang.llvm.org/docs/LanguageExtensions.html#feature-checking-macros
+//
+// Similarly, the __attribute__ feature is not in the C++ standard and only
+// available in some compilers.  Even compilers that have __attribute__ may
+// have different individual attributes available on a case-by-case basis.
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// Note: Placing the attribute after the prototype seems to lead to
+// complaints, and technically there is a suggestion you may only define
+// attributes on prototypes--not definitions:
+//
+// http://stackoverflow.com/q/23917031/211160
+//
+// Putting the attribute *before* the prototype seems to allow it on both the
+// prototype and definition in gcc, however.
+//
+
+#ifndef __has_builtin
+    #define __has_builtin(x) 0
+#endif
+
+#ifndef __has_feature
+    #define __has_feature(x) 0
+#endif
+
+#ifdef __GNUC__
+    #define GCC_VERSION_AT_LEAST(m, n) \
+        (__GNUC__ > (m) || (__GNUC__ == (m) && __GNUC_MINOR__ >= (n)))
+#else
+    #define GCC_VERSION_AT_LEAST(m, n) 0
+#endif
+
+
+//=//// UNREACHABLE CODE ANNOTATIONS //////////////////////////////////////=//
+//
+// Because Rebol uses `longjmp` and `exit` there are cases where a function
+// might look like not all paths return a value, when those paths actually
+// aren't supposed to return at all.  For instance:
+//
+//     int foo(int x) {
+//         if (x < 1020)
+//             return x + 304;
+//         fail ("x is too big"); // compiler may warn about no return value
+//     }
+//
+// One way of annotating to say this is okay is on the caller, with DEAD_END:
+//
+//     int foo(int x) {
+//         if (x < 1020)
+//             return x + 304;
+//         fail ("x is too big");
+//         DEAD_END; // our warning-suppression macro for applicable compilers
+//     }
+//
+// DEAD_END is just a no-op in compilers that don't have the feature of
+// suppressing the warning--which can often mean they don't have the warning
+// in the first place.
+//
+// Another macro we define is ATTRIBUTE_NO_RETURN.  This can be put on the
+// declaration site of a function like `fail()` itself, so the callsites don't
+// need to be changed.  As with DEAD_END it degrades into a no-op in compilers
+// that don't support it.
+//
+
+/* THESE HAVE BEEN RELOCATED TO %rebol.h, SEE DEFINITIONS THERE */
+
+
 //=//// STATIC ASSERT /////////////////////////////////////////////////////=//
 //
 // Some conditions can be checked at compile-time, instead of deferred to a
@@ -181,8 +255,8 @@
 //
 // http://stackoverflow.com/questions/3385515/static-assert-in-c
 //
-// But it's too limited, and since the code can (and should) be built as C++11
-// to test.  So just make it a no-op in the C build.
+// But it's too limited.  Since the code can (and should) be built as C++11
+// to test anyway, just make it a no-op in the C build.
 //
 #ifdef CPLUSPLUS_11
     #define STATIC_ASSERT(cond) \
