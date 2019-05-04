@@ -161,7 +161,7 @@ enum parse_flags {
     PF_REMOVE = 1 << 6,
     PF_INSERT = 1 << 7,
     PF_CHANGE = 1 << 8,
-    PF_WHILE = 1 << 9,
+    PF_ANY_OR_SOME = 1 << 9,
     PF_ONE_RULE = 1 << 10  // signal to only run one step of the parse
 };
 
@@ -1534,18 +1534,20 @@ REBNATIVE(subparse)
                 switch (cmd) {
                   case SYM_WHILE:
                     assert(mincount == 1 and maxcount == 1);  // true on entry
-                    flags |= PF_WHILE;
-                    goto sym_any;
+                    mincount = 0;
+                    maxcount = INT32_MAX;
+                    FETCH_NEXT_RULE(f);
+                    continue;
 
                   case SYM_ANY:
                     assert(mincount == 1 and maxcount == 1);  // true on entry
-                  sym_any:;
                     mincount = 0;
                     goto sym_some;
 
                   case SYM_SOME:
                     assert(mincount == 1 and maxcount == 1);  // true on entry
                   sym_some:;
+                    flags |= PF_ANY_OR_SOME;
                     maxcount = INT32_MAX;
                     FETCH_NEXT_RULE(f);
                     continue;
@@ -1808,6 +1810,10 @@ REBNATIVE(subparse)
                   //    (go-on?: either condition [[accept]][[reject]])
                   //    go-on?
                   //
+                  // !!! Note: PARSE/REDBOL may be a modality it needs to
+                  // support, and Red added IF.  It might be necessary to keep
+                  // it (though Rebol2 did not have IF in PARSE...)
+                  //
                   case SYM_IF: {
                     FETCH_NEXT_RULE(f);
                     if (IS_END(P_RULE))
@@ -1988,7 +1994,6 @@ REBNATIVE(subparse)
             goto post_match_processing;
 
           case REB_INTEGER: // Specify count or range count, 1 or 2 integers
-            flags |= PF_WHILE;
             mincount = maxcount = Int32s(rule, 0);
 
             FETCH_NEXT_RULE(f);
@@ -2334,40 +2339,36 @@ REBNATIVE(subparse)
 
             assert(i != THROWN_FLAG);
 
-            // Necessary for special cases like: some [to end]
-            // i: indicates new index or failure of the match, but
-            // that does not mean failure of the rule, because optional
-            // matches can still succeed, if if the last match failed.
+            // i: indicates new index or failure of the *match*, but
+            // that does not mean failure of the *rule*, because optional
+            // matches can still succeed when the last match failed.
             //
-            if (i != END_FLAG) {
-                count++; // may overflow to negative
-
-                if (count < 0)
-                    count = INT32_MAX; // the forever case
-
-                if (i == P_POS and not (flags & PF_WHILE)) {
-                    //
-                    // input did not advance
-
-                    if (count < mincount) {
-                        P_POS = NOT_FOUND; // was not enough
-                    }
-                    break;
-                }
-            }
-            else {
+            if (i == END_FLAG) {  // this match failed
                 if (count < mincount) {
-                    P_POS = NOT_FOUND; // was not enough
-                }
-                else if (i != END_FLAG) {
-                    P_POS = cast(REBCNT, i);
+                    P_POS = NOT_FOUND;  // number of matches was not enough
                 }
                 else {
                     // just keep index as is.
                 }
                 break;
             }
+
+            count++;  // may overflow to negative
+            if (count < 0)
+                count = INT32_MAX; // the forever case
+
             P_POS = cast(REBCNT, i);
+
+            if (i == SER_LEN(P_INPUT) and (flags & PF_ANY_OR_SOME)) {
+                //
+                // ANY and SOME auto terminate on e.g. `some [... | end]`.
+                // But WHILE is conceptually a synonym for a self-recursive
+                // rule and does not consider it a termination.  See:
+                //
+                // https://github.com/rebol/rebol-issues/issues/1268
+                //
+                break;
+            }
         }
 
         if (P_POS > SER_LEN(P_INPUT))

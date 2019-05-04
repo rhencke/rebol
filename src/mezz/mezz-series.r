@@ -642,7 +642,7 @@ split: function [
             ensure [bitset! text! char! block!] dlm
 
             [
-                any [mk1: some [mk2: dlm break | skip] (
+                any [mk1: while [mk2: [dlm | end] break | skip] (
                     keep/only copy/part mk1 mk2
                 )]
                 end

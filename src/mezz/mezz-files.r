@@ -51,12 +51,12 @@ clean-path: function [
         some [
             "../" (count: me + 1)
             | "./"
-            | #"/" (
+            | "/" (
                 if (not file? file) or [#"/" <> last out] [
                     append out #"/"
                 ]
             )
-            | copy f [to #"/" | to end] (
+            | copy f [to "/" | to end] (
                 if count > 0 [
                     count: me - 1
                 ] else [

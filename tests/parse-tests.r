@@ -119,8 +119,9 @@
 )]
 [#1268 (
     i: 0
-    parse "a" [any [(i: i + 1)] end]
-    i == 1
+    <infinite?> = catch [
+        parse "a" [any [(i: i + 1) (if i > 100 [throw <infinite?>])] end]
+    ]
 )]
 [#1268 (
     i: 0
@@ -505,3 +506,6 @@
     ]
     text = "a^/"
 ])
+
+
+(did parse "a" [some [to end] end])

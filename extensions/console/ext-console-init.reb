@@ -548,7 +548,7 @@ ext-console-impl: function [
 
     if error? :result [  ; all other errors
         ;
-        ; Errors can occur during HOST-START, before the SYSTEM/CONSOLE has
+        ; Errors can occur during MAIN-STARTUP, before the SYSTEM/CONSOLE has
         ; a chance to be initialized (it may *never* be initialized if the
         ; interpreter is being called non-interactively from the shell).
         ;
