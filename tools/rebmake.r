@@ -1767,8 +1767,20 @@ visual-studio: make generator-class [
 
     find-optimization: method [
         return: [text!]
-        optimization
+        project [object!]
+        obj [blank! object!]
     ][
+        optimization: all [
+            obj
+            obj/optimization = #prefer-O2-optimization
+            elide (obj/optimization: _)
+            project/optimization = 1
+        ]
+        then [2]
+        else [
+            either obj [obj/optimization] [project/optimization]
+        ]
+
         switch optimization [
             0 _ 'no 'false 'off #[false] [
                 "Disabled"
@@ -1947,7 +1959,7 @@ visual-studio: make generator-class [
       <AdditionalIncludeDirectories>} inc {</AdditionalIncludeDirectories>
       <AssemblerListingLocation>} build-type {/</AssemblerListingLocation>}
       ;RuntimeCheck is not compatible with optimization
-      if not find-optimization? project/optimization [ {
+      if not find-optimization? project [ {
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>}
       ]
       if compile-as [
@@ -1958,7 +1970,7 @@ visual-studio: make generator-class [
       <DebugInformationFormat>} if build-type = "debug" ["ProgramDatabase"] {</DebugInformationFormat>
       <ExceptionHandling>Sync</ExceptionHandling>
       <InlineFunctionExpansion>} switch build-type ["debug" ["Disabled"] "release" ["AnySuitable"]] {</InlineFunctionExpansion>
-      <Optimization>} find-optimization project/optimization {</Optimization>
+      <Optimization>} find-optimization project _ {</Optimization>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <RuntimeLibrary>MultiThreaded} if build-type = "debug" ["Debug"] {DLL</RuntimeLibrary>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
@@ -2047,7 +2059,7 @@ visual-studio: make generator-class [
                     ]
                     if o/optimization [
                         unspaced [
-                            {        <Optimization>} find-optimization o/optimization {</Optimization>^/}
+                            {        <Optimization>} find-optimization project o {</Optimization>^/}
                         ]
                     ]
                     use [i o-inc][
