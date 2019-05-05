@@ -8,4 +8,4 @@ includes: [
 
 depends: [
     %signal/dev-signal.c
-] 
+]

@@ -1102,6 +1102,22 @@ REBNATIVE(as)
 
         if (IS_BINARY(v)) {  // If valid UTF-8, BINARY! aliases as ANY-STRING!
             REBBIN *bin = VAL_SERIES(v);
+            REBSIZ offset = VAL_INDEX(v);
+
+            // The position in the binary must correspond to an actual
+            // codepoint boundary.  UTF-8 continuation byte is any byte where
+            // top two bits are 10.
+            //
+            // !!! Should this be checked before or after the valid UTF-8?
+            // Checking before keeps from constraining input on errors, but
+            // may be misleading by suggesting a valid "codepoint" was seen.
+            //
+            REBYTE *at_ptr = BIN_AT(bin, offset);
+            if ((*at_ptr & 0xC0) == 0x80)  // middle of codepoint (or invalid)
+                fail ("Index at codepoint to convert binary to ANY-STRING!");
+
+            REBSTR *str;
+            REBCNT index;
             if (NOT_SERIES_FLAG(bin, IS_STRING)) {
                 //
                 // If the binary wasn't created as a view on string data to
@@ -1112,14 +1128,19 @@ REBNATIVE(as)
                 //
                 if (not Is_Series_Frozen(bin))
                     if (GET_CELL_FLAG(v, CONST))
-                        fail ("Can't alias const unlocked BINARY! to string");
+                        fail (Error_Alias_Constrains_Raw());
 
                 bool all_ascii = true;
                 REBCNT num_codepoints = 0;
 
+                index = 0;
+
                 REBSIZ bytes_left = BIN_LEN(bin);
                 const REBYTE *bp = BIN_HEAD(bin);
                 for (; bytes_left > 0; --bytes_left, ++bp) {
+                    if (bp < at_ptr)
+                        ++index;
+
                     REBUNI c = *bp;
                     if (c >= 0x80) {
                         bp = Back_Scan_UTF8_Char(&c, bp, &bytes_left);
@@ -1133,12 +1154,32 @@ REBNATIVE(as)
                 }
                 SET_SERIES_FLAG(bin, IS_STRING);
                 SET_SERIES_FLAG(bin, UTF8_NONWORD);
-                SET_STR_LEN_SIZE(STR(bin), num_codepoints, BIN_LEN(bin));
+                str = STR(bin);
+
+                SET_STR_LEN_SIZE(str, num_codepoints, BIN_LEN(bin));
                 LINK(bin).bookmarks = nullptr;
+
+                // !!! TBD: cache index/offset
 
                 UNUSED(all_ascii);  // TBD: maintain cache
             }
-            Init_Any_String(D_OUT, new_kind, STR(bin));
+            else {
+                // !!! It's a string series, but or mapping acceleration is
+                // from index to offset... not offset to index.  Recalculate
+                // the slow way for now.
+
+                str = STR(bin);
+                index = 0;
+
+                REBCHR(*) cp = STR_HEAD(str);
+                REBCNT len = STR_LEN(str);
+                while (index < len and cp != at_ptr) {
+                    ++index;
+                    cp = NEXT_STR(cp);
+                }
+            }
+
+            Init_Any_String_At(D_OUT, new_kind, str, index);
             return Inherit_Const(Quotify(D_OUT, quotes), v);
         }
 
@@ -1166,7 +1207,7 @@ REBNATIVE(as)
 
                 if (not Is_Series_Frozen(SER(s)))
                     if (GET_CELL_FLAG(v, CONST))
-                        fail ("Can't alias const unlocked string to word");
+                        fail (Error_Alias_Constrains_Raw());
 
                 Freeze_Sequence(VAL_SERIES(v));
 
@@ -1179,23 +1220,41 @@ REBNATIVE(as)
         }
 
         if (IS_BINARY(v)) {
-            REBBIN *bin = VAL_BINARY(v);
+            if (VAL_INDEX(v) != 0)  // ANY-WORD! stores binding, not position
+                fail ("Cannot convert BINARY! to WORD! unless at the head");
 
-            if (not Is_Series_Frozen(bin))
-                if (GET_CELL_FLAG(v, CONST))
-                    fail ("Can't alias const unlocked string to word");
-
-            Freeze_Sequence(VAL_SERIES(v));
-
-            // !!! Need to check here, not just for invalid characters but
-            // also for invalid UTF-8 sequences...
+            // We have to permanently freeze the underlying series from any
+            // mutation to use it in a WORD! (and also, may add STRING flag);
             //
+            REBBIN *bin = VAL_BINARY(v);
+            if (not Is_Series_Frozen(bin))
+                if (GET_CELL_FLAG(v, CONST))  // can't freeze or add IS_STRING
+                    fail (Error_Alias_Constrains_Raw());
+
+            REBSTR *str;
+            if (IS_SER_STRING(bin) and IS_STR_SYMBOL(STR(bin)))
+                str = STR(bin);
+            else {
+                // !!! There isn't yet a mechanic for interning an existing
+                // string series.  That requires refactoring.  It would need
+                // to still check for invalid patterns for words (e.g.
+                // invalid UTF-8 or even just internal spaces/etc.).
+                //
+                // We do a new interning for now.  But we do that interning
+                // *before* freezing the old string, so that if there's an
+                // error converting we don't add any constraints to the input.
+                //
+                str = Intern_UTF8_Managed(VAL_BIN_AT(v), VAL_LEN_AT(v));
+
+                // Constrain the input in the way it would be if we were doing
+                // the more efficient reuse.
+                //
+                SET_SERIES_FLAG(bin, IS_STRING);  // might be set already
+                Freeze_Sequence(bin);
+            }
+
             return Inherit_Const(
-                Quotify(Init_Any_Word(
-                    D_OUT,
-                    new_kind,
-                    Intern_UTF8_Managed(VAL_BIN_AT(v), VAL_LEN_AT(v))
-                ), quotes),
+                Quotify(Init_Any_Word(D_OUT, new_kind, str), quotes),
                 v
             );
         }
@@ -1206,7 +1265,11 @@ REBNATIVE(as)
 
       case REB_BINARY: {
         if (ANY_WORD(v) or ANY_STRING(v)) {
-            Init_Binary(D_OUT, SER(VAL_STRING(v)));
+            Init_Binary_At(
+                D_OUT,
+                SER(VAL_STRING(v)),
+                ANY_WORD(v) ? 0 : VAL_OFFSET(v)
+            );
             return Inherit_Const(Quotify(D_OUT, quotes), v);
         }
 

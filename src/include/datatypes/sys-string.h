@@ -805,7 +805,7 @@ inline static REBCNT Num_Codepoints_For_Bytes(
 //=//// ANY-STRING! CONVENIENCE MACROS ////////////////////////////////////=//
 
 #define Init_Any_String(v,t,s) \
-    Init_Any_String_At_Core((v), (t), (s), 0)
+    Init_Any_String_At((v), (t), (s), 0)
 
 #define Init_Text(v,s)      Init_Any_String((v), REB_TEXT, (s))
 #define Init_File(v,s)      Init_Any_String((v), REB_FILE, (s))

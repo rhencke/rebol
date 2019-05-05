@@ -887,7 +887,7 @@ write output-dir/emterpreter.blacklist.json json-collect [
             ; on it inside a JS-AWAITER, see rebPromise() and this post:
             ;
             ; https://stackoverflow.com/q/55186667/
-            ; 
+            ;
             continue
         ]
 

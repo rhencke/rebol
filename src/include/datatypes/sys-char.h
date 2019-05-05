@@ -285,7 +285,10 @@ inline static const REBYTE *Back_Scan_UTF8_Char(
     // Rebol strings are able to store NUL characters (they track a length
     // and are not zero-terminated.)  Should this be legal?
     //
-    assert(*out != 0);
+    // !!! Note also that there is a trend to decode illegal codepoints as
+    // a substitution character.  If Rebol is willing to do this, at what
+    // level would that decision be made?
+    //
     if (*out == 0)
         return nullptr;
 

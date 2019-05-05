@@ -238,7 +238,7 @@ start-console: function [
 
     return: <void>
     /skin "Custom skin (e.g. derived from MAKE CONSOLE!) or file"
-        [file! object!] 
+        [file! object!]
     <static>
         o (system/options)  ; shorthand since options are often read/written
 ][

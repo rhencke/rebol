@@ -244,8 +244,12 @@ REBCNT Modify_String_Or_Binary(
     REBSIZ dst_off;
     if (IS_BINARY(dst)) {  // check invariants up front even if NULL / no-op
         if (IS_SER_STRING(dst_ser)) {
-            if (*BIN_AT(dst_ser, dst_idx) >= 0x80)  // in middle of codepoint
-                fail ("Index codepoint to modify string-aliased-BINARY!");
+            //
+            // UTF-8 continuation byte is any byte where top two bits are 10
+            //
+            REBYTE at = *BIN_AT(dst_ser, dst_idx);
+            if ((at & 0xC0) == 0x80)  // in middle of codepoint
+                fail ("Index at codepoint to modify string-aliased-BINARY!");
             dst_len_old = STR_LEN(STR(dst_ser));
         }
         dst_off = dst_idx;
@@ -353,7 +357,7 @@ REBCNT Modify_String_Or_Binary(
                     REBUNI c = *bp;
                     if (c >= 0x80) {
                         bp = Back_Scan_UTF8_Char(&c, bp, &bytes_left);
-                        if (bp == NULL)  // !!! Should Back_Scan() fail?
+                        if (not bp)  // !!! Should Back_Scan() fail?
                             fail (Error_Bad_Utf8_Raw());
                     }
                     ++src_len_raw;

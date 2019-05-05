@@ -677,7 +677,7 @@ EXTERN_C void RL_rebSignalRejectNative_internal(intptr_t frame_id) {
     //
     // This signal is happening during the .catch() clause of the internal
     // routine that runs natives.  But it happens after it is no longer
-    // on the stack, e.g. 
+    // on the stack, e.g.
     //
     //     async function js_awaiter_impl() { throw 1020; }
     //     function js_awaiter_invoker() {
@@ -869,7 +869,7 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
 
         MAIN_THREAD_EM_ASM(  // blocking call
             {
-                reb.RunNative_internal($0, $1);  // `;` is necessary here 
+                reb.RunNative_internal($0, $1);  // `;` is necessary here
                 _RL_rebTakeAwaitLock_internal();
             },
             native_id,  // => $0
@@ -1206,7 +1206,7 @@ REBNATIVE(js_trace)
 REBNATIVE(js_stacklimit)
 {
     JAVASCRIPT_INCLUDE_PARAMS_OF_JS_STACKLIMIT;
-    
+
     REBDSP dsp_orig = DSP;
 
     Init_Integer(DS_PUSH(), cast(uintptr_t, &dsp_orig));  // local pointer

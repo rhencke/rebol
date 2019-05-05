@@ -195,6 +195,7 @@ Script: [
     dialect:            [{incorrect} :arg1 {dialect usage at:} :arg2]
     bad-command:        {invalid command format (extension function)}
     bad-cast:           [{cannot cast} :arg1 {as} :arg2]
+    alias-constrains:   [{AS constrains unlocked input, so must be mutable}]
 
     return-archetype:   {RETURN called with no generator providing it in use}
 

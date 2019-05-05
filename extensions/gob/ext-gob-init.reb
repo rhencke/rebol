@@ -81,7 +81,7 @@ register-gob-hooks [  ; !!! See remarks, block of generics is vaporware ATM
     ]
 
     clear: generic [
-        series [gob!] 
+        series [gob!]
     ]
 
     swap: generic [

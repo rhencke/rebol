@@ -35,7 +35,7 @@
 // are processed using PARSE by Rebol code that is embedded into the
 // executable as compressed bytes.  And the majority of the console behavior
 // is defined by Rebol code in %extensions/console (though it has some of
-// its own C to handle things like 
+// its own C to handle things like SIGINT for Ctrl-C handling).
 //
 
 #include <stdlib.h>

@@ -100,8 +100,11 @@ inline static REBYTE *VAL_BIN_AT(const REBCEL *v) {
 #define VAL_BIN_AT_HEAD(v,n) \
     BIN_AT(VAL_SERIES(v), (n))  // see remarks on VAL_ARRAY_AT_HEAD()
 
-#define Init_Binary(out, bin) \
+#define Init_Binary(out,bin) \
     Init_Any_Series((out), REB_BINARY, (bin))
+
+#define Init_Binary_At(out,bin,offset) \
+    Init_Any_Series_At((out), REB_BINARY, (bin), (offset))
 
 inline static REBBIN *VAL_BINARY(const REBCEL* v) {
     assert(CELL_KIND(v) == REB_BINARY);

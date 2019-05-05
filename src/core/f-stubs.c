@@ -305,11 +305,11 @@ REBVAL *Init_Any_Series_At_Core(
 
 
 //
-//  Init_Any_String_At_Core: C
+//  Init_Any_String_At: C
 //
 // Common function.
 //
-REBVAL *Init_Any_String_At_Core(
+REBVAL *Init_Any_String_At(
     RELVAL *out,
     enum Reb_Kind type,
     REBSTR *s,
