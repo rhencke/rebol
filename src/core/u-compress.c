@@ -280,7 +280,7 @@ unsigned char *Decompress_Alloc_Core(
         envelope
         and STR_SYMBOL(envelope) == SYM_GZIP // not DETECT...trust stored size
         and len_in < 4161808 // (2^32 / 1032 + 18) ->1032 is max deflate ratio
-    ){ 
+    ){
         const REBSIZ gzip_min_overhead = 18; // at *least* 18 bytes
         if (len_in < gzip_min_overhead)
             fail ("GZIP compressed size less than minimum for gzip format");
@@ -382,4 +382,78 @@ unsigned char *Decompress_Alloc_Core(
 
     inflateEnd(&strm); // done last (so strm variables can be read up to end)
     return output;
+}
+
+
+//
+//  checksum-core: native [
+//
+//  {Built-in checksums from zlib (see CHECKSUM in Crypt extension for more)}
+//
+//      return: "Little-endian format of 4-byte CRC-32"
+//          [binary!]
+//      data "Data to encode (using UTF-8 if TEXT!)"
+//          [binary! text!]
+//      method "Either ADLER32 or CRC32"
+//          [word!]
+//      /part "Length of data (only supported for BINARY! at the moment)"
+//          [any-value!]
+//  ]
+//
+REBNATIVE(checksum_core)
+//
+// Most checksum and hashing algorithms are optional in the build (at time of
+// writing they are all in the "Crypt" extension).  This is because they come
+// in and out of fashion (MD5 and SHA1, for instance), so it doesn't make
+// sense to force every build configuration to build them in.
+//
+// But CRC32 is used by zlib (for gzip, gunzip, and the PKZIP .zip file
+// usermode code) and ADLER32 is used for zlib encodings in PNG and such.
+// It's a sunk cost to export them.  However, some builds may not want both
+// of these either--so bear that in mind.  (ADLER32 is only really needed for
+// PNG decoding, I believe (?))
+{
+    INCLUDE_PARAMS_OF_CHECKSUM_CORE;
+
+    const REBYTE *data;
+    REBSIZ size;
+
+    if (IS_TEXT(ARG(data))) {
+        if (REF(part))  // !!! requires different considerations, review
+            fail ("/PART not implemented for CHECKSUM-32 and UTF-8 yet");
+        data = VAL_BYTES_AT(&size, ARG(data));
+    }
+    else {
+        size = Part_Len_May_Modify_Index(ARG(data), ARG(part));
+        data = VAL_BIN_AT(ARG(data));  // after Part_Len, may modify
+    }
+
+    uLong crc32;
+    if (VAL_WORD_SYM(ARG(method)) == SYM_CRC32)
+        crc32 = crc32_z(0L, data, size);
+    else if (VAL_WORD_SYM(ARG(method)) == SYM_ADLER32)
+        crc32 = z_adler32(0L, data, size);
+    else
+        fail ("METHOD for CHECKSUM-CORE must be CRC32 or ADLER32");
+
+    REBBIN *bin = Make_Binary(4);
+    REBYTE *bp = BIN_HEAD(bin);
+
+    // Existing clients seem to want a little-endian BINARY! most of the time.
+    // Returning as a BINARY! avoids signedness issues (R3-Alpha CRC-32 was a
+    // signed integer, which was weird):
+    //
+    // https://github.com/rebol/rebol-issues/issues/2375
+    //
+    // !!! This is an experiment, to try it--as it isn't a very public
+    // function--used only by unzip.reb and Mezzanine save at time of writing.
+    //
+    int i;
+    for (i = 0; i < 4; ++i, ++bp) {
+        *bp = crc32 % 256;
+        crc32 >>= 8;
+    }
+    TERM_BIN_LEN(bin, 4);
+
+    return Init_Binary(D_OUT, bin);
 }

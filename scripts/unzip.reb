@@ -52,13 +52,6 @@ REBOL [
 ]
 
 ctx-zip: context [
-    crc-32: func [
-        "Returns a CRC32 checksum."
-        data [text! binary!] "Data to checksum"
-    ][
-        copy skip to binary! checksum/method data 'crc32 4
-    ]
-
     local-file-sig: #{504B0304}
     central-file-sig: #{504B0102}
     end-of-central-sig: #{504B0506}
@@ -154,7 +147,7 @@ ctx-zip: context [
             "Offset where the compressed entry will be stored in the file"
     ][
         ; info on data before compression
-        crc: head of reverse crc-32 data
+        crc: checksum-core data 'crc32
 
         uncompressed-size: to-ilong length of data
 
@@ -414,9 +407,8 @@ ctx-zip: context [
                     date/time: time
                     date: date - lib/now/zone  ; see notes RE: LIB/NOW above
                 )
-                copy crc: 4 skip ( ; crc-32
-                    crc: get-ilong crc
-                )
+                copy crc: 4 skip ; crc-32
+                    ; already little endian; int form is `crc: get-ilong crc`
                 copy compressed-size: 4 skip
                     (compressed-size: get-ilong compressed-size)
                 copy uncompressed-size-raw: 4 skip
@@ -469,11 +461,12 @@ ctx-zip: context [
                             throw blank
                         ]
 
-                        if crc != checksum/method data 'crc32 [
+                        check: checksum-core data 'crc32
+                        if crc != check [
                             info "^- -> failed [bad crc32]^/"
                             print [
                                 "expected crc:" crc LF
-                                "actual crc:" checksum/method data 'crc32
+                                "actual crc:" check
                             ]
                             throw data
                         ]
