@@ -494,6 +494,49 @@ else {
     }
 }
 
+let load_rebol_scripts = function(defer) {
+    let scripts = document.querySelectorAll("script[type='text/rebol']")
+    let promise = Promise.resolve(null)
+    for (let i = 0; i < scripts.length; i++) {
+        if (scripts[i].defer != defer)
+            continue;
+        let url = scripts[i].src  // remotely specified via link
+        if (url)
+            promise = promise.then(function() {
+                config.log('fetch()-ing <script src="' + url + '">')
+                return fetch(url).then(function(response) {
+                    // https://www.tjvantoll.com/2015/09/13/fetch-and-errors/
+                    if (!response.ok)
+                        throw Error(response.statusText)
+
+                    return response.text()  // returns promise ("USVString")
+                  })
+                })
+
+        let code = scripts[i].innerText.trim()  // literally in <script> tag
+        if (code)
+            promise = promise.then(function () {
+                return code
+            })
+
+        if (code || url)  // promise was augmented to return source code
+            promise = promise.then(function (text) {
+                config.log("Running <script> code " + code || src)
+
+                // !!! The do { } is necessary here in case the code is a
+                // Module or otherwise needs special processing.  Otherwise,
+                // `Rebol [Type: Module ...] <your code>` will just evaluate
+                // Rebol to an object and throw it away, and evaluate the spec
+                // block to itself and throw that away.  The mechanics for
+                // recognizing that special pattern are in do.
+                //
+                reb.Elide("do {" + text + "}")
+                config.log("Finished <script> code @ tick " + reb.Tick())
+                alert(url+" defer= "+scripts[i].defer)
+              })
+    }
+    return promise
+}
 
 return assign_git_commit_promiser(os_id)  // sets git_commit
   .then(bytecode_promiser)  // needs git_commit
@@ -546,46 +589,10 @@ return assign_git_commit_promiser(os_id)  // sets git_commit
         "for-each collation builtin-extensions",
             "[load-extension collation]"
     )
-  }).then(function() {
-    let scripts = document.querySelectorAll("script[type='text/rebol']")
-    let promise = Promise.resolve(null)
-    for (let i = 0; i < scripts.length; i++) {
-        let url = scripts[i].src  // remotely specified via link
-        if (url)
-            promise = promise.then(function() {
-                config.log('fetch()-ing <script src="' + url + '">')
-                return fetch(url).then(function(response) {
-                    // https://www.tjvantoll.com/2015/09/13/fetch-and-errors/
-                    if (!response.ok)
-                        throw Error(response.statusText)
-
-                    return response.text()  // returns promise ("USVString")
-                  })
-                })
-
-        let code = scripts[i].innerText.trim()  // literally in <script> tag
-        if (code)
-            promise = promise.then(function () {
-                return code
-            })
-
-        if (code || url)  // promise was augmented to return source code
-            promise = promise.then(function (text) {
-                config.log("Running <script> code " + code || src)
-
-                // !!! The do { } is necessary here in case the code is a
-                // Module or otherwise needs special processing.  Otherwise,
-                // `Rebol [Type: Module ...] <your code>` will just evaluate
-                // Rebol to an object and throw it away, and evaluate the spec
-                // block to itself and throw that away.  The mechanics for
-                // recognizing that special pattern are in do.
-                //
-                reb.Elide("do {" + text + "}")
-                config.log("Finished <script> code @ tick " + reb.Tick())
-              })
-    }
-    return promise
-  }).then(()=>{
+  }).then(()=>load_rebol_scripts(false))
+  .then(dom_content_loaded_promise)
+  .then(()=>load_rebol_scripts(true))
+  .then(()=>{
       let code = me.innerText.trim()
       if (code) eval(code)
   })
