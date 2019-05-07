@@ -428,22 +428,28 @@ Module = {  // Note that this is assigning a global
 // https://stackoverflow.com/a/22519785
 //
 
-let dom_content_loaded_promise = new Promise(function (resolve, reject) {
-    //
-    // The code for load-r3.js originally came from ReplPad, which didn't
-    // want to start until the WASM code was loaded -AND- the DOM was ready.
-    // It was almost certain that the DOM would be ready first (given the
-    // WASM being a large file), but doing things properly demanded waiting
-    // for the DOMContentLoaded event.
-    //
-    // Now that load-r3.js is a library, it's not clear if it should be its
-    // responsibility to make sure the DOM is ready.  This would have to be
-    // rethought if the loader were going to be reused in Node.js, since
-    // there is no DOM.  However, if any of the loaded extensions want to
-    // take the DOM being loaded for granted, this makes that easier.  Review.
-    //
-    document.addEventListener('DOMContentLoaded', resolve)
-})
+//
+// The code for load-r3.js originally came from ReplPad, which didn't
+// want to start until the WASM code was loaded -AND- the DOM was ready.
+// It was almost certain that the DOM would be ready first (given the
+// WASM being a large file), but doing things properly demanded waiting
+// for the DOMContentLoaded event.
+//
+// Now that load-r3.js is a library, it's not clear if it should be its
+// responsibility to make sure the DOM is ready.  This would have to be
+// rethought if the loader were going to be reused in Node.js, since
+// there is no DOM.  However, if any of the loaded extensions want to
+// take the DOM being loaded for granted, this makes that easier.  Review.
+//
+let dom_content_loaded_promise
+if (document.readyState == "loading") {
+    dom_content_loaded_promise = new Promise(function (resolve, reject) {
+        document.addEventListener('DOMContentLoaded', resolve)
+    })
+} else {
+    // event 'DOMContentLoaded' is gone
+    dom_content_loaded_promise = Promise.resolve()
+}
 
 let runtime_init_promise = new Promise(function(resolve, reject) {
     //
@@ -583,7 +589,6 @@ return assign_git_commit_promiser(os_id)  // sets git_commit
       let code = me.innerText.trim()
       if (code) eval(code)
   })
-
 
 //=//// END ANONYMOUS CLOSURE USED AS MODULE //////////////////////////////=//
 //
