@@ -532,7 +532,7 @@ let load_rebol_scripts = function(defer) {
                 //
                 reb.Elide("do {" + text + "}")
                 config.log("Finished <script> code @ tick " + reb.Tick())
-                alert(url+" defer= "+scripts[i].defer)
+                config.log("defer = " + scripts[i].defer)
               })
     }
     return promise
