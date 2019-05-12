@@ -435,7 +435,9 @@ NOTE 1: current dir is the build dir,
     that will contain all generated stuff
     (%prep/, %objs/, %makefile, %r3 ...)
     You can have multiple build dirs.^/
-NOTE 2: order of configs and options IS relevant^/
+NOTE 2: but if the current dir is the "root" dir
+    (where make.r is), then the build dir is %build
+NOTE 3: order of configs and options IS relevant^/
 MORE HELP:^/
     { -h | -help | --help } { HELP-TOPICS }
     }
