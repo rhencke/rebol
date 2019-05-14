@@ -187,14 +187,13 @@ mutable: func [x [any-value!]] [
 ]
 
 lit: :quote  ; Renamed due to the QUOTED! datatype
-quote: null
-uneval: func [x [<opt> any-value!]] [
+quote: func [x [<opt> any-value!]] [
     switch type of x [
         null [lit ()]
         word! [to lit-word! x]
         path! [to lit-path! x]
 
-        fail "UNEVAL can only work on WORD!, PATH!, NULL in old Rebols"
+        fail "QUOTE can only work on WORD!, PATH!, NULL in old Rebols"
     ]
 ]
 

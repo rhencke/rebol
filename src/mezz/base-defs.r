@@ -283,13 +283,13 @@ lit-word?: func [value [<opt> any-value!]] [
     lit-word! == type of :value  ; note plain = would not work here
 ]
 to-lit-word: func [value [any-value!]] [
-    uneval to word! dequote :value
+    quote to word! dequote :value
 ]
 lit-path?: func [value [<opt> any-value!]] [
     lit-path! == type of :value  ; note plain = would not work here
 ]
 to-lit-path: func [value [any-value!]] [
-    uneval to path! dequote :value
+    quote to path! dequote :value
 ]
 
 refinement?: func [value [<opt> any-value!]] [

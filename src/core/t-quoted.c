@@ -185,7 +185,7 @@ REBNATIVE(literal) // aliased in %base-defs.r as LIT
 
 
 //
-//  uneval: native [
+//  quote: native [
 //
 //  {Constructs a quoted form of the evaluated argument}
 //
@@ -195,9 +195,9 @@ REBNATIVE(literal) // aliased in %base-defs.r as LIT
 //          [integer!]
 //  ]
 //
-REBNATIVE(uneval) // !!! This will be renamed QUOTE in the future
+REBNATIVE(quote)
 {
-    INCLUDE_PARAMS_OF_UNEVAL;
+    INCLUDE_PARAMS_OF_QUOTE;
 
     REBINT depth = REF(depth) ? VAL_INT32(ARG(depth)) : 1;
     if (depth < 0)

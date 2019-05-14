@@ -75,14 +75,8 @@ library?: typechecker library!
 context: specialize 'make [type: object!]
 
 
-quote: func [] [
-    fail @return [
-        "LIT (or LITERAL) has replaced QUOTE.  QUOTE is currently not"
-        "defined to make it easier to find cases and fix them.  It will"
-        "ultimately be re-introduced as a way to add quote levels to an"
-        "evaluated argument (e.g. x: 10 | quote x => '10).  For today,"
-        "use UNEVAL for that purpose."
-    ]
+uneval: func [] [
+    fail @return "QUOTE has replaced UNEVAL"
 ]
 
 

@@ -108,7 +108,7 @@ make-port*: function [
             ; scheme name: [//]
             copy s1 some scheme-char ":" opt "//" ( ; "//" is optional ("URN")
                 append out compose [
-                    scheme: (uneval to word! to text! s1)
+                    scheme: (quote as word! s1)
                 ]
             )
 

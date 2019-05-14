@@ -1013,7 +1013,7 @@ switch: emulate [redescribe [
         adapt 'switch [
             cases: collect [
                 for-each c cases [
-                    keep/only either block? :c [:c] [uneval :c]
+                    keep/only either block? :c [:c] [quote :c]
                 ]
                 if default [  ; /DEFAULT refinement -- convert to fallout
                     keep/only as group! default

@@ -410,7 +410,7 @@ ext-console-impl: function [
             ]
             <bad> [
                 emit #no-unskin-if-error
-                emit [print (<*> mold uneval prior)]
+                emit [print mold '(<*> prior)]
                 emit [fail ["Bad REPL continuation:" (<*> result)]]
             ]
         ] then [

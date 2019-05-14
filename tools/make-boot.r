@@ -510,7 +510,7 @@ boot-sysobj: load %sysobj.r
 change at-value version version
 change at-value commit git-commit
 change at-value build now/utc
-change at-value product uneval to word! product
+change at-value product quote to word! product
 
 change/only at-value platform reduce [
     any [config/platform-name | "Unknown"]

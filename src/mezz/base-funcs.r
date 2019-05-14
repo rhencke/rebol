@@ -161,8 +161,8 @@ function: func [
                 ]
             ]
             defaulters: default [copy []]
-            append defaulters compose/deep [
-                (as set-word! var) default [(uneval do other/1)]
+            append defaulters compose [
+                (var): default '(do other/1)
             ]
         )
     |
@@ -175,8 +175,8 @@ function: func [
             append exclusions var
             if other [
                 defaulters: default [copy []]
-                append defaulters compose/deep [  ; always sets
-                    (as set-word! var) (uneval do other)
+                append defaulters compose [  ; always sets
+                    (var): '(do other)
                 ]
             ]
         )]
@@ -685,7 +685,7 @@ iterate-skip: redescribe [
 ](
     specialize enclose 'for-skip function [f] [
         if blank? word: f/word [return null]
-        f/word: uneval to word! word  ; do not create new virtual binding
+        f/word: quote to word! word  ; do not create new virtual binding
         saved: f/series: get word
 
         ; !!! https://github.com/rebol/rebol-issues/issues/2331

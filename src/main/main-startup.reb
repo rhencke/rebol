@@ -289,8 +289,8 @@ main-startup: function [
             ]
             <bad> [
                 emit #no-unskin-if-error
-                emit [print (<*> mold uneval prior)]
-                emit [fail ["Bad REPL continuation:" (<*> uneval result)]]
+                emit [print mold '(<*> prior)]
+                emit [fail ["Bad REPL continuation:" '(<*> result)]]
             ]
         ] then [
             return-to-c instruction

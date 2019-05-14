@@ -5,12 +5,12 @@
 
 (lit-path? first ['a/b])
 (not lit-path? 1)
-((uneval path!) = type of first ['a/b])
+((quote path!) = type of first ['a/b])
 
 ; minimum
 
 [#1947
-    (lit-path? uneval load "#[path! [[a] 1]]")
+    (lit-path? quote load "#[path! [[a] 1]]")
 ]
 
 ; lit-paths are active

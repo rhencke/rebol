@@ -108,17 +108,17 @@
     ['1 '(2 + 3) '[4 + 5] 'a/+/b 'c/+/d: ':e/+/f]
 )
 
-(lit '[a b c] = uneval [a b c])
-(lit '(a b c) == uneval lit (a b c))
-(not (lit '[A B C] == uneval [a b c]))
+(lit '[a b c] = quote [a b c])
+(lit '(a b c) == quote lit (a b c))
+(not (lit '[A B C] == quote [a b c]))
 ('''[a b c] !== '''''[a b c])
 ('''[a b c] == '''[a b c])
 ('''[a b c] = '''''[a b c])
 
 
 (quoted! = kind of lit 'foo)  ; low level "KIND"
-((uneval word!) = type of lit 'foo)  ; higher-level "TYPE"
-((type of lit ''[a b c]) = uneval/depth block! 2)
+((quote word!) = type of lit 'foo)  ; higher-level "TYPE"
+((type of lit ''[a b c]) = quote/depth block! 2)
 
 
 ; Some generic actions have been tweaked to know to extend their
@@ -178,7 +178,7 @@
 
 (
     for-each item compose [
-        (uneval :+)
+        (quote :+)
         word
         set-word:
         :get-word
@@ -221,7 +221,7 @@
         |
         #[void]
     ][
-        lit-item: uneval :item
+        lit-item: quote :item
 
         comment "Just testing for crashes; discards mold result"
         mold :lit-item

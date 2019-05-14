@@ -42,7 +42,7 @@
 (null = match 'word! lit foo)
 
 [
-    (did quoted-word!: uneval word!)
+    (did quoted-word!: quote word!)
 
     (''foo = match ['quoted-word!] lit ''foo)
     (null = match ['quoted-word!] lit '''foo)
