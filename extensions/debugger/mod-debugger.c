@@ -54,11 +54,15 @@
 //
 bool Do_Breakpoint_Throws(
     REBVAL *out,
-    bool interrupted, // Ctrl-C (as opposed to a BREAKPOINT)
+    bool interrupted,  // Ctrl-C (as opposed to a BREAKPOINT)
     const REBVAL *paused
 ){
     UNUSED(interrupted);  // !!! not passed to the REPL, should it be?
     UNUSED(paused);  // !!! feature TBD
+
+    // !!! The unfinished SECURE extension would supposedly either be checked
+    // here (or inject a check with HIJACK on BREAKPOINT) to make sure that
+    // debugging was allowed.  Review doing that check here.
 
     REBVAL *inst = rebValue("debug-console", rebEND);
 

@@ -197,6 +197,29 @@ inline static REBVAL *Init_Char_May_Fail(RELVAL *out, REBUNI uni) {
 #define NEWLINE_VALUE \
     Root_Newline_Char
 
+enum {
+    BEL = 7,
+    BS = 8,
+    LF = 10,
+    CR = 13,
+    ESC = 27,
+    DEL = 127
+};
+
+#define UNICODE_CASES 0x2E00  // size of unicode folding table
+
+inline static REBUNI UP_CASE(REBUNI c)
+  { return c < UNICODE_CASES ? Upper_Cases[c] : c; }
+
+inline static REBUNI LO_CASE(REBUNI c)
+  { return c < UNICODE_CASES ? Lower_Cases[c] : c; }
+
+inline static bool IS_WHITE(REBUNI c)
+  { return c <= 32 and ((White_Chars[c] & 1) != 0); }
+
+inline static bool IS_SPACE(REBUNI c)
+  { return c <= 32 and ((White_Chars[c] & 2) != 0); }
+
 
 extern const char trailingBytesForUTF8[256];  // defined in %t-char.c
 extern const uint_fast32_t offsetsFromUTF8[6];  // defined in %t-char.c

@@ -350,3 +350,19 @@ extern const REBYTE Lex_Map[256];
     #define CHR_TO_INT(s) \
         strtoll(cs_cast(s), 0, 10)
 #endif
+
+
+// Skip to the specified byte but not past the provided end pointer of bytes.
+// nullptr if byte is not found.
+//
+inline static const REBYTE *Skip_To_Byte(
+    const REBYTE *cp,
+    const REBYTE *ep,
+    REBYTE b
+){
+    while (cp != ep and *cp != b)
+        ++cp;
+    if (*cp == b)
+        return cp;
+    return nullptr;
+}

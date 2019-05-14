@@ -69,6 +69,14 @@ REBNATIVE(register_stdio_device)
 }
 
 
+// Encoding options (reduced down to just being used by WRITE-STDOUT)
+//
+enum encoding_opts {
+    OPT_ENC_0 = 0,
+    OPT_ENC_RAW = 1 << 0
+};
+
+
 //
 //  Prin_OS_String: C
 //
@@ -76,7 +84,7 @@ REBNATIVE(register_stdio_device)
 //
 // The encoding options are OPT_ENC_XXX flags OR'd together.
 //
-void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
+static void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
 {
     REBREQ *rebreq = OS_Make_Devreq(&Dev_StdIO);
     struct rebol_devreq *req = Req(rebreq);

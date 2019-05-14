@@ -26,7 +26,15 @@
 
 #include "file-req.h"
 
-#define MAX_READ_MASK 0x7FFFFFFF // max size per chunk
+#define MAX_READ_MASK 0x7FFFFFFF  // max size per chunk
+
+enum act_open_mask {
+    AM_OPEN_NEW = 1 << 0,
+    AM_OPEN_READ = 1 << 1,
+    AM_OPEN_WRITE = 1 << 2,
+    AM_OPEN_SEEK = 1 << 3,
+    AM_OPEN_ALLOW = 1 << 4
+};
 
 
 //

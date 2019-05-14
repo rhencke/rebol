@@ -22,6 +22,9 @@
 //
 
 
+#define BUF_COLLECT TG_Buf_Collect
+
+
 // A context's varlist is always allocated dynamically, in order to speed
 // up variable access--no need to test LEN_BYTE_OR_255 for 255.
 //

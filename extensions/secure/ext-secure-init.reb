@@ -9,6 +9,12 @@ REBOL [
         Licensed under the Apache License, Version 2.0
         See: http://www.apache.org/licenses/LICENSE-2.0
     }
+
+    Type: Extension
+    Description: {
+        !!! Unfinished code from R3-Alpha, moved to an extension to remove it
+        from the main build without actually deleting it.
+    }
 ]
 
 secure: function [

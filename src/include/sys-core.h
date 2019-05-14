@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -38,7 +38,7 @@
 //   data definitions they use must have already been defined.
 //
 // %sys-core.h is supposed to be platform-agnostic.  All the code which would
-// include something like <windows.h> would be linked in as "host code".  Yet
+// include something like <windows.h> would be linked in as extensions.  Yet
 // if a file wishes to include %sys-core.h and <windows.h>, it should do:
 //
 //     #define WIN32_LEAN_AND_MEAN  // usually desirable for leaner inclusion
@@ -139,7 +139,6 @@
 #define MAX_COMMON 100000       // max size of common buffer (shrink trigger)
 #define MAX_NUM_LEN 64          // As many numeric digits we will accept on input
 #define MAX_EXPAND_LIST 5       // number of series-1 in Prior_Expand list
-#define UNICODE_CASES 0x2E00    // size of unicode folding table
 
 
 // This does all the forward definitions that are necessary for the compiler
@@ -172,30 +171,22 @@
 #include "tmp-internals.h"
 
 
-// Rebol versioning information, basically 5 numbers for a tuple.
-//
-#include "tmp-version.h"
+#include "tmp-version.h"  // historical 5 numbers in a TUPLE! (see %systems.r)
 
-#include "sys-panic.h"
+#include "sys-panic.h"  // "blue screen of death"-style termination
 
-// !!! Definitions for the memory allocator generally don't need to be
-// included by all clients, though currently it is necessary to indicate
-// whether a "node" is to be allocated from the REBSER pool or the REBGOB
-// pool.  Hence, the REBPOL has to be exposed to be included in the
-// function prototypes.  Review this necessity when REBGOB is changed.
-//
 #include "mem-pools.h"
 
 #include "sys-rebnod.h"
 
-#include "sys-rebval.h" // REBVAL structure definition
-#include "sys-rebser.h" // REBSER series definition (embeds REBVAL definition)
-#include "sys-rebarr.h" // REBARR and ARR()
-#include "sys-rebact.h" // REBACT and ACT()
-#include "sys-rebctx.h" // REBCTX and CTX()
+#include "sys-rebval.h"  // low level Rebol cell structure definition
+#include "sys-rebser.h"  // series structure definition (embeds REBVAL)
+#include "sys-rebarr.h"  // array structure definition (subclass of REBSER)
+#include "sys-rebact.h"  // action structure definition (subclass of REBSER)
+#include "sys-rebctx.h"  // context structure definition (subclass of REBSER)
 
 #include "sys-state.h"
-#include "sys-rebfrm.h" // `REBFRM` definition (also used by value)
+#include "sys-rebfrm.h"  // REBFRM definition (also used by value)
 
 #include "sys-mold.h"
 
@@ -259,161 +250,18 @@ enum {
 
 #define MKF_MASK_NONE 0 // no special handling (e.g. MAKE ACTION!)
 
-// Mathematical set operations for UNION, INTERSECT, DIFFERENCE
-enum {
-    SOP_NONE = 0, // used by UNIQUE (other flags do not apply)
-    SOP_FLAG_BOTH = 1 << 0, // combine and interate over both series
-    SOP_FLAG_CHECK = 1 << 1, // check other series for value existence
-    SOP_FLAG_INVERT = 1 << 2 // invert the result of the search
-};
-
-
-// Flags used for Protect functions
-//
-enum {
-    PROT_SET = 1 << 0,
-    PROT_DEEP = 1 << 1,
-    PROT_HIDE = 1 << 2,
-    PROT_WORD = 1 << 3,
-    PROT_FREEZE = 1 << 4
-};
-
-
-// Options for To_REBOL_Path
-enum {
-    PATH_OPT_SRC_IS_DIR = 1 << 0
-};
 
 
 #define TAB_SIZE 4
 
-// Move these things:
-enum act_modify_mask {
-    AM_PART = 1 << 0,
-    AM_SPLICE = 1 << 1,
-    AM_LINE = 1 << 2
-};
-enum act_find_mask {
-    AM_FIND_ONLY = 1 << 0,
-    AM_FIND_CASE = 1 << 1,
-    AM_FIND_MATCH = 1 << 2
-};
-enum act_open_mask {
-    AM_OPEN_NEW = 1 << 0,
-    AM_OPEN_READ = 1 << 1,
-    AM_OPEN_WRITE = 1 << 2,
-    AM_OPEN_SEEK = 1 << 3,
-    AM_OPEN_ALLOW = 1 << 4
-};
-// Rounding flags (passed as refinements to ROUND function):
-enum {
-    RF_TO = 1 << 0,
-    RF_EVEN = 1 << 1,
-    RF_DOWN = 1 << 2,
-    RF_HALF_DOWN = 1 << 3,
-    RF_FLOOR = 1 << 4,
-    RF_CEILING = 1 << 5,
-    RF_HALF_CEILING = 1 << 6
-};
-
-enum rebol_signals {
-    //
-    // SIG_RECYCLE indicates a need to run the garbage collector, when
-    // running it synchronously could be dangerous.  This is important in
-    // particular during memory allocation, which can detect crossing a
-    // memory usage boundary that suggests GC'ing would be good...but might
-    // be in the middle of code that is halfway through manipulating a
-    // managed series.
-    //
-    SIG_RECYCLE = 1 << 0,
-
-    // SIG_HALT means return to the topmost level of the evaluator, regardless
-    // of how deep a debug stack might be.  It is the only instruction besides
-    // QUIT and RESUME that can currently get past a breakpoint sandbox.
-    //
-    SIG_HALT = 1 << 1,
-
-    // SIG_INTERRUPT indicates a desire to enter an interactive debugging
-    // state.  Because the ability to manage such a state may not be
-    // registered by the host, this could generate an error.
-    //
-    SIG_INTERRUPT = 1 << 2,
-
-    // SIG_EVENT_PORT is to-be-documented
-    //
-    SIG_EVENT_PORT = 1 << 3
-};
-
-// Security flags:
-enum {
-    SEC_ALLOW,
-    SEC_ASK,
-    SEC_THROW,
-    SEC_QUIT,
-    SEC_MAX
-};
-
-// Security policy byte offsets:
-enum {
-    POL_READ,
-    POL_WRITE,
-    POL_EXEC,
-    POL_MAX
-};
-
-// Encoding options (reduced down to just being used by WRITE-STDOUT)
-//
-enum encoding_opts {
-    OPT_ENC_0 = 0,
-    OPT_ENC_RAW = 1 << 0
-};
-
-
-enum {
-    REB_FILETOLOCAL_0 = 0, // make it clearer when using no options
-    REB_FILETOLOCAL_FULL = 1 << 0, // expand path relative to current dir
-    REB_FILETOLOCAL_WILD = 1 << 1, // add on a `*` for wildcard listing
-
-    // !!! A comment in the R3-Alpha %p-dir.c said "Special policy: Win32 does
-    // not want tail slash for dir info".
-    //
-    REB_FILETOLOCAL_NO_TAIL_SLASH = 1 << 2 // don't include the terminal slash
-};
 
 
 #define ALL_BITS \
     ((REBCNT)(-1))
 
-enum {
-    BEL =   7,
-    BS  =   8,
-    LF  =  10,
-    CR  =  13,
-    ESC =  27,
-    DEL = 127
-};
-
-#define LDIV            lldiv
-#define LDIV_T          lldiv_t
-
-// Skip to the specified byte but not past the provided end
-// pointer of the byte string.  Return NULL if byte is not found.
-//
-inline static const REBYTE *Skip_To_Byte(
-    const REBYTE *cp,
-    const REBYTE *ep,
-    REBYTE b
-) {
-    while (cp != ep && *cp != b) cp++;
-    if (*cp == b) return cp;
-    return 0;
-}
 
 typedef int cmp_t(void *, const void *, const void *);
 extern void reb_qsort_r(void *a, size_t n, size_t es, void *thunk, cmp_t *cmp);
-
-#define ROUND_TO_INT(d) \
-    cast(int32_t, floor((MAX(INT32_MIN, MIN(INT32_MAX, d))) + 0.5))
 
 
 
@@ -478,6 +326,7 @@ extern void reb_qsort_r(void *a, size_t n, size_t es, void *thunk, cmp_t *cmp);
 
 #include "sys-node.h"
 
+
 // Lives in %sys-bind.h, but needed for Move_Value() and Derelativize()
 //
 inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding);
@@ -493,13 +342,49 @@ inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding);
 #include "datatypes/sys-char.h"  // use Init_Integer() for bad codepoint error
 #include "datatypes/sys-decimal.h"
 
+enum rebol_signals {
+    //
+    // SIG_RECYCLE indicates a need to run the garbage collector, when
+    // running it synchronously could be dangerous.  This is important in
+    // particular during memory allocation, which can detect crossing a
+    // memory usage boundary that suggests GC'ing would be good...but might
+    // be in the middle of code that is halfway through manipulating a
+    // managed series.
+    //
+    SIG_RECYCLE = 1 << 0,
+
+    // SIG_HALT means return to the topmost level of the evaluator, regardless
+    // of how deep a debug stack might be.  It is the only instruction besides
+    // QUIT and RESUME that can currently get past a breakpoint sandbox.
+    //
+    SIG_HALT = 1 << 1,
+
+    // SIG_INTERRUPT indicates a desire to enter an interactive debugging
+    // state.  Because the ability to manage such a state may not be
+    // registered by the host, this could generate an error.
+    //
+    SIG_INTERRUPT = 1 << 2,
+
+    // SIG_EVENT_PORT is to-be-documented
+    //
+    SIG_EVENT_PORT = 1 << 3
+};
+
 inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
     Eval_Signals |= f;
     Eval_Count = 1;
 }
 
+#define GET_SIGNAL(f) \
+    (did (Eval_Signals & (f)))
+
+#define CLR_SIGNAL(f) \
+    cast(void, Eval_Signals &= ~(f))
+
 #include "datatypes/sys-series.h"
 #include "datatypes/sys-array.h"  // REBARR used by UTF-8 string bookmarks
+
+#include "sys-protect.h"
 
 #include "datatypes/sys-datatype.h"
 
@@ -525,8 +410,6 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "sys-feed.h"
 #include "datatypes/sys-frame.h"  // needs words for frame-label helpers
 
-#include "sys-protect.h"
-
 #include "datatypes/sys-time.h"
 #include "datatypes/sys-handle.h"
 #include "datatypes/sys-map.h"
@@ -534,54 +417,7 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 
 #include "reb-device.h"
 
-/***********************************************************************
-**
-**  Macros
-**
-***********************************************************************/
 
-inline static REBUNI UP_CASE(REBUNI c) {
-    if (c < UNICODE_CASES)
-        return Upper_Cases[c];
-    return c;
-}
-
-inline static REBUNI LO_CASE(REBUNI c) {
-    if (c < UNICODE_CASES)
-        return Lower_Cases[c];
-    return c;
-}
-
-inline static bool IS_WHITE(REBUNI c) {
-    return c <= 32 and ((White_Chars[c] & 1) != 0);
-}
-
-inline static bool IS_SPACE(REBUNI c) {
-    return c <= 32 and ((White_Chars[c] & 2) != 0);
-}
-
-#define GET_SIGNAL(f) \
-    (did (Eval_Signals & (f)))
-
-#define CLR_SIGNAL(f) \
-    cast(void, Eval_Signals &= ~(f))
-
-
-//-- Temporary Buffers
-//   These are reused for cases for appending, when length cannot be known.
-
-#define BUF_COLLECT \
-    TG_Buf_Collect
-
-#define BYTE_BUF \
-    TG_Byte_Buf
-
-#define MOLD_BUF \
-    TG_Mold_Buf
-
-enum {
-    TRACE_FLAG_FUNCTION = 1 << 0
-};
 
 // Most of Ren-C's backwards compatibility with R3-Alpha is attempted through
 // usermode "shim" functions.  But some things affect fundamental mechanics
@@ -598,8 +434,26 @@ enum {
 #endif
 
 
-#include "sys-eval.h" // low-level single-step evaluation API
-#include "sys-do.h" // higher-level evaluate-until-end API
+#include "sys-eval.h"  // low-level single-step evaluation API
+#include "sys-do.h"  // higher-level evaluate-until-end API
 
 #include "datatypes/sys-path.h"
 #include "datatypes/sys-tuple.h"
+
+
+// !!! The SECURE dialect and subsystem is now in an extension.  But
+// because SECURE was never fully implemented, it is really just a stub
+// implementation.  The `_Placeholder` name helps keep every callsite
+// from having to be documented that it's effectively a no-op.
+//
+inline static void Check_Security_Placeholder(
+    REBSTR *subsystem,
+    enum Reb_Symbol policy,
+    const REBVAL *value
+){
+    /* see Check_Security() in the SECURE Extension */
+
+    UNUSED(subsystem);
+    UNUSED(policy);
+    UNUSED(value);
+}

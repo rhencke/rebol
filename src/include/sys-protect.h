@@ -32,6 +32,24 @@
 // to be mutable, so it could be checked at compile-time.
 //
 
+
+// Flags used for Protect functions
+//
+enum {
+    PROT_SET = 1 << 0,
+    PROT_DEEP = 1 << 1,
+    PROT_HIDE = 1 << 2,
+    PROT_WORD = 1 << 3,
+    PROT_FREEZE = 1 << 4
+};
+
+
+inline static REBVAL *Derelativize(  // !!! forward-declaration (reoragnize?)
+    RELVAL *out,
+    const RELVAL *v,
+    REBSPC *specifier
+);
+
 inline static void FAIL_IF_READ_ONLY_CORE(
     const RELVAL *v,
     REBSPC *specifier

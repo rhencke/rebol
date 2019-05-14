@@ -80,7 +80,7 @@ bool Do_Signals_Throws(REBVAL *out)
     //
     Eval_Cycles += Eval_Dose - Eval_Count;
     if (Eval_Limit != 0 and Eval_Cycles > Eval_Limit)
-        Check_Security(Canon(SYM_EVAL), POL_EXEC, 0);
+        Check_Security_Placeholder(Canon(SYM_EVAL), SYM_EXEC, 0);
 
     Eval_Count = Eval_Dose;
 

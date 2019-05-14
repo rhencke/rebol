@@ -437,3 +437,12 @@ quotes
 ; use symbols as identity, this formalizes the hack by adding exclude.
 ;
 exclude
+
+; !!! The SECURE feature in R3-Alpha was unfinished.  While the policies for
+; security were conveyed with words, those words were mapped into an enum
+; to pack as bit flags.  However, those bit flags have been moved to being
+; internal to the security code...clients speak in terms of the symbols.
+;
+;read  ; covered above
+;write  ; covered above
+exec

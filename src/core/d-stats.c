@@ -303,7 +303,7 @@ REBNATIVE(metrics)
 
     REBVAL *mode = ARG(mode);
 
-    Check_Security(Canon(SYM_DEBUG), POL_READ, 0);
+    Check_Security_Placeholder(Canon(SYM_DEBUG), SYM_READ, 0);
 
     // Note only the dispatcher is hooked.  If Eval_Core itself were hooked,
     // that could time things like SET-WORD! assignments; but there's nothing

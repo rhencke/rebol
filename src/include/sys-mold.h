@@ -21,6 +21,8 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 
+#define MOLD_BUF TG_Mold_Buf
+
 struct rebol_mold {
     REBSTR *series;     // destination series (utf8)
     REBCNT index;       // codepoint index where mold starts within series

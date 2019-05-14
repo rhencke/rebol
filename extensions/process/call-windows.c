@@ -65,9 +65,7 @@ REB_R Call_Core(REBFRM *frame_) {
 
     UNUSED(REF(console));  // !!! This is not paid attention to (?)
 
-    // SECURE was never actually done for R3-Alpha
-    //
-    Check_Security(Canon(SYM_CALL), POL_EXEC, ARG(command));
+    Check_Security_Placeholder(Canon(SYM_CALL), SYM_EXEC, ARG(command));
 
     // Make sure that if the output or error series are STRING! or BINARY!,
     // they are not read-only, before we try appending to them.

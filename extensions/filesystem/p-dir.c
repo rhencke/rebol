@@ -110,7 +110,7 @@ static REBARR *Read_Dir_May_Fail(REBREQ *dir)
 static void Init_Dir_Path(
     REBREQ *dir,
     const REBVAL *path,
-    REBCNT policy
+    REBSYM policy
 ){
     UNUSED(policy);
 
@@ -186,7 +186,7 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
             REBREQ *dir = OS_Make_Devreq(&Dev_File);
             ReqPortCtx(dir) = ctx;
 
-            Init_Dir_Path(dir, path, POL_READ);
+            Init_Dir_Path(dir, path, SYM_READ);
             Init_Block(D_OUT, Read_Dir_May_Fail(dir));
 
             Free_Req(dir);
@@ -218,7 +218,7 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         REBREQ *dir = OS_Make_Devreq(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
-        Init_Dir_Path(dir, path, POL_WRITE); // Sets RFM_DIR too
+        Init_Dir_Path(dir, path, SYM_WRITE); // Sets RFM_DIR too
 
         REBVAL *result = OS_DO_DEVICE(dir, RDC_CREATE);
         assert(result != NULL); // should be synchronous
@@ -246,7 +246,7 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         REBREQ *dir = OS_Make_Devreq(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
-        Init_Dir_Path(dir, path, POL_WRITE); // Sets RFM_DIR
+        Init_Dir_Path(dir, path, SYM_WRITE); // Sets RFM_DIR
 
         UNUSED(ARG(from)); // implicit
         Req(dir)->common.data = cast(REBYTE*, ARG(to)); // !!! hack!
@@ -270,7 +270,7 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         REBREQ *dir = OS_Make_Devreq(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
-        Init_Dir_Path(dir, path, POL_WRITE);
+        Init_Dir_Path(dir, path, SYM_WRITE);
 
         // !!! add *.r deletion
         // !!! add recursive delete (?)
@@ -305,7 +305,7 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         REBREQ *dir = OS_Make_Devreq(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
-        Init_Dir_Path(dir, path, POL_READ);
+        Init_Dir_Path(dir, path, SYM_READ);
         Init_Block(state, Read_Dir_May_Fail(dir));
 
         Free_Req(dir);
@@ -321,7 +321,7 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         REBREQ *dir = OS_Make_Devreq(&Dev_File);
         ReqPortCtx(dir) = ctx;
 
-        Init_Dir_Path(dir, path, POL_READ);
+        Init_Dir_Path(dir, path, SYM_READ);
         REBVAL *result = OS_DO_DEVICE(dir, RDC_QUERY);
         assert(result != NULL); // should be synchronous
 

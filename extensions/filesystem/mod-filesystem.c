@@ -64,6 +64,12 @@ REBNATIVE(get_dir_actor_handle)
 }
 
 
+// Options for To_REBOL_Path
+enum {
+    PATH_OPT_SRC_IS_DIR = 1 << 0
+};
+
+
 //
 //  To_REBOL_Path: C
 //
@@ -168,6 +174,18 @@ restart:;
 
 extern bool Set_Current_Dir_Value(const REBVAL *path);
 extern REBVAL *Get_Current_Dir_Value(void);
+
+
+enum {
+    REB_FILETOLOCAL_0 = 0, // make it clearer when using no options
+    REB_FILETOLOCAL_FULL = 1 << 0, // expand path relative to current dir
+    REB_FILETOLOCAL_WILD = 1 << 1, // add on a `*` for wildcard listing
+
+    // !!! A comment in the R3-Alpha %p-dir.c said "Special policy: Win32 does
+    // not want tail slash for dir info".
+    //
+    REB_FILETOLOCAL_NO_TAIL_SLASH = 1 << 2 // don't include the terminal slash
+};
 
 
 //
@@ -545,7 +563,7 @@ REBNATIVE(change_dir)
     else {
         assert(IS_FILE(arg));
 
-        Check_Security(Canon(SYM_FILE), POL_EXEC, arg);
+        Check_Security_Placeholder(Canon(SYM_FILE), SYM_EXEC, arg);
 
         bool success = Set_Current_Dir_Value(arg);
 

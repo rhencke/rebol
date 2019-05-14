@@ -37,6 +37,10 @@
 
 #include "sys-core.h"
 
+enum {
+    TRACE_FLAG_FUNCTION = 1 << 0
+};
+
 
 //
 //  Eval_Depth: C
@@ -442,7 +446,7 @@ REBNATIVE(trace)
 
     REBVAL *mode = ARG(mode);
 
-    Check_Security(Canon(SYM_DEBUG), POL_READ, 0);
+    Check_Security_Placeholder(Canon(SYM_DEBUG), SYM_READ, 0);
 
     // Set the trace level:
     if (IS_LOGIC(mode))

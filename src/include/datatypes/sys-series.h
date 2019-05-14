@@ -830,3 +830,16 @@ inline static REBSER *Make_Series_Core(
 //
 #define Make_Series(capacity, wide) \
     Make_Series_Core((capacity), (wide), SERIES_FLAGS_NONE)
+
+
+enum act_modify_mask {
+    AM_PART = 1 << 0,
+    AM_SPLICE = 1 << 1,
+    AM_LINE = 1 << 2
+};
+
+enum act_find_mask {
+    AM_FIND_ONLY = 1 << 0,
+    AM_FIND_CASE = 1 << 1,
+    AM_FIND_MATCH = 1 << 2
+};

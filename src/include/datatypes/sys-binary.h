@@ -110,3 +110,6 @@ inline static REBBIN *VAL_BINARY(const REBCEL* v) {
     assert(CELL_KIND(v) == REB_BINARY);
     return VAL_SERIES(v);
 }
+
+
+#define BYTE_BUF TG_Byte_Buf
