@@ -42,17 +42,17 @@ else
         echo "Clear last downloaded prebuilt binaries"
         rm -f r3-*
         
-        # Search for wget or curl
-        which wget > /dev/null
+        # Search for curl or wget
+        which curl > /dev/null
         
         if [ $? -eq 0 ] ; then
-            dltool="wget"
+            dltool="curl"
         else
-            which curl > /dev/null
+            which wget > /dev/null
             if [ $? -eq 0 ] ; then
-                dltool="curl"
+                dltool="wget"
             else
-                echo "Error: you need wget or curl to download binaries."
+                echo "Error: you need curl or wget to download binaries."
                 exit 1
             fi
         fi
