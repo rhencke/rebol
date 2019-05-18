@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 # Root directory of this script
 rdir=$(cd `dirname $0` && pwd)
