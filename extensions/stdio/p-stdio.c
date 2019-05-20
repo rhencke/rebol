@@ -76,7 +76,7 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         // !!! A fixed size buffer is used to gather console input.  This is
         // re-used between READ requests.
         //
-        //https://github.com/rebol/rebol-issues/issues/2364
+        // https://github.com/rebol/rebol-issues/issues/2364
         //
         const REBCNT readbuf_size = 32 * 1024;
 

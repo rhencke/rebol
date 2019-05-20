@@ -366,19 +366,26 @@ void RL_rebStartup(void)
 //
 void RL_rebShutdown(bool clean)
 {
-    // At time of writing, nothing Shutdown_Core() does pertains to
-    // committing unfinished data to disk.  So really there is
-    // nothing to do in the case of an "unclean" shutdown...yet.
+    // Devices have to be shut down because if they are not, they might have
+    // data to flush to disk/etc...or if the terminal was set up to not echo
+    // characters in order to perform curses-style line editing then that
+    // will be stuck.
+    //
+    OS_Quit_Devices(0);
 
   #if defined(NDEBUG)
     if (not clean)
         return; // Only do the work above this line in an unclean shutdown
   #else
+    // Run a clean shutdown anyway in debug builds--even if the caller didn't
+    // need it--to see if it triggers any alerts.
+    //
     UNUSED(clean);
   #endif
 
-    // Run a clean shutdown anyway in debug builds--even if the
-    // caller didn't need it--to see if it triggers any alerts.
+    // Everything Shutdown_Core() does pertains to getting a no-leak state
+    // for Valgrind/etc, but it shouldn't have any user-facing side-effects
+    // besides that if you don't run it.
     //
     Shutdown_Core();
 }

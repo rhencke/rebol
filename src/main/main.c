@@ -51,8 +51,8 @@
     #include <shellapi.h>  // for CommandLineToArgvW()
 #endif
 
-#include "pstdint.h"  // stdint.h for building w/pre-C99 compilers--see notes
-#include "pstdint.h"  // stdbool.h for building w/pre-C99 compilers--see notes
+#include "pstdint.h"  // stdint.h for builds w/pre-C99 compilers--see notes
+#include "pstdbool.h"  // stdbool.h for builds w/pre-C99 compilers--see notes
 
 // This file should only use the external API.  However, it can be helpful in
 // debug situations to have access to PROBE() and other internal features.
