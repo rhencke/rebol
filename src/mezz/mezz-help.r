@@ -324,9 +324,7 @@ help: function [
 
     parse parameters of :value [
         copy args any [word! | get-word! | lit-word! | issue!]
-        copy refinements any [
-            refinement! | word! | get-word! | lit-word! | issue!
-        ]
+        copy refinements any path!  ; !!! Refinements may become intermixed!
         end
     ]
 
@@ -405,7 +403,7 @@ help: function [
             )
 
             ; parameter name and type line
-            if type and [not refinement? param] [
+            if type [
                 print unspaced [space4 param space "[" type "]"]
             ] else [
                 print unspaced [space4 param]
