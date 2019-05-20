@@ -29,7 +29,6 @@ zero: 0
 
 ; Special values
 
-REBOL: system
 sys: system/contexts/sys
 lib: system/contexts/lib
 

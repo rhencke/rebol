@@ -17,6 +17,13 @@ REBOL [
 ]
 
 
+REBOL: function [] [
+    fail @return [
+        "The REBOL [] header of a script must be interpreted by LOAD (and"
+        "functions like DO).  It cannot be executed directly."
+    ]
+]
+
 ; The pattern `foo: enfix function [...] [...]` is probably more common than
 ; enfixing an existing function, e.g. `foo: enfix :add`.  Hence making a
 ; COPY of the ACTION! identity is probably a waste.  It may be better to go

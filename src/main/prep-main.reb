@@ -42,7 +42,9 @@ mkdir/deep output-dir/main
 
 buf: make text! 200000
 
-append/line buf "REBOL []"  ; main.c LOADs this, must have a valid header
+comment [  ; if LOAD were used this would need a header
+    append/line buf "REBOL []"
+]
 
 append/line buf "host-prot: ["
 
