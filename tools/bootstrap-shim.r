@@ -303,3 +303,12 @@ transcode: function [  ; !!! TBD: migrate this shim to redbol.reb
 
     return pos
 ]
+
+
+; https://github.com/metaeducation/ren-c/issues/923
+;
+deline: specialize 'replace [
+    all: true
+    pattern: unspaced [CR LF]
+    replacement: LF
+]
