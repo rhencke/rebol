@@ -521,16 +521,20 @@ let load_rebol_scripts = function(defer) {
 
         if (code || url)  // promise was augmented to return source code
             promise = promise.then(function (text) {
-                config.log("Running <script> code " + code || src)
+                config.log("Running <script> w/reb.Promise() " + code || src)
 
+                // The Promise() is necessary here because the odds are that
+                // Rebol code will want to use awaiters like READ of a URL.
+                //
                 // !!! The do { } is necessary here in case the code is a
                 // Module or otherwise needs special processing.  Otherwise,
                 // `Rebol [Type: Module ...] <your code>` will just evaluate
                 // Rebol to an object and throw it away, and evaluate the spec
                 // block to itself and throw that away.  The mechanics for
-                // recognizing that special pattern are in do.
+                // recognizing that special pattern are in DO.
                 //
-                reb.Elide("do {" + text + "}")
+                return reb.Promise("do {" + text + "}")
+              }).then(function (result) {  // !!! how might we process result?
                 config.log("Finished <script> code @ tick " + reb.Tick())
                 config.log("defer = " + scripts[i].defer)
               })
