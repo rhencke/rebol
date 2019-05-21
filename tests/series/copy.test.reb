@@ -39,3 +39,17 @@
 [#1794
     (1 = length of deline/lines "Slovenščina")
 ]
+
+[https://github.com/metaeducation/ren-c/issues/923
+    (
+        a: copy #{60}
+        repeat i 16 [
+            append a a
+            deline to-text a
+        ]
+        did all [
+            (length of a) = 65536
+            every b a [b = 96]
+        ]
+    )
+]

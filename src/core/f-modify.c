@@ -364,6 +364,18 @@ REBCNT Modify_String_Or_Binary(
                 }
             }
         }
+
+        // We have to worry about conflicts and resizes if the source and
+        // destination are the same.  Special cases like APPEND might be
+        // optimizable here, but appending series to themselves is rare-ish.
+        // Use the byte buffer.
+        //
+        if (bin == dst_ser) {
+            SET_SERIES_LEN(BYTE_BUF, 0);
+            EXPAND_SERIES_TAIL(BYTE_BUF, src_size_raw);
+            memcpy(BIN_HEAD(BYTE_BUF), src_ptr, src_size_raw);
+            src_ptr = BIN_HEAD(BYTE_BUF);
+        }
     }
     else if (IS_BLOCK(src)) {
         //
@@ -572,6 +584,9 @@ REBCNT Modify_String_Or_Binary(
 
     if (mo->series != nullptr)  // ...a Push_Mold() happened
         Drop_Mold(mo);
+
+    // !!! Should BYTE_BUF's memory be reclaimed also (or should it be
+    // unified with the mold buffer?)
 
     if (bookmark) {
         if (BMK_INDEX(bookmark) > STR_LEN(STR(dst_ser))) {  // past active
