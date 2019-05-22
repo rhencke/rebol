@@ -52,22 +52,13 @@ maybe: enfixed func [
         ]
     ]
 
-    case [
-        set-word? target [
-            if null? :optional [return get target]
-            set target :optional
-        ]
-
-        set-path? target [
-            ; If a SET-PATH!, it may contain a GROUP!.  SET/GET don't accept
-            ; that due to potential side-effects, so use REDUCE.  See also:
-            ;
-            ; https://github.com/rebol/rebol-issues/issues/2275
-            ;
-            if null? :optional [return do compose [(as get-path! target)]]
-            do compose [(target) lit (:optional)]
-        ]
-    ]
+    ; SET and GET require you to pre-compose paths if they have GROUP! in
+    ; them (then use /HARD).  Note also that right evaluates before left here:
+    ;
+    ; https://github.com/rebol/rebol-issues/issues/2275
+    ;
+    if unset? 'optional [return get/hard/any compose target]
+    set/hard/any compose target :optional
 ]
 
 

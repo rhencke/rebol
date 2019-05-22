@@ -204,7 +204,7 @@
 (2 = length of lit /)
 (lit / = to path! [_ _])
 
-; foo/ is a length 1 PATH! in Ren-C
+; foo/ is also a length 2 PATH! in Ren-C
 (path! = type of lit foo/ )
 (2 = length of lit foo/ )
 (lit foo/ = to path! [foo _])

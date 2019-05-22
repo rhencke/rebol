@@ -362,11 +362,18 @@ REB_R Compose_To_Stack_Core(
                 pop_flags |= ARRAY_FLAG_NEWLINE_AT_TAIL;
 
             REBARR *popped = Pop_Stack_Values_Core(dsp_deep, pop_flags);
-            Init_Any_Array(
-                DS_PUSH(),
-                kind,
-                popped  // can't push and pop in same step, need this variable
-            );
+            if (ANY_PATH_KIND(kind))
+                Init_Any_Path(
+                    DS_PUSH(),
+                    kind,
+                    popped  // can't push and pop in same step, need variable
+                );
+            else
+                Init_Any_Array(
+                    DS_PUSH(),
+                    kind,
+                    popped  // can't push and pop in same step, need variable
+                );
 
             Quotify(DS_TOP, quotes);  // match original quoting
 
@@ -397,8 +404,8 @@ REB_R Compose_To_Stack_Core(
 //          "Function to run on composed slots (default: ENBLOCK)"
 //      :label "Distinguish compose groups, e.g. [(plain) (<*> composed)]"
 //          [<skip> tag! file!]
-//      value "Array to use as the template for substitution"
-//          [any-array! any-path!]
+//      value "Array to use as the template for substitution (no-op if WORD!)"
+//          [any-word! any-array! any-path!]
 //      /deep "Compose deeply into nested arrays"
 //      /only "Do not exempt ((...)) from predicate application"
 //  ]
@@ -427,6 +434,9 @@ REBNATIVE(compose)
 
         Move_Value(predicate, D_OUT);
     }
+
+    if (ANY_WORD(ARG(value)))
+        RETURN (ARG(value));  // makes it easier to `set/hard compose target`
 
     REBDSP dsp_orig = DSP;
 
