@@ -64,10 +64,10 @@ do*: function [
         set 'force-remote-import true
         ; Convert value into a URL!
         source: switch source
-            (load rebol/locale/library/utilities)
+            (load system/locale/library/utilities)
         else [
             fail [
-                {Module} source {not in rebol/locale/library}
+                {Module} source {not in system/locale/library}
             ]
         ]
     ]

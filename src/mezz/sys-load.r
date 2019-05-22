@@ -873,7 +873,7 @@ import: function [
         module: to tag! module
     ]
     if tag? module [
-        tmp: (select load rebol/locale/library/modules module) else [
+        tmp: (select load system/locale/library/modules module) else [
             cause-error 'access 'cannot-open reduce [
                 module "module not found in system/locale/library/modules"
             ]
