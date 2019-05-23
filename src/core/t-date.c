@@ -840,13 +840,14 @@ void Pick_Or_Poke_Date(
         // a non-leap year, it would adjust that to be March 1st, or something
         // along these lines.  Review.
         //
-        Normalize_Time(&secs, &day); // note secs is 0 if no time component
+        if (Does_Date_Have_Time(v))
+            Normalize_Time(&secs, &day);
 
         // No time zone component flag set shouldn't matter for date
         // normalization, it just passes it through
         //
         VAL_DATE(v) = Normalize_Date(day, month, year, tz);
-        PAYLOAD(Time, v).nanoseconds = secs; // may be NO_DATE_TIME
+        PAYLOAD(Time, v).nanoseconds = secs;  // may be NO_DATE_TIME
 
         const bool to_utc = true;
         Adjust_Date_Zone(v, to_utc);

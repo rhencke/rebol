@@ -45,6 +45,12 @@
     (d + 1) == 29-Mar-2019
 )]
 
+[https://github.com/red/red/issues/3881 (
+    d: 29-Feb-2020
+    d/year: d/year - 1
+    d = 1-Mar-2019
+)]
+
 [#1637 (
     d: now/date
     did all [
