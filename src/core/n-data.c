@@ -714,8 +714,10 @@ REBNATIVE(set)
     const RELVAL *v;
     if (IS_BLOCK(value) and not REF(single))
         v = VAL_ARRAY_AT(value);
-    else
+    else {
+        Init_True(ARG(single));
         v = value;
+    }
 
     for (
         ;
