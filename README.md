@@ -4,7 +4,7 @@
 [![Build Status][101]](https://travis-ci.org/metaeducation/ren-c)
 
 
-**Ren-C** is a branch of the [Apache 2.0 open-sourced][1] [Rebol][2] codebase.
+**Ren-C** is a branch of the [Apache 2.0 open-sourced][1] [Rebol 3][2] [codebase](https://github.com/rebol/rebol).
 
 [1]: http://www.rebol.com/cgi-bin/blog.r?view=0519
 [2]: https://en.wikipedia.org/wiki/Rebol
