@@ -847,7 +847,7 @@ write output-dir/libr3.exports.json json-collect [
 ]
 
 
-=== GENERATE EMTERPRETER BLACKLIST FILE ===
+=== GENERATE EMTERPRETER BLACKLIST/WHITELIST FILES ===
 
 ; The emterpreter runs C compiled to bytecode vs. directly running WASM code.
 ; This gives the ability to suspend the C execution--preserving its stack
@@ -875,6 +875,9 @@ write output-dir/libr3.exports.json json-collect [
 ; and other values.  But also critically can include reb.Promise() so that
 ; the final return value of a JS-AWAITER can be returned with it.
 ;
+
+; for now whitelist is manually crafted
+write output-dir/emterpreter.whitelist.json read %emterpreter.whitelist.json
 
 write output-dir/emterpreter.blacklist.json json-collect [
     map-each-api [

@@ -291,9 +291,13 @@ ldflags: compose [
         ; faster, as raw WASM.  But it also means blacklisted APIs can be
         ; called from within a JS-AWAITER, since they don't require use of
         ; the suspended bytecode interpreter.  See additional notes in the
-        ; blacklist generation code in %prep-libr3-js.reb
+        ; blacklist and whitelist generation code in %prep-libr3-js.reb
 
-        {-s EMTERPRETIFY_BLACKLIST=@prep/include/emterpreter.blacklist.json}
+        {-s EMTERPRETIFY_WHITELIST=@prep/include/emterpreter.whitelist.json}
+
+	; whitelist needs true function names
+
+	{--profiling-funcs}
     ]]
     else [[
         {-s USE_PTHREADS=1}  ; must be in both cflags and ldflags if used
