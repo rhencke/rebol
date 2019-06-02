@@ -132,7 +132,7 @@ load-header: function [
         tmp: source  ; if it's not UTF-8, the decoding will provide the error
     ]
 
-    if text? source [tmp: to binary! source]
+    if text? source [tmp: as binary! source]
 
     if not (data: script? tmp) [  ; !!! Review: SCRIPT? doesn't return LOGIC!
         ; no script header found

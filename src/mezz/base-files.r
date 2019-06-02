@@ -174,16 +174,8 @@ script?: func [
     return: [<opt> binary!]
     source [file! url! binary! text!]
 ][
-    switch type of source [
-        file!
-        url! [
-            source: read source
-        ]
-        text! [
-            ; Remove this line if FIND-SCRIPT changed to accept text!
-            ;
-            source: to binary! source
-        ]
+    if match [file! url!] source [
+        source: read source
     ]
     find-script source
 ]

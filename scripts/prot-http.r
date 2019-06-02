@@ -183,7 +183,7 @@ make-http-request: func [
         {In case of text!, no escaping is performed.}
         {(eg. useful to override escaping etc.). Careful!}
     headers [block!] "Request headers (set-word! text! pairs)"
-    content [any-string! binary! blank!]
+    content [text! binary! blank!]
         {Request contents (Content-Length is created automatically).}
         {Empty string not exactly like blank.}
     <local> result
@@ -197,14 +197,14 @@ make-http-request: func [
         append result unspaced [mold word space string CR LF]
     ]
     if content [
-        content: to binary! content
+        content: as binary! content
         append result unspaced [
             "Content-Length:" space (length of content) CR LF
         ]
     ]
     append result unspaced [CR LF]
-    result: to binary! result
-    if content [append result content]
+    result: to binary! result  ; AS BINARY! would be UTF-8 constrained
+    if content [append result content]  ; ...but content can be arbitrary
     result
 ]
 

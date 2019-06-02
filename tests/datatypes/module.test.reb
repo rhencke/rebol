@@ -1,5 +1,7 @@
 ; datatypes/module.r
 
+({REBOL [Title: "Test"]} = find-script {;234^/REBOL [Title: "Test"]})
+
 (module? module [] [])
 (not module? 1)
 (module! = type of module [] [])

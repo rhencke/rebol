@@ -632,15 +632,12 @@ REBNATIVE(enline)
     EXPAND_SERIES_TAIL(SER(s), delta);  // corrupts MISC(str).length
     MISC(s).length = old_len + delta;  // just adding CR's
 
-    // !!! After the UTF-8 Everywhere conversion, this will be able to stay
-    // a byte-oriented process..because UTF-8 doesn't reuse ASCII chars in
-    // longer codepoints, and CR and LF are ASCII.  So as long as the
-    // "sliding" is done in terms of byte sizes and not character lengths,
-    // it should be all right.
-    //
-    // Prior to UTF-8 Everywhere, sliding can't be done bytewise, because
-    // UCS-2 has the CR LF bytes in codepoint sequences that aren't CR LF.
-    // So sliding is done in full character counts.
+    // One feature of using UTF-8 for strings is that CR/LF substitution can
+    // stay a byte-oriented process..because UTF-8 doesn't reuse bytes in the
+    // ASCII range, and CR and LF are ASCII.  So as long as the "sliding" is
+    // done in terms of byte sizes and not character lengths, it should work.
+
+    Free_Bookmarks_Maybe_Null(s);  // !!! Could this be avoided sometimes?
 
     REBYTE* bp = STR_HEAD(s); // expand may change the pointer
     REBSIZ tail = STR_SIZE(s); // size in bytes after expansion
@@ -898,8 +895,8 @@ REBNATIVE(to_hex)
 //
 //  {Find a script header within a binary string. Returns starting position.}
 //
-//      return: [<opt> binary!]
-//      script [binary!]
+//      return: [<opt> binary! text!]
+//      script [binary! text!]
 //  ]
 //
 REBNATIVE(find_script)
@@ -908,12 +905,34 @@ REBNATIVE(find_script)
 
     REBVAL *arg = ARG(script);
 
-    REBINT offset = Scan_Header(VAL_BIN_AT(arg), VAL_LEN_AT(arg));
+    REBSIZ size;
+    const REBYTE *bp = VAL_BYTES_AT(&size, arg);
+
+    REBINT offset = Scan_Header(bp, size);
     if (offset == -1)
         return nullptr;
 
     Move_Value(D_OUT, arg);
-    VAL_INDEX(D_OUT) += offset;
+
+    if (IS_BINARY(arg)) {  // may not all be valid UTF-8
+        VAL_INDEX(D_OUT) += offset;
+        return D_OUT;
+    }
+
+    assert(IS_TEXT(arg));  // we know it was all valid UTF-8
+
+    // Discover the codepoint index of the offset (this conceptually repeats
+    // work in Scan_Header(), but since that works on arbitrary binaries it
+    // doesn't always have a codepoint delta to return with the offset.)
+
+    const REBYTE *header_bp = bp + offset;
+
+    REBCNT index = VAL_INDEX(arg);
+    REBCHR(*) cp = VAL_STRING_AT(arg);
+    for (; cp != header_bp; cp = NEXT_STR(cp))
+        ++index;
+
+    VAL_INDEX(D_OUT) = index;
     return D_OUT;
 }
 
