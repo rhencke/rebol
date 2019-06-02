@@ -1138,42 +1138,42 @@ read-lines: function [
     if blank? src [src: system/ports/input]
     if file? src [src: open src]
 
-    crlf: charset "^/^M"
     rule: compose/deep/only either delimiter [
         either keep
-        [ [[thru (delimiter) pos:]] ]
-        [ [[to (delimiter) remove (delimiter) pos:]] ]
+        [ [thru (delimiter) pos:] ]
+        [ [to (delimiter) remove (delimiter) pos:] ]
     ][
-        [[
-            to (crlf) any [
+        [
+            to crlf any [
                 ["^M" and not "^/"]
-                to (crlf)
+                to crlf
             ] (if not keep ['remove]) ["^/" | "^M^/"] pos:
-        ]]
+        ]
     ]
 
     f: function compose [
         <static> buffer (to group! [make binary! 4096])
         <static> port (groupify src)
     ] compose/deep [
-        data: _
+        crlf: charset "^/^M"
+        data: _ eof: false
         cycle [
             pos: _
             parse buffer (rule)
             if pos [break]
-            if same? port system/ports/input
-            [ data: read port ]
-            else
-            [ data: read/part port 4096 ]
+            ((if same? src system/ports/input
+                [[data: read port ]]
+                else
+                [[data: read/part port 4096]]
+            ))
             if empty? data [
-                pos: length of buffer
+                eof: true
+                pos: tail buffer
                 break
             ]
             append buffer data
         ]
-        if all [empty? data empty? buffer] [
-            return null
-        ]
+        if all [eof empty? buffer] [return null]
         ((if not binary [[to text!]])) take/part buffer pos
     ]
 ]
