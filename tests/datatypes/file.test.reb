@@ -22,3 +22,8 @@
     elide (mold files)
     block? files
 )]
+
+[#2378 (
+    some-file: %foo/baz/
+    %foo/baz/bar/ = some-file/bar/
+)]

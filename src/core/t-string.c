@@ -544,7 +544,14 @@ REB_R PD_String(
             return pvs->out;
         }
 
-        if (not (IS_WORD(picker) or ANY_STRING(picker)))
+        if (IS_BLANK(picker)) {
+            //
+            // `f: %foo | f/bar/` should work
+            // https://github.com/rebol/rebol-issues/issues/2378
+            //
+            picker = EMPTY_TEXT;
+        }
+        else if (not (IS_WORD(picker) or ANY_STRING(picker)))
             return R_UNHANDLED;
 
         // !!! This is a historical and questionable feature, where path
