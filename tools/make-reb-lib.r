@@ -701,4 +701,9 @@ e-table/write-emitted
 ; For now, just DO the file at an assumed path--in a state where it can take
 ; for granted that the list of APIs and the `CSCAPE` emitter is available.
 
+; The JavaScript extension actually mutates the API table, so run the TCC hook
+; first...
+;
+do repo/tools/../extensions/tcc/prep-libr3-tcc.reb
+
 do repo/tools/../extensions/javascript/prep-libr3-js.reb

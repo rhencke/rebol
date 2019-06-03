@@ -219,10 +219,10 @@ static void Process_Block_Helper(
 // libtcc breaks ISO C++ by passing function pointers as void*.  This helper
 // uses memcpy to circumvent, assuming they're the same size.
 //
-static void Add_Function_Symbol_Helper(
+static void Add_API_Symbol_Helper(
     TCCState *state,
     const char *symbol,
-    CFUNC *cfunc_ptr // see CFUNC for why func and data pointers differ
+    CFUNC *cfunc_ptr  // see CFUNC for why func and data pointers differ
 ){
     void *void_ptr;
     assert(sizeof(void_ptr) == sizeof(cfunc_ptr));
@@ -538,8 +538,12 @@ REBNATIVE(compile_p)
     // *able* to do it.  It can only see tcc_add_symbol() exported symbols.
     //
     if (REF(librebol)) {
-        /* #include "tmp-librebol-table.inc" */
-        Add_Function_Symbol_Helper(state, "rebValue", cast(CFUNC*, &RL_rebValue));
+        //
+        // .inc file contains calls for each function in %a-lib.c like:
+        //
+        // Add_API_Symbol_Helper(state, "RL_rebX", cast(CFUNC*, &RL_rebX));
+        //
+        #include "tmp-librebol-symbols.inc"
     }
 
     // Add library paths (same as using `-L` in the options)

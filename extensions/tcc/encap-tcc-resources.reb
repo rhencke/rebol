@@ -1,10 +1,10 @@
 REBOL [
     System: "REBOL [R3] Language Interpreter and Run-time Environment"
-    Title: "Scan rebol.h for API entry points to export via tcc_add_symbol()"
-    File: %prep-librebol-table.r
+    Title: "Gather and Compress redistributable includes/libs for TCC"
+    File: %encap-tcc-resources.reb  ; used by MAKE-EMITTER
+
     Rights: {
-        Copyright 2017 Atronix Engineering
-        Copyright 2017-2018 Rebol Open Source Contributors
+        Copyright 2019 Rebol Open Source Contributors
         REBOL is a trademark of REBOL Technologies
     }
     License: {
@@ -12,18 +12,45 @@ REBOL [
         See: http://www.apache.org/licenses/LICENSE-2.0
     }
     Description: {
-        The TCC extension compiles user natives into memory directly.  These
-        natives are linked against some libs that are on disk (the extension
-        is packaged with some of these libraries that it extracts and puts
-        on disk to use).  However, the API entry points for rebol.h are
-        connected to the running executable directly with tcc_add_symbol().
+        In order for the TCC compiler to build useful programs, it depends
+        on the C standard library.  This means the system you are compiling
+        onto must have %include/ and %lib/ directories with appropriate
+        files for your OS.  In addition, TCC patches its own overrides for
+        includes like <stddef.h>, so that they interact with its code
+        generation instead of something like GCC's "intrinsics".  It does
+        this by prioritizing its `-I` include paths on top:
 
-        It might be slightly easier if the build process had a product which
-        was a table of the API entry points, vs. scanning rebol.h.  But that
-        would just add one more file to the project...it's likely better to
-        treat the header as an interface.
+        https://stackoverflow.com/q/53154898/
+
+        But for this to work, the appropriate files must be on the user's
+        disk.  It's generally assumed that Linux systems have a working C
+        compiler with headers corresponding to its libc, so only the TCC
+        specific include overrides and service lib (libtcc1.a) are needed.
+        These can be obtained via `sudo apt-get install tcc`, but that
+        only works if the distribution's TCC matches the TCC that was
+        linked into the Rebol that was built.  In the general case, the
+        Rebol should probably embed the appropriate files into the binary
+        and unpack them on demand when run on a new system.
+
+        Windows is slightly different, because one doesn't generally assume
+        a "standard" compiler is available.  TCC provides a basic set of
+        include and lib stubs for Windows libc, in addition to the overrides
+        like it has on linux.  This all should be packed into the executable
+        as well.
+
+        Unfortunately, stock TCC does not provide a way to "virtually" slip
+        include files into the build process.  They must be extracted to
+        actual paths on disks to be found.  A feature request was made to
+        allow for it, but there is no response as of time of writing:
+
+        http://lists.nongnu.org/archive/html/tinycc-devel/2018-12/msg00011.html
     }
-    Needs: 2.100.100
+    Notes: {
+        !!! This file is a work in progress.  Likely it will be used first
+        to just pack up a .zip file that it won't embed, until the encap
+        process becomes more turnkey and allows extensions to store their
+        own subfolders.
+    }
 ]
 
 ; This script is run from %extensions/tcc
@@ -127,20 +154,3 @@ encap: compose [
 
 print "== IF TCC EXTENSION ENCAPPING WERE IMPLEMENTED, IT WOULD STORE THIS =="
 print mold encap
-
-
-comment [
-print "------ Building embedded header file"
-args: parse-args system/options/args
-output-dir: system/options/path/prep
--- args output-dir
-wait 5
-
-** mkdir/deep output-dir/core
-
-** e: (make-emitter
-**    "Embedded sys-core.h" output-dir/prep/extensions/tcc/tmp-librebol-table.c)
-
-** print "------ Writing embedded header file"
-** e/write-emitted
-]
