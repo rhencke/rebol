@@ -71,7 +71,7 @@ delta-time: function [
     ; result (e.g. not even setting variables is counted in the timing)
     ;
     timer: :lib/now/precise/time  ; Note: NOW comes from an Extension
-    do reduce [:negate :subtract :timer elide do block :timer]
+    do reduce [:negate :subtract :timer :elide :do block :timer]
 ]
 
 delta-profile: func [
