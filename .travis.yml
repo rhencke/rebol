@@ -295,7 +295,7 @@ matrix:
     # old gcc 4.6
     #
     - os: linux
-      dist: trusty
+      dist: trusty  # Note: released in 2013
       sudo: false  # force new container-based infrastructure.
       language: cpp
       env:
@@ -307,6 +307,7 @@ matrix:
         - RIGOROUS=yes
         - STATIC=yes
         - TCC=tcc
+        - ARCH_CFLAGS=
         - WITH_FFI=dynamic
         - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS="ODBC + ZeroMQ + TCC + Signal +"
@@ -319,8 +320,13 @@ matrix:
             - unixodbc-dev  # for ODBC extension
             - libzmq3-dev  # for ZeroMQ extension
             - texinfo  # for makeinfo, required to build FFI
-            - libtcc-dev  # for being able to `-ltcc` for compilation API
-            - tcc  # tcc executable (unused), but gets libtcc1.a + tcc headers
+            #
+            # !!! In theory we should be able to use the stock tcc here.
+            # In practice, there's something wrong with the variadics in
+            # this old Linux.  So we have to build a newer tcc ourselves
+            #
+            #- libtcc-dev  # for being able to `-ltcc` for compilation API
+            #- tcc  # tcc executable (unused), but gets libtcc1.a + tcc headers
 
     # [8] Linux x64, release, gcc
     #
@@ -707,7 +713,14 @@ script:
     #
     - |
       if [[ ! -z $TCC ]]; then
-          if [[ $OS_ID == 0.4.40 ]]; then
+          if [[ 0 = 1 ]]; then
+              #
+              # !!! What's a better representation for literal false in bash?
+              #
+              # !!! was if [[ $OS_ID == 0.4.40 ]], but the old trusty doesn't
+              # have working variadics in its stock libtcc)
+              #
+              # ---
               #
               # Just use the tcc and libtcc installed by the package manager
               # (in the matrix settings above).  That's because the platform
@@ -754,7 +767,9 @@ script:
               # seems `TCC_TARGET_PE` (Program Executable, e.g. Windows) is
               # only set by `--config-mingw32`.  Review.
 
-              if [[ $OS_ID = 0.4.4 ]]; then
+              if [[ $OS_ID = 0.4.40 ]]; then
+                  ./configure --cpu=x86_64 --enable-static --extra-cflags="$ARCH_CFLAGS" --extra-ldflags="$ARCH_CFLAGS"
+              elif [[ $OS_ID = 0.4.4 ]]; then
                   ./configure --cpu=x86 --enable-static --extra-cflags="$ARCH_CFLAGS" --extra-ldflags="$ARCH_CFLAGS"
               elif [[ $OS_ID = 0.3.1 ]]; then  #x86-win32
                   ./configure --config-mingw32 --cpu=x86 --enable-static --extra-cflags="$ARCH_CFLAGS" --cross-prefix="$CROSS_PREFIX" --extra-ldflags="$ARCH_CFLAGS"
@@ -772,7 +787,9 @@ script:
 
               echo "Generating libtcc1.a (runtime lib for TCC-built programs)"
 
-              if [[ $OS_ID = 0.4.4 ]]; then
+              if [[ $OS_ID = 0.4.40 ]]; then
+                  ./configure --cpu=x86_64 --extra-cflags="$ARCH_CFLAGS" --extra-ldflags="$ARCH_CFLAGS"
+              elif [[ $OS_ID = 0.4.4 ]]; then
                   ./configure --cpu=x86 --extra-cflags="$ARCH_CFLAGS" --extra-ldflags="$ARCH_CFLAGS"
               elif [[ $OS_ID = 0.3.1 ]]; then  # x86-win32
                   ./configure --cpu=x86 --extra-cflags="$ARCH_CFLAGS" --cross-prefix="$CROSS_PREFIX" --extra-ldflags="$ARCH_CFLAGS"
