@@ -185,10 +185,10 @@ void Assert_Cell_Marked_Correctly(const RELVAL *v)
                 // references at once), the data pointers in all but the
                 // shared singular value are NULL.
                 //
-                if (Is_Handle_Cfunc(v))
-                    assert(IS_CFUNC_TRASH_DEBUG(VAL_HANDLE_CFUNC_P(v)));
-                else
-                    assert(IS_POINTER_TRASH_DEBUG(VAL_HANDLE_CDATA_P(v)));
+                // (Trash not used because release build complains about lack
+                // of initialization, so null is always used)
+                //
+                assert(VAL_HANDLE_CDATA_P(v) == nullptr);
             }
         }
         break; }

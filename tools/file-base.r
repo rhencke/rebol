@@ -88,6 +88,7 @@ core: [
         <msc:/wd4146>  ; unary minus operator applied to unsigned type
 
         <gnu:-Wno-cast-qual>  ; e.g. `*sp = (char*)s0 - 1;`
+        <gnu:-Wno-unused-const-variable>  ; e.g. `tinytens`, `bigtens`, `tens`
 
         <no-sign-compare>
         <no-uninitialized>

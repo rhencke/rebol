@@ -399,7 +399,7 @@ REB_R Compose_To_Stack_Core(
 //
 //  {Evaluates only contents of GROUP!-delimited expressions in an array}
 //
-//      return: [any-array! any-path!]
+//      return: [any-word! any-array! any-path!]
 //      :predicate [<skip> action! path!]
 //          "Function to run on composed slots (default: ENBLOCK)"
 //      :label "Distinguish compose groups, e.g. [(plain) (<*> composed)]"

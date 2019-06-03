@@ -719,7 +719,7 @@ script:
               #
               # (export is so that if we run r3 to test tcc, it can see it)
               #
-              export CONFIG_TCCDIR=/usr/lib/x86_64-linux-gnu/tcc  # no slash!
+              export CONFIG_TCCDIR=/usr/lib/tcc  # no slash!
           else
               # If cross-compiling, we can't merely `sudo apt-get` the libtcc
               # and resources we need...have to build it from scratch.
@@ -931,6 +931,7 @@ script:
       if [[ (! -z $TCC) && ($TCC != no) ]]; then
         if [[ $OS_ID = 0.4.40 ]]; then
           ./r3 ../tests/misc/fib.r
+          R3_EXIT_STATUS=$?
         elif [[ $OS_ID = 0.4.4 ]]; then
           #
           # Most 32-bit builds are intending to run on 32-bit systems, hence

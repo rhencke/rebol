@@ -189,7 +189,7 @@ inline static void Init_Handle_Cdata_Managed_Common(
     RESET_CELL(out, REB_HANDLE, CELL_FLAG_FIRST_IS_NODE);
     VAL_HANDLE_SINGULAR_NODE(out) = NOD(singular);
     VAL_HANDLE_LENGTH_U(out) = 0xDECAFBAD;  // trash to avoid compiler warning
-    VAL_HANDLE_CFUNC_P(out) = nullptr;  // or complains about not initializing
+    VAL_HANDLE_CDATA_P(out) = nullptr;  // or complains about not initializing
 }
 
 inline static REBVAL *Init_Handle_Cdata_Managed(
