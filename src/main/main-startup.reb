@@ -502,7 +502,16 @@ main-startup: function [
     ;
 
     emit #quit-if-halt
-    emit #countdown-if-error
+
+    ; !!! Counting down on command line script errors was making the console
+    ; extension dependent on EVENT!, which the WebAssembly build did not want.
+    ; It wasn't the most popular feature to begin with, so it is disabled for
+    ; the time being:
+    ;
+    ; https://github.com/metaeducation/ren-c/issues/1000
+    ;
+    comment [emit #countdown-if-error]
+    emit #die-if-error
 
     while [not tail? argv] [
 
