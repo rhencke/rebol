@@ -53,8 +53,20 @@ compilables: [
     c-fib
 ]
 
-compile/inspect compilables  ; print out for verbose info
-compile compilables  ; does the actual compilation
+opts: [
+    ; This can be specified with LIBREBOL_INCLUDE_DIR as an environment
+    ; variable, but you can also do it here for convenience.
+    ;
+    ;;librebol-path %/home/hostilefork/Projects/ren-c/build/prep/include
+
+    ; This can be specified with CONFIG_TCCDIR as an environment variable,
+    ; but you can also do it here for convenience.
+    ;
+    ;;runtime-path %/home/hostilefork/Projects/tcc
+]
+
+compile/inspect/settings compilables opts  ; print out for verbose info
+compile/settings compilables opts  ; does the actual compilation
 
 print ["c-fib 30:" c: c-fib 30]
 print ["rebol-fib 30:" r: rebol-fib 30]

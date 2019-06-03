@@ -52,6 +52,7 @@ compile: function [
             library-path [block! file! text!]
             library [block! file! text!]
             runtime-path [file! text!]
+            librebol-path [file! text!]
             debug [word! logic!]  ; !!! currently unimplemented
     }
     /inspect "Return the C source code as text, but don't compile it"
@@ -78,6 +79,7 @@ compile: function [
         library-path: copy []  ; block! of text!s (local directories)
         library: copy []  ; block of text!s (local filenames)
         runtime-path: _  ; sets "CONFIG_TCCDIR" at runtime, text! or blank
+        librebol-path: _  ; alternative to "LIBREBOL_INCLUDE_DIR"
         debug: _  ; logic!
     ]
 
@@ -110,12 +112,12 @@ compile: function [
             ]
         ] else [
             switch key [
-                'runtime-path [
-                    if var [fail "RUNTIME-PATH multiply specified"]
-                    config/runtime-path: switch type of arg [
-                        file! [file-to-local/full arg]
-                        text! [arg]
-                        fail "RUNTIME-PATH must be TEXT! or FILE!"
+                'runtime-path 'librebol-path [
+                    if var [fail [key "multiply specified"]]
+                    config/(key): switch type of arg [
+                        file! [arg]
+                        text! [local-to-file arg]
+                        fail [key "must be TEXT! or FILE!"]
                     ]
                 ]
                 'debug [  ; !!! Currently not supported by COMPILE*
@@ -141,33 +143,49 @@ compile: function [
     ; For now, we trust CONFIG_TCCDIR, which is a standard setting.  If that
     ; is not provided, we make guesses.
 
-    if config-tccdir: try any [
-        get-env "CONFIG_TCCDIR"  ; "local" TEXT! (backslashes on windows)
-        file-to-local try match exists? %/usr/lib/x86_64-linux-gnu/tcc/
-        file-to-local try match exists? %/usr/local/lib/tcc/
-    ][
-        ; TCC has its own definition of macros like va_arg(), which use
-        ; internal helpers like __va_start, and those are *not* part of
-        ; GNU libc.  This leads to two complicating factors.  One is that
-        ; there are a few TCC header files which must out-prioritize the
-        ; ones in the standard distribution, e.g. <stdarg.h>.  These files
-        ; must basically appear first in the `-I` include paths, which makes
-        ; them *out-prioritize the system headers* (!)  So when a file in
-        ; /usr/include does `#include <stdarg.h>`, it will get that from
-        ; the override directory and not /usr/include:
+    config/runtime-path: default [try any [
+        local-to-file try get-env "CONFIG_TCCDIR"  ; (backslashes on windows)
+
+        ; !!! Guessing is probably a good idea in the long term, but in the
+        ; short term it just creates unpredictability.  Avoid for now.
         ;
-        ; https://stackoverflow.com/questions/53154898/
+        ; match exists? %/usr/lib/x86_64-linux-gnu/tcc/
+        ; match exists? %/usr/local/lib/tcc/
+    ]]
 
-        insert config/include-path config-tccdir/include
-
-        ; The other complicating factor is that once emitted code has these
-        ; references to TCC-specific internal routines not in libc, the
-        ; tcc_relocate() command inside the extension (API link step) has to
-        ; be able to find definitions for them.  They live in %libtcc1.a,
-        ; which is generally located in the CONFIG_TCCDIR.
-
-        config/runtime-path: default [config-tccdir]
+    if not config/runtime-path [
+        fail [
+            {CONFIG_TCCDIR must be set in the environment or `runtime-path`}
+            {must be provided in the /SETTINGS}
+        ]
     ]
+
+    if not exists? config/runtime-path/include [
+        fail [
+            {Runtime path} config/runtime-path {does not have an %include/}
+            {directory.  It should have files like %stddef.h and %stdarg.h}
+            {because TCC has its own definition of macros like va_arg(), that}
+            {use internal helpers like __va_start that are *not* in GNU libc}
+            {or the Microsoft C runtime.}
+        ]
+    ]
+
+    ; Note: The few header files in %tcc/include/ must out-prioritize the ones
+    ; in the standard distribution, e.g. %/usr/include/stdarg.h.  TCC's files
+    ; must basically appear first in the `-I` include paths, which makes
+    ; them *out-prioritize the system headers* (!)
+    ;
+    ; https://stackoverflow.com/questions/53154898/
+
+    insert config/include-path file-to-local/full config/runtime-path/include
+
+    ; The other complicating factor is that once emitted code has these
+    ; references to TCC-specific internal routines not in libc, the
+    ; tcc_relocate() command inside the extension (API link step) has to
+    ; be able to find definitions for them.  They live in %libtcc1.a,
+    ; which is generally located in the CONFIG_TCCDIR.
+
+    config/runtime-path: my file-to-local/full
 
     if "1" = get-env "REBOL_TCC_EXTENSION_32BIT_ON_64BIT" [
         ;
@@ -244,28 +262,45 @@ compile: function [
         }
 
         ; We want to embed and ship "rebol.h" automatically.  But as a first
-        ; step, try using the TOP_DIR variable to find the generated file,
-        ; since that is what Travis uses.
+        ; step, try overriding with the LIBREBOL_INCLUDE_DIR environment
+        ; variable.
 
-        if not librebol-include-path: any [
+        config/librebol-path: default [try any [
             local-to-file try get-env "LIBREBOL_INCLUDE_DIR"
-            match exists? %/home/hostilefork/Projects/ren-c/make/prep/include
-        ][
-            fail [
-                {LIBREBOL_INCLUDE_DIR currently must be `export`-ed via an}
-                {environment variable so that the TCC extension knows where}
-                {to find "rebol.h" (e.g. in %make/prep/include)}
+
+            ; !!! While guessing at the CONFIG_TCCDIR may make sense on Linux,
+            ; other guesses which were expedient during development just
+            ; create unpredictability.  Omit for now.
+            ;
+            ; match exists? %/home/hostilefork/Projects/ren-c/make/prep/include
+        ]]
+
+        ; We are going to test for %rebol.h in the path, so need a FILE!
+        ;
+        switch type of config/librebol-path [
+            text! [config/librebol-path: my local-to-file]
+            file! []
+            blank! [
+                fail [
+                    {LIBREBOL_INCLUDE_DIR currently must be set either as an}
+                    {environment variable or as LIBREBOL-PATH in /OPTIONS so}
+                    {that the TCC extension knows where to find "rebol.h"}
+                    {(e.g. in %make/prep/include)}
+                ]
+            ]
+            default [
+                fail ["Invalid LIBREBOL_INCLUDE_DIR:" config/librebol-path]
             ]
         ]
 
-        if not exists? librebol-include-path/rebol.h [
+        if not exists? config/librebol-path/rebol.h [
             fail [
-                {Looked for %rebol.h in} librebol-include-path {and did not}
+                {Looked for %rebol.h in} config/librebol-path {and did not}
                 {find it.  Check your definition of LIBREBOL_INCLUDE_DIR}
             ]
         ]
 
-        insert config/include-path file-to-local librebol-include-path
+        insert config/include-path file-to-local config/librebol-path
     ]
 
     result: compile*/(inspect)/(librebol) compilables config

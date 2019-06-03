@@ -56,7 +56,23 @@ REBOL [
 ; This script is run from %extensions/tcc
 ; For now, just go back up a few steps
 
-change-dir %../../
+change-dir %../../  ; assume this is the TOP_DIR
+top-dir: what-dir
+comment [
+    top-dir: try as file! try get-env "TOP_DIR"
+    exists? top-dir or [
+        print ["TOP_DIR does not exist" top-dir]
+        fail [
+            "TOP_DIR should be set to where the git repository for Rebol was"
+            "cloned into.  (This should be REBOL_SOURCE_DIR or something"
+            "more clear, but it's what was configured on Travis CI)"
+        ]
+    ]
+]
+
+; !!! To get things started, assume we write a zip file to the build directory
+;
+output-dir: top-dir/build/
 
 do %tools/bootstrap-shim.r
 
@@ -67,6 +83,8 @@ do %tools/common-emitter.r
 
 do %tools/systems.r
 system-config: config-system args/OS_ID
+
+do %scripts/unzip.reb
 
 all [
     config-tccdir: try local-to-file try get-env "CONFIG_TCCDIR"
@@ -93,18 +111,15 @@ all [
     ]
 ]
 
-; !!! Some list of properties should be bound into the prep code as being
-; already available, so each prep doesn't have to re-discover them.
+; !!! If you want to get the zip dialect to use a specific filename, you
+; can do so by reading the binary data literally and storing a file.  But
+; it can only store directories relatively by their actual names, and if
+; you get an absolute path stored unless you are *in* the directory.  Work
+; around it for now by changing to the config-tccdir, where the nested
+; directories are being stored.
 ;
-top-dir: try as file! try get-env "TOP_DIR"
-exists? top-dir or [
-    print ["TOP_DIR does not exist" top-dir]
-    fail [
-        "TOP_DIR should be set to where the git repository for Rebol was"
-        "cloned into.  (This should be REBOL_SOURCE_DIR or something"
-        "more clear, but it's what was configured on Travis CI)"
-    ]
-]
+change-dir config-tccdir
+
 
 ; Embedded files for supporting basic compilation that are extracted to the
 ; local filesystem when running a COMPILE.  A more elegant solution than
@@ -113,16 +128,19 @@ exists? top-dir or [
 ; http://lists.nongnu.org/archive/html/tinycc-devel/2018-12/msg00011.html
 ;
 encap: compose [
-    (top-dir/make/prep/include/rebol.h)
+    %rebol.h (read top-dir/build/prep/include/rebol.h)
 
     ((switch system-config/os-base [
         ;
         ; https://repo.or.cz/tinycc.git/blob/HEAD:/win32/tcc-win32.txt
         ;
         'Windows [
-            reduce [
-                config-tccdir/include  ; typically %(...)/win32/include
-                config-tccdir/lib  ; typically %(...)/win32/lib
+            compose [
+                ; typically %(...)/win32/include
+                %include/  ; (??? config-tccdir/include/) - see dir note above
+
+                ; typically %(...)/win32/lib
+                %lib/  ; (??? config-tccdir/lib/) - see dir note above
             ]
         ]
 
@@ -135,7 +153,10 @@ encap: compose [
         'Posix
         'Android
         'Linux [
-            config-tccdir/include  ; somewhere in /usr/lib, or tcc root
+            ; somewhere in /usr/lib, or tcc root
+            compose [
+                %include/  ; (??? config-tccdir/include) - see dir note above
+            ]
 
             ; No additional libs (besides libtcc1.a), TCC is compatible with
             ; GNU libc and other libraries on standard linux distributions.
@@ -149,8 +170,12 @@ encap: compose [
         ]
     ]))
 
-    (tcc-libtcc1-file)  ; See README.md for an explanation of %libtcc1.a
+    ; See README.md for an explanation of %libtcc1.a
+    %libtcc1.a (read tcc-libtcc1-file)
 ]
 
-print "== IF TCC EXTENSION ENCAPPING WERE IMPLEMENTED, IT WOULD STORE THIS =="
-print mold encap
+
+print ["MAKING ZIP FILE:" output-dir/tcc-encap.zip]
+zip/deep/verbose output-dir/tcc-encap.zip encap
+
+print ["(ULTIMATELY WE WANT TO ENCAP THAT DIRECTLY INTO THE TCC EXTENSION)"]
