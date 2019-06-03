@@ -1168,7 +1168,7 @@ read-lines: function [
             ))
             if empty? data [
                 eof: true
-                pos: tail buffer
+                pos: tail of buffer
                 break
             ]
             append buffer data
