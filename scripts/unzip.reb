@@ -289,8 +289,9 @@ ctx-zip: context [
             ;
             date: lib/now  ; !!! Each file has slightly later compress date?
 
-            ; is next one data or filename?
-            data: if match [file! url! blank!] try :source/2 [
+            data: if match [binary! text!] :source/2 [  ; next is data to use
+                first (source: next source)
+            ] else [  ; otherwise data comes from reading the location itself
                 if dir? name [
                     copy #{}
                 ] else [
@@ -299,14 +300,12 @@ ctx-zip: context [
                     ]
                     read root+name
                 ]
-            ] else [
-                first (source: next source)
             ]
 
             if not binary? data [data: to binary! data]
 
             name: to-path-file name
-            if verbose [print name]
+            if verbose [print [name]]
 
             set [file-entry: dir-entry:] zip-entry name date data offset
 

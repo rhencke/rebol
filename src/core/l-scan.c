@@ -2178,7 +2178,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             ++ep;
 
             if (
-                *ep == '\0' or IS_LEX_SPACE(*ep)
+                *ep == '\0' or IS_LEX_SPACE(*ep) or ANY_CR_LF_END(*ep)
                 or *ep == ')' or *ep == ']'
             ){  // e.g. `/a/`
                 Init_Blank(DS_PUSH());  // `/a/` is path form of [_ a _]
