@@ -15,7 +15,7 @@
             arg: block/1
             try next block
         ] else [
-            try evaluate/set block lit arg:
+            try evaluate @(lit arg:) block
         ]
 
         if refinement? params/1 [
@@ -81,12 +81,12 @@
 [
     #1760
 
-    (1 == eval func [] [redbol-apply does [] [return 1] 2])
-    (1 == eval func [] [redbol-apply func [a] [a] [return 1] 2])
-    (1 == eval func [] [redbol-apply does [] [return 1]])
-    (1 == eval func [] [redbol-apply func [a] [a] [return 1]])
-    (1 == eval func [] [redbol-apply func [a b] [a] [return 1 2]])
-    (1 == eval func [] [redbol-apply func [a b] [a] [2 return 1]])
+    (1 == reeval func [] [redbol-apply does [] [return 1] 2])
+    (1 == reeval func [] [redbol-apply func [a] [a] [return 1] 2])
+    (1 == reeval func [] [redbol-apply does [] [return 1]])
+    (1 == reeval func [] [redbol-apply func [a] [a] [return 1]])
+    (1 == reeval func [] [redbol-apply func [a b] [a] [return 1 2]])
+    (1 == reeval func [] [redbol-apply func [a b] [a] [2 return 1]])
 ]
 
 (
@@ -177,7 +177,7 @@
 
 ; MAKE FRAME! :RETURN should preserve binding in the FUNCTION OF the frame
 ;
-(1 == eval func [] [redbol-apply :return [1] 2])
+(1 == reeval func [] [redbol-apply :return [1] 2])
 
 (_ == redbol-apply/only func [/a] [a] [#[false]])
 (group! == redbol-apply/only :type-of [()])

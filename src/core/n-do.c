@@ -35,22 +35,22 @@
 
 
 //
-//  eval: native [
+//  reeval: native [
 //
-//  {Process received value *inline* as the evaluator loop would.}
+//  {Process an evaluated argument *inline* as the evaluator loop would}
 //
 //      return: [<opt> any-value!]
-//      value [<opt> any-value!]
+//      value [any-value!]
 //          {BLOCK! passes-thru, ACTION! runs, SET-WORD! assigns...}
 //      expressions [<opt> any-value! <...>]
 //          {Depending on VALUE, more expressions may be consumed}
 //  ]
 //
-REBNATIVE(eval)
+REBNATIVE(reeval)
 {
-    INCLUDE_PARAMS_OF_EVAL;
+    INCLUDE_PARAMS_OF_REEVAL;
 
-    // EVAL only *acts* variadic, but uses EVAL_FLAG_REEVALUATE_CELL
+    // REEVAL only *acts* variadic, but uses EVAL_FLAG_REEVALUATE_CELL
     //
     UNUSED(ARG(expressions));
 
@@ -490,13 +490,15 @@ REBNATIVE(do)
 //  {Perform a single evaluator step, returning the next source position}
 //
 //      return: [<opt> block! group! varargs!]
+//      :var "Is set with result of evaluation (left as-is if end/invisible)"
+//          [<skip> sym-word! sym-path! sym-group!]
 //      source [
-//          <blank>  ; useful for `do try ...` scenarios when no match
+//          <blank>  ; useful for `evaluate try ...` scenarios when no match
 //          block!  ; source code in block form
 //          group!  ; same as block (or should it have some other nuance?)
 //          varargs!  ; simulates as if frame! or block! is being executed
 //      ]
-//      /set "Store result in a variable (assuming something was evaluated)"
+//      /set "DEPRECATED: use `evaluate @var` or `evaluate @(lit var:)` etc."
 //          [any-word!]
 //  ]
 //
@@ -504,10 +506,27 @@ REBNATIVE(evaluate)
 {
     INCLUDE_PARAMS_OF_EVALUATE;
 
+    if (REF(set))
+        fail ("EVALUATE/SET deprecated: https://forum.rebol.info/t/1173");
+
     REBVAL *source = ARG(source);  // may be only GC reference, don't lose it!
   #if !defined(NDEBUG)
     SET_CELL_FLAG(ARG(source), PROTECTED);
   #endif
+
+    REBVAL *var = ARG(var);
+
+    if (IS_SYM_GROUP(var)) {
+        if (Do_Any_Array_At_Throws(D_OUT, var, SPECIFIED))
+            return R_THROWN;
+
+        if (IS_BLANK(D_OUT))
+            Init_Nulled(var);  // for consistency with <skip>'d var
+        if (ANY_WORD(D_OUT) or ANY_PATH(D_OUT))
+            Move_Value(var, D_OUT);
+        else
+            fail ("@(...) for EVALUATE must be BLANK!/ANY-WORD!/ANY-PATH!");
+    }
 
     switch (VAL_TYPE(source)) {
       case REB_BLOCK:
@@ -527,12 +546,9 @@ REBNATIVE(evaluate)
         if (IS_END(D_SPARE))  // we were at array end or was just COMMENT/etc.
             return nullptr;  // leave the result variable with old value
 
-        if (REF(set))
-            Move_Value(Sink_Var_May_Fail(ARG(set), SPECIFIED), D_SPARE);
-
         Move_Value(D_OUT, source);
         VAL_INDEX(D_OUT) = index;
-        return D_OUT; }
+        break; }  // update variable
 
       case REB_VARARGS: {
         REBVAL *position;
@@ -568,41 +584,46 @@ REBNATIVE(evaluate)
                 return nullptr;
             }
 
-            if (REF(set))
-                Move_Value(Sink_Var_May_Fail(ARG(set), SPECIFIED), D_SPARE);
-
             VAL_INDEX(position) = index;
-            RETURN (source);  // original VARARGS! will have updated position
+        }
+        else {
+            REBFRM *f;
+            if (not Is_Frame_Style_Varargs_May_Fail(&f, source))
+                panic (source); // Frame is the only other type
+
+            // By definition, we're in the middle of a function call in frame
+            // the varargs came from.  It's still on the stack--we don't want
+            // to disrupt its state (beyond feed advancing).  Use a subframe.
+
+            if (IS_END(f->feed->value))
+                return nullptr;
+
+            REBFLGS flags = EVAL_MASK_DEFAULT;
+            if (Eval_Step_In_Subframe_Throws(D_SPARE, f, flags)) {
+                Move_Value(D_OUT, D_SPARE);
+                return R_THROWN;
+            }
+
+            if (IS_END(D_SPARE))  // remainder just comments and invisibles
+                return nullptr;
         }
 
-        REBFRM *f;
-        if (not Is_Frame_Style_Varargs_May_Fail(&f, source))
-            panic (source); // Frame is the only other type
-
-        // By definition, we are in the middle of a function call in the frame
-        // the varargs came from.  It's still on the stack, and we don't want
-        // to disrupt its state (beyond advancing its feed).  Use a subframe.
-
-        if (IS_END(f->feed->value))
-            return nullptr;
-
-        REBFLGS flags = EVAL_MASK_DEFAULT;
-        if (Eval_Step_In_Subframe_Throws(D_SPARE, f, flags)) {
-            Move_Value(D_OUT, D_SPARE);
-            return R_THROWN;
-        }
-
-        if (IS_END(D_SPARE))  // remainder was just comments and invisibles
-            return nullptr;
-
-        if (REF(set))
-            Move_Value(Sink_Var_May_Fail(ARG(set), SPECIFIED), D_SPARE);
-
-        RETURN (source); }  // original VARARGS! will have an updated position
+        Move_Value(D_OUT, source);  // VARARGS! will have updated position
+        break; }  // update variable
 
       default:
         panic (source);
     }
+
+    if (not IS_NULLED(var))
+        Set_Opt_Polymorphic_May_Fail(
+            ARG(var), SPECIFIED,
+            D_SPARE, SPECIFIED,
+            true,  // any (e.g. VOID! is legal)
+            false  // not hard (e.g. GROUP!s don't run, and not literal)
+        );
+
+    return D_OUT;
 }
 
 

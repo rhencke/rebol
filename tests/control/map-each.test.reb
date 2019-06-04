@@ -1,7 +1,7 @@
 ; functions/control/map-each.r
 ; "return bug"
 (
-    integer? eval does [map-each v [] [] 1]
+    integer? reeval does [map-each v [] [] 1]
 )
 
 ; PATH! is immutable, but MAP-EACH should work on it

@@ -287,7 +287,7 @@ apply: emulate [
                 arg: block/1
                 try next block
             ] else [
-                try evaluate/set block lit arg:
+                try evaluate @(lit arg:) block
             ]
 
             if refinement? params/1 [
@@ -491,7 +491,7 @@ do: emulate [
 
         if var [  ; DO/NEXT
             if args [fail "Can't use DO/NEXT with ARGS"]
-            source: evaluate/set :source lit result:
+            source: evaluate @(lit result:) :source
             set var source  ; DO/NEXT put the *position* in the var
             return :result  ; DO/NEXT returned the *evaluative result*
         ]
@@ -686,7 +686,7 @@ collect: emulate [
             series: <remove-unused-series-parameter>
         ]
 
-        eval func compose [(name) [action!] <with> return] body :keeper
+        reeval func compose [(name) [action!] <with> return] body :keeper
         either into [output] [head of output]
     ]
 ]

@@ -14,7 +14,7 @@
 
 (
     val: <overwritten>
-    pos: evaluate/set [1 + comment "a" comment "b" 2 * 3 fail "too far"] 'val
+    pos: evaluate @val [1 + comment "a" comment "b" 2 * 3 fail "too far"]
     did all [
         val = 9
         pos = [fail "too far"]
@@ -22,7 +22,7 @@
 )
 (
     val: <overwritten>
-    pos: evaluate/set [1 comment "a" + comment "b" 2 * 3 fail "too far"] 'val
+    pos: evaluate @val [1 comment "a" + comment "b" 2 * 3 fail "too far"]
     did all [
         val = 9
         pos = [fail "too far"]
@@ -30,7 +30,7 @@
 )
 (
     val: <overwritten>
-    pos: evaluate/set [1 comment "a" comment "b" + 2 * 3 fail "too far"] 'val
+    pos: evaluate @val [1 comment "a" comment "b" + 2 * 3 fail "too far"]
     did all [
         val = 9
         pos = [fail "too far"]
@@ -63,7 +63,7 @@
     ]
 )
 (
-    pos: evaluate/set [1 + 2 * 3 elide "a" elide "b" fail "too far"] 'val
+    pos: evaluate @val [1 + 2 * 3 elide "a" elide "b" fail "too far"]
     did all [
         val = 9
         pos = [elide "a" elide "b" fail "too far"]
@@ -110,10 +110,10 @@
     3 = do [1 + 2 ||| 10 + 20 | 100 + 200]
 )
 (
-    ok? trap [eval (func [x [<end>]] []) ||| 1 2 3]
+    ok? trap [reeval (func [x [<end>]] []) ||| 1 2 3]
 )
 (
-    error? trap [eval (func [x [<opt>]] []) ||| 1 2 3]
+    error? trap [reeval (func [x [<opt>]] []) ||| 1 2 3]
 )
 
 (
@@ -276,10 +276,10 @@
 ; It's likely more useful for EVAL to give VOID! than error if asked to
 ; evaluate something that turns out to be invisible.
 ;
-(void? eval lit (comment "void is better than failing here"))
+(void? reeval lit (comment "void is better than failing here"))
 (
     x: <before>
-    void? eval :elide x: <after>
+    void? reeval :elide x: <after>
     x = <after>
 )
 

@@ -52,9 +52,9 @@
         unset 'var
         block: [<tag> lefty "hi"]
         did all [
-            [lefty "hi"] = block: evaluate/set block 'var
+            [lefty "hi"] = block: evaluate @var block
             <tag> = var
-            [] = evaluate/set block 'var
+            [] = evaluate @var block
             [_ "hi"] = var
         ]
     )
@@ -66,9 +66,9 @@
         unset 'var
         block: [lit 1 lefty "hi"]
         did all [
-            [lefty "hi"] = block: evaluate/set block 'var
+            [lefty "hi"] = block: evaluate @var block
             1 = var
-            [] evaluate/set block 'var
+            [] evaluate @var block
             [_ "hi"] = var
         ]
     )

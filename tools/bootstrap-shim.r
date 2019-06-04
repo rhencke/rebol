@@ -312,3 +312,11 @@ deline: specialize 'replace [
     pattern: unspaced [CR LF]
     replacement: LF
 ]
+
+reeval: :eval
+eval: func [] [
+    fail 'return [
+        "EVAL is now REEVAL:"
+        https://forum.rebol.info/t/eval-evaluate-and-reeval-reevaluate/1173
+    ]
+]

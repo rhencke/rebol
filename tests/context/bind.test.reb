@@ -38,7 +38,7 @@
     (not head? bind next [1] 'rebol)
 ]
 [#892 #216
-    (y: 'x eval func [<local> x] [x: true get bind y 'x])
+    (y: 'x reeval func [<local> x] [x: true get bind y 'x])
 ]
 
 [#2086 (
@@ -47,7 +47,7 @@
 )]
 
 [#1893 (
-    word: eval func [x] ['x] 1
+    word: reeval func [x] ['x] 1
     e: trap [same? word bind 'x word]
     e/id = 'expired-frame
 )]

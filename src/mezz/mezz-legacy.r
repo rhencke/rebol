@@ -24,6 +24,13 @@ REBOL: function [] [
     ]
 ]
 
+eval: function [] [
+    fail @return [
+        "EVAL is now REEVAL (EVAL is slated to be a synonym for EVALUATE):"
+        https://forum.rebol.info/t/eval-evaluate-and-reeval-reevaluate/1173
+    ]
+]
+
 ; The pattern `foo: enfix function [...] [...]` is probably more common than
 ; enfixing an existing function, e.g. `foo: enfix :add`.  Hence making a
 ; COPY of the ACTION! identity is probably a waste.  It may be better to go
@@ -196,7 +203,7 @@ rejoin: function [
     ;
     values: copy []
     pos: block
-    while [pos: evaluate/set pos (lit evaluated:)][
+    while [pos: evaluate @(lit evaluated:) pos][
         append/only values :evaluated
     ]
 

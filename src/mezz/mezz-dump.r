@@ -57,7 +57,7 @@ dump: function [
             ]
 
             group! [
-                print [unspaced [mold item ":"] | mold eval item]
+                print [unspaced [mold item ":"] | val-to-text reeval item]
             ]
 
             issue! [
@@ -72,7 +72,7 @@ dump: function [
 
     case [
         swp: match [set-word! set-path!] :value [ ; `dump x: 1 + 2`
-            pos: evaluate/set extra (lit result:)
+            pos: evaluate @(lit result:) extra
             set swp :result
             print [swp | result]
         ]
@@ -80,7 +80,7 @@ dump: function [
         b: match block! :value [
             while [not tail? b] [
                 if swp: match [set-word! set-path!] :b/1 [ ; `dump [x: 1 + 2]`
-                    b: evaluate/set b (lit result:)
+                    b: evaluate @(lit result:) b
                     print [swp | result]
                 ] else [
                     dump-one b/1
@@ -141,7 +141,7 @@ dumps: enfixed function [
         ; Make it easy to declare and dump a variable at the same time.
         ;
         if match [set-word! set-path!] value [
-            evaluate/set extra value
+            evaluate @value extra
             value: either set-word? value [as word! value] [as path! value]
         ]
 

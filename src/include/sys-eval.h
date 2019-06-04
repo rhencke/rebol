@@ -47,7 +47,7 @@
 //   to leak and clear it on the cell (it is NODE_FLAG_MARKED and could be
 //   misinterpreted--very easily so as ARG_MARKED_CHECKED!)
 //
-// * The usermode EVAL function chooses to make `eval comment "hi"` a VOID!
+// * The usermode REEVAL function chooses to make `reeval comment "hi"` VOID!
 //   rather than to raise an error.  However, the non-"Maybe_Stale" versions
 //   of code here have another option...which is to give the result as END.
 //   Currently this is what all the Eval_Step() routines which aren't stale
@@ -419,9 +419,9 @@ inline static bool Eval_Value_Throws(
     // result (at least null).  They might be able to give a better error, but
     // they pretty much all need to give an error.
     //
-    // In contrast, note that EVAL itself errs on the side of voids, so:
+    // In contrast, note that REEVAL itself errs on the side of voids, so:
     //
-    //     >> type of eval comment "hi"
+    //     >> type of reeval comment "hi"
     //     == #[void!]
     //
     if (IS_END(out))
