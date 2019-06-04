@@ -140,8 +140,8 @@ compile: function [
     ; order to make them available.  This idea is being implemented, and it
     ; would mean adding to the include and lib directories.
     ;
-    ; For now, we trust CONFIG_TCCDIR, which is a standard setting.  If that
-    ; is not provided, we make guesses.
+    ; For now, if the options don't specify a `runtime-dir` use CONFIG_TCCDIR,
+    ; which is a standard setting.
 
     config/runtime-path: default [try any [
         local-to-file try get-env "CONFIG_TCCDIR"  ; (backslashes on windows)
@@ -284,12 +284,13 @@ compile: function [
              */
             #define LIBREBOL_NO_STDINT
             #include <stddef.h>
+            #define REBOL_IMPLICIT_END  /* TCC can do C99 macros, use them! */
             #include "rebol.h"
         }
 
         ; We want to embed and ship "rebol.h" automatically.  But as a first
         ; step, try overriding with the LIBREBOL_INCLUDE_DIR environment
-        ; variable.
+        ; variable, if it wasn't explicitly passed in the options.
 
         config/librebol-path: default [try any [
             local-to-file try get-env "LIBREBOL_INCLUDE_DIR"

@@ -533,6 +533,11 @@ REBNATIVE(compile_p)
 
     Drop_Mold(mo);  // discard the combined source (no longer needed)
 
+    // We could export just one symbol ("RL" for the Ext_Lib RL_LIB table) and
+    // tell the API to use indirect calls like RL->rebXXX with #define REB_EXT
+    // but it's more efficient to use direct calls.  There aren't that many
+    // entry points for the libRebol API, so just expose their symbols.
+    //
     // It is technically possible for ELF binaries to "--export-dynamic" (or
     // -rdynamic in CMake) and make executables embed symbols for functions
     // in them "like a DLL".  However, we would like to make API symbols for

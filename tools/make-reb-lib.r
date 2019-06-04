@@ -201,29 +201,35 @@ for-each api api-objects [do in api [
 
     opt-return: try if returns != "void" ["return"]
 
-    enter: try if name != "rebStartup" [
-        copy "RL_rebEnterApi_internal();^/"
-    ]
-
-    make-inline-proxy: func [
+    make-inline-proxy: function [
         return: [text!]
-        internal [text!]
+        prefix "RL_ or RL->" [text!]
         /Q
+        <with> returns wrapper-params
     ][
         q: try if q ["Q"]
 
         returns: default ["void"]
+
         wrapper-params: default ["void"]
+
+        enter: try if name != "rebStartup" [
+            unspaced [prefix "rebEnterApi_internal();"]
+        ]
 
         cscape/with {
             $<OPT-NORETURN>
             inline static $<Returns> $<Name>$<Q>_inline($<Wrapper-Params>) {
                 $<Enter>
                 $<Opt-Va-Start>
-                $<opt-return> $<Internal>($<Proxied-Args>);
+                $<opt-return> $<Prefix>$<Name>($<Proxied-Args>);
                 $<OPT-DEAD-END>
             }
-        } reduce [api 'internal]
+        } compose [
+            wrapper-params  ; "global" where q is undefined, must be first
+            (api)
+            q  ; !!! Binding to all words in contexts
+        ]
     ]
 
     if is-variadic [
@@ -241,14 +247,14 @@ for-each api api-objects [do in api [
         proxied-args: delimit ", " compose [
             "0" ((map-each [type var] paramlist [to-text var])) "p" "&va"
         ]
-        append direct-call-inlines make-inline-proxy unspaced ["RL_" name]
-        append struct-call-inlines make-inline-proxy unspaced ["RL->" name]
+        append direct-call-inlines make-inline-proxy "RL_"
+        append struct-call-inlines make-inline-proxy "RL->"
 
         proxied-args: delimit ", " compose [
             "1" ((map-each [type var] paramlist [to-text var])) "p" "&va"
         ]
-        append direct-call-inlines make-inline-proxy/Q unspaced ["RL_" name]
-        append struct-call-inlines make-inline-proxy/Q unspaced ["RL->" name]
+        append direct-call-inlines make-inline-proxy/Q "RL_"
+        append struct-call-inlines make-inline-proxy/Q "RL->"
     ]
     else [
         opt-va-start: _
@@ -261,8 +267,8 @@ for-each api api-objects [do in api [
             to text! var
         ]
 
-        append direct-call-inlines make-inline-proxy unspaced ["RL_" name]
-        append struct-call-inlines make-inline-proxy unspaced ["RL->" name]
+        append direct-call-inlines make-inline-proxy "RL_"
+        append struct-call-inlines make-inline-proxy "RL->"
     ]
 ]]
 
