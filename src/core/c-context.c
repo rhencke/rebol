@@ -521,13 +521,11 @@ static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL *head)
         if (not (cl->flags & COLLECT_DEEP))
             continue;
 
-        // Recurse into BLOCK! and GROUP!
+        // Recurse into arrays and groups (R3-Alpha did not consider PATH!s,
+        // but a path may have a group in it):
+        // https://github.com/rebol/rebol-issues/issues/2276
         //
-        // !!! Why aren't ANY-PATH! considered?  They may have GROUP! in
-        // them which could need to be collected.  This is historical R3-Alpha
-        // behavior which is probably wrong.
-        //
-        if (kind == REB_BLOCK or kind == REB_GROUP)
+        if (ANY_ARRAY_OR_PATH_KIND(kind))
             Collect_Inner_Loop(cl, VAL_ARRAY_AT(cell));
     }
 }
