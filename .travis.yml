@@ -1080,6 +1080,16 @@ script:
     - |
       if [[ ! -z $TCC ]]; then
         #
+        # !!! While we are building, we say the tcc directory is the root repo.
+        # But the runtime directory (where we get the include and lib files
+        # *other* than libtcc1.a) is going to be the %win32/ subdirectory
+        # on Windows.  Review what conventions are to make this cleaner.
+        #
+        if [[ ($OS_ID = 0.3.4) || ($OS_ID = 0.3.40) ]]; then
+          export TCC_LIBTCC1_FILE="${CONFIG_TCCDIR}/libtcc1.a"
+          export CONFIG_TCCDIR="${CONFIG_TCCDIR}/win32"
+        fi
+
         # Temporary solution on top of temporary solution (should be on s3,
         # but can't upload there at the moment)
         #
