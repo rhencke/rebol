@@ -1070,31 +1070,20 @@ script:
     # executable in a zip format.  But for now, we just make a zip file and
     # those who want to use TCC compilation have to unpack that zip manually.
     #
-    # It should be able to be done with r3-make, but uses features of file
-    # paths and zip compression that are only available in newer builds.
-    # Temporarily grab a special build for this purpose.
-    #
     # Note: The script prints out a list of the files it stores.  If you unzip
     # it you should be able to use the containing directory as both the
     # CONFIG_TCCDIR and the LIBREBOL_INCLUDE_DIR path.
+    #
+    # !!! It should be able to be done with r3-make, but uses features of file
+    # paths and zip compression that are only available in newer builds.
+    # Temporarily grab a special build for this purpose.
+    #
     - |
       if [[ ! -z $TCC ]]; then
         #
-        # !!! While we are building, we say the tcc directory is the root repo.
-        # But the runtime directory (where we get the include and lib files
-        # *other* than libtcc1.a) is going to be the %win32/ subdirectory
-        # on Windows.  Review what conventions are to make this cleaner.
-        #
-        if [[ ($OS_ID = 0.3.4) || ($OS_ID = 0.3.40) ]]; then
-          export TCC_LIBTCC1_FILE="${CONFIG_TCCDIR}/libtcc1.a"
-          export CONFIG_TCCDIR="${CONFIG_TCCDIR}/win32"
-        fi
-
         # Temporary solution on top of temporary solution (should be on s3,
         # but can't upload there at the moment)
         #
-        echo "CONFIG_TCCDIR IS ${CONFIG_TCCDIR}"
-        ls "${CONFIG_TCCDIR}"
         wget http://hostilefork.com/media/shared/prebuilt/r3-encap
         chmod +x ./r3-encap
         ./r3-encap "${TOP_DIR}/extensions/tcc/encap-tcc-resources.reb" OS_ID="${OS_ID}"

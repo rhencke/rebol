@@ -160,7 +160,7 @@ compile: function [
         ]
     ]
 
-    if not exists? config/runtime-path/include [
+    if not exists? (config/runtime-path)/include [
         fail [
             {Runtime path} config/runtime-path {does not have an %include/}
             {directory.  It should have files like %stddef.h and %stdarg.h}
@@ -168,6 +168,34 @@ compile: function [
             {use internal helpers like __va_start that are *not* in GNU libc}
             {or the Microsoft C runtime.}
         ]
+    ]
+
+    ; If we are on Windows and no explicit include or lib paths were provided,
+    ; try using the win32/include path.  %encap-tcc-resources.reb puts those
+    ; into the resource zip, and it gives *some* Win32 entry points.
+    ;
+    ; https://repo.or.cz/tinycc.git/blob/HEAD:/win32/tcc-win32.txt
+    ;
+    ; This is a convenience to make simple examples work.  Once someone starts
+    ; wanting to control the paths directly they may want to omit these hacky
+    ; stubs entirely (e.g. use the actual Windows SDK files, maybe?)
+
+    if 3 = fourth system/version [  ; e.g. Windows (32-bit or 64-bit)
+        if empty? config/include-path [
+            append config/include-path
+                file-to-local/full (config/runtime-path)/win32/include
+        ]
+        if empty? config/library-path [
+            append config/library-path
+                file-to-local/full (config/runtime-path)/win32/library
+        ]
+
+        ; !!! For unknown reasons, on Win32 it does not seem that the API
+        ; call to `tcc_set_lib_path()` sets the CONFIG_TCCDIR in such a way
+        ; that TCC can find %libtcc1.a.  So adding the runtime path as a
+        ; normal library directory.
+        ;
+        insert config/library-path file-to-local/full config/runtime-path
     ]
 
     ; Note: The few header files in %tcc/include/ must out-prioritize the ones
@@ -184,8 +212,6 @@ compile: function [
     ; tcc_relocate() command inside the extension (API link step) has to
     ; be able to find definitions for them.  They live in %libtcc1.a,
     ; which is generally located in the CONFIG_TCCDIR.
-
-    config/runtime-path: my file-to-local/full
 
     if "1" = get-env "REBOL_TCC_EXTENSION_32BIT_ON_64BIT" [
         ;
@@ -268,11 +294,10 @@ compile: function [
         config/librebol-path: default [try any [
             local-to-file try get-env "LIBREBOL_INCLUDE_DIR"
 
-            ; !!! While guessing at the CONFIG_TCCDIR may make sense on Linux,
-            ; other guesses which were expedient during development just
-            ; create unpredictability.  Omit for now.
+            ; Guess it is in the runtime directory (%encap-tcc-resources.reb
+            ; puts it into the root of the zip file at the moment)
             ;
-            ; match exists? %/home/hostilefork/Projects/ren-c/make/prep/include
+            config/runtime-path
         ]]
 
         ; We are going to test for %rebol.h in the path, so need a FILE!
@@ -302,6 +327,12 @@ compile: function [
 
         insert config/include-path file-to-local config/librebol-path
     ]
+
+    ; Having paths as Rebol FILE! is useful for doing work, but the TCC calls
+    ; want local paths.  Convert.
+    ;
+    config/runtime-path: my file-to-local/full
+    config/librebol-path: <taken-into-account>  ; COMPILE* does not read
 
     result: compile*/(inspect)/(librebol) compilables config
 

@@ -482,6 +482,22 @@ REBNATIVE(compile_p)
     if (not state)
         fail ("TCC failed to create a TCC context");
 
+    // We go ahead and put the state into a managed HANDLE!, so that the GC
+    // can clean up the memory in the case of a fail().
+    //
+    // !!! It seems that getting an "invalid object file" error (e.g. by
+    // using a Windows libtcc1.a on Linux) causes a leak.  It may be an error
+    // in usage of the API, or TCC itself may leak in that case.  Review.
+    //
+    DECLARE_LOCAL (handle);
+    Init_Handle_Cdata_Managed(
+        handle,
+        state, // "data" pointer
+        1,  // unused length (can't be 0, reserved for CFUNC)
+        cleanup // called upon GC
+    );
+    PUSH_GC_GUARD(handle);
+
     void* opaque = cast(void*, EMPTY_BLOCK); // can parameterize the error...
     tcc_set_error_func(state, opaque, &Error_Reporting_Hook);
 
@@ -557,24 +573,18 @@ REBNATIVE(compile_p)
     //
     Process_Block_Helper(tcc_add_library, state, config, "library");
 
-    // Sets CONFIG_TCCDIR at runtime of the built code.
+    // Though it is called `tcc_set_lib_path()`, it says it sets CONFIG_TCCDIR
+    // at runtime of the built code, presumably so libtcc1.a can be found.
     //
-    // !!! Since libtcc1.a is statically linked, it's not clear what benefit
-    // this would have.  Is it so the built executable itself can use libtcc,
-    // and find includes when it does compilation??
+    // !!! This doesn't seem to help Windows find the libtcc1.a file, so it's
+    // not clear what the call does.  The higher-level COMPILE goes ahead and
+    // sets the runtime path as an ordinary lib directory on Windows for the
+    // moment, since this seems to be a no-op there.  :-/
     //
     Process_Text_Helper(tcc_set_lib_path_i, state, config, "runtime-path");
 
     if (tcc_relocate_auto(state) < 0)
         fail ("TCC failed to relocate the code");
-
-    DECLARE_LOCAL (handle);
-    Init_Handle_Cdata_Managed(
-        handle,
-        state, // "data" pointer
-        1,  // unused length (can't be 0, reserved for CFUNC)
-        cleanup // called upon GC
-    );
 
     // With compilation complete, find the matching linker names and get
     // their function pointers to substitute in for the dispatcher.
@@ -606,6 +616,8 @@ REBNATIVE(compile_p)
 
         DS_DROP();
     }
+
+    DROP_GC_GUARD(handle);
 
     return nullptr;
 }
