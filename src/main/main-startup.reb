@@ -135,7 +135,7 @@ usage: function [
         --help (-?)      Display this usage information
         --script file    Implicitly provide script to run
         --version (-v)   Display version only (then quit)
-        --               End of options (not implemented)
+        --               End of options (treat remainder as script args)
 
     Special options:
 
@@ -513,6 +513,8 @@ main-startup: function [
     comment [emit #countdown-if-error]
     emit #die-if-error
 
+    is-script-implicit: true
+
     while [not tail? argv] [
 
         is-option: did parse/case argv/1 [
@@ -520,14 +522,12 @@ main-startup: function [
             ["--" end] (
                 ; Double-dash means end of command line arguments, and the
                 ; rest of the arguments are going to be positional.  In
-                ; Rebol's case, that means a file to run and its arguments
-                ; (if anything following).
-                ;
-                ; Make the is-option rule fail, but take the "--" away so
-                ; it isn't treated as the name of a script to run!
+                ; Rebol's case, that means a file to run (if --script or --do
+                ; not explicit) and its arguments (if anything following).
                 ;
                 take argv
-            ) fail
+                break
+            )
         |
             "--about" end (
                 o/about: true  ; show full banner (ABOUT) on startup
@@ -554,6 +554,8 @@ main-startup: function [
                 ;
                 o/quiet: true  ; don't print banner, just run code string
                 quit-when-done: default [true]  ; override blank, not false
+
+                is-script-implicit: false  ; must use --script
 
                 emit {Use /ONLY so that QUIT/WITH quits, vs. return DO value}
                 emit [do/only (<*> param-or-die "DO")]
@@ -629,6 +631,8 @@ main-startup: function [
             "--script" end (
                 o/script: local-to-file param-or-die "SCRIPT"
                 quit-when-done: default [true]  ; overrides blank, not false
+
+                is-script-implicit: false  ; not the first post-option arg
             )
         |
             ["-t" | "--trace"] end (
@@ -683,10 +687,10 @@ main-startup: function [
     ;
     attempt [c-debug-break-at/compensate 1000]  ; fails in release build
 
-    ; As long as there was no `--script` pased on the command line explicitly,
-    ; the first item after the options is implicitly the script.
+    ; As long as there was no `--script` or `--do` passed on the command line
+    ; explicitly, the first item after the options is implicitly the script.
     ;
-    if (not o/script) and [not tail? argv] [
+    if is-script-implicit and [not tail? argv] [
         o/script: local-to-file take argv
         quit-when-done: default [true]
     ]
