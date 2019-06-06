@@ -385,93 +385,16 @@ REBNATIVE(make_native)
 //      compilables [block!] "Should be just TEXT! and user native ACTION!s"
 //      config [object!] "Vetted and simplified form of /OPTIONS block"
 //      /inspect "Return the C source code as text, but don't compile it"
-//      /librebol "Connect symbols to running EXE's libRebol (rebValue(), etc.)"
+//      /librebol "Connect symbols to running EXE libRebol (rebValue(), etc.)"
+//      /files "COMPILABLES is a list of TEXT! specifying local filenames"
 //  ]
 //
 REBNATIVE(compile_p)
 {
     TCC_INCLUDE_PARAMS_OF_COMPILE_P;
 
-    REBVAL *compilables = ARG(compilables);
-    REBVAL *config = ARG(config);
 
-    // The TCC extension creates a new ACTION! type and dispatcher, so it has
-    // to use the "internal" API.  Since it does, it can take advantage of
-    // using the mold buffer.  The buffer is a "hot" memory region that is
-    // generally preallocated, and makes it unnecessary to say in advance how
-    // large the buffer needs to be.  It then can pass the pointer to TCC
-    // and discard the data without ever making a TEXT! (as it would need to
-    // if it were a client of the "external" libRebol API).
-    //
-    // !!! Uses UTF-8...look into how well TCC supports UTF-8.
-    //
-    DECLARE_MOLD (mo);
-    Push_Mold(mo);
-
-    REBDSP dsp_orig = DSP;
-
-    RELVAL *item;
-    for (item = VAL_ARRAY_AT(compilables); NOT_END(item); ++item) {
-        if (IS_ACTION(item)) {
-            assert(Is_User_Native(VAL_ACTION(item)));
-
-            // Remember this function, because we're going to need to come
-            // back and fill in its dispatcher and TCC_State after the
-            // compilation...
-            //
-            Move_Value(DS_PUSH(), KNOWN(item));
-
-            REBARR *details = VAL_ACT_DETAILS(item);
-            RELVAL *source = ARR_AT(details, IDX_NATIVE_BODY);
-            RELVAL *linkname = ARR_AT(details, IDX_TCC_NATIVE_LINKNAME);
-
-            // !!! REBFRM is not exported by libRebol, though it could be
-            // opaquely...and there could be some very narrow routines for
-            // interacting with it (such as picking arguments directly by
-            // value).  But transformations would be needed for Rebol arg
-            // names to make valid C, as with to-c-name...and that's not
-            // something to expose to the average user.  Hence rebArg() gives
-            // a solution that's more robust, albeit slower than picking
-            // by index:
-            //
-            // https://forum.rebol.info/t/817
-            //
-            Append_Ascii(mo->series, "const REBVAL *");
-            Append_String(mo->series, linkname, VAL_LEN_AT(linkname));
-            Append_Ascii(mo->series, "(void *frame_)\n{");
-
-            Append_String(mo->series, source, VAL_LEN_AT(source));
-
-            Append_Ascii(mo->series, "}\n\n");
-        }
-        else if (IS_TEXT(item)) {
-            //
-            // A string passed to COMPILE in the list of things-to-compile
-            // is treated as just a fragment of code.  This allows for writing
-            // arbitrary C functions that aren't themselves user natives, but
-            // can be called by multiple user natives.  Or defining macros or
-            // constants.  The string will appear at the point in the compile
-            // where it is given in the list.
-            //
-            Append_String(mo->series, item, VAL_LEN_AT(item));
-            Append_Ascii(mo->series, "\n");
-        }
-        else {
-            // COMPILE should have vetted the list to only TEXT! and ACTION!
-            //
-            fail ("COMPILE's input array must contain TEXT! and ACTION!s");
-        }
-    }
-
-    // To help in debugging, it can be useful to see what is compiling (this
-    // is similar in spirit to the -E option for preprocessing only)
-    //
-    if (REF(inspect)) {
-        DS_DROP_TO(dsp_orig); // don't modify the collected user natives
-        return Init_Text(D_OUT, Pop_Molded_String(mo));
-    }
-
-    // == Mold buffer now contains the combined source ==
+  //=//// ALLOCATE THE TCC STATE //////////////////////////////////////////=//
 
     // The state is where the code for the TCC_OUTPUT_MEMORY natives will be
     // living.  It must be kept alive for as long as you expect the user
@@ -501,37 +424,175 @@ REBNATIVE(compile_p)
     void* opaque = cast(void*, EMPTY_BLOCK); // can parameterize the error...
     tcc_set_error_func(state, opaque, &Error_Reporting_Hook);
 
+
+  //=//// SET UP OPTIONS FOR THE TCC STATE FROM CONFIG ////////////////////=//
+
+    REBVAL *config = ARG(config);
+
     // Sets options (same syntax as the TCC command line, minus commands like
     // displaying the version or showing the TCC tool's help)
     //
     Process_Block_Helper(tcc_set_options_i, state, config, "options");
 
-    // Add include paths (same as `-I` in the options)
+    // Add include paths (same as `-I` in the options?)
     //
     Process_Block_Helper(tcc_add_include_path, state, config, "include-path");
 
-    bool debug = rebDid("ensure logic! select", config, "'debug", rebEND);
-    if (debug)
-        fail ("DEBUG not currently supported by the TCC extension");
-
-    // !!! In the future, it would be nice to have an option to output to
-    // a file on disk, so the Rebol TCC compile could be used to make EXEs.
+    // Add library paths (same as using `-L` in the options?)
     //
-    if (tcc_set_output_type(state, TCC_OUTPUT_MEMORY) < 0)
-        fail ("TCC failed to set output to memory");
+    Process_Block_Helper(tcc_add_library_path, state, config, "library-path");
 
-    if (
-        tcc_compile_string(
-            state,
-            cs_cast(BIN_AT(SER(mo->series), mo->offset))
-        ) < 0
-    ){
-        rebJumps ("fail [",
-            "{TCC failed to compile the code}", compilables,
+    // Add individual library files (same as using -l in the options?  e.g.
+    // the actual file is "libxxx.a" but you'd pass just `xxx` here)
+    //
+    // !!! Does this work for fully specified file paths as well?
+    //
+    Process_Block_Helper(tcc_add_library, state, config, "library");
+
+    // Though it is called `tcc_set_lib_path()`, it says it sets CONFIG_TCCDIR
+    // at runtime of the built code, presumably so libtcc1.a can be found.
+    //
+    // !!! This doesn't seem to help Windows find the libtcc1.a file, so it's
+    // not clear what the call does.  The higher-level COMPILE goes ahead and
+    // sets the runtime path as an ordinary lib directory on Windows for the
+    // moment, since this seems to be a no-op there.  :-/
+    //
+    Process_Text_Helper(tcc_set_lib_path_i, state, config, "runtime-path");
+
+    // The output_type has to be set *before* you all tcc_output_file() or
+    // tcc_relocate(), but has to be set *after* you've configured the
+    // options.  (e.g. tcc_set_output_type() creates the debug symbol table,
+    // so if you try to set "-g" after you call it it will be too late and
+    // the debug symbol generation will crash).
+    //
+    int output_type = rebUnboxInteger(
+        "switch pick", config, "'output-type [",
+            "'MEMORY [", rebI(TCC_OUTPUT_MEMORY), "]",  // no tcc_relocate()!
+            "'EXE [", rebI(TCC_OUTPUT_EXE), "]",
+            "'DLL [", rebI(TCC_OUTPUT_DLL), "]",
+            "'OBJ [", rebI(TCC_OUTPUT_OBJ), "]",
+            "'PREPROCESS [", rebI(TCC_OUTPUT_PREPROCESS), "]",
+            "-1",
+        "]",
+    rebEND);
+
+    if (tcc_set_output_type(state, output_type) < 0)
+        rebJumps("fail [",
+            "{TCC failed to set output to} pick", config, "'output-type",
         "]", rebEND);
-    }
 
-    Drop_Mold(mo);  // discard the combined source (no longer needed)
+
+  //=//// SPECIFY USER NATIVES (OR DISK FILES) TO COMPILE /////////////////=//
+
+    REBVAL *compilables = ARG(compilables);
+
+    REBDSP dsp_orig = DSP;  // natives are pushed to the stack
+
+    if (REF(files)) {
+        RELVAL *item;
+        for (item = VAL_ARRAY_AT(compilables); NOT_END(item); ++item) {
+            if (not IS_TEXT(item))
+                fail ("If COMPILE*/FILES, compilables must be TEXT! paths");
+
+            char *filename_utf8 = rebSpell(KNOWN(item), rebEND);
+            tcc_add_file(state, filename_utf8);
+            rebFree(filename_utf8);
+        }
+
+        if (REF(inspect)) {  // nothing to show, besides the file list
+            DROP_GC_GUARD(handle);
+            return rebText("/INSPECT => <file list>");
+        }
+    }
+    else {
+        // The TCC extension creates a new ACTION! type and dispatcher, so has
+        // to use the "internal" API.  Since it does, it can take advantage of
+        // using the mold buffer.  The buffer is a "hot" memory region that is
+        // generally preallocated, and there's no need to say in advance how
+        // large the buffer needs to be.  It then can pass the pointer to TCC
+        // and discard the data without ever making a TEXT! (as it would need
+        // to if it were a client of the "external" libRebol API).
+        //
+        DECLARE_MOLD (mo);  // Note: mold buffer is UTF-8
+        Push_Mold(mo);
+
+        RELVAL *item;
+        for (item = VAL_ARRAY_AT(compilables); NOT_END(item); ++item) {
+            if (IS_ACTION(item)) {
+                assert(Is_User_Native(VAL_ACTION(item)));
+
+                // Remember this function, because we're going to need to come
+                // back and fill in its dispatcher and TCC_State after the
+                // compilation...
+                //
+                Move_Value(DS_PUSH(), KNOWN(item));
+
+                REBARR *details = VAL_ACT_DETAILS(item);
+                RELVAL *source = ARR_AT(details, IDX_NATIVE_BODY);
+                RELVAL *linkname = ARR_AT(details, IDX_TCC_NATIVE_LINKNAME);
+
+                // !!! REBFRM is not exported by libRebol, though it could be
+                // opaquely...and there could be some very narrow routines for
+                // interacting with it (such as picking arguments directly by
+                // value).  But transformations would be needed for Rebol arg
+                // names to make valid C, as with to-c-name...and that's not
+                // something to expose to the average user.  Hence rebArg()
+                // gives a solution that's more robust, albeit slower than
+                // picking by index:
+                //
+                // https://forum.rebol.info/t/817
+                //
+                Append_Ascii(mo->series, "const REBVAL *");
+                Append_String(mo->series, linkname, VAL_LEN_AT(linkname));
+                Append_Ascii(mo->series, "(void *frame_)\n{");
+
+                Append_String(mo->series, source, VAL_LEN_AT(source));
+
+                Append_Ascii(mo->series, "}\n\n");
+            }
+            else if (IS_TEXT(item)) {
+                //
+                // A string passed to COMPILE in the list of things-to-compile
+                // is treated as just a fragment of code.  This allows writing
+                // arbitrary C functions that aren't themselves user natives,
+                // but can be called by multiple user natives.  Or defining
+                // macros or constants.  The string will appear at the point
+                // in the compile where it is given in the list.
+                //
+                Append_String(mo->series, item, VAL_LEN_AT(item));
+                Append_Ascii(mo->series, "\n");
+            }
+            else {
+                // COMPILE should've vetted the list to only TEXT! and ACTION!
+                //
+                fail ("COMPILE input array must contain TEXT! and ACTION!s");
+            }
+        }
+
+        // == Mold buffer now contains the combined source ==
+
+        // To help in debugging, it can be useful to see what is compiling
+        // this is similar in spirit to the -E option for preprocessing only)
+        //
+        if (REF(inspect)) {
+            DROP_GC_GUARD(handle);
+            DS_DROP_TO(dsp_orig); // don't modify the collected user natives
+            return Init_Text(D_OUT, Pop_Molded_String(mo));
+        }
+
+        if (
+            tcc_compile_string(
+                state,
+                cs_cast(BIN_AT(SER(mo->series), mo->offset))
+            ) < 0
+        ){
+            rebJumps ("fail [",
+                "{TCC failed to compile the code}", compilables,
+            "]", rebEND);
+        }
+
+        Drop_Mold(mo);  // discard the combined source (no longer needed)
+    }
 
     // We could export just one symbol ("RL" for the Ext_Lib RL_LIB table) and
     // tell the API to use indirect calls like RL->rebXXX with #define REB_EXT
@@ -567,29 +628,22 @@ REBNATIVE(compile_p)
         #include "tmp-librebol-symbols.inc"
     }
 
-    // Add library paths (same as using `-L` in the options)
-    //
-    Process_Block_Helper(tcc_add_library_path, state, config, "library-path");
+    if (output_type == TCC_OUTPUT_MEMORY) {
+        if (tcc_relocate_auto(state) < 0)
+            fail ("TCC failed to relocate the code");
+    }
+    else {
+        assert(DSP == dsp_orig);  // no user natives if outputting file!
 
-    // Add individual library files (same as using -l in the options, e.g.
-    // the actual file is "libxxx.a" but you'd pass just `xxx` here)
-    //
-    // !!! Does this work for fully specified file paths as well?
-    //
-    Process_Block_Helper(tcc_add_library, state, config, "library");
+        char *output_file_utf8 = rebSpell(
+            "ensure text! pick", config, "'output-file",
+        rebEND);
 
-    // Though it is called `tcc_set_lib_path()`, it says it sets CONFIG_TCCDIR
-    // at runtime of the built code, presumably so libtcc1.a can be found.
-    //
-    // !!! This doesn't seem to help Windows find the libtcc1.a file, so it's
-    // not clear what the call does.  The higher-level COMPILE goes ahead and
-    // sets the runtime path as an ordinary lib directory on Windows for the
-    // moment, since this seems to be a no-op there.  :-/
-    //
-    Process_Text_Helper(tcc_set_lib_path_i, state, config, "runtime-path");
+        if (tcc_output_file(state, output_file_utf8) < 0)
+            fail ("TCC failed to output the file");
 
-    if (tcc_relocate_auto(state) < 0)
-        fail ("TCC failed to relocate the code");
+        rebFree(output_file_utf8);
+    }
 
     // With compilation complete, find the matching linker names and get
     // their function pointers to substitute in for the dispatcher.

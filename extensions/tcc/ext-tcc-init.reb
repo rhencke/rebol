@@ -47,14 +47,17 @@ compile: function [
     compilables "Functions from MAKE-NATIVE, TEXT! strings of code, ..."
     /settings [block!] {
         The block supports the following dialect:
-            options [text!]
+            options [block! text!]
             include-path [block! file! text!]
             library-path [block! file! text!]
             library [block! file! text!]
             runtime-path [file! text!]
             librebol-path [file! text!]
+            output-type [word!]  ; MEMORY, EXE, DLL, OBJ, PREPROCESS
+            output-file [file! text!]
             debug [word! logic!]  ; !!! currently unimplemented
     }
+    /files "COMPILABLES represents a list of disk files (TEXT! paths)"
     /inspect "Return the C source code as text, but don't compile it"
 ][
     ; !!! Due to module dependencies there's some problem with GET-ENV not
@@ -80,7 +83,8 @@ compile: function [
         library: copy []  ; block of text!s (local filenames)
         runtime-path: _  ; sets "CONFIG_TCCDIR" at runtime, text! or blank
         librebol-path: _  ; alternative to "LIBREBOL_INCLUDE_DIR"
-        debug: _  ; logic!
+        output-type: _  ; will default to MEMORY
+        output-file: _  ; not needed if MEMORY
     ]
 
     b: settings
@@ -110,22 +114,21 @@ compile: function [
 
                 append var item
             ]
-        ] else [
+        ] else [  ; single settings
+            if var [fail [key "multiply specified"]]
+
             switch key [
-                'runtime-path 'librebol-path [
-                    if var [fail [key "multiply specified"]]
+                'output-type [
+                    if not word? arg [
+                        fail [key "must be WORD!"]
+                    ]
+                    config/output-type: arg
+                ]
+                'output-file 'runtime-path 'librebol-path [
                     config/(key): switch type of arg [
                         file! [arg]
                         text! [local-to-file arg]
                         fail [key "must be TEXT! or FILE!"]
-                    ]
-                ]
-                'debug [  ; !!! Currently not supported by COMPILE*
-                    if var [fail "DEBUG multiply specified"]
-                    debug: switch arg [
-                        #[true] 'true [true]
-                        #[false] 'false [false]
-                        fail "DEBUG must be LOGIC!"
                     ]
                 ]
                 fail  ; unreachable
@@ -133,7 +136,15 @@ compile: function [
         ]
     ]
 
-    config/debug: default [false]
+    config/output-type: default ['MEMORY]
+    all [
+        config/output-type <> 'MEMORY
+        not config/output-file
+    ] then [
+        fail "If OUTPUT-TYPE is not 'MEMORY then OUTPUT-FILE must be set"
+    ]
+
+    config/output-file: my file-to-local/full
 
     ; !!! The pending concept is that there are embedded files in the TCC
     ; extension, and these files are extracted to the local filesystem in
@@ -335,7 +346,7 @@ compile: function [
     config/runtime-path: my file-to-local/full
     config/librebol-path: <taken-into-account>  ; COMPILE* does not read
 
-    result: compile*/(inspect)/(librebol) compilables config
+    result: compile*/(files)/(inspect)/(librebol) compilables config
 
     if inspect [
         print "== COMPILE/INSPECT CONFIGURATION =="
@@ -346,4 +357,140 @@ compile: function [
 ]
 
 
-sys/export [compile]
+c99: function [
+    {http://pubs.opengroup.org/onlinepubs/9699919799/utilities/c99.html}
+
+    return: "Exit status code (try to match gcc/tcc)"
+        [integer!]
+    command "POSIX c99 invocation string (systems/options/args if <end>)"
+        [<end> block! text!]
+    /inspect
+    /runtime "Alternate way of specifying CONFIG_TCCDIR environment variable"
+        [text! file!]
+][
+    command: default [system/options/args]
+    command: spaced command
+
+    compilables: copy []
+
+    nonspacedot: negate charset reduce [space tab cr lf "."]
+
+    infile: _  ; set to <multi> if multiple input files
+    outfile: _
+
+    outtype: _  ; default will be EXE (also overridden if `-c` or `-E`)
+
+    settings: collect [
+        option-no-arg-rule: [copy option: to [space | end] (
+            keep compose [options (option)]
+        )]
+
+        option-with-arg-rule: [
+            opt space copy option: to [space | end] (
+                keep compose [options (option)]
+            )
+        ]
+
+        known-extension-rule: ["." ["c" | "a" | "o"] ahead [space | end]]
+
+        rule: [
+            "-c" (  ; just compile (no link phase)
+                keep compose [output-type (outtype: 'OBJ)]
+                outfile: _  ; don't need to specify
+            )
+            |
+            ahead "-D"  ; #define
+            option-with-arg-rule
+            |
+            "-E" (  ; preprocess only, print to standard output (not file)
+                keep compose [output-type (outtype: 'PREPROCESS)]
+                outfile: _  ; don't need to specify
+            )
+            |
+            ahead "-g"  ; include debug symbols (don't use with -s)
+            option-no-arg-rule
+            |
+            "-I"  ; add directory to search for #include files
+            opt space copy incpath: to [space | end] (
+                keep compose [include-path (incpath)]
+            )
+            |
+            "-L"  ; add directory to search for library files
+            opt space copy libpath: to [space | end] (
+                keep compose [library-path (libpath)]
+            )
+            |
+            "-l"  ; add library (-llibrary means search for "liblibrary.a")
+            opt space copy lib: to [space | end] (
+                keep compose [library (lib)]
+            )
+            |
+            ahead "-O"  ; optimization level
+            option-with-arg-rule
+            |
+            "-o"  ; output file (else default should be "a.out")
+            opt space copy outfile to [space | end] (  ; overwrites a.out
+                keep compose [output-file (outfile)]
+            )
+            |
+            ahead "-s"  ; strip out any extra information (don't use with -g)
+            option-no-arg-rule
+            |
+            ahead "-U"  ; #undef
+            option-with-arg-rule
+            |
+            copy filename: [
+                some [
+                    nonspacedot
+                    | ahead "." not ahead known-extension-rule skip
+                ]
+                known-extension-rule
+            ] (
+                append compilables filename
+                infile: either infile [<multi>] [filename]
+            )
+        ]
+
+        parse/case command [some [rule [some space | end]]] else [
+            fail [
+                ; !!! This error should be more detailed, capturing the parse
+                ; position and showing what it's choking on
+                ;
+                "Could not parse C99 command line"
+            ]
+        ]
+    ]
+
+    if not outtype [  ; no -c or -E, so assume EXE
+        append settings compose [output-type EXE]
+    ]
+
+    if not outfile [
+        switch outtype [
+            'EXE [
+                ; Default to a.out (it's the POSIX way, but better that
+                ; COMPILE error if you don't give it an output filename than
+                ; just guess "a.out", so make that decision in this command)
+                ;
+                append settings compose [output-file ("a.out")]
+            ]
+            'OBJ [
+                if infile != <multi> [
+                    parse infile [to [".c" end] replace ".c" ".o"] else [
+                        fail "Input file must end in `.c` for use with -c"
+                    ]
+                ]
+            ]
+        ]
+    ]
+
+    if runtime [  ; overrides search for environment variable CONFIG_TCCDIR
+        append settings compose [runtime-path (runtime)]
+    ]
+
+    compile/files/(inspect)/settings compilables settings
+    return 0  ; must translate errors into integer codes...
+]
+
+
+sys/export [compile c99]
