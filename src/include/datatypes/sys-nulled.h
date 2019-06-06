@@ -23,7 +23,7 @@
 // Rebol's null is a transient evaluation product.  It is used as a signal for
 // "soft failure", e.g. `find [a b] 'c` is null, hence they are conditionally
 // false.  But null isn't an "ANY-VALUE!", and can't be stored in BLOCK!s that
-// are seen by the user--nor can it be assigned to variables.
+// are seen by the user.
 //
 // The libRebol API takes advantage of this by actually using C's concept of
 // a null pointer to directly represent the optional state.  By promising this

@@ -1349,6 +1349,12 @@ void Assert_Array_Core(REBARR *a)
             printf("Premature array end at index %d\n", cast(int, i));
             panic (a);
         }
+        if (not GET_ARRAY_FLAG(a, IS_PARAMLIST)) {  // uses > REB_MAX for PTYPE
+            if (KIND_BYTE_UNCHECKED(item) % REB_64 >= REB_MAX) {
+                printf("Invalid KIND_BYTE at index %d\n", cast(int, i));
+                panic (a);
+            }
+        }
     }
 
     if (NOT_END(item))

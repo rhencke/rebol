@@ -124,7 +124,16 @@ void Emit(REB_MOLD *mo, const char *fmt, ...)
             break;
 
         case 'T': {  // Type name
-            REBSTR *type_name = Get_Type_Name(va_arg(va, REBVAL*));
+            REBVAL *v = va_arg(va, REBVAL*);
+
+            // If asked for the type name of a parameter in a paramlist, the
+            // VAL_TYPE() will report an invalid value.  So use MIRROR_BYTE()
+            // so that TYPESET! comes back as the answer.
+            //
+            REBSTR *type_name = Canon(
+                SYM_FROM_KIND(cast(enum Reb_Kind, MIRROR_BYTE(v)))
+            );
+
             Append_Spelling(mo->series, type_name);
             break; }
 

@@ -80,10 +80,6 @@ inline static REBSYM VAL_TYPE_SYM(const REBCEL *v) {
     return SYM_STRUCT_X;
 }
 
-inline static REBSTR *Get_Type_Name(const RELVAL *value)
-    { return Canon(SYM_FROM_KIND(VAL_TYPE(value))); }
-
-
 
 //=//// TYPESET BITS //////////////////////////////////////////////////////=//
 //

@@ -20,8 +20,8 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// The ANY-STRING! and ANY-WORD! data types follows "UTF-8 everywhere", and
-// stores all words and strings as UTF-8.  Then it only converts to other
+// The ANY-STRING! and ANY-WORD! data types follow "UTF-8 everywhere", and
+// store their content as UTF-8 at all times.  Then it only converts to other
 // encodings at I/O points if the platform requires it (e.g. Windows):
 //
 // http://utf8everywhere.org/

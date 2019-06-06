@@ -415,7 +415,7 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
 //
 //  Eval_Internal_Maybe_Stale_Throws: C
 //
-// See notes at top of file for general remarks on this central functions'
+// See notes at top of file for general remarks on this central function's
 // name, and that wrappers should nearly always be used to call it.
 //
 // More detailed assertions of the preconditions, postconditions, and state
@@ -574,7 +574,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
   reevaluate: ;  // meaningful semicolon--subsequent macro may declare things
 
-    // ^-- doesn't advance expression index, so `eval x` starts with `eval`
+    // ^-- doesn't advance expression index: `reeval x` starts with `reeval`
 
 //=//// LOOKAHEAD FOR ENFIXED FUNCTIONS THAT QUOTE THEIR LEFT ARG /////////=//
 
@@ -705,10 +705,11 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 //==//// NULL ////////////////////////////////////////////////////////////==//
 //
 // Since nulled cells can't be in BLOCK!s, the evaluator shouldn't usually see
-// them.  Plus the API quotes spliced values, so `rebValue("null?", nullptr)`
+// them.  Plus Q APIs quotes spliced values, so `rebValueQ("null?", nullptr)`
 // gets a QUOTED! that evaluates to null--it's not a null being evaluated.
 //
-// But one way the evaluator can see NULL is EVAL, such as `eval first []`.
+// But plain `rebValue("null?", nullptr)` would be an error.  Another way
+// the evaluator can see NULL is REEVAL, such as `reeval first []`.
 
       case REB_NULLED:
         fail (Error_Evaluate_Null_Raw());
