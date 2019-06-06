@@ -245,7 +245,9 @@ REBNATIVE(shove)
         }
         else if (IS_SET_PATH(left)) {
             f->feed->gotten = nullptr;  // calling arbitrary code, may disrupt
-            rebElideQ("set/hard", composed_set_path, D_OUT, rebEND);
+            rebElideQ(
+                "set/hard", composed_set_path, NULLIFY_NULLED(D_OUT),
+            rebEND);
             rebRelease(composed_set_path);
         }
         else
