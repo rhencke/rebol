@@ -86,11 +86,14 @@ REB_R TO_Datatype(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 //
 void MF_Datatype(REB_MOLD *mo, const REBCEL *v, bool form)
 {
+    if (not form)
+        Pre_Mold_All(mo, v);  // e.g. `#[datatype!`
+
     REBSTR *name = Canon(VAL_TYPE_SYM(v));
-    if (form)
-        Emit(mo, "N", name);
-    else
-        Emit(mo, "+DN", SYM_DATATYPE_X, name);
+    Append_Spelling(mo->series, name);
+
+    if (not form)
+        End_Mold_All(mo);  // e.g. `]`
 }
 
 

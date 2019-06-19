@@ -616,7 +616,9 @@ void MF_Map(REB_MOLD *mo, const REBCEL *v, bool form)
 
         if (not form)
             New_Indented_Line(mo);
-        Emit(mo, "V V", key, key + 1);
+        Mold_Value(mo, key);
+        Append_Codepoint(mo->series, ' ');
+        Mold_Value(mo, key + 1);
         if (form)
             Append_Codepoint(mo->series, '\n');
     }

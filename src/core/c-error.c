@@ -1462,12 +1462,15 @@ void MF_Error(REB_MOLD *mo, const REBCEL *v, bool form)
     ERROR_VARS *vars = ERR_VARS(error);
 
     // Form: ** <type> Error:
-    if (IS_BLANK(&vars->type))
-        Emit(mo, "** S", RM_ERROR_LABEL);
-    else {
-        assert(IS_WORD(&vars->type));
-        Emit(mo, "** W S", &vars->type, RM_ERROR_LABEL);
+    //
+    Append_Ascii(mo->series, "** ");
+    if (IS_WORD(&vars->type)) {  // has a <type>
+        Append_Spelling(mo->series, VAL_WORD_SPELLING(&vars->type));
+        Append_Codepoint(mo->series, ' ');
     }
+    else
+        assert(IS_BLANK(&vars->type));  // no <type>
+    Append_Ascii(mo->series, RM_ERROR_LABEL);  // "Error:"
 
     // Append: error message ARG1, ARG2, etc.
     if (IS_BLOCK(&vars->message))

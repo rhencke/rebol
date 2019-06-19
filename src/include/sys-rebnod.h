@@ -32,18 +32,17 @@
 // such as that used by panic():
 //
 //     REBVAL *value = ...;
-//     panic (value); // can tell this is a value
+//     panic (value);  // can tell this is a value
 //
 //     REBSER *series = ...;
-//     panic (series) // can tell this is a series
+//     panic (series)  // can tell this is a series
 //
-//     const char *utf8 = ...;
-//     panic (utf8); // can tell this is UTF-8 data (not a series or value)
+//     panic ("Ḧéllŏ");  // can tell this is UTF-8 data (not series or value)
 //
-// But a more compelling case is the usage through the API, so variadic
+// An even more compelling case is the usage through the API, so variadic
 // combinations of strings and values can be intermixed, as in:
 //
-//     rebValue("poke", series, "1", value)
+//     rebElide("poke", block, "1", value)
 //
 // Internally, the ability to discern these types helps certain structures or
 // arrangements from having to find a place to store a kind of "flavor" bit

@@ -180,24 +180,35 @@ const REBYTE *Scan_Time(RELVAL *out, const REBYTE *cp, REBCNT len)
 //
 void MF_Time(REB_MOLD *mo, const REBCEL *v, bool form)
 {
-    UNUSED(form); // no difference between MOLD and FORM at this time
+    UNUSED(form);  // no difference between MOLD and FORM at this time
 
-    REB_TIMEF tf;
-    Split_Time(VAL_NANO(v), &tf); // loses sign
-
-    const char *fmt;
-    if (tf.s == 0 && tf.n == 0)
-        fmt = "I:2";
-    else
-        fmt = "I:2:2";
-
-    if (VAL_NANO(v) < cast(REBI64, 0))
+    if (VAL_NANO(v) < cast(REBI64, 0))  // account for the sign if present
         Append_Codepoint(mo->series, '-');
 
-    Emit(mo, fmt, tf.h, tf.m, tf.s, 0);
+    REB_TIMEF tf;
+    Split_Time(VAL_NANO(v), &tf);  // loses sign
 
-    if (tf.n > 0)
-        Emit(mo, ".i", tf.n);
+    // "H:MM" (pad minutes to two digits, but not the hour)
+    //
+    Append_Int(mo->series, tf.h);
+    Append_Codepoint(mo->series, ':');
+    Append_Int_Pad(mo->series, tf.m, 2);
+
+    // If seconds or nanoseconds nonzero, pad seconds to ":SS", else omit
+    //
+    if (tf.s != 0 or tf.n != 0) {
+        Append_Codepoint(mo->series, ':');
+        Append_Int_Pad(mo->series, tf.s, 2);
+    }
+
+    // If nanosecond component is present, present as a fractional amount...
+    // trimming any trailing zeros.
+    //
+    if (tf.n > 0) {
+        Append_Codepoint(mo->series, '.');
+        Append_Int_Pad(mo->series, tf.n, -9);
+        Trim_Tail(mo, '0');
+    }
 }
 
 

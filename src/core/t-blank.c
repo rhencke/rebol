@@ -179,12 +179,10 @@ REBTYPE(Unit)
 //
 void MF_Handle(REB_MOLD *mo, const REBCEL *v, bool form)
 {
-    // Value has no printable form, so just print its name.
+    UNUSED(form);  // !!! Handles have "no printable form", what to do here?
+    UNUSED(v);
 
-    if (form)
-        Emit(mo, "?T?", v);
-    else
-        Emit(mo, "+T", v);
+    Append_Ascii(mo->series, "#[handle!]");
 }
 
 

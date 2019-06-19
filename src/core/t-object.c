@@ -597,7 +597,7 @@ void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
 
     if (form) {
         //
-        // Mold all words and their values:
+        // Mold all words and their values ("key: <molded value>")
         //
         REBVAL *key = CTX_KEYS_HEAD(c);
         REBVAL *var = CTX_VARS_HEAD(c);
@@ -605,7 +605,10 @@ void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
         for (; NOT_END(key); key++, var++) {
             if (not Is_Param_Hidden(key)) {
                 had_output = true;
-                Emit(mo, "N: V\n", VAL_KEY_SPELLING(key), var);
+                Append_Spelling(mo->series, VAL_KEY_SPELLING(key));
+                Append_Ascii(mo->series, ": ");
+                Mold_Value(mo, var);
+                Append_Codepoint(mo->series, LF);
             }
         }
 

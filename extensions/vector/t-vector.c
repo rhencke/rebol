@@ -701,16 +701,17 @@ void MF_Vector(REB_MOLD *mo, const REBCEL *v, bool form)
         Pre_Mold(mo, v);
         if (NOT_MOLD_FLAG(mo, MOLD_FLAG_ALL))
             Append_Codepoint(mo->series, '[');
+
+        // `<(opt) unsigned> kind bits len [`
+        //
         if (not sign)
             Append_Ascii(mo->series, "unsigned ");
-        Emit(
-            mo,
-            "N I I [",
-            Canon(SYM_FROM_KIND(kind)),
-            bits,
-            len
-        );
-        if (len)
+        Append_Spelling(mo->series, Canon(SYM_FROM_KIND(kind)));
+        Append_Codepoint(mo->series, ' ');
+        Append_Int(mo->series, bits);
+        Append_Codepoint(mo->series, len);
+        Append_Ascii(mo->series, " [");
+        if (len != 0)
             New_Indented_Line(mo);
     }
 

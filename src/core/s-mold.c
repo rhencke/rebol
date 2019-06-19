@@ -21,14 +21,14 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// "Molding" is the term in Rebol for getting a string representation of a
-// value that is intended to be LOADed back into the system.  So if you
-// mold a STRING!, you would get back another STRING! that would include
-// the delimiters for that string.
+// "Molding" is a term in Rebol for getting a string representation of a
+// value that is intended to be LOADed back into the system.  So if you mold
+// a TEXT!, you would get back another TEXT! that would include the delimiters
+// for that string (and any required escaping, e.g. for embedded quotes).
 //
 // "Forming" is the term for creating a string representation of a value that
-// is intended for print output.  So if you were to form a STRING!, it would
-// *not* add delimiters--just giving the string back as-is.
+// is intended for print output.  So if you were to form a TEXT!, it would
+// *not* add delimiters or escaping--just giving the string back as-is.
 //
 // There are several technical problems in molding regarding the handling of
 // values that do not have natural expressions in Rebol source.  For instance,
@@ -40,11 +40,10 @@
 // to get this behavior MOLD/ALL had to be used, and it was implemented in
 // something of an ad-hoc way.
 //
-// These concepts are a bit fuzzy in general, and though MOLD might have made
+// !!! These are some fuzzy concepts, and though the name MOLD may have made
 // sense when Rebol was supposedly called "Clay", it now looks off-putting.
-// (Who wants to deal with old, moldy code?)  Most of Ren-C's focus has been
-// on the evaluator, so there are not that many advances in molding--other
-// than the code being tidied up and methodized a little.
+// Most of Ren-C's focus has been on the evaluator, so there are not that many
+// advances in molding--other than the code being tidied up and methodized.
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
@@ -66,109 +65,13 @@
 //   progress, so long as it pops or drops the buffer before returning to the
 //   code doing the higher level mold.
 //
-// * It's hard to know in advance how long molded output will be or whether
-//   it will use any wide characters, using the mold buffer allows one to use
-//   a "hot" preallocated wide-char buffer for the mold...and copy out a
-//   series of the precise width and length needed.  (That is, if copying out
-//   the result is needed at all.)
+// * It's hard to know in advance how long molded output will be.  Using the
+//   mold buffer allows one to use a "hot" preallocated UTF-8 buffer for the
+//   mold...and copy out a series of the precise width and length needed.
+//   (That is, if copying out the result is needed at all.)
 //
 
 #include "sys-core.h"
-
-
-//
-//  Emit: C
-//
-// This is a general "printf-style" utility function, which R3-Alpha used to
-// make some formatting tasks easier.  It was not applied consistently, and
-// some callsites avoided using it because it would be ostensibly slower
-// than calling the functions directly.
-//
-void Emit(REB_MOLD *mo, const char *fmt, ...)
-{
-    va_list va;
-    va_start(va, fmt);
-
-    REBYTE ender = '\0';
-
-    for (; *fmt; fmt++) {
-        switch (*fmt) {
-        case 'W': { // Word symbol
-            const REBVAL *any_word = va_arg(va, const REBVAL*);
-            Append_Spelling(mo->series, VAL_WORD_SPELLING(any_word));
-            break; }
-
-        case 'V': // Value
-            Mold_Value(mo, va_arg(va, const REBVAL*));
-            break;
-
-        case 'S': // String of bytes
-            Append_Ascii(mo->series, va_arg(va, const char *));
-            break;
-
-        case 'C': // Char
-            Append_Codepoint(mo->series, va_arg(va, uint32_t));
-            break;
-
-        case 'I': // Integer
-            Append_Int(mo->series, va_arg(va, REBINT));
-            break;
-
-        case 'i':
-            Append_Int_Pad(mo->series, va_arg(va, REBINT), -9);
-            Trim_Tail(mo, '0');
-            break;
-
-        case '2': // 2 digit int (for time)
-            Append_Int_Pad(mo->series, va_arg(va, REBINT), 2);
-            break;
-
-        case 'T': {  // Type name
-            REBVAL *v = va_arg(va, REBVAL*);
-
-            // If asked for the type name of a parameter in a paramlist, the
-            // VAL_TYPE() will report an invalid value.  So use MIRROR_BYTE()
-            // so that TYPESET! comes back as the answer.
-            //
-            REBSTR *type_name = Canon(
-                SYM_FROM_KIND(cast(enum Reb_Kind, MIRROR_BYTE(v)))
-            );
-
-            Append_Spelling(mo->series, type_name);
-            break; }
-
-        case 'N': {  // Symbol name
-            REBSTR *spelling = va_arg(va, REBSTR*);
-            Append_Spelling(mo->series, spelling);
-            break; }
-
-        case '+': // Add #[ if mold/all
-            if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL)) {
-                Append_Ascii(mo->series, "#[");
-                ender = ']';
-            }
-            break;
-
-        case 'D': // Datatype symbol: #[type
-            if (ender != '\0') {
-                REBSTR *canon = Canon(cast(REBSYM, va_arg(va, int)));
-                Append_Spelling(mo->series, canon);
-                Append_Codepoint(mo->series, ' ');
-            }
-            else
-                va_arg(va, REBCNT); // ignore it
-            break;
-
-        default:
-            Append_Codepoint(mo->series, *fmt);
-        }
-    }
-
-    va_end(va);
-
-    if (ender != '\0')
-        Append_Codepoint(mo->series, ender);
-}
 
 
 //
@@ -202,24 +105,38 @@ REBYTE *Prep_Mold_Overestimated(REB_MOLD *mo, REBCNT num_bytes)
 
 
 //
-//  Pre_Mold: C
+//  Pre_Mold_Core: C
 //
 // Emit the initial datatype function, depending on /ALL option
 //
-void Pre_Mold(REB_MOLD *mo, const REBCEL *v)
+void Pre_Mold_Core(REB_MOLD *mo, const REBCEL *v, bool all)
 {
-    Emit(mo, GET_MOLD_FLAG(mo, MOLD_FLAG_ALL) ? "#[T " : "make T ", v);
+    if (all)
+        Append_Ascii(mo->series, "#[");
+    else
+        Append_Ascii(mo->series, "make ");
+
+    // If asked for the type name of a PARAM in a paramlist, VAL_TYPE()
+    // will report an invalid value.  So use MIRROR_BYTE() so that TYPESET!
+    // comes back as the answer.
+    //
+    REBSTR *type_name = Canon(
+        SYM_FROM_KIND(cast(enum Reb_Kind, MIRROR_BYTE(v)))
+    );
+    Append_Spelling(mo->series, type_name);
+
+    Append_Codepoint(mo->series, ' ');
 }
 
 
 //
-//  End_Mold: C
+//  End_Mold_Core: C
 //
 // Finish the mold, depending on /ALL with close block.
 //
-void End_Mold(REB_MOLD *mo)
+void End_Mold_Core(REB_MOLD *mo, bool all)
 {
-    if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL))
+    if (all)
         Append_Codepoint(mo->series, ']');
 }
 
@@ -340,10 +257,14 @@ void Mold_Array_At(
     REBARR *a,
     REBCNT index,
     const char *sep
-) {
+){
     // Recursion check:
     if (Find_Pointer_In_Series(TG_Mold_Stack, a) != NOT_FOUND) {
-        Emit(mo, "C...C", sep[0], sep[1]);
+        if (sep[0] != '\0')
+            Append_Codepoint(mo->series, sep[0]);
+        Append_Ascii(mo->series, "...");
+        if (sep[1] != '\0')
+            Append_Codepoint(mo->series, sep[1]);
         return;
     }
 
@@ -351,7 +272,7 @@ void Mold_Array_At(
 
     bool indented = false;
 
-    if (sep[0])
+    if (sep[0] != '\0')
         Append_Codepoint(mo->series, sep[0]);
 
     bool first_item = true;

@@ -321,17 +321,29 @@ void MF_Typeset(REB_MOLD *mo, const REBCEL *v, bool form)
     // `TYPESETS OF` on an action.  This should be thought about.
 
     if (TYPE_CHECK(v, REB_0_END))
-        Emit(mo, "<end> ");
+        Append_Ascii(mo->series, "<end> ");
 
     if (TYPE_CHECK(v, REB_NULLED))
-        Emit(mo, "<opt> ");
+        Append_Ascii(mo->series, "<opt> ");
 
     // !!! What about REB_TS_SKIPPABLE and other parameter properties, that
     // don't really fit into "types", but you can get with TYPESETS OF action?
 
     for (n = REB_0 + 1; n < REB_MAX; n++) {
-        if (TYPE_CHECK(v, cast(enum Reb_Kind, n)))
-            Emit(mo, "+DN ", SYM_DATATYPE_X, Canon(cast(REBSYM, n)));
+        enum Reb_Kind kind = cast(enum Reb_Kind, n);
+        if (TYPE_CHECK(v, kind)) {
+            if (kind == REB_CUSTOM) {
+                //
+                // !!! Typesets have not been worked out yet to handle type
+                // checking for custom datatypes, as they only support 64 bits
+                // of information at the moment.  Hack around it for now.
+                //
+                Append_Ascii(mo->series, "#[datatype! custom!]");
+            }
+            else
+                Mold_Value(mo, Datatype_From_Kind(kind));
+            Append_Codepoint(mo->series, ' ');
+        }
     }
     Trim_Tail(mo, ' ');
 

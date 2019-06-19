@@ -432,9 +432,16 @@ static inline bool Math_Arg_For_Logic(REBVAL *arg)
 //
 void MF_Logic(REB_MOLD *mo, const REBCEL *v, bool form)
 {
-    UNUSED(form); // currently no distinction between MOLD and FORM
+    if (not form)
+        Append_Ascii(mo->series, "#[");
 
-    Emit(mo, "+N", VAL_LOGIC(v) ? Canon(SYM_TRUE) : Canon(SYM_FALSE));
+    if (VAL_LOGIC(v))
+        Append_Spelling(mo->series, Canon(SYM_TRUE));
+    else
+        Append_Spelling(mo->series, Canon(SYM_FALSE));
+
+    if (not form)
+        Append_Ascii(mo->series, "]");
 }
 
 

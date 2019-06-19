@@ -534,7 +534,11 @@ void Mold_Image_Data(REB_MOLD *mo, const REBCEL *value)
     REBCNT num_pixels = VAL_IMAGE_LEN_AT(value); // # from index to tail
     const REBYTE *rgba = VAL_IMAGE_AT(value);
 
-    Emit(mo, "IxI #{", VAL_IMAGE_WIDTH(value), VAL_IMAGE_HEIGHT(value));
+    Append_Int(mo->series, VAL_IMAGE_WIDTH(value));
+    Append_Ascii(mo->series, "x");
+    Append_Int(mo->series, VAL_IMAGE_HEIGHT(value));
+
+    Append_Ascii(mo->series, " #{");
 
     REBCNT i;
     for (i = 0; i < num_pixels; ++i, rgba += 4) {
