@@ -58,7 +58,7 @@ REBSTR *Make_String_Core(REBSIZ encoded_capacity, REBFLGS flags)
 // for internal strings, getting this wrong and not doing an expansion could
 // be a bug.  Just make big strings for now.
 //
-REBSTR *Make_Unicode(REBCNT codepoint_capacity)
+REBSTR *Make_Unicode(REBLEN codepoint_capacity)
 {
     REBSTR *s = Make_String(codepoint_capacity * 2);
     ASSERT_SERIES_TERM(SER(s));
@@ -90,7 +90,7 @@ REBSER *Copy_Bytes(const REBYTE *src, REBINT len)
 //
 // Insert a unicode char into a string.
 //
-void Insert_Char(REBSTR *dst, REBCNT index, REBCNT chr)
+void Insert_Char(REBSTR *dst, REBLEN index, REBLEN chr)
 {
     if (index > STR_LEN(dst))
         index = STR_LEN(dst);
@@ -108,7 +108,7 @@ void Insert_Char(REBSTR *dst, REBCNT index, REBCNT chr)
 //
 REBSTR *Copy_String_At_Limit(const RELVAL *src, REBINT limit)
 {
-    REBCNT length_limit;
+    REBLEN length_limit;
     REBSIZ size = VAL_SIZE_LIMIT_AT(&length_limit, src, limit);
     assert(length_limit <= size);
 
@@ -135,7 +135,7 @@ REBSTR *Append_Codepoint(REBSTR *dst, REBUNI codepoint)
     assert(codepoint <= MAX_UNI);
     assert(not IS_STR_SYMBOL(dst));
 
-    REBCNT old_len = STR_LEN(dst);
+    REBLEN old_len = STR_LEN(dst);
 
     // 4 bytes maximum for UTF-8 encoded character (6 is a lie)
     //
@@ -177,10 +177,10 @@ REBSTR *Make_Codepoint_String(REBUNI codepoint)
 // !!! Should debug build assert it's ASCII?  Most of these are coming from
 // string literals in the source.
 //
-REBSTR *Append_Ascii_Len(REBSTR *dst, const char *ascii, REBCNT len)
+REBSTR *Append_Ascii_Len(REBSTR *dst, const char *ascii, REBLEN len)
 {
-    REBCNT old_size;
-    REBCNT old_len;
+    REBLEN old_size;
+    REBLEN old_len;
 
     if (dst == NULL) {
         dst = Make_String(len);
@@ -242,20 +242,20 @@ void Append_Spelling(REBSTR *dst, REBSTR *spelling)
 //
 // Append a partial string to a UTF-8 binary series.
 //
-void Append_String(REBSTR *dst, const REBCEL *src, REBCNT limit)
+void Append_String(REBSTR *dst, const REBCEL *src, REBLEN limit)
 {
     assert(not IS_STR_SYMBOL(dst));
     assert(ANY_STRING_KIND(CELL_KIND(src)));
 
     REBSIZ offset = VAL_OFFSET_FOR_INDEX(src, VAL_INDEX(src));
 
-    REBCNT old_len = STR_LEN(dst);
+    REBLEN old_len = STR_LEN(dst);
     REBSIZ old_used = STR_SIZE(dst);
 
-    REBCNT len;
+    REBLEN len;
     REBSIZ size = VAL_SIZE_LIMIT_AT(&len, src, limit);
 
-    REBCNT tail = STR_SIZE(dst);
+    REBLEN tail = STR_SIZE(dst);
     Expand_Series(SER(dst), tail, size);  // series USED changes too
 
     memcpy(BIN_AT(SER(dst), tail), BIN_AT(VAL_SERIES(src), offset), size);
@@ -323,7 +323,7 @@ REBSTR *Append_UTF8_May_Fail(
     Push_Mold(mo);
 
     bool all_ascii = true;
-    REBCNT num_codepoints = 0;
+    REBLEN num_codepoints = 0;
 
     REBSIZ bytes_left = size; // see remarks on Back_Scan_UTF8_Char's 3rd arg
     for (; bytes_left > 0; --bytes_left, ++bp) {
@@ -358,7 +358,7 @@ REBSTR *Append_UTF8_May_Fail(
     if (not dst)
         return Pop_Molded_String(mo);
 
-    REBCNT old_len = STR_LEN(dst);
+    REBLEN old_len = STR_LEN(dst);
     REBSIZ old_size = STR_SIZE(dst);
 
     EXPAND_SERIES_TAIL(SER(dst), size);
@@ -396,7 +396,7 @@ void Join_Binary_In_Byte_Buf(const REBVAL *blk, REBINT limit)
 {
     REBSER *buf = BYTE_BUF;
 
-    REBCNT tail = 0;
+    REBLEN tail = 0;
 
     if (limit < 0)
         limit = VAL_LEN_AT(blk);
@@ -412,7 +412,7 @@ void Join_Binary_In_Byte_Buf(const REBVAL *blk, REBINT limit)
             break;
 
         case REB_BINARY: {
-            REBCNT len = VAL_LEN_AT(val);
+            REBLEN len = VAL_LEN_AT(val);
             EXPAND_SERIES_TAIL(buf, len);
             memcpy(BIN_AT(buf, tail), VAL_BIN_AT(val), len);
             break; }
@@ -422,7 +422,7 @@ void Join_Binary_In_Byte_Buf(const REBVAL *blk, REBINT limit)
         case REB_EMAIL:
         case REB_URL:
         case REB_TAG: {
-            REBCNT val_len;
+            REBLEN val_len;
             REBSIZ utf8_size = VAL_SIZE_LIMIT_AT(&val_len, val, UNKNOWN);
 
             REBSIZ offset = VAL_OFFSET_FOR_INDEX(val, VAL_INDEX(val));
@@ -438,7 +438,7 @@ void Join_Binary_In_Byte_Buf(const REBVAL *blk, REBINT limit)
 
         case REB_CHAR: {
             EXPAND_SERIES_TAIL(buf, 6);
-            REBCNT len =
+            REBLEN len =
                 Encode_UTF8_Char(BIN_AT(buf, tail), VAL_CHAR(val));
             SET_SERIES_LEN(buf, tail + len);
             break; }

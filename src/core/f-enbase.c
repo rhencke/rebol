@@ -169,12 +169,12 @@ static const REBYTE Enbase64[64] =
 //
 //  Decode_Base2: C
 //
-static REBSER *Decode_Base2(const REBYTE **src, REBCNT len, REBYTE delim)
+static REBSER *Decode_Base2(const REBYTE **src, REBLEN len, REBYTE delim)
 {
     REBYTE *bp;
     const REBYTE *cp;
-    REBCNT count = 0;
-    REBCNT accum = 0;
+    REBLEN count = 0;
+    REBLEN accum = 0;
     REBYTE lex;
     REBSER *ser;
 
@@ -219,12 +219,12 @@ err:
 //
 //  Decode_Base16: C
 //
-static REBSER *Decode_Base16(const REBYTE **src, REBCNT len, REBYTE delim)
+static REBSER *Decode_Base16(const REBYTE **src, REBLEN len, REBYTE delim)
 {
     REBYTE *bp;
     const REBYTE *cp;
-    REBCNT count = 0;
-    REBCNT accum = 0;
+    REBLEN count = 0;
+    REBLEN accum = 0;
     REBYTE lex;
     REBINT val;
     REBSER *ser;
@@ -264,12 +264,12 @@ err:
 //
 //  Decode_Base64: C
 //
-static REBSER *Decode_Base64(const REBYTE **src, REBCNT len, REBYTE delim)
+static REBSER *Decode_Base64(const REBYTE **src, REBLEN len, REBYTE delim)
 {
     REBYTE *bp;
     const REBYTE *cp;
-    REBCNT flip = 0;
-    REBCNT accum = 0;
+    REBLEN flip = 0;
+    REBLEN accum = 0;
     REBYTE lex;
     REBSER *ser;
 
@@ -347,7 +347,7 @@ err:
 const REBYTE *Decode_Binary(
     RELVAL *out,
     const REBYTE *src,
-    REBCNT len,
+    REBLEN len,
     REBINT base,
     REBYTE delim
 ) {
@@ -378,7 +378,7 @@ const REBYTE *Decode_Binary(
 //
 // Base2 encode a range of arbitrary bytes into a byte-sized ASCII series.
 //
-void Form_Base2(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
+void Form_Base2(REB_MOLD *mo, const REBYTE *src, REBLEN len, bool brk)
 {
     if (len == 0)
         return;
@@ -391,11 +391,11 @@ void Form_Base2(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
     if (len > 8 && brk)
         Append_Codepoint(mo->series, LF);
 
-    REBCNT i;
+    REBLEN i;
     for (i = 0; i < len; i++) {
         REBYTE b = src[i];
 
-        REBCNT n;
+        REBLEN n;
         for (n = 0x80; n > 0; n = n >> 1)
             Append_Codepoint(mo->series, (b & n) ? '1' : '0');
 
@@ -413,7 +413,7 @@ void Form_Base2(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
 //
 // Base16 encode a range of arbitrary bytes into a byte-sized ASCII series.
 //
-void Form_Base16(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
+void Form_Base16(REB_MOLD *mo, const REBYTE *src, REBLEN len, bool brk)
 {
     if (len == 0)
         return;
@@ -426,7 +426,7 @@ void Form_Base16(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
     if (brk and len >= 32)
         Append_Codepoint(mo->series, LF);
 
-    REBCNT count;
+    REBLEN count;
     for (count = 1; count <= len; count++) {
         Form_Hex2(mo, *src++);
         if (brk and ((count % 32) == 0))
@@ -446,7 +446,7 @@ void Form_Base16(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
 // !!! Strongly parallels this code, may have originated from it:
 // http://web.mit.edu/freebsd/head/contrib/wpa/src/utils/base64.c
 //
-void Form_Base64(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
+void Form_Base64(REB_MOLD *mo, const REBYTE *src, REBLEN len, bool brk)
 {
     // !!! This used to predict the length, accounting for hex digits, lines,
     // and extra syntax ("slop factor") and preallocate size for that.  Now

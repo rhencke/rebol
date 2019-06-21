@@ -803,7 +803,7 @@ e-bootblock/emit {
     #include "sys-core.h"
 
     #define NUM_NATIVES $<length of nats>
-    const REBCNT Num_Natives = NUM_NATIVES;
+    const REBLEN Num_Natives = NUM_NATIVES;
     REBVAL Natives[NUM_NATIVES];
 
     const REBNAT Native_C_Funcs[NUM_NATIVES] = {
@@ -846,7 +846,7 @@ e-bootblock/emit {
      * Size is a constant with storage vs. using a #define, so that relinking
      * is enough to sync up the referencing sites.
      */
-    const REBCNT Nat_Compressed_Size = $<length of compressed>;
+    const REBLEN Nat_Compressed_Size = $<length of compressed>;
     const REBYTE Native_Specs[$<length of compressed>] = {
         $<Binary-To-C Compressed>
     };
@@ -882,13 +882,13 @@ e-boot/emit {
     /*
      * Compressed data of the native specifications, uncompressed during boot.
      */
-    EXTERN_C const REBCNT Nat_Compressed_Size;
+    EXTERN_C const REBLEN Nat_Compressed_Size;
     EXTERN_C const REBYTE Native_Specs[];
 
     /*
      * Raw C function pointers for natives, take REBFRM* and return REBVAL*.
      */
-    EXTERN_C const REBCNT Num_Natives;
+    EXTERN_C const REBLEN Num_Natives;
     EXTERN_C const REBNAT Native_C_Funcs[];
 
     /*

@@ -35,14 +35,14 @@ const z_crc_t *crc32_table; // pointer to the zlib CRC32 table
     ((crc) & INT32_C(0x00ffffff)) // if CRCBITS is 24
 
 #define CRCHIBIT \
-    cast(REBCNT, INT32_C(1) << (CRCBITS - 1)) // 0x8000 if CRCBITS is 16
+    cast(REBLEN, INT32_C(1) << (CRCBITS - 1)) // 0x8000 if CRCBITS is 16
 
 #define CRCSHIFTS (CRCBITS-8)
 #define CCITTCRC 0x1021     /* CCITT's 16-bit CRC generator polynomial */
 #define PRZCRC   0x864cfb   /* PRZ's 24-bit CRC generator polynomial */
 #define CRCINIT  0xB704CE   /* Init value for CRC accumulator */
 
-static REBCNT *crc24_table;
+static REBLEN *crc24_table;
 
 //
 //  Generate_CRC24: C
@@ -78,10 +78,10 @@ static REBCNT *crc24_table;
 // message by initializing the CRC accumulator to some agreed-upon
 // nonzero "random-like" value, but this is a bit nonstandard.
 //
-static REBCNT Generate_CRC24(REBYTE ch, REBCNT poly, REBCNT accum)
+static REBLEN Generate_CRC24(REBYTE ch, REBLEN poly, REBLEN accum)
 {
     REBINT i;
-    REBCNT data;
+    REBLEN data;
 
     data = ch;
     data <<= CRCSHIFTS;     /* shift data to line up with MSB of accum */
@@ -102,7 +102,7 @@ static REBCNT Generate_CRC24(REBYTE ch, REBCNT poly, REBCNT accum)
 // The table is used later by crcupdate function given below.
 // Only needs to be called once at the dawn of time.
 //
-static void Make_CRC24_Table(REBCNT poly)
+static void Make_CRC24_Table(REBLEN poly)
 {
     REBINT i;
 
@@ -120,7 +120,7 @@ static void Make_CRC24_Table(REBCNT poly)
 // are necessary so long as compatibility with the historical results
 // of the CHECKSUM native is needed.
 //
-REBINT Compute_CRC24(const REBYTE *str, REBCNT len)
+REBINT Compute_CRC24(const REBYTE *str, REBLEN len)
 {
     REBINT crc = cast(REBINT, len) + cast(REBINT, cast(REBYTE, *str));
 
@@ -129,7 +129,7 @@ REBINT Compute_CRC24(const REBYTE *str, REBCNT len)
 
         // Left shift math must use unsigned to avoid undefined behavior
         // http://stackoverflow.com/q/3784996/211160
-        crc = cast(REBINT, MASK_CRC(cast(REBCNT, crc) << 8) ^ crc24_table[n]);
+        crc = cast(REBINT, MASK_CRC(cast(REBLEN, crc) << 8) ^ crc24_table[n]);
     }
 
     return crc;
@@ -164,7 +164,7 @@ REBINT Hash_UTF8(const REBYTE *utf8, REBSIZ size)
         // Left shift math must use unsigned to avoid undefined behavior
         // http://stackoverflow.com/q/3784996/211160
         //
-        hash = cast(REBINT, MASK_CRC(cast(REBCNT, hash) << 8) ^ crc24_table[n]);
+        hash = cast(REBINT, MASK_CRC(cast(REBLEN, hash) << 8) ^ crc24_table[n]);
     }
 
     return hash;
@@ -240,7 +240,7 @@ uint32_t Hash_Value(const RELVAL *v)
 
       case REB_TIME:
       case REB_DATE:
-        hash = cast(REBCNT, VAL_NANO(cell) ^ (VAL_NANO(cell) / SEC_SEC));
+        hash = cast(REBLEN, VAL_NANO(cell) ^ (VAL_NANO(cell) / SEC_SEC));
         if (kind == REB_DATE) {
             //
             // !!! This hash used to be done with an illegal-in-C union alias
@@ -336,7 +336,7 @@ uint32_t Hash_Value(const RELVAL *v)
         // immutable once created, it is legal to put them in hashes.  The
         // VAL_ACT is the paramlist series, guaranteed unique per function
         //
-        hash = cast(REBCNT, cast(uintptr_t, VAL_ACTION(cell)) >> 4);
+        hash = cast(REBLEN, cast(uintptr_t, VAL_ACTION(cell)) >> 4);
         break;
 
       case REB_FRAME:
@@ -395,17 +395,10 @@ uint32_t Hash_Value(const RELVAL *v)
 //
 //  Make_Hash_Sequence: C
 //
-REBSER *Make_Hash_Sequence(REBCNT len)
+REBSER *Make_Hash_Sequence(REBLEN len)
 {
-    REBCNT n = Get_Hash_Prime(len * 2); // best when 2X # of keys
-    if (n == 0) {
-        DECLARE_LOCAL (temp);
-        Init_Integer(temp, len);
-
-        fail (Error_Size_Limit_Raw(temp));
-    }
-
-    REBSER *ser = Make_Series(n + 1, sizeof(REBCNT));
+    REBLEN n = Get_Hash_Prime_May_Fail(len * 2);  // best when 2X # of keys
+    REBSER *ser = Make_Series(n + 1, sizeof(REBLEN));
     Clear_Series(ser);
     SET_SERIES_LEN(ser, n);
 
@@ -443,17 +436,17 @@ REBVAL *Init_Map(RELVAL *out, REBMAP *map)
 //
 // Note: hash array contents (indexes) are 1-based!
 //
-REBSER *Hash_Block(const REBVAL *block, REBCNT skip, bool cased)
+REBSER *Hash_Block(const REBVAL *block, REBLEN skip, bool cased)
 {
-    REBCNT n;
+    REBLEN n;
     REBSER *hashlist;
-    REBCNT *hashes;
+    REBLEN *hashes;
     REBARR *array = VAL_ARRAY(block);
     RELVAL *value;
 
     // Create the hash array (integer indexes):
     hashlist = Make_Hash_Sequence(VAL_LEN_AT(block));
-    hashes = SER_HEAD(REBCNT, hashlist);
+    hashes = SER_HEAD(REBLEN, hashlist);
 
     value = VAL_ARRAY_AT(block);
     if (IS_END(value))
@@ -461,9 +454,9 @@ REBSER *Hash_Block(const REBVAL *block, REBCNT skip, bool cased)
 
     n = VAL_INDEX(block);
     while (true) {
-        REBCNT skip_index = skip;
+        REBLEN skip_index = skip;
 
-        REBCNT hash = Find_Key_Hashed(
+        REBLEN hash = Find_Key_Hashed(
             array, hashlist, value, VAL_SPECIFIER(block), 1, cased, 0
         );
         hashes[hash] = (n / skip) + 1;
@@ -507,9 +500,9 @@ REBSER *Hash_Block(const REBVAL *block, REBCNT skip, bool cased)
 // Compute an IP checksum given some data and a length.
 // Used only on BINARY values.
 //
-REBINT Compute_IPC(REBYTE *data, REBCNT length)
+REBINT Compute_IPC(REBYTE *data, REBLEN length)
 {
-    REBCNT  lSum = 0;   // stores the summation
+    REBLEN  lSum = 0;   // stores the summation
     REBYTE  *up = data;
 
     while (length > 1) {
@@ -534,10 +527,10 @@ REBINT Compute_IPC(REBYTE *data, REBCNT length)
 //
 // Return a 32-bit hash value for the bytes.
 //
-REBINT Hash_Bytes(const REBYTE *data, REBCNT len) {
+REBINT Hash_Bytes(const REBYTE *data, REBLEN len) {
     uint32_t crc = 0x00000000;
 
-    REBCNT n;
+    REBLEN n;
     for (n = 0; n != len; ++n)
         crc = (crc >> 8) ^ crc32_table[(crc ^ data[n]) & 0xff];
 
@@ -553,7 +546,7 @@ REBINT Hash_Bytes(const REBYTE *data, REBCNT len) {
 //
 // !!! See redundant code in Hash_UTF8 which takes a size, not a length
 //
-REBINT Hash_UTF8_Caseless(const REBYTE *utf8, REBCNT len) {
+REBINT Hash_UTF8_Caseless(const REBYTE *utf8, REBLEN len) {
     //
     // Note: can't make the argument a REBCHR() because the C++ build and C
     // build can't have different ABIs for %sys-core.h
@@ -562,7 +555,7 @@ REBINT Hash_UTF8_Caseless(const REBYTE *utf8, REBCNT len) {
 
     uint32_t crc = 0x00000000;
 
-    REBCNT n;
+    REBLEN n;
     for (n = 0; n < len; n++) {
         REBUNI c;
         cp = NEXT_CHR(&c, cp);
@@ -588,7 +581,7 @@ REBINT Hash_UTF8_Caseless(const REBYTE *utf8, REBCNT len) {
 //
 void Startup_CRC(void)
 {
-    crc24_table = ALLOC_N(REBCNT, 256);
+    crc24_table = ALLOC_N(REBLEN, 256);
     Make_CRC24_Table(PRZCRC);
 
     // If Zlib is built with DYNAMIC_CRC_TABLE, then the first call to
@@ -607,5 +600,5 @@ void Shutdown_CRC(void)
     // Zlib's DYNAMIC_CRC_TABLE uses a global array, that is not malloc()'d,
     // so nothing to free.
 
-    FREE_N(REBCNT, 256, crc24_table);
+    FREE_N(REBLEN, 256, crc24_table);
 }

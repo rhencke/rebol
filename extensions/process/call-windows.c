@@ -376,7 +376,7 @@ REB_R Call_Core(REBFRM *frame_) {
         //
         const WCHAR *sh = L"cmd.exe /C \"";  // Note: begin surround quotes
 
-        REBCNT len = wcslen(sh) + wcslen(call)
+        REBLEN len = wcslen(sh) + wcslen(call)
             + 1  // terminal quote mark
             + 1;  // NUL terminator
 

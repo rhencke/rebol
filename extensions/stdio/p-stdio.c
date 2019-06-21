@@ -78,7 +78,7 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         //
         // https://github.com/rebol/rebol-issues/issues/2364
         //
-        const REBCNT readbuf_size = 32 * 1024;
+        const REBLEN readbuf_size = 32 * 1024;
 
         REBVAL *data = CTX_VAR(ctx, STD_PORT_DATA);
         if (not IS_BINARY(data))

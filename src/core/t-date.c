@@ -161,7 +161,7 @@ void MF_Date(REB_MOLD *mo, const REBCEL *v_orig, bool form)
 // Given a year, determine the number of days in the month.
 // Handles all leap year calculations.
 //
-static REBCNT Month_Length(REBCNT month, REBCNT year)
+static REBLEN Month_Length(REBLEN month, REBLEN year)
 {
     if (month != 1)
         return Month_Max_Days[month];
@@ -182,14 +182,14 @@ static REBCNT Month_Length(REBCNT month, REBCNT year)
 // Given a year, month and day, return the number of days since the
 // beginning of that year.
 //
-REBCNT Julian_Date(REBYMD date)
+REBLEN Julian_Date(REBYMD date)
 {
-    REBCNT days;
-    REBCNT i;
+    REBLEN days;
+    REBLEN i;
 
     days = 0;
 
-    for (i = 0; i < cast(REBCNT, date.month - 1); i++)
+    for (i = 0; i < cast(REBLEN, date.month - 1); i++)
         days += Month_Length(i, date.year);
 
     return date.day + days;
@@ -232,13 +232,13 @@ REBINT Diff_Date(REBYMD d1, REBYMD d2)
     // days in between years plus days in end year
     //
     if (d1.year > d2.year) {
-        REBCNT days = Month_Length(d2.month-1, d2.year) - d2.day;
+        REBLEN days = Month_Length(d2.month-1, d2.year) - d2.day;
 
-        REBCNT m;
+        REBLEN m;
         for (m = d2.month; m < 12; m++)
             days += Month_Length(m, d2.year);
 
-        REBCNT y;
+        REBLEN y;
         for (y = d2.year + 1; y < d1.year; y++) {
             days += (((y % 4) == 0) &&  // divisible by four is a leap year
                 (((y % 100) != 0) ||    // except when divisible by 100
@@ -257,7 +257,7 @@ REBINT Diff_Date(REBYMD d1, REBYMD d2)
 //
 // Return the day of the week for a specific date.
 //
-REBCNT Week_Day(REBYMD date)
+REBLEN Week_Day(REBYMD date)
 {
     REBYMD year1;
     CLEARS(&year1);
@@ -273,7 +273,7 @@ REBCNT Week_Day(REBYMD date)
 //
 // Adjust *dp by number of days and set secs to less than a day.
 //
-void Normalize_Time(REBI64 *sp, REBCNT *dp)
+void Normalize_Time(REBI64 *sp, REBLEN *dp)
 {
     REBI64 secs = *sp;
 
@@ -369,7 +369,7 @@ void Adjust_Date_Zone(RELVAL *d, bool to_utc)
 
     PAYLOAD(Time, d).nanoseconds = (secs + TIME_IN_DAY) % TIME_IN_DAY;
 
-    REBCNT n = VAL_DAY(d) - 1;
+    REBLEN n = VAL_DAY(d) - 1;
 
     if (secs < 0)
         --n;
@@ -392,7 +392,7 @@ void Adjust_Date_Zone(RELVAL *d, bool to_utc)
 void Subtract_Date(REBVAL *d1, REBVAL *d2, REBVAL *result)
 {
     REBINT diff = Diff_Date(VAL_DATE(d1), VAL_DATE(d2));
-    if (cast(REBCNT, abs(diff)) > (((1U << 31) - 1) / SECS_IN_DAY))
+    if (cast(REBLEN, abs(diff)) > (((1U << 31) - 1) / SECS_IN_DAY))
         fail (Error_Overflow_Raw());
 
     REBI64 t1;
@@ -466,19 +466,19 @@ REB_R MAKE_Date(
         if (not IS_INTEGER(item))
             goto bad_make;
 
-        REBCNT day = Int32s(item, 1);
+        REBLEN day = Int32s(item, 1);
 
         ++item;
         if (not IS_INTEGER(item))
             goto bad_make;
 
-        REBCNT month = Int32s(item, 1);
+        REBLEN month = Int32s(item, 1);
 
         ++item;
         if (not IS_INTEGER(item))
             goto bad_make;
 
-        REBCNT year;
+        REBLEN year;
         if (day > 99) {
             year = day;
             day = Int32s(item, 1);
@@ -717,9 +717,9 @@ void Pick_Or_Poke_Date(
         // done by changing the components that need to change which were
         // extracted, and building a new date out of the parts.
 
-        REBCNT day = VAL_DAY(v) - 1;
-        REBCNT month = VAL_MONTH(v) - 1;
-        REBCNT year = VAL_YEAR(v);
+        REBLEN day = VAL_DAY(v) - 1;
+        REBLEN month = VAL_MONTH(v) - 1;
+        REBLEN year = VAL_YEAR(v);
 
         // Not all dates have times or time zones.  But track whether or not
         // the extracted "secs" or "tz" fields are valid by virtue of updating
@@ -895,9 +895,9 @@ REBTYPE(Date)
     RESET_CELL(D_OUT, REB_DATE, CELL_MASK_NONE);
 
     REBYMD date = VAL_DATE(val);
-    REBCNT day = VAL_DAY(val) - 1;
-    REBCNT month = VAL_MONTH(val) - 1;
-    REBCNT year = VAL_YEAR(val);
+    REBLEN day = VAL_DAY(val) - 1;
+    REBLEN month = VAL_MONTH(val) - 1;
+    REBLEN year = VAL_YEAR(val);
     REBI64 secs = Does_Date_Have_Time(val) ? VAL_NANO(val) : NO_DATE_TIME;
 
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
@@ -985,9 +985,9 @@ REBTYPE(Date)
 
             if (year == 0) break;
 
-            year = cast(REBCNT, Random_Range(year, secure));
-            month = cast(REBCNT, Random_Range(12, secure));
-            day = cast(REBCNT, Random_Range(31, secure));
+            year = cast(REBLEN, Random_Range(year, secure));
+            month = cast(REBLEN, Random_Range(12, secure));
+            day = cast(REBLEN, Random_Range(31, secure));
 
             if (secs != NO_DATE_TIME)
                 secs = Random_Range(TIME_IN_DAY, secure);

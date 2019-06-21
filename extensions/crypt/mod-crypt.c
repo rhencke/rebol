@@ -75,14 +75,14 @@
 
 // Table of has functions and parameters:
 static struct {
-    REBYTE *(*digest)(const REBYTE *, REBCNT, REBYTE *);
+    REBYTE *(*digest)(const REBYTE *, REBLEN, REBYTE *);
     void (*init)(void *);
-    void (*update)(void *, const REBYTE *, REBCNT);
+    void (*update)(void *, const REBYTE *, REBLEN);
     void (*final)(REBYTE *, void *);
     int (*ctxsize)(void);
     REBSYM sym;
-    REBCNT len;
-    REBCNT hmacblock;
+    REBLEN len;
+    REBLEN hmacblock;
 } digests[] = {
 
     {SHA1, SHA1_Init, SHA1_Update, SHA1_Final, SHA1_CtxSize, SYM_SHA1, 20, 64},
@@ -114,7 +114,7 @@ REBNATIVE(checksum)
 {
     CRYPT_INCLUDE_PARAMS_OF_CHECKSUM;
 
-    REBCNT len = Part_Len_May_Modify_Index(ARG(data), ARG(part));
+    REBLEN len = Part_Len_May_Modify_Index(ARG(data), ARG(part));
     REBYTE *data = VAL_RAW_DATA_AT(ARG(data));  // after Part_Len, may change
 
     REBSYM sym;
@@ -153,7 +153,7 @@ REBNATIVE(checksum)
             return Init_Integer(D_OUT, adler);
         }
 
-        REBCNT i;
+        REBLEN i;
         for (i = 0; i != sizeof(digests) / sizeof(digests[0]); i++) {
             if (!SAME_SYM_NONZERO(digests[i].sym, sym))
                 continue;
@@ -163,7 +163,7 @@ REBNATIVE(checksum)
             if (not REF(key))
                 digests[i].digest(data, len, BIN_HEAD(digest));
             else {
-                REBCNT blocklen = digests[i].hmacblock;
+                REBLEN blocklen = digests[i].hmacblock;
 
                 REBYTE tmpdigest[20]; // size must be max of all digest[].len
 
@@ -184,7 +184,7 @@ REBNATIVE(checksum)
                 memset(opad, 0, blocklen);
                 memcpy(opad, key_bytes, key_size);
 
-                REBCNT j;
+                REBLEN j;
                 for (j = 0; j < blocklen; j++) {
                     ipad[j] ^= 0x36; // !!! why do people write this kind of
                     opad[j] ^= 0x5c; // thing without a comment? !!! :-(

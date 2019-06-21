@@ -212,7 +212,7 @@ inline static REBFRM *CTX_FRAME_MAY_FAIL(REBCTX *c) {
 #define CTX_VARS_HEAD(c) \
     SER_AT(REBVAL, SER(CTX_VARLIST(c)), 1) // may fail() if inaccessible
 
-inline static REBVAL *CTX_KEY(REBCTX *c, REBCNT n) {
+inline static REBVAL *CTX_KEY(REBCTX *c, REBLEN n) {
     assert(NOT_SERIES_INFO(c, INACCESSIBLE));
     assert(GET_ARRAY_FLAG(CTX_VARLIST(c), IS_VARLIST));
     assert(n != 0 and n <= CTX_LEN(c));
@@ -220,22 +220,22 @@ inline static REBVAL *CTX_KEY(REBCTX *c, REBCNT n) {
         + n;
 }
 
-inline static REBVAL *CTX_VAR(REBCTX *c, REBCNT n) {
+inline static REBVAL *CTX_VAR(REBCTX *c, REBLEN n) {
     assert(NOT_SERIES_INFO(c, INACCESSIBLE));
     assert(GET_ARRAY_FLAG(CTX_VARLIST(c), IS_VARLIST));
     assert(n != 0 and n <= CTX_LEN(c));
     return cast(REBVAL*, cast(REBSER*, c)->content.dynamic.data) + n;
 }
 
-inline static REBSTR *CTX_KEY_SPELLING(REBCTX *c, REBCNT n) {
+inline static REBSTR *CTX_KEY_SPELLING(REBCTX *c, REBLEN n) {
     return VAL_TYPESET_STRING(CTX_KEY(c, n));
 }
 
-inline static REBSTR *CTX_KEY_CANON(REBCTX *c, REBCNT n) {
+inline static REBSTR *CTX_KEY_CANON(REBCTX *c, REBLEN n) {
     return STR_CANON(CTX_KEY_SPELLING(c, n));
 }
 
-inline static REBSYM CTX_KEY_SYM(REBCTX *c, REBCNT n) {
+inline static REBSYM CTX_KEY_SYM(REBCTX *c, REBLEN n) {
     return STR_SYMBOL(CTX_KEY_SPELLING(c, n)); // should be same as canon
 }
 

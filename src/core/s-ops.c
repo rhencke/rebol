@@ -31,7 +31,7 @@
 // Returns true if byte string does not use upper code page
 // (e.g. no 128-255 characters)
 //
-bool All_Bytes_ASCII(REBYTE *bp, REBCNT len)
+bool All_Bytes_ASCII(REBYTE *bp, REBLEN len)
 {
     for (; len > 0; len--, bp++)
         if (*bp >= 0x80)
@@ -55,11 +55,11 @@ bool All_Bytes_ASCII(REBYTE *bp, REBCNT len)
 const REBYTE *Analyze_String_For_Scan(
     REBSIZ *opt_size_out,
     const REBVAL *any_string,
-    REBCNT max_len // maximum length in *codepoints*
+    REBLEN max_len // maximum length in *codepoints*
 ){
     REBCHR(const*) up = VAL_STRING_AT(any_string);
-    REBCNT index = VAL_INDEX(any_string);
-    REBCNT len = VAL_LEN_AT(any_string);
+    REBLEN index = VAL_INDEX(any_string);
+    REBLEN len = VAL_LEN_AT(any_string);
     if (len == 0)
         fail (Error_Past_End_Raw());
 
@@ -75,7 +75,7 @@ const REBYTE *Analyze_String_For_Scan(
 
     // Skip up to max_len non-space characters.
     //
-    REBCNT num_chars = 0;
+    REBLEN num_chars = 0;
     for (; len > 0;) {
         ++num_chars;
         --len;
@@ -125,10 +125,10 @@ REBSER *Xandor_Binary(const REBVAL *verb, REBVAL *value, REBVAL *arg)
     REBYTE *p0 = VAL_BIN_AT(value);
     REBYTE *p1 = VAL_BIN_AT(arg);
 
-    REBCNT t0 = VAL_LEN_AT(value);
-    REBCNT t1 = VAL_LEN_AT(arg);
+    REBLEN t0 = VAL_LEN_AT(value);
+    REBLEN t1 = VAL_LEN_AT(arg);
 
-    REBCNT mt = MIN(t0, t1); // smaller array size
+    REBLEN mt = MIN(t0, t1); // smaller array size
 
     // !!! This used to say "For AND - result is size of shortest input:" but
     // the code was commented out
@@ -139,7 +139,7 @@ REBSER *Xandor_Binary(const REBVAL *verb, REBVAL *value, REBVAL *arg)
             t2 = MAX(t0, t1);
     */
 
-    REBCNT t2 = MAX(t0, t1);
+    REBLEN t2 = MAX(t0, t1);
 
     REBSER *series;
     if (IS_BITSET(value)) {
@@ -164,26 +164,26 @@ REBSER *Xandor_Binary(const REBVAL *verb, REBVAL *value, REBVAL *arg)
 
     switch (VAL_WORD_SYM(verb)) {
     case SYM_INTERSECT: { // and
-        REBCNT i;
+        REBLEN i;
         for (i = 0; i < mt; i++)
             *p2++ = *p0++ & *p1++;
         CLEAR(p2, t2 - mt);
         return series; }
 
     case SYM_UNION: { // or
-        REBCNT i;
+        REBLEN i;
         for (i = 0; i < mt; i++)
             *p2++ = *p0++ | *p1++;
         break; }
 
     case SYM_DIFFERENCE: { // xor
-        REBCNT i;
+        REBLEN i;
         for (i = 0; i < mt; i++)
             *p2++ = *p0++ ^ *p1++;
         break; }
 
     case SYM_EXCLUDE: { // !!! not a "type action", word manually in %words.r
-        REBCNT i;
+        REBLEN i;
         for (i = 0; i < mt; i++)
             *p2++ = *p0++ & ~*p1++;
         if (t0 > t1)
@@ -209,7 +209,7 @@ REBSER *Xandor_Binary(const REBVAL *verb, REBVAL *value, REBVAL *arg)
 REBSER *Complement_Binary(REBVAL *value)
 {
     const REBYTE *bp = VAL_BIN_AT(value);
-    REBCNT len = VAL_LEN_AT(value);
+    REBLEN len = VAL_LEN_AT(value);
 
     REBSER *bin = Make_Binary(len);
     TERM_SEQUENCE_LEN(bin, len);
@@ -231,11 +231,11 @@ REBSER *Complement_Binary(REBVAL *value)
 void Shuffle_String(REBVAL *value, bool secure)
 {
     REBSTR *s = VAL_STRING(value);
-    REBCNT idx = VAL_INDEX(value);
+    REBLEN idx = VAL_INDEX(value);
 
-    REBCNT n;
+    REBLEN n;
     for (n = VAL_LEN_AT(value); n > 1;) {
-        REBCNT k = idx + cast(REBCNT, Random_Int(secure)) % n;
+        REBLEN k = idx + cast(REBLEN, Random_Int(secure)) % n;
         n--;
         REBUNI swap = GET_CHAR_AT(s, k);
         SET_CHAR_AT(s, k, GET_CHAR_AT(s, n + idx));
@@ -253,7 +253,7 @@ void Trim_Tail(REB_MOLD *mo, REBYTE ascii)
 {
     assert(ascii < 0x80);  // more work needed for multi-byte characters
 
-    REBCNT len = STR_LEN(mo->series);
+    REBLEN len = STR_LEN(mo->series);
     REBSIZ size = STR_SIZE(mo->series);
 
     for (; size > 0; --size, --len) {
@@ -292,7 +292,7 @@ void Change_Case(
     //
     Move_Value(out, val);
 
-    REBCNT len = Part_Len_May_Modify_Index(val, part);
+    REBLEN len = Part_Len_May_Modify_Index(val, part);
 
     // !!! This assumes that all case changes will preserve the encoding size,
     // but that's not true (some strange multibyte accented characters have
@@ -306,7 +306,7 @@ void Change_Case(
     REBCHR(*) up = VAL_STRING_AT(val);
     REBCHR(*) dp;
     if (upper) {
-        REBCNT n;
+        REBLEN n;
         for (n = 0; n < len; n++) {
             dp = up;
 
@@ -319,7 +319,7 @@ void Change_Case(
         }
     }
     else {
-        REBCNT n;
+        REBLEN n;
         for (n = 0; n < len; n++) {
             dp = up;
 
@@ -354,8 +354,8 @@ REBARR *Split_Lines(const REBVAL *str)
 {
     REBDSP dsp_orig = DSP;
 
-    REBCNT len = VAL_LEN_AT(str);
-    REBCNT i = VAL_INDEX(str);
+    REBLEN len = VAL_LEN_AT(str);
+    REBLEN i = VAL_INDEX(str);
     if (i == len)
         return Make_Array(0);
 

@@ -131,7 +131,7 @@ bool Add_Typeset_Bits_Core(
 
     const RELVAL *maybe_word = head;
     for (; NOT_END(maybe_word); ++maybe_word) {
-        REBCNT num_quotes = VAL_NUM_QUOTES(maybe_word);
+        REBLEN num_quotes = VAL_NUM_QUOTES(maybe_word);
         const REBCEL *unescaped = VAL_UNESCAPED(maybe_word);
 
         const RELVAL *item;

@@ -48,7 +48,7 @@ REBINT CT_Map(const REBCEL *a, const REBCEL *b, REBINT mode)
 // Capacity is measured in key-value pairings.
 // A hash series is also created.
 //
-REBMAP *Make_Map(REBCNT capacity)
+REBMAP *Make_Map(REBLEN capacity)
 {
     REBARR *pairlist = Make_Array_Core(capacity * 2, SERIES_MASK_PAIRLIST);
     LINK_HASHLIST_NODE(pairlist) = NOD(Make_Hash_Sequence(capacity));
@@ -83,7 +83,7 @@ REBINT Find_Key_Hashed(
     REBSER *hashlist,
     const RELVAL *key, // !!! assumes key is followed by value(s) via ++
     REBSPC *specifier,
-    REBCNT wide,
+    REBLEN wide,
     bool cased,
     REBYTE mode
 ){
@@ -98,12 +98,12 @@ REBINT Find_Key_Hashed(
     // adding skip (and subtracting len when needed) all positions are
     // visited.  1 <= skip < len, and len is prime, so this is guaranteed.
     //
-    REBCNT len = SER_LEN(hashlist);
-    REBCNT *indexes = SER_HEAD(REBCNT, hashlist);
+    REBLEN len = SER_LEN(hashlist);
+    REBLEN *indexes = SER_HEAD(REBLEN, hashlist);
 
     uint32_t hash = Hash_Value(key);
-    REBCNT slot = hash % len; // first slot to try for this hash
-    REBCNT skip = hash % (len - 1) + 1; // how much to skip by each collision
+    REBLEN slot = hash % len; // first slot to try for this hash
+    REBLEN skip = hash % (len - 1) + 1; // how much to skip by each collision
 
     // Zombie slots are those which are left behind by removing items, with
     // void values that are illegal in maps, and indicate they can be reused.
@@ -117,7 +117,7 @@ REBINT Find_Key_Hashed(
     //
     REBINT synonym_slot = -1; // no synonyms seen yet...
 
-    REBCNT n;
+    REBLEN n;
     while ((n = indexes[slot]) != 0) {
         RELVAL *k = ARR_AT(array, (n - 1) * wide); // stored key
         if (0 == Cmp_Value(k, key, true)) { // exact match
@@ -164,7 +164,7 @@ REBINT Find_Key_Hashed(
         const RELVAL *src = key;
         indexes[slot] = (ARR_LEN(array) / wide) + 1;
 
-        REBCNT index;
+        REBLEN index;
         for (index = 0; index < wide; ++src, ++index)
             Append_Value_Core(array, src, specifier);
     }
@@ -184,11 +184,11 @@ static void Rehash_Map(REBMAP *map)
 
     if (!hashlist) return;
 
-    REBCNT *hashes = SER_HEAD(REBCNT, hashlist);
+    REBLEN *hashes = SER_HEAD(REBLEN, hashlist);
     REBARR *pairlist = MAP_PAIRLIST(map);
 
     REBVAL *key = KNOWN(ARR_HEAD(pairlist));
-    REBCNT n;
+    REBLEN n;
 
     for (n = 0; n < ARR_LEN(pairlist); n += 2, key += 2) {
         const bool cased = true; // cased=true is always fine
@@ -206,7 +206,7 @@ static void Rehash_Map(REBMAP *map)
             SET_ARRAY_LEN_NOTERM(pairlist, ARR_LEN(pairlist) - 2);
         }
 
-        REBCNT hash = Find_Key_Hashed(
+        REBLEN hash = Find_Key_Hashed(
             pairlist, hashlist, key, SPECIFIED, 2, cased, 0
         );
         hashes[hash] = n / 2 + 1;
@@ -227,23 +227,18 @@ static void Rehash_Map(REBMAP *map)
 //
 void Expand_Hash(REBSER *ser)
 {
-    REBINT pnum = Get_Hash_Prime(SER_LEN(ser) + 1);
-    if (pnum == 0) {
-        DECLARE_LOCAL (temp);
-        Init_Integer(temp, SER_LEN(ser) + 1);
-        fail (Error_Size_Limit_Raw(temp));
-    }
-
     assert(not IS_SER_ARRAY(ser));
+
+    REBINT prime = Get_Hash_Prime_May_Fail(SER_LEN(ser) + 1);
     Remake_Series(
         ser,
-        pnum + 1,
+        prime + 1,
         SER_WIDE(ser),
-        SERIES_FLAG_POWER_OF_2 // not(NODE_FLAG_NODE) => don't keep data
+        SERIES_FLAG_POWER_OF_2  // not(NODE_FLAG_NODE) => don't keep data
     );
 
     Clear_Series(ser);
-    SET_SERIES_LEN(ser, pnum);
+    SET_SERIES_LEN(ser, prime);
 }
 
 
@@ -255,7 +250,7 @@ void Expand_Hash(REBSER *ser)
 //
 // RETURNS: the index to the VALUE or zero if there is none.
 //
-REBCNT Find_Map_Entry(
+REBLEN Find_Map_Entry(
     REBMAP *map,
     const RELVAL *key,
     REBSPC *key_specifier,
@@ -276,14 +271,14 @@ REBCNT Find_Map_Entry(
         Rehash_Map(map);
     }
 
-    const REBCNT wide = 2;
+    const REBLEN wide = 2;
     const REBYTE mode = 0; // just search for key, don't add it
-    REBCNT slot = Find_Key_Hashed(
+    REBLEN slot = Find_Key_Hashed(
         pairlist, hashlist, key, key_specifier, wide, cased, mode
     );
 
-    REBCNT *indexes = SER_HEAD(REBCNT, hashlist);
-    REBCNT n = indexes[slot];
+    REBLEN *indexes = SER_HEAD(REBLEN, hashlist);
+    REBLEN n = indexes[slot];
 
     // n==0 or pairlist[(n-1)*]=~key
 
@@ -375,12 +370,12 @@ REB_R PD_Map(
 static void Append_Map(
     REBMAP *map,
     REBARR *array,
-    REBCNT index,
+    REBLEN index,
     REBSPC *specifier,
-    REBCNT len
+    REBLEN len
 ) {
     RELVAL *item = ARR_AT(array, index);
-    REBCNT n = 0;
+    REBLEN n = 0;
 
     while (n < len && NOT_END(item)) {
         if (IS_END(item + 1)) {
@@ -483,8 +478,8 @@ REB_R TO_Map(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         // make map! [word val word val]
         //
         REBARR* array = VAL_ARRAY(arg);
-        REBCNT len = VAL_ARRAY_LEN_AT(arg);
-        REBCNT index = VAL_INDEX(arg);
+        REBLEN len = VAL_ARRAY_LEN_AT(arg);
+        REBLEN index = VAL_INDEX(arg);
         REBSPC *specifier = VAL_SPECIFIER(arg);
 
         REBMAP *map = Make_Map(len / 2); // [key value key value...] + END
@@ -515,7 +510,7 @@ REB_R TO_Map(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REBARR *Map_To_Array(REBMAP *map, REBINT what)
 {
-    REBCNT count = Length_Map(map);
+    REBLEN count = Length_Map(map);
     REBARR *a = Make_Array(count * ((what == 0) ? 2 : 1));
 
     REBVAL *dest = KNOWN(ARR_HEAD(a));
@@ -551,7 +546,7 @@ REBCTX *Alloc_Context_From_Map(REBMAP *map)
     // just throw out the <y> 20 case...
 
     REBVAL *mval = KNOWN(ARR_HEAD(MAP_PAIRLIST(map)));
-    REBCNT count = 0;
+    REBLEN count = 0;
 
     for (; NOT_END(mval); mval += 2) {  // note mval must not be END
         if (ANY_WORD(mval) and not IS_NULLED(mval + 1))
@@ -744,7 +739,7 @@ REBTYPE(Map)
         if (not IS_BLOCK(arg))
             fail (PAR(value));
 
-        REBCNT len = Part_Len_May_Modify_Index(arg, ARG(part));
+        REBLEN len = Part_Len_May_Modify_Index(arg, ARG(part));
 
         Append_Map(
             map,

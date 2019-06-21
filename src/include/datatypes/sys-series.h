@@ -123,12 +123,12 @@
 // "content", there's room for a length in the node.
 //
 
-inline static REBCNT SER_USED(REBSER *s) {
+inline static REBLEN SER_USED(REBSER *s) {
     REBYTE len_byte = LEN_BYTE_OR_255(s);
     return len_byte == 255 ? s->content.dynamic.used : len_byte;
 }
 
-inline static void SET_SERIES_USED(REBSER *s, REBCNT used) {
+inline static void SET_SERIES_USED(REBSER *s, REBLEN used) {
     assert(NOT_SERIES_FLAG(s, STACK_LIFETIME));
 
     if (LEN_BYTE_OR_255(s) == 255)
@@ -151,7 +151,7 @@ inline static void SET_SERIES_USED(REBSER *s, REBCNT used) {
   #endif
 }
 
-inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
+inline static void SET_SERIES_LEN(REBSER *s, REBLEN len) {
     assert(NOT_SERIES_FLAG(s, IS_STRING));  // use _LEN_SIZE
     SET_SERIES_USED(s, len);
 }
@@ -174,7 +174,7 @@ inline static REBYTE *SER_DATA_RAW(REBSER *s) {
         : cast(REBYTE*, &s->content);
 }
 
-inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBCNT i) {
+inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBLEN i) {
   #if !defined(NDEBUG)
     if (w != SER_WIDE(s)) {  // will be "unusual" value if free
         if (IS_FREE_NODE(s))
@@ -273,7 +273,7 @@ inline static REBYTE *SER_LAST_RAW(size_t w, REBSER *s) {
 // Optimized expand when at tail (but, does not reterminate)
 //
 
-inline static void EXPAND_SERIES_TAIL(REBSER *s, REBCNT delta) {
+inline static void EXPAND_SERIES_TAIL(REBSER *s, REBLEN delta) {
     if (SER_FITS(s, delta))
         SET_SERIES_USED(s, SER_USED(s) + delta);
     else
@@ -290,7 +290,7 @@ inline static void TERM_SEQUENCE(REBSER *s) {
     memset(SER_SEEK_RAW(SER_WIDE(s), s, SER_USED(s)), 0, SER_WIDE(s));
 }
 
-inline static void TERM_SEQUENCE_LEN(REBSER *s, REBCNT len) {
+inline static void TERM_SEQUENCE_LEN(REBSER *s, REBLEN len) {
     SET_SERIES_LEN(s, len);
     TERM_SEQUENCE(s);
 }
@@ -589,12 +589,12 @@ inline static REBSER *VAL_SERIES(const REBCEL *v) {
     // becomes prohibitive when the functions aren't inlined and checks wind
     // up getting done 
     //
-    inline static REBCNT & VAL_INDEX(REBCEL *v) { // C++ reference type
+    inline static REBLEN & VAL_INDEX(REBCEL *v) { // C++ reference type
         enum Reb_Kind k = CELL_KIND(v);
         assert(ANY_SERIES_KIND_EVIL_MACRO or ANY_PATH_KIND_EVIL_MACRO);
         return VAL_INDEX_UNCHECKED(v);
     }
-    inline static REBCNT VAL_INDEX(const REBCEL *v) {
+    inline static REBLEN VAL_INDEX(const REBCEL *v) {
         enum Reb_Kind k = CELL_KIND(v);
         if (ANY_PATH_KIND_EVIL_MACRO) {
             assert(VAL_INDEX_UNCHECKED(v) == 0);
@@ -653,7 +653,7 @@ inline static REBSER *Alloc_Series_Node(REBFLGS flags) {
 }
 
 
-inline static REBCNT FIND_POOL(size_t size) {
+inline static REBLEN FIND_POOL(size_t size) {
   #if !defined(NDEBUG)
     if (PG_Always_Malloc)
         return SYSTEM_POOL;
@@ -678,7 +678,7 @@ inline static REBCNT FIND_POOL(size_t size) {
 // This routine can thus be used for an initial construction or an operation
 // like expansion.
 //
-inline static bool Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
+inline static bool Did_Series_Data_Alloc(REBSER *s, REBLEN length) {
     //
     // Currently once a series becomes dynamic, it never goes back.  There is
     // no shrinking process that will pare it back to fit completely inside
@@ -689,9 +689,9 @@ inline static bool Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
     REBYTE wide = SER_WIDE(s);
     assert(wide != 0);
 
-    REBCNT size; // size of allocation (possibly bigger than we need)
+    REBSIZ size; // size of allocation (possibly bigger than we need)
 
-    REBCNT pool_num = FIND_POOL(length * wide);
+    REBLEN pool_num = FIND_POOL(length * wide);
     if (pool_num < SYSTEM_POOL) {
         // ...there is a pool designated for allocations of this size range
         s->content.dynamic.data = cast(char*, Make_Node(pool_num));
@@ -714,10 +714,10 @@ inline static bool Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
 
         size = length * wide;
         if (GET_SERIES_FLAG(s, POWER_OF_2)) {
-            REBCNT len = 2048;
-            while (len < size)
-                len *= 2;
-            size = len;
+            REBSIZ size2 = 2048;
+            while (size2 < size)
+                size2 *= 2;
+            size = size2;
 
             // Clear the power of 2 flag if it isn't necessary, due to even
             // divisibility by the item width.
@@ -766,7 +766,7 @@ inline static bool Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
 // Large series will be allocated from system memory.
 //
 inline static REBSER *Make_Series_Core(
-    REBCNT capacity,
+    REBLEN capacity,
     REBYTE wide,
     REBFLGS flags
 ){

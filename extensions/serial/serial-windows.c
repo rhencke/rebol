@@ -88,8 +88,8 @@ DEVICE_CMD Open_Serial(REBREQ *serial)
     // Concatenate the "spelling" of the serial port request by asking it
     // to be placed at the end of the buffer.
     //
-    REBCNT buf_left = MAX_SERIAL_DEV_PATH - wcslen(fullpath) - 1;
-    REBCNT chars_appended = rebSpellIntoWideQ(
+    REBLEN buf_left = MAX_SERIAL_DEV_PATH - wcslen(fullpath) - 1;
+    REBLEN chars_appended = rebSpellIntoWideQ(
         &fullpath[wcslen(fullpath)],
         buf_left, // space, minus terminator
         ReqSerial(serial)->path,

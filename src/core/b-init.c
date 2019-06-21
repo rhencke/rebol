@@ -292,7 +292,7 @@ static void Add_Lib_Keys_For_Unscannable_Set_Words(void)
         nullptr
     };
 
-    REBCNT i;
+    REBLEN i;
     for (i = 0; names[i] != NULL; ++i) {
         REBSTR *str = Intern_UTF8_Managed(cb_cast(names[i]), strlen(names[i]));
         REBVAL *val = Append_Context(Lib_Context, NULL, str);
@@ -368,7 +368,7 @@ static void Init_Action_Meta_Shim(void) {
         SYM_PARAMETER_TYPES, SYM_PARAMETER_NOTES
     };
     REBCTX *meta = Alloc_Context_Core(REB_OBJECT, 6, NODE_FLAG_MANAGED);
-    REBCNT i = 1;
+    REBLEN i = 1;
     for (; i != 7; ++i) // BLANK!, as `make object! [x: ()]` is illegal
         Init_Blank(Append_Context(meta, nullptr, Canon(field_syms[i - 1])));
 
@@ -554,7 +554,7 @@ static REBARR *Startup_Natives(const REBVAL *boot_natives)
 
     REBARR *catalog = Make_Array(Num_Natives);
 
-    REBCNT n = 0;
+    REBLEN n = 0;
     REBVAL *generic_word = nullptr; // gives clear error if GENERIC not found
 
     while (NOT_END(item)) {

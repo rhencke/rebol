@@ -66,7 +66,7 @@ inline static REBARR *FRM_ARRAY(REBFRM *f) {
 // convert these cases to ordinary arrays before running them, in order
 // to accurately present any errors.
 //
-inline static REBCNT FRM_INDEX(REBFRM *f) {
+inline static REBLEN FRM_INDEX(REBFRM *f) {
     if (IS_END(f->feed->value))
         return ARR_LEN(f->feed->array);
 
@@ -74,7 +74,7 @@ inline static REBCNT FRM_INDEX(REBFRM *f) {
     return f->feed->index - 1;
 }
 
-inline static REBCNT FRM_EXPR_INDEX(REBFRM *f) {
+inline static REBLEN FRM_EXPR_INDEX(REBFRM *f) {
     assert(not FRM_IS_VALIST(f));
     return f->expr_index - 1;
 }
@@ -149,7 +149,7 @@ inline static int FRM_LINE(REBFRM *f) {
     #define FRM_ARG(f,n) \
         ((f)->rootvar + (n))
 #else
-    inline static REBVAL *FRM_ARG(REBFRM *f, REBCNT n) {
+    inline static REBVAL *FRM_ARG(REBFRM *f, REBLEN n) {
         assert(n != 0 and n <= FRM_NUM_ARGS(f));
 
         REBVAL *var = f->rootvar + n; // 1-indexed
@@ -567,7 +567,7 @@ inline static void Push_Action(
     assert(NOT_EVAL_FLAG(f, RUNNING_ENFIX));
 
     f->param = ACT_PARAMS_HEAD(act); // Specializations hide some params...
-    REBCNT num_args = ACT_NUM_PARAMS(act); // ...so see REB_TS_HIDDEN
+    REBLEN num_args = ACT_NUM_PARAMS(act); // ...so see REB_TS_HIDDEN
 
     // !!! Note: Should pick "smart" size when allocating varlist storage due
     // to potential reuse--but use exact size for *this* action, for now.

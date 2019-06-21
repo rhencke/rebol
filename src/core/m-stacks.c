@@ -21,6 +21,8 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
+// See notes on the stacks in %sys-stack.h
+//
 
 #include "sys-core.h"
 
@@ -28,7 +30,7 @@
 //
 //  Startup_Data_Stack: C
 //
-void Startup_Data_Stack(REBCNT size)
+void Startup_Data_Stack(REBLEN capacity)
 {
     // Start the data stack out with just one element in it, and make it an
     // unreadable blank in the debug build.  This helps avoid accidental
@@ -50,12 +52,10 @@ void Startup_Data_Stack(REBCNT size)
     // initial stack size.  It requires you to be on an END to run.
     //
     DS_Index = 1;
-    DS_Movable_Top = KNOWN(ARR_AT(DS_Array, DS_Index)); // can't push RELVALs
-    Expand_Data_Stack_May_Fail(size);
+    DS_Movable_Top = KNOWN(ARR_AT(DS_Array, DS_Index));  // can't push RELVALs
+    Expand_Data_Stack_May_Fail(capacity);
 
-    // Now drop the hypothetical thing pushed that triggered the expand.
-    //
-    DS_DROP();
+    DS_DROP();  // drop the hypothetical thing that triggered the expand
 }
 
 
@@ -246,9 +246,9 @@ REBCTX *Get_Context_From_Stack(void)
 // which could do a push or pop.  (Currently stable w.r.t. pop but there may
 // be compaction at some point.)
 //
-REBVAL *Expand_Data_Stack_May_Fail(REBCNT amount)
+REBVAL *Expand_Data_Stack_May_Fail(REBLEN amount)
 {
-    REBCNT len_old = ARR_LEN(DS_Array);
+    REBLEN len_old = ARR_LEN(DS_Array);
 
     // The current requests for expansion should only happen when the stack
     // is at its end.  Sanity check that.
@@ -284,8 +284,8 @@ REBVAL *Expand_Data_Stack_May_Fail(REBCNT amount)
 
     REBVAL *cell = DS_Movable_Top;
 
-    REBCNT len_new = len_old + amount;
-    REBCNT n;
+    REBLEN len_new = len_old + amount;
+    REBLEN n;
     for (n = len_old; n < len_new; ++n) {
         Init_Unreadable_Blank(cell);
         cell->header.bits |= (CELL_FLAG_STACK_LIFETIME | CELL_FLAG_TRANSIENT);
@@ -329,7 +329,7 @@ REBARR *Pop_Stack_Values_Core(REBDSP dsp_start, REBFLGS flags)
 // index of that array will be updated to the insertion tail (/INTO protocol)
 //
 void Pop_Stack_Values_Into(REBVAL *into, REBDSP dsp_start) {
-    REBCNT len = DSP - dsp_start;
+    REBLEN len = DSP - dsp_start;
     REBVAL *values = KNOWN(ARR_AT(DS_Array, dsp_start + 1));
 
     FAIL_IF_READ_ONLY(into);

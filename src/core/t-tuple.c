@@ -78,7 +78,7 @@ REB_R MAKE_Tuple(
     }
 
     if (ANY_ARRAY(arg)) {
-        REBCNT len = 0;
+        REBLEN len = 0;
         REBINT n;
 
         RELVAL *item = VAL_ARRAY_AT(arg);
@@ -106,7 +106,7 @@ REB_R MAKE_Tuple(
         return out;
     }
 
-    REBCNT alen;
+    REBLEN alen;
 
     if (IS_ISSUE(arg)) {
         REBSTR *spelling = VAL_STRING(arg);
@@ -127,7 +127,7 @@ REB_R MAKE_Tuple(
     }
     else if (IS_BINARY(arg)) {
         REBYTE *ap = VAL_BIN_AT(arg);
-        REBCNT len = VAL_LEN_AT(arg);
+        REBLEN len = VAL_LEN_AT(arg);
         if (len > MAX_TUPLE) len = MAX_TUPLE;
         VAL_TUPLE_LEN(out) = len;
         for (alen = 0; alen < len; alen++) *vp++ = *ap++;
@@ -159,7 +159,7 @@ REB_R TO_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REBINT Cmp_Tuple(const REBCEL *t1, const REBCEL *t2)
 {
-    REBCNT len = MAX(VAL_TUPLE_LEN(t1), VAL_TUPLE_LEN(t2));
+    REBLEN len = MAX(VAL_TUPLE_LEN(t1), VAL_TUPLE_LEN(t2));
     assert(len < MAX_TUPLE);
 
     const REBYTE *vp1 = VAL_TUPLE(t1);
@@ -286,7 +286,7 @@ void MF_Tuple(REB_MOLD *mo, const REBCEL *v, bool form)
     //
     REBYTE buf[60];
 
-    REBCNT len = VAL_TUPLE_LEN(v);
+    REBLEN len = VAL_TUPLE_LEN(v);
     const REBYTE *tp = cast(const REBYTE *, VAL_TUPLE(v));
 
     REBYTE *out = buf;
@@ -319,14 +319,14 @@ REBTYPE(Tuple)
     REBVAL *value = D_ARG(1);
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
     const REBYTE *ap;
-    REBCNT alen;
+    REBLEN alen;
     REBINT  a;
     REBDEC  dec;
 
     assert(IS_TUPLE(value));
 
     REBYTE *vp = VAL_TUPLE(value);
-    REBCNT len = VAL_TUPLE_LEN(value);
+    REBLEN len = VAL_TUPLE_LEN(value);
 
     REBSYM sym = VAL_WORD_SYM(verb);
 
@@ -483,7 +483,7 @@ REBTYPE(Tuple)
             len = MIN(len, VAL_TUPLE_LEN(value));
         }
         if (len > 0) {
-            REBCNT i;
+            REBLEN i;
             //len = MAX(len, 3);
             for (i = 0; i < len/2; i++) {
                 a = vp[len - i - 1];

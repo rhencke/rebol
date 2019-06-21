@@ -182,11 +182,11 @@ static void Schema_From_Block_May_Fail(
 //
 inline static void *Expand_And_Align_Core(
     uintptr_t *offset_out,
-    REBCNT align,
+    REBLEN align,
     REBSER *store,
-    REBCNT size
+    REBLEN size
 ){
-    REBCNT padding = SER_LEN(store) % align;
+    REBLEN padding = SER_LEN(store) % align;
     if (padding != 0)
         padding = align - padding;
 
@@ -198,7 +198,7 @@ inline static void *Expand_And_Align_Core(
 inline static void *Expand_And_Align(
     uintptr_t *offset_out,
     REBSER *store,
-    REBCNT size // assumes align == size
+    REBLEN size // assumes align == size
 ){
     return Expand_And_Align_Core(offset_out, size, store, size);
 }
@@ -605,9 +605,9 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
             fail (Error_Bad_Library_Raw());
     }
 
-    REBCNT num_fixed = RIN_NUM_FIXED_ARGS(rin);
+    REBLEN num_fixed = RIN_NUM_FIXED_ARGS(rin);
 
-    REBCNT num_variable;
+    REBLEN num_variable;
     REBDSP dsp_orig = DSP; // variadic args pushed to stack, so save base ptr
 
     if (!RIN_IS_VARIADIC(rin))
@@ -666,7 +666,7 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
         num_variable = (DSP - dsp_orig) / 2;
     }
 
-    REBCNT num_args = num_fixed + num_variable;
+    REBLEN num_args = num_fixed + num_variable;
 
     // The FFI arguments are passed by void*.  Those void pointers point to
     // transformations of the Rebol arguments into ranges of memory of
@@ -711,7 +711,7 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
     // a too-large or negative INTEGER! passed to a uint8.  Could fail() here.
     //
     {
-        REBCNT i = 0;
+        REBLEN i = 0;
         for (; i < num_fixed; ++i) {
             uintptr_t offset = arg_to_ffi(
                 store, // ffi-converted arg appended here
@@ -749,7 +749,7 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
         //
         args_fftypes = rebAllocN(ffi_type*, num_fixed + num_variable);
 
-        REBCNT i;
+        REBLEN i;
         for (i = 0; i < num_fixed; ++i)
             args_fftypes[i] = SCHEMA_FFTYPE(RIN_ARG_SCHEMA(rin, i));
 
@@ -814,7 +814,7 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
         else
             ret_offset = SER_DATA_RAW(store) + cast(uintptr_t, ret_offset);
 
-        REBCNT i;
+        REBLEN i;
         for (i = 0; i < num_args; ++i) {
             uintptr_t off = cast(uintptr_t, *SER_AT(void*, arg_offsets, i));
             assert(off == 0 || off < SER_LEN(store));
@@ -900,7 +900,7 @@ static void callback_dispatcher_core(struct Reb_Callback_Invocation *inv)
     Init_Action_Unbound(elem, RIN_CALLBACK_ACTION(inv->rin));
     ++elem;
 
-    REBCNT i;
+    REBLEN i;
     for (i = 0; i != inv->cif->nargs; ++i, ++elem)
         ffi_to_rebol(elem, RIN_ARG_SCHEMA(inv->rin, i), inv->args[i]);
 
@@ -1016,7 +1016,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     //
     // !!! Should the spec analysis be allowed to do evaluation? (it does)
     //
-    const REBCNT capacity_guess = 8; // !!! Magic number...why 8? (can grow)
+    const REBLEN capacity_guess = 8; // !!! Magic number...why 8? (can grow)
     REBARR *args_schemas = Make_Array(capacity_guess);
     Manage_Array(args_schemas);
     PUSH_GC_GUARD(args_schemas);
@@ -1025,7 +1025,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     Init_Blank(ret_schema); // ret_schema defaults to blank (e.g. void C func)
     PUSH_GC_GUARD(ret_schema);
 
-    REBCNT num_fixed = 0; // number of fixed (non-variadic) arguments
+    REBLEN num_fixed = 0; // number of fixed (non-variadic) arguments
     bool is_variadic = false; // default to not being variadic
 
     RELVAL *item = VAL_ARRAY_AT(ffi_spec);
@@ -1174,7 +1174,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
         else
             args_fftypes = ALLOC_N(ffi_type*, num_fixed);
 
-        REBCNT i;
+        REBLEN i;
         for (i = 0; i < num_fixed; ++i)
             args_fftypes[i] = SCHEMA_FFTYPE(RIN_ARG_SCHEMA(r, i));
 

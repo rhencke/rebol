@@ -437,7 +437,7 @@ void MF_Event(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form);
 
-    REBCNT field;
+    REBLEN field;
     REBSYM fields[] = {
         SYM_TYPE, SYM_PORT, SYM_GOB, SYM_OFFSET, SYM_KEY,
         SYM_FLAGS, SYM_CODE, SYM_DATA, SYM_0

@@ -58,7 +58,7 @@ enum Reb_Security_Byte_Offsets {
 //
 bool Match_Sub_Path(REBSTR *s1, REBSTR *s2)
 {
-    REBCNT len1 = STR_LEN(s1);
+    REBLEN len1 = STR_LEN(s1);
     if (len1 > STR_LEN(s2))
         return false;
 
@@ -67,7 +67,7 @@ bool Match_Sub_Path(REBSTR *s1, REBSTR *s2)
     REBUNI c1 = 0;
     REBUNI c2;
 
-    REBCNT n;
+    REBLEN n;
     for (n = 0; n < len1; n++) {  // includes terminator
         cp1 = NEXT_CHR(&c1, cp1);
         cp2 = NEXT_CHR(&c2, cp2);
@@ -139,7 +139,7 @@ const REBYTE *Security_Policy(
 
     // Scan block of policies for the class: [file [allow read quit write]]
 
-    REBCNT len = 0;  // file or url length
+    REBLEN len = 0;  // file or url length
     const REBYTE *flags = 0;  // policy flags
 
     // !!! Comment said "no relatives in STATE_POLICIES"
@@ -182,7 +182,7 @@ const REBYTE *Security_Policy(
 // Take action on the policy flags provided. The sym and value
 // are provided for error message purposes only.
 //
-void Trap_Security(REBCNT flag, REBSTR *subsystem, const REBVAL *value)
+void Trap_Security(REBLEN flag, REBSTR *subsystem, const REBVAL *value)
 {
     if (flag == SEC_THROW) {
         if (value == nullptr) {
@@ -212,7 +212,7 @@ void Check_Security(
     enum Reb_Symbol policy,  // e.g. READ, WRITE, EXEC
     const REBVAL *value  // e.g. the file path being read/written
 ){
-    REBCNT pol;
+    REBLEN pol;
     switch (policy) {
       case SYM_READ:
         pol = POL_READ;

@@ -56,7 +56,7 @@ typedef unsigned char REBYTE; // don't change to uint8_t, see note
 //
 // The 64-bit build modifications to R3-Alpha after its open sourcing changed
 // *pointers* internal to data structures to be 64-bit.  But indexes did not
-// get changed to 64-bit: REBINT and REBCNT remained 32-bit.
+// get changed to 64-bit: REBINT and REBLEN remained 32-bit.
 //
 // This meant there was often extra space in the structures used on 64-bit
 // machines, and a possible loss of performance for forcing a platform to use
@@ -67,7 +67,7 @@ typedef unsigned char REBYTE; // don't change to uint8_t, see note
 // representation for 32-bit integers...even if that might be larger.
 //
 typedef int_fast32_t REBINT; // series index, signed, at *least* 32 bits
-typedef uint_fast32_t REBCNT; // series length, unsigned, at *least* 32 bits
+typedef uint_fast32_t REBLEN; // series length, unsigned, at *least* 32 bits
 typedef size_t REBSIZ; // 32 bit (size in bytes)
 typedef int64_t REBI64; // 64 bit integer
 typedef uint64_t REBU64; // 64 bit unsigned integer
@@ -81,8 +81,8 @@ typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 // These were used in R3-Alpha.  Could use some better typing in C++ to avoid
 // mistaking untested errors for ordinary integers.
 //
-#define NOT_FOUND ((REBCNT)-1)
-#define UNKNOWN ((REBCNT)-1)
+#define NOT_FOUND ((REBLEN)-1)
+#define UNKNOWN ((REBLEN)-1)
 
 
 // !!! Review this choice from R3-Alpha:
@@ -376,10 +376,10 @@ typedef struct reb_ymdz {
 } REBYMD;
 
 typedef struct rebol_time_fields {
-    REBCNT h;
-    REBCNT m;
-    REBCNT s;
-    REBCNT n;
+    REBLEN h;
+    REBLEN m;
+    REBLEN s;
+    REBLEN n;
 } REB_TIMEF;
 
 #include "sys-deci.h"

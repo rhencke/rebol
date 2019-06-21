@@ -351,9 +351,9 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
 //
 //  Stack_Depth: C
 //
-REBCNT Stack_Depth(void)
+REBLEN Stack_Depth(void)
 {
-    REBCNT depth = 0;
+    REBLEN depth = 0;
 
     REBFRM *f = FS_TOP;
     while (f) {
@@ -393,11 +393,11 @@ const REBVAL *Find_Error_For_Sym(enum Reb_Symbol id_sym)
     REBCTX *categories = VAL_CONTEXT(Get_System(SYS_CATALOG, CAT_ERRORS));
     assert(CTX_KEY_SYM(categories, 1) == SYM_SELF);
 
-    REBCNT ncat = SELFISH(1);
+    REBLEN ncat = SELFISH(1);
     for (; ncat <= CTX_LEN(categories); ++ncat) {
         REBCTX *category = VAL_CONTEXT(CTX_VAR(categories, ncat));
 
-        REBCNT n = SELFISH(1);
+        REBLEN n = SELFISH(1);
         for (; n != CTX_LEN(category) + 1; ++n) {
             if (SAME_STR(CTX_KEY_SPELLING(category, n), id_canon)) {
                 REBVAL *message = CTX_VAR(category, n);
@@ -746,7 +746,7 @@ REBCTX *Make_Error_Managed_Core(
 
     assert(message);
 
-    REBCNT expected_args = 0;
+    REBLEN expected_args = 0;
     if (IS_BLOCK(message)) { // GET-WORD!s in template should match va_list
         RELVAL *temp = VAL_ARRAY_HEAD(message);
         for (; NOT_END(temp); ++temp) {
@@ -773,7 +773,7 @@ REBCTX *Make_Error_Managed_Core(
         // hold the generic error parameters.  Investigate how this ties in
         // with user-defined types.
 
-        REBCNT root_len = CTX_LEN(root_error);
+        REBLEN root_len = CTX_LEN(root_error);
 
         // Should the error be well-formed, we'll need room for the new
         // expected values *and* their new keys in the keylist.
@@ -1024,7 +1024,7 @@ REBCTX *Error_No_Arg(REBFRM *f, const RELVAL *param)
 //
 //  Error_No_Memory: C
 //
-REBCTX *Error_No_Memory(REBCNT bytes)
+REBCTX *Error_No_Memory(REBLEN bytes)
 {
     DECLARE_LOCAL (bytes_value);
 
@@ -1430,9 +1430,9 @@ void Shutdown_Stackoverflow(void)
 
 // Limited molder (used, e.g., for errors)
 //
-static void Mold_Value_Limit(REB_MOLD *mo, RELVAL *v, REBCNT len)
+static void Mold_Value_Limit(REB_MOLD *mo, RELVAL *v, REBLEN len)
 {
-    REBCNT start = STR_LEN(mo->series);
+    REBLEN start = STR_LEN(mo->series);
     Mold_Value(mo, v);
 
     if (STR_LEN(mo->series) - start > len) {

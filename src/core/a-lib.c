@@ -202,7 +202,7 @@ void *RL_rebRealloc(void *ptr, size_t new_size)
 
     REBSER *s = *ps;
 
-    REBCNT old_size = BIN_LEN(s) - ALIGN_SIZE;
+    REBLEN old_size = BIN_LEN(s) - ALIGN_SIZE;
 
     // !!! It's less efficient to create a new series with another call to
     // rebMalloc(), but simpler for the time being.  Switch to do this with
@@ -1017,7 +1017,7 @@ char *RL_rebSpell(
 // cause errors.
 //
 // !!! Although the rebSpellInto API deals in bytes, this deals in count of
-// characters.  (The use of REBCNT instead of REBSIZ indicates this.)  It may
+// characters.  (The use of REBLEN instead of REBSIZ indicates this.)  It may
 // be more useful for the wide string APIs to do this so leaving it that way
 // for now.
 //
@@ -1031,7 +1031,7 @@ unsigned int RL_rebSpellIntoWide(
     Run_Va_May_Fail(v, quotes, p, vaptr);  // calls va_end()
 
     REBCHR(const*) cp;
-    REBCNT len;
+    REBLEN len;
     if (ANY_STRING(v)) {
         cp = VAL_STRING_AT(v);
         len = VAL_LEN_AT(v);
@@ -1057,12 +1057,12 @@ unsigned int RL_rebSpellIntoWide(
         return len;  // caller must now allocate buffer of len + 1
     }
 
-    REBCNT limit = MIN(buf_chars, len);
+    REBLEN limit = MIN(buf_chars, len);
 
     REBUNI c;
     cp = NEXT_CHR(&c, cp);
 
-    REBCNT i;
+    REBLEN i;
     for (i = 0; i < limit; cp = NEXT_CHR(&c, cp), ++i) {
         if (c > 0xFFFF)  // !!! Should we do multi-wchar UTF16 encoding?
             fail ("Codepoint too high for REBWCHAR in rebSpellIntoWide()");
@@ -1098,7 +1098,7 @@ REBWCHAR *RL_rebSpellWide(
     if (IS_NULLED(string))
         return nullptr;  // null passed through, for opting out
 
-    REBCNT len = rebSpellIntoWideQ(nullptr, 0, string, rebEND);
+    REBLEN len = rebSpellIntoWideQ(nullptr, 0, string, rebEND);
     REBWCHAR *result = cast(
         REBWCHAR*, rebMalloc(sizeof(REBWCHAR) * (len + 1))
     );
@@ -1125,14 +1125,14 @@ size_t RL_rebBytesInto(
     DECLARE_LOCAL (binary);
     Run_Va_May_Fail(binary, quotes, p, vaptr);  // calls va_end()
 
-    REBCNT size = VAL_LEN_AT(binary);
+    REBSIZ size = VAL_LEN_AT(binary);
 
     if (not buf) {
         assert(buf_size == 0);
         return size;  // currently, caller must allocate a buffer of size + 1
     }
 
-    REBCNT limit = MIN(buf_size, size);
+    REBSIZ limit = MIN(buf_size, size);
     memcpy(s_cast(buf), cs_cast(VAL_BIN_AT(binary)), limit);
     buf[limit] = '\0';
     return size;

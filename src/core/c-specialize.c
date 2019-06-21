@@ -100,7 +100,7 @@ REBCTX *Make_Context_For_Action_Push_Partials(
 
     REBACT *act = VAL_ACTION(action);
 
-    REBCNT num_slots = ACT_NUM_PARAMS(act) + 1;  // +1 is for CTX_ARCHETYPE()
+    REBLEN num_slots = ACT_NUM_PARAMS(act) + 1;  // +1 is for CTX_ARCHETYPE()
     REBARR *varlist = Make_Array_Core(num_slots, SERIES_MASK_VARLIST);
 
     REBVAL *rootvar = RESET_CELL(
@@ -116,7 +116,7 @@ REBCTX *Make_Context_For_Action_Push_Partials(
     REBVAL *arg = rootvar + 1;
     const REBVAL *special = ACT_SPECIALTY_HEAD(act);  // of exemplar/paramlist
 
-    REBCNT index = 1; // used to bind REFINEMENT! values to parameter slots
+    REBLEN index = 1; // used to bind REFINEMENT! values to parameter slots
 
     REBCTX *exemplar = ACT_EXEMPLAR(act); // may be null
     if (exemplar)
@@ -165,7 +165,7 @@ REBCTX *Make_Context_For_Action_Push_Partials(
         );
 
         if (IS_SYM_WORD(special)) {
-            REBCNT partial_index = VAL_WORD_INDEX(special);
+            REBLEN partial_index = VAL_WORD_INDEX(special);
             Init_Any_Word_Bound( // push a SYM-WORD! to data stack
                 DS_PUSH(),
                 REB_SYM_WORD,
@@ -658,7 +658,7 @@ void For_Each_Unspecialized_Param(
     REBVAL *param = ACT_PARAMS_HEAD(act);
     REBVAL *special = ACT_SPECIALTY_HEAD(act);
 
-    REBCNT index = 1;
+    REBLEN index = 1;
     for (; NOT_END(param); ++param, ++special, ++index) {
         if (Is_Param_Hidden(param))
             continue;  // specialized out, not in interface
@@ -1179,7 +1179,7 @@ REBNATIVE(does)
 
     REBACT *unspecialized = ACT(CTX_KEYLIST(exemplar));
 
-    REBCNT num_slots = ACT_NUM_PARAMS(unspecialized) + 1;
+    REBLEN num_slots = ACT_NUM_PARAMS(unspecialized) + 1;
     REBARR *paramlist = Make_Array_Core(num_slots, SERIES_MASK_PARAMLIST);
 
     RELVAL *archetype = RESET_CELL(

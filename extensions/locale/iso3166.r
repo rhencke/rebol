@@ -1,9 +1,9 @@
 REBOL []
 
 inp: %iso3166.txt
-cnt: read inp
-if #{EFBBBF} = to binary! copy/part cnt 3 [ ;UTF8 BOM
-    cnt: skip cnt 3
+count: read inp
+if #{EFBBBF} = to binary! copy/part count 3 [  ; UTF-8 BOM
+    count: skip count 3
 ]
 
 lower: charset [#"a" - #"z"]
@@ -50,13 +50,13 @@ parse cnt [
 
 init-code: to text! read init
 space: charset " ^-^M^/"
-iso-3166-table-cnt: find mold iso-3166-table #"["
+iso-3166-table-count: find mold iso-3166-table #"["
 parse init-code [
     thru "iso-3166-table:"
     to #"["
     change [
          #"[" thru #"]"
-    ] iso-3166-table-cnt
+    ] iso-3166-table-count
     to end
 ] else [
     fail "Failed to update iso-3166-table"

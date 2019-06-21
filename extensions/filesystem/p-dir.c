@@ -159,7 +159,7 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         switch (property) {
         case SYM_LENGTH: {
-            REBCNT len = IS_BLOCK(state) ? VAL_ARRAY_LEN_AT(state) : 0;
+            REBLEN len = IS_BLOCK(state) ? VAL_ARRAY_LEN_AT(state) : 0;
             return Init_Integer(D_OUT, len); }
 
         case SYM_OPEN_Q:

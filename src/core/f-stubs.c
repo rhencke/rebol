@@ -236,7 +236,7 @@ REBVAL *Type_Of(const RELVAL *value)
 //
 // Return a second level object field of the system object.
 //
-REBVAL *Get_System(REBCNT i1, REBCNT i2)
+REBVAL *Get_System(REBLEN i1, REBLEN i2)
 {
     REBVAL *obj;
 
@@ -252,7 +252,7 @@ REBVAL *Get_System(REBCNT i1, REBCNT i2)
 //
 // Get an integer from system object.
 //
-REBINT Get_System_Int(REBCNT i1, REBCNT i2, REBINT default_int)
+REBINT Get_System_Int(REBLEN i1, REBLEN i2, REBINT default_int)
 {
     REBVAL *val = Get_System(i1, i2);
     if (IS_INTEGER(val)) return VAL_INT32(val);
@@ -269,7 +269,7 @@ REBVAL *Init_Any_Series_At_Core(
     RELVAL *out,
     enum Reb_Kind type,
     REBSER *s,
-    REBCNT index,
+    REBLEN index,
     REBNOD *binding
 ){
     assert(ANY_SERIES_KIND(type));
@@ -313,7 +313,7 @@ REBVAL *Init_Any_String_At(
     RELVAL *out,
     enum Reb_Kind type,
     REBSTR *s,
-    REBCNT index
+    REBLEN index
 ){
     if (ANY_WORD_KIND(type))
         assert(IS_STR_SYMBOL(s));
@@ -431,7 +431,7 @@ void Extra_Init_Action_Checks_Debug(REBACT *a) {
 // or a prior position) the series value will be updated to the earlier
 // position, so that a positive length for the partial region is returned.
 //
-static REBCNT Part_Len_Core(
+static REBLEN Part_Len_Core(
     REBVAL *series,  // ANY-SERIES! value whose index may be modified
     const REBVAL *part  // /PART (number, position in value, or BLANK! cell)
 ){
@@ -463,7 +463,7 @@ static REBCNT Part_Len_Core(
         len = -len;
         if (len > cast(REBINT, VAL_INDEX(series)))
             len = cast(REBINT, VAL_INDEX(series));
-        VAL_INDEX(series) -= cast(REBCNT, len);
+        VAL_INDEX(series) -= cast(REBLEN, len);
     }
 
     if (len > UINT32_MAX) {
@@ -476,8 +476,8 @@ static REBCNT Part_Len_Core(
     }
 
     assert(len >= 0);
-    assert(VAL_LEN_HEAD(series) >= cast(REBCNT, len));
-    return cast(REBCNT, len);
+    assert(VAL_LEN_HEAD(series) >= cast(REBLEN, len));
+    return cast(REBLEN, len);
 }
 
 
@@ -488,7 +488,7 @@ static REBCNT Part_Len_Core(
 // /PART limit, so that the series index points to the beginning of the
 // subsetted range and gives back a length to the end of that subset.
 //
-REBCNT Part_Len_May_Modify_Index(REBVAL *series, const REBVAL *limit) {
+REBLEN Part_Len_May_Modify_Index(REBVAL *series, const REBVAL *limit) {
     assert(ANY_SERIES(series) or ANY_PATH(series));
     return Part_Len_Core(series, limit);
 }
@@ -500,9 +500,9 @@ REBCNT Part_Len_May_Modify_Index(REBVAL *series, const REBVAL *limit) {
 // Simple variation that instead of returning the length, returns the absolute
 // tail position in the series of the partial sequence.
 //
-REBCNT Part_Tail_May_Modify_Index(REBVAL *series, const REBVAL *limit)
+REBLEN Part_Tail_May_Modify_Index(REBVAL *series, const REBVAL *limit)
 {
-    REBCNT len = Part_Len_May_Modify_Index(series, limit);
+    REBLEN len = Part_Len_May_Modify_Index(series, limit);
     return len + VAL_INDEX(series); // uses the possibly-updated index
 }
 
@@ -523,7 +523,7 @@ REBCNT Part_Tail_May_Modify_Index(REBVAL *series, const REBVAL *limit)
 //
 // https://github.com/rebol/rebol-issues/issues/1570
 //
-REBCNT Part_Len_Append_Insert_May_Modify_Index(
+REBLEN Part_Len_Append_Insert_May_Modify_Index(
     REBVAL *value,
     const REBVAL *part
 ){
@@ -575,7 +575,7 @@ int64_t Mul_Max(enum Reb_Kind type, int64_t n, int64_t m, int64_t maxi)
 // unbound one).
 //
 REBVAL *Setify(REBVAL *out) {
-    REBCNT quotes = Dequotify(out);
+    REBLEN quotes = Dequotify(out);
 
     enum Reb_Kind kind = VAL_TYPE(out);
     if (ANY_WORD_KIND(kind)) {
@@ -630,7 +630,7 @@ REBNATIVE(setify)
 // Like Setify() but Makes GET-XXX! instead of SET-XXX!.
 //
 REBVAL *Getify(REBVAL *out) {
-    REBCNT quotes = Dequotify(out);
+    REBLEN quotes = Dequotify(out);
 
     enum Reb_Kind kind = VAL_TYPE(out);
     if (ANY_BLOCK_KIND(kind)) {
@@ -685,7 +685,7 @@ REBNATIVE(getify)
 // unbound one).
 //
 REBVAL *Symify(REBVAL *out) {
-    REBCNT quotes = Dequotify(out);
+    REBLEN quotes = Dequotify(out);
 
     enum Reb_Kind kind = VAL_TYPE(out);
     if (ANY_WORD_KIND(kind)) {

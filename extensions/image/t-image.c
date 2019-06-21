@@ -31,7 +31,7 @@
 //
 //  Tuples_To_RGBA: C
 //
-void Tuples_To_RGBA(REBYTE *rgba, REBCNT size, REBVAL *blk, REBCNT len)
+void Tuples_To_RGBA(REBYTE *rgba, REBLEN size, REBVAL *blk, REBLEN len)
 {
     REBYTE *bin;
 
@@ -71,11 +71,11 @@ void Set_Pixel_Tuple(REBYTE *dp, const RELVAL *tuple)
 // true and `index_out` will contain the index position from the head of
 // the array of the non-tuple.  Otherwise returns false.
 //
-bool Array_Has_Non_Tuple(REBCNT *index_out, RELVAL *blk)
+bool Array_Has_Non_Tuple(REBLEN *index_out, RELVAL *blk)
 {
     assert(ANY_ARRAY(blk));
 
-    REBCNT len = VAL_LEN_HEAD(blk);
+    REBLEN len = VAL_LEN_HEAD(blk);
     *index_out = VAL_INDEX(blk);
     for (; *index_out < len; (*index_out)++)
         if (not IS_TUPLE(VAL_ARRAY_AT_HEAD(blk, *index_out)))
@@ -144,7 +144,7 @@ void Fill_Alpha_Rect(REBYTE *ip, REBYTE alpha, REBINT w, REBINT dupx, REBINT dup
 //
 //  Fill_Line: C
 //
-void Fill_Line(REBYTE *ip, const REBYTE pixel[4], REBCNT len, bool only)
+void Fill_Line(REBYTE *ip, const REBYTE pixel[4], REBLEN len, bool only)
 {
     for (; len > 0; len--) {
         *ip++ = pixel[0]; // red
@@ -164,7 +164,7 @@ void Fill_Line(REBYTE *ip, const REBYTE pixel[4], REBCNT len, bool only)
 void Fill_Rect(
     REBYTE *ip,
     const REBYTE pixel[4],
-    REBCNT w,
+    REBLEN w,
     REBINT dupx,
     REBINT dupy,
     bool only
@@ -292,7 +292,7 @@ REB_R MAKE_Image(
             if (VAL_INDEX(item) != 0)
                 fail ("MAKE IMAGE! w/BINARY! must have binary at HEAD");
 
-            if (VAL_LEN_HEAD(item) != cast(REBCNT, w * h * 4))
+            if (VAL_LEN_HEAD(item) != cast(REBLEN, w * h * 4))
                 fail ("MAKE IMAGE! w/BINARY! must have RGBA pixels for size");
 
             Init_Image(out, VAL_BINARY(item), w, h);
@@ -324,7 +324,7 @@ REB_R MAKE_Image(
         else if (IS_BLOCK(item)) {
             Init_Image_Black_Opaque(out, w, h);  // inefficient, overwritten
 
-            REBCNT bad_index;
+            REBLEN bad_index;
             if (Array_Has_Non_Tuple(&bad_index, item)) {
                 REBSPC *derived = Derive_Specifier(VAL_SPECIFIER(arg), item);
                 fail (Error_Bad_Value_Core(
@@ -374,7 +374,7 @@ REB_R TO_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 void Reset_Height(REBVAL *value)
 {
-    REBCNT w = VAL_IMAGE_WIDTH(value);
+    REBLEN w = VAL_IMAGE_WIDTH(value);
     VAL_IMAGE_HEIGHT(value) = w ? (VAL_LEN_HEAD(value) / w) : 0;
 }
 
@@ -401,7 +401,7 @@ REBVAL *Init_Tuple_From_Pixel(RELVAL *out, const REBYTE *dp)
 REBYTE *Find_Color(
     REBYTE *ip,
     const REBYTE pixel[4],
-    REBCNT len,
+    REBLEN len,
     bool only
 ){
     for (; len > 0; len--, ip += 4) {
@@ -422,7 +422,7 @@ REBYTE *Find_Color(
 //
 //  Find_Alpha: C
 //
-REBYTE *Find_Alpha(REBYTE *ip, REBYTE alpha, REBCNT len)
+REBYTE *Find_Alpha(REBYTE *ip, REBYTE alpha, REBLEN len)
 {
     for (; len > 0; len--, ip += 4) {
         if (alpha == ip[3])
@@ -458,7 +458,7 @@ void RGB_To_Bin(REBYTE *bin, REBYTE *rgba, REBINT len, bool alpha)
 //
 //  Bin_To_RGB: C
 //
-void Bin_To_RGB(REBYTE *rgba, REBCNT size, const REBYTE *bin, REBCNT len)
+void Bin_To_RGB(REBYTE *rgba, REBLEN size, const REBYTE *bin, REBLEN len)
 {
     if (len > size)
         len = size; // avoid over-run
@@ -477,7 +477,7 @@ void Bin_To_RGB(REBYTE *rgba, REBCNT size, const REBYTE *bin, REBCNT len)
 //
 void Bin_To_RGBA(
     REBYTE *rgba,
-    REBCNT size,
+    REBLEN size,
     const REBYTE *bin,
     REBINT len,
     bool only
@@ -507,7 +507,7 @@ void Alpha_To_Bin(REBYTE *bin, REBYTE *rgba, REBINT len)
 //
 //  Bin_To_Alpha: C
 //
-void Bin_To_Alpha(REBYTE *rgba, REBCNT size, REBYTE *bin, REBINT len)
+void Bin_To_Alpha(REBYTE *rgba, REBLEN size, REBYTE *bin, REBINT len)
 {
     if (len > (REBINT)size) len = size; // avoid over-run
 
@@ -531,7 +531,7 @@ void Bin_To_Alpha(REBYTE *rgba, REBCNT size, REBYTE *bin, REBINT len)
 //
 void Mold_Image_Data(REB_MOLD *mo, const REBCEL *value)
 {
-    REBCNT num_pixels = VAL_IMAGE_LEN_AT(value); // # from index to tail
+    REBLEN num_pixels = VAL_IMAGE_LEN_AT(value); // # from index to tail
     const REBYTE *rgba = VAL_IMAGE_AT(value);
 
     Append_Int(mo->series, VAL_IMAGE_WIDTH(value));
@@ -540,7 +540,7 @@ void Mold_Image_Data(REB_MOLD *mo, const REBCEL *value)
 
     Append_Ascii(mo->series, " #{");
 
-    REBCNT i;
+    REBLEN i;
     for (i = 0; i < num_pixels; ++i, rgba += 4) {
         if ((i % 10) == 0)
             Append_Codepoint(mo->series, LF);
@@ -558,8 +558,8 @@ void Mold_Image_Data(REB_MOLD *mo, const REBCEL *value)
 //
 void Clear_Image(REBVAL *img)
 {
-    REBCNT w = VAL_IMAGE_WIDTH(img);
-    REBCNT h = VAL_IMAGE_HEIGHT(img);
+    REBLEN w = VAL_IMAGE_WIDTH(img);
+    REBLEN h = VAL_IMAGE_HEIGHT(img);
     REBYTE *p = VAL_IMAGE_HEAD(img);
     memset(p, 0, w * h * 4);
 }
@@ -591,9 +591,9 @@ REB_R Modify_Image(REBFRM *frame_, const REBVAL *verb)
     REBVAL *value = ARG(series);  // !!! confusing name
     REBVAL *arg = ARG(value);
 
-    REBCNT index = VAL_IMAGE_POS(value);
-    REBCNT tail = VAL_IMAGE_LEN_HEAD(value);
-    REBCNT n;
+    REBLEN index = VAL_IMAGE_POS(value);
+    REBLEN tail = VAL_IMAGE_LEN_HEAD(value);
+    REBLEN n;
     REBYTE *ip;
 
     REBINT w = VAL_IMAGE_WIDTH(value);
@@ -799,11 +799,11 @@ void Find_Image(REBFRM *frame_)
 
     REBVAL *value = ARG(series);
     REBVAL *arg = ARG(pattern);
-    REBCNT index = VAL_IMAGE_POS(arg);
-    REBCNT tail = VAL_IMAGE_LEN_HEAD(arg);
+    REBLEN index = VAL_IMAGE_POS(arg);
+    REBLEN tail = VAL_IMAGE_LEN_HEAD(arg);
     REBYTE *ip = VAL_IMAGE_AT(arg);
 
-    REBCNT len = tail - index;
+    REBLEN len = tail - index;
     if (len == 0) {
         Init_Nulled(D_OUT);
         return;
@@ -862,7 +862,7 @@ void Find_Image(REBFRM *frame_)
     Move_Value(D_OUT, value);
     assert((p - VAL_IMAGE_HEAD(value)) % 4 == 0);
 
-    REBINT n = cast(REBCNT, (p - VAL_IMAGE_HEAD(value)) / 4);
+    REBINT n = cast(REBLEN, (p - VAL_IMAGE_HEAD(value)) / 4);
     if (REF(match)) {
         if (n != cast(REBINT, index)) {
             Init_Nulled(D_OUT);
@@ -976,7 +976,7 @@ REBTYPE(Image)
             break;
 
         case SYM_TAIL:
-            VAL_IMAGE_POS(value) = cast(REBCNT, tail);
+            VAL_IMAGE_POS(value) = cast(REBLEN, tail);
             break;
 
         case SYM_HEAD_Q:
@@ -1044,7 +1044,7 @@ REBTYPE(Image)
         else if (index < 0)
             index = 0;
 
-        VAL_IMAGE_POS(value) = cast(REBCNT, index);
+        VAL_IMAGE_POS(value) = cast(REBLEN, index);
         RETURN (value);
 
     case SYM_CLEAR:
@@ -1052,7 +1052,7 @@ REBTYPE(Image)
         if (index < tail) {
             SET_SERIES_LEN(
                 VAL_BINARY(VAL_IMAGE_BIN(value)),
-                cast(REBCNT, index)
+                cast(REBLEN, index)
             );
             Reset_Height(value);
         }

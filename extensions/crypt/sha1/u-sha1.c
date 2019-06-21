@@ -316,7 +316,7 @@ void SHA1_Init(void *c_opaque)
     c->num=0;
     }
 
-void SHA1_Update(void *c_opaque, const REBYTE *data, REBCNT len)
+void SHA1_Update(void *c_opaque, const REBYTE *data, REBLEN len)
     {
     SHA_CTX *c = (SHA_CTX*)c_opaque;
     ULONG *p;
@@ -657,7 +657,7 @@ int SHA1_CtxSize(void) {
     return sizeof(SHA_CTX);
 }
 
-REBYTE *SHA1(const REBYTE *data, REBCNT data_len, REBYTE *md)
+REBYTE *SHA1(const REBYTE *data, REBLEN data_len, REBYTE *md)
 {
     static REBYTE m[SHA_DIGEST_LENGTH];
     if (md == NULL)

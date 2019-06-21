@@ -164,7 +164,7 @@ void Sieve_Ports(REBARR *ports)
 {
     REBVAL *port;
     REBVAL *waked;
-    REBCNT n;
+    REBLEN n;
 
     port = Get_System(SYS_PORTS, PORTS_SYSTEM);
     if (!IS_PORT(port)) return;
@@ -323,7 +323,7 @@ REB_R Do_Port_Action(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
     // Dispatch object function:
 
-    REBCNT n; // goto would cross initialization
+    REBLEN n; // goto would cross initialization
     n = Find_Canon_In_Context(
         VAL_CONTEXT(actor),
         VAL_WORD_CANON(verb),

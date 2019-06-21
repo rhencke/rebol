@@ -52,7 +52,7 @@
 #define BIN_LAST(s) \
     SER_LAST(REBYTE, (s))
 
-inline static REBCNT BIN_LEN(REBBIN *s) {
+inline static REBLEN BIN_LEN(REBBIN *s) {
     assert(SER_WIDE(s) == 1);
     return SER_USED(s);
 }
@@ -62,7 +62,7 @@ inline static void TERM_BIN(REBSER *s) {
     BIN_HEAD(s)[SER_USED(s)] = 0;
 }
 
-inline static void TERM_BIN_LEN(REBSER *s, REBCNT len) {
+inline static void TERM_BIN_LEN(REBSER *s, REBLEN len) {
     assert(SER_WIDE(s) == 1);
     SET_SERIES_USED(s, len);
     BIN_HEAD(s)[len] = 0;
@@ -74,7 +74,7 @@ inline static void TERM_BIN_LEN(REBSER *s, REBCNT len) {
 // as UTF-8 data later, e.g. `as word! binary`, since it would be too late
 // to give them that capacity after-the-fact to enable this.
 //
-inline static REBSER *Make_Binary_Core(REBCNT capacity, REBFLGS flags)
+inline static REBSER *Make_Binary_Core(REBLEN capacity, REBFLGS flags)
 {
     REBSER *bin = Make_Series_Core(capacity + 1, sizeof(REBYTE), flags);
     TERM_SEQUENCE(bin);

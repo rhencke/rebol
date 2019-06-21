@@ -231,9 +231,9 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         // Determine length. Clip /PART to size of binary if needed.
 
         REBVAL *data = ARG(data);
-        REBCNT len = VAL_LEN_AT(data);
+        REBLEN len = VAL_LEN_AT(data);
         if (REF(part)) {
-            REBCNT n = Int32s(ARG(part), 0);
+            REBLEN n = Int32s(ARG(part), 0);
             if (n <= len)
                 len = n;
         }

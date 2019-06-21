@@ -47,13 +47,13 @@ comment-out-includes: [
 
 
 fix-randutils.c: func [
-    cnt
+    text [text!]
 ][
     exclude-headers: [
         {"c.h"}
     ]
 
-    parse cnt [
+    parse text [
         add-config.h
         insert {^/#include <errno.h>^/}
 
@@ -76,11 +76,11 @@ fix-randutils.c: func [
         end
     ]
 
-    cnt
+    return text
 ]
 
 fix-gen_uuid.c: function [
-    cnt
+    text [text!]
     <with>
     exclude-headers
     comment-out-includes
@@ -96,7 +96,7 @@ fix-gen_uuid.c: function [
         | {"sha1.h"}
     ]
 
-    parse cnt [
+    parse text [
         add-config.h
 
         any [
@@ -137,7 +137,8 @@ fix-gen_uuid.c: function [
 
         end
     ]
-    cnt
+
+    return text
 ]
 
 files: compose [
@@ -167,5 +168,3 @@ for-each [file fix] files [
 
     write target data
 ]
-
-;write %tmp.c fix-randutils.c read %libuuid/randutils.c

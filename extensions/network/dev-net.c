@@ -474,7 +474,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
 
         REBBIN *bin = VAL_BINARY(req->common.binary);
         assert(SER_AVAIL(bin) >= len);
-        REBCNT old_len = BIN_LEN(bin);
+        REBLEN old_len = BIN_LEN(bin);
 
         result = recvfrom(
             req->requestee.socket,

@@ -77,7 +77,7 @@ REB_R Init_Thrown_Unwind_Value(
         INIT_BINDING(out, VAL_CONTEXT(level));
     }
     else if (IS_INTEGER(level)) {
-        REBCNT count = VAL_INT32(level);
+        REBLEN count = VAL_INT32(level);
         if (count <= 0)
             fail (Error_Invalid_Exit_Raw());
 
@@ -674,7 +674,7 @@ REBNATIVE(hijack)
         // ARR_SINGLE(info) being correct.  That would mean hijack reversals
         // would need to restore the *exact* capacity.  Review.
 
-        REBCNT details_len = ARR_LEN(hijacker_details);
+        REBLEN details_len = ARR_LEN(hijacker_details);
         if (SER_REST(SER(victim_details)) < details_len + 1)
             EXPAND_SERIES_TAIL(
                 SER(victim_details),
@@ -1065,7 +1065,7 @@ REBNATIVE(reskinned)
     // in a new dispatcher.  But if we *expanded* them, the type checking
     // done by the skinned version for ARG_MARKED_CHECKED may not be enough.
     //
-    REBCNT details_len = need_skin_phase ? 1 :ARR_LEN(ACT_DETAILS(original));
+    REBLEN details_len = need_skin_phase ? 1 :ARR_LEN(ACT_DETAILS(original));
     REBACT *defers = Make_Action(
         paramlist,
         need_skin_phase ? &Skinner_Dispatcher : ACT_DISPATCHER(original),

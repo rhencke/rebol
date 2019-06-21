@@ -25,11 +25,11 @@
 
 struct rebol_mold {
     REBSTR *series;     // destination series (utf8)
-    REBCNT index;       // codepoint index where mold starts within series
+    REBLEN index;       // codepoint index where mold starts within series
     REBSIZ offset;      // byte offset where mold starts within series
     REBFLGS opts;       // special option flags
-    REBCNT limit;       // how many characters before cutting off with "..."
-    REBCNT reserve;     // how much capacity to reserve at the outset
+    REBLEN limit;       // how many characters before cutting off with "..."
+    REBLEN reserve;     // how much capacity to reserve at the outset
     REBINT indent;      // indentation amount
     REBYTE period;      // for decimal point
     REBYTE dash;        // for date fields

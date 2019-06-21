@@ -199,16 +199,16 @@
 //-- Measurement Variables:
 typedef struct rebol_stats {
     REBI64  Series_Memory;
-    REBCNT  Series_Made;
-    REBCNT  Series_Freed;
-    REBCNT  Series_Expanded;
-    REBCNT  Recycle_Counter;
-    REBCNT  Recycle_Series_Total;
-    REBCNT  Recycle_Series;
+    REBLEN  Series_Made;
+    REBLEN  Series_Freed;
+    REBLEN  Series_Expanded;
+    REBLEN  Recycle_Counter;
+    REBLEN  Recycle_Series_Total;
+    REBLEN  Recycle_Series;
     REBI64  Recycle_Prior_Eval;
-    REBCNT  Mark_Count;
-    REBCNT  Blocks;
-    REBCNT  Objects;
+    REBLEN  Mark_Count;
+    REBLEN  Blocks;
+    REBLEN  Objects;
 } REB_STATS;
 
 //-- Options of various kinds:
@@ -257,7 +257,7 @@ enum {
 
 
 #define ALL_BITS \
-    ((REBCNT)(-1))
+    ((REBLEN)(-1))
 
 
 typedef int cmp_t(void *, const void *, const void *);

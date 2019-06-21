@@ -59,12 +59,12 @@ void Bind_Values_Inner_Loop(
                 // which provides a feature of building up state about some
                 // words while still not including them in the bind.
                 //
-                assert(cast(REBCNT, n) <= CTX_LEN(context));
+                assert(cast(REBLEN, n) <= CTX_LEN(context));
 
                 // We're overwriting any previous binding, which may have
                 // been relative.
 
-                REBCNT depth = Dequotify(head); // must ensure new cell
+                REBLEN depth = Dequotify(head); // must ensure new cell
                 INIT_BINDING_MAY_MANAGE(head, NOD(context));
                 INIT_WORD_INDEX(head, n);
                 Quotify(head, depth); // new cell made for higher escapes
@@ -73,7 +73,7 @@ void Bind_Values_Inner_Loop(
                 //
                 // Word is not in context, so add it if option is specified
                 //
-                REBCNT depth = Dequotify(head); // must ensure new cell
+                REBLEN depth = Dequotify(head); // must ensure new cell
                 Append_Context(context, head, 0);
                 Add_Binder_Index(binder, canon, VAL_WORD_INDEX(head));
                 Quotify(head, depth); // new cell made for higher escapes
@@ -120,7 +120,7 @@ void Bind_Values_Core(
     // is done by poking the index into the REBSER of the series behind the
     // ANY-WORD!, so it must be cleaned up to not break future bindings.)
 
-    REBCNT index = 1;
+    REBLEN index = 1;
     REBVAL *key = CTX_KEYS_HEAD(context);
     for (; index <= CTX_LEN(context); key++, index++)
         if (not Is_Param_Unbindable(key))
@@ -170,9 +170,9 @@ void Unbind_Values_Core(RELVAL *head, REBCTX *context, bool deep)
 // Returns 0 if word is not part of the context, otherwise the index of the
 // word in the context.
 //
-REBCNT Try_Bind_Word(REBCTX *context, REBVAL *word)
+REBLEN Try_Bind_Word(REBCTX *context, REBVAL *word)
 {
-    REBCNT n = Find_Canon_In_Context(context, VAL_WORD_CANON(word), false);
+    REBLEN n = Find_Canon_In_Context(context, VAL_WORD_CANON(word), false);
     if (n != 0) {
         INIT_BINDING(word, context); // binding may have been relative before
         INIT_WORD_INDEX(word, n);
@@ -216,7 +216,7 @@ static void Bind_Relative_Inner_Loop(
                 // Word's canon symbol is in frame.  Relatively bind it.
                 // (clear out existing binding flags first).
                 //
-                REBCNT depth = Dequotify(head); // must ensure new cell
+                REBLEN depth = Dequotify(head); // must ensure new cell
                 Unbind_Any_Word(head);
                 INIT_BINDING(head, paramlist); // incomplete func
                 INIT_WORD_INDEX(head, n);
@@ -235,7 +235,7 @@ static void Bind_Relative_Inner_Loop(
             // easiest to debug if there is a clear mark on arrays that are
             // part of a deep copy of a function body either way.
             //
-            REBCNT depth = Dequotify(head); // must ensure new cell
+            REBLEN depth = Dequotify(head); // must ensure new cell
             INIT_BINDING(head, paramlist); // incomplete func
             Quotify(head, depth); // new cell made for higher escapes
         }
@@ -279,7 +279,7 @@ REBARR *Copy_And_Bind_Relative_Deep_Managed(
 
     // Setup binding table from the argument word list
     //
-    REBCNT index = 1;
+    REBLEN index = 1;
     RELVAL *param = ARR_AT(paramlist, 1); // [0] is ACTION! value
     for (; NOT_END(param); param++, index++)
         Add_Binder_Index(&binder, VAL_KEY_CANON(param), index);
@@ -412,7 +412,7 @@ void Virtual_Bind_Deep_To_New_Context(
 ) {
     assert(IS_BLOCK(body_in_out));
 
-    REBCNT num_vars = IS_BLOCK(spec) ? VAL_LEN_AT(spec) : 1;
+    REBLEN num_vars = IS_BLOCK(spec) ? VAL_LEN_AT(spec) : 1;
     if (num_vars == 0)
         fail (spec);
 
@@ -504,7 +504,7 @@ void Virtual_Bind_Deep_To_New_Context(
 
     REBSYM dummy_sym = SYM_DUMMY1;
 
-    REBCNT index = 1;
+    REBLEN index = 1;
     while (index <= num_vars) {
         if (IS_BLANK(item)) {
             if (dummy_sym == SYM_DUMMY9)

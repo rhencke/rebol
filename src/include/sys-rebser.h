@@ -555,20 +555,20 @@ struct Reb_Series_Dynamic {
     // than the count of "logical" elements, e.g. codepoints.  The actual
     // logical length in such cases will be in the MISC(length) field.
     //
-    REBCNT used;
+    REBLEN used;
 
     // `rest` is the total number of units from bias to end.  Having a
     // slightly weird name draws attention to the idea that it's not really
     // the "capacity", just the "rest of the capacity after the bias".
     //
-    REBCNT rest;
+    REBLEN rest;
 
     // This is the 4th pointer on 32-bit platforms which could be used for
     // something when a series is dynamic.  Previously the bias was not
-    // a full REBCNT but was limited in range to 16 bits or so.  This means
+    // a full REBLEN but was limited in range to 16 bits or so.  This means
     // 16 info bits are likely available if needed for dynamic series.
     //
-    REBCNT bias;
+    REBLEN bias;
 };
 
 
@@ -690,7 +690,7 @@ union Reb_Series_Misc {
     //
     // !!! UTF-8 everywhere is a work-in-progress.
     //
-    REBCNT length;
+    REBLEN length;
 
     // When binding words into a context, it's necessary to keep a table
     // mapping those words to indices in the context's keylist.  R3-Alpha
@@ -975,12 +975,12 @@ inline static REBYTE SER_WIDE(REBSER *s) {
 // Bias is empty space in front of head:
 //
 
-inline static REBCNT SER_BIAS(REBSER *s) {
+inline static REBLEN SER_BIAS(REBSER *s) {
     assert(IS_SER_DYNAMIC(s));
-    return cast(REBCNT, ((s)->content.dynamic.bias >> 16) & 0xffff);
+    return cast(REBLEN, ((s)->content.dynamic.bias >> 16) & 0xffff);
 }
 
-inline static REBCNT SER_REST(REBSER *s) {
+inline static REBLEN SER_REST(REBSER *s) {
     if (LEN_BYTE_OR_255(s) == 255)
         return s->content.dynamic.rest;
 
@@ -993,18 +993,18 @@ inline static REBCNT SER_REST(REBSER *s) {
 
 #define MAX_SERIES_BIAS 0x1000
 
-inline static void SER_SET_BIAS(REBSER *s, REBCNT bias) {
+inline static void SER_SET_BIAS(REBSER *s, REBLEN bias) {
     assert(IS_SER_DYNAMIC(s));
     s->content.dynamic.bias =
         (s->content.dynamic.bias & 0xffff) | (bias << 16);
 }
 
-inline static void SER_ADD_BIAS(REBSER *s, REBCNT b) {
+inline static void SER_ADD_BIAS(REBSER *s, REBLEN b) {
     assert(IS_SER_DYNAMIC(s));
     s->content.dynamic.bias += b << 16;
 }
 
-inline static void SER_SUB_BIAS(REBSER *s, REBCNT b) {
+inline static void SER_SUB_BIAS(REBSER *s, REBLEN b) {
     assert(IS_SER_DYNAMIC(s));
     s->content.dynamic.bias -= b << 16;
 }

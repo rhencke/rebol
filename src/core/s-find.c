@@ -32,9 +32,9 @@
 //
 REBINT Compare_Binary_Vals(const REBCEL *v1, const REBCEL *v2)
 {
-    REBCNT l1 = VAL_LEN_AT(v1);
-    REBCNT l2 = VAL_LEN_AT(v2);
-    REBCNT len = MIN(l1, l2);
+    REBLEN l1 = VAL_LEN_AT(v1);
+    REBLEN l2 = VAL_LEN_AT(v2);
+    REBLEN len = MIN(l1, l2);
 
     REBINT n = memcmp(
         SER_AT_RAW(SER_WIDE(VAL_SERIES(v1)), VAL_SERIES(v1), VAL_INDEX(v1)),
@@ -55,7 +55,7 @@ REBINT Compare_Binary_Vals(const REBCEL *v1, const REBCEL *v2)
 //
 // Uncase: compare is case-insensitive.
 //
-REBINT Compare_Bytes(const REBYTE *b1, const REBYTE *b2, REBCNT len, bool uncase)
+REBINT Compare_Bytes(const REBYTE *b1, const REBYTE *b2, REBLEN len, bool uncase)
 {
     REBINT d;
 
@@ -112,7 +112,7 @@ const REBYTE *Match_Bytes(const REBYTE *src, const REBYTE *pat)
 REBINT Compare_Uni_Str(
     const REBYTE* bp1,
     const REBYTE* bp2,
-    REBCNT len,
+    REBLEN len,
     bool uncase
 ){
     REBCHR(const*) u1 = cast(REBCHR(const*), bp1);
@@ -152,9 +152,9 @@ REBINT Compare_String_Vals(const REBCEL *v1, const REBCEL *v2, bool uncase)
 {
     assert(CELL_KIND(v1) != REB_BINARY and CELL_KIND(v2) != REB_BINARY);
 
-    REBCNT l1  = VAL_LEN_AT(v1);
-    REBCNT l2  = VAL_LEN_AT(v2);
-    REBCNT len = MIN(l1, l2);
+    REBLEN l1  = VAL_LEN_AT(v1);
+    REBLEN l2  = VAL_LEN_AT(v2);
+    REBLEN len = MIN(l1, l2);
 
     REBINT n = Compare_Uni_Str(
         VAL_STRING_AT(v1),  // as a REBYTE* (can't put REBCHR(*) in %sys-core.h)
@@ -229,9 +229,9 @@ REBINT Compare_UTF8(const REBYTE *s1, const REBYTE *s2, REBSIZ l2)
 // Find an exact byte string within a byte string.
 // Returns starting position or NOT_FOUND.
 //
-REBCNT Find_Bin_In_Bin(
+REBLEN Find_Bin_In_Bin(
     REBSER *series,
-    REBCNT offset,
+    REBLEN offset,
     const REBYTE *bp2,
     REBSIZ size2,
     REBFLGS flags // AM_FIND_MATCH
@@ -243,7 +243,7 @@ REBCNT Find_Bin_In_Bin(
         return NOT_FOUND; // pattern empty or is longer than the target
 
     REBYTE *bp1 = BIN_AT(series, offset);
-    REBCNT size1 = BIN_LEN(series) - offset;
+    REBLEN size1 = BIN_LEN(series) - offset;
 
     REBYTE *end1 = bp1 + ((flags & AM_FIND_MATCH) ? 1 : size1 - (size2 - 1));
 
@@ -251,7 +251,7 @@ REBCNT Find_Bin_In_Bin(
 
     while (bp1 != end1) {
         if (*bp1 == b2) { // matched first byte
-            REBCNT n;
+            REBLEN n;
             for (n = 1; n < size2; n++) {
                 if (bp1[n] != bp2[n])
                     break;
@@ -279,11 +279,11 @@ REBCNT Find_Bin_In_Bin(
 //
 // NOTE: Series used must be > offset.
 //
-REBCNT Find_Str_In_Bin(
+REBLEN Find_Str_In_Bin(
     REBSER *series, // binary series to search in
-    REBCNT offset, // where to begin search at
+    REBLEN offset, // where to begin search at
     const REBYTE *bp2, // pointer to UTF-8 data to search (guaranteed valid)
-    REBCNT len2, // codepoint count of the UTF-8 data of interest
+    REBLEN len2, // codepoint count of the UTF-8 data of interest
     REBSIZ size2, // encoded byte count of the UTF-8 data (not codepoints)
     REBFLGS flags // AM_FIND_MATCH, AM_FIND_CASE
 ){
@@ -336,7 +336,7 @@ REBCNT Find_Str_In_Bin(
             const REBYTE *temp1 = next1;
             REBCHR(const*) temp2 = next2;
 
-            REBCNT n;
+            REBLEN n;
             for (n = 1; n < len2; n++) {
                 if (*temp1 < 0x80)
                     c1 = *temp1;
@@ -375,14 +375,14 @@ REBCNT Find_Str_In_Bin(
 //
 // Flags are set according to ALL_FIND_REFS
 //
-REBCNT Find_Str_In_Str(
+REBLEN Find_Str_In_Str(
     REBSTR *str1,
-    REBCNT index_unsigned,
-    REBCNT end_unsigned,
+    REBLEN index_unsigned,
+    REBLEN end_unsigned,
     REBINT skip,
     REBSTR *str2,
     REBINT index2,
-    REBCNT len,
+    REBLEN len,
     REBFLGS flags
 ){
     // Signed quantities used to allow stepping outside of bounds and still
@@ -423,7 +423,7 @@ REBCNT Find_Str_In_Str(
                 tp1 = NEXT_STR(NEXT_STR(cp1)); // compensate from overstep
 
             REBCHR(const*) tp2 = next2;
-            REBCNT n;
+            REBLEN n;
             for (n = 1; n < len; n++) {
                 tp1 = NEXT_CHR(&c1, tp1);
 
@@ -460,11 +460,11 @@ REBCNT Find_Str_In_Str(
 // Note that features like "/LAST" are handled at a higher level and
 // translated into SKIP=(-1) and starting at (highest - 1).
 //
-REBCNT Find_Char_In_Str(
+REBLEN Find_Char_In_Str(
     REBUNI uni,         // character to look for
     REBSTR *s,          // UTF-8 string series
-    REBCNT index_orig,  // first index to examine (if out of range, NOT_FOUND)
-    REBCNT highest,     // *one past* highest return result (e.g. SER_LEN)
+    REBLEN index_orig,  // first index to examine (if out of range, NOT_FOUND)
+    REBLEN highest,     // *one past* highest return result (e.g. SER_LEN)
     REBINT skip,        // step amount while searching, can be negative!
     REBFLGS flags       // AM_FIND_CASE, AM_FIND_MATCH
 ){
@@ -475,7 +475,7 @@ REBCNT Find_Char_In_Str(
 
     REBSTR *temp = Make_Codepoint_String(uni);
 
-    REBCNT i = Find_Str_In_Str(
+    REBLEN i = Find_Str_In_Str(
         s,
         index_orig,
         highest,
@@ -494,12 +494,12 @@ REBCNT Find_Char_In_Str(
 //
 //  Find_Char_In_Bin: C
 //
-REBCNT Find_Char_In_Bin(
+REBLEN Find_Char_In_Bin(
     REBUNI uni,         // character to look for
     REBBIN *bin,        // binary series
-    REBCNT lowest,      // lowest return index
-    REBCNT index_orig,  // first index to examine (if out of range, NOT_FOUND)
-    REBCNT highest,     // *one past* highest return result (e.g. SER_LEN)
+    REBLEN lowest,      // lowest return index
+    REBLEN index_orig,  // first index to examine (if out of range, NOT_FOUND)
+    REBLEN highest,     // *one past* highest return result (e.g. SER_LEN)
     REBINT skip,        // step amount while searching, can be negative!
     REBFLGS flags       // AM_FIND_CASE, AM_FIND_MATCH
 ){
@@ -518,7 +518,7 @@ REBCNT Find_Char_In_Bin(
 
     REBSTR *temp = Make_Codepoint_String(uni);
 
-    REBCNT i = Find_Str_In_Bin(
+    REBLEN i = Find_Str_In_Bin(
         bin,
         index_orig,
         STR_HEAD(temp),
@@ -544,7 +544,7 @@ REBCNT Find_Char_In_Bin(
 //
 // Flags are set according to ALL_FIND_REFS
 //
-REBCNT Find_Bin_Bitset(
+REBLEN Find_Bin_Bitset(
     REBSER *bin,
     REBINT head,
     REBINT offset,
@@ -587,10 +587,10 @@ REBCNT Find_Bin_Bitset(
 //
 // Flags are set according to ALL_FIND_REFS
 //
-REBCNT Find_Str_Bitset(
+REBLEN Find_Str_Bitset(
     REBSTR *str,
-    REBCNT index_unsigned,
-    REBCNT end_unsigned,
+    REBLEN index_unsigned,
+    REBLEN end_unsigned,
     REBINT skip,
     REBSER *bset,
     REBFLGS flags
@@ -634,9 +634,9 @@ REBCNT Find_Str_Bitset(
 //
 // Count lines in a UTF-8 file.
 //
-REBCNT Count_Lines(REBYTE *bp, REBCNT len)
+REBLEN Count_Lines(REBYTE *bp, REBLEN len)
 {
-    REBCNT count = 0;
+    REBLEN count = 0;
 
     for (; len > 0; bp++, len--) {
         if (*bp == CR) {
@@ -656,9 +656,9 @@ REBCNT Count_Lines(REBYTE *bp, REBCNT len)
 //
 // Find next line termination. Advance the bp; return bin length.
 //
-REBCNT Next_Line(REBYTE **bin)
+REBLEN Next_Line(REBYTE **bin)
 {
-    REBCNT count = 0;
+    REBLEN count = 0;
     REBYTE *bp = *bin;
 
     for (; *bp; bp++) {
@@ -687,14 +687,14 @@ REBCNT Next_Line(REBYTE **bin)
 // logic in their invocation.  This is an attempt to further factor the common
 // code, which hopefully will mean more consistency (as well as less code).
 //
-REBCNT Find_In_Any_Sequence(
-    REBCNT *len,  // length of match (e.g. if pattern is a TAG!, includes <>)
+REBLEN Find_In_Any_Sequence(
+    REBLEN *len,  // length of match (e.g. if pattern is a TAG!, includes <>)
     const RELVAL *any_series,
     const RELVAL *pattern,
     REBFLGS flags
 ){
-    REBCNT index = VAL_INDEX(any_series);
-    REBCNT end = VAL_LEN_HEAD(any_series);
+    REBLEN index = VAL_INDEX(any_series);
+    REBLEN end = VAL_LEN_HEAD(any_series);
     REBINT skip = 1;
 
     if (IS_BINARY(any_series))

@@ -582,7 +582,7 @@ inline static void Prep_Array_Feed(
     struct Reb_Feed *feed,
     const RELVAL *opt_first,
     REBARR *array,
-    REBCNT index,
+    REBLEN index,
     REBSPC *specifier,
     REBFLGS flags
 ){

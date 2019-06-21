@@ -27,7 +27,7 @@
 
 struct Params_Of_State {
     REBARR *arr;
-    REBCNT num_visible;
+    REBLEN num_visible;
     RELVAL *dest;
 };
 
@@ -594,7 +594,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     // Slots, which is length +1 (includes the rootvar or rootparam)
     //
-    REBCNT num_slots = (DSP - dsp_orig) / 3;
+    REBLEN num_slots = (DSP - dsp_orig) / 3;
 
     // There should be no more pushes past this point, so a stable pointer
     // into the stack for the definitional return can be found.
@@ -856,14 +856,14 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 // !!! This is semi-redundant with similar functions for Find_Word_In_Array
 // and key finding for objects, review...
 //
-REBCNT Find_Param_Index(REBARR *paramlist, REBSTR *spelling)
+REBLEN Find_Param_Index(REBARR *paramlist, REBSTR *spelling)
 {
     REBSTR *canon = STR_CANON(spelling); // don't recalculate each time
 
     RELVAL *param = ARR_AT(paramlist, 1);
-    REBCNT len = ARR_LEN(paramlist);
+    REBLEN len = ARR_LEN(paramlist);
 
-    REBCNT n;
+    REBLEN n;
     for (n = 1; n < len; ++n, ++param) {
         if (
             spelling == VAL_PARAM_SPELLING(param)
@@ -899,7 +899,7 @@ REBACT *Make_Action(
     REBNAT dispatcher, // native C function called by Eval_Core
     REBACT *opt_underlying, // optional underlying function
     REBCTX *opt_exemplar, // if provided, should be consistent w/next level
-    REBCNT details_capacity // desired capacity of the ACT_DETAILS() array
+    REBLEN details_capacity // desired capacity of the ACT_DETAILS() array
 ){
     ASSERT_ARRAY_MANAGED(paramlist);
 
@@ -1105,7 +1105,7 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
         // used.  Fake the code if needed.
 
         REBVAL *example;
-        REBCNT real_body_index;
+        REBLEN real_body_index;
         if (ACT_DISPATCHER(a) == &Voider_Dispatcher) {
             example = Get_System(SYS_STANDARD, STD_PROC_BODY);
             real_body_index = 4;

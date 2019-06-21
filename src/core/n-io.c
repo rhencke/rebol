@@ -166,7 +166,7 @@ REBNATIVE(new_line)
     else
         skip = 0;
 
-    REBCNT n;
+    REBLEN n;
     for (n = 0; NOT_END(item); ++n, ++item) {
         if (skip != 0 and (n % skip != 0))
             continue;
@@ -247,7 +247,7 @@ REBNATIVE(new_line_q)
 //
 // Note that this routine is used by the SLEEP extension, as well as by WAIT.
 //
-REBCNT Milliseconds_From_Value(const RELVAL *v) {
+REBLEN Milliseconds_From_Value(const RELVAL *v) {
     REBINT msec;
 
     switch (VAL_TYPE(v)) {
@@ -270,5 +270,5 @@ REBCNT Milliseconds_From_Value(const RELVAL *v) {
     if (msec < 0)
         fail (Error_Out_Of_Range(KNOWN(v)));
 
-    return cast(REBCNT, msec);
+    return cast(REBLEN, msec);
 }

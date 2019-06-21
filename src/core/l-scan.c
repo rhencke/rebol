@@ -413,7 +413,7 @@ static const REBYTE *Scan_Quote_Push_Mold(
     ++src;
 
     REBINT nest = 0;
-    REBCNT lines = 0;
+    REBLEN lines = 0;
     while (*src != term or nest > 0) {
         REBUNI c = *src;
 
@@ -600,7 +600,7 @@ static const REBYTE *Skip_Tag(const REBYTE *cp)
 //
 static void Update_Error_Near_For_Line(
     REBCTX *error,
-    REBCNT line,
+    REBLEN line,
     const REBYTE *line_head
 ){
     // Skip indentation (don't include in the NEAR)
@@ -611,7 +611,7 @@ static void Update_Error_Near_For_Line(
 
     // Find end of line to capture in error message
     //
-    REBCNT len = 0;
+    REBLEN len = 0;
     const REBYTE *bp = cp;
     while (not ANY_CR_LF_END(*cp)) {
         cp++;
@@ -665,7 +665,7 @@ static REBCTX *Error_Syntax(SCAN_STATE *ss, enum Reb_Token token) {
     Init_Text(
         token_text,
         Make_Sized_String_UTF8(
-            cs_cast(ss->begin), cast(REBCNT, ss->end - ss->begin)
+            cs_cast(ss->begin), cast(REBLEN, ss->end - ss->begin)
         )
     );
 
@@ -762,12 +762,12 @@ static REBCTX *Error_Mismatch(SCAN_STATE *ss, char wanted, char seen) {
 // GET_LEX_CLASS(ss->begin[0]).  Fingerprinting just helps accelerate further
 // categorization.
 //
-static REBCNT Prescan_Token(SCAN_STATE *ss)
+static REBLEN Prescan_Token(SCAN_STATE *ss)
 {
     assert(IS_POINTER_TRASH_DEBUG(ss->end));  // prescan only uses ->begin
 
     const REBYTE *cp = ss->begin;
-    REBCNT flags = 0;
+    REBLEN flags = 0;
 
     while (IS_LEX_SPACE(*cp))  // skip whitespace (if any)
         ++cp;
@@ -972,7 +972,7 @@ static enum Reb_Token Locate_Token_May_Push_Mold(
          }
     }
 
-    REBCNT flags = Prescan_Token(ss);  // sets ->begin, ->end
+    REBLEN flags = Prescan_Token(ss);  // sets ->begin, ->end
 
     const REBYTE *cp = ss->begin;
 
@@ -1526,7 +1526,7 @@ void Init_Scan_State(
     REBSTR *file,
     REBLIN line,
     const REBYTE *utf8,
-    REBCNT limit  // !!! limit feature not implemented in R3-Alpha
+    REBLEN limit  // !!! limit feature not implemented in R3-Alpha
 ){
     assert(utf8[limit] == '\0');  // if limit used, make sure it was the end
     UNUSED(limit);
@@ -1573,7 +1573,7 @@ static REBINT Scan_Head(SCAN_STATE *ss)
     const REBYTE *rebol = nullptr;  // start of the REBOL word
     const REBYTE *bracket = nullptr;  // optional [ just before REBOL
     const REBYTE *cp = ss->begin;
-    REBCNT count = ss->line;
+    REBLEN count = ss->line;
 
     while (true) {
         while (IS_LEX_SPACE(*cp))  // skip white space
@@ -1665,7 +1665,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
     if (just_once)
         ss->opts &= ~SCAN_FLAG_NEXT;  // e.g. recursion loads an entire BLOCK!
 
-    REBCNT lit_depth = 0;
+    REBLEN lit_depth = 0;
 
     enum Reb_Token token;
 
@@ -1681,7 +1681,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
         const REBYTE *bp = ss->begin;
         const REBYTE *ep = ss->end;
-        REBCNT len = cast(REBCNT, ep - bp);
+        REBLEN len = cast(REBLEN, ep - bp);
 
         ss->begin = ss->end;  // accept token
 
@@ -1884,7 +1884,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 token = TOKEN_DATE;
                 while (*ep == '/' or IS_LEX_NOT_DELIMIT(*ep))
                     ++ep;
-                len = cast(REBCNT, ep - bp);
+                len = cast(REBLEN, ep - bp);
                 if (ep != Scan_Date(DS_PUSH(), bp, len))
                     goto syntax_error;
 
@@ -1937,7 +1937,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             while (*ep == '/' and ss->mode_char != '/') {  // Is it date/time?
                 ep++;
                 while (IS_LEX_NOT_DELIMIT(*ep)) ep++;
-                len = cast(REBCNT, ep - bp);
+                len = cast(REBLEN, ep - bp);
                 if (len > 50) {
                     // prevent infinite loop, should never be longer than this
                     break;
@@ -2421,7 +2421,7 @@ void Scan_To_Stack_Relaxed(SCAN_STATE *ss) {
         // to get consumed, terminate it, and use that.  Hope errors are rare,
         // and if this becomes a problem, implement ss->limit.
         //
-        REBCNT limit = ss->begin - ss_before.begin;
+        REBLEN limit = ss->begin - ss_before.begin;
         REBSER *bin = Make_Binary(limit);
         memcpy(BIN_HEAD(bin), ss_before.begin, limit);
         TERM_BIN_LEN(bin, limit);
@@ -2566,7 +2566,7 @@ REBARR *Scan_UTF8_Managed(REBSTR *filename, const REBYTE *utf8, REBSIZ size)
 //
 // Scan for header, return its offset if found or -1 if not.
 //
-REBINT Scan_Header(const REBYTE *utf8, REBCNT len)
+REBINT Scan_Header(const REBYTE *utf8, REBLEN len)
 {
     SCAN_STATE ss;
     REBSTR * const filename = Canon(SYM___ANONYMOUS__);
@@ -2597,7 +2597,7 @@ REBINT Scan_Header(const REBYTE *utf8, REBCNT len)
 //
 void Startup_Scanner(void)
 {
-    REBCNT n = 0;
+    REBLEN n = 0;
     while (Token_Names[n])
         ++n;
     assert(cast(enum Reb_Token, n) == TOKEN_MAX);
@@ -2762,7 +2762,7 @@ const REBYTE *Scan_Any_Word(
     REBVAL *out,
     enum Reb_Kind kind,
     const REBYTE *utf8,
-    REBCNT len
+    REBLEN len
 ) {
     SCAN_STATE ss;
     REBSTR * const filename = Canon(SYM___ANONYMOUS__);
@@ -2787,7 +2787,7 @@ const REBYTE *Scan_Any_Word(
 // Scan an issue word, allowing special characters.
 // Returning null should trigger an error in the caller.
 //
-const REBYTE *Scan_Issue(RELVAL *out, const REBYTE *cp, REBCNT len)
+const REBYTE *Scan_Issue(RELVAL *out, const REBYTE *cp, REBLEN len)
 {
     if (len == 0)
         return nullptr;
@@ -2797,14 +2797,14 @@ const REBYTE *Scan_Issue(RELVAL *out, const REBYTE *cp, REBCNT len)
 
     const REBYTE *bp = cp;
 
-    REBCNT l = len;
+    REBLEN l = len;
     while (l > 0) {
         switch (GET_LEX_CLASS(*bp)) {
           case LEX_CLASS_DELIMIT:
             return nullptr;
 
           case LEX_CLASS_SPECIAL: {  // Flag all but first special char
-            REBCNT c = GET_LEX_VALUE(*bp);
+            REBLEN c = GET_LEX_VALUE(*bp);
             if (
                 LEX_SPECIAL_APOSTROPHE != c
                 and LEX_SPECIAL_COMMA != c

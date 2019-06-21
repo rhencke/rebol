@@ -311,8 +311,8 @@ REBNATIVE(encode_png)
     state.encoder.auto_convert = 0;
 
     REBVAL *size = rebValue("pick", image, "'size", rebEND);
-    REBCNT width = rebUnboxInteger("pick", size, "'x", rebEND);
-    REBCNT height = rebUnboxInteger("pick", size, "'y", rebEND);
+    REBLEN width = rebUnboxInteger("pick", size, "'x", rebEND);
+    REBLEN height = rebUnboxInteger("pick", size, "'y", rebEND);
     rebRelease(size);
 
     size_t binsize;

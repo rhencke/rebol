@@ -173,7 +173,7 @@ enum {
 struct Reb_Binder {
     bool high;
   #if !defined(NDEBUG)
-    REBCNT count;
+    REBLEN count;
   #endif
 
   #if defined(CPLUSPLUS_11)
@@ -318,7 +318,7 @@ struct Reb_Collector {
     REBFLGS flags;
     REBDSP dsp_orig;
     struct Reb_Binder binder;
-    REBCNT index;
+    REBLEN index;
 };
 
 
@@ -394,8 +394,8 @@ inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
         // If the cell we're writing to is a stack cell, there's a chance
         // that management/reification of the binding can be avoided.
         //
-        REBCNT bind_depth = 1; // !!! need to find v's binding stack level
-        REBCNT out_depth;
+        REBLEN bind_depth = 1; // !!! need to find v's binding stack level
+        REBLEN out_depth;
         if (not (out->header.bits & CELL_FLAG_STACK_LIFETIME))
             out_depth = 0;
         else

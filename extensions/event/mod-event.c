@@ -247,13 +247,13 @@ int Wait_For_Device_Events_Interruptible(
 bool Wait_Ports_Throws(
     REBVAL *out,
     REBARR *ports,
-    REBCNT timeout,
+    REBLEN timeout,
     bool only
 ){
     REBI64 base = Delta_Time(0);
-    REBCNT time;
-    REBCNT wt = 1;
-    REBCNT res = (timeout >= 1000) ? 0 : 16;  // OS dependent?
+    REBLEN time;
+    REBLEN wt = 1;
+    REBLEN res = (timeout >= 1000) ? 0 : 16;  // OS dependent?
 
     // Waiting opens the doors to pressing Ctrl-C, which may get this code
     // to throw an error.  There needs to be a state to catch it.
@@ -302,7 +302,7 @@ bool Wait_Ports_Throws(
 
         if (timeout != ALL_BITS) {
             // Figure out how long that (and OS_WAIT) took:
-            time = cast(REBCNT, Delta_Time(base) / 1000);
+            time = cast(REBLEN, Delta_Time(base) / 1000);
             if (time >= timeout) break;   // done (was dt = 0 before)
             else if (wt > timeout - time) // use smaller residual time
                 wt = timeout - time;
@@ -313,7 +313,7 @@ bool Wait_Ports_Throws(
         Wait_For_Device_Events_Interruptible(wt, res);
     }
 
-    //time = (REBCNT)Delta_Time(base);
+    //time = (REBLEN)Delta_Time(base);
     //Print("dt: %d", time);
 
     Move_Value(out, FALSE_VALUE); // timeout;
@@ -335,7 +335,7 @@ REBNATIVE(wait)
 {
     EVENT_INCLUDE_PARAMS_OF_WAIT;
 
-    REBCNT timeout = 0; // in milliseconds
+    REBLEN timeout = 0; // in milliseconds
     REBARR *ports = NULL;
     REBINT n = 0;
 

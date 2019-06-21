@@ -83,7 +83,7 @@
 // is required for correct functioning of some types.  (See notes on
 // alignment in %sys-rebval.h.)
 //
-inline static void *Make_Node(REBCNT pool_id)
+inline static void *Make_Node(REBLEN pool_id)
 {
     REBPOL *pool = &Mem_Pools[pool_id];
     if (not pool->first) // pool has run out of nodes
@@ -123,7 +123,7 @@ inline static void *Make_Node(REBCNT pool_id)
 // have NODE_FLAG_FREE...which will identify the node as not in use to anyone
 // who enumerates the nodes in the pool (such as the garbage collector).
 //
-inline static void Free_Node(REBCNT pool_id, REBNOD *node)
+inline static void Free_Node(REBLEN pool_id, REBNOD *node)
 {
   #ifdef DEBUG_MONITOR_SERIES
     if (

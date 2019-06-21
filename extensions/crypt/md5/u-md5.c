@@ -164,7 +164,7 @@ void MD5_Init(void *c_opaque) {
     c->num=0;
 }
 
-void MD5_Update(void *c_opaque, const REBYTE *data, REBCNT len)
+void MD5_Update(void *c_opaque, const REBYTE *data, REBLEN len)
 {
     MD5_CTX *c = cast(MD5_CTX*, c_opaque);
 
@@ -391,7 +391,7 @@ int MD5_CtxSize(void) {
     return sizeof(MD5_CTX);
 }
 
-REBYTE *MD5(const REBYTE *data, REBCNT data_len, REBYTE *md)
+REBYTE *MD5(const REBYTE *data, REBLEN data_len, REBYTE *md)
 {
     static unsigned char m[MD5_DIGEST_LENGTH];
     if (md == NULL)

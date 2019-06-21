@@ -108,7 +108,7 @@ inline static bool Single_Test_Throws(
     REBSPC *test_specifier,
     const RELVAL *arg,
     REBSPC *arg_specifier,
-    REBCNT sum_quotes
+    REBLEN sum_quotes
 ){
     // Note the user could write `rule!: [integer! rule!]`, and then try to
     // `match rule! <infinite>`...have to worry about stack overflows here.

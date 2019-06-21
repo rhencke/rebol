@@ -25,7 +25,7 @@
 #include "sys-core.h"
 
 
-static bool Check_Char_Range(const REBVAL *val, REBCNT limit)
+static bool Check_Char_Range(const REBVAL *val, REBLEN limit)
 {
     if (IS_CHAR(val))
         return VAL_CHAR(val) <= limit;
@@ -35,7 +35,7 @@ static bool Check_Char_Range(const REBVAL *val, REBCNT limit)
 
     assert(ANY_STRING(val));
 
-    REBCNT len = VAL_LEN_AT(val);
+    REBLEN len = VAL_LEN_AT(val);
     REBCHR(const*) up = VAL_STRING_AT(val);
 
     for (; len > 0; len--) {
@@ -128,7 +128,7 @@ REBNATIVE(bind)
             fail ("Only quoted as BIND target is WORD! (replaces ANY-WORD!)");
     }
 
-    REBCNT flags = REF(only) ? BIND_0 : BIND_DEEP;
+    REBLEN flags = REF(only) ? BIND_0 : BIND_DEEP;
 
     REBU64 bind_types = TS_WORD;
 
@@ -245,7 +245,7 @@ REBNATIVE(in)
     REBVAL *val = ARG(context); // object, error, port, block
     REBVAL *word = ARG(word);
 
-    REBCNT num_quotes = VAL_NUM_QUOTES(word);
+    REBLEN num_quotes = VAL_NUM_QUOTES(word);
     Dequotify(word);
 
     DECLARE_LOCAL (safe);
@@ -253,7 +253,7 @@ REBNATIVE(in)
     if (IS_BLOCK(val) || IS_GROUP(val)) {
         if (IS_WORD(word)) {
             const REBVAL *v;
-            REBCNT i;
+            REBLEN i;
             for (i = VAL_INDEX(val); i < VAL_LEN_HEAD(val); i++) {
                 Get_Simple_Value_Into(
                     safe,
@@ -264,7 +264,7 @@ REBNATIVE(in)
                 v = safe;
                 if (IS_OBJECT(v)) {
                     REBCTX *context = VAL_CONTEXT(v);
-                    REBCNT index = Find_Canon_In_Context(
+                    REBLEN index = Find_Canon_In_Context(
                         context, VAL_WORD_CANON(word), false
                     );
                     if (index != 0)
@@ -292,7 +292,7 @@ REBNATIVE(in)
         RETURN (word);
     }
 
-    REBCNT index = Find_Canon_In_Context(context, VAL_WORD_CANON(word), false);
+    REBLEN index = Find_Canon_In_Context(context, VAL_WORD_CANON(word), false);
     if (index == 0)
         return nullptr;
 
@@ -1043,7 +1043,7 @@ REBNATIVE(as)
         fail (PAR(value));
 
     REBVAL *t = ARG(type);
-    REBCNT quotes = VAL_NUM_QUOTES(t); // number of quotes on type *do* matter
+    REBLEN quotes = VAL_NUM_QUOTES(t); // number of quotes on type *do* matter
     Dequotify(t);
     if (not IS_DATATYPE(t))
         fail (PAR(type));
@@ -1119,7 +1119,7 @@ REBNATIVE(as)
                 fail ("Index at codepoint to convert binary to ANY-STRING!");
 
             REBSTR *str;
-            REBCNT index;
+            REBLEN index;
             if (NOT_SERIES_FLAG(bin, IS_STRING)) {
                 //
                 // If the binary wasn't created as a view on string data to
@@ -1133,7 +1133,7 @@ REBNATIVE(as)
                         fail (Error_Alias_Constrains_Raw());
 
                 bool all_ascii = true;
-                REBCNT num_codepoints = 0;
+                REBLEN num_codepoints = 0;
 
                 index = 0;
 
@@ -1174,7 +1174,7 @@ REBNATIVE(as)
                 index = 0;
 
                 REBCHR(*) cp = STR_HEAD(str);
-                REBCNT len = STR_LEN(str);
+                REBLEN len = STR_LEN(str);
                 while (index < len and cp != at_ptr) {
                     ++index;
                     cp = NEXT_STR(cp);

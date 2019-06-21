@@ -67,7 +67,7 @@ inline static REBYTE *VAL_VECTOR_HEAD(const REBCEL *v) {
     return VAL_BIN_HEAD(VAL(PAYLOAD(Any, v).first.node));
 }
 
-inline static REBCNT VAL_VECTOR_LEN_AT(const REBCEL *v) {
+inline static REBLEN VAL_VECTOR_LEN_AT(const REBCEL *v) {
     assert(CELL_CUSTOM_TYPE(v) == EG_Vector_Type);
     return VAL_LEN_HEAD(VAL_VECTOR_BINARY(v)) / VAL_VECTOR_WIDE(v);
 }

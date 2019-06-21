@@ -287,7 +287,7 @@ REBTYPE(Char)
             return nullptr;
         }
         if (chr == 0) break;
-        chr = cast(REBUNI, 1 + cast(REBCNT, Random_Int(REF(secure)) % chr));
+        chr = cast(REBUNI, 1 + cast(REBLEN, Random_Int(REF(secure)) % chr));
         break; }
 
     default:

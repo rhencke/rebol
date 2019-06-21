@@ -161,7 +161,7 @@ void Value_To_Int64(REBVAL *out, const REBVAL *value, bool no_sign)
         // interface could support BigNums in the future.
 
         REBYTE *bp = VAL_BIN_AT(value);
-        REBCNT n = VAL_LEN_AT(value);
+        REBLEN n = VAL_LEN_AT(value);
         bool negative;
         REBINT fill;
 
@@ -285,7 +285,7 @@ void Value_To_Int64(REBVAL *out, const REBVAL *value, bool no_sign)
     }
     else if (ANY_STRING(value)) {
         REBSIZ size;
-        const REBCNT max_len = VAL_LEN_AT(value); // e.g. "no maximum"
+        const REBLEN max_len = VAL_LEN_AT(value); // e.g. "no maximum"
         const REBYTE *bp = Analyze_String_For_Scan(&size, value, max_len);
         if (
             memchr(bp, '.', size)
@@ -405,7 +405,7 @@ REBTYPE(Integer)
             arg = VAL_CHAR(val2);
         else {
             // Decimal or other numeric second argument:
-            REBCNT n = 0; // use to flag special case
+            REBLEN n = 0; // use to flag special case
             switch (VAL_WORD_SYM(verb)) {
             // Anything added to an integer is same as adding the integer:
             case SYM_ADD:

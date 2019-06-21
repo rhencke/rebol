@@ -35,7 +35,7 @@
 // Ren-C vectors are built on type of BINARY!.  This means that the memory
 // must be read via memcpy() in order to avoid strict aliasing violations.
 //
-REBVAL *Get_Vector_At(RELVAL *out, const REBCEL *vec, REBCNT n)
+REBVAL *Get_Vector_At(RELVAL *out, const REBCEL *vec, REBLEN n)
 {
     REBYTE *data = VAL_VECTOR_HEAD(vec);
 
@@ -112,7 +112,7 @@ REBVAL *Get_Vector_At(RELVAL *out, const REBCEL *vec, REBCNT n)
 }
 
 
-static void Set_Vector_At(const REBCEL *vec, REBCNT n, const RELVAL *set) {
+static void Set_Vector_At(const REBCEL *vec, REBLEN n, const RELVAL *set) {
     assert(IS_INTEGER(set) or IS_DECIMAL(set));  // caller should error
 
     REBYTE *data = VAL_VECTOR_HEAD(vec);
@@ -232,13 +232,13 @@ static void Set_Vector_At(const REBCEL *vec, REBCNT n, const RELVAL *set) {
 
 void Set_Vector_Row(const REBCEL *vec, const REBVAL *blk) // !!! can not be BLOCK!?
 {
-    REBCNT idx = VAL_INDEX(blk);
-    REBCNT len = VAL_LEN_AT(blk);
+    REBLEN idx = VAL_INDEX(blk);
+    REBLEN len = VAL_LEN_AT(blk);
 
     if (IS_BLOCK(blk)) {
         RELVAL *val = VAL_ARRAY_AT(blk);
 
-        REBCNT n = 0;
+        REBLEN n = 0;
         for (; NOT_END(val); val++) {
             //if (n >= ser->tail) Expand_Vector(ser);
 
@@ -250,7 +250,7 @@ void Set_Vector_Row(const REBCEL *vec, const REBVAL *blk) // !!! can not be BLOC
 
         DECLARE_LOCAL (temp);
 
-        REBCNT n = 0;
+        REBLEN n = 0;
         for (; len > 0; len--, idx++) {
             Init_Integer(temp, cast(REBI64, data[idx]));
             Set_Vector_At(vec, n++, temp);
@@ -266,13 +266,13 @@ void Set_Vector_Row(const REBCEL *vec, const REBVAL *blk) // !!! can not be BLOC
 //
 REBARR *Vector_To_Array(const REBVAL *vect)
 {
-    REBCNT len = VAL_LEN_AT(vect);
+    REBLEN len = VAL_LEN_AT(vect);
     if (len <= 0)
         fail (vect);
 
     REBARR *arr = Make_Array(len);
     RELVAL *dest = ARR_HEAD(arr);
-    REBCNT n;
+    REBLEN n;
     for (n = VAL_INDEX(vect); n < VAL_LEN_HEAD(vect); ++n, ++dest)
         Get_Vector_At(dest, vect, n);
 
@@ -298,16 +298,16 @@ REBINT Compare_Vector(const REBCEL *v1, const REBCEL *v2)
     if (non_integer1 != non_integer2)
         fail (Error_Not_Same_Type_Raw()); // !!! is this error necessary?
 
-    REBCNT l1 = VAL_VECTOR_LEN_AT(v1);
-    REBCNT l2 = VAL_VECTOR_LEN_AT(v2);
-    REBCNT len = MIN(l1, l2);
+    REBLEN l1 = VAL_VECTOR_LEN_AT(v1);
+    REBLEN l2 = VAL_VECTOR_LEN_AT(v2);
+    REBLEN len = MIN(l1, l2);
 
     DECLARE_LOCAL(temp1);
     DECLARE_LOCAL(temp2);
     Init_Integer(temp1, 0);
     Init_Integer(temp2, 0);
 
-    REBCNT n;
+    REBLEN n;
     for (n = 0; n < len; n++) {
         Get_Vector_At(temp1, v1, n + VAL_VECTOR_INDEX(v1));
         Get_Vector_At(temp2, v2, n + VAL_VECTOR_INDEX(v2));
@@ -328,14 +328,14 @@ REBINT Compare_Vector(const REBCEL *v1, const REBCEL *v2)
 //
 void Shuffle_Vector(REBVAL *vect, bool secure)
 {
-    REBCNT idx = VAL_VECTOR_INDEX(vect);
+    REBLEN idx = VAL_VECTOR_INDEX(vect);
 
     DECLARE_LOCAL(temp1);
     DECLARE_LOCAL(temp2);
 
-    REBCNT n;
+    REBLEN n;
     for (n = VAL_VECTOR_LEN_AT(vect); n > 1;) {
-        REBCNT k = idx + cast(REBCNT, Random_Int(secure)) % n;
+        REBLEN k = idx + cast(REBLEN, Random_Int(secure)) % n;
         n--;
 
         Get_Vector_At(temp1, vect, k);
@@ -399,7 +399,7 @@ bool Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
     if (not IS_INTEGER(item))
         return false;  // bit size required, no defaulting
     else {
-        REBCNT i = Int32(item);
+        REBLEN i = Int32(item);
         if (i == 8 or i == 16) {
             if (not integral)
                 return false;  // C doesn't have 8 or 16 bit floating points
@@ -423,7 +423,7 @@ bool Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
 
     const REBVAL *iblk;
     if (NOT_END(item) and (IS_BLOCK(item) or IS_BINARY(item))) {
-        REBCNT init_len = VAL_LEN_AT(item);
+        REBLEN init_len = VAL_LEN_AT(item);
         if (IS_BINARY(item) and integral)  // !!! What was this about?
             return false;
         if (init_len > len)  // !!! Expands without error, is this good?
@@ -439,7 +439,7 @@ bool Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
     // internals are implemented.  It's not clear that user-defined types
     // like vectors will be positional.  VAL_VECTOR_INDEX() always 0 for now.
     //
-    REBCNT index = 0;  // default index offset inside returned REBVAL to 0
+    REBLEN index = 0;  // default index offset inside returned REBVAL to 0
     if (NOT_END(item) and IS_INTEGER(item)) {
         index = (Int32s(item, 1) - 1);
         ++item;
@@ -448,7 +448,7 @@ bool Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
     if (NOT_END(item))
         fail ("Too many arguments in MAKE VECTOR! block");
 
-    REBCNT num_bytes = len * (bitsize / 8);
+    REBLEN num_bytes = len * (bitsize / 8);
     REBSER *bin = Make_Binary(num_bytes);
     CLEAR(SER_DATA_RAW(bin), num_bytes);  // !!! 0 bytes -> 0 int/float?
     SET_SERIES_LEN(bin, num_bytes);
@@ -495,7 +495,7 @@ REB_R MAKE_Vector(
             goto bad_make;
 
         REBYTE bitsize = 32;
-        REBCNT num_bytes = (len * bitsize) / 8;
+        REBLEN num_bytes = (len * bitsize) / 8;
         REBSER *bin = Make_Binary(num_bytes);
         CLEAR(SER_DATA_RAW(bin), num_bytes);
         SET_SERIES_LEN(bin, num_bytes);
@@ -547,7 +547,7 @@ void Pick_Vector(REBVAL *out, const REBVAL *value, const REBVAL *picker) {
 
     n += VAL_VECTOR_INDEX(value);
 
-    if (n <= 0 or cast(REBCNT, n) > VAL_VECTOR_LEN_AT(value)) {
+    if (n <= 0 or cast(REBLEN, n) > VAL_VECTOR_LEN_AT(value)) {
         Init_Nulled(out);
         return; // out of range of vector data
     }
@@ -587,7 +587,7 @@ void Poke_Vector_Fail_If_Read_Only(
 
     n += VAL_VECTOR_INDEX(value);
 
-    if (n <= 0 or cast(REBCNT, n) > VAL_VECTOR_LEN_AT(value))
+    if (n <= 0 or cast(REBLEN, n) > VAL_VECTOR_LEN_AT(value))
         fail (Error_Out_Of_Range(picker));
 
     Set_Vector_At(value, n - 1, poke);
@@ -682,8 +682,8 @@ REBTYPE(Vector)
 //
 void MF_Vector(REB_MOLD *mo, const REBCEL *v, bool form)
 {
-    REBCNT len;
-    REBCNT n;
+    REBLEN len;
+    REBLEN n;
     if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL)) {
         len = VAL_VECTOR_LEN_HEAD(v);
         n = 0;
@@ -694,7 +694,7 @@ void MF_Vector(REB_MOLD *mo, const REBCEL *v, bool form)
 
     bool integral = VAL_VECTOR_INTEGRAL(v);
     bool sign = VAL_VECTOR_SIGN(v);
-    REBCNT bits = VAL_VECTOR_BITSIZE(v);
+    REBLEN bits = VAL_VECTOR_BITSIZE(v);
 
     if (not form) {
         enum Reb_Kind kind = integral ? REB_INTEGER : REB_DECIMAL;
@@ -717,7 +717,7 @@ void MF_Vector(REB_MOLD *mo, const REBCEL *v, bool form)
 
     DECLARE_LOCAL (temp);
 
-    REBCNT c = 0;
+    REBLEN c = 0;
     for (; n < VAL_VECTOR_LEN_AT(v); n++) {
 
         Get_Vector_At(temp, v, n);

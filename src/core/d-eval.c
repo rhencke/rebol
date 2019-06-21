@@ -94,7 +94,7 @@ void Dump_Frame_Location(const RELVAL *v, REBFRM *f)
             dump,
             REB_BLOCK,
             SER(f->feed->array),
-            cast(REBCNT, f->feed->index),
+            cast(REBLEN, f->feed->index),
             *specifier
         );
         PROBE(dump);
@@ -120,7 +120,7 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
     SHORTHAND (next, f->feed->value, NEVERNULL(const RELVAL*));
     SHORTHAND (next_gotten, f->feed->gotten, const REBVAL*);
     SHORTHAND (specifier, f->feed->specifier, REBSPC*);
-    SHORTHAND (index, f->feed->index, REBCNT);
+    SHORTHAND (index, f->feed->index, REBLEN);
 
     // See notes on f->feed->gotten about the coherence issues in the face
     // of arbitrary function execution.
@@ -265,7 +265,7 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
 
   #ifdef DEBUG_UTF8_EVERYWHERE
     if (ANY_STRING(f->out)) {
-        REBCNT len = STR_LEN(VAL_SERIES(f->out));
+        REBLEN len = STR_LEN(VAL_SERIES(f->out));
         UNUSED(len); // just one invariant for now, SER_LEN checks it
     }
   #endif

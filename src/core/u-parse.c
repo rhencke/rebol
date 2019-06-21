@@ -66,9 +66,9 @@
 // chains through the stack.  PARSE is left as the only user of the datatype,
 // and should also be converted to the cleaner convention.
 //
-#define REBIXO REBCNT
-#define THROWN_FLAG ((REBCNT)(-1))
-#define END_FLAG ((REBCNT)(-2))
+#define REBIXO REBLEN
+#define THROWN_FLAG ((REBLEN)(-1))
+#define END_FLAG ((REBLEN)(-2))
 
 
 //
@@ -226,7 +226,7 @@ static bool Subparse_Throws(
     // If there's an array for collecting into, there has to be some way of
     // passing it between frames.
     //
-    REBCNT collect_tail;
+    REBLEN collect_tail;
     if (opt_collection) {
         Init_Block(Prep_Stack_Cell(P_COLLECTION_VALUE), opt_collection);
         collect_tail = ARR_LEN(opt_collection);  // roll back here on failure
@@ -461,7 +461,7 @@ REB_R Process_Group_For_Parse(
 //
 static REB_R Parse_One_Rule(
     REBFRM *f,
-    REBCNT pos,
+    REBLEN pos,
     const RELVAL *rule
 ){
     assert(IS_END(P_OUT));
@@ -515,7 +515,7 @@ static REB_R Parse_One_Rule(
         // Hence the return value regarding whether a match occurred or not
         // has to be based on the result that comes back in P_OUT.
 
-        REBCNT pos_before = P_POS;
+        REBLEN pos_before = P_POS;
         P_POS = pos; // modify input position
 
         DECLARE_ARRAY_FEED(subfeed,
@@ -653,8 +653,8 @@ static REB_R Parse_One_Rule(
           case REB_EMAIL:
           case REB_TEXT:
           case REB_BINARY: {
-            REBCNT len;
-            REBCNT index = Find_In_Any_Sequence(
+            REBLEN len;
+            REBLEN index = Find_In_Any_Sequence(
                 &len,
                 P_INPUT_VALUE,
                 rule,
@@ -759,7 +759,7 @@ static REBIXO To_Thru_Block_Rule(
 ) {
     DECLARE_LOCAL (cell); // holds evaluated rules (use frame cell instead?)
 
-    REBCNT pos = P_POS;
+    REBLEN pos = P_POS;
     for (; pos <= SER_LEN(P_INPUT); ++pos) {
         const RELVAL *blk = VAL_ARRAY_HEAD(rule_block);
         for (; NOT_END(blk); blk++) {
@@ -844,7 +844,7 @@ static REBIXO To_Thru_Block_Rule(
                     }
                 }
                 else if (IS_BINARY(rule)) {
-                    REBCNT len = VAL_LEN_AT(rule);
+                    REBLEN len = VAL_LEN_AT(rule);
                     if (0 == Compare_Bytes(
                         BIN_AT(P_INPUT, pos),
                         VAL_BIN_AT(rule),
@@ -903,9 +903,9 @@ static REBIXO To_Thru_Block_Rule(
                         // inefficient in the sense that it forms the tag
                         //
                         REBSTR *formed = Copy_Form_Value(rule, 0);
-                        REBCNT len = STR_LEN(formed);
+                        REBLEN len = STR_LEN(formed);
                         const REBINT skip = 1;
-                        REBCNT i = Find_Str_In_Str(
+                        REBLEN i = Find_Str_In_Str(
                             STR(P_INPUT),
                             pos,
                             SER_LEN(P_INPUT),
@@ -924,9 +924,9 @@ static REBIXO To_Thru_Block_Rule(
                     }
                 }
                 else if (ANY_STRING(rule)) {
-                    REBCNT len = VAL_LEN_AT(rule);
+                    REBLEN len = VAL_LEN_AT(rule);
                     const REBINT skip = 1;
-                    REBCNT i = Find_Str_In_Str(
+                    REBLEN i = Find_Str_In_Str(
                         STR(P_INPUT),
                         pos,
                         SER_LEN(P_INPUT),
@@ -1011,7 +1011,7 @@ static REBIXO To_Thru_Non_Block_Rule(
             flags |= AM_FIND_ONLY; // !!! Is this implied?
         }
 
-        REBCNT i = Find_In_Array(
+        REBLEN i = Find_In_Array(
             ARR(P_INPUT),
             P_POS,
             SER_LEN(P_INPUT),
@@ -1032,8 +1032,8 @@ static REBIXO To_Thru_Non_Block_Rule(
 
     //=//// PARSE INPUT IS A STRING OR BINARY, USE A FIND ROUTINE /////////=//
 
-    REBCNT len;  // e.g. if a TAG!, match length includes < and >
-    REBCNT i = Find_In_Any_Sequence(
+    REBLEN len;  // e.g. if a TAG!, match length includes < and >
+    REBLEN i = Find_In_Any_Sequence(
         &len,
         P_INPUT_VALUE,
         rule,
@@ -1104,7 +1104,7 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
     //
     REBARR *holder;
 
-    REBCNT index;
+    REBLEN index;
     if (P_POS >= SER_LEN(P_INPUT)) {
         //
         // We could short circuit and notice if the rule was END or not, but
@@ -1182,7 +1182,7 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
         return P_POS;  // as failure, hand back original, no advancement
     }
 
-    REBCNT n = VAL_INT32(P_OUT);
+    REBLEN n = VAL_INT32(P_OUT);
     SET_END(P_OUT);  // preserve invariant
     if (n == ARR_LEN(holder)) {
         //
@@ -1272,7 +1272,7 @@ static REB_R Handle_Seek_Rule_Dont_Update_Begin(
         fail (Error_Parse_Series_Raw(specific));
     }
 
-    if (cast(REBCNT, index) > SER_LEN(P_INPUT))
+    if (cast(REBLEN, index) > SER_LEN(P_INPUT))
         P_POS = SER_LEN(P_INPUT);
     else
         P_POS = index;
@@ -1374,7 +1374,7 @@ REBNATIVE(subparse)
     // were not clear; many cases dropped them on the floor in R3-Alpha, and
     // no real resolution exists...see the UNUSED(interrupted) cases.)
     //
-    REBCNT collection_tail = P_COLLECTION ? ARR_LEN(P_COLLECTION) : 0;
+    REBLEN collection_tail = P_COLLECTION ? ARR_LEN(P_COLLECTION) : 0;
     UNUSED(ARG(collection)); // implicitly accessed as P_COLLECTION
 
     assert(IS_END(P_OUT)); // invariant provided by evaluator
@@ -1385,7 +1385,7 @@ REBNATIVE(subparse)
     // annoying to find to inspect in the debugger.  This makes pointers into
     // the value payloads so they can be seen more easily.
     //
-    const REBCNT *pos_debug = &P_POS;
+    const REBLEN *pos_debug = &P_POS;
     (void)pos_debug; // UNUSED() forces corruption in C++11 debug builds
   #endif
 
@@ -1395,8 +1395,8 @@ REBNATIVE(subparse)
 
     DECLARE_LOCAL (save);
 
-    REBCNT start = P_POS; // recovery restart point
-    REBCNT begin = P_POS; // point at beginning of match
+    REBLEN start = P_POS; // recovery restart point
+    REBLEN begin = P_POS; // point at beginning of match
 
     // The loop iterates across each REBVAL's worth of "rule" in the rule
     // block.  Some of these rules just set `flags` and `continue`, so that
@@ -1643,7 +1643,7 @@ REBNATIVE(subparse)
                     else
                         only = false;
 
-                    REBCNT pos_before = P_POS;
+                    REBLEN pos_before = P_POS;
 
                     rule = Get_Parse_Value(save, P_RULE, P_RULE_SPECIFIER);
 
@@ -1715,7 +1715,7 @@ REBNATIVE(subparse)
                             SET_END(P_OUT);  // restore invariant
                             goto next_alternate;  // backtrack collect, seek |
                         }
-                        REBCNT pos_after = VAL_INT32(P_OUT);
+                        REBLEN pos_after = VAL_INT32(P_OUT);
                         SET_END(P_OUT);  // restore invariant
 
                         assert(pos_after >= pos_before);  // 0 or more matches
@@ -1758,7 +1758,7 @@ REBNATIVE(subparse)
                             target = P_COLLECTION;
 
                         if (target) {
-                            REBCNT n;
+                            REBLEN n;
                             for (n = pos_before; n < pos_after; ++n)
                                 Derelativize(
                                     Alloc_Tail_Array(target),
@@ -2312,7 +2312,7 @@ REBNATIVE(subparse)
                     if (i == END_FLAG)
                         P_POS = NOT_FOUND;
                     else
-                        P_POS = cast(REBCNT, i);
+                        P_POS = cast(REBLEN, i);
                     break;
                 }
             }
@@ -2357,7 +2357,7 @@ REBNATIVE(subparse)
             if (count < 0)
                 count = INT32_MAX; // the forever case
 
-            P_POS = cast(REBCNT, i);
+            P_POS = cast(REBLEN, i);
 
             if (i == SER_LEN(P_INPUT) and (flags & PF_ANY_OR_SOME)) {
                 //
@@ -2591,7 +2591,7 @@ REBNATIVE(subparse)
                         DECLARE_LOCAL (specified);
                         Derelativize(specified, rule, P_RULE_SPECIFIER);
 
-                        REBCNT mod_flags = (flags & PF_INSERT) ? 0 : AM_PART;
+                        REBLEN mod_flags = (flags & PF_INSERT) ? 0 : AM_PART;
                         if (
                             not only and
                             Splices_Into_Type_Without_Only(P_TYPE, specified)
@@ -2619,7 +2619,7 @@ REBNATIVE(subparse)
 
                         P_POS = begin;
 
-                        REBCNT mod_flags = (flags & PF_INSERT) ? 0 : AM_PART;
+                        REBLEN mod_flags = (flags & PF_INSERT) ? 0 : AM_PART;
 
                         P_POS = Modify_String_Or_Binary(  // checks read-only
                             P_INPUT_VALUE,
@@ -2735,7 +2735,7 @@ REBNATIVE(parse)
     if (IS_NULLED(D_OUT))
         return nullptr;
 
-    REBCNT progress = VAL_UINT32(D_OUT);
+    REBLEN progress = VAL_UINT32(D_OUT);
     assert(progress <= VAL_LEN_HEAD(ARG(input)));
     Move_Value(D_OUT, ARG(input));
     VAL_INDEX(D_OUT) = progress;

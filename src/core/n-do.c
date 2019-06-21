@@ -533,7 +533,7 @@ REBNATIVE(evaluate)
     switch (VAL_TYPE(source)) {
       case REB_BLOCK:
       case REB_GROUP: {
-        REBCNT index;
+        REBLEN index;
         if (Eval_Step_In_Any_Array_At_Throws(
             D_SPARE,
             &index,
@@ -563,7 +563,7 @@ REBNATIVE(evaluate)
             // array during execution, there will be problems if it is TAKE'n
             // or DO'd while this operation is in progress.
             //
-            REBCNT index;
+            REBLEN index;
             if (Eval_Step_In_Any_Array_At_Throws(
                 SET_END(D_SPARE),
                 &index,

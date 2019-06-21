@@ -886,7 +886,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                 // @ the callsite than any refinements added by a PATH!.
                 //
                 if (IS_SYM_WORD(f->special)) {
-                    REBCNT partial_index = VAL_WORD_INDEX(f->special);
+                    REBLEN partial_index = VAL_WORD_INDEX(f->special);
                     REBSTR *partial_canon = VAL_STORED_CANON(f->special);
 
                     Init_Sym_Word(DS_PUSH(), partial_canon);
@@ -912,7 +912,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                     if (VAL_STORED_CANON(ordered) != param_canon)
                         continue;
 
-                    REBCNT offset = f->arg - FRM_ARGS_HEAD(f);
+                    REBLEN offset = f->arg - FRM_ARGS_HEAD(f);
                     INIT_BINDING(ordered, f->varlist);
                     INIT_WORD_INDEX(ordered, offset + 1);
 

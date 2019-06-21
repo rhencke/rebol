@@ -54,7 +54,7 @@
 // GOB PAYLOAD:
 //
 //     uintptr_t unused;  // free slot for per-gob-value data
-//     REBCNT index;
+//     REBLEN index;
 
 // On the GOB array's REBSER node itself:
 //

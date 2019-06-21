@@ -389,7 +389,7 @@ inline static REBCHR(*) STR_LAST(REBSTR *s) {
     return cp;
 }
 
-inline static REBCNT STR_LEN(REBSTR *s) {
+inline static REBLEN STR_LEN(REBSTR *s) {
     if (Is_Definitely_Ascii(s))
         return STR_SIZE(s);
 
@@ -404,7 +404,7 @@ inline static REBCNT STR_LEN(REBSTR *s) {
     // Have to do it the slow way if it's a symbol series...but hopefully
     // they're not too long (since spaces and newlines are illegal.)
     //
-    REBCNT len = 0;
+    REBLEN len = 0;
     REBCHR(const*) ep = STR_TAIL(s);
     REBCHR(const*) cp = STR_HEAD(s);
     while (cp != ep) {
@@ -414,7 +414,7 @@ inline static REBCNT STR_LEN(REBSTR *s) {
     return len;
 }
 
-inline static REBCNT STR_INDEX_AT(REBSTR *s, REBSIZ offset) {
+inline static REBLEN STR_INDEX_AT(REBSTR *s, REBSIZ offset) {
     if (Is_Definitely_Ascii(s))
         return offset;
 
@@ -433,7 +433,7 @@ inline static REBCNT STR_INDEX_AT(REBSTR *s, REBSIZ offset) {
     // Have to do it the slow way if it's a symbol series...but hopefully
     // they're not too long (since spaces and newlines are illegal.)
     //
-    REBCNT index = 0;
+    REBLEN index = 0;
     REBCHR(const*) ep = cast(REBCHR(const*), BIN_AT(SER(s), offset));
     REBCHR(const*) cp = STR_HEAD(s);
     while (cp != ep) {
@@ -447,20 +447,20 @@ inline static REBCNT STR_INDEX_AT(REBSTR *s, REBSIZ offset) {
 // or SER_USED() (aliased as BIN_LEN(), ARR_LEN(), etc.)  It's rare that you
 // don't actually know which it should be.
 //
-inline static REBCNT SER_LEN(REBSER *s) {  // Generic REBSER length
+inline static REBLEN SER_LEN(REBSER *s) {  // Generic REBSER length
     if (NOT_SERIES_FLAG(s, IS_STRING))
         return SER_USED(s);
     return STR_LEN(STR(s));
 }
 
-inline static void SET_STR_LEN_SIZE(REBSTR *s, REBCNT len, REBSIZ used) {
+inline static void SET_STR_LEN_SIZE(REBSTR *s, REBLEN len, REBSIZ used) {
     assert(not IS_STR_SYMBOL(s));
 
     SET_SERIES_USED(SER(s), used);
     MISC(s).length = len;
 }
 
-inline static void TERM_STR_LEN_SIZE(REBSTR *s, REBCNT len, REBSIZ used) {
+inline static void TERM_STR_LEN_SIZE(REBSTR *s, REBLEN len, REBSIZ used) {
     SET_STR_LEN_SIZE(s, len, used);
     TERM_SEQUENCE(SER(s));
 }
@@ -509,11 +509,11 @@ inline static void Free_Bookmarks_Maybe_Null(REBSTR *s) {
 
         assert(not LINK(SER(bookmark)).bookmarks);
 
-        REBCNT index = BMK_INDEX(bookmark);
+        REBLEN index = BMK_INDEX(bookmark);
         REBSIZ offset = BMK_OFFSET(bookmark);
 
         REBCHR(*) cp = STR_HEAD(s);
-        REBCNT i;
+        REBLEN i;
         for (i = 0; i != index; ++i)
             cp = NEXT_STR(cp);
 
@@ -528,7 +528,7 @@ inline static void Free_Bookmarks_Maybe_Null(REBSTR *s) {
 // iterate much faster, and most of the strings in the system might be able
 // to get away with not having any bookmarks at all.
 //
-inline static REBCHR(*) STR_AT(REBSTR *s, REBCNT at) {
+inline static REBCHR(*) STR_AT(REBSTR *s, REBLEN at) {
     assert(at <= STR_LEN(s));
 
     if (Is_Definitely_Ascii(s)) {  // can't have any false positives
@@ -537,7 +537,7 @@ inline static REBCHR(*) STR_AT(REBSTR *s, REBCNT at) {
     }
 
     REBCHR(*) cp;  // can be used to calculate offset (relative to STR_HEAD())
-    REBCNT index;
+    REBLEN index;
 
     REBBMK *bookmark = nullptr;  // updated at end if not nulled out
     if (not IS_STR_SYMBOL(s))
@@ -550,7 +550,7 @@ inline static REBCHR(*) STR_AT(REBSTR *s, REBCNT at) {
     }
   #endif
 
-    REBCNT len = STR_LEN(s);
+    REBLEN len = STR_LEN(s);
     if (at < len / 2) {
         if (len < sizeof(REBVAL)) {
             if (not IS_STR_SYMBOL(s))
@@ -583,7 +583,7 @@ inline static REBCHR(*) STR_AT(REBSTR *s, REBCNT at) {
     assert(not LINK(bookmark).bookmarks);  // only one for now
 
   blockscope {
-    REBCNT booked = BMK_INDEX(bookmark);
+    REBLEN booked = BMK_INDEX(bookmark);
 
     if (at < booked / 2) {  // !!! when faster to seek from head?
         bookmark = nullptr;
@@ -639,7 +639,7 @@ inline static REBCHR(*) STR_AT(REBSTR *s, REBCNT at) {
 
   #if defined(DEBUG_VERIFY_STR_AT)
     REBCHR(*) check_cp = STR_HEAD(s);
-    REBCNT check_index = 0;
+    REBLEN check_index = 0;
     for (; check_index != at; ++check_index)
         check_cp = NEXT_STR(check_cp);
     assert(check_cp == cp);
@@ -659,7 +659,7 @@ inline static REBSTR *VAL_STRING(const REBCEL *v) {
     return STR(VAL_NODE(v));  // VAL_SERIES() would assert
 }
 
-inline static REBCNT VAL_LEN_HEAD(const REBCEL *v) {
+inline static REBLEN VAL_LEN_HEAD(const REBCEL *v) {
     if (REB_BINARY == CELL_KIND(v))
         return SER_USED(VAL_SERIES(v));  // binaries can alias strings...
     return SER_LEN(VAL_SERIES(v));  // senses strings, not optimal.  :-/
@@ -668,7 +668,7 @@ inline static REBCNT VAL_LEN_HEAD(const REBCEL *v) {
 inline static bool VAL_PAST_END(const REBCEL *v)
    { return VAL_INDEX(v) > VAL_LEN_HEAD(v); }
 
-inline static REBCNT VAL_LEN_AT(const REBCEL *v) {
+inline static REBLEN VAL_LEN_AT(const REBCEL *v) {
     //
     // !!! At present, it is considered "less of a lie" to tell people the
     // length of a series is 0 if its index is actually past the end, than
@@ -693,7 +693,7 @@ inline static REBCHR(*) VAL_STRING_AT(const REBCEL *v) {
 }
 
 inline static REBSIZ VAL_SIZE_LIMIT_AT(
-    REBCNT *length, // length in chars to end (including limit)
+    REBLEN *length, // length in chars to end (including limit)
     const REBCEL *v,
     REBINT limit // -1 for no limit
 ){
@@ -725,7 +725,7 @@ inline static REBSIZ VAL_OFFSET(const RELVAL *v) {
     return VAL_STRING_AT(v) - VAL_STRING_HEAD(v);
 }
 
-inline static REBSIZ VAL_OFFSET_FOR_INDEX(const REBCEL *v, REBCNT index) {
+inline static REBSIZ VAL_OFFSET_FOR_INDEX(const REBCEL *v, REBLEN index) {
     assert(ANY_STRING_KIND(CELL_KIND(v)));
 
     REBCHR(const*) at;
@@ -755,14 +755,14 @@ inline static REBSIZ VAL_OFFSET_FOR_INDEX(const REBCEL *v, REBCNT index) {
 // should probably lock the input series against modification...or at least
 // hold a cache that it throws away whenever it runs a GROUP!.
 
-inline static REBUNI GET_CHAR_AT(REBSTR *s, REBCNT n) {
+inline static REBUNI GET_CHAR_AT(REBSTR *s, REBLEN n) {
     REBCHR(const*) up = STR_AT(s, n);
     REBUNI c;
     NEXT_CHR(&c, up);
     return c;
 }
 
-inline static void SET_CHAR_AT(REBSTR *s, REBCNT n, REBUNI c) {
+inline static void SET_CHAR_AT(REBSTR *s, REBLEN n, REBUNI c) {
     assert(not IS_STR_SYMBOL(s));
     assert(n < STR_LEN(s));
 
@@ -771,8 +771,8 @@ inline static void SET_CHAR_AT(REBSTR *s, REBCNT n, REBUNI c) {
     // If the codepoint we are writing is the same size as the codepoint that
     // is already there, then we can just ues WRITE_CHR() and be done.
     //
-    REBCNT size_old = 1 + trailingBytesForUTF8[*cast(REBYTE*, cp)];
-    REBCNT size_new = Encoded_Size_For_Codepoint(c);
+    REBSIZ size_old = 1 + trailingBytesForUTF8[*cast(REBYTE*, cp)];
+    REBSIZ size_new = Encoded_Size_For_Codepoint(c);
     if (size_new == size_old) {
         // common case... no memory shuffling needed
     }
@@ -789,12 +789,12 @@ inline static void SET_CHAR_AT(REBSTR *s, REBCNT n, REBUNI c) {
     WRITE_CHR(cp, c);
 }
 
-inline static REBCNT Num_Codepoints_For_Bytes(
+inline static REBLEN Num_Codepoints_For_Bytes(
     const REBYTE *start,
     const REBYTE *end
 ){
     assert(end >= start);
-    REBCNT num_chars = 0;
+    REBLEN num_chars = 0;
     REBCHR(const*) cp = cast(REBCHR(const*), start);
     for (; cp != end; ++num_chars)
         cp = NEXT_STR(cp);
@@ -842,9 +842,9 @@ inline static REBINT Hash_String(REBSTR *str)
     { return Hash_UTF8(STR_HEAD(str), STR_SIZE(str)); }
 
 inline static REBINT First_Hash_Candidate_Slot(
-    REBCNT *skip_out,
-    REBCNT hash,
-    REBCNT num_slots
+    REBLEN *skip_out,
+    REBLEN hash,
+    REBLEN num_slots
 ){
     *skip_out = (hash & 0x0000FFFF) % num_slots;
     if (*skip_out == 0)
@@ -860,8 +860,8 @@ inline static REBINT First_Hash_Candidate_Slot(
 
 inline static REBSER *Copy_Sequence_At_Len(
     REBSER *s,
-    REBCNT index,
-    REBCNT len
+    REBLEN index,
+    REBLEN len
 ){
     return Copy_Sequence_At_Len_Extra(s, index, len, 0);
 }

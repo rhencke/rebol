@@ -51,19 +51,19 @@ inline static REBVAL* VAL_QUOTED_PAYLOAD_CELL(const RELVAL *v) {
     return VAL(VAL_NODE(v));
 }
 
-inline static REBCNT VAL_QUOTED_PAYLOAD_DEPTH(const RELVAL *v) {
+inline static REBLEN VAL_QUOTED_PAYLOAD_DEPTH(const RELVAL *v) {
     assert(KIND_BYTE(v) == REB_QUOTED);
     assert(PAYLOAD(Any, v).second.u > 3);  // else quote fits entirely in cell
     return PAYLOAD(Any, v).second.u;
 }
 
-inline static REBCNT VAL_QUOTED_DEPTH(const RELVAL *v) {
+inline static REBLEN VAL_QUOTED_DEPTH(const RELVAL *v) {
     if (KIND_BYTE(v) >= REB_64)  // shallow enough to use type byte trick...
         return KIND_BYTE(v) / REB_64;  // ...see explanation above
     return VAL_QUOTED_PAYLOAD_DEPTH(v);
 }
 
-inline static REBCNT VAL_NUM_QUOTES(const RELVAL *v) {
+inline static REBLEN VAL_NUM_QUOTES(const RELVAL *v) {
     if (not IS_QUOTED(v))
         return 0;
     return VAL_QUOTED_DEPTH(v);
@@ -74,7 +74,7 @@ inline static REBCNT VAL_NUM_QUOTES(const RELVAL *v) {
 //
 inline static RELVAL *Quotify_Core(
     RELVAL *v,
-    REBCNT depth
+    REBLEN depth
 ){
     if (KIND_BYTE(v) == REB_QUOTED) {  // reuse payload, bump count
         assert(PAYLOAD(Any, v).second.u > 3);  // or should've used kind byte
@@ -141,10 +141,10 @@ inline static RELVAL *Quotify_Core(
 #if !defined(CPLUSPLUS_11)
     #define Quotify Quotify_Core
 #else
-    inline static REBVAL *Quotify(REBVAL *v, REBCNT depth)
+    inline static REBVAL *Quotify(REBVAL *v, REBLEN depth)
         { return KNOWN(Quotify_Core(v, depth)); }
 
-    inline static RELVAL *Quotify(RELVAL *v, REBCNT depth)
+    inline static RELVAL *Quotify(RELVAL *v, REBLEN depth)
         { return Quotify_Core(v, depth); }
 #endif
 
@@ -153,10 +153,10 @@ inline static RELVAL *Quotify_Core(
 // do '''X -> ''X, ''X -> 'X or 'X -> X.  Use Unquotify() for the more
 // generic routine, but this is needed by the evaluator most commonly.
 //
-inline static RELVAL *Unquotify_In_Situ(RELVAL *v, REBCNT unquotes)
+inline static RELVAL *Unquotify_In_Situ(RELVAL *v, REBLEN unquotes)
 {
     assert(KIND_BYTE(v) >= REB_64); // not an in-situ quoted value otherwise
-    assert(cast(REBCNT, KIND_BYTE(v) / REB_64) >= unquotes);
+    assert(cast(REBLEN, KIND_BYTE(v) / REB_64) >= unquotes);
     mutable_KIND_BYTE(v) -= REB_64 * unquotes;
     assert(KIND_BYTE(v) % 64 == MIRROR_BYTE(v));
     return v;
@@ -168,14 +168,14 @@ inline static RELVAL *Unquotify_In_Situ(RELVAL *v, REBCNT unquotes)
 // Works on escape levels that fit in the cell (<= 3) as well as those that
 // require a second cell to point at in a REB_QUOTED payload.
 //
-inline static RELVAL *Unquotify_Core(RELVAL *v, REBCNT unquotes) {
+inline static RELVAL *Unquotify_Core(RELVAL *v, REBLEN unquotes) {
     if (unquotes == 0)
         return v;
 
     if (KIND_BYTE(v) != REB_QUOTED)
         return Unquotify_In_Situ(v, unquotes);
 
-    REBCNT depth = VAL_QUOTED_PAYLOAD_DEPTH(v);
+    REBLEN depth = VAL_QUOTED_PAYLOAD_DEPTH(v);
     assert(depth > 3 and depth >= unquotes);
     depth -= unquotes;
 
@@ -203,10 +203,10 @@ inline static RELVAL *Unquotify_Core(RELVAL *v, REBCNT unquotes) {
 #if !defined(CPLUSPLUS_11)
     #define Unquotify Unquotify_Core
 #else
-    inline static REBVAL *Unquotify(REBVAL *v, REBCNT depth)
+    inline static REBVAL *Unquotify(REBVAL *v, REBLEN depth)
         { return KNOWN(Unquotify_Core(v, depth)); }
 
-    inline static RELVAL *Unquotify(RELVAL *v, REBCNT depth)
+    inline static RELVAL *Unquotify(RELVAL *v, REBLEN depth)
         { return Unquotify_Core(v, depth); }
 #endif
 
@@ -224,14 +224,14 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v) {
 }
 
 
-inline static REBCNT Dequotify(RELVAL *v) {
+inline static REBLEN Dequotify(RELVAL *v) {
     if (KIND_BYTE(v) != REB_QUOTED) {
-        REBCNT depth = KIND_BYTE(v) / REB_64;
+        REBLEN depth = KIND_BYTE(v) / REB_64;
         mutable_KIND_BYTE(v) %= REB_64;
         return depth;
     }
 
-    REBCNT depth = VAL_QUOTED_PAYLOAD_DEPTH(v);
+    REBLEN depth = VAL_QUOTED_PAYLOAD_DEPTH(v);
     RELVAL *cell = VAL_QUOTED_PAYLOAD_CELL(v);
     assert(KIND_BYTE(cell) != REB_QUOTED and KIND_BYTE(cell) < REB_64);
 

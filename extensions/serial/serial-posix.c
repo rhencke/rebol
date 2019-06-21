@@ -201,7 +201,7 @@ DEVICE_CMD Open_Serial(REBREQ *req)
     assert(serial->path != NULL);
 
     char path_utf8[MAX_SERIAL_PATH];
-    REBCNT size = rebSpellIntoQ(
+    REBLEN size = rebSpellIntoQ(
         path_utf8,
         MAX_SERIAL_PATH,
         serial->path,

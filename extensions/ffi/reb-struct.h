@@ -199,7 +199,7 @@ inline static bool FLD_IS_ARRAY(REBFLD *f) {
     return true;
 }
 
-inline static REBCNT FLD_DIMENSION(REBFLD *f) {
+inline static REBLEN FLD_DIMENSION(REBFLD *f) {
     assert(FLD_IS_ARRAY(f));
     return VAL_UINT32(FLD_AT(f, IDX_FIELD_DIMENSION));
 }
@@ -207,13 +207,13 @@ inline static REBCNT FLD_DIMENSION(REBFLD *f) {
 inline static ffi_type *FLD_FFTYPE(REBFLD *f)
     { return VAL_HANDLE_POINTER(ffi_type, FLD_AT(f, IDX_FIELD_FFTYPE)); }
 
-inline static REBCNT FLD_OFFSET(REBFLD *f)
+inline static REBLEN FLD_OFFSET(REBFLD *f)
     { return VAL_UINT32(FLD_AT(f, IDX_FIELD_OFFSET)); }
 
-inline static REBCNT FLD_WIDE(REBFLD *f)
+inline static REBLEN FLD_WIDE(REBFLD *f)
     { return VAL_UINT32(FLD_AT(f, IDX_FIELD_WIDE)); }
 
-inline static REBCNT FLD_LEN_BYTES_TOTAL(REBFLD *f) {
+inline static REBLEN FLD_LEN_BYTES_TOTAL(REBFLD *f) {
     if (FLD_IS_ARRAY(f))
         return FLD_WIDE(f) * FLD_DIMENSION(f);
     return FLD_WIDE(f);
@@ -250,7 +250,7 @@ inline static REBARR *STU_FIELDLIST(REBSTU *stu) {
     return FLD_FIELDLIST(STU_SCHEMA(stu));
 }
 
-inline static REBCNT STU_SIZE(REBSTU *stu) {
+inline static REBLEN STU_SIZE(REBSTU *stu) {
     return FLD_WIDE(STU_SCHEMA(stu));
 }
 
@@ -298,7 +298,7 @@ inline static REBYTE *VAL_STRUCT_DATA_AT(const RELVAL *v) {
 }
 
 
-inline static REBCNT STU_DATA_LEN(REBSTU *stu) {
+inline static REBLEN STU_DATA_LEN(REBSTU *stu) {
     if (not IS_SER_ARRAY(stu))
         return BIN_LEN(stu);
 
@@ -307,7 +307,7 @@ inline static REBCNT STU_DATA_LEN(REBSTU *stu) {
     return VAL_HANDLE_LEN(handle);
 }
 
-inline static REBCNT VAL_STRUCT_DATA_LEN(const RELVAL *v) {
+inline static REBLEN VAL_STRUCT_DATA_LEN(const RELVAL *v) {
     return STU_DATA_LEN(VAL_STRUCT(v));
 }
 
@@ -436,10 +436,10 @@ inline static REBACT *RIN_CALLBACK_ACTION(REBRIN *r) {
 inline static REBVAL *RIN_RET_SCHEMA(REBRIN *r)
     { return KNOWN(RIN_AT(r, IDX_ROUTINE_RET_SCHEMA)); }
 
-inline static REBCNT RIN_NUM_FIXED_ARGS(REBRIN *r)
+inline static REBLEN RIN_NUM_FIXED_ARGS(REBRIN *r)
     { return VAL_LEN_HEAD(RIN_AT(r, IDX_ROUTINE_ARG_SCHEMAS)); }
 
-inline static REBVAL *RIN_ARG_SCHEMA(REBRIN *r, REBCNT n) { // 0-based index
+inline static REBVAL *RIN_ARG_SCHEMA(REBRIN *r, REBLEN n) { // 0-based index
     return KNOWN(VAL_ARRAY_AT_HEAD(RIN_AT(r, IDX_ROUTINE_ARG_SCHEMAS), n));
 }
 

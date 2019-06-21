@@ -34,12 +34,12 @@
 //
 REBARR *Copy_Array_At_Extra_Shallow(
     REBARR *original,
-    REBCNT index,
+    REBLEN index,
     REBSPC *specifier,
-    REBCNT extra,
+    REBLEN extra,
     REBFLGS flags
 ){
-    REBCNT len = ARR_LEN(original);
+    REBLEN len = ARR_LEN(original);
 
     if (index > len)
         return Make_Array_For_Copy(extra, flags, original);
@@ -50,7 +50,7 @@ REBARR *Copy_Array_At_Extra_Shallow(
 
     RELVAL *src = ARR_AT(original, index);
     RELVAL *dest = ARR_HEAD(copy);
-    REBCNT count = 0;
+    REBLEN count = 0;
     for (; count < len; ++count, ++dest, ++src)
         Derelativize(dest, src, specifier);
 
@@ -68,9 +68,9 @@ REBARR *Copy_Array_At_Extra_Shallow(
 //
 REBARR *Copy_Array_At_Max_Shallow(
     REBARR *original,
-    REBCNT index,
+    REBLEN index,
     REBSPC *specifier,
-    REBCNT max
+    REBLEN max
 ){
     const REBFLGS flags = 0;
 
@@ -82,7 +82,7 @@ REBARR *Copy_Array_At_Max_Shallow(
 
     REBARR *copy = Make_Array_For_Copy(max, flags, original);
 
-    REBCNT count = 0;
+    REBLEN count = 0;
     const RELVAL *src = ARR_AT(original, index);
     RELVAL *dest = ARR_HEAD(copy);
     for (; count < max; ++count, ++src, ++dest)
@@ -103,13 +103,13 @@ REBARR *Copy_Array_At_Max_Shallow(
 REBARR *Copy_Values_Len_Extra_Shallow_Core(
     const RELVAL *head,
     REBSPC *specifier,
-    REBCNT len,
-    REBCNT extra,
+    REBLEN len,
+    REBLEN extra,
     REBFLGS flags
 ){
     REBARR *a = Make_Array_Core(len + extra, flags);
 
-    REBCNT count = 0;
+    REBLEN count = 0;
     const RELVAL *src = head;
     RELVAL *dest = ARR_HEAD(a);
     for (; count < len; ++count, ++src, ++dest) {
@@ -147,7 +147,7 @@ void Clonify(
     // now err on the side of correctness.  Unescape the value while cloning
     // and then escape it back.
     //
-    REBCNT num_quotes = VAL_NUM_QUOTES(v);
+    REBLEN num_quotes = VAL_NUM_QUOTES(v);
     Dequotify(v);
 
     enum Reb_Kind kind = cast(enum Reb_Kind, KIND_BYTE_UNCHECKED(v));
@@ -233,17 +233,17 @@ void Clonify(
 //
 static REBARR *Copy_Array_Core_Managed_Inner_Loop(
     REBARR *original,
-    REBCNT index,
+    REBLEN index,
     REBSPC *specifier,
-    REBCNT tail,
-    REBCNT extra, // currently no one uses--would it also apply deep (?)
+    REBLEN tail,
+    REBLEN extra, // currently no one uses--would it also apply deep (?)
     REBFLGS flags,
     REBU64 types
 ){
     assert(index <= tail and tail <= ARR_LEN(original));
     assert(flags & NODE_FLAG_MANAGED);
 
-    REBCNT len = tail - index;
+    REBLEN len = tail - index;
 
     // Currently we start by making a shallow copy and then adjust it
 
@@ -251,7 +251,7 @@ static REBARR *Copy_Array_Core_Managed_Inner_Loop(
 
     RELVAL *src = ARR_AT(original, index);
     RELVAL *dest = ARR_HEAD(copy);
-    REBCNT count = 0;
+    REBLEN count = 0;
     for (; count < len; ++count, ++dest, ++src) {
         Clonify(
             Derelativize(dest, src, specifier),
@@ -277,10 +277,10 @@ static REBARR *Copy_Array_Core_Managed_Inner_Loop(
 //
 REBARR *Copy_Array_Core_Managed(
     REBARR *original,
-    REBCNT index,
+    REBLEN index,
     REBSPC *specifier,
-    REBCNT tail,
-    REBCNT extra,
+    REBLEN tail,
+    REBLEN extra,
     REBFLGS flags,
     REBU64 types
 ){

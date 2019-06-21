@@ -195,7 +195,7 @@ REB_R Compose_To_Stack_Core(
             continue;
         }
 
-        REBCNT quotes = VAL_NUM_QUOTES(*v);
+        REBLEN quotes = VAL_NUM_QUOTES(*v);
 
         bool doubled_group = false;  // override predicate with ((...))
 

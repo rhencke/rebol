@@ -41,11 +41,11 @@ struct Reb_State {
     REBDSP dsp;
     struct Reb_Chunk *top_chunk;
     REBFRM *frame;
-    REBCNT guarded_len;
+    REBLEN guarded_len;
     REBCTX *error;
 
-    REBCNT manuals_len; // Where GC_Manuals was when state started
-    REBCNT mold_buf_len;
-    REBCNT mold_buf_size;
-    REBCNT mold_loop_tail;
+    REBLEN manuals_len; // Where GC_Manuals was when state started
+    REBLEN mold_buf_len;
+    REBSIZ mold_buf_size;
+    REBLEN mold_loop_tail;
 };

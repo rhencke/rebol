@@ -57,12 +57,12 @@ REBINT CT_Binary(const REBCEL *a, const REBCEL *b, REBINT mode)
 ***********************************************************************/
 
 
-static void reverse_binary(REBVAL *v, REBCNT len)
+static void reverse_binary(REBVAL *v, REBLEN len)
 {
     REBYTE *bp = VAL_BIN_AT(v);
 
-    REBCNT n = 0;
-    REBCNT m = len - 1;
+    REBLEN n = 0;
+    REBLEN m = len - 1;
     for (; n < len / 2; n++, m--) {
         REBYTE b = bp[n];
         bp[n] = bp[m];
@@ -74,18 +74,18 @@ static void reverse_binary(REBVAL *v, REBCNT len)
 //
 //  find_binary: C
 //
-REBCNT find_binary(
-    REBCNT *size,  // match size (if TAG! pattern, not VAL_LEN_AT(pattern))
+REBLEN find_binary(
+    REBLEN *size,  // match size (if TAG! pattern, not VAL_LEN_AT(pattern))
     REBSER *bin,
-    REBCNT index,
-    REBCNT end,
+    REBLEN index,
+    REBLEN end,
     const RELVAL *pattern,
-    REBCNT flags,
+    REBLEN flags,
     REBINT skip
 ) {
     assert(end >= index);
 
-    REBCNT start;
+    REBLEN start;
     if (skip < 0)
         start = 0;
     else
@@ -98,7 +98,7 @@ REBCNT find_binary(
         REBSTR *formed = nullptr;
 
         REBYTE *bp2;
-        REBCNT len2;
+        REBLEN len2;
         if (not IS_TEXT(pattern)) { // !!! for TAG!, but what about FILE! etc?
             formed = Copy_Form_Value(pattern, 0);
             len2 = STR_LEN(formed);
@@ -114,7 +114,7 @@ REBCNT find_binary(
         if (*size > end - index)  // series not long enough for pattern
             return NOT_FOUND;
 
-        REBCNT result = Find_Str_In_Bin(
+        REBLEN result = Find_Str_In_Bin(
             bin,
             start,
             bp2,
@@ -214,11 +214,11 @@ static REBSER *Make_Binary_BE64(const REBVAL *arg)
     }
 
 #ifdef ENDIAN_LITTLE
-    REBCNT n;
+    REBLEN n;
     for (n = 0; n < 8; ++n)
         bp[n] = cp[7 - n];
 #elif defined(ENDIAN_BIG)
-    REBCNT n;
+    REBLEN n;
     for (n = 0; n < 8; ++n)
         bp[n] = cp[n];
 #else
@@ -411,11 +411,11 @@ static void Sort_Binary(
 
     REBFLGS thunk = 0;
 
-    REBCNT len = Part_Len_May_Modify_Index(binary, part);  // length of sort
+    REBLEN len = Part_Len_May_Modify_Index(binary, part);  // length of sort
     if (len <= 1)
         return;
 
-    REBCNT skip;
+    REBLEN skip;
     if (IS_BLANK(skipv))
         skip = 1;
     else {
@@ -424,7 +424,7 @@ static void Sort_Binary(
             fail (skipv);
     }
 
-    REBCNT size = 1;
+    REBSIZ size = 1;
     if (skip > 1) {
         len /= skip;
         size *= skip;
@@ -472,7 +472,7 @@ REB_R PD_Binary(
     if (not opt_setval) { // PICK-ing
         if (IS_INTEGER(picker)) {
             REBINT n = Int32(picker) + VAL_INDEX(pvs->out) - 1;
-            if (n < 0 or cast(REBCNT, n) >= SER_LEN(ser))
+            if (n < 0 or cast(REBLEN, n) >= SER_LEN(ser))
                 return nullptr;
 
             Init_Integer(pvs->out, *BIN_AT(ser, n));
@@ -490,7 +490,7 @@ REB_R PD_Binary(
         return R_UNHANDLED;
 
     REBINT n = Int32(picker) + VAL_INDEX(pvs->out) - 1;
-    if (n < 0 or cast(REBCNT, n) >= SER_LEN(ser))
+    if (n < 0 or cast(REBLEN, n) >= SER_LEN(ser))
         fail (Error_Out_Of_Range(picker));
 
     REBINT c;
@@ -505,7 +505,7 @@ REB_R PD_Binary(
             return R_UNHANDLED;
     }
     else if (ANY_BINSTR(opt_setval)) {
-        REBCNT i = VAL_INDEX(opt_setval);
+        REBLEN i = VAL_INDEX(opt_setval);
         if (i >= VAL_LEN_HEAD(opt_setval))
             fail (opt_setval);
 
@@ -532,7 +532,7 @@ void MF_Binary(REB_MOLD *mo, const REBCEL *v, bool form)
     if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL) and VAL_INDEX(v) != 0)
         Pre_Mold(mo, v); // #[binary!
 
-    REBCNT len = VAL_LEN_AT(v);
+    REBLEN len = VAL_LEN_AT(v);
 
     switch (Get_System_Int(SYS_OPTIONS, OPTIONS_BINARY_BASE, 16)) {
       default:
@@ -606,7 +606,7 @@ REBTYPE(Binary)
             // !!! Doesn't pay attention...all binary appends are /ONLY
         }
 
-        REBCNT len; // length of target
+        REBLEN len; // length of target
         if (VAL_WORD_SYM(verb) == SYM_CHANGE)
             len = Part_Len_May_Modify_Index(v, ARG(part));
         else
@@ -652,18 +652,18 @@ REBTYPE(Binary)
         if (REF(part))
             tail = Part_Tail_May_Modify_Index(v, ARG(part));
 
-        REBCNT skip;
+        REBLEN skip;
         if (REF(skip))
             skip = Part_Len_May_Modify_Index(v, ARG(part));
         else
             skip = 1;
 
-        REBCNT len;
-        REBCNT ret = find_binary(
+        REBLEN len;
+        REBLEN ret = find_binary(
             &len, VAL_SERIES(v), index, tail, pattern, flags, skip
         );
 
-        if (ret >= cast(REBCNT, tail))
+        if (ret >= cast(REBLEN, tail))
             return nullptr;
 
         if (sym == SYM_FIND) {
@@ -673,7 +673,7 @@ REBTYPE(Binary)
         }
 
         ret++;
-        if (ret >= cast(REBCNT, tail))
+        if (ret >= cast(REBLEN, tail))
             return nullptr;
 
         return Init_Integer(D_OUT, *BIN_AT(VAL_SERIES(v), ret)); }
@@ -704,7 +704,7 @@ REBTYPE(Binary)
                 len = tail;
             }
             else
-                VAL_INDEX(v) = cast(REBCNT, tail - len);
+                VAL_INDEX(v) = cast(REBLEN, tail - len);
         }
 
         if (cast(REBINT, VAL_INDEX(v)) >= tail) {
@@ -745,7 +745,7 @@ REBTYPE(Binary)
         if (index == 0 and IS_SER_DYNAMIC(ser))
             Unbias_Series(ser, false);
 
-        TERM_SEQUENCE_LEN(ser, cast(REBCNT, index));
+        TERM_SEQUENCE_LEN(ser, cast(REBLEN, index));
         RETURN (v); }
 
     //-- Creation:
@@ -834,7 +834,7 @@ REBTYPE(Binary)
             fail (Error_Overflow_Raw());
 
         while (amount != 0) {
-            REBCNT wheel = VAL_LEN_HEAD(v) - 1;
+            REBLEN wheel = VAL_LEN_HEAD(v) - 1;
             while (true) {
                 REBYTE *b = VAL_BIN_AT_HEAD(v, wheel);
                 if (amount > 0) {
@@ -934,7 +934,7 @@ REBTYPE(Binary)
             if (index >= tail)
                 return Init_Blank(D_OUT);
 
-            index += cast(REBCNT, Random_Int(REF(secure))) % (tail - index);
+            index += cast(REBLEN, Random_Int(REF(secure))) % (tail - index);
             return Init_Integer(D_OUT, *VAL_BIN_AT_HEAD(v, index)); // PICK
         }
 

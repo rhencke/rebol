@@ -51,7 +51,7 @@ inline static REBYTE *VAL_IMAGE_HEAD(const REBCEL *v) {
     return SER_DATA_RAW(VAL_BINARY(VAL_IMAGE_BIN(v)));
 }
 
-inline static REBYTE *VAL_IMAGE_AT_HEAD(const REBCEL *v, REBCNT pos) {
+inline static REBYTE *VAL_IMAGE_AT_HEAD(const REBCEL *v, REBLEN pos) {
     return VAL_IMAGE_HEAD(v) + (pos * 4);
 }
 
@@ -69,11 +69,11 @@ inline static REBYTE *VAL_IMAGE_AT(const REBCEL *v) {
     return VAL_IMAGE_AT_HEAD(v, VAL_IMAGE_POS(v));
 }
 
-inline static REBCNT VAL_IMAGE_LEN_HEAD(const REBCEL *v) {
+inline static REBLEN VAL_IMAGE_LEN_HEAD(const REBCEL *v) {
     return VAL_IMAGE_HEIGHT(v) * VAL_IMAGE_WIDTH(v);
 }
 
-inline static REBCNT VAL_IMAGE_LEN_AT(const REBCEL *v) {
+inline static REBLEN VAL_IMAGE_LEN_AT(const REBCEL *v) {
     if (VAL_IMAGE_POS(v) >= VAL_IMAGE_LEN_HEAD(v))
         return 0;  // avoid negative position
     return VAL_IMAGE_LEN_HEAD(v) - VAL_IMAGE_POS(v);
@@ -91,8 +91,8 @@ inline static bool IS_IMAGE(const RELVAL *v) {
 inline static REBVAL *Init_Image(
     RELVAL *out,
     REBSER *bin,
-    REBCNT width,
-    REBCNT height
+    REBLEN width,
+    REBLEN height
 ){
     assert(GET_SERIES_FLAG(bin, MANAGED));
 
@@ -109,7 +109,7 @@ inline static REBVAL *Init_Image(
     return KNOWN(out);
 }
 
-inline static void RESET_IMAGE(REBYTE *p, REBCNT num_pixels) {
+inline static void RESET_IMAGE(REBYTE *p, REBLEN num_pixels) {
     REBYTE *start = p;
     REBYTE *stop = start + (num_pixels * 4);
     while (start < stop) {
@@ -122,7 +122,7 @@ inline static void RESET_IMAGE(REBYTE *p, REBCNT num_pixels) {
 
 // Creates WxH image, black pixels, all opaque.
 //
-inline static REBVAL *Init_Image_Black_Opaque(RELVAL *out, REBCNT w, REBCNT h)
+inline static REBVAL *Init_Image_Black_Opaque(RELVAL *out, REBLEN w, REBLEN h)
 {
     REBSIZ size = (w * h) * 4;  // RGBA pixels, 4 bytes each
     REBBIN *bin = Make_Binary(size);

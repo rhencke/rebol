@@ -159,7 +159,7 @@
 
 inline static bool SAME_SYM_NONZERO(REBSYM a, REBSYM b) {
     assert(a != SYM_0 and b != SYM_0);
-    return cast(REBCNT, a) == cast(REBCNT, b);
+    return cast(REBLEN, a) == cast(REBLEN, b);
 }
 
 inline static REBSTR *STR_CANON(REBSTR *s) {
@@ -179,9 +179,9 @@ inline static OPT_REBSYM STR_SYMBOL(REBSTR *s) {
 }
 
 inline static REBSTR *Canon(REBSYM sym) {
-    assert(cast(REBCNT, sym) != 0);
-    assert(cast(REBCNT, sym) < SER_LEN(PG_Symbol_Canons));
-    return *SER_AT(REBSTR*, PG_Symbol_Canons, cast(REBCNT, sym));
+    assert(cast(REBLEN, sym) != 0);
+    assert(cast(REBLEN, sym) < SER_LEN(PG_Symbol_Canons));
+    return *SER_AT(REBSTR*, PG_Symbol_Canons, cast(REBLEN, sym));
 }
 
 inline static bool SAME_STR(REBSTR *s1, REBSTR *s2) {
@@ -235,18 +235,18 @@ inline static OPT_REBSYM VAL_WORD_SYM(const REBCEL *v) {
 #define INIT_WORD_INDEX_UNCHECKED(v,i) \
     PAYLOAD(Any, (v)).second.i32 = cast(REBINT, i)
 
-inline static void INIT_WORD_INDEX(RELVAL *v, REBCNT i) {
+inline static void INIT_WORD_INDEX(RELVAL *v, REBLEN i) {
   #if !defined(NDEBUG)
     INIT_WORD_INDEX_Extra_Checks_Debug(v, i); // not inline, needs FRM_PHASE()
   #endif
     INIT_WORD_INDEX_UNCHECKED(v, i);
 }
 
-inline static REBCNT VAL_WORD_INDEX(const REBCEL *v) {
+inline static REBLEN VAL_WORD_INDEX(const REBCEL *v) {
     assert(IS_WORD_BOUND(v));
     REBINT i = PAYLOAD(Any, v).second.i32;
     assert(i > 0);
-    return cast(REBCNT, i);
+    return cast(REBLEN, i);
 }
 
 inline static void Unbind_Any_Word(RELVAL *v) {
@@ -280,7 +280,7 @@ inline static REBVAL *Init_Any_Word_Bound(
     enum Reb_Kind type,
     REBSTR *spelling,
     REBCTX *context,
-    REBCNT index
+    REBLEN index
 ){
     RESET_CELL(out, type, CELL_FLAG_FIRST_IS_NODE);
     INIT_VAL_NODE(out, spelling);
@@ -301,7 +301,7 @@ inline static REBVAL *Init_Any_Word_Bound(
 inline static const REBYTE *VAL_BYTES_LIMIT_AT(
     REBSIZ *size_out,
     const RELVAL *v,
-    REBCNT limit
+    REBLEN limit
 ){
     if (limit == UNKNOWN || limit > VAL_LEN_AT(v))
         limit = VAL_LEN_AT(v);
@@ -353,7 +353,7 @@ inline static const REBYTE *VAL_UTF8_AT(REBSIZ *size_out, const RELVAL *v)
     // the debug build, though perhaps consider a fail() in the release build.
     //
   #if !defined(NDEBUG)
-    REBCNT n;
+    REBLEN n;
     for (n = 0; n < utf8_size; ++n)
         assert(utf8[n] != '\0');
   #endif

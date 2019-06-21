@@ -2,13 +2,10 @@ REBOL []
 
 init: %ext-locale-init.reb
 inp: %ISO-639-2_utf-8.txt
-cnt: read inp
-if #{EFBBBF} = to binary! copy/part cnt 3 [ ;UTF8 BOM
-    cnt: skip cnt 3
+count: read inp
+if #{EFBBBF} = to binary! copy/part count 3 [  ; UTF-8 BOM
+    count: skip count 3
 ]
-
-;cnt: to text! cnt
-;print ["string cnt BOM:" mold copy/part cnt 3]
 
 iso-639-table: make map! 1024
 
@@ -56,13 +53,13 @@ parse cnt [
 
 init-code: to text! read init
 space: charset " ^-^M^/"
-iso-639-table-cnt: find mold iso-639-table #"["
+iso-639-table-count: find mold iso-639-table #"["
 parse init-code [
     thru "iso-639-table:"
     to #"["
     change [
          #"[" thru #"]"
-    ] iso-639-table-cnt
+    ] iso-639-table-count
     to end
 ] else [
     fail "Failed to update iso-639-table"

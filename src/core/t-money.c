@@ -34,7 +34,7 @@
 const REBYTE *Scan_Money(
     RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
-    REBCNT len
+    REBLEN len
 ) {
     TRASH_CELL_IF_DEBUG(out);
 
@@ -163,7 +163,7 @@ void Bin_To_Money_May_Fail(REBVAL *result, const REBVAL *val)
     if (not IS_BINARY(val))
         fail (val);
 
-    REBCNT len = VAL_LEN_AT(val);
+    REBLEN len = VAL_LEN_AT(val);
     if (len > 12)
         len = 12;
 

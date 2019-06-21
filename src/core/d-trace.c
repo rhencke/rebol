@@ -60,7 +60,7 @@ REBINT Eval_Depth(void)
 //
 //  Frame_At_Depth: C
 //
-REBFRM *Frame_At_Depth(REBCNT n)
+REBFRM *Frame_At_Depth(REBLEN n)
 {
     REBFRM *frame = FS_TOP;
 

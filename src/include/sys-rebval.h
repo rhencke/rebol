@@ -450,7 +450,7 @@ struct Reb_Any_Payload  // generic, for adding payloads after-the-fact
 };
 
 struct Reb_Bookmark_Payload {   // see %sys-string.h (used w/REB_X_BOOKMARK)
-    REBCNT index;
+    REBLEN index;
     REBSIZ offset;
 };
 
@@ -488,11 +488,11 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
     //
     // ANY-SERIES!  // see %sys-series.h
     //     REBSER *rebser;  // vector/double-ended-queue of equal-sized items
-    //     REBCNT index;  // 0-based position (e.g. 0 means Rebol index 1)
+    //     REBLEN index;  // 0-based position (e.g. 0 means Rebol index 1)
     //
     // QUOTED!  // see %sys-quoted.h
     //     REBVAL *paired;  // paired value handle
-    //     REBCNT depth;  // how deep quoting level is (> 3 if payload needed)
+    //     REBLEN depth;  // how deep quoting level is (> 3 if payload needed)
     //
     // ACTION!  // see %sys-action.h
     //     REBARR *paramlist;  // has MISC.meta, LINK.underlying

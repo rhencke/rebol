@@ -91,9 +91,9 @@
 // techniques might use an invalid UTF-8 character as an end-of-buffer signal
 // and notice it during writes, how END markers are used by the data stack.
 //
-REBYTE *Prep_Mold_Overestimated(REB_MOLD *mo, REBCNT num_bytes)
+REBYTE *Prep_Mold_Overestimated(REB_MOLD *mo, REBLEN num_bytes)
 {
-    REBCNT tail = STR_LEN(mo->series);
+    REBLEN tail = STR_LEN(mo->series);
     EXPAND_SERIES_TAIL(SER(mo->series), num_bytes);  // terminates at guess
     return BIN_AT(SER(mo->series), tail);
 }
@@ -201,9 +201,9 @@ void New_Indented_Line(REB_MOLD *mo)
 //
 //  Find_Pointer_In_Series: C
 //
-REBCNT Find_Pointer_In_Series(REBSER *s, void *p)
+REBLEN Find_Pointer_In_Series(REBSER *s, void *p)
 {
-    REBCNT index = 0;
+    REBLEN index = 0;
     for (; index < SER_LEN(s); ++index) {
         if (*SER_AT(void*, s, index) == p)
             return index;
@@ -244,7 +244,7 @@ void Drop_Pointer_From_Series(REBSER *s, void *p)
 void Mold_Array_At(
     REB_MOLD *mo,
     REBARR *a,
-    REBCNT index,
+    REBLEN index,
     const char *sep
 ){
     // Recursion check:
@@ -313,7 +313,7 @@ void Mold_Array_At(
 void Form_Array_At(
     REB_MOLD *mo,
     REBARR *array,
-    REBCNT index,
+    REBLEN index,
     REBCTX *opt_context
 ){
     // Form a series (part_mold means mold non-string values):
@@ -421,11 +421,11 @@ void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, bool form)
     // Mold hooks take a REBCEL* and not a RELVAL*, so they expect any literal
     // output to have already been done.
 
-    REBCNT depth = VAL_NUM_QUOTES(v);
+    REBLEN depth = VAL_NUM_QUOTES(v);
     const REBCEL *cell = VAL_UNESCAPED(v);
     enum Reb_Kind kind = CELL_KIND(cell);
 
-    REBCNT i;
+    REBLEN i;
     for (i = 0; i < depth; ++i)
         Append_Ascii(mo->series, "'");
 
@@ -487,7 +487,7 @@ REBSTR *Copy_Mold_Or_Form_Value(const RELVAL *v, REBFLGS opts, bool form)
 bool Form_Reduce_Throws(
     REBVAL *out,
     REBARR *array,
-    REBCNT index,
+    REBLEN index,
     REBSPC *specifier,
     const REBVAL *delimiter
 ){
@@ -598,7 +598,7 @@ void Push_Mold(REB_MOLD *mo)
         // the contents, as there may be important mold data behind the
         // ->start index in the stack!
         //
-        REBCNT len = SER_LEN(s);
+        REBLEN len = SER_LEN(s);
         Remake_Series(
             s,
             SER_USED(s) + MIN_COMMON,
@@ -625,7 +625,7 @@ void Push_Mold(REB_MOLD *mo)
             if (idigits < 0)
                 mo->digits = 0;
             else if (idigits > MAX_DIGITS)
-                mo->digits = cast(REBCNT, idigits);
+                mo->digits = cast(REBLEN, idigits);
             else
                 mo->digits = MAX_DIGITS;
         }
@@ -692,7 +692,7 @@ REBSTR *Pop_Molded_String(REB_MOLD *mo)
     Throttle_Mold(mo);
 
     REBSIZ size = STR_SIZE(mo->series) - mo->offset;
-    REBCNT len = STR_LEN(mo->series) - mo->index;
+    REBLEN len = STR_LEN(mo->series) - mo->index;
 
     REBSTR *popped = Make_String(size);
     memcpy(BIN_HEAD(SER(popped)), BIN_AT(SER(mo->series), mo->offset), size);
@@ -760,6 +760,7 @@ void Drop_Mold_Core(
 ){
     if (mo->series == nullptr) {  // there was no Push_Mold()
         assert(not_pushed_ok);
+        UNUSED(not_pushed_ok);
         return;
     }
 
@@ -779,7 +780,7 @@ void Drop_Mold_Core(
 //
 //  Startup_Mold: C
 //
-void Startup_Mold(REBCNT size)
+void Startup_Mold(REBLEN size)
 {
     TG_Mold_Stack = Make_Series(10, sizeof(void*));
 

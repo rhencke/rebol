@@ -15,8 +15,8 @@ fread: make routine! compose [[ ptr [pointer] size [int64] nmemb [int64] stream 
 fseek: make routine! compose [[ fp [pointer] offset [int64] where [int32] return: [int32]] (libc) "fseek"]
 
 fp: fopen "/tmp/test.txt" "w+"
-cnt: "hello world"
-fwrite cnt length of cnt 1 fp
+hello: "hello world"
+fwrite hello length of hello 1 fp
 
 buf: make struct! [s [uint8 [128]]]
 fseek fp 0 0
@@ -26,7 +26,7 @@ print ["read:" to text! values of buf "(" values of buf ")"]
 a: "XXXXXXXXXXXXXX"
 fseek fp 0 0
 fread a length of a 1 fp
-print ["read: " a]
+print ["read:" a]
 fclose fp
 
 ;struct tm {

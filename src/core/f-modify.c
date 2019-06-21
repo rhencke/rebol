@@ -30,19 +30,19 @@
 //
 // Returns new dst_idx
 //
-REBCNT Modify_Array(
+REBLEN Modify_Array(
     REBSTR *verb,           // INSERT, APPEND, CHANGE
     REBARR *dst_arr,        // target
-    REBCNT dst_idx,         // position
+    REBLEN dst_idx,         // position
     const REBVAL *src_val,  // source
-    REBCNT flags,           // AM_SPLICE, AM_PART
+    REBLEN flags,           // AM_SPLICE, AM_PART
     REBINT dst_len,         // length to remove
     REBINT dups             // dup count
 ){
     REBSYM sym = STR_SYMBOL(verb);
     assert(sym == SYM_INSERT or sym == SYM_CHANGE or sym == SYM_APPEND);
 
-    REBCNT tail = ARR_LEN(dst_arr);
+    REBLEN tail = ARR_LEN(dst_arr);
 
     const RELVAL *src_rel;
     REBSPC *specifier;
@@ -223,7 +223,7 @@ REBCNT Modify_Array(
 // of VAL_INDEX() is different.  So in addition to the detection of the
 // SERIES_FLAG_IS_STRING on the series, we must know if dst is a BINARY!.
 //
-REBCNT Modify_String_Or_Binary(
+REBLEN Modify_String_Or_Binary(
     REBVAL *dst,  // ANY-STRING! or BINARY! value to modify
     REBSTR *verb,  // SYM_APPEND at tail, or SYM_INSERT/SYM_CHANGE at index
     const REBVAL *src,  // ANY-VALUE! argument with content to inject
@@ -237,10 +237,10 @@ REBCNT Modify_String_Or_Binary(
     FAIL_IF_READ_ONLY(dst);  // rules out symbol strings (e.g. from ANY-WORD!)
 
     REBSER *dst_ser = VAL_SERIES(dst);
-    REBCNT dst_idx = VAL_INDEX(dst);
+    REBLEN dst_idx = VAL_INDEX(dst);
     REBSIZ dst_used = SER_USED(dst_ser);
 
-    REBCNT dst_len_old = 0xDECAFBAD;  // only if IS_SER_STRING(dst_ser)
+    REBLEN dst_len_old = 0xDECAFBAD;  // only if IS_SER_STRING(dst_ser)
     REBSIZ dst_off;
     if (IS_BINARY(dst)) {  // check invariants up front even if NULL / no-op
         if (IS_SER_STRING(dst_ser)) {
@@ -301,7 +301,7 @@ REBCNT Modify_String_Or_Binary(
     DECLARE_MOLD (mo);  // mo->series will be non-null if Push_Mold() run
 
     const REBYTE *src_ptr;  // start of utf-8 encoded data to insert
-    REBCNT src_len_raw;  // length in codepoints (if dest is string)
+    REBLEN src_len_raw;  // length in codepoints (if dest is string)
     REBSIZ src_size_raw;  // size in bytes
 
     REBYTE src_byte;  // only used by BINARY! (mold buffer is UTF-8 legal)
@@ -329,7 +329,7 @@ REBCNT Modify_String_Or_Binary(
     }
     else if (IS_BINARY(src)) {
         REBSER *bin = VAL_BINARY(src);
-        REBCNT offset = VAL_INDEX(src);
+        REBLEN offset = VAL_INDEX(src);
 
         src_ptr = BIN_AT(bin, offset);
         src_size_raw = BIN_LEN(bin) - offset;
@@ -450,7 +450,7 @@ REBCNT Modify_String_Or_Binary(
     }
 
     REBSIZ src_size_total;  // includes duplicates and newlines, if applicable
-    REBCNT src_len_total;
+    REBLEN src_len_total;
     if (flags & AM_LINE) {
         src_size_total = (src_size_raw + 1) * dups;
         src_len_total = (src_len_raw + 1) * dups;
@@ -487,7 +487,7 @@ REBCNT Modify_String_Or_Binary(
         if (not (flags & AM_PART))
             part = src_len_total;
 
-        REBCNT dst_len_at;
+        REBLEN dst_len_at;
         REBSIZ dst_size_at;
         if (IS_SER_STRING(dst_ser))
             dst_size_at = VAL_SIZE_LIMIT_AT(&dst_len_at, dst, -1);
@@ -511,15 +511,15 @@ REBCNT Modify_String_Or_Binary(
         // have to be moved safely out of the way before being overwritten.
 
         REBSIZ part_size;
-        if (cast(REBCNT, part) > dst_len_at) {
+        if (cast(REBLEN, part) > dst_len_at) {
             part = dst_len_at;
             part_size = dst_size_at;
         }
         else {
             if (IS_SER_STRING(dst_ser)) {
-                REBCNT check;
+                REBLEN check;
                 part_size = VAL_SIZE_LIMIT_AT(&check, dst, part);
-                assert(check == cast(REBCNT, part));
+                assert(check == cast(REBLEN, part));
                 UNUSED(check);
             }
             else

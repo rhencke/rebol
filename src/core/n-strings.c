@@ -81,7 +81,7 @@ REBNATIVE(deflate)
 {
     INCLUDE_PARAMS_OF_DEFLATE;
 
-    REBCNT limit = Part_Len_May_Modify_Index(ARG(data), ARG(part));
+    REBLEN limit = Part_Len_May_Modify_Index(ARG(data), ARG(part));
 
     REBSIZ size;
     const REBYTE *bp = VAL_BYTES_LIMIT_AT(&size, ARG(data), limit);
@@ -143,7 +143,7 @@ REBNATIVE(inflate)
 
     // v-- measured in bytes (length of a BINARY!)
     //
-    REBCNT len = Part_Len_May_Modify_Index(ARG(data), ARG(part));
+    REBLEN len = Part_Len_May_Modify_Index(ARG(data), ARG(part));
 
     REBSTR *envelope;
     if (not REF(envelope))
@@ -287,13 +287,13 @@ REBNATIVE(enhex)
     DECLARE_MOLD (mo);
     Push_Mold (mo);
 
-    REBCNT len = VAL_LEN_AT(ARG(string));
+    REBLEN len = VAL_LEN_AT(ARG(string));
     REBCHR(const*) cp = VAL_STRING_AT(ARG(string));
 
     REBUNI c;
     cp = NEXT_CHR(&c, cp);
 
-    REBCNT i;
+    REBLEN i;
     for (i = 0; i < len; cp = NEXT_CHR(&c, cp), ++i) {
         //
         // !!! Length 4 should be legal here, but a warning in an older GCC
@@ -303,7 +303,7 @@ REBNATIVE(enhex)
         // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=43949
         //
         REBYTE encoded[6];
-        REBCNT encoded_size;
+        REBLEN encoded_size;
 
         if (c > 0x80) // all non-ASCII characters *must* be percent encoded
             encoded_size = Encode_UTF8_Char(encoded, c);
@@ -389,7 +389,7 @@ REBNATIVE(enhex)
            assert(strchr(no_encode, c) == NULL);
       #endif
 
-        REBCNT n;
+        REBLEN n;
         for (n = 0; n != encoded_size; ++n) {
             Append_Codepoint(mo->series, '%');
 
@@ -433,13 +433,13 @@ REBNATIVE(dehex)
     REBYTE scan[5];
     REBSIZ scan_size = 0;
 
-    REBCNT len = VAL_LEN_AT(ARG(string));
+    REBLEN len = VAL_LEN_AT(ARG(string));
     REBCHR(const*) cp = VAL_STRING_AT(ARG(string));
 
     REBUNI c;
     cp = NEXT_CHR(&c, cp);
 
-    REBCNT i;
+    REBLEN i;
     for (i = 0; i < len;) {
         if (c != '%')
             Append_Codepoint(mo->series, c);
@@ -510,7 +510,7 @@ REBNATIVE(dehex)
 
             // Slide any residual UTF-8 data to the head of the buffer
             //
-            REBCNT n;
+            REBLEN n;
             for (n = 0; n < scan_size; ++n) {
                 ++next; // pre-increment (see why it's called "Back_Scan")
                 scan[n] = *next;
@@ -551,14 +551,14 @@ REBNATIVE(deline)
         return Init_Block(D_OUT, Split_Lines(val));
 
     REBSTR *s = VAL_STRING(val);
-    REBCNT len_head = STR_LEN(s);
+    REBLEN len_head = STR_LEN(s);
 
-    REBCNT len_at = VAL_LEN_AT(val);
+    REBLEN len_at = VAL_LEN_AT(val);
 
     REBCHR(*) dest = VAL_STRING_AT(val);
     REBCHR(const*) src = dest;
 
-    REBCNT n;
+    REBLEN n;
     for (n = 0; n < len_at;) {
         REBUNI c;
         src = NEXT_CHR(&c, src);
@@ -597,12 +597,12 @@ REBNATIVE(enline)
     REBVAL *val = ARG(string);
 
     REBSTR *s = VAL_STRING(val);
-    REBCNT idx = VAL_INDEX(val);
+    REBLEN idx = VAL_INDEX(val);
 
-    REBCNT len;
+    REBLEN len;
     REBSIZ size = VAL_SIZE_LIMIT_AT(&len, val, UNKNOWN);
 
-    REBCNT delta = 0;
+    REBLEN delta = 0;
 
     // Calculate the size difference by counting the number of LF's
     // that have no CR's in front of them.
@@ -616,7 +616,7 @@ REBNATIVE(enline)
 
     REBUNI c_prev = '\0';
 
-    REBCNT n;
+    REBLEN n;
     for (n = 0; n < len; ++n) {
         REBUNI c;
         cp = NEXT_CHR(&c, cp);
@@ -628,7 +628,7 @@ REBNATIVE(enline)
     if (delta == 0)
         RETURN (ARG(string)); // nothing to do
 
-    REBCNT old_len = MISC(s).length;
+    REBLEN old_len = MISC(s).length;
     EXPAND_SERIES_TAIL(SER(s), delta);  // corrupts MISC(str).length
     MISC(s).length = old_len + delta;  // just adding CR's
 
@@ -681,10 +681,10 @@ REBNATIVE(entab)
     DECLARE_MOLD (mo);
     Push_Mold(mo);
 
-    REBCNT len = VAL_LEN_AT(ARG(string));
+    REBLEN len = VAL_LEN_AT(ARG(string));
 
     REBCHR(const*) up = VAL_STRING_AT(ARG(string));
-    REBCNT index = VAL_INDEX(ARG(string));
+    REBLEN index = VAL_INDEX(ARG(string));
 
     REBINT n = 0;
     for (; index < len; index++) {
@@ -747,7 +747,7 @@ REBNATIVE(detab)
 {
     INCLUDE_PARAMS_OF_DETAB;
 
-    REBCNT len = VAL_LEN_AT(ARG(string));
+    REBLEN len = VAL_LEN_AT(ARG(string));
 
     REBINT tabsize;
     if (REF(size))
@@ -761,9 +761,9 @@ REBNATIVE(detab)
     // Estimate new length based on tab expansion:
 
     REBCHR(const*) cp = VAL_STRING_AT(ARG(string));
-    REBCNT index = VAL_INDEX(ARG(string));
+    REBLEN index = VAL_INDEX(ARG(string));
 
-    REBCNT n = 0;
+    REBLEN n = 0;
 
     for (; index < len; ++index) {
         REBUNI c;
@@ -846,9 +846,9 @@ REBNATIVE(to_hex)
 
     REBVAL *arg = ARG(value);
 
-    REBCNT len;
+    REBLEN len;
     if (REF(size))
-        len = cast(REBCNT, VAL_INT64(ARG(size)));
+        len = cast(REBLEN, VAL_INT64(ARG(size)));
     else
         len = UNKNOWN;
 
@@ -862,11 +862,11 @@ REBNATIVE(to_hex)
         Form_Hex_Pad(mo, VAL_INT64(arg), len);
     }
     else if (IS_TUPLE(arg)) {
-        REBCNT n;
+        REBLEN n;
         if (
             len == UNKNOWN
             || len > 2 * MAX_TUPLE
-            || len > cast(REBCNT, 2 * VAL_TUPLE_LEN(arg))
+            || len > cast(REBLEN, 2 * VAL_TUPLE_LEN(arg))
         ){
             len = 2 * VAL_TUPLE_LEN(arg);
         }
@@ -927,7 +927,7 @@ REBNATIVE(find_script)
 
     const REBYTE *header_bp = bp + offset;
 
-    REBCNT index = VAL_INDEX(arg);
+    REBLEN index = VAL_INDEX(arg);
     REBCHR(*) cp = VAL_STRING_AT(arg);
     for (; cp != header_bp; cp = NEXT_STR(cp))
         ++index;
@@ -957,7 +957,7 @@ REBNATIVE(invalid_utf8_q)
 
     REBYTE *end = utf8 + size;
 
-    REBCNT trail;
+    REBLEN trail;
     for (; utf8 != end; utf8 += trail) {
         trail = trailingBytesForUTF8[*utf8] + 1;
         if (utf8 + trail > end or not isLegalUTF8(utf8, trail)) {

@@ -125,7 +125,7 @@ REBNATIVE(mutable_q) {
 //
 //  Protect_Key: C
 //
-static void Protect_Key(REBCTX *context, REBCNT index, REBFLGS flags)
+static void Protect_Key(REBCTX *context, REBLEN index, REBFLGS flags)
 {
     REBVAL *var = CTX_VAR(context, index);
 
@@ -187,7 +187,7 @@ void Protect_Value(RELVAL *v, REBFLGS flags)
 //
 // Anything that calls this must call Uncolor() when done.
 //
-void Protect_Series(REBSER *s, REBCNT index, REBFLGS flags)
+void Protect_Series(REBSER *s, REBLEN index, REBFLGS flags)
 {
     if (Is_Series_Black(s))
         return; // avoid loop
@@ -271,7 +271,7 @@ static void Protect_Word_Value(REBVAL *word, REBFLGS flags)
         }
     }
     else if (ANY_PATH(word)) {
-        REBCNT index;
+        REBLEN index;
         REBCTX *context = Resolve_Path(word, &index);
         if (index == 0)
             fail ("Couldn't resolve PATH! in Protect_Word_Value");

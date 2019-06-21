@@ -490,7 +490,7 @@ static void Mark_Root_Series(void)
     REBSEG *seg;
     for (seg = Mem_Pools[SER_POOL].segs; seg; seg = seg->next) {
         REBSER *s = cast(REBSER *, seg + 1);
-        REBCNT n;
+        REBLEN n;
         for (n = Mem_Pools[SER_POOL].units; n > 0; --n, ++s) {
             //
             // !!! A smarter switch statement here could do this more
@@ -652,7 +652,7 @@ static void Mark_Symbol_Series(void)
 //
 static void Mark_Natives(void)
 {
-    REBCNT n;
+    REBLEN n;
     for (n = 0; n < Num_Natives; ++n)
         Queue_Mark_Value_Deep(&Natives[n]);
 
@@ -670,7 +670,7 @@ static void Mark_Natives(void)
 static void Mark_Guarded_Nodes(void)
 {
     REBNOD **np = SER_HEAD(REBNOD*, GC_Guarded);
-    REBCNT n = SER_USED(GC_Guarded);
+    REBLEN n = SER_USED(GC_Guarded);
     for (; n > 0; --n, ++np) {
         REBNOD *node = *np;
         if (node->header.bits & NODE_FLAG_CELL) {
@@ -865,13 +865,13 @@ static void Mark_Frame_Stack_Deep(void)
 // garbage collector with Manage_Series(), then if it didn't get "marked" as
 // live during the marking phase then free it.
 //
-static REBCNT Sweep_Series(void)
+static REBLEN Sweep_Series(void)
 {
-    REBCNT count = 0;
+    REBLEN count = 0;
 
     REBSEG *seg = Mem_Pools[SER_POOL].segs;
     for (; seg != nullptr; seg = seg->next) {
-        REBCNT n = Mem_Pools[SER_POOL].units;
+        REBLEN n = Mem_Pools[SER_POOL].units;
 
         // We use a generic byte pointer (unsigned char*) to dodge the rules
         // for strict aliasing, as the pool may contain pairs of REBVAL from
@@ -974,7 +974,7 @@ static REBCNT Sweep_Series(void)
   #ifdef UNUSUAL_REBVAL_SIZE
     for (seg = Mem_Pools[PAR_POOL].segs; seg != NULL; seg = seg->next) {
         REBVAL *v = cast(REBVAL*, seg + 1);
-        REBCNT n = Mem_Pools[PAR_POOL].units;
+        REBLEN n = Mem_Pools[PAR_POOL].units;
         for (; n > 0; --n, v += 2) {
             if (v->header.bits & NODE_FLAG_FREE) {
                 assert(FIRST_BYTE(v->header) == FREED_SERIES_BYTE);
@@ -1005,17 +1005,17 @@ static REBCNT Sweep_Series(void)
 //
 //  Fill_Sweeplist: C
 //
-REBCNT Fill_Sweeplist(REBSER *sweeplist)
+REBLEN Fill_Sweeplist(REBSER *sweeplist)
 {
     assert(SER_WIDE(sweeplist) == sizeof(REBNOD*));
     assert(SER_USED(sweeplist) == 0);
 
-    REBCNT count = 0;
+    REBLEN count = 0;
 
     REBSEG *seg;
     for (seg = Mem_Pools[SER_POOL].segs; seg != NULL; seg = seg->next) {
         REBSER *s = cast(REBSER*, seg + 1);
-        REBCNT n;
+        REBLEN n;
         for (n = Mem_Pools[SER_POOL].units; n > 0; --n, ++s) {
             switch (FIRST_BYTE(s->header) >> 4) {
             case 9: // 0x8 + 0x1
@@ -1062,7 +1062,7 @@ REBCNT Fill_Sweeplist(REBSER *sweeplist)
 // to be a series whose width is sizeof(REBSER*), and it will be filled with
 // the list of series that *would* be recycled.
 //
-REBCNT Recycle_Core(bool shutdown, REBSER *sweeplist)
+REBLEN Recycle_Core(bool shutdown, REBSER *sweeplist)
 {
     // Ordinarily, it should not be possible to spawn a recycle during a
     // recycle.  But when debug code is added into the recycling code, it
@@ -1152,7 +1152,7 @@ REBCNT Recycle_Core(bool shutdown, REBSER *sweeplist)
 
     ASSERT_NO_GC_MARKS_PENDING();
 
-    REBCNT count = 0;
+    REBLEN count = 0;
 
     if (sweeplist != NULL) {
     #if defined(NDEBUG)
@@ -1232,11 +1232,11 @@ REBCNT Recycle_Core(bool shutdown, REBSER *sweeplist)
 //
 // Recycle memory no longer needed.
 //
-REBCNT Recycle(void)
+REBLEN Recycle(void)
 {
     // Default to not passing the `shutdown` flag.
     //
-    REBCNT n = Recycle_Core(false, NULL);
+    REBLEN n = Recycle_Core(false, NULL);
 
   #ifdef DOUBLE_RECYCLE_TEST
     //
@@ -1245,7 +1245,7 @@ REBCNT Recycle(void)
     // shouldn't crash.)  This is an expensive check, but helpful to try if
     // it seems a GC left things in a bad state that crashed a later GC.
     //
-    REBCNT n2 = Recycle_Core(false, NULL);
+    REBLEN n2 = Recycle_Core(false, NULL);
     assert(n2 == 0);
   #endif
 

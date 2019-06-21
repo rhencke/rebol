@@ -180,7 +180,7 @@ unsigned char *Compress_Alloc_Core(
 
     // http://stackoverflow.com/a/4938401
     //
-    REBCNT buf_size = deflateBound(&strm, in_len);
+    REBLEN buf_size = deflateBound(&strm, in_len);
 
     strm.avail_in = in_len;
     strm.next_in = cast(const z_Bytef*, input);
@@ -206,7 +206,7 @@ unsigned char *Compress_Alloc_Core(
         uint32_t gzip_len = Bytes_To_U32_BE(
             output + strm.total_out - sizeof(uint32_t)
         );
-        assert(in_len == gzip_len); // !!! 64-bit REBCNT would need modulo
+        assert(in_len == gzip_len); // !!! 64-bit REBLEN would need modulo
     }
   #endif
 
@@ -275,7 +275,7 @@ unsigned char *Decompress_Alloc_Core(
     if (ret_init != Z_OK)
         fail (Error_Compression(&strm, ret_init));
 
-    REBCNT buf_size;
+    REBLEN buf_size;
     if (
         envelope
         and STR_SYMBOL(envelope) == SYM_GZIP // not DETECT...trust stored size
@@ -316,7 +316,7 @@ unsigned char *Decompress_Alloc_Core(
 
         // "Typical zlib compression ratios are from 1:2 to 1:5"
 
-        if (max >= 0 and (cast(REBCNT, max) < len_in * 6))
+        if (max >= 0 and (cast(REBLEN, max) < len_in * 6))
             buf_size = max;
         else
             buf_size = len_in * 3;
@@ -346,7 +346,7 @@ unsigned char *Decompress_Alloc_Core(
         //
         assert(strm.next_out == output + buf_size - strm.avail_out);
 
-        if (max >= 0 and buf_size >= cast(REBCNT, max)) {
+        if (max >= 0 and buf_size >= cast(REBLEN, max)) {
             DECLARE_LOCAL (temp);
             Init_Integer(temp, max);
             fail (Error_Size_Limit_Raw(temp));
@@ -355,9 +355,9 @@ unsigned char *Decompress_Alloc_Core(
         // Use remaining input amount to guess how much more decompressed
         // data might be produced.  Clamp to limit.
         //
-        REBCNT old_size = buf_size;
+        REBLEN old_size = buf_size;
         buf_size = buf_size + strm.avail_in * 3;
-        if (max >= 0 and buf_size > cast(REBCNT, max))
+        if (max >= 0 and buf_size > cast(REBLEN, max))
             buf_size = max;
 
         output = cast(REBYTE*, rebRealloc(output, buf_size));

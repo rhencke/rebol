@@ -57,7 +57,7 @@ REBNATIVE(identify_jpeg_q)
     }
 
     REBYTE *data = VAL_BIN_AT(ARG(data));
-    REBCNT len = VAL_LEN_AT(ARG(data));
+    REBLEN len = VAL_LEN_AT(ARG(data));
 
     int w, h;
     jpeg_info(s_cast(data), len, &w, &h); // may longjmp above
@@ -83,7 +83,7 @@ REBNATIVE(decode_jpeg)
         fail (Error_Bad_Media_Raw()); // generic
 
     REBYTE *data = VAL_BIN_AT(ARG(data));
-    REBCNT len = VAL_LEN_AT(ARG(data));
+    REBLEN len = VAL_LEN_AT(ARG(data));
 
     int w, h;
     jpeg_info(s_cast(data), len, &w, &h); // may longjmp above

@@ -186,7 +186,7 @@ REBNATIVE(request_file_p)
 
     WCHAR *lpstrInitialDir;
     if (REF(file)) {
-        REBCNT path_len = rebUnbox("length of", ARG(file), rebEND);
+        REBLEN path_len = rebUnbox("length of", ARG(file), rebEND);
         WCHAR *path = rebSpellWide("file-to-local/full", ARG(file), rebEND);
 
         // If the last character doesn't indicate a directory, that means
@@ -194,7 +194,7 @@ REBNATIVE(request_file_p)
         // content into the ofn.lpstrFile field.
         //
         if (path[path_len - 1] != '\\') {
-            REBCNT n;
+            REBLEN n;
             if (path_len + 2 > ofn.nMaxFile)
                 n = ofn.nMaxFile - 2;
             else
@@ -273,7 +273,7 @@ REBNATIVE(request_file_p)
         else {
             const WCHAR *item = ofn.lpstrFile;
 
-            REBCNT item_len = wcslen(item);
+            REBLEN item_len = wcslen(item);
             assert(item_len != 0); // must have at least one item for success
             if (wcslen(item + item_len + 1) == 0) {
                 //
@@ -305,7 +305,7 @@ REBNATIVE(request_file_p)
 
                 item += item_len + 1; // next
 
-                REBCNT dir_len = rebUnbox("length of", dir, rebEND);
+                REBLEN dir_len = rebUnbox("length of", dir, rebEND);
                 WCHAR *dir_wide = rebSpellWide(
                     "file-to-local/full", dir,
                 rebEND);

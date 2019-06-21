@@ -103,11 +103,11 @@ REBSTR *To_REBOL_Path(const RELVAL *string, REBFLGS flags)
 
 restart:;
     REBCHR(const*) up = VAL_STRING_AT(string);
-    REBCNT len = VAL_LEN_AT(string);
+    REBLEN len = VAL_LEN_AT(string);
 
     REBUNI c = '\0'; // for test after loop (in case loop does not run)
 
-    REBCNT i;
+    REBLEN i;
     for (i = 0; i < len;) {
         up = NEXT_CHR(&c, up);
         ++i;
@@ -198,9 +198,9 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
     assert(IS_FILE(file));
 
     REBCHR(const*) up = VAL_STRING_AT(file);
-    REBCNT len = VAL_LEN_AT(file);
+    REBLEN len = VAL_LEN_AT(file);
 
-    REBCNT i = 0;
+    REBLEN i = 0;
 
     REBUNI c;
     if (len == 0)
@@ -302,7 +302,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
                     // Seek back to the previous slash in the mold buffer and
                     // truncate it there, to trim off one path segment.
                     //
-                    REBCNT n = STR_LEN(mo->series);
+                    REBLEN n = STR_LEN(mo->series);
                     if (n > mo->index) {
                         REBCHR(*) tp = STR_LAST(mo->series);
 
@@ -355,7 +355,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
                 continue;
             }
 
-            REBCNT n = STR_SIZE(mo->series);
+            REBLEN n = STR_SIZE(mo->series);
             if (
                 n > mo->offset
                 and *BIN_AT(SER(mo->series), n - 1) == OS_DIR_SEP

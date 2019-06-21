@@ -314,12 +314,12 @@ REB_R TO_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 // !!! Comment said "Final Parameters: tail - tail position, match - sequence,
 // SELECT - (value that follows)".  It's not clear what this meant.
 //
-REBCNT Find_In_Array(
+REBLEN Find_In_Array(
     REBARR *array,
-    REBCNT index_unsigned, // index to start search
-    REBCNT end_unsigned, // ending position
+    REBLEN index_unsigned, // index to start search
+    REBLEN end_unsigned, // ending position
     const RELVAL *target,
-    REBCNT len, // length of target
+    REBLEN len, // length of target
     REBFLGS flags, // see AM_FIND_XXX
     REBINT skip // skip factor
 ){
@@ -366,7 +366,7 @@ REBCNT Find_In_Array(
         for (; index >= start and index < end; index += skip) {
             RELVAL *item = ARR_AT(array, index);
 
-            REBCNT count = 0;
+            REBLEN count = 0;
             RELVAL *other = VAL_ARRAY_AT(target);
             for (; NOT_END(other); ++other, ++item) {
                 if (
@@ -436,7 +436,7 @@ REBCNT Find_In_Array(
 struct sort_flags {
     bool cased;
     bool reverse;
-    REBCNT offset;
+    REBLEN offset;
     REBVAL *comparator;
     bool all; // !!! not used?
 };
@@ -554,12 +554,12 @@ static void Sort_Block(
         flags.offset = 0;
     }
 
-    REBCNT len = Part_Len_May_Modify_Index(block, part); // length of sort
+    REBLEN len = Part_Len_May_Modify_Index(block, part); // length of sort
     if (len <= 1)
         return;
 
     // Skip factor:
-    REBCNT skip;
+    REBLEN skip;
     if (not IS_BLANK(skipv)) {
         skip = Get_Num_From_Arg(skipv);
         if (skip <= 0 || len % skip != 0 || skip > len)
@@ -583,9 +583,9 @@ static void Sort_Block(
 //
 void Shuffle_Block(REBVAL *value, bool secure)
 {
-    REBCNT n;
-    REBCNT k;
-    REBCNT idx = VAL_INDEX(value);
+    REBLEN n;
+    REBLEN k;
+    REBLEN idx = VAL_INDEX(value);
     RELVAL *data = VAL_ARRAY_HEAD(value);
 
     // Rare case where RELVAL bit copying is okay...between spots in the
@@ -594,7 +594,7 @@ void Shuffle_Block(REBVAL *value, bool secure)
     RELVAL swap;
 
     for (n = VAL_LEN_AT(value); n > 1;) {
-        k = idx + (REBCNT)Random_Int(secure) % n;
+        k = idx + (REBLEN)Random_Int(secure) % n;
         n--;
 
         // Only do the following block when an actual swap occurs.
@@ -649,7 +649,7 @@ REB_R PD_Array(
 
         REBSTR *canon = VAL_WORD_CANON(picker);
         RELVAL *item = VAL_ARRAY_AT(pvs->out);
-        REBCNT index = VAL_INDEX(pvs->out);
+        REBLEN index = VAL_INDEX(pvs->out);
         for (; NOT_END(item); ++item, ++index) {
             if (ANY_WORD(item) && canon == VAL_WORD_CANON(item)) {
                 n = index + 1;
@@ -706,7 +706,7 @@ RELVAL *Pick_Block(REBVAL *out, const REBVAL *block, const REBVAL *picker)
 {
     REBINT n = Get_Num_From_Arg(picker);
     n += VAL_INDEX(block) - 1;
-    if (n < 0 || cast(REBCNT, n) >= VAL_LEN_HEAD(block)) {
+    if (n < 0 || cast(REBLEN, n) >= VAL_LEN_HEAD(block)) {
         Init_Nulled(out);
         return NULL;
     }
@@ -845,7 +845,7 @@ REBTYPE(Array)
 
         FAIL_IF_READ_ONLY(array);
 
-        REBCNT len;
+        REBLEN len;
         if (REF(part)) {
             len = Part_Len_May_Modify_Index(array, ARG(part));
             if (len == 0)
@@ -854,7 +854,7 @@ REBTYPE(Array)
         else
             len = 1;
 
-        REBCNT index = VAL_INDEX(array); // Partial() can change index
+        REBLEN index = VAL_INDEX(array); // Partial() can change index
 
         if (REF(last))
             index = VAL_LEN_HEAD(array) - len;
@@ -890,9 +890,9 @@ REBTYPE(Array)
 
         REBINT len = ANY_ARRAY(arg) ? VAL_ARRAY_LEN_AT(arg) : 1;
 
-        REBCNT limit = Part_Tail_May_Modify_Index(array, ARG(part));
+        REBLEN limit = Part_Tail_May_Modify_Index(array, ARG(part));
 
-        REBCNT index = VAL_INDEX(array);
+        REBLEN index = VAL_INDEX(array);
 
         REBFLGS flags = (
             (REF(only) ? AM_FIND_ONLY : 0)
@@ -909,7 +909,7 @@ REBTYPE(Array)
         else
             skip = 1;
 
-        REBCNT ret = Find_In_Array(
+        REBLEN ret = Find_In_Array(
             arr, index, limit, arg, len, flags, skip
         );
 
@@ -945,7 +945,7 @@ REBTYPE(Array)
         UNUSED(PAR(series));
         UNUSED(PAR(value));
 
-        REBCNT len; // length of target
+        REBLEN len; // length of target
         if (VAL_WORD_SYM(verb) == SYM_CHANGE)
             len = Part_Len_May_Modify_Index(array, ARG(part));
         else
@@ -961,7 +961,7 @@ REBTYPE(Array)
         }
         FAIL_IF_READ_ONLY(array);
 
-        REBCNT index = VAL_INDEX(array);
+        REBLEN index = VAL_INDEX(array);
 
         REBFLGS flags = 0;
         if (
@@ -989,12 +989,12 @@ REBTYPE(Array)
 
       case SYM_CLEAR: {
         FAIL_IF_READ_ONLY(array);
-        REBCNT index = VAL_INDEX(array);
+        REBLEN index = VAL_INDEX(array);
         if (index < VAL_LEN_HEAD(array)) {
             if (index == 0) Reset_Array(arr);
             else {
                 SET_END(ARR_AT(arr, index));
-                SET_SERIES_LEN(VAL_SERIES(array), cast(REBCNT, index));
+                SET_SERIES_LEN(VAL_SERIES(array), cast(REBLEN, index));
             }
         }
         RETURN (array);
@@ -1008,9 +1008,9 @@ REBTYPE(Array)
         UNUSED(PAR(value));
 
         REBU64 types = 0;
-        REBCNT tail = Part_Tail_May_Modify_Index(array, ARG(part));
+        REBLEN tail = Part_Tail_May_Modify_Index(array, ARG(part));
 
-        REBCNT index = VAL_INDEX(array);
+        REBLEN index = VAL_INDEX(array);
 
         if (REF(deep))
             types |= REF(types) ? 0 : TS_STD_SERIES;
@@ -1055,7 +1055,7 @@ REBTYPE(Array)
         FAIL_IF_READ_ONLY(array);
         FAIL_IF_READ_ONLY(arg);
 
-        REBCNT index = VAL_INDEX(array);
+        REBLEN index = VAL_INDEX(array);
 
         if (
             index < VAL_LEN_HEAD(array)
@@ -1080,7 +1080,7 @@ REBTYPE(Array)
 
         FAIL_IF_READ_ONLY(array);
 
-        REBCNT len = Part_Len_May_Modify_Index(array, ARG(part));
+        REBLEN len = Part_Len_May_Modify_Index(array, ARG(part));
         if (len == 0)
             RETURN (array); // !!! do 1-element reversals update newlines?
 
@@ -1152,7 +1152,7 @@ REBTYPE(Array)
 
         UNUSED(PAR(value));
 
-        REBCNT index = VAL_INDEX(array);
+        REBLEN index = VAL_INDEX(array);
 
         if (REF(seed))
             fail (Error_Bad_Refines_Raw());
@@ -1342,8 +1342,8 @@ void Assert_Array_Core(REBARR *a)
         panic (a);
 
     RELVAL *item = ARR_HEAD(a);
-    REBCNT i;
-    REBCNT len = ARR_LEN(a);
+    REBLEN i;
+    REBLEN len = ARR_LEN(a);
     for (i = 0; i < len; ++i, ++item) {
         if (IS_END(item)) {
             printf("Premature array end at index %d\n", cast(int, i));
@@ -1361,7 +1361,7 @@ void Assert_Array_Core(REBARR *a)
         panic (item);
 
     if (IS_SER_DYNAMIC(a)) {
-        REBCNT rest = SER_REST(SER(a));
+        REBLEN rest = SER_REST(SER(a));
         assert(rest > 0 and rest > i);
 
         for (; i < rest - 1; ++i, ++item) {

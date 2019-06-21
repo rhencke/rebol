@@ -392,7 +392,7 @@ STATIC_ASSERT(31 < 32); // otherwise EVAL_FLAG_XXX too high
     ((FRM(f)->flags.bits & EVAL_FLAG_##name) == 0)
 
 
-#define TRASHED_INDEX ((REBCNT)(-3))
+#define TRASHED_INDEX ((REBLEN)(-3))
 
 #define IS_KIND_INERT(k) \
     ((k) >= REB_BLOCK)
@@ -459,7 +459,7 @@ struct Reb_Feed {
     // This holds the index of the *next* item in the array to fetch as
     // f->value for processing.  It's invalid if the frame is for a C va_list.
     //
-    REBCNT index;
+    REBLEN index;
 
     // This is used for relatively bound words to be looked up to become
     // specific.  Typically the specifier is extracted from the payload of the
@@ -542,7 +542,7 @@ struct Reb_Feed {
 // as to accomplish correct 64-bit alignment of pointers on 64-bit systems.
 //
 // Because performance in the core evaluator loop is system-critical, this
-// uses full platform `int`s instead of REBCNTs.
+// uses full platform `int`s instead of REBLENs.
 //
 // If modifying the structure, be sensitive to this issue--and that the
 // layout of this structure is mirrored in Ren-Cpp.
@@ -687,7 +687,7 @@ struct Reb_Frame {
     //
     const REBVAL *special;
 
-    REBCNT requotes; // negative means null result should be requoted
+    REBLEN requotes; // negative means null result should be requoted
 
   union {
     //

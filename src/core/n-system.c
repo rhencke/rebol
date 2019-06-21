@@ -136,7 +136,7 @@ REBNATIVE(recycle)
     if (GC_Disabled)
         return nullptr; // don't give misleading "0", since no recycle ran
 
-    REBCNT count;
+    REBLEN count;
 
     if (REF(verbose)) {
       #if defined(NDEBUG)
@@ -146,7 +146,7 @@ REBNATIVE(recycle)
         count = Recycle_Core(false, sweeplist);
         assert(count == SER_LEN(sweeplist));
 
-        REBCNT index = 0;
+        REBLEN index = 0;
         for (index = 0; index < count; ++index) {
             REBNOD *node = *SER_AT(REBNOD*, sweeplist, index);
             PROBE(node);
@@ -155,7 +155,7 @@ REBNATIVE(recycle)
 
         Free_Unmanaged_Series(sweeplist);
 
-        REBCNT recount = Recycle_Core(false, NULL);
+        REBLEN recount = Recycle_Core(false, NULL);
         assert(recount == count);
       #endif
     }

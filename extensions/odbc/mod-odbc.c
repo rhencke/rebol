@@ -252,7 +252,7 @@ REBNATIVE(open_connection)
 
     // Connect to the Driver, using the converted connection string
     //
-    REBCNT connect_len = rebUnbox("length of", ARG(spec), rebEND);
+    REBLEN connect_len = rebUnbox("length of", ARG(spec), rebEND);
     SQLWCHAR *connect = rebSpellWide(ARG(spec), rebEND);
 
     SQLSMALLINT out_connect_len;
@@ -439,9 +439,9 @@ SQLRETURN ODBC_BindParameter(
         // Call to get the length of how big a buffer to make, then a second
         // call to fill the buffer after its made.
         //
-        REBCNT len_no_term = rebSpellIntoWideQ(NULL, 0, v, rebEND);
+        REBLEN len_no_term = rebSpellIntoWideQ(NULL, 0, v, rebEND);
         SQLWCHAR *chars = rebAllocN(SQLWCHAR, len_no_term + 1);
-        REBCNT len_check = rebSpellIntoWideQ(chars, len_no_term, v, rebEND);
+        REBLEN len_check = rebSpellIntoWideQ(chars, len_no_term, v, rebEND);
         assert(len_check == len_no_term);
         UNUSED(len_check);
 
@@ -507,7 +507,7 @@ SQLRETURN ODBC_GetCatalog(
             "ensure [<opt> text!] pick", block, rebI(arg + 1), rebEND
         );
         if (value) {
-            REBCNT len = rebUnbox("length of", value, rebEND);
+            REBLEN len = rebUnbox("length of", value, rebEND);
             pattern[arg] = rebSpellWide(value, rebEND);
             length[arg] = len;
             rebRelease(value);
@@ -867,7 +867,7 @@ REBNATIVE(insert_odbc)
     //
     // The block passed in is used to form a query.
 
-    REBCNT sql_index = 1;
+    REBLEN sql_index = 1;
     REBVAL *value = rebValue(
         "pick", ARG(sql), rebI(sql_index),
         "else [fail {Empty array passed for SQL dialect}]", rebEND
@@ -897,7 +897,7 @@ REBNATIVE(insert_odbc)
         );
 
         if (not use_cache) {
-            REBCNT length = rebUnbox("length of", value, rebEND);
+            REBLEN length = rebUnbox("length of", value, rebEND);
             SQLWCHAR *sql_string = rebSpellWide(value, rebEND);
 
             rc = SQLPrepareW(hstmt, sql_string, cast(SQLSMALLINT, length));
@@ -920,7 +920,7 @@ REBNATIVE(insert_odbc)
         // different quarantined part of the query is to protect against SQL
         // injection.
 
-        REBCNT num_params
+        REBLEN num_params
             = rebUnbox("length of", ARG(sql), rebEND)
               - sql_index;  // after SQL
         ++sql_index;
@@ -929,7 +929,7 @@ REBNATIVE(insert_odbc)
         if (num_params != 0) {
             params = rebAllocN(PARAMETER, num_params);
 
-            REBCNT n;
+            REBLEN n;
             for (n = 0; n < num_params; ++n, ++sql_index) {
                 value = rebValue("pick", ARG(sql), rebI(sql_index), rebEND);
                 rc = ODBC_BindParameter(
@@ -950,7 +950,7 @@ REBNATIVE(insert_odbc)
         rc = SQLExecute(hstmt);
 
         if (num_params != 0) {
-            REBCNT n;
+            REBLEN n;
             for (n = 0; n != num_params; ++n) {
                 if (params[n].buffer != NULL)
                     rebFree(params[n].buffer);
@@ -1312,8 +1312,8 @@ REBNATIVE(close_statement)
         COLUMN *columns = VAL_HANDLE_POINTER(COLUMN, columns_value);
         assert(columns);
 
-        REBCNT num_columns = VAL_HANDLE_LEN(columns_value);
-        REBCNT col;
+        REBLEN num_columns = VAL_HANDLE_LEN(columns_value);
+        REBLEN col;
         for (col = 0; col != num_columns; ++col)
             rebRelease(columns[col].title_word);
 

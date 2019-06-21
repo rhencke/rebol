@@ -225,7 +225,7 @@ REBNATIVE(unquote)
     REBINT depth = REF(depth) ? VAL_INT32(ARG(depth)) : 1;
     if (depth < 0)
         fail (PAR(depth));
-    if (cast(REBCNT, depth) > VAL_NUM_QUOTES(ARG(optional)))
+    if (cast(REBLEN, depth) > VAL_NUM_QUOTES(ARG(optional)))
         fail (PAR(depth));
 
     return Unquotify(Move_Value(D_OUT, ARG(optional)), depth);

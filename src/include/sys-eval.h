@@ -305,7 +305,7 @@ inline static bool Reevaluate_In_Subframe_Maybe_Stale_Throws(
 
 inline static bool Eval_Step_In_Any_Array_At_Throws(
     REBVAL *out,
-    REBCNT *index_out,
+    REBLEN *index_out,
     const RELVAL *any_array,  // Note: legal to have any_array = out
     REBSPC *specifier,
     REBFLGS flags

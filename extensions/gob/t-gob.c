@@ -140,15 +140,15 @@ static bool Did_Set_XYF(RELVAL *xyf, const REBVAL *val)
 // Find a target GOB within the pane of another gob.
 // Return the index, or a -1 if not found.
 //
-static REBCNT Find_Gob(REBGOB *gob, REBGOB *target)
+static REBLEN Find_Gob(REBGOB *gob, REBGOB *target)
 {
     if (not GOB_PANE(gob))
         return NOT_FOUND;
 
-    REBCNT len = GOB_LEN(gob);
+    REBLEN len = GOB_LEN(gob);
     REBVAL *item = GOB_HEAD(gob);
 
-    REBCNT n;
+    REBLEN n;
     for (n = 0; n < len; ++n, ++item)
         if (VAL_GOB(item) == target)
             return n;
@@ -170,7 +170,7 @@ static void Detach_Gob(REBGOB *gob)
         return;
 
     if (GOB_PANE(par)) {
-        REBCNT i = Find_Gob(par, gob);
+        REBLEN i = Find_Gob(par, gob);
         if (i != NOT_FOUND)
             Remove_Series_Units(SER(GOB_PANE(par)), i, 1);
         else
@@ -191,11 +191,11 @@ static void Detach_Gob(REBGOB *gob)
 static void Insert_Gobs(
     REBGOB *gob,
     const RELVAL *arg,
-    REBCNT index,
-    REBCNT len,
+    REBLEN index,
+    REBLEN len,
     bool change
 ) {
-    REBCNT n, count;
+    REBLEN n, count;
     const RELVAL *val;
     const RELVAL *sarg;
     REBINT i;
@@ -282,11 +282,11 @@ static void Insert_Gobs(
 //
 // Remove one or more gobs from a pane at the given index.
 //
-static void Remove_Gobs(REBGOB *gob, REBCNT index, REBCNT len)
+static void Remove_Gobs(REBGOB *gob, REBLEN index, REBLEN len)
 {
     REBVAL *item = GOB_AT(gob, index);
 
-    REBCNT n;
+    REBLEN n;
     for (n = 0; n < len; ++n, ++item)
         SET_GOB_PARENT(VAL_GOB(item), nullptr);
 
@@ -322,7 +322,7 @@ static void Set_Gob_Flag(REBGOB *gob, REBSTR *name)
     REBINT i;
     for (i = 0; Gob_Flag_Words[i].sym != SYM_0; ++i) {
         if (SAME_SYM_NONZERO(sym, Gob_Flag_Words[i].sym)) {
-            REBCNT flag = Gob_Flag_Words[i].flags;
+            REBLEN flag = Gob_Flag_Words[i].flags;
             SET_GOB_FLAG(gob, flag);
             //handle mutual exclusive states
             switch (flag) {
@@ -863,8 +863,8 @@ REBTYPE(Gob)
     const REBVAL *val = D_ARG(1);
 
     REBGOB *gob = VAL_GOB(val);
-    REBCNT index = VAL_GOB_INDEX(val);
-    REBCNT tail = GOB_PANE(gob) ? GOB_LEN(gob) : 0;
+    REBLEN index = VAL_GOB_INDEX(val);
+    REBLEN tail = GOB_PANE(gob) ? GOB_LEN(gob) : 0;
 
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
@@ -979,7 +979,7 @@ REBTYPE(Gob)
         if (REF(part) || REF(only) || REF(dup))
             fail (Error_Not_Done_Raw());
 
-        REBCNT len;
+        REBLEN len;
         if (IS_GOB(arg)) {
             len = 1;
         }
@@ -1005,7 +1005,7 @@ REBTYPE(Gob)
         INCLUDE_PARAMS_OF_REMOVE;
         UNUSED(PAR(series));
 
-        REBCNT len = REF(part) ? Get_Num_From_Arg(ARG(part)) : 1;
+        REBLEN len = REF(part) ? Get_Num_From_Arg(ARG(part)) : 1;
         if (index + len > tail)
             len = tail - index;
         if (index < tail && len != 0)

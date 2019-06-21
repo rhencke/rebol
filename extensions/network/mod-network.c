@@ -384,9 +384,9 @@ static REB_R Transport_Actor(
         // Determine length. Clip /PART to size of string if needed.
         REBVAL *data = ARG(data);
 
-        REBCNT len = VAL_LEN_AT(data);
+        REBLEN len = VAL_LEN_AT(data);
         if (REF(part)) {
-            REBCNT n = Int32s(ARG(part), 0);
+            REBLEN n = Int32s(ARG(part), 0);
             if (n <= len)
                 len = n;
         }

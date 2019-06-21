@@ -333,7 +333,7 @@ inline static REBARR *ACT_PARAMLIST(REBACT *a) {
 #define IDX_NATIVE_CONTEXT 1 // libRebol binds strings here (and lib)
 #define IDX_NATIVE_MAX (IDX_NATIVE_CONTEXT + 1)
 
-inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
+inline static REBVAL *ACT_PARAM(REBACT *a, REBLEN n) {
     assert(n != 0 and n < ARR_LEN(ACT_PARAMLIST(a)));
     return SER_AT(REBVAL, SER(ACT_PARAMLIST(a)), n);
 }

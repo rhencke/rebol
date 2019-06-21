@@ -53,11 +53,11 @@ static void get_scalar(
     REBVAL *out,
     REBSTU *stu,
     REBFLD *field,
-    REBCNT n // element index, starting from 0
+    REBLEN n // element index, starting from 0
 ){
     assert(n == 0 || FLD_IS_ARRAY(field));
 
-    REBCNT offset =
+    REBLEN offset =
         STU_OFFSET(stu) + FLD_OFFSET(field) + (n * FLD_WIDE(field));
 
     if (FLD_IS_STRUCT(field)) {
@@ -190,9 +190,9 @@ static bool Get_Struct_Var(REBVAL *out, REBSTU *stu, const REBVAL *word)
             // !!! Perhaps a fixed-size VECTOR! could have its data
             // pointer into these arrays?
             //
-            REBCNT dimension = FLD_DIMENSION(field);
+            REBLEN dimension = FLD_DIMENSION(field);
             REBARR *arr = Make_Array(dimension);
-            REBCNT n;
+            REBLEN n;
             for (n = 0; n < dimension; ++n)
                 get_scalar(ARR_AT(arr, n), stu, field, n);
             TERM_ARRAY_LEN(arr, dimension);
@@ -260,7 +260,7 @@ REBARR *Struct_To_Array(REBSTU *stu)
             //
             // Dimension becomes INTEGER! in a BLOCK! (to look like a C array)
             //
-            REBCNT dimension = FLD_DIMENSION(field);
+            REBLEN dimension = FLD_DIMENSION(field);
             REBARR *one_int = Alloc_Singular(NODE_FLAG_MANAGED);
             Init_Integer(ARR_SINGLE(one_int), dimension);
             Init_Block(Alloc_Tail_Array(typespec), one_int);
@@ -268,7 +268,7 @@ REBARR *Struct_To_Array(REBSTU *stu)
             // Initialization seems to be just another block after that (?)
             //
             REBARR *init = Make_Array(dimension);
-            REBCNT n;
+            REBLEN n;
             for (n = 0; n < dimension; n ++)
                 get_scalar(ARR_AT(init, n), stu, field, n);
             TERM_ARRAY_LEN(init, dimension);
@@ -349,9 +349,9 @@ static bool same_fields(REBARR *tgt_fieldlist, REBARR *src_fieldlist)
 
 static bool assign_scalar_core(
     REBYTE *data_head,
-    REBCNT offset,
+    REBLEN offset,
     REBFLD *field,
-    REBCNT n,
+    REBLEN n,
     const REBVAL *val
 ){
     assert(n == 0 || FLD_IS_ARRAY(field));
@@ -489,7 +489,7 @@ static bool assign_scalar_core(
 inline static bool assign_scalar(
     REBSTU *stu,
     REBFLD *field,
-    REBCNT n,
+    REBLEN n,
     const REBVAL *val
 ) {
     return assign_scalar_core(
@@ -521,11 +521,11 @@ static bool Set_Struct_Var(
                 if (!IS_BLOCK(val))
                     return false;
 
-                REBCNT dimension = FLD_DIMENSION(field);
+                REBLEN dimension = FLD_DIMENSION(field);
                 if (dimension != VAL_LEN_AT(val))
                     return false;
 
-                REBCNT n = 0;
+                REBLEN n = 0;
                 for(n = 0; n < dimension; ++n) {
                     if (!assign_scalar(
                         stu, field, n, KNOWN(VAL_ARRAY_AT_HEAD(val, n))
@@ -657,7 +657,7 @@ static void cleanup_noop(const REBVAL *v) {
 // a less invasive way of doing the same thing.
 //
 static REBSER *make_ext_storage(
-    REBCNT len,
+    REBLEN len,
     REBINT raw_size,
     uintptr_t raw_addr
 ) {
@@ -684,9 +684,9 @@ static REBSER *make_ext_storage(
 // !!! Is this really how char[1000] would be handled in the FFI?  By
 // creating 1000 ffi_types?  :-/
 //
-static REBCNT Total_Struct_Dimensionality(REBARR *fields)
+static REBLEN Total_Struct_Dimensionality(REBARR *fields)
 {
-    REBCNT n_fields = 0;
+    REBLEN n_fields = 0;
 
     RELVAL *item = ARR_HEAD(fields);
     for (; NOT_END(item); ++item) {
@@ -741,19 +741,19 @@ static void Prepare_Field_For_FFI(REBFLD *schema)
 
     REBARR *fieldlist = FLD_FIELDLIST(schema);
 
-    REBCNT dimensionality = Total_Struct_Dimensionality(fieldlist);
+    REBLEN dimensionality = Total_Struct_Dimensionality(fieldlist);
     fftype->elements = cast(ffi_type**,
         malloc(sizeof(ffi_type*) * (dimensionality + 1)) // NULL term
     );
 
     RELVAL *item = ARR_HEAD(fieldlist);
 
-    REBCNT j = 0;
+    REBLEN j = 0;
     for (; NOT_END(item); ++item) {
         REBFLD *field = VAL_ARRAY(item);
-        REBCNT dimension = FLD_IS_ARRAY(field) ? FLD_DIMENSION(field) : 1;
+        REBLEN dimension = FLD_IS_ARRAY(field) ? FLD_DIMENSION(field) : 1;
 
-        REBCNT n = 0;
+        REBLEN n = 0;
         for (n = 0; n < dimension; ++n)
             fftype->elements[j++] = FLD_FFTYPE(field);
     }
@@ -1005,12 +1005,12 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
 
             if (FLD_IS_ARRAY(field)) {
                 if (IS_BLOCK(fld_val)) {
-                    REBCNT dimension = FLD_DIMENSION(field);
+                    REBLEN dimension = FLD_DIMENSION(field);
 
                     if (VAL_LEN_AT(fld_val) != dimension)
                         fail (fld_val);
 
-                    REBCNT n = 0;
+                    REBLEN n = 0;
                     for (n = 0; n < dimension; ++n) {
                         if (!assign_scalar(
                             VAL_STRUCT(ret),
@@ -1179,7 +1179,7 @@ REB_R MAKE_Struct(
         //
         Parse_Field_Type_May_Fail(field, spec, init);
 
-        REBCNT dimension = FLD_IS_ARRAY(field) ? FLD_DIMENSION(field) : 1;
+        REBLEN dimension = FLD_IS_ARRAY(field) ? FLD_DIMENSION(field) : 1;
         ++item;
 
         // !!! Why does the fail take out as an argument?  (Copied from below)
@@ -1235,7 +1235,7 @@ REB_R MAKE_Struct(
                 if (eval_idx == END_FLAG)
                     item = VAL_ARRAY_TAIL(arg);
                 else
-                    item = VAL_ARRAY_AT_HEAD(item, cast(REBCNT, eval_idx - 1));
+                    item = VAL_ARRAY_AT_HEAD(item, cast(REBLEN, eval_idx - 1));
             }
 
             if (FLD_IS_ARRAY(field)) {
@@ -1244,13 +1244,13 @@ REB_R MAKE_Struct(
 
                     // assume valid pointer to enough space
                     memcpy(
-                        SER_AT(REBYTE, data_bin, cast(REBCNT, offset)),
+                        SER_AT(REBYTE, data_bin, cast(REBLEN, offset)),
                         ptr,
                         FLD_LEN_BYTES_TOTAL(field)
                     );
                 }
                 else if (IS_BLOCK(init)) {
-                    REBCNT n = 0;
+                    REBLEN n = 0;
 
                     if (VAL_LEN_AT(init) != FLD_DIMENSION(field))
                         fail (init);
@@ -1282,7 +1282,7 @@ REB_R MAKE_Struct(
         }
         else if (raw_addr == 0) {
             if (FLD_IS_STRUCT(field)) {
-                REBCNT n = 0;
+                REBLEN n = 0;
                 for (
                     n = 0;
                     n < (FLD_IS_ARRAY(field) ? FLD_DIMENSION(field) : 1);
@@ -1292,7 +1292,7 @@ REB_R MAKE_Struct(
                         SER_AT(
                             REBYTE,
                             data_bin,
-                            cast(REBCNT, offset) + (n * FLD_WIDE(field))
+                            cast(REBLEN, offset) + (n * FLD_WIDE(field))
                         ),
                         VAL_STRUCT_DATA_HEAD(init),
                         FLD_WIDE(field)
@@ -1301,7 +1301,7 @@ REB_R MAKE_Struct(
             }
             else {
                 memset(
-                    SER_AT(REBYTE, data_bin, cast(REBCNT, offset)),
+                    SER_AT(REBYTE, data_bin, cast(REBLEN, offset)),
                     0,
                     FLD_LEN_BYTES_TOTAL(field)
                 );

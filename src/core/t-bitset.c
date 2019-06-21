@@ -53,9 +53,9 @@ REBINT CT_Bitset(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 //  Make_Bitset: C
 //
-REBBIN *Make_Bitset(REBCNT num_bits)
+REBBIN *Make_Bitset(REBLEN num_bits)
 {
-    REBCNT num_bytes = (num_bits + 7) / 8;
+    REBLEN num_bytes = (num_bits + 7) / 8;
     REBBIN *bin = Make_Binary(num_bytes);
     Clear_Series(bin);
     TERM_BIN_LEN(bin, num_bytes);
@@ -206,10 +206,10 @@ REBINT Find_Max_Bit(const RELVAL *val)
 // Check bit indicated. Returns true if set.
 // If uncased is true, try to match either upper or lower case.
 //
-bool Check_Bit(REBSER *bset, REBCNT c, bool uncased)
+bool Check_Bit(REBSER *bset, REBLEN c, bool uncased)
 {
-    REBCNT i, n = c;
-    REBCNT tail = SER_LEN(bset);
+    REBLEN i, n = c;
+    REBLEN tail = SER_LEN(bset);
     bool flag = false;
 
     if (uncased) {
@@ -244,10 +244,10 @@ retry:
 //
 // Set/clear a single bit. Expand if needed.
 //
-void Set_Bit(REBSER *bset, REBCNT n, bool set)
+void Set_Bit(REBSER *bset, REBLEN n, bool set)
 {
-    REBCNT i = n >> 3;
-    REBCNT tail = SER_LEN(bset);
+    REBLEN i = n >> 3;
+    REBLEN tail = SER_LEN(bset);
     REBYTE bit;
 
     // Expand if not enough room:
@@ -278,7 +278,7 @@ bool Set_Bits(REBSER *bset, const REBVAL *val, bool set)
     }
 
     if (IS_INTEGER(val)) {
-        REBCNT n = Int32s(val, 0);
+        REBLEN n = Int32s(val, 0);
         if (n > MAX_BITSET)
             return false;
         Set_Bit(bset, n, set);
@@ -286,7 +286,7 @@ bool Set_Bits(REBSER *bset, const REBVAL *val, bool set)
     }
 
     if (IS_BINARY(val)) {
-        REBCNT i = VAL_INDEX(val);
+        REBLEN i = VAL_INDEX(val);
 
         REBYTE *bp = VAL_BIN_HEAD(val);
         for (; i != VAL_LEN_HEAD(val); i++)
@@ -296,7 +296,7 @@ bool Set_Bits(REBSER *bset, const REBVAL *val, bool set)
     }
 
     if (ANY_STRING(val)) {
-        REBCNT i = VAL_INDEX(val);
+        REBLEN i = VAL_INDEX(val);
         REBCHR(const*) up = VAL_STRING_AT(val);
         for (; i < VAL_LEN_HEAD(val); ++i) {
             REBUNI c;
@@ -335,7 +335,7 @@ bool Set_Bits(REBSER *bset, const REBVAL *val, bool set)
             ){
                 item += 2;
                 if (IS_CHAR(item)) {
-                    REBCNT n = VAL_CHAR(item);
+                    REBLEN n = VAL_CHAR(item);
                     if (n < c)
                         fail (Error_Past_End_Raw());
                     do {
@@ -350,7 +350,7 @@ bool Set_Bits(REBSER *bset, const REBVAL *val, bool set)
             break; }
 
         case REB_INTEGER: {
-            REBCNT n = Int32s(KNOWN(item), 0);
+            REBLEN n = Int32s(KNOWN(item), 0);
             if (n > MAX_BITSET)
                 return false;
             if (
@@ -391,7 +391,7 @@ bool Set_Bits(REBSER *bset, const REBVAL *val, bool set)
             item++;
             if (not IS_BINARY(item))
                 return false;
-            REBCNT n = VAL_LEN_AT(item);
+            REBLEN n = VAL_LEN_AT(item);
             REBUNI c = SER_LEN(bset);
             if (n >= c) {
                 Expand_Series(bset, c, (n - c));
@@ -424,7 +424,7 @@ bool Check_Bits(REBSER *bset, const REBVAL *val, bool uncased)
         return Check_Bit(bset, Int32s(val, 0), uncased);
 
     if (IS_BINARY(val)) {
-        REBCNT i = VAL_INDEX(val);
+        REBLEN i = VAL_INDEX(val);
         REBYTE *bp = VAL_BIN_HEAD(val);
         for (; i != VAL_LEN_HEAD(val); ++i)
             if (Check_Bit(bset, bp[i], uncased))
@@ -433,7 +433,7 @@ bool Check_Bits(REBSER *bset, const REBVAL *val, bool uncased)
     }
 
     if (ANY_STRING(val)) {
-        REBCNT i = VAL_INDEX(val);
+        REBLEN i = VAL_INDEX(val);
         REBCHR(const*) up = VAL_STRING_AT(val);
         for (; i != VAL_LEN_HEAD(val); ++i) {
             REBUNI c;
@@ -460,7 +460,7 @@ bool Check_Bits(REBSER *bset, const REBVAL *val, bool uncased)
             if (IS_WORD(item + 1) && VAL_WORD_SYM(item + 1) == SYM_HYPHEN) {
                 item += 2;
                 if (IS_CHAR(item)) {
-                    REBCNT n = VAL_CHAR(item);
+                    REBLEN n = VAL_CHAR(item);
                     if (n < c)
                         fail (Error_Past_End_Raw());
                     for (; c <= n; c++)
@@ -476,7 +476,7 @@ bool Check_Bits(REBSER *bset, const REBVAL *val, bool uncased)
             break; }
 
         case REB_INTEGER: {
-            REBCNT n = Int32s(KNOWN(item), 0);
+            REBLEN n = Int32s(KNOWN(item), 0);
             if (n > 0xffff)
                 return false;
             if (IS_WORD(item + 1) && VAL_WORD_SYM(item + 1) == SYM_HYPHEN) {
@@ -554,7 +554,7 @@ REB_R PD_Bitset(
 //
 void Trim_Tail_Zeros(REBSER *ser)
 {
-    REBCNT len = SER_LEN(ser);
+    REBLEN len = SER_LEN(ser);
     REBYTE *bp = BIN_HEAD(ser);
 
     while (len > 0 && bp[len] == 0)

@@ -70,11 +70,11 @@
 inline static REBVAL *Init_Tuple(
     RELVAL *out,
     const REBYTE *data,
-    REBCNT len
+    REBLEN len
 ){
     RESET_CELL(out, REB_TUPLE, CELL_MASK_NONE);
 
-    REBCNT n = len;
+    REBLEN n = len;
     REBYTE *bp;
     for (bp = VAL_TUPLE(out); n > 0; --n)
         *bp++ = *data++;
