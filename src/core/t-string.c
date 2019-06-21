@@ -781,25 +781,25 @@ void Mold_Text_Series_At(REB_MOLD *mo, REBSTR *s, REBCNT index) {
         up = NEXT_CHR(&c, up);
 
         switch (c) {
-        case '{':
+          case '{':
             brace_in++;
             break;
 
-        case '}':
+          case '}':
             brace_out++;
             if (brace_out > brace_in)
                 malign++;
             break;
 
-        case '"':
+          case '"':
             quote++;
             break;
 
-        case '\n':
+          case '\n':
             newline++;
             break;
 
-        default:
+          default:
             if (c == 0x1e)
                 chr1e += 4; // special case of ^(1e)
             else if (IS_CHR_ESC(c))
@@ -849,19 +849,19 @@ void Mold_Text_Series_At(REB_MOLD *mo, REBSTR *s, REBCNT index) {
         up = NEXT_CHR(&c, up);
 
         switch (c) {
-        case '{':
-        case '}':
-            if (malign) {
+          case '{':
+          case '}':
+            if (malign)
                 Append_Codepoint(buf, '^');
-                break;
-            }
-            // fall through
-        case '\n':
-        case '"':
             Append_Codepoint(buf, c);
             break;
 
-        default:
+          case '\n':
+          case '"':
+            Append_Codepoint(buf, c);
+            break;
+
+          default:
             Mold_Uni_Char(mo, c, parened);
         }
     }
