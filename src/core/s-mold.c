@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -32,7 +32,7 @@
 //
 // There are several technical problems in molding regarding the handling of
 // values that do not have natural expressions in Rebol source.  For instance,
-// it might be legal to `make word! "123"` but that cannot just be molded as
+// it was legal (in Rebol2) to `make word! "123"` but that can't be molded as
 // 123 because that would LOAD as an integer.  There are additional problems
 // with `mold next [a b c]`, because there is no natural representation for a
 // series that is not at its head.  These problems were addressed with
@@ -42,24 +42,23 @@
 //
 // !!! These are some fuzzy concepts, and though the name MOLD may have made
 // sense when Rebol was supposedly called "Clay", it now looks off-putting.
-// Most of Ren-C's focus has been on the evaluator, so there are not that many
-// advances in molding--other than the code being tidied up and methodized.
+// Most of Ren-C's focus has been on the evaluator, and few philosophical
+// problems of R3-Alpha's mold have been addressed.  However, the mechanical
+// side has changed to use UTF-8 (instead of UCS-2) and allow nested molds.
 //
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Notes:
+//=//// NOTES /////////////////////////////////////////////////////////////=//
 //
 // * Because molding and forming of a type share a lot of code, they are
 //   implemented in "(M)old or (F)orm" hooks (MF_Xxx).  Also, since classes
 //   of types can share behavior, several types are sometimes handled in the
 //   same hook.  See %types.r for these categorizations in the "mold" column.
 //
-// * Molding is done into a REB_MOLD structure, which in addition to the
+// * Molding is done via a REB_MOLD structure, which in addition to the
 //   series to mold into contains options for the mold--including length
 //   limits, whether commas or periods should be used for decimal points,
 //   indentation rules, etc.
 //
-// * If you create the REB_MOLD using the Push_Mold() function, then it will
+// * If you use the Push_Mold() function to fill a REB_MOLD, then it will
 //   append in a stacklike way to the thread-local "mold buffer".  This
 //   allows new molds to start running and use that buffer while another is in
 //   progress, so long as it pops or drops the buffer before returning to the
@@ -77,24 +76,20 @@
 //
 //  Prep_Mold_Overestimated: C
 //
-// But since R3-Alpha's mold buffer was fixed size at unicode, it could
-// accurately know that one character in a STRING! or URL! or FILE! would only
-// be one unit of mold buffer, unless it was escaped.  So it would prescan
-// for escapes and compensate accordingly.  In the interim period where
-// ANY-STRING! is two-bytes per codepoint and the mold buffer is UTF-8, it's
-// hard to be precise.
+// A premise of the mold buffer is that it is reused and generally bigger than
+// your output, so you won't expand it often.  Routines like Append_Ascii() or
+// Append_Spelling() will automatically handle resizing, but other code which
+// wishes to write bytes into the mold buffer must ensure adequate space has
+// been allocated before doing so.
 //
-// So this locates places in the code that pass in a potential guess which may
-// (or may not) be right.  (Guesses will tend to involve some multiplication
-// of codepoint counts by 4, since that's the largest a UTF-8 character can
-// end up encoding).  Doing this more precisely is not worth it for this
-// interim mode, as there will be no two-bytes-per-codepoint code eventaully.
+// This routine locates places in the code that want to minimize expansions in
+// mid-mold by announcing a possibly overestimated byte count of what space
+// will be needed.  Guesses tend to involve some multiplication of codepoint
+// counts by 4, since that's the largest a UTF-8 character can encode as.
 //
-// !!! One premise of the mold buffer is that it will generally be bigger than
-// your output, so you won't expand it often.  This lets one be a little
-// sloppy on expansion and keeping the series length up to date (could use an
-// invalid UTF-8 character as an end-of-buffer signal, much as END markers are
-// used by the data stack)
+// !!! How often these guesses are worth it should be reviewed.  Alternate
+// techniques might use an invalid UTF-8 character as an end-of-buffer signal
+// and notice it during writes, how END markers are used by the data stack.
 //
 REBYTE *Prep_Mold_Overestimated(REB_MOLD *mo, REBCNT num_bytes)
 {
@@ -169,17 +164,17 @@ void New_Indented_Line(REB_MOLD *mo)
     //
     REBYTE *bp;
     if (STR_LEN(mo->series) == 0)
-        bp = NULL;
+        bp = nullptr;
     else {
         bp = BIN_LAST(SER(mo->series));  // legal way to check UTF-8
-        if (*bp == ' ' || *bp == '\t')
+        if (*bp == ' ' or *bp == '\t')
             *bp = '\n';
         else
-            bp = NULL;
+            bp = nullptr;
     }
 
     // Add terminator:
-    if (bp == NULL)
+    if (bp == nullptr)
         Append_Codepoint(mo->series, '\n');
 
     // Add proper indentation:
@@ -241,13 +236,7 @@ void Drop_Pointer_From_Series(REBSER *s, void *p)
 }
 
 
-/***********************************************************************
-************************************************************************
-**
-**  SECTION: Block Series Datatypes
-**
-************************************************************************
-***********************************************************************/
+//=/// ARRAY MOLDING //////////////////////////////////////////////////////=//
 
 //
 //  Mold_Array_At: C
@@ -326,7 +315,7 @@ void Form_Array_At(
     REBARR *array,
     REBCNT index,
     REBCTX *opt_context
-) {
+){
     // Form a series (part_mold means mold non-string values):
     REBINT len = ARR_LEN(array) - index;
     if (len < 0)
@@ -335,13 +324,13 @@ void Form_Array_At(
     REBINT n;
     for (n = 0; n < len;) {
         RELVAL *item = ARR_AT(array, index + n);
-        REBVAL *wval = NULL;
-        if (opt_context && (IS_WORD(item) || IS_GET_WORD(item))) {
+        REBVAL *wval = nullptr;
+        if (opt_context and (IS_WORD(item) or IS_GET_WORD(item))) {
             wval = Select_Canon_In_Context(opt_context, VAL_WORD_CANON(item));
             if (wval)
                 item = wval;
         }
-        Mold_Or_Form_Value(mo, item, wval == NULL);
+        Mold_Or_Form_Value(mo, item, wval == nullptr);
         n++;
         if (GET_MOLD_FLAG(mo, MOLD_FLAG_LINES)) {
             Append_Codepoint(mo->series, LF);
@@ -564,35 +553,29 @@ bool Form_Reduce_Throws(
 //
 //  Push_Mold: C
 //
+// Much like the data stack, a single contiguous series is used for the mold
+// buffer.  So if a mold needs to happen during another mold, it is pushed
+// into a stack and must balance (with either a Pop() or Drop() of the nested
+// string).  The fail() mechanics will automatically balance the stack.
+//
 void Push_Mold(REB_MOLD *mo)
 {
   #if !defined(NDEBUG)
-    //
-    // If molding happens while this Push_Mold is happening, it will lead to
-    // a recursion.  This would likely be caused by a debug routine that is
-    // trying to dump out values.  Another debug method will need to be used.
-    //
-    assert(!TG_Pushing_Mold);
+    assert(not TG_Pushing_Mold);  // Can't do debug molding during Push_Mold()
     TG_Pushing_Mold = true;
-
-    // Sanity check that if they set a limit it wasn't 0.  (Perhaps over the
-    // long term it would be okay, but for now we'll consider it a mistake.)
-    //
-    if (GET_MOLD_FLAG(mo, MOLD_FLAG_LIMIT))
-        assert(mo->limit != 0);
   #endif
 
-    // Set by DECLARE_MOLD/pops so you don't same `mo` twice w/o popping.
-    // Is assigned even in debug build, scanner uses to determine if pushed.
-    //
-    assert(mo->series == NULL);
+    assert(mo->series == nullptr);  // Indicates not pushed, see DECLARE_MOLD
 
     REBSER *s = SER(MOLD_BUF);
+    ASSERT_SERIES_TERM(s);
+
     mo->series = STR(s);
     mo->offset = STR_SIZE(mo->series);
     mo->index = STR_LEN(mo->series);
 
-    ASSERT_SERIES_TERM(s);
+    if (GET_MOLD_FLAG(mo, MOLD_FLAG_LIMIT))
+        assert(mo->limit != 0);  // !!! Should a limit of 0 be allowed?
 
     if (
         GET_MOLD_FLAG(mo, MOLD_FLAG_RESERVE)
@@ -698,18 +681,14 @@ void Throttle_Mold(REB_MOLD *mo) {
 // is a helper that extracts the data as a string series.  It resets the
 // buffer to its length at the time when the last push began.
 //
-// Can limit string output to a specified size to prevent long console
-// garbage output if MOLD_FLAG_LIMIT was set in Push_Mold().
-//
-// If len is END_FLAG then all the string content will be copied, otherwise
-// it will be copied up to `len`.  If there are not enough characters then
-// the debug build will assert.
-//
 REBSTR *Pop_Molded_String(REB_MOLD *mo)
 {
-    assert(mo->series != NULL); // if NULL there was no Push_Mold()
-
+    assert(mo->series != nullptr);  // if null, there was no Push_Mold()
     ASSERT_SERIES_TERM(SER(mo->series));
+
+    // Limit string output to a specified size to prevent long console
+    // garbage output if MOLD_FLAG_LIMIT was set in Push_Mold().
+    //
     Throttle_Mold(mo);
 
     REBSIZ size = STR_SIZE(mo->series) - mo->offset;
@@ -771,28 +750,18 @@ REBSER *Pop_Molded_Binary(REB_MOLD *mo)
 // information in the mold has done its job and Pop_Molded_String() is not
 // required, just call this to drop back to the state of the last push.
 //
-void Drop_Mold_Core(REB_MOLD *mo, bool not_pushed_ok)
-{
-    // The tokenizer can often identify tokens to load by their start and end
-    // pointers in the UTF8 data it is loading alone.  However, scanning
-    // string escapes is a process that requires converting the actual
-    // characters to unicode.  To avoid redoing this work later in the scan,
-    // it uses the mold buffer as a storage space from the tokenization
-    // that did UTF-8 decoding of string contents to reuse.
-    //
-    // Despite this usage, it's desirable to be able to do things like output
-    // debug strings or do basic molding in that code.  So to reuse the
-    // buffer, it has to properly participate in the mold stack protocol.
-    //
-    // However, only a few token types use the buffer.  Rather than burden
-    // the tokenizer with an additional flag, having a modality to be willing
-    // to "drop" a mold that hasn't ever been pushed is the easiest way to
-    // avoid intervening.  Drop_Mold_If_Pushed(mo) macro makes this clearer.
-    //
-    if (not_pushed_ok && mo->series == NULL)
+// Note: Direct pointers into the mold buffer are unstable if another mold
+// runs during it!  Do not pass these pointers into code that can run an
+// additional mold (that can be just about anything, even debug output...)
+//
+void Drop_Mold_Core(
+    REB_MOLD *mo,
+    bool not_pushed_ok  // see Drop_Mold_If_Pushed()
+){
+    if (mo->series == nullptr) {  // there was no Push_Mold()
+        assert(not_pushed_ok);
         return;
-
-    assert(mo->series != NULL); // if NULL there was no Push_Mold
+    }
 
     // When pushed data are to be discarded, mo->series may be unterminated.
     // (Indeed that happens when Scan_Item_Push_Mold returns NULL/0.)
@@ -803,7 +772,7 @@ void Drop_Mold_Core(REB_MOLD *mo, bool not_pushed_ok)
     //
     TERM_STR_LEN_SIZE(mo->series, mo->index, mo->offset);
 
-    mo->series = NULL; // indicates mold is not currently pushed
+    mo->series = nullptr;  // indicates mold is not currently pushed
 }
 
 
@@ -824,8 +793,8 @@ void Startup_Mold(REBCNT size)
 void Shutdown_Mold(void)
 {
     Free_Unmanaged_Series(SER(TG_Mold_Buf));
-    TG_Mold_Buf = NULL;
+    TG_Mold_Buf = nullptr;
 
     Free_Unmanaged_Series(TG_Mold_Stack);
-    TG_Mold_Stack = NULL;
+    TG_Mold_Stack = nullptr;
 }
