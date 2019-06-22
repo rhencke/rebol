@@ -897,7 +897,7 @@
 //
 // But there's a risk that one might say `if (shorthand)` and test for the
 // nullness or non-nullness of the shorthand vs. of the thing pointed to.
-// This adds a check in the C++ build that you always say `if (shorthand)`
+// This adds a check in the C++ build that you always say `if (*shorthand)`
 //
 
 #if !defined(CPLUSPLUS_11)

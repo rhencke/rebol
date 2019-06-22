@@ -38,24 +38,24 @@ struct Params_Of_State {
 //
 static bool Params_Of_Hook(
     REBVAL *param,
-    bool sorted_pass,
+    REBFLGS flags,
     void *opaque
 ){
     struct Params_Of_State *s = cast(struct Params_Of_State*, opaque);
 
-    if (not sorted_pass) { // first pass we just count unspecialized params
-        ++s->num_visible;
+    if (not (flags & PHF_SORTED_PASS)) {
+        ++s->num_visible;  // first pass we just count unspecialized params
         return true;
     }
 
-    if (not s->arr) { // if first step on second pass, make the array
+    if (not s->arr) {  // if first step on second pass, make the array
         s->arr = Make_Array(s->num_visible);
         s->dest = ARR_HEAD(s->arr);
     }
 
     Init_Any_Word(s->dest, REB_WORD, VAL_PARAM_SPELLING(param));
 
-    if (TYPE_CHECK(param, REB_TS_REFINEMENT))
+    if (not (flags & PHF_UNREFINED) and TYPE_CHECK(param, REB_TS_REFINEMENT))
         Refinify(KNOWN(s->dest));
 
     switch (VAL_PARAM_CLASS(param)) {
@@ -103,17 +103,17 @@ REBARR *Make_Action_Parameters_Arr(REBACT *act)
 
 static bool Typesets_Of_Hook(
     REBVAL *param,
-    bool sorted_pass,
+    REBFLGS flags,
     void *opaque
 ){
     struct Params_Of_State *s = cast(struct Params_Of_State*, opaque);
 
-    if (not sorted_pass) { // first pass we just count unspecialized params
-        ++s->num_visible;
+    if (not (flags & PHF_SORTED_PASS)) {
+        ++s->num_visible;  // first pass we just count unspecialized params
         return true;
     }
 
-    if (not s->arr) { // if first step on second pass, make the array
+    if (not s->arr) {  // if first step on second pass, make the array
         s->arr = Make_Array(s->num_visible);
         s->dest = ARR_HEAD(s->arr);
     }

@@ -277,7 +277,12 @@ typedef void (MOLD_HOOK)(REB_MOLD *mo, const REBCEL *v, bool form);
 // can't be used directly in a function definition and have it be picked up
 // for %tmp-internals.h, it has to be a typedef.
 //
-typedef bool (PARAM_HOOK)(REBVAL *v, bool sorted_pass, void *opaque);
+typedef enum {
+    PHF_SORTED_PASS = 1 << 0,
+    PHF_UNREFINED = 1 << 1
+} Reb_Param_Hook_Flags;
+#define PHF_MASK_NONE 0
+typedef bool (PARAM_HOOK)(REBVAL *v, REBFLGS flags, void *opaque);
 
 
 // These definitions are needed in %sys-rebval.h, and can't be put in

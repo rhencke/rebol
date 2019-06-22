@@ -667,7 +667,7 @@ void For_Each_Unspecialized_Param(
         if (pclass == REB_P_RETURN or pclass == REB_P_LOCAL)
             continue;  // locals not in interface
 
-        if (not hook(param, false, opaque)) { // false => unsorted pass
+        if (not hook(param, PHF_MASK_NONE, opaque)) {  // unsorted pass
             DS_DROP_TO(dsp_orig);
             return;
         }
@@ -695,7 +695,7 @@ void For_Each_Unspecialized_Param(
         if (pclass == REB_P_LOCAL or pclass == REB_P_RETURN)
             continue;
 
-        if (not hook(param, true, opaque)) { // true => sorted pass
+        if (not hook(param, PHF_SORTED_PASS, opaque)) {
             DS_DROP_TO(dsp_orig);
             return;
         }
@@ -703,20 +703,16 @@ void For_Each_Unspecialized_Param(
 
     // Now jump around and take care of the partial refinements.
 
-    DECLARE_LOCAL (unrefined);
-
     REBDSP dsp = DSP;  // highest priority are at *top* of stack, go downward
     while (dsp != dsp_orig) {
         param = ACT_PARAM(act, VAL_WORD_INDEX(DS_AT(dsp)));
         --dsp;
 
-        Move_Value(unrefined, param);
-        assert(TYPE_CHECK(unrefined, REB_TS_REFINEMENT));
-        TYPE_CLEAR(unrefined, REB_TS_REFINEMENT);
-
-        PUSH_GC_GUARD(unrefined);
-        bool cancel = not hook(unrefined, true, opaque);  // true => sorted
-        DROP_GC_GUARD(unrefined);
+        bool cancel = not hook(
+            param,
+            PHF_SORTED_PASS | PHF_UNREFINED,
+            opaque
+        );
 
         if (cancel) {
             DS_DROP_TO(dsp_orig);
@@ -746,7 +742,7 @@ void For_Each_Unspecialized_Param(
             }
         }
 
-        if (not hook(param, true, opaque)) {  // true => sorted pass
+        if (not hook(param, PHF_SORTED_PASS, opaque)) {
             DS_DROP_TO(dsp_orig);
             return; // stack should be balanced here
         }
@@ -765,15 +761,15 @@ struct First_Param_State {
     REBVAL *first_unspecialized;
 };
 
-static bool First_Param_Hook(REBVAL *param, bool sorted_pass, void *opaque)
+static bool First_Param_Hook(REBVAL *param, REBFLGS flags, void *opaque)
 {
     struct First_Param_State *s = cast(struct First_Param_State*, opaque);
     assert(not s->first_unspecialized); // should stop enumerating if found
 
-    if (not sorted_pass)
+    if (not (flags & PHF_SORTED_PASS))
         return true; // can't learn anything until second pass
 
-    if (TYPE_CHECK(param, REB_TS_REFINEMENT))
+    if (not (flags & PHF_UNREFINED) and TYPE_CHECK(param, REB_TS_REFINEMENT))
         return false; // we know WORD!-based invocations will be 0 arity
 
     s->first_unspecialized = param;
