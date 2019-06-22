@@ -80,7 +80,7 @@
 //
 #if !defined(CPLUSPLUS_11) or !defined(DEBUG_UTF8_EVERYWHERE)
     //
-    // Plain C build uses trivial expansion of REBCHR() and REBCHR(const*)
+    // Plain C build uses trivial expansion of REBCHR(*) and REBCHR(const*)
     //
     //          REBCHR(*) cp; => REBYTE * cp;
     //     REBCHR(const*) cp; => REBYTE const* cp;  // same as `const REBYTE*`
@@ -103,11 +103,12 @@
         REBUNI *codepoint_out,
         const REBYTE *bp
     ){
-        NEXT_CHR(codepoint_out, bp);
-        --bp;
-        while ((*bp & 0xC0) == 0x80)
-            --bp;
-        return m_cast(REBYTE*, bp);
+        const REBYTE *t = bp;
+        --t;
+        while ((*t & 0xC0) == 0x80)
+            --t;
+        NEXT_CHR(codepoint_out, t);  // Review: optimize backward scans?
+        return m_cast(REBYTE*, t);
     }
 
     inline static REBYTE* NEXT_STR(const REBYTE *bp) {
@@ -199,11 +200,11 @@
         }
 
         RebchrPtr back(REBUNI *out) {
-            next(out);
             const REBYTE *t = bp;
             --t;
             while ((*t & 0xC0) == 0x80)
                 --t;
+            next(out);
             return RebchrPtr {t};
         }
 
@@ -379,15 +380,6 @@ inline static size_t STR_SIZE(REBSTR *s) {
 
 #define STR_TAIL(s) \
     cast(REBCHR(*), SER_TAIL(REBYTE, SER(s)))
-
-inline static REBCHR(*) STR_LAST(REBSTR *s) {
-    REBCHR(*) cp = STR_TAIL(s);
-    REBUNI c;
-    cp = BACK_CHR(&c, cp);
-    assert(c == '\0');
-    UNUSED(c);
-    return cp;
-}
 
 inline static REBLEN STR_LEN(REBSTR *s) {
     if (Is_Definitely_Ascii(s))

@@ -114,7 +114,7 @@ static void reverse_string(REBVAL *v, REBLEN len)
         REBLEN val_len_head = VAL_LEN_HEAD(v);
 
         REBSTR *s = VAL_STRING(v);
-        REBCHR(const*) up = STR_LAST(s);  // last exists due to len != 0
+        REBCHR(const*) up = STR_TAIL(s);  // last exists due to len != 0
         REBLEN n;
         for (n = 0; n < len; ++n) {
             REBUNI c;

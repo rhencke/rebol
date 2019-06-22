@@ -412,15 +412,15 @@ REBLEN Find_Str_In_Str(
     if (skip > 0)
         cp1 = NEXT_CHR(&c1, cp1);
     else
-        cp1 = BACK_CHR(&c1, cp1);
+        NEXT_CHR(&c1, cp1);
 
     while (skip < 0 ? index >= start : index < end) {
         if (c1 == c2_canon or (uncase and LO_CASE(c1) == c2_canon)) {
-            REBCHR(const*) tp1;
+            REBCHR(const*) tp1 = cp1;
             if (skip > 0)
                 tp1 = cp1;
             else
-                tp1 = NEXT_STR(NEXT_STR(cp1)); // compensate from overstep
+                tp1 = NEXT_STR(cp1);  // compensate from overstep
 
             REBCHR(const*) tp2 = next2;
             REBLEN n;

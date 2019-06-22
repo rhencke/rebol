@@ -304,7 +304,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
                     //
                     REBLEN n = STR_LEN(mo->series);
                     if (n > mo->index) {
-                        REBCHR(*) tp = STR_LAST(mo->series);
+                        REBCHR(*) tp = STR_TAIL(mo->series);
 
                         --n;
                         tp = BACK_CHR(&c, tp);
@@ -319,6 +319,8 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
                             --n;
                             tp = BACK_CHR(&c, tp);
                         }
+
+                        tp = BACK_CHR(&c, tp);
 
                         // Terminate, loses '/' (or '\'), but added back below
                         //
