@@ -849,14 +849,18 @@ struct Reb_Series {
     SER(s)->link_private
 
 
-// Currently only the C++ build does the check that ->misc is not being used
-// at a time when it is forwarded out for copying.  If the C build were to
-// do it, then it would be forced to go through a pointer access to do any
-// writing...which would likely be less efficient.
+// A pending feature is that the series `->misc` field be used to track if
+// a series is being forwarded as part of a group of copied series.  The C++
+// build could do a check in that case.
 //
-#ifdef CPLUSPLUS_11
+#if defined(CPLUSPLUS_11)
     inline static union Reb_Series_Misc& Get_Series_Misc(REBSER *s) {
-        assert(not IS_POINTER_FREETRASH_DEBUG(s->misc_private.trash));
+        //
+        // It would be nice here if we could do some kind of check like
+        // `assert(not IS_POINTER_FREETRASH_DEBUG(s->misc_private.trash))`
+        // but that would invoke undefined behavior (disengaged union access
+        // once another field is assigned).  Valgrind and UBSAN complain.
+        //
         return s->misc_private;
     }
 
