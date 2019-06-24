@@ -171,7 +171,7 @@ c.lexical: context [
         p-char: charset "[](){}.&*+-~!/%<>^^|?:;=,#"
 
         ; whitespace
-        ws-char: charset { ^-^/^K^L}
+        ws-char: charset { ^-^M^/^K^L}
         not-wsp: complement ws-char
     ]
 
