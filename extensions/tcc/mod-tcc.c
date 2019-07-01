@@ -171,7 +171,7 @@ static void Process_Text_Helper_Core(
     int status = some_tcc_api(state, utf8);
     rebFree(utf8);
 
-    if (status < 0) // !!! When does it do this vs. call Error_Reporting_Hook?
+    if (status < 0)  // !!! When is this called vs. Error_Reporting_Hook?
         rebJumps ("fail [",
             "{TCC}", rebT(label), "{rejected:}", text,
         "]", rebEND);

@@ -224,26 +224,65 @@ compile: function [
     ; be able to find definitions for them.  They live in %libtcc1.a,
     ; which is generally located in the CONFIG_TCCDIR.
 
-    if "1" = get-env "REBOL_TCC_EXTENSION_32BIT_ON_64BIT" [
+    case [
+        "1" = get-env "REBOL_TCC_EXTENSION_32BIT_ON_64BIT" [
+            ;
+            ; This is the verbatim list of library overrides that `-v` dumps
+            ; on 64-bit multilib Travis compiling `int main() {}` with -m32:
+            ;
+            ;     gcc -v -m32 main.c -o main
+            ;
+            ; Otherwise, if you're trying to run a 32-bit Rebol on 64-bits
+            ; then the link step of TCC would try to link to the 64-bit libs.
+            ; This rarely comes up, because most people runnning a 32-bit
+            ; Rebol are only doing so because they can't run on 64-bits.  But
+            ; Travis containers are 64-bit, so this helps test 32-bit builds.
+            ;
+            ; Better suggestions on how to do this are of course welcome.  :-/
+            ;
+            insert config/library-path [
+                "/usr/lib/gcc/x86_64-linux-gnu/7/32/"
+                "/usr/lib/gcc/x86_64-linux-gnu/7/../../../../lib32/"
+                "/lib/../lib32/"
+                "/usr/lib/../lib32/"
+            ]
+        ]
+
+        ; !!! Note: The executable `tcc` (which implements POSIX command line
+        ; conventions) uses libtcc to do its compilation.  But it adds lots of
+        ; logic regarding computing standard include directories.  e.g. in
+        ; %tcc.h you see things like:
         ;
-        ; This is the verbatim list of library overrides that `-v` dumps out
-        ; on 64-bit multilib Travis when compiling `int main() {}` with -m32:
+        ;     #  define CONFIG_TCC_SYSINCLUDEPATHS \
+        ;            "{B}/include" \
+        ;         ":" ALSO_TRIPLET(CONFIG_SYSROOT "/usr/local/include") \
+        ;         ":" ALSO_TRIPLET(CONFIG_SYSROOT "/usr/include")
         ;
-        ;     gcc -v -m32 main.c -o main
+        ;    #  define CONFIG_TCC_LIBPATHS \
+        ;            ALSO_TRIPLET(CONFIG_SYSROOT "/usr/" CONFIG_LDDIR) \
+        ;        ":" ALSO_TRIPLET(CONFIG_SYSROOT "/" CONFIG_LDDIR) \
+        ;        ":" ALSO_TRIPLET(CONFIG_SYSROOT "/usr/local/" CONFIG_LDDIR)
         ;
-        ; Otherwise, if you're trying to run a 32-bit Rebol on a 64-bit system
-        ; then the link step of TCC would try to link to the 64-bit libs.
-        ; This doesn't usually come up, because most people runnning a 32-bit
-        ; Rebol are only doing so because they *can't* run on 64-bits.  But
-        ; Travis containers are only 64-bit, so this helps test 32-bit builds.
+        ; A bit of digging shows "triplet" might be <architecture>-<OS>-<lib>,
+        ; e.g. `x86_64-linux-gnu`, and CONFIG_LDDIR is probably lib.  These
+        ; directories are not automatic when using libtcc.  The Rebol COMPILE
+        ; command would hopefully have enough smarts to be at least as good as
+        ; the tcc command line tool...for now this works around it enough to
+        ; help get the bootstrap demo going.
         ;
-        ; Better suggestions on how to do this are of course welcome.  :-/
-        ;
-        insert config/library-path [
-            "/usr/lib/gcc/x86_64-linux-gnu/7/32/"
-            "/usr/lib/gcc/x86_64-linux-gnu/7/../../../../lib32/"
-            "/lib/../lib32/"
-            "/usr/lib/../lib32/"
+        4 = fourth system/version [  ; Linux
+            lddir: "lib"
+            triplet: try if 40 = fifth system/version [  ; 64-bit
+                "x86_64-linux-gnu"
+            ]
+            insert config/library-path compose [
+                (unspaced ["/usr/" lddir])
+                (if triplet [unspaced ["/usr/" lddir "/" triplet]])
+                (unspaced ["/" lddir])
+                (if triplet [unspaced ["/" lddir "/" triplet]])
+                (unspaced ["/usr/local/" lddir])
+                (if triplet [unspaced ["/usr/local/" lddir "/" triplet]])
+            ]
         ]
     ]
 
@@ -394,6 +433,8 @@ c99: function [
         known-extension-rule: ["." ["c" | "a" | "o"] ahead [space | end]]
 
         rule: [
+            last-pos:  ; Save for errors
+
             "-c" (  ; just compile (no link phase)
                 keep compose [output-type (outtype: 'OBJ)]
                 outfile: _  ; don't need to specify
@@ -421,8 +462,8 @@ c99: function [
             )
             |
             "-l"  ; add library (-llibrary means search for "liblibrary.a")
-            opt space copy lib: to [space | end] (
-                keep compose [library (lib)]
+            opt space copy libname: to [space | end] (
+                keep compose [library (libname)]
             )
             |
             ahead "-O"  ; optimization level
@@ -439,6 +480,17 @@ c99: function [
             ahead "-U"  ; #undef
             option-with-arg-rule
             |
+            ahead "-W"  ; !!! Not technically POSIX, but we use it
+            to [space | end]  ; ...just skip all warning settings
+            |
+            "-w" to [space | end]  ; !!! Disables warnings (also not POSIX)
+            (keep [options "-w"])
+            |
+            "-f" ["sanitize" | "visibility"]  ; !!! Also not POSIX, tolerate
+            to [space | end]
+            |
+            "-rdynamic"  ; !!! Again, not POSIX
+            |
             copy filename: [
                 some [
                     nonspacedot
@@ -453,10 +505,7 @@ c99: function [
 
         parse/case command [some [rule [some space | end]]] else [
             fail [
-                ; !!! This error should be more detailed, capturing the parse
-                ; position and showing what it's choking on
-                ;
-                "Could not parse C99 command line"
+                "Could not parse C99 command line at:" mold/limit last-pos 40
             ]
         ]
     ]
@@ -486,6 +535,10 @@ c99: function [
 
     if runtime [  ; overrides search for environment variable CONFIG_TCCDIR
         append settings compose [runtime-path (runtime)]
+    ]
+
+    if inspect [
+        print mold settings
     ]
 
     compile/files/(inspect)/settings compilables settings
