@@ -330,7 +330,12 @@ union Reb_Header {
 
     uint_fast32_t bits;
 
-  #if !defined(NDEBUG)
+    // !!! For some reason, at least on 64-bit Ubuntu, TCC will bloat the
+    // header structure to be 16 bytes instead of 8 if you put a 4 byte char
+    // array in the header.  There's probably a workaround, but for now skip
+    // this debugging pun if __TINYC__ is defined.
+    //
+  #if !defined(NDEBUG) && !defined(__TINYC__)
     char bytes_pun[4];
 
     #ifdef DEBUG_USE_BITFIELD_HEADER_PUNS
