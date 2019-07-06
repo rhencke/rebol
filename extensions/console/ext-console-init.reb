@@ -530,7 +530,7 @@ ext-console-impl: function [
     ; result so the program can continue.
 
     all [
-        set? 'lib/resume
+        in lib 'resume
         error? :result
         result/id = 'no-catch
         :result/arg2 = :LIB/RESUME  ; throw's /NAME

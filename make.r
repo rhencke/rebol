@@ -541,7 +541,7 @@ set-exec-path: func [
     path
 ][
     if path [
-        if not file? path [
+        if not match [file! text!] path [
             fail "Tool path has to be a file!"
         ]
         tool/exec-file: path
@@ -550,25 +550,25 @@ set-exec-path: func [
 
 parse user-config/toolset [
     any [
-        'gcc opt set cc-exec [file! | blank!] (
+        'gcc opt set cc-exec [file! | text! | blank!] (
             rebmake/default-compiler: rebmake/gcc
         )
-        | 'clang opt set cc-exec [file! | blank!] (
+        | 'clang opt set cc-exec [file! | text! | blank!] (
             rebmake/default-compiler: rebmake/clang
         )
-        | 'cl opt set cc-exec [file! | blank!] (
+        | 'cl opt set cc-exec [file! | text! | blank!] (
             rebmake/default-compiler: rebmake/cl
         )
-        | 'ld opt set linker-exec [file! | blank!] (
+        | 'ld opt set linker-exec [file! | text! | blank!] (
             rebmake/default-linker: rebmake/ld
         )
-        | 'llvm-link opt set linker-exec [file! | blank!] (
+        | 'llvm-link opt set linker-exec [file! | text! | blank!] (
             rebmake/default-linker: rebmake/llvm-link
         )
-        | 'link opt set linker-exec [file! | blank!] (
+        | 'link opt set linker-exec [file! | text! | blank!] (
             rebmake/default-linker: rebmake/link
         )
-        | 'strip opt set strip-exec [file! | blank!] (
+        | 'strip opt set strip-exec [file! | text! | blank!] (
             rebmake/default-strip: rebmake/strip
             rebmake/default-strip/options: [<gnu:-S> <gnu:-x> <gnu:-X>]
             if all [set? 'strip-exec strip-exec][
@@ -576,7 +576,7 @@ parse user-config/toolset [
             ]
         )
         | pos: (
-            if not tail? pos [fail ["failed to parset toolset at:" mold pos]]
+            if not tail? pos [fail ["failed to parse toolset at:" mold pos]]
         )
     ] end
 ]
