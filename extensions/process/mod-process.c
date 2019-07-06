@@ -475,11 +475,12 @@ REBNATIVE(set_env)
             "unspaced [", variable, "{=}", value, "]", rebEND
         );
 
-        if (putenv(key_equals_val_utf8) == -1) // !!! why mutable?  :-/
+        char *duplicate = strdup(key_equals_val_utf8);
+
+        if (putenv(duplicate) == -1)  // leak!  (why mutable?  :-/)
             fail ("putenv() couldn't set environment variable");
 
-        /* rebFree(key_equals_val_utf8); */ // !!! Can't!  Crashes getenv()
-        rebUnmanage(key_equals_val_utf8); // oh well, have to leak it
+        rebFree(key_equals_val_utf8);
       #endif
     }
 
