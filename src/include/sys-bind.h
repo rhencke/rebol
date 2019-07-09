@@ -349,9 +349,9 @@ inline static REBNOD *SPC_BINDING(REBSPC *specifier)
 inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
     EXTRA(Binding, out).node = binding; // payload and header should be valid
 
-    if (KIND_BYTE(out) == REB_QUOTED) {
+    if (KIND_BYTE(out) == REB_QUOTED) {  // always claims to be bindable
         RELVAL *old = VAL_QUOTED_PAYLOAD_CELL(out);
-        if (EXTRA(Binding, old).node == binding)
+        if (not Is_Bindable(old) or EXTRA(Binding, old).node == binding)
             return; // it's okay to reuse the payload
 
         REBVAL *paired = Alloc_Pairing();

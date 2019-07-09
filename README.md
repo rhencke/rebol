@@ -29,7 +29,7 @@ of code mixed with values, as easily as:
     int x = 1020;
     REBVAL *negate = rebValue("get 'negate");  // runs code, returns value
 
-    rebElide("print [", rebI(x), "+ (2 *", negate_function, "358)]");
+    rebElide("print [", rebI(x), "+ (2 *", negate, "358)]");
 
     // Would print 304--e.g. `1020 + (2 * -358)`, rebElide() returns C void.
 

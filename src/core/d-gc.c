@@ -140,6 +140,7 @@ void Assert_Cell_Marked_Correctly(const RELVAL *v)
       case REB_DATATYPE:
         if (VAL_TYPE_SPEC(v))  // currently allowed to be null, see %types.r
             assert(Is_Marked(VAL_TYPE_SPEC(v)));
+        assert(VAL_TYPE_KIND_OR_CUSTOM(v) != REB_0);
         break;
 
       case REB_TYPESET: // !!! Currently just 64-bits of bitset

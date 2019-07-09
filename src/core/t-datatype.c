@@ -247,7 +247,8 @@ REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
         // a limited sense.)
         //
         assert(value == Datatype_From_Kind(kind));
-        SET_CELL_FLAG(CTX_VAR(Lib_Context, n), PROTECTED);
+        assert(value == CTX_VAR(Lib_Context, n));
+        SET_CELL_FLAG(value, PROTECTED);
 
         Append_Value(catalog, KNOWN(word));
     }

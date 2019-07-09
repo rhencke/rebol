@@ -195,6 +195,7 @@ inline static RELVAL *Unquotify_Core(RELVAL *v, REBLEN unquotes) {
             not Is_Bindable(cell) or
             EXTRA(Binding, v).node == EXTRA(Binding, cell).node // must sync
         );
+        EXTRA(Binding, v) = EXTRA(Binding, cell);  // in case it's unbindable
         v->payload = cell->payload;
     }
     return v;
