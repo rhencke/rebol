@@ -64,17 +64,13 @@ struct Reb_Array {
 
 //=//// ARRAY_FLAG_NULLEDS_LEGAL //////////////////////////////////////////=//
 //
-// Note: This is not a debug-only flag at this time, as passing it in has
-// semantic implications (e.g. preserve VALUE_FLAG_EVAL_FLIP on copy).
+// Identifies arrays in which it is legal to have nulled elements.
+// ARRAY_FLAG_IS_VARLIST also implies legality of nulleds, which in that case
+// are used to represent unset variables.
 //
-// Identifies arrays in which it is legal to have nulled elements.  This is
-// true for reified C va_list()s which treated slots as if they had already
-// abeen evaluated.  (See CELL_FLAG_EVAL_FLIP).  When those va_lists need to
-// be put into arrays for the purposes of GC protection, they may contain
-// nulled cells.  (How to present this in the debugger will be a UI issue.)
-//
-// Note: ARRAY_FLAG_IS_VARLIST also implies legality of nulleds, which
-// in that case are used to represent unset variables.
+// Note: This is a debug-only flag at this time.  At one point it was used in
+// concert with reified `va_list` of values to indicate nulls that were safe
+// for the evaluator, but that is now covered by QUOTED! nulls.
 //
 #define ARRAY_FLAG_NULLEDS_LEGAL \
     FLAG_LEFT_BIT(17)

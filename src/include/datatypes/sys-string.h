@@ -105,7 +105,7 @@
     ){
         const REBYTE *t = bp;
         --t;
-        while ((*t & 0xC0) == 0x80)
+        while (Is_Continuation_Byte_If_Utf8(*t))
             --t;
         NEXT_CHR(codepoint_out, t);  // Review: optimize backward scans?
         return m_cast(REBYTE*, t);
@@ -114,14 +114,14 @@
     inline static REBYTE* NEXT_STR(const REBYTE *bp) {
         do {
             ++bp;
-        } while ((*bp & 0xC0) == 0x80);
+        } while (Is_Continuation_Byte_If_Utf8(*bp));
         return m_cast(REBYTE*, bp);
     }
 
     inline static REBYTE* BACK_STR(const REBYTE *bp) {
         do {
             --bp;
-        } while ((*bp & 0xC0) == 0x80);
+        } while (Is_Continuation_Byte_If_Utf8(*bp));
         return m_cast(REBYTE*, bp);
     }
 
@@ -202,7 +202,7 @@
         RebchrPtr back(REBUNI *out) {
             const REBYTE *t = bp;
             --t;
-            while ((*t & 0xC0) == 0x80)
+            while (Is_Continuation_Byte_If_Utf8(*t))
                 --t;
             next(out);
             return RebchrPtr {t};
@@ -212,7 +212,7 @@
             const REBYTE *t = bp;
             do {
                 ++t;
-            } while ((*t & 0xC0) == 0x80);
+            } while (Is_Continuation_Byte_If_Utf8(*t));
             return RebchrPtr {t};
         }
 
@@ -220,7 +220,7 @@
             const REBYTE *t = bp;
             do {
                 --t;
-            } while ((*t & 0xC0) == 0x80);
+            } while (Is_Continuation_Byte_If_Utf8(*t));
             return RebchrPtr {t};
         }
 

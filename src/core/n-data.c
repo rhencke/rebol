@@ -1115,7 +1115,7 @@ REBNATIVE(as)
             // may be misleading by suggesting a valid "codepoint" was seen.
             //
             REBYTE *at_ptr = BIN_AT(bin, offset);
-            if ((*at_ptr & 0xC0) == 0x80)  // middle of codepoint (or invalid)
+            if (Is_Continuation_Byte_If_Utf8(*at_ptr))
                 fail ("Index at codepoint to convert binary to ANY-STRING!");
 
             REBSTR *str;

@@ -129,7 +129,7 @@ static void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
             // UTF-8 encoded character.
             //
             req->length = 1020;
-            while ((req->common.data[req->length] & 0xC0) == 0x80)
+            while (Is_Continuation_Byte_If_Utf8(req->common.data[req->length]))
                 ++req->length;
             assert(req->length <= 1024);
         }

@@ -75,7 +75,7 @@
 #define STEP_BACKWARD(term) \
     do { \
         --term->pos; \
-    } while ((term->buffer[term->pos] & 0xC0) == 0x80);
+    } while (Is_Continuation_Byte_If_Utf8(term->buffer[term->pos]));
 
 typedef struct term_data {
     unsigned char *buffer;
@@ -365,7 +365,7 @@ static int Strlen_UTF8(unsigned char *buffer, int byte_count)
     int char_count = 0;
     int i = 0;
         for(i = 0 ; i < byte_count ; i++)
-            if ((buffer[i] & 0xC0) != 0x80)
+            if (not Is_Continuation_Byte_If_Utf8(buffer[i]))
                 char_count++;
 
         return char_count;

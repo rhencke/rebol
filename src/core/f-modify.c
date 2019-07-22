@@ -248,7 +248,7 @@ REBLEN Modify_String_Or_Binary(
             // UTF-8 continuation byte is any byte where top two bits are 10
             //
             REBYTE at = *BIN_AT(dst_ser, dst_idx);
-            if ((at & 0xC0) == 0x80)  // in middle of codepoint
+            if (Is_Continuation_Byte_If_Utf8(at))
                 fail ("Index at codepoint to modify string-aliased-BINARY!");
             dst_len_old = STR_LEN(STR(dst_ser));
         }
@@ -339,7 +339,7 @@ REBLEN Modify_String_Or_Binary(
         else {
             if (IS_SER_STRING(bin)) {  // guaranteed valid UTF-8
                 REBSTR *str = STR(bin);
-                if (*src_ptr > 0x80)
+                if (Is_Continuation_Byte_If_Utf8(*src_ptr))
                     fail ("Index codepoint to insert string-aliased-BINARY!");
 
                 src_len_raw = STR_LEN(str) - STR_INDEX_AT(str, offset);

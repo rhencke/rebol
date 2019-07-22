@@ -102,6 +102,8 @@ inline static const REBYTE *VAL_CHAR_ENCODED(const REBCEL *v) {
     return &(PAYLOAD(Character, (v)).size_then_encoded[1]);  // [0] is size
 }
 
+#define Is_Continuation_Byte_If_Utf8(b) \
+    (((b) & 0xC0) == 0x80)  // only certain if UTF-8 validity is already known
 
 extern const uint_fast8_t firstByteMark[7];  // defined in %t-char.c
 
