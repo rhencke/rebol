@@ -155,30 +155,42 @@
     insert/part a b 0
     empty? a
 )
+
+; !!! There has been confusion over what the /PART (added in R3-Alpha) means
+; as applied to INSERT, APPEND, and CHANGE:
+;
+; https://github.com/rebol/rebol-issues/issues/2096
+;
+; It seems a theory is that it was supposed to be a kind of /LIMIT of how much
+; to add to the source, and is not speaking in terms of the source series.
+; In this case negative indices should likely be the same as 0.  These tests
+; are changed in Ren-C from R3-Alpha to append nothing.
 (
     a: make block! 0
     b: at [1 2 3 4 5 6 7 8 9] 5
     insert/part a b -1
-    a == [4]
+    a == []
 )
 (
     a: make block! 0
     b: at [1 2 3 4 5 6 7 8 9] 5
     insert/part a b -4
-    a == [1 2 3 4]
+    a == []
 )
 (
     a: make block! 0
     b: at [1 2 3 4 5 6 7 8 9] 5
     insert/part a b -5
-    a == [1 2 3 4]
+    a == []
 )
 (
     a: make block! 0
     b: at [1 2 3 4 5 6 7 8 9] 5
     insert/part a b -2147483648
-    a == [1 2 3 4]
+    a == []
 )
+
+
 ; insert/only
 (
     a: make block! 0

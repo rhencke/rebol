@@ -246,9 +246,6 @@ REBLEN Modify_String_Or_Binary(
     REBSIZ dst_off;
     if (IS_BINARY(dst)) {  // check invariants up front even if NULL / no-op
         if (IS_SER_STRING(dst_ser)) {
-            //
-            // UTF-8 continuation byte is any byte where top two bits are 10
-            //
             REBYTE at = *BIN_AT(dst_ser, dst_idx);
             if (Is_Continuation_Byte_If_Utf8(at))
                 fail ("Index at codepoint to modify string-aliased-BINARY!");
@@ -334,23 +331,39 @@ REBLEN Modify_String_Or_Binary(
         src_ptr = BIN_AT(bin, offset);
         src_size_raw = BIN_LEN(bin) - offset;
 
-        if (not IS_SER_STRING(dst_ser))
+        if (not IS_SER_STRING(dst_ser)) {
+            if (limit > 0 and limit < src_size_raw)
+                src_size_raw = limit;  // /PART is in bytes for binary! dest
             src_len_raw = src_size_raw;
+        }
         else {
             if (IS_SER_STRING(bin)) {  // guaranteed valid UTF-8
                 REBSTR *str = STR(bin);
                 if (Is_Continuation_Byte_If_Utf8(*src_ptr))
                     fail ("Index codepoint to insert string-aliased-BINARY!");
 
-                src_len_raw = STR_LEN(str) - STR_INDEX_AT(str, offset);
+                // !!! We could be more optimal here since we know it's valid
+                // UTF-8 than walking characters up to the limit, like:
+                //
+                // `src_len_raw = STR_LEN(str) - STR_INDEX_AT(str, offset);`
+                //
+                // But for simplicity just use the same branch that unverified
+                // binaries do for now.  This code can be optimized when the
+                // functionality has been proven for a while.
+                //
+                UNUSED(str);
+                goto unverified_utf8_src_binary;
             }
             else {
+              unverified_utf8_src_binary:
+                //
                 // The binary may be invalid UTF-8.  We don't actually need
                 // to worry about the *entire* binary, just the part we are
                 // adding (whereas AS has to worry about the *whole* binary
                 // for aliasing, since BACK and HEAD are still possible)
                 //
                 src_len_raw = 0;
+
                 REBSIZ bytes_left = src_size_raw;
                 const REBYTE *bp = src_ptr;
                 for (; bytes_left > 0; --bytes_left, ++bp) {
@@ -361,6 +374,9 @@ REBLEN Modify_String_Or_Binary(
                             fail (Error_Bad_Utf8_Raw());
                     }
                     ++src_len_raw;
+
+                    if (limit == src_len_raw)
+                        break;  // Note: /PART is in codepoints
                 }
             }
         }
@@ -376,6 +392,8 @@ REBLEN Modify_String_Or_Binary(
             memcpy(BIN_HEAD(BYTE_BUF), src_ptr, src_size_raw);
             src_ptr = BIN_HEAD(BYTE_BUF);
         }
+
+        goto binary_limit_accounted_for;
     }
     else if (IS_BLOCK(src)) {
         //
@@ -421,7 +439,13 @@ REBLEN Modify_String_Or_Binary(
             goto form;
 
         src_ptr = VAL_STRING_AT(src);
-        src_size_raw = VAL_SIZE_LIMIT_AT(&src_len_raw, src, limit);
+
+        // !!! We pass in an UNKNOWN for the limit of how long the input is
+        // because currently /PART speaks in terms of the destination series.
+        // However, if that were changed to /LIMIT then we would want to
+        // be cropping the /PART of the input via passing a parameter here.
+        //
+        src_size_raw = VAL_SIZE_LIMIT_AT(&src_len_raw, src, UNKNOWN);
         if (not IS_SER_STRING(dst_ser))
             src_len_raw = src_size_raw;
     }
@@ -442,12 +466,27 @@ REBLEN Modify_String_Or_Binary(
             src_len_raw = STR_LEN(mo->series) - mo->index;
     }
 
-    if (limit < src_len_raw) {
-        src_len_raw = limit;
-        src_size_raw = limit;  // !!! Incorrect for UTF-8
-
-        // !!! This feature needs reviewing.
+    // Here we are accounting for a /PART where we know the source series
+    // data is valid UTF-8.  (If the source were a BINARY!, where the /PART
+    // counts in bytes, it would have jumped below here with limit set up.)
+    //
+    // !!! Bad first implementation; improve.
+    //
+    if (IS_SER_STRING(dst_ser)) {
+        REBCHR(const *) t = src_ptr + src_size_raw;
+        while (src_len_raw > limit) {
+            t = BACK_STR(t);
+            --src_len_raw;
+        }
+        src_size_raw = t - src_ptr;  // src_len_raw now equals limit
     }
+    else {  // copying valid UTF-8 data possibly partially in bytes (!)
+        if (src_size_raw > limit)
+            src_size_raw = limit;
+        src_len_raw = src_size_raw;
+    }
+
+  binary_limit_accounted_for: ;  // needs ; (next line is declaration)
 
     REBSIZ src_size_total;  // includes duplicates and newlines, if applicable
     REBLEN src_len_total;
@@ -490,7 +529,7 @@ REBLEN Modify_String_Or_Binary(
         REBLEN dst_len_at;
         REBSIZ dst_size_at;
         if (IS_SER_STRING(dst_ser))
-            dst_size_at = VAL_SIZE_LIMIT_AT(&dst_len_at, dst, -1);
+            dst_size_at = VAL_SIZE_LIMIT_AT(&dst_len_at, dst, UNKNOWN);
         else {
             dst_len_at = VAL_LEN_AT(dst);
             dst_size_at = dst_len_at;
@@ -511,7 +550,7 @@ REBLEN Modify_String_Or_Binary(
         // have to be moved safely out of the way before being overwritten.
 
         REBSIZ part_size;
-        if (cast(REBLEN, part) > dst_len_at) {
+        if (part > dst_len_at) {
             part = dst_len_at;
             part_size = dst_size_at;
         }
@@ -519,7 +558,7 @@ REBLEN Modify_String_Or_Binary(
             if (IS_SER_STRING(dst_ser)) {
                 REBLEN check;
                 part_size = VAL_SIZE_LIMIT_AT(&check, dst, part);
-                assert(check == cast(REBLEN, part));
+                assert(check == part);
                 UNUSED(check);
             }
             else

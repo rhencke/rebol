@@ -143,3 +143,24 @@
 
 
 ("σԋα ƚαʅ" = as text! as binary! skip "ɾαx σԋα ƚαʅ" 4)
+
+
+; /PART for APPEND and insert speaks in terms of the limit of how much
+; the target series should be allowed to grow in terms of its units.  Thus
+; you can copy partial UTF-8 out into a binary...
+;
+; !!! Proposal is that /LIMIT would be used for this purpose, and /PART would
+; refer to the amount of source material to be used.
+[
+    (#{} = append/part #{} "ò" 0)
+    (#{C3} = append/part #{} "ò" 1)
+    (#{C3B2} = append/part #{} "ò" 2)
+    (#{C3B2} = append/part #{} "ò" 3)
+
+    ("" = append/part "" #{C3B2} 0)
+    ("ò" = append/part "" #{C3B2} 1)
+    ("ò" = append/part "" #{C3B2} 2)
+
+    ("ò" = append/part "" #{C3B2DECAFBAD} 1)
+    (error? trap [append/part "" #{C3B2FEFEFEFE} 2])
+]

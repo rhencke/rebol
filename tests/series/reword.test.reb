@@ -24,3 +24,8 @@
         "B" func [w] [join "one-" w]
     ]
 )
+
+[
+    https://github.com/metaeducation/ren-c/issues/1005
+    ("ò" = reword "ò$a" reduce ['a ""])
+]
