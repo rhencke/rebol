@@ -31,13 +31,13 @@
 // Returns new dst_idx
 //
 REBLEN Modify_Array(
-    REBSTR *verb,           // INSERT, APPEND, CHANGE
-    REBARR *dst_arr,        // target
-    REBLEN dst_idx,         // position
+    REBSTR *verb,  // INSERT, APPEND, CHANGE
+    REBARR *dst_arr,  // target
+    REBLEN dst_idx,  // position
     const REBVAL *src_val,  // source
-    REBLEN flags,           // AM_SPLICE, AM_PART
-    REBINT dst_len,         // length to remove
-    REBINT dups             // dup count
+    REBLEN flags,  // AM_SPLICE, AM_PART, AM_LINE
+    REBLEN part,  // dst to remove (CHANGE) or limit to grow (APPEND/INSERT)
+    REBINT dups  // dup count of how many times to insert the src content
 ){
     REBSYM sym = STR_SYMBOL(verb);
     assert(sym == SYM_INSERT or sym == SYM_CHANGE or sym == SYM_APPEND);
@@ -77,18 +77,20 @@ REBLEN Modify_Array(
     //   on the inserted array.
     //
     bool tail_newline = did (flags & AM_LINE);
-    REBINT ilen;
+    REBLEN ilen;
 
     // Check /PART, compute LEN:
     if (flags & AM_SPLICE) {
         const REBCEL *unescaped = VAL_UNESCAPED(src_val);
         assert(ANY_ARRAY_KIND(CELL_KIND(unescaped)));
 
+        ilen = VAL_LEN_AT(unescaped);
+
         // Adjust length of insertion if changing /PART:
-        if (sym != SYM_CHANGE and (flags & AM_PART))
-            ilen = dst_len;
-        else
-            ilen = VAL_LEN_AT(unescaped);
+        if (sym != SYM_CHANGE and (flags & AM_PART)) {
+            if (part < ilen)
+                ilen = part;
+        }
 
         if (not tail_newline) {
             RELVAL *tail_cell = VAL_ARRAY_AT(unescaped) + ilen;
@@ -128,7 +130,7 @@ REBLEN Modify_Array(
         specifier = SPECIFIED; // it's a REBVAL, not a RELVAL, so specified
     }
 
-    REBINT size = dups * ilen; // total to insert
+    REBLEN size = cast(REBLEN, dups) * ilen;  // total to insert (dups is > 0)
 
     // If data is being tacked onto an array, beyond the newlines on the values
     // in that array there is also the chance that there's a newline tail flag
@@ -143,10 +145,10 @@ REBLEN Modify_Array(
         Expand_Series(SER(dst_arr), dst_idx, size);
     }
     else {
-        if (size > dst_len)
-            Expand_Series(SER(dst_arr), dst_idx, size - dst_len);
-        else if (size < dst_len and (flags & AM_PART))
-            Remove_Series_Units(SER(dst_arr), dst_idx, dst_len - size);
+        if (size > part)
+            Expand_Series(SER(dst_arr), dst_idx, size - part);
+        else if (size < part and (flags & AM_PART))
+            Remove_Series_Units(SER(dst_arr), dst_idx, part - size);
         else if (size + dst_idx > tail) {
             EXPAND_SERIES_TAIL(SER(dst_arr), size - (tail - dst_idx));
         }
@@ -154,9 +156,9 @@ REBLEN Modify_Array(
 
     tail = (sym == SYM_APPEND) ? 0 : size + dst_idx;
 
-    REBINT dup_index = 0;
-    for (; dup_index < dups; ++dup_index) {
-        REBINT index = 0;
+    REBLEN dup_index = 0;
+    for (; dup_index < cast(REBLEN, dups); ++dup_index) {  // dups checked > 0
+        REBLEN index = 0;
         for (; index < ilen; ++index, ++dst_idx) {
             Derelativize(
                 ARR_HEAD(dst_arr) + dst_idx,
@@ -228,7 +230,7 @@ REBLEN Modify_String_Or_Binary(
     REBSTR *verb,  // SYM_APPEND at tail, or SYM_INSERT/SYM_CHANGE at index
     const REBVAL *src,  // ANY-VALUE! argument with content to inject
     REBFLGS flags,  // AM_PART, AM_LINE
-    REBINT part,  // dst to remove (CHANGE) or src to copy (APPEND/INSERT)
+    REBLEN part,  // dst to remove (CHANGE) or limit to grow (APPEND/INSERT)
     REBINT dups  // dup count of how many times to insert the src content
 ){
     REBSYM sym = STR_SYMBOL(verb);
@@ -276,13 +278,11 @@ REBLEN Modify_String_Or_Binary(
 
     // For INSERT/PART and APPEND/PART
     //
-    REBINT limit;
-    if (sym != SYM_CHANGE and (flags & AM_PART)) {
-        assert(part >= 0);
+    REBLEN limit;
+    if (sym != SYM_CHANGE and (flags & AM_PART))
         limit = part;
-    }
     else
-        limit = -1;
+        limit = UINT32_MAX;
 
     if (limit == 0 or dups <= 0)
         return sym == SYM_APPEND ? 0 : dst_idx;
@@ -442,7 +442,7 @@ REBLEN Modify_String_Or_Binary(
             src_len_raw = STR_LEN(mo->series) - mo->index;
     }
 
-    if (limit >= 0) {
+    if (limit < src_len_raw) {
         src_len_raw = limit;
         src_size_raw = limit;  // !!! Incorrect for UTF-8
 
@@ -571,8 +571,8 @@ REBLEN Modify_String_Or_Binary(
     //
     REBYTE *dst_ptr = SER_SEEK(REBYTE, dst_ser, dst_off);
 
-    REBINT d;
-    for (d = 0; d < dups; ++d) {
+    REBLEN d;
+    for (d = 0; d < cast(REBLEN, dups); ++d) {  // dups checked above as > 0
         memcpy(dst_ptr, src_ptr, src_size_raw);
         dst_ptr += src_size_raw;
 

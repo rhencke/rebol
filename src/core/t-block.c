@@ -949,9 +949,9 @@ REBTYPE(Array)
         if (VAL_WORD_SYM(verb) == SYM_CHANGE)
             len = Part_Len_May_Modify_Index(array, ARG(part));
         else
-            len = Part_Len_Append_Insert_May_Modify_Index(arg, ARG(part));
+            len = Part_Limit_Append_Insert(ARG(part));
 
-        // Note that while inserting or removing NULL is a no-op, CHANGE with
+        // Note that while inserting or appending NULL is a no-op, CHANGE with
         // a /PART can actually erase data.
         //
         if (IS_NULLED(arg) and len == 0) { // only nulls bypass write attempts

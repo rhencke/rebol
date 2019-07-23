@@ -311,7 +311,7 @@ reword: function [
             [
                 [
                     any-keyword-rule suffix (
-                        append/part out a b  ; output text from before prefix
+                        append/part out a offset? a b  ; output before prefix
 
                         v: select/(case_REWORD) values keyword-match
                         append out switch type of :v [

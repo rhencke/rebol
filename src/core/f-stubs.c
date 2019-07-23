@@ -508,35 +508,32 @@ REBLEN Part_Tail_May_Modify_Index(REBVAL *series, const REBVAL *limit)
 
 
 //
-//  Part_Len_Append_Insert_May_Modify_Index: C
+//  Part_Limit_Append_Insert: C
 //
-// This is for the specific cases of INSERT and APPEND interacting with /PART:
+// This is for the specific cases of INSERT and APPEND interacting with /PART,
+// implementing a somewhat controversial behavior of only accepting an
+// INTEGER! and only speaking in terms of units limited to:
 //
 // https://github.com/rebol/rebol-issues/issues/2096
-//
-// It captures behavior that in R3-Alpha was done in "Partial1()", as opposed
-// to the "Partial()" routine...which allows for the use of an integer
-// length limit even when the change argument is not a series.
+// https://github.com/rebol/rebol-issues/issues/2383
 //
 // Note: the calculation for CHANGE is done based on the series being changed,
 // not the properties of the argument:
 //
 // https://github.com/rebol/rebol-issues/issues/1570
 //
-REBLEN Part_Len_Append_Insert_May_Modify_Index(
-    REBVAL *value,
-    const REBVAL *part
-){
-    if (ANY_SERIES(value))
-        return Part_Len_Core(value, part);
-
+REBLEN Part_Limit_Append_Insert(const REBVAL *part) {
     if (IS_BLANK(part))
-        return 1;
+        return UINT32_MAX;  // treat as no limit
 
-    if (IS_INTEGER(part) or IS_DECIMAL(part))
-        return Part_Len_Core(value, part);
+    if (IS_INTEGER(part)) {
+        REBINT i = Int32(part);
+        if (i < 0)  // Clip negative numbers to mean 0
+            return 0;  // !!! Would it be better to error?
+        return cast(REBLEN, i);
+    }
 
-    fail ("Invalid /PART specified for non-series APPEND/INSERT argument");
+    fail ("APPEND and INSERT only take /PART limit as INTEGER!");
 }
 
 

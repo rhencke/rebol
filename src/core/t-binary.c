@@ -610,7 +610,7 @@ REBTYPE(Binary)
         if (VAL_WORD_SYM(verb) == SYM_CHANGE)
             len = Part_Len_May_Modify_Index(v, ARG(part));
         else
-            len = Part_Len_Append_Insert_May_Modify_Index(arg, ARG(part));
+            len = Part_Limit_Append_Insert(ARG(part));
 
         REBFLGS flags = 0;
         if (REF(part))

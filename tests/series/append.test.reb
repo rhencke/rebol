@@ -37,3 +37,9 @@
 ('(a b c d/e/f) = append copy '(a b c) 'd/e/f)
 (did trap ['a/b/c/d/e/f = join 'a/b/c '('d 'e 'f)])
 ('a/b/c/d/e/f = join 'a/b/c 'd/e/f)
+
+[#2383 (
+    "abcde" = append/part "abc" ["defg"] 2
+)(
+    "abcdefgh" = append/part "abc" ["defg" "hijk"] 5
+)]
