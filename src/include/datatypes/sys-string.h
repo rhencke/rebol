@@ -687,20 +687,21 @@ inline static REBCHR(*) VAL_STRING_AT(const REBCEL *v) {
 inline static REBSIZ VAL_SIZE_LIMIT_AT(
     REBLEN *length, // length in chars to end (including limit)
     const REBCEL *v,
-    REBINT limit // -1 for no limit
+    REBLEN limit  // UNKNOWN (e.g. a very large number) for no limit
 ){
     assert(ANY_STRING_KIND(CELL_KIND(v)));
 
-    REBCHR(const*) at = VAL_STRING_AT(v); // !!! update cache if needed
+    REBCHR(const*) at = VAL_STRING_AT(v);  // !!! update cache if needed
     REBCHR(const*) tail;
 
-    if (limit == -1) {
-        if (length != NULL)
-            *length = VAL_LEN_AT(v);
-        tail = VAL_STRING_TAIL(v); // byte count known (fast)
+    REBLEN len_at = VAL_LEN_AT(v);
+    if (limit >= len_at) {
+        if (length != nullptr)
+            *length = len_at;
+        tail = VAL_STRING_TAIL(v);  // byte count known (fast)
     }
     else {
-        if (length != NULL)
+        if (length != nullptr)
             *length = limit;
         tail = at;
         for (; limit > 0; --limit)
@@ -711,7 +712,7 @@ inline static REBSIZ VAL_SIZE_LIMIT_AT(
 }
 
 #define VAL_SIZE_AT(v) \
-    VAL_SIZE_LIMIT_AT(NULL, v, -1)
+    VAL_SIZE_LIMIT_AT(NULL, v, UNKNOWN)
 
 inline static REBSIZ VAL_OFFSET(const RELVAL *v) {
     return VAL_STRING_AT(v) - VAL_STRING_HEAD(v);

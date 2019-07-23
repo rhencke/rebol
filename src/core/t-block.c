@@ -80,7 +80,7 @@ REB_R MAKE_Array(
         //
         // `make block! "a <b> #c"` => `[a <b> #c]`, scans as code (unbound)
         //
-        REBSIZ size = VAL_SIZE_LIMIT_AT(nullptr, arg, -1);
+        REBSIZ size = VAL_SIZE_LIMIT_AT(nullptr, arg, UNKNOWN);
 
         REBSTR * const filename = Canon(SYM___ANONYMOUS__);
         Init_Any_Array(

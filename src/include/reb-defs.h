@@ -81,6 +81,10 @@ typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 // These were used in R3-Alpha.  Could use some better typing in C++ to avoid
 // mistaking untested errors for ordinary integers.
 //
+// !!! Is it better to use the _MAX definitions than this?
+//
+// https://github.com/LambdaSchool/CS-Wiki/wiki/Casting-Signed-to-Unsigned-in-C
+//
 #define NOT_FOUND ((REBLEN)-1)
 #define UNKNOWN ((REBLEN)-1)
 

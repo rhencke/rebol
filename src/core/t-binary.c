@@ -256,7 +256,7 @@ static REBSER *MAKE_TO_Binary_Common(const REBVAL *arg)
     case REB_TAG: {  // !!! What should REB_ISSUE do?
         REBSIZ offset = VAL_OFFSET_FOR_INDEX(arg, VAL_INDEX(arg));
 
-        REBSIZ size = VAL_SIZE_LIMIT_AT(NULL, arg, -1);
+        REBSIZ size = VAL_SIZE_LIMIT_AT(NULL, arg, UNKNOWN);
 
         REBSER *bin = Make_Binary(size);
         memcpy(BIN_HEAD(bin), BIN_AT(VAL_SERIES(arg), offset), size);
