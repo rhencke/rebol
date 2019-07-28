@@ -1071,6 +1071,7 @@ static enum Reb_Token Locate_Token_May_Push_Mold(
         if (
             HAS_LEX_FLAG(flags, LEX_SPECIAL_AT)  // @ anywhere but at the head
             and *cp != '<'  // want <foo="@"> to be a TAG!, not an EMAIL!
+            and *cp != '\''  // want '@foo to be a SYM-WORD!
         ){
             if (*cp == '@')  // consider `@a@b`, `@@`, etc. ambiguous
                 fail (Error_Syntax(ss, TOKEN_EMAIL));
