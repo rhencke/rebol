@@ -177,6 +177,14 @@ bool Add_Typeset_Bits_Core(
             else if (0 == Compare_String_Vals(item, Root_Const_Tag, true)) {
                 TYPE_SET(typeset, REB_TS_CONST);
             }
+            else if (0 == Compare_String_Vals(item, Root_Modal_Tag, true)) {
+                //
+                // !!! <modal> is not the general way to make modal args (the
+                // `@arg` notation is used), but the native specs are loaded
+                // by a boostrap r3 that can't read them.
+                //
+                mutable_KIND_BYTE(typeset) = REB_P_MODAL;
+            }
         }
         else if (IS_DATATYPE(item)) {
             if (num_quotes == 0) {

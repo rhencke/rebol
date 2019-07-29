@@ -1105,10 +1105,7 @@ generate: function [ "Make a generator."
         ]]
         append words w
     ]
-    words: unique words
-    spec: flatten map-each w words [reduce [<static> w]]
-    append spec [<static> count]
-    insert spec [/reset [block!]]
+    spec: compose [/reset [block!] <static> ((unique words)) count]
     body: compose/deep [
         if reset [count: reset return]
         if block? count [

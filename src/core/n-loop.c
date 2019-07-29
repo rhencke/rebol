@@ -28,7 +28,8 @@
 typedef enum {
     LOOP_FOR_EACH,
     LOOP_EVERY,
-    LOOP_MAP_EACH
+    LOOP_MAP_EACH,
+    LOOP_MAP_EACH_SPLICED
 } LOOP_MODE;
 
 
@@ -588,8 +589,17 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
             break;
 
           case LOOP_MAP_EACH:
+          case LOOP_MAP_EACH_SPLICED:
             if (IS_NULLED(les->out))
                 Init_Void(les->out);  // nulled used to signal breaking only
+            else if (
+                les->mode == LOOP_MAP_EACH_SPLICED
+                and IS_BLOCK(les->out)
+            ){
+                RELVAL *v = VAL_ARRAY_AT(les->out);
+                for (; NOT_END(v); ++v)
+                    Derelativize(DS_PUSH(), v, VAL_SPECIFIER(les->out));
+            }
             else
                 Move_Value(DS_PUSH(), les->out);  // non nulls added to result
             break;
@@ -620,7 +630,7 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
 //
 static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 {
-    INCLUDE_PARAMS_OF_FOR_EACH;  // MAP-EACH & EVERY must have same interface
+    INCLUDE_PARAMS_OF_FOR_EACH;  // MAP-EACH & EVERY must subset interface
 
     Init_Blank(D_OUT);  // result if body never runs (MAP-EACH gives [])
 
@@ -708,14 +718,14 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
     //=//// NOW FINISH UP /////////////////////////////////////////////////=//
 
     if (r == R_THROWN) {  // generic THROW/RETURN/QUIT (not BREAK/CONTINUE)
-        if (mode == LOOP_MAP_EACH)
+        if (mode == LOOP_MAP_EACH or mode == LOOP_MAP_EACH_SPLICED)
             DS_DROP_TO(dsp_orig);
         return R_THROWN;
     }
 
     if (r) {
         assert(IS_ERROR(r));
-        if (mode == LOOP_MAP_EACH)
+        if (mode == LOOP_MAP_EACH or mode == LOOP_MAP_EACH_SPLICED)
             DS_DROP_TO(dsp_orig);
         rebJumps ("FAIL", rebR(r), rebEND);
     }
@@ -744,6 +754,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         return D_OUT;
 
       case LOOP_MAP_EACH:
+      case LOOP_MAP_EACH_SPLICED:
         if (IS_NULLED(D_OUT)) {  // e.g. there was a BREAK. *must* return null
             DS_DROP_TO(dsp_orig);
             return nullptr;
@@ -1475,13 +1486,22 @@ REBNATIVE(remove_each)
 //          "Word or block of words to set each time (local)"
 //      data [<blank> any-series! any-path! action!]
 //          "The series to traverse"
-//      body [<const> block!]
+//      body [<const> <modal> block!]
 //          "Block to evaluate each time"
+//      /splice "Splice body result if it's a block"
 //  ]
 //
 REBNATIVE(map_each)
 {
-    return Loop_Each(frame_, LOOP_MAP_EACH);
+    INCLUDE_PARAMS_OF_MAP_EACH;
+    UNUSED(PAR(vars));
+    UNUSED(PAR(data));
+    UNUSED(PAR(body));
+
+    return Loop_Each(
+        frame_,
+        REF(splice) ? LOOP_MAP_EACH_SPLICED : LOOP_MAP_EACH
+    );
 }
 
 
