@@ -684,7 +684,8 @@ void For_Each_Unspecialized_Param(
     // Now second loop, where we print out just the normal args.
     //
     param = ACT_PARAMS_HEAD(act);
-    for (; NOT_END(param); ++param) {
+    special = ACT_SPECIALTY_HEAD(act);
+    for (; NOT_END(param); ++param, ++special) {
         if (Is_Param_Hidden(param))
             continue;
 
@@ -695,7 +696,20 @@ void For_Each_Unspecialized_Param(
         if (pclass == REB_P_LOCAL or pclass == REB_P_RETURN)
             continue;
 
-        if (not hook(param, PHF_SORTED_PASS, opaque)) {
+        // If the modal parameter has had its refinement specialized out, it
+        // is no longer modal.
+        //
+        REBFLGS flags = PHF_SORTED_PASS;
+        if (pclass == REB_P_MODAL) {
+            if (NOT_END(param + 1)) {  // !!! Ideally checked at creation
+                if (GET_CELL_FLAG(special + 1, ARG_MARKED_CHECKED)) {
+                    if (TYPE_CHECK(param + 1, REB_TS_REFINEMENT))  // required
+                        flags |= PHF_DEMODALIZED;  // !!! ^-- check at create!
+                }
+            }
+        }
+
+        if (not hook(param, flags, opaque)) {
             DS_DROP_TO(dsp_orig);
             return;
         }
@@ -723,6 +737,7 @@ void For_Each_Unspecialized_Param(
     // Finally, output any fully unspecialized refinements
 
     param = ACT_PARAMS_HEAD(act);
+    UNUSED(special);  // stack is enough
 
     for (; NOT_END(param); ++param) {
         if (Is_Param_Hidden(param))
@@ -951,6 +966,7 @@ bool Make_Invocation_Frame_Throws(
         else switch (pclass) {
           case REB_P_NORMAL:
           case REB_P_HARD_QUOTE:
+          case REB_P_MODAL:
           case REB_P_SOFT_QUOTE:
             if (not refine or VAL_LOGIC(refine)) {
                 *first_arg_ptr = arg;

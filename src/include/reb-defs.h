@@ -277,13 +277,18 @@ typedef void (MOLD_HOOK)(REB_MOLD *mo, const REBCEL *v, bool form);
 
 //=//// PARAMETER ENUMERATION /////////////////////////////////////////////=//
 //
+// Parameter lists of composed/derived functions still must have compatible
+// frames with their underlying C code.  This makes parameter enumeration of
+// a derived function a 2-pass process that is a bit tricky.
+//
 // !!! Due to a current limitation of the prototype scanner, a function type
 // can't be used directly in a function definition and have it be picked up
 // for %tmp-internals.h, it has to be a typedef.
 //
 typedef enum {
     PHF_SORTED_PASS = 1 << 0,
-    PHF_UNREFINED = 1 << 1
+    PHF_UNREFINED = 1 << 1,  // a /refinement that takes an arg, made "normal"
+    PHF_DEMODALIZED = 1 << 2  // an @param with its refinement specialized out
 } Reb_Param_Hook_Flags;
 #define PHF_MASK_NONE 0
 typedef bool (PARAM_HOOK)(REBVAL *v, REBFLGS flags, void *opaque);

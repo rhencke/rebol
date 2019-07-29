@@ -212,6 +212,9 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
             VAL_INDEX(shared) += 1;
             break;
 
+        case REB_P_MODAL:
+            fail ("Variadic modal parameters not yet implemented");
+
         case REB_P_SOFT_QUOTE:
             if (IS_QUOTABLY_SOFT(VAL_ARRAY_AT(shared))) {
                 if (Eval_Value_Throws(

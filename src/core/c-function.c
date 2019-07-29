@@ -66,6 +66,14 @@ static bool Params_Of_Hook(
         Getify(KNOWN(s->dest));
         break;
 
+      case REB_P_MODAL:
+        if (flags & PHF_DEMODALIZED) {
+            // associated refinement specialized out
+        }
+        else
+            Symify(KNOWN(s->dest));
+        break;
+
       case REB_P_SOFT_QUOTE:
         Quotify(KNOWN(s->dest), 1);
         break;
@@ -438,6 +446,10 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                         pclass = REB_P_SOFT_QUOTE;
                     else
                         pclass = REB_P_NORMAL;
+                }
+                else if (CELL_KIND(cell) == REB_SYM_WORD) {
+                    if (not quoted)
+                        pclass = REB_P_MODAL;
                 }
             }
         }
@@ -996,6 +1008,7 @@ REBACT *Make_Action(
             break;
 
           case REB_P_HARD_QUOTE:
+          case REB_P_MODAL:
           case REB_P_SOFT_QUOTE:
             SET_ACTION_FLAG(act, QUOTES_FIRST);
             break;

@@ -909,6 +909,8 @@ REBNATIVE(reskinned)
             pclass = REB_P_RETURN;
         else if (IS_GET_WORD(item))
             pclass = REB_P_HARD_QUOTE;
+        else if (IS_SYM_WORD(item))
+            pclass = REB_P_MODAL;
         else if (
             IS_QUOTED(item)
             and VAL_NUM_QUOTES(item) == 1

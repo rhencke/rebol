@@ -617,8 +617,12 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         // !!! cache this test?
         //
         REBVAL *first = First_Unspecialized_Param(VAL_ACTION(*next_gotten));
-        if (VAL_PARAM_CLASS(first) == REB_P_SOFT_QUOTE)
+        if (
+            VAL_PARAM_CLASS(first) == REB_P_SOFT_QUOTE
+            or VAL_PARAM_CLASS(first) == REB_P_MODAL
+        ){
             goto give_up_backward_quote_priority; // yield as an exemption
+        }
     }
 
     // Let the <skip> flag allow the right hand side to gracefully decline
@@ -1136,6 +1140,8 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                 }
                 else switch (pclass) {
                   case REB_P_NORMAL:
+                  enfix_normal_handling:
+
                     Move_Value(f->arg, f->out);
                     if (GET_CELL_FLAG(f->out, UNEVALUATED))
                         SET_CELL_FLAG(f->arg, UNEVALUATED);
@@ -1179,6 +1185,73 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                     SET_CELL_FLAG(f->arg, UNEVALUATED);
                     Finalize_Arg(f);
                     break;
+
+                  case REB_P_MODAL: {
+                    if (not GET_CELL_FLAG(f->out, UNEVALUATED))
+                        goto enfix_normal_handling;
+
+                  handle_modal_in_out: ;  // declaration, semicolon necessary
+
+                    enum Reb_Kind new_kind = REB_0;
+                    switch (VAL_TYPE(f->out)) {
+                      case REB_SYM_WORD:
+                        new_kind = REB_GET_WORD;  // so @append doesn't run it
+                        break;
+
+                      case REB_SYM_PATH:
+                        new_kind = REB_GET_PATH;  // @append/only won't, too
+                        break;
+
+                      case REB_SYM_GROUP:
+                        new_kind = REB_GROUP;
+                        break;
+
+                      case REB_SYM_BLOCK:
+                        new_kind = REB_BLOCK;
+                        break;
+
+                      default:
+                        break;
+                    }
+
+                    if (new_kind != REB_0) {  // The mode is on
+                        //
+                        // !!! We could (should?) pre-check the paramlists to
+                        // make sure users don't try and make a modal argument
+                        // not followed by a refinement.  That would cost
+                        // extra, but avoid the test on every call.
+                        //
+                        const RELVAL *enable = f->param + 1;
+                        if (
+                            IS_END(enable)
+                            or not TYPE_CHECK(enable, REB_TS_REFINEMENT)
+                        ){
+                            fail ("Refinement must follow modal parameter");
+                        }
+                        if (not Is_Typeset_Invisible(enable))
+                            fail ("Modal refinement cannot take arguments");
+
+                        // Signal refinement as being in use.
+                        //
+                        Init_Sym_Word(DS_PUSH(), VAL_PARAM_CANON(enable));
+
+                        // Update the datatype to the non-@ form for eval
+                        //
+                        mutable_KIND_BYTE(f->out)
+                            = mutable_MIRROR_BYTE(f->out)
+                            = new_kind;
+                    }
+
+                    // Because the possibility of needing to see the uneval'd
+                    // value existed, the parameter had to act quoted.  Eval.
+                    //
+                    if (Eval_Value_Throws(f->arg, f->out, SPECIFIED)) {
+                        Move_Value(f->arg, f->out);
+                        goto abort_action;
+                    }
+
+                    Finalize_Arg(f);
+                    break; }
 
                   case REB_P_SOFT_QUOTE:
                     //
@@ -1287,7 +1360,8 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
    //=//// REGULAR ARG-OR-REFINEMENT-ARG (consumes 1 EVALUATE's worth) ////=//
 
-              case REB_P_NORMAL: {
+              case REB_P_NORMAL:
+              normal_handling: {
                 REBFLGS flags = EVAL_MASK_DEFAULT
                     | EVAL_FLAG_FULFILLING_ARG;
 
@@ -1327,6 +1401,15 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                     goto continue_arg_loop;
 
                 break;
+
+    //=//// MODAL ARG  ////////////////////////////////////////////////////=//
+
+            case REB_P_MODAL: {
+                if (not ANY_SYM_KIND(VAL_TYPE(*next)))  // not an @xxx
+                    goto normal_handling;  // acquire as a regular argument
+
+                Literal_Next_In_Frame(f->out, f);  // f->value is read-only...
+                goto handle_modal_in_out; }  // ...in out so we can Unsymify()
 
     //=//// SOFT QUOTED ARG-OR-REFINEMENT-ARG  ////////////////////////////=//
 
