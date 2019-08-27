@@ -853,6 +853,8 @@ force-remote-import: false
 import: function [
     {Imports a module; locate, load, make, and setup its bindings.}
 
+    return: "Loaded module (or block of modules if argument was block)"
+        [<opt> module! block!]
     module [word! file! url! text! binary! module! block! tag!]
     /version "Module must be this version or greater"
         [tuple!]

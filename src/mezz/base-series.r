@@ -212,10 +212,10 @@ trim: function [
                 fail "Invalid refinements for TRIM of BINARY!"
             ]
 
-            rule: either with [
-                either bitset? with [with] [charset with]
-            ][
-                #{00}
+            rule: case [
+                not with [#{00}]
+                bitset? with [with]
+                default [charset with]
             ]
 
             if not any [head_TRIM tail_TRIM] [

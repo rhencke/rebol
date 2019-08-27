@@ -48,7 +48,7 @@ read-deep: function [
 
     result: copy []
 
-    queue: compose [((root))]
+    queue: blockify root
 
     while [not tail? queue] [
         append result taker queue  ; Possible null

@@ -213,6 +213,14 @@ help: function [
         path! word! [
             ; PATH! and WORD! fall through for help on what they look up to
 
+            all [
+                word? topic
+                null? binding of topic
+            ] then [
+                print [topic "is an unbound WORD!"]
+                return
+            ]
+
             value: get topic else [
                 print ["No information on" topic "(has no value)"]
                 return

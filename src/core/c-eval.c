@@ -1850,7 +1850,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         break;
 
 
-//==//// SET_WORD! ///////////////////////////////////////////////////////==//
+//==//// SET-WORD! ///////////////////////////////////////////////////////==//
 //
 // Right hand side is evaluated into `out`, and then copied to the variable.
 //

@@ -121,7 +121,7 @@
             ; var-256: 256
             ;
             keep compose [
-                (to word! unspaced ["var-" n]): (n)
+                (as word! unspaced ["var-" n]): (n)
             ]
         ]
         repeat n 256 [
@@ -132,11 +132,10 @@
             ; fun-256: method [] [var-1 + var-2 ... + var-256]
             ;
             keep compose [
-                (to word! unspaced ["meth-" n]): method [] (collect [
-                    keep 'var-1
-                    repeat i n - 1 [
+                (as word! unspaced ["meth-" n]): method [] (collect [
+                    repeat i n [
                         keep compose [
-                            + (to word! unspaced ["var-" i + 1])
+                            (as word! unspaced ["var-" i]) (if i <> n ['+])
                         ]
                     ]
                 ])
