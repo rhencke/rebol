@@ -39,11 +39,13 @@ repo-dir: system/options/current-path
 ; is wherever the path is that the shell was in when %make.r was invoked.
 ; (unless it's run in the same directory as %make.r--then default to %build/)
 ;
-output-dir: system/options/path 
+output-dir: system/options/path
 if output-dir = repo-dir [
+    launched-from-root: true
     output-dir: join repo-dir %build/
     make-dir output-dir
-    print ["Launched from root dir, so building in:" output-dir]
+] else [
+    launched-from-root: false
 ]
 change-dir output-dir
 
@@ -66,7 +68,7 @@ user-config: make object! load repo-dir/configs/default-config.r
 ; COMMAND = WORD
 ; OPTION = 'NAME=VALUE' | 'NAME: VALUE'
 ;
-args: parse-args system/options/args
+args: parse-args system/script/args  ; either from command line or DO/ARGS
 
 ; now args are ordered and separated by bar:
 ; [NAME VALUE ... '| COMMAND ...]
@@ -318,7 +320,6 @@ parse-ext-build-spec: function [
 use [extension-dir entry][
     extension-dir: repo-dir/extensions/%
     for-each entry read extension-dir [
-        ;print ["entry:" mold entry]
         all [
             dir? entry
             find read rejoin [extension-dir entry] %make-spec.r
@@ -436,7 +437,7 @@ NOTE 1: current dir is the build dir,
     (%prep/, %objs/, %makefile, %r3 ...)
     You can have multiple build dirs.^/
 NOTE 2: but if the current dir is the "root" dir
-    (where make.r is), then the build dir is %build
+    (where make.r is), then the build dir is %build/^/
 NOTE 3: order of configs and options IS relevant^/
 MORE HELP:^/
     { -h | -help | --help } { HELP-TOPICS }
@@ -459,7 +460,7 @@ FILES IN %make/configs/ SUBFOLDER:^/
 'options unspaced [ {=== OPTIONS ===^/
 CURRENT VALUES:^/
     }
-    indent mold/only body-of probe user-config
+    indent mold/only body-of user-config
     {^/
 NOTES:^/
     - names are case-insensitive
@@ -505,6 +506,7 @@ CURRENT VALUE:
     newline
     ]
 ]
+
 ; dynamically fill help topics list ;-)
 replace help-topics/usage "HELP-TOPICS" ;\
     form append map-each x help-topics [either text? x ['|] [x]] 'all
@@ -529,11 +531,16 @@ help: function [topic [text! blank!]] [
 
 iterate commands [
     if find ["-h" "-help" "--help"] commands/1 [
-        help try :commands/2 quit
+        help try :commands/2
+        quit
     ]
 ]
 
 === GO! ===
+
+if launched-from-root [
+    print ["Launched from root dir, so building in:" output-dir]
+]
 
 set-exec-path: func [
     return: <void>
@@ -1085,17 +1092,10 @@ add-app-ldflags: adapt specialize :append [series: app-config/ldflags] [
     value: if block? value [flatten/deep reduce bind value linker-flags]
 ]
 
-write-stdout "Sanity checking on system config.."
-; !!! TBD: checks
 add-app-def copy system-config/definitions
 add-app-cflags copy system-config/cflags
 add-app-lib copy system-config/libraries
 add-app-ldflags copy system-config/ldflags
-print "..Good"
-
-write-stdout "Sanity checking on app config.."
-; !!! TBD: checks
-print "..Good"
 
 print ["definitions:" mold app-config/definitions]
 print ["includes:" mold app-config/includes]

@@ -48,7 +48,7 @@ do %native-emitters.r ; for emit-include-params-macro
 ; code into the %prep/<name-of-extension> directory, which is added to the
 ; include path for the build of the extension
 
-args: parse-args system/options/args
+args: parse-args system/script/args  ; either from command line or DO/ARGS
 src: fix-win32-path to file! :args/SRC
 set [in-dir file-name] split-path src
 output-dir: system/options/path/prep/:in-dir

@@ -20,7 +20,7 @@ do %common-emitter.r
 
 print "--- Make Reb-Lib Headers ---"
 
-args: parse-args system/options/args
+args: parse-args system/script/args  ; either from command line or DO/ARGS
 output-dir: system/options/path/prep
 output-dir: output-dir/include
 mkdir/deep output-dir

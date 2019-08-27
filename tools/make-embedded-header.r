@@ -19,7 +19,7 @@ do %common-emitter.r
 do %common-parsers.r
 
 print "------ Building embedded header file"
-args: parse-args system/options/args
+args: parse-args system/script/args  ; either from command line or DO/ARGS
 output-dir: system/options/path/prep
 mkdir/deep output-dir/core
 

@@ -66,7 +66,7 @@ comment [
 output-dir: top-dir/build/
 
 do %tools/common.r
-args: parse-args system/options/args
+args: parse-args system/script/args  ; either from command line or DO/ARGS
 
 do %tools/systems.r
 system-config: config-system args/OS_ID

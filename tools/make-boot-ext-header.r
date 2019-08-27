@@ -42,7 +42,7 @@ do %common-emitter.r
 
 r3: system/version > 2.100.0
 
-args: parse-args system/options/args
+args: parse-args system/script/args  ; either from command line or DO/ARGS
 output-dir: system/options/path/prep
 mkdir/deep output-dir/include
 

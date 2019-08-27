@@ -46,8 +46,6 @@ trap [
     QUIT
 ]
 
-print "== SHIMMING OLDER R3 TO MODERN LANGUAGE DEFINITIONS =="
-
 ; Enfixedness was conceived as not a property of an action itself, but of a
 ; particular relationship between a word and an action.  While this had some
 ; benefits, it became less and less relevant in a world of "opportunistic

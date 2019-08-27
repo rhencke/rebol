@@ -26,7 +26,7 @@ REBOL [
 do %../../tools/common.r  ; for PARSE-ARGS, STRIPLOAD, BINARY-TO-C...
 do %../../tools/common-emitter.r  ; for splicing Rebol into templated strings
 
-args: parse-args system/options/args
+args: parse-args system/script/args  ; either from command line or DO/ARGS
 output-dir: system/options/path/prep
 mkdir/deep output-dir/main
 
