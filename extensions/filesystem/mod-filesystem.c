@@ -218,7 +218,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
         else
             c = '\0';
 
-    #ifdef TO_WINDOWS
+      #ifdef TO_WINDOWS
         if (c != '\0' and c != '/') { // %/c or %/c/ but not %/ %// %//c
             //
             // peek ahead for a '/'
@@ -242,7 +242,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
                 Append_Codepoint(mo->series, OS_DIR_SEP);
             }
         }
-    #endif
+      #endif
 
         Append_Codepoint(mo->series, OS_DIR_SEP);
     }
@@ -303,24 +303,25 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
                     // truncate it there, to trim off one path segment.
                     //
                     REBLEN n = STR_LEN(mo->series);
+                    REBUNI c2;  // character in mold buffer
                     if (n > mo->index) {
                         REBCHR(*) tp = STR_TAIL(mo->series);
 
                         --n;
-                        tp = BACK_CHR(&c, tp);
-                        assert(c == OS_DIR_SEP);
+                        tp = BACK_CHR(&c2, tp);
+                        assert(c2 == OS_DIR_SEP);
 
                         if (n > mo->index) {
                             --n; // don't want the *ending* slash
-                            tp = BACK_CHR(&c, tp);
+                            tp = BACK_CHR(&c2, tp);
                         }
 
-                        while (n > mo->index and c != OS_DIR_SEP) {
+                        while (n > mo->index and c2 != OS_DIR_SEP) {
                             --n;
-                            tp = BACK_CHR(&c, tp);
+                            tp = BACK_CHR(&c2, tp);
                         }
 
-                        tp = BACK_CHR(&c, tp);
+                        tp = BACK_CHR(&c2, tp);
 
                         // Terminate, loses '/' (or '\'), but added back below
                         //
@@ -334,6 +335,11 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
                     // Add separator and keep looking (%../../ can happen)
                     //
                     Append_Codepoint(mo->series, OS_DIR_SEP);
+
+                    if (i == len) {
+                        assert(c == '\0');  // don't run NEXT_CHR() again!
+                        break;
+                    }
                     continue;
                 }
 
