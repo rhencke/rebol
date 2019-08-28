@@ -95,7 +95,7 @@
         if (*bp < 0x80)
             *codepoint_out = *bp;
         else
-            bp = Back_Scan_UTF8_Char(codepoint_out, bp, NULL);
+            bp = Back_Scan_UTF8_Char_Unchecked(codepoint_out, bp);
         return m_cast(REBYTE*, bp + 1);
     }
 
@@ -195,7 +195,7 @@
             if (*t < 0x80)
                 *out = *t;
             else
-                t = Back_Scan_UTF8_Char(out, t, NULL);
+                t = Back_Scan_UTF8_Char_Unchecked(out, t);
             return RebchrPtr {t + 1};
         }
 

@@ -388,3 +388,33 @@ inline static const REBYTE *Back_Scan_UTF8_Char(
 
     return bp + trail;
 }
+
+
+// This is the fast version of scanning a UTF-8 character where you assume it
+// is valid UTF-8...it seeks ahead until it finds a non-continuation byte.
+// Since it seeks ahead, it still has to follow the Back_Scan_UTF8_Char()
+// strategy that splits ASCII codes to basic incrementation...otherwise it
+// would try to read continuation bytes past a `\0` string terminator.  :-/
+//
+inline static const REBYTE *Back_Scan_UTF8_Char_Unchecked(
+    REBUNI *out,
+    const REBYTE *bp
+){
+    *out = *bp;  // wait to increment...
+    uint_fast8_t trail = 0;  // count as we go
+
+    while (Is_Continuation_Byte_If_Utf8(bp[1])) {
+        *out <<= 6;
+        ++bp;  // ...NOW we increment
+        *out += *bp;
+        ++trail;
+    }
+    assert(trail <= 5);
+
+    *out -= offsetsFromUTF8[trail];  // subtract the "magic number"
+
+    assert(*out <= UNI_MAX_LEGAL_UTF32);
+    assert(*out < UNI_SUR_HIGH_START or *out > UNI_SUR_LOW_END);
+
+    return bp;
+}
