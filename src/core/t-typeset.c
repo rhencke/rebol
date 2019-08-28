@@ -236,7 +236,7 @@ bool Add_Typeset_Bits_Core(
                 TYPE_SET(typeset, REB_TS_REFINED_PATH);
         }
         else
-            fail (Error_Bad_Value_Core(item, specifier));
+            fail (Error_Bad_Value_Core(maybe_word, specifier));
 
         // !!! Review erroring policy--should probably not just be ignoring
         // things that aren't recognized here (!)
