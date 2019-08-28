@@ -35,6 +35,8 @@
 //
 static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 {
+    FAIL_IF_BAD_PORT(port);
+
     REBCTX *ctx = VAL_CONTEXT(port);
     REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
     REBVAL *path = Obj_Value(spec, STD_PORT_SPEC_HEAD_REF);
@@ -47,8 +49,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     // Actions for an unopened serial port:
     if (not (req->flags & RRF_OPEN)) {
         switch (VAL_WORD_SYM(verb)) {
-
-        case SYM_REFLECT: {
+          case SYM_REFLECT: {
             INCLUDE_PARAMS_OF_REFLECT;
 
             UNUSED(ARG(value));
@@ -56,111 +57,83 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
             assert(property != SYM_0);
 
             switch (property) {
-            case SYM_OPEN_Q:
+              case SYM_OPEN_Q:
                 return Init_False(D_OUT);
 
-            default:
+              default:
                 break; }
 
             fail (Error_On_Port(SYM_NOT_OPEN, port, -12)); }
 
         case SYM_OPEN: {
-            REBVAL *serial_path = Obj_Value(spec, STD_PORT_SPEC_SERIAL_PATH);
-            if (not (
-                IS_FILE(serial_path)
-                or IS_TEXT(serial_path)
-                or IS_BINARY(serial_path)
-            )){
-                fail (Error_Invalid_Port_Arg_Raw(serial_path));
-            }
+            // !!! Note: GROUP! should not be necessary around MATCH:
+            //
+            // https://github.com/metaeducation/ren-c/issues/820
 
-            ReqSerial(serial)->path = serial_path;
+            ReqSerial(serial)->path = rebValue("use [path] ["
+                "path: try pick", spec, "'serial-path",
+                "match [file! text! binary!] path else [",
+                    "fail [{Invalid SERIAL-PATH} path]",
+                "] ]", rebEND);  // !!! handle needs release somewhere...
 
-            REBVAL *speed = Obj_Value(spec, STD_PORT_SPEC_SERIAL_SPEED);
-            if (not IS_INTEGER(speed))
-                fail (Error_Invalid_Port_Arg_Raw(speed));
+            ReqSerial(serial)->baud = rebUnbox("use [speed] [",
+                "speed: try pick", spec, "'serial-speed",
+                "match integer! speed else [",
+                    "fail [{Invalid SERIAL-SPEED} speed]",
+                "] ]", rebEND);
 
-            ReqSerial(serial)->baud = VAL_INT32(speed);
+            ReqSerial(serial)->data_bits = rebUnbox("use [size] [",
+                "size: try pick", spec, "'serial-data-size",
+                "all [integer? size | size >= 5 | size <= 8 | size] else [",
+                    "fail [{SERIAL-DATA-SIZE is [5..8], not} size]",
+                "] ]", rebEND);
 
-            REBVAL *size = Obj_Value(spec, STD_PORT_SPEC_SERIAL_DATA_SIZE);
-            if (not IS_INTEGER(size)
-                or VAL_INT64(size) < 5
-                or VAL_INT64(size) > 8
-            ){
-                fail (Error_Invalid_Port_Arg_Raw(size));
-            }
-            ReqSerial(serial)->data_bits = VAL_INT32(size);
+            ReqSerial(serial)->stop_bits = rebUnbox("use [stop] [",
+                "stop: try pick", spec, "'serial-stop-bits",
+                "first <- find [1 2] stop else [",
+                    "fail [{SERIAL-STOP-BITS should be 1 or 2, not} stop]",
+                "] ]", rebEND);
 
-            REBVAL *stop = Obj_Value(spec, STD_PORT_SPEC_SERIAL_STOP_BITS);
-            if (not IS_INTEGER(stop)
-                or VAL_INT64(stop) < 1
-                or VAL_INT64(stop) > 2
-            ){
-                fail (Error_Invalid_Port_Arg_Raw(stop));
-            }
-            ReqSerial(serial)->stop_bits = VAL_INT32(stop);
+            ReqSerial(serial)->parity = rebUnbox("use [parity] [",
+                "parity: try pick", spec, "'serial-parity",
+                "switch parity [",
+                    "_ [", rebI(SERIAL_PARITY_NONE), "]",
+                    "'odd [", rebI(SERIAL_PARITY_ODD), "]",
+                    "'even [", rebI(SERIAL_PARITY_EVEN), "]",
+                "] else [",
+                    "fail [{SERIAL-PARITY should be ODD/EVEN, not} parity]",
+                "] ]", rebEND);
 
-            REBVAL *parity = Obj_Value(spec, STD_PORT_SPEC_SERIAL_PARITY);
-            if (IS_BLANK(parity)) {
-                ReqSerial(serial)->parity = SERIAL_PARITY_NONE;
-            }
-            else {
-                if (!IS_WORD(parity))
-                    fail (Error_Invalid_Port_Arg_Raw(parity));
-
-                switch (VAL_WORD_SYM(parity)) {
-                case SYM_ODD:
-                    ReqSerial(serial)->parity = SERIAL_PARITY_ODD;
-                    break;
-
-                case SYM_EVEN:
-                    ReqSerial(serial)->parity = SERIAL_PARITY_EVEN;
-                    break;
-
-                default:
-                    fail (Error_Invalid_Port_Arg_Raw(parity));
-                }
-            }
-
-            REBVAL *flow = Obj_Value(spec, STD_PORT_SPEC_SERIAL_FLOW_CONTROL);
-            if (IS_BLANK(flow)) {
-                ReqSerial(serial)->flow_control = SERIAL_FLOW_CONTROL_NONE;
-            }
-            else {
-                if (!IS_WORD(flow))
-                    fail (Error_Invalid_Port_Arg_Raw(flow));
-
-                switch (VAL_WORD_SYM(flow)) {
-                case SYM_HARDWARE:
-                    ReqSerial(serial)->flow_control = SERIAL_FLOW_CONTROL_HARDWARE;
-                    break;
-
-                case SYM_SOFTWARE:
-                    ReqSerial(serial)->flow_control = SERIAL_FLOW_CONTROL_SOFTWARE;
-                    break;
-
-                default:
-                    fail (Error_Invalid_Port_Arg_Raw(flow));
-                }
-            }
+            ReqSerial(serial)->flow_control = rebUnbox("use [flow] [",
+                "flow: try pick", spec, "'serial-flow-control",
+                "switch flow [",
+                    "_ [", rebI(SERIAL_FLOW_CONTROL_NONE), "]",
+                    "'hardware", rebI(SERIAL_FLOW_CONTROL_HARDWARE), "]",
+                    "'software", rebI(SERIAL_FLOW_CONTROL_SOFTWARE), "]",
+                "] else [",
+                    "fail [",
+                        "{SERIAL-FLOW-CONTROL should be HARDWARE/SOFTWARE,}",
+                        "{not} flow",
+                    "]",
+                "] ]", rebEND);
 
             OS_DO_DEVICE_SYNC(serial, RDC_OPEN);
 
             req->flags |= RRF_OPEN;
             RETURN (port); }
 
-        case SYM_CLOSE:
+          case SYM_CLOSE:
             RETURN (port);
 
-        default:
+          default:
             fail (Error_On_Port(SYM_NOT_OPEN, port, -12));
         }
     }
 
     // Actions for an open socket:
-    switch (VAL_WORD_SYM(verb)) {
 
-    case SYM_REFLECT: {
+    switch (VAL_WORD_SYM(verb)) {
+      case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
 
         UNUSED(ARG(value));
@@ -168,16 +141,16 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         assert(property != SYM_0);
 
         switch (property) {
-        case SYM_OPEN_Q:
+          case SYM_OPEN_Q:
             return Init_True(D_OUT);
 
-        default:
+          default:
             break;
         }
 
         break; }
 
-    case SYM_READ: {
+      case SYM_READ: {
         INCLUDE_PARAMS_OF_READ;
 
         UNUSED(PAR(source));
@@ -203,24 +176,24 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         req->actual = 0; // Actual for THIS read, not for total.
 
-#ifdef DEBUG_SERIAL
+      #ifdef DEBUG_SERIAL
         printf("(max read length %d)", req->length);
-#endif
+      #endif
 
         // "recv can happen immediately"
         //
         OS_DO_DEVICE_SYNC(serial, RDC_READ);
 
-#ifdef DEBUG_SERIAL
+      #ifdef DEBUG_SERIAL
         for (len = 0; len < req->actual; len++) {
             if (len % 16 == 0) printf("\n");
             printf("%02x ", req->common.data[len]);
         }
         printf("\n");
-#endif
+      #endif
         RETURN (port); }
 
-    case SYM_WRITE: {
+      case SYM_WRITE: {
         INCLUDE_PARAMS_OF_WRITE;
 
         UNUSED(PAR(destination));
@@ -249,7 +222,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         RETURN (port); }
 
-    case SYM_ON_WAKE_UP: {
+      case SYM_ON_WAKE_UP: {
         // Update the port object after a READ or WRITE operation.
         // This is normally called by the WAKE-UP function.
 
@@ -267,7 +240,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         }
         return Init_Void(D_OUT); }
 
-    case SYM_CLOSE:
+      case SYM_CLOSE:
         if (req->flags & RRF_OPEN) {
             OS_DO_DEVICE_SYNC(serial, RDC_CLOSE);
 
@@ -275,7 +248,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         }
         RETURN (port);
 
-    default:
+      default:
         break;
     }
 
