@@ -948,6 +948,17 @@ REBNATIVE(find_script)
 //  ]
 //
 REBNATIVE(invalid_utf8_q)
+//
+// !!! A motivation for adding this native was because R3-Alpha did not fully
+// validate UTF-8 input, for perceived reasons of performance:
+//
+// https://github.com/rebol/rebol-issues/issues/638
+//
+// Ren-C reinstated full validation, as it only causes a hit when a non-ASCII
+// sequence is read (which is relatively rare in Rebol).  However, it is
+// helpful to have a function that will locate invalid byte sequences if one
+// is going to try doing something like substituting a character at the
+// invalid positions.
 {
     INCLUDE_PARAMS_OF_INVALID_UTF8_Q;
 

@@ -227,100 +227,6 @@ extern const char trailingBytesForUTF8[256];  // defined in %t-char.c
 extern const uint_fast32_t offsetsFromUTF8[6];  // defined in %t-char.c
 
 
-// Converts a single UTF8 code-point and returns the position *at the
-// the last byte of the character's data*.  (This differs from the usual
-// `Scan_XXX` interface of returning the position after the scanned
-// element, ready to read the next one.)
-//
-// The peculiar interface is useful in loops that are processing
-// ordinary ASCII chars directly -as well- as UTF8 ones.  The loop can
-// do a single byte pointer increment after both kinds of
-// elements, avoiding the need to call any kind of `Scan_Ascii()`:
-//
-//     for (; size > 0; ++bp, --size) {
-//         if (*bp < 0x80) {
-//             // do ASCII stuff...
-//         }
-//         else {
-//             REBUNI uni;
-//             bp = Back_Scan_UTF8_Char(&uni, bp, &size);
-//             // do UNICODE stuff...
-//         }
-//     }
-//
-// The third parameter is an optional size that will be decremented by
-// the number of "extra" bytes the UTF8 has beyond a single byte character.
-// This allows for decrement-style loops such as the above.
-//
-// Prescans source for null, and will not return code point 0.
-//
-// If failure due to insufficient data or malformed bytes, then NULL is
-// returned (size is not advanced).
-//
-inline static const REBYTE *Back_Scan_UTF8_Char(
-    REBUNI *out,
-    const REBYTE *bp,
-    REBSIZ *size
-){
-    *out = 0;
-
-    const REBYTE *source = bp;
-    uint_fast8_t trail = trailingBytesForUTF8[*source];
-
-    // Check that we have enough valid source bytes:
-    if (size) {
-        if (cast(uint_fast8_t, trail + 1) > *size)
-            return nullptr;
-    }
-    else if (trail != 0) {
-        do {
-            if (source[trail] < 0x80)
-                return nullptr;
-        } while (--trail != 0);
-
-        trail = trailingBytesForUTF8[*source];
-    }
-
-    // Do this check whether lenient or strict:
-    // if (!isLegalUTF8(source, slen+1)) return 0;
-
-    switch (trail) {
-        case 5: *out += *source++; *out <<= 6;  // falls through
-        case 4: *out += *source++; *out <<= 6;  // falls through
-        case 3: *out += *source++; *out <<= 6;  // falls through
-        case 2: *out += *source++; *out <<= 6;  // falls through
-        case 1: *out += *source++; *out <<= 6;  // falls through
-        case 0: *out += *source++;
-    }
-    *out -= offsetsFromUTF8[trail];
-
-    // UTF-16 surrogate values are illegal in UTF-32, and anything
-    // over Plane 17 (> 0x10FFFF) is illegal.
-    //
-    if (*out > UNI_MAX_LEGAL_UTF32)
-        return nullptr;
-    if (*out >= UNI_SUR_HIGH_START && *out <= UNI_SUR_LOW_END)
-        return nullptr;
-
-    if (size)
-        *size -= trail;
-
-    // !!! Original implementation used 0 as a return value to indicate a
-    // decoding failure.  However, 0 is a legal UTF8 codepoint, and also
-    // Rebol strings are able to store NUL characters (they track a length
-    // and are not zero-terminated.)  Should this be legal?
-    //
-    // !!! Note also that there is a trend to decode illegal codepoints as
-    // a substitution character.  If Rebol is willing to do this, at what
-    // level would that decision be made?
-    //
-    if (*out == 0)
-        return nullptr;
-
-    return bp + trail;
-}
-
-
 // Utility routine to tell whether a sequence of bytes is legal UTF-8.
 // This must be called with the length pre-determined by the first byte.
 // If not calling this from ConvertUTF8to*, then the length can be set by:
@@ -376,12 +282,109 @@ inline static bool isLegalUTF8(const REBYTE *source, int length) {
 }
 
 
-inline static bool isLegalUTF8Sequence(
-    const REBYTE *source,
-    const REBYTE *sourceEnd
+// Converts a single UTF8 code-point and returns the position *at the
+// the last byte of the character's data*.  (This differs from the usual
+// `Scan_XXX` interface of returning the position after the scanned
+// element, ready to read the next one.)
+//
+// The peculiar interface is useful in loops that are processing
+// ordinary ASCII chars directly -as well- as UTF8 ones.  The loop can
+// do a single byte pointer increment after both kinds of
+// elements, avoiding the need to call any kind of `Scan_Ascii()`:
+//
+//     for (; size > 0; ++bp, --size) {
+//         if (*bp < 0x80) {
+//             // do ASCII stuff...
+//         }
+//         else {
+//             REBUNI uni;
+//             bp = Back_Scan_UTF8_Char(&uni, bp, &size);
+//             // do UNICODE stuff...
+//         }
+//     }
+//
+// The third parameter is an optional size that will be decremented by
+// the number of "extra" bytes the UTF8 has beyond a single byte character.
+// This allows for decrement-style loops such as the above.
+//
+// Prescans source for null, and will not return code point 0.
+//
+// If failure due to insufficient data or malformed bytes, then NULL is
+// returned (size is not advanced).
+//
+inline static const REBYTE *Back_Scan_UTF8_Char(
+    REBUNI *out,
+    const REBYTE *bp,
+    REBSIZ *size
 ){
-    int length = trailingBytesForUTF8[*source] + 1;
-    if (source + length > sourceEnd)
-        return false;
-    return isLegalUTF8(source, length);
+    *out = 0;
+
+    const REBYTE *source = bp;
+    uint_fast8_t trail = trailingBytesForUTF8[*source];
+
+    // Check that we have enough valid source bytes:
+    if (size) {
+        if (cast(uint_fast8_t, trail + 1) > *size)
+            return nullptr;
+    }
+    else if (trail != 0) {
+        do {
+            if (source[trail] < 0x80)
+                return nullptr;
+        } while (--trail != 0);
+
+        trail = trailingBytesForUTF8[*source];
+    }
+
+    // This check was considered "too expensive" and omitted in R3-Alpha:
+    //
+    // https://github.com/rebol/rebol-issues/issues/638
+    //
+    // ...which meant that various illegal input patterns would be tolerated,
+    // so long as they didn't cause crashes.  You would just not have the
+    // input validated, and get garbage characters out.  The Ren-C philosophy
+    // is that since this check only applies to non-ASCII, it is worth it to
+    // do the validation.
+    //
+    // !!! Once a UTF-8 ANY-STRING! has been loaded (e.g. REBCHR(*)), this
+    // routine could be stripped down to remove checks for character decoding.
+    // But again, low priority--it would only apply to non-ASCII chars.
+    //
+    if (not isLegalUTF8(source, trail + 1))
+        return nullptr;
+
+    switch (trail) {
+        case 5: *out += *source++; *out <<= 6;  // falls through
+        case 4: *out += *source++; *out <<= 6;  // falls through
+        case 3: *out += *source++; *out <<= 6;  // falls through
+        case 2: *out += *source++; *out <<= 6;  // falls through
+        case 1: *out += *source++; *out <<= 6;  // falls through
+        case 0: *out += *source++;
+    }
+    *out -= offsetsFromUTF8[trail];
+
+    // UTF-16 surrogate values are illegal in UTF-32, and anything
+    // over Plane 17 (> 0x10FFFF) is illegal.
+    //
+    if (*out > UNI_MAX_LEGAL_UTF32)
+        return nullptr;
+    if (*out >= UNI_SUR_HIGH_START && *out <= UNI_SUR_LOW_END)
+        return nullptr;
+
+    if (size)
+        *size -= trail;
+
+    // !!! Original implementation used 0 as a return value to indicate a
+    // decoding failure.  However, 0 is a legal UTF8 codepoint, and also
+    // Rebol strings are able to store NUL characters (they track a length
+    // and are not zero-terminated.)  Should this be legal?
+    //
+    // !!! Note also that there is a trend to decode illegal codepoints as
+    // a substitution character.  If Rebol is willing to do this, at what
+    // level would that decision be made?
+    //
+    if (*out == 0)
+        return nullptr;
+
+    return bp + trail;
 }
