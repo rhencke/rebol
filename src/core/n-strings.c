@@ -305,7 +305,7 @@ REBNATIVE(enhex)
         REBYTE encoded[6];
         REBLEN encoded_size;
 
-        if (c > 0x80) // all non-ASCII characters *must* be percent encoded
+        if (c >= 0x80)  // all non-ASCII characters *must* be percent encoded
             encoded_size = Encode_UTF8_Char(encoded, c);
         else {
             // "Everything else must be url-encoded".  Rebol's LEX_MAP does
@@ -492,7 +492,7 @@ REBNATIVE(dehex)
         if (scan_size > 0 and (c != '%' or scan_size == 4)) {
             assert(i != len or c == '\0');
 
-        decode_codepoint:
+          decode_codepoint:
             scan[scan_size] = '\0';
             const REBYTE *next; // goto would cross initialization
             REBUNI decoded;
