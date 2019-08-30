@@ -97,7 +97,18 @@ make object! compose [
                     emit-test flags to text! value
                 )
                     |
-                set value: file! (log ["^/" mold value "^/^/"])
+                set test-file: file! (
+                    log ["^/" mold test-file "^/^/"]
+
+                    ; We'd like tests to be able to live anywhere on disk
+                    ; (e.g. extensions can have a %tests/ subdirectory).  If
+                    ; those tests have supplementary scripts or data files,
+                    ; the test should be able to refer to them via paths
+                    ; relative the directory where the test is running.  So
+                    ; we CHANGE-DIR to the test file's path.
+                    ;
+                    change-dir first split-path test-file 
+                )
                     |
                 'dialect set value: text! (
                     log [value]

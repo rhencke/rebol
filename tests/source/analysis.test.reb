@@ -14,7 +14,7 @@
 (
     do %source-tools.reb
     source-analysis: rebsource/analyse/files
-    save %source-analysis.log source-analysis
+    save %../source-analysis.log source-analysis
     true
 )
 (not find source-analysis <whitespace-at-eol>)

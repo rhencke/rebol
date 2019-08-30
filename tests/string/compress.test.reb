@@ -12,7 +12,7 @@
 (
     str: "This is a test of a string that is long enough to use DEFLATE"
     list: compose [
-        %abc.txt (str) %test.r (read %core-tests.r) %def.txt #{646566}
+        %abc.txt (str) %test.r (read %../core-tests.r) %def.txt #{646566}
     ]
     zip (zipped: copy #{}) list
     unzip (unzipped: copy []) zipped
@@ -26,6 +26,6 @@
 ;  test a "foreign" file
 (
     did all [
-        unzip (unzipped: copy []) %fixtures/test.docx
+        unzip (unzipped: copy []) %../fixtures/test.docx
     ]
 )

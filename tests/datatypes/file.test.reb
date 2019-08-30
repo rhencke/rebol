@@ -18,7 +18,7 @@
     block? files
 )]
 [#675 (
-    files: read %fixtures/
+    files: read %../datatypes/
     elide (mold files)
     block? files
 )]

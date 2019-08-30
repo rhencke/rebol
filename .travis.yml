@@ -335,7 +335,7 @@ matrix:
             #
             #- libtcc-dev  # for being able to `-ltcc` for compilation API
             #- tcc  # tcc executable (unused), but gets libtcc1.a + tcc headers
-            - libffi
+            - libffi-dev
 
     # [8] Linux x64, release, gcc
     #
