@@ -481,7 +481,11 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
             | FLAG_LEN_BYTE_OR_255(255) // indicates dynamic (varlist rule)
     );
     TRASH_POINTER_IF_DEBUG(LINK_KEYSOURCE(copy)); // needs update
-    memcpy(&copy->content, &stub->content, sizeof(union Reb_Series_Content));
+    memcpy(  // https://stackoverflow.com/q/57721104/
+        cast(char*, &copy->content),
+        cast(char*, &stub->content),
+        sizeof(union Reb_Series_Content)
+    );
     MISC_META_NODE(copy) = nullptr;  // let stub have the meta
 
     REBVAL *rootvar = cast(REBVAL*, copy->content.dynamic.data);

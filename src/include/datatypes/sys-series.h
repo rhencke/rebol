@@ -641,7 +641,11 @@ inline static REBSER *Alloc_Series_Node(REBFLGS flags) {
 
   #if !defined(NDEBUG)
     SAFETRASH_POINTER_IF_DEBUG(s->link_private.trash);  // #2
-    memset(&s->content.fixed, 0xBD, sizeof(s->content));  // #3 - #6
+    memset(  // https://stackoverflow.com/q/57721104/
+        cast(char*, &s->content.fixed),
+        0xBD,
+        sizeof(s->content)
+    );  // #3 - #6
     memset(&s->info, 0xAE, sizeof(s->info));  // #7, caller sets SER_WIDE()
     SAFETRASH_POINTER_IF_DEBUG(s->link_private.trash);  // #8
 

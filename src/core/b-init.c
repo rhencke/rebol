@@ -534,9 +534,8 @@ REBVAL *Make_Native(
 //
 //  native: native [
 //      spec [block!]
-//      /body
-//          {Body of user code matching native's behavior (for documentation)}
-//      code [block!]
+//      /body "Body of equivalent usermode code (for documentation)}
+//          [block!]
 //  ]
 //
 // Returns an array of words bound to natives for SYSTEM/CATALOG/NATIVES

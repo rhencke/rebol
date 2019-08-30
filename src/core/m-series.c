@@ -106,7 +106,11 @@ void Append_Values_Len(REBARR *a, const REBVAL *head, REBLEN len)
     //
     EXPAND_SERIES_TAIL(SER(a), len);
 
-    memcpy(ARR_AT(a, old_len), head, sizeof(REBVAL) * len);
+    memcpy(    // https://stackoverflow.com/q/57721104/
+        cast(char*, ARR_AT(a, old_len)),
+        cast(const char*, head),
+        sizeof(REBVAL) * len
+    );
 
     TERM_ARRAY_LEN(a, ARR_LEN(a));
 }
