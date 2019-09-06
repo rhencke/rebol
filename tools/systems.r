@@ -268,10 +268,12 @@ systems: [
 
     Emscripten: 16
     ;-------------------------------------------------------------------------
-    0.16.01 emterpreter/emscripten "emterpreter"
+    0.16.01 asyncify/emscripten "asyncify"
         #SG? #LEN
+
     0.16.02 pthread/emscripten "emscripten"
         #SG? #LEN
+
     0.16.03 node/emscripten "node.js"
         #SG? #LEN
 

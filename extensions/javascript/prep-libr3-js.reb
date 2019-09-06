@@ -38,12 +38,12 @@ e-cwrap: (make-emitter
     "JavaScript C Wrapper functions" output-dir/reb-lib.js
 )
 
-=== EMTERPRETER-BLACKLIST TOLERANT CWRAP ===
+=== EMTERPRETER_BLACKLIST TOLERANT CWRAP ===
 
 ; Emscripten's `cwrap` is based on a version of ccall which does not allow
-; the emterpreter to execute a function while emscripten_sleep_with_yield()
-; is in effect.  However, there was a feature added for Ren-C to be able to
-; call the WASM function in this case:
+; the emterpreter to execute a function while emscripten_sleep() is in effect. 
+; However, there was a feature added for Ren-C to be able to call the WASM
+; function in this case:
 ;
 ; https://stackoverflow.com/q/51204703/
 ;
@@ -52,7 +52,8 @@ e-cwrap: (make-emitter
 ;
 ; https://github.com/emscripten-core/emscripten/blob/incoming/src/preamble.js
 ;
-; !!! This workaround is only necessary for the emterpreter build.  But also,
+; !!! The necessity of this workaround hasn't been reviewed in light of the
+; transition away from emterpreter to asyncify.  But also,
 ; there are few enough routines that a better answer is probably to dodge
 ; inclusion of `cwrap`/`ccall` altogether and just by-hand wrap the routines.
 ;
@@ -100,7 +101,7 @@ e-cwrap/emit {
       var ret = func.apply(null, cArgs);
 
     // This is the part we want to avoid.  Something like reb.Text() is calling
-    // the _RL_rebText() function underneath, and that's in EMTERPRETER_BLACKLIST,
+    // the _RL_rebText() function underneath, and that's in ASYNCIFY_BLACKLIST,
     // but the main cwrap/ccall() does not account for it.
     //
     /* <ren-c modification>
@@ -237,7 +238,7 @@ to-js-type: func [
 ; The `_internal` APIs don't really need reb.XXX entry points (they are called
 ; directly as _RL_rebXXX()).  But having them in this list makes it easier to
 ; process them with the other APIs on matters like EMSCRIPTEN_KEEPALIVE and
-; EMTERPRETER_BLACKLIST.
+; ASYNCIFY_BLACKLIST.
 
 append api-objects make object! [
     spec: _  ; e.g. `name: RL_API [...this is the spec, if any...]`
@@ -855,23 +856,20 @@ write output-dir/libr3.exports.json json-collect [
 ]
 
 
-=== GENERATE EMTERPRETER BLACKLIST/WHITELIST FILES ===
+=== GENERATE ASYNCIFY BLACKLIST FILE ===
 
-; The emterpreter runs C compiled to bytecode vs. directly running WASM code.
-; This gives the ability to suspend the C execution--preserving its stack
-; state, yet be able to yield to JavaScript and run code on that same single
-; thread.  When the JavaScript is done, it can wake up the suspended
-; interpreter and the C can continue.  This gives the illusion of being able
-; to pass JavaScript work items to a "worker thread"--and while it is slow,
-; it's our only option in browsers without WASM threads and SharedArrayBuffer.
+; Asyncify has some automatic ability to determine what functions cannot be
+; on the stack when a function may yield.  It then does not instrument these
+; functions with the additional code allowing it to yield.  However, it makes
+; a conservative guess...so it can be helped with additional blacklisted
+; functions that one has inside knowledge should *not* be asyncified:
 ;
-; But using the emterpreter doesn't mean *every* function has to be run as
-; bytecode.  Only functions that would be on the stack somewhere when an
-; `emscripten_sleep_with_yield()` is called.  Hence there is a "blacklist"
-; of functions that are compiled as normal WASM, not emterpreter bytecode.
-; The more functions that can be found as legal to blacklist, the faster
-; the emterpreted version can be.
+; https://emscripten.org/docs/porting/asyncify.html#optimizing
 ;
+; While the list expected by Emscripten is JSON, that doesn't support comments
+; so we transform it from Rebol.
+;
+; <review> ; IN LIGHT OF ASYNCIFY
 ; Beyond speed, an API marked in the blacklist has the special ability of
 ; still being run while in the yielding state (a feature added to Emscripten
 ; due to a Ren-C request):
@@ -882,10 +880,15 @@ write output-dir/libr3.exports.json json-collect [
 ; from inside a JS-AWAITER.  That means being able to produce `reb.Text()`
 ; and other values.  But also critically can include reb.Promise() so that
 ; the final return value of a JS-AWAITER can be returned with it.
-;
+; </review>
 
-; for now whitelist is manually crafted
-write output-dir/emterpreter.whitelist.json read %emterpreter.whitelist.json
+write/lines output-dir/asyncify-blacklist.json collect-lines [
+    keep "["
+    for-next names load %asyncify-blacklist.r [
+        keep unspaced [{    "} names/1 {"} if not last? names [","]]
+    ]
+    keep "]"
+]
 
 write output-dir/emterpreter.blacklist.json json-collect [
     map-each-api [

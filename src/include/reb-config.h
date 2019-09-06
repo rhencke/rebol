@@ -406,7 +406,7 @@ Special internal defines used by RT, not Host-Kit developers:
 // It can be very difficult in release builds to know where a fail came
 // from.  This arises in pathological cases where an error only occurs in
 // release builds, or if making a full debug build bloats the code too much.
-// (e.g. the JavaScript emterpreter version).  A small but helpful debug
+// (e.g. the JavaScript asyncify version).  A small but helpful debug
 // switch does a printf of the __FILE__ and __LINE__ of fail() callsites.
 //
 #ifdef DEBUG_PRINTF_FAIL_LOCATIONS

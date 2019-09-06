@@ -139,16 +139,16 @@ else
 //
 // The JavaScript extension can be built two different ways for the browser.
 // Both versions can accomplish I/O in a way that appears synchronous: using
-// pthreads or using the "Emterpreter":
+// pthreads or using "Asyncify":
 //
 // https://emscripten.org/docs/porting/pthreads.html
-// https://github.com/kripken/emscripten/wiki/Emterpreter
+// https://emscripten.org/docs/porting/asyncify.html
 //
 // pthreads rely on SharedArrayBuffer and WASM threading, and hence aren't
 // ready in quite all JS environments yet.  However, the resulting build
-// products are half the size of what the emterpreter makes--and around
-// THIRTY TIMES FASTER.  Hence, the emterpreter is not an approach that is
-// likely to stick around any longer than it has to.
+// products are half the size of what asyncify makes--and somewhat faster.
+// Hence, Asyncify is not an approach that is likely to stick around any
+// longer than it has to.
 //
 // But for the foreseeable future, support for both is included, and this
 // loader does the necessary detection to decide which version the host
@@ -172,10 +172,10 @@ if (hasShared) {
 }
 config.info("Has Threads => " + hasThreads)
 
-let use_emterpreter = ! hasThreads
-let os_id = (use_emterpreter ? "0.16.1" : "0.16.2")
+let use_asyncify = ! hasThreads
+let os_id = (use_asyncify ? "0.16.1" : "0.16.2")
 
-config.info("Use Emterpreter => " + use_emterpreter)
+config.info("Use Asyncify => " + use_asyncify)
 
 
 //=//// PARSE SCRIPT LOCATION FOR LOADER OPTIONS //////////////////////////=//
@@ -287,7 +287,6 @@ let assign_git_commit_promiser = (os_id) => {  // assigns, but no return value
 let lib_suffixes = [
     ".js", ".wasm",  // all builds
     ".wast", ".temp.asm.js",  // debug only
-    ".bytecode",  // emterpreter builds only
     ".js.mem", ".worker.js"  // non-emterpreter builds only
 ]
 
@@ -307,15 +306,8 @@ function libRebolComponentURL(suffix) {  // suffix includes the dot
     if (!lib_suffixes.includes(suffix))
         throw Error("Unknown libRebol component extension: " + suffix)
 
-    if (use_emterpreter) {
+    if (use_asyncify) {
         if (suffix == ".worker.js" || suffix == ".js.mem")
-            throw Error(
-                "Asking for " + suffix + " file "
-                + " in an emterpreter build (should only be for pthreads)"
-            )
-    }
-    else {
-        if (suffix == ".bytecode")
             throw Error(
                 "Asking for " + suffix + " file "
                 + " in an emterpreter build (should only be for pthreads)"
@@ -409,17 +401,6 @@ Module = {  // Note that this is assigning a global
     // of a callback.  Sanity check it's not used prior by making it a string.
     //
     onRuntimeInitialized: "<mutated from a callback into a Promise>",
-
-    // If you use the emterpreter, it balloons up the size of the javascript
-    // unless you break the emterpreter bytecode out into a separate file.
-    // You have to get the data into the Module['emterpreterFile'] before
-    // trying to load the emscripten'd code.
-    //
-    emterpreterFile: "<if `use_emterpreter`, fetch() of %libr3.bytecode>"
-
-    // The rest of these fields will be filled in by the boilerplate of the
-    // Emterpreter.js file when %libr3.js loads (it looks for an existing
-    // Module and adds to it, but this is also how you parameterize options.)
 }
 
 
@@ -460,39 +441,6 @@ let runtime_init_promise = new Promise(function(resolve, reject) {
     Module.onRuntimeInitialized = resolve
 })
 
-
-// If we are using the emterpreter, Module.emterpreterFile must be assigned
-// before the %libr3.js starts running.  And it will start running some time
-// after the dynamic `<script>` is loaded.
-//
-// See notes on short_hash_promiser for why it's a "promiser", not a promise
-//
-let bytecode_promiser
-if (!use_emterpreter)
-    bytecode_promiser = () => {
-        config.info("Not emterpreted libr3.js, not requesting bytecode")
-        return Promise.resolve()
-    }
-else {
-    bytecode_promiser = () => {
-        let url = libRebolComponentURL(".bytecode")
-        config.info("Emterpreted libr3.js, requesting bytecode from:" + url)
-
-        return fetch(url)
-          .then(function(response) {
-
-            // https://www.tjvantoll.com/2015/09/13/fetch-and-errors/
-            if (!response.ok)
-                throw Error(response.statusText)  // handled by .catch() below
-
-            return response.arrayBuffer()  // arrayBuffer() method is a promise
-
-          }).then(function(buffer) {
-
-            Module.emterpreterFile = buffer  // must load before emterpret()
-          })
-    }
-}
 
 let load_rebol_scripts = function(defer) {
     let scripts = document.querySelectorAll("script[type='text/rebol']")
@@ -543,16 +491,15 @@ let load_rebol_scripts = function(defer) {
 }
 
 return assign_git_commit_promiser(os_id)  // sets git_commit
-  .then(bytecode_promiser)  // needs git_commit
   .then(function() {
 
-    load_js_promiser(libRebolComponentURL(".js"))
+    load_js_promiser(libRebolComponentURL(".js"))  // needs git_commit
 
   }).then(function() {
 
     config.info('Loading/Running ' + libRebolComponentURL(".js") + '...')
-    if (use_emterpreter)
-        config.warn("Using Emterpreter is SLOW! Be patient...")
+    if (use_asyncify)
+        config.warn("The Asyncify build is biggers/slower, be patient...")
 
     return runtime_init_promise
 

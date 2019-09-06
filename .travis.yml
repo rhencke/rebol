@@ -153,15 +153,15 @@ matrix:
         - EXTENSIONS=-  # requests inclusion of no extensions (default?)
 
 
-    # [2] Emscripten, wasm + emterpreter, release
+    # [2] Emscripten, wasm + asyncify, release
     #
-    # The "emtepreter" is a less-desirable way to achieve asynchronous code
-    # in a browser than using WebAssembly Threads.  However, some JavaScript
+    # Asyncify is a less-desirable way to achieve asynchronous code in a
+    # browser than using WebAssembly Threads.  However, some JavaScript
     # hosts are missing that--or other features--which are needed for the
     # "good" emscripten build.  (Alternatively they may have the features, but
     # disable them by default, creating a usability barrier.)
     #
-    # https://github.com/emscripten-core/emscripten/wiki/Emterpreter
+    # https://emscripten.org/docs/porting/asyncify.html
     #
     # This build varation is created as a fallback.
     #
@@ -170,7 +170,7 @@ matrix:
       language: c
       env:
         - NUMBER=2
-        - CONFIG=emterpreter.r
+        - CONFIG=asyncify.r
         - OS_ID=0.16.1
         - DEBUG=none
         - OPTIMIZE=z
@@ -581,8 +581,29 @@ install:
       git clone --depth 1 https://github.com/emscripten-core/emsdk
       cd emsdk
       ./emsdk update
-      ./emsdk install latest
-      ./emsdk activate latest
+
+      # The WASM-based Emterpreter is being replaced in the upstream master by
+      # Asyncify, which is at least 7x faster (and can probably be tuned to
+      # be even better).  Since it is a much better solution for non-threaded
+      # browsers we go ahead and use that bleeding edge for 0.16.1
+      #
+      # However, that version of the SDK does not support MAIN_THREAD_EM_ASM,
+      # which is required for the thread-enabled browser build.  They are
+      # planning to fix that before deploying the new backend:
+      #
+      # https://github.com/emscripten-core/emscripten/issues/9410
+      #
+      # So we currently split the versions used.  But once that bug is
+      # resolved they can both use the same SDK version.
+      #
+      if [[ $OS_ID = 0.16.1 ]]; then
+        ./emsdk install latest-upstream
+        ./emsdk activate latest-upstream
+      else
+        ./emsdk install latest
+        ./emsdk activate latest
+      fi
+
       source emsdk_env.sh
       cd ..
     fi
@@ -1061,11 +1082,6 @@ script:
       fi
       if [[ -e libr3.wasm ]]; then
            mv libr3.wasm "${OS_ID}/lib${NEW_NAME}.wasm"
-      fi
-
-      # Only emterpreted builds produce .bytecode
-      if [[ -e libr3.bytecode ]]; then
-           mv libr3.bytecode "${OS_ID}/lib${NEW_NAME}.bytecode"
       fi
 
       # Only pthreads builds produce .js.mem and .worker.js

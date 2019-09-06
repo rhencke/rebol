@@ -24,6 +24,7 @@
 //
 //=//// NOTES /////////////////////////////////////////////////////////////=//
 //
+// <review> ;-- Now that emterpreter is gone
 // * This extension expands the RL_rebXXX() API with new entry points.  It
 //   was tried to avoid this--doing everything with helper natives.  This
 //   would use things like `reb.UnboxInteger("rebpromise-helper", ...)` and
@@ -33,6 +34,7 @@
 //   "sneaky exit and reentry" done by the emterpreter.  All told, adding
 //   raw WASM entry points like RL_rebPromise_internal() is more practical,
 //   and happens to be faster too.
+// </review>
 //
 // * Return codes from pthread primitives that can only come from usage errors
 //   are not checked (e.g. `pthread_mutex_lock()`).  We only check ones from
@@ -79,8 +81,12 @@
 //
 #include <emscripten.h>
 
-#if defined(USE_EMTERPRETER) == defined(USE_PTHREADS)
-    #error "Define one (and only one) of USE_EMTERPRETER or USE_PTHREADS"
+#if defined(USE_ASYNCIFY) == defined(USE_PTHREADS)
+    //
+    // See %extensions/javascript/README.md for a discussion of the ASYNCIFY
+    // option vs. the PTHREAD option.
+    //
+    #error "Define one (and only one) of USE_ASYNCIFY or USE_PTHREADS"
 #endif
 
 #if defined(USE_PTHREADS)
@@ -307,9 +313,6 @@ REB_R JavaScript_Dispatcher(REBFRM *f);
 // is not, we have to wait until the MAIN is idle and isn't making any calls
 // into libRebol.
 //
-// See %extensions/javascript/README.md for a discussion of the emterpreter
-// option vs. the PTHREAD option.
-//
 
 enum Reb_Promise_State {
     PROMISE_STATE_QUEUEING,
@@ -344,11 +347,13 @@ static REBVAL *PG_Native_Result;
 static enum Reb_Native_State PG_Native_State;
 
 
+// <review>  ;-- Review in light of asyncify
 // This returns an integer of a unique memory address it allocated to use in
 // a mapping for the [resolve, reject] functions.  We will trigger those
 // mappings when the promise is fulfilled.  In order to come back and do that
 // fulfillment, it either puts the code processing into a timer callback
 // (emterpreter) or queues it to a thread (pthreads).
+// </review>
 //
 // The resolve will be called if it reaches the end of the input and the
 // reject if there is a failure.
@@ -409,7 +414,7 @@ EXTERN_C intptr_t RL_rebPromise(REBFLGS flags, void *p, va_list *vaptr)
     info->next = PG_Promises;
     PG_Promises = info;
 
-  #ifdef USE_EMTERPRETER
+  #ifdef USE_ASYNCIFY
     EM_ASM(
         { setTimeout(function() { _RL_rebIdle_internal(); }, 0); }
     );  // note `_RL` (leading underscore means no cwrap)
@@ -574,7 +579,7 @@ void RunPromise(void)
     }
 #endif
 
-#if defined(USE_EMTERPRETER)
+#if defined(USE_ASYNCIFY)
     //
     // In the emterpreter build, rebPromise() defers to run until there is no
     // JavaScript above it or after it on the MAIN thread stack.
@@ -626,7 +631,7 @@ void Sync_Native_Result(heapaddr_t frame_id) {
 // a value to resolve with, because the emterpreter build can't really pass a
 // REBVAL*.   All the APIs it would need to make REBVAL* are unavailable.  So
 // it instead pokes a JavaScript function where it can be found when no longer
-// in emscripten_sleep_with_yield().
+// in emscripten_sleep().
 //
 // The pthreads build *could* take a value and poke it into the promise info.
 // But it's not worth it to wire up two different protocols on the JavaScript
@@ -796,7 +801,7 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
     // `rebSignalResolveNative()` or `rebSignalRejectNative()` either way,
     // and the results are fetched with the same mechanic.
 
-  #if defined(USE_EMTERPRETER)  // on MAIN thread (by definition)
+  #if defined(USE_ASYNCIFY)  // on MAIN thread (by definition)
 
     EM_ASM(
         { reb.RunNative_internal($0, $1) },
@@ -811,16 +816,16 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
     // conditions available.  We wait at least 50msec (probably more, as
     // we don't control how long the MAIN will be running whatever it does).
     //
-    TRACE("JavaScript_Dispatcher() => begin sleep_with_yield() loop");
+    TRACE("JavaScript_Dispatcher() => begin emscripten_sleep() loop");
     while (PG_Native_State == NATIVE_STATE_RUNNING) {  // !!! volatile?
         //
         // Note that reb.Halt() can force promise rejection, by way of the
         // triggering of a cancellation signal.  See implementation notes for
         // `reb.CancelAllCancelables_internal()`.
         //
-        emscripten_sleep_with_yield(50);
+        emscripten_sleep(50);
     }
-    TRACE("JavaScript_Dispatcher() => end sleep_with_yield() loop");
+    TRACE("JavaScript_Dispatcher() => end emscripten_sleep() loop");
 
     if (PG_Native_State == NATIVE_STATE_RESOLVED)
         Sync_Native_Result(frame_id);
