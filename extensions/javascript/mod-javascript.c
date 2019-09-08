@@ -579,24 +579,27 @@ void RunPromise(void)
 
 #if defined(USE_ASYNCIFY)
     //
-    // In the emterpreter build, rebPromise() defers to run until there is no
+    // In the Asyncify build, rebPromise() defers to run until there is no
     // JavaScript above it or after it on the MAIN thread stack.
     //
-    // Inside this call, emscripten_sleep_with_yield() can sneakily make us
-    // fall through to the main loop.  We don't notice it here--it's invisible
-    // to the C code being yielded.  -BUT- the JS callsite for rebIdle() would
+    // Inside this call, emscripten_sleep() can sneakily make us fall through
+    // to the main loop.  We don't notice it here--it's invisible to the C
+    // code being yielded.  -BUT- the JS callsite for rebIdle() would
     // notice, as it would seem rebIdle() had finished...when really what's
-    // happening is that the bytecode interpreter is putting it into suspended
-    // animation--which it will bring it out of with a setTimeout.
+    // happening is that the instrumented WASM is putting itself into
+    // suspended animation--which it will come out of via a setTimeout.
     //
     // (This is why there shouldn't be any meaningful JS on the stack above
     // this besides the rebIdle() call itself.)
     //
+    // While we *could* just export RunPromise(), this helps call out what is
+    // unique about the Asyncify build.
+    //
     EXTERN_C void RL_rebIdle_internal(void)  // NO user JS code on stack!
     {
-        TRACE("rebIdle() => begin emterpreting promise code");
+        TRACE("rebIdle() => begin running promise code");
         RunPromise();
-        TRACE("rebIdle() => finished emterpreting promise code");
+        TRACE("rebIdle() => finished running promise code");
     }
 #endif
 

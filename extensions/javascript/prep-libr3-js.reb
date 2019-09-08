@@ -38,24 +38,27 @@ e-cwrap: (make-emitter
     "JavaScript C Wrapper functions" output-dir/reb-lib.js
 )
 
-=== EMTERPRETER_BLACKLIST TOLERANT CWRAP ===
+=== ASYNCIFY_BLACKLIST TOLERANT CWRAP ===
 
 ; Emscripten's `cwrap` is based on a version of ccall which does not allow
-; the emterpreter to execute a function while emscripten_sleep() is in effect. 
-; However, there was a feature added for Ren-C to be able to call the WASM
-; function in this case:
+; syncronous function calls in the Asyncify build while emscripten_sleep() is
+; in effect.  However, this is an overly conservative assert when the function
+; is on the blacklist and known to not yield:
 ;
-; https://stackoverflow.com/q/51204703/
+; https://github.com/emscripten-core/emscripten/issues/9412
 ;
-; This is not accounted for, so we can't use cwrap()/ccall().  For the moment
+; Until that's resolved, we can't use cwrap()/ccall().  So for the moment
 ; we copy the code directly from %preamble.js...minus that assert:
 ;
 ; https://github.com/emscripten-core/emscripten/blob/incoming/src/preamble.js
 ;
-; !!! The necessity of this workaround hasn't been reviewed in light of the
-; transition away from emterpreter to asyncify.  But also,
-; there are few enough routines that a better answer is probably to dodge
-; inclusion of `cwrap`/`ccall` altogether and just by-hand wrap the routines.
+; Note: In actuality, there's no preprocessor on this file as on preamble.js
+; so this has to either keep or drop *all* of the code under `#if` directives,
+; (-or- we'd have to do some preprocessing equivalent based on the build
+; settings in the config we are doing `make prep` for.)
+;
+; !!! There may be few enough routines involved that the better answer is to
+; dodge `cwrap`/`ccall` altogether and just by-hand wrap the routines.
 ;
 e-cwrap/emit {
     function ccall_tolerant(ident, returnType, argTypes, args, opts) {
@@ -87,6 +90,13 @@ e-cwrap/emit {
       var func = getCFunc(ident);
       var cArgs = [];
       var stack = 0;
+
+    /* <ren-c modification>  // See Note: drop since we never do this
+    #if ASSERTIONS
+      assert(returnType !== 'array', 'Return type should not be "array".');
+    #endif
+    </ren-c modification> */
+
       if (args) {
         for (var i = 0; i < args.length; i++) {
           var converter = toC[argTypes[i]];
@@ -100,11 +110,7 @@ e-cwrap/emit {
       }
       var ret = func.apply(null, cArgs);
 
-    // This is the part we want to avoid.  Something like reb.Text() is calling
-    // the _RL_rebText() function underneath, and that's in ASYNCIFY_BLACKLIST,
-    // but the main cwrap/ccall() does not account for it.
-    //
-    /* <ren-c modification>
+    /* <ren-c modification>  // See Note: drop since no Emterpreter build
     #if EMTERPRETIFY_ASYNC
       if (typeof EmterpreterAsync === 'object' && EmterpreterAsync.state) {
     #if ASSERTIONS
@@ -122,12 +128,52 @@ e-cwrap/emit {
     #endif
     </ren-c modification> */
 
+    // This is the part we need to cut out.  If we are in an asyncify yield
+    // situation (e.g. waiting on a JS-AWAITER resolve) we know we can't
+    // call something that will potentially wait again.  But APIs like
+    // reb.Text() call _RL_rebText() function underneath, and that's in
+    // ASYNCIFY_BLACKLIST.  But the main cwrap/ccall() does not account for
+    // that fact.  Hence we have to patch out the assert.
+    //
+    /* <ren-c modification>  // See Note: couldn't use #if if we wanted to
+    #if ASYNCIFY && WASM_BACKEND
+      if (typeof Asyncify === 'object' && Asyncify.currData) {
+        // The WASM function ran asynchronous and unwound its stack.
+        // We need to return a Promise that resolves the return value
+        // once the stack is rewound and execution finishes.
+    #if ASSERTIONS
+        assert(opts && opts.async, 'The call to ' + ident + ' is running asynchronously. If this was intended, add the async option to the ccall/cwrap call.');
+        // Once the asyncFinalizers are called, asyncFinalizers gets reset to [].
+        // If they are not empty, then another async ccall is in-flight and not finished.
+        assert(Asyncify.asyncFinalizers.length === 0, 'Cannot have multiple async ccalls in flight at once');
+    #endif
+        return new Promise(function(resolve) {
+          Asyncify.asyncFinalizers.push(function(ret) {
+            if (stack !== 0) stackRestore(stack);
+            resolve(convertReturnValue(ret));
+          });
+        });
+      }
+    #endif
+    </ren-c modification> */
+
       ret = convertReturnValue(ret);
       if (stack !== 0) stackRestore(stack);
+
+    /* <ren-c modification>  // See Note: drop since feature is unused
+    #if EMTERPRETIFY_ASYNC || (ASYNCIFY && WASM_BACKEND)
+      // If this is an async ccall, ensure we return a promise
+      if (opts && opts.async) return Promise.resolve(ret);
+    #endif
+    </ren-c modification> */
+
       return ret;
     }
 
     function cwrap_tolerant(ident, returnType, argTypes, opts) {
+
+    /* <ren-c modification>  // See Note: drop since optimization unused
+    #if !ASSERTIONS
       argTypes = argTypes || [];
       // When the function takes numbers and returns a number, we can just return
       // the original function
@@ -136,6 +182,9 @@ e-cwrap/emit {
       if (numericRet && numericArgs && !opts) {
         return getCFunc(ident);
       }
+    #endif
+    </ren-c modification> */
+
       return function() {
         return ccall_tolerant(ident, returnType, argTypes, arguments, opts);
       }

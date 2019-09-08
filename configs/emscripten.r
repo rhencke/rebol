@@ -245,10 +245,9 @@ ldflags: compose [
     ;
     ; !!! For the moment (and possible future) we do not use ccall and cwrap
     ; because they do not heed ASYNCIFY_BLACKLIST to know when it would
-    ; be safe to call a wrapped function during emscripten_sleep()
-    ; It may be that the API doesn't need such a heavy wrapping mechanism
-    ; anyway, and there are few enough APIs that the non-variadics can just
-    ; be factored and wrapped by hand.
+    ; be safe to call a wrapped function during emscripten_sleep():
+    ;
+    ; https://github.com/emscripten-core/emscripten/issues/9412
     ;
     {-s "EXTRA_EXPORTED_RUNTIME_METHODS=['allocateUTF8']"}
     ; {-s "EXTRA_EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'allocateUTF8']"}
