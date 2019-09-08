@@ -674,15 +674,12 @@ e-cwrap/emit {
             else if (res === null)  /* explicitly, e.g. `resolve(null)` */
                 {}  /* allow it */
             else if (typeof res == "function") {
-                /*
-                 * If using the emterpreter, the awaiter's resolve() is rather
-                 * limited, as it can't call emterpreted functions during the
-                 * emscripten_sleep_with_yield().  That makes it hard to make
-                 * a REBVAL* to resolve() with.  Workaround is to accept a
-                 * JavaScript function, and call it when fetching the result.
-                 *
-                 * (so allow it)
-                 */
+                 throw Error(
+                    "JS-NATIVE resolve no longer needs to take JS functions!"
+                    + " Asyncify resolved the Emterpreter issues!"
+                    + " Please update your code to what is natural!"
+                    + " https://github.com/hostilefork/replpad-js/commit/2797e3c006aa4046a488939a4270bb7ebadee70f"
+                 )
             }
             else if (typeof res !== "number") {
                 console.log("typeof " + typeof res)

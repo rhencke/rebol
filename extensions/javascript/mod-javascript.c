@@ -24,17 +24,15 @@
 //
 //=//// NOTES /////////////////////////////////////////////////////////////=//
 //
-// <review> ;-- Now that emterpreter is gone
 // * This extension expands the RL_rebXXX() API with new entry points.  It
 //   was tried to avoid this--doing everything with helper natives.  This
 //   would use things like `reb.UnboxInteger("rebpromise-helper", ...)` and
-//   build a pure-JS reb.Promise() on top of that.  But in addition to the
-//   inefficiency intrinsic to such approaches, reb.UnboxInteger() has to
-//   allocate stack for the va_list calling convention.  This disrupts the
-//   "sneaky exit and reentry" done by the emterpreter.  All told, adding
-//   raw WASM entry points like RL_rebPromise_internal() is more practical,
-//   and happens to be faster too.
-// </review>
+//   build a pure-JS reb.Promise() on top of that.  Initially this was
+//   rejected due reb.UnboxInteger() allocating stack for the va_list calling
+//   convention...disrupting the "sneaky exit and reentry" done by the
+//   Emterpreter.  Now that Emterpreter is replaced with Asyncify, that's
+//   not an issue--but it's still faster to have raw WASM entry points like
+//   RL_rebPromise_internal().
 //
 // * Return codes from pthread primitives that can only come from usage errors
 //   are not checked (e.g. `pthread_mutex_lock()`).  We only check ones from
@@ -811,7 +809,7 @@ REB_R JavaScript_Dispatcher(REBFRM *f)
 
     // We don't know exactly what MAIN event is going to trigger and cause a
     // resolve() to happen.  It could be a timer, it could be a fetch(),
-    // it could be anything.  The emterpreted build doesn't really have a
+    // it could be anything.  The Asyncify build doesn't really have a
     // choice other than to poll...there's nothing like pthread wait
     // conditions available.  We wait at least 50msec (probably more, as
     // we don't control how long the MAIN will be running whatever it does).
