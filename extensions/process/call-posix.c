@@ -97,8 +97,7 @@ static inline bool Open_Pipe_Fails(int pipefd[2]) {
 }
 
 static inline bool Set_Nonblocking_Fails(int fd) {
-    int oldflags;
-    oldflags = fcntl(fd, F_GETFL);
+    int oldflags = fcntl(fd, F_GETFL);
     if (oldflags < 0)
         return true;
     if (fcntl(fd, F_SETFL, oldflags | O_NONBLOCK) < 0)
@@ -176,19 +175,11 @@ REB_R Call_Core(REBFRM *frame_) {
         panic (ARG(input));  // typechecking should not have allowed it
     }
 
-    bool flag_wait;
-    if (
-        REF(wait)
-        or (
-            IS_TEXT(ARG(input)) or IS_BINARY(ARG(input))
-            or IS_TEXT(ARG(output)) or IS_BINARY(ARG(output))
-            or IS_TEXT(ARG(error)) or IS_BINARY(ARG(error))
-        ) // I/O redirection implies /WAIT
-    ){
-        flag_wait = true;
-    }
-    else
-        flag_wait = false;
+    bool flag_wait = REF(wait) or (
+        IS_TEXT(ARG(input)) or IS_BINARY(ARG(input))
+        or IS_TEXT(ARG(output)) or IS_BINARY(ARG(output))
+        or IS_TEXT(ARG(error)) or IS_BINARY(ARG(error))
+    );  // I/O redirection implies /WAIT
 
     // We synthesize the argc and argv from the "command", and in the process
     // we do dynamic allocations of argc strings through the API.  These need
@@ -427,6 +418,10 @@ REB_R Call_Core(REBFRM *frame_) {
             close(fd);
         }
 
+      #ifdef DEBUG_STDIO_OK
+        printf("about to hang up the info pipe...\n");
+      #endif
+
         close(info_pipe[R]);
 
         /* printf("flag_shell in child: %hhu\n", flag_shell); */
@@ -436,6 +431,10 @@ REB_R Call_Core(REBFRM *frame_) {
         // is not possible in plain C builds).  We must tunnel under the cast.
         //
         char * const *argv_hack;
+
+      #ifdef DEBUG_STDIO_OK
+        printf("about to exec in fork...\n");
+      #endif
 
         if (REF(shell)) {
             const char *sh = getenv("SHELL");
@@ -472,6 +471,10 @@ REB_R Call_Core(REBFRM *frame_) {
         // to get here *unless* there was an error, which will be in errno.
 
       child_error: ;  // semicolon necessary, next statement is declaration
+
+      #ifdef DEBUG_STDIO_OK
+        printf("error in child of fork...\n");
+      #endif
 
         // The original implementation of this code would write errno to the
         // info pipe.  However, errno may be volatile (and it is on Android).
@@ -572,13 +575,36 @@ REB_R Call_Core(REBFRM *frame_) {
             info_pipe[W] = -1;
         }
 
+      #ifdef DEBUG_STDIO_OK
+        printf("setup complete in parent of fork...\n");
+        int count = 0;
+      #endif
+
         int valid_nfds = nfds;
         while (valid_nfds > 0) {
+          #ifdef DEBUG_STDIO_OK
+            if (++count > 10) {
+                printf("Exiting due to count being too high\n");
+                exit(1);
+            }
+            printf("waitpid step %d...\n", count);
+          #endif
+
             pid_t xpid = waitpid(fpid, &status, WNOHANG);
+
             if (xpid == -1) {
+             #ifdef DEBUG_STDIO_OK
+                printf("got xpid -1 and errno %d...\n", cast(int, errno));
+             #endif
+
                 ret = errno;
                 goto error;
             }
+
+         #ifdef DEBUG_STDIO_OK
+            printf("finished waitpid with %d...\n", cast(int, xpid));
+            printf("(where fpid was %d...)\n", cast(int, fpid));
+          #endif
 
             if (xpid == fpid) {  // try once more to read remaining out/err
                 if (stdout_pipe[R] > 0) {
@@ -609,6 +635,9 @@ REB_R Call_Core(REBFRM *frame_) {
                     );
                     if (nbytes > 0)
                         infobuf_used += nbytes;
+                  #ifdef DEBUG_STDIO_OK
+                    printf("read %d bytes from info_pipe\n", cast(int, nbytes));
+                  #endif
                 }
 
                 if (WIFSTOPPED(status)) {
@@ -761,12 +790,19 @@ REB_R Call_Core(REBFRM *frame_) {
         }
 
         if (valid_nfds == 0 and flag_wait) {
+          #ifdef DEBUG_STDIO_OK
+            printf("final wait...\n");  // Temporary...
+          #endif
             if (waitpid(fpid, &status, 0) < 0) {
                 ret = errno;
                 goto error;
             }
         }
-
+        else {
+          #ifdef DEBUG_STDIO_OK
+            printf("not final waiting...\n");
+          #endif
+        }
     }
     else {  // error
         ret = errno;

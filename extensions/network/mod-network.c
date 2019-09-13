@@ -477,7 +477,7 @@ static REB_R Transport_Actor(
         }
         else {
             if (rebDid("error?", result, rebEND))
-                rebJumps("libFAIL", result, rebEND);
+                rebJumps("lib/FAIL", result, rebEND);
 
             // This can happen with UDP, which is connectionless so it
             // returns DR_DONE.
