@@ -299,10 +299,15 @@ REB_R Call_Core(REBFRM *frame_) {
     if (Open_Pipe_Fails(info_pipe))
         goto info_pipe_err;
 
-    pid_t fpid;  // gotos would cross initialization
-    fpid = fork();
+    pid_t forked_pid;  // gotos would cross initialization
+    forked_pid = fork();
 
-    if (fpid == 0) {
+    if (forked_pid < 0) {  // error
+        ret = errno;
+        goto error;
+    }
+
+    if (forked_pid == 0) {
 
     //=//// CHILD BRANCH OF FORK() ////////////////////////////////////////=//
 
@@ -418,13 +423,18 @@ REB_R Call_Core(REBFRM *frame_) {
             close(fd);
         }
 
-      #ifdef DEBUG_STDIO_OK
-        printf("about to hang up the info pipe...\n");
-      #endif
-
+        // We hang up the *read* end of the info pipe--which the parent never
+        // writes to, but only uses this detection to decide the process must
+        // have at least gotten up to the point of exec()'ing.  Since the
+        // exec() takes over this process fully if it works, it's the last
+        // chance to have any signal in that case.
+        //
+        // !!! Given that waiting on this signal alone would miss any errors
+        // in the exec itself, it's not clear why lack of use of a /WAIT would
+        // delay to detect this close (vs. return as soon as possible).  This
+        // should likely be rethought in a PORT!-based redesign of CALL.
+        //
         close(info_pipe[R]);
-
-        /* printf("flag_shell in child: %hhu\n", flag_shell); */
 
         // We want to be able to compile with most all warnings as errors, and
         // we'd like to use -Wcast-qual (in builds where it is possible--it
@@ -432,14 +442,10 @@ REB_R Call_Core(REBFRM *frame_) {
         //
         char * const *argv_hack;
 
-      #ifdef DEBUG_STDIO_OK
-        printf("about to exec in fork...\n");
-      #endif
-
         if (REF(shell)) {
             const char *sh = getenv("SHELL");
 
-            if (sh == NULL) {  // shell does not exist
+            if (sh == nullptr) {  // shell does not exist
                 int err = 2;
                 if (write(info_pipe[W], &err, sizeof(err)) == -1) {
                     //
@@ -456,7 +462,7 @@ REB_R Call_Core(REBFRM *frame_) {
             argv_new[0] = sh;
             argv_new[1] = "-c";
             memcpy(&argv_new[2], argv, argc * sizeof(argv[0]));
-            argv_new[argc + 2] = NULL;
+            argv_new[argc + 2] = nullptr;
 
             memcpy(&argv_hack, &argv_new, sizeof(argv_hack));
             execvp(sh, argv_hack);
@@ -471,10 +477,6 @@ REB_R Call_Core(REBFRM *frame_) {
         // to get here *unless* there was an error, which will be in errno.
 
       child_error: ;  // semicolon necessary, next statement is declaration
-
-      #ifdef DEBUG_STDIO_OK
-        printf("error in child of fork...\n");
-      #endif
 
         // The original implementation of this code would write errno to the
         // info pipe.  However, errno may be volatile (and it is on Android).
@@ -492,7 +494,7 @@ REB_R Call_Core(REBFRM *frame_) {
         }
         exit(EXIT_FAILURE);  // get here only when exec fails
     }
-    else if (fpid > 0) {
+    else {
 
     //=//// PARENT BRANCH OF FORK() ///////////////////////////////////////=//
 
@@ -575,38 +577,20 @@ REB_R Call_Core(REBFRM *frame_) {
             info_pipe[W] = -1;
         }
 
-      #ifdef DEBUG_STDIO_OK
-        printf("setup complete in parent of fork...\n");
-        int count = 0;
-      #endif
-
         int valid_nfds = nfds;
         while (valid_nfds > 0) {
-          #ifdef DEBUG_STDIO_OK
-            if (++count > 10) {
-                printf("Exiting due to count being too high\n");
-                exit(1);
-            }
-            printf("waitpid step %d...\n", count);
-          #endif
-
-            pid_t xpid = waitpid(fpid, &status, WNOHANG);
+            pid_t xpid = waitpid(
+                forked_pid,  // wait for a state change on this process ID
+                &status,  // status result (inspect with WXXX() macros)
+                WNOHANG  // return immediately (with 0) if no state change
+            );
 
             if (xpid == -1) {
-             #ifdef DEBUG_STDIO_OK
-                printf("got xpid -1 and errno %d...\n", cast(int, errno));
-             #endif
-
                 ret = errno;
                 goto error;
             }
 
-         #ifdef DEBUG_STDIO_OK
-            printf("finished waitpid with %d...\n", cast(int, xpid));
-            printf("(where fpid was %d...)\n", cast(int, fpid));
-          #endif
-
-            if (xpid == fpid) {  // try once more to read remaining out/err
+            if (xpid == forked_pid) {  // try a last read of remaining out/err
                 if (stdout_pipe[R] > 0) {
                     nbytes = read(
                         stdout_pipe[R],
@@ -635,9 +619,6 @@ REB_R Call_Core(REBFRM *frame_) {
                     );
                     if (nbytes > 0)
                         infobuf_used += nbytes;
-                  #ifdef DEBUG_STDIO_OK
-                    printf("read %d bytes from info_pipe\n", cast(int, nbytes));
-                  #endif
                 }
 
                 if (WIFSTOPPED(status)) {
@@ -667,6 +648,12 @@ REB_R Call_Core(REBFRM *frame_) {
 
             for (i = 0; i < nfds and valid_nfds > 0; ++i) {
                 /* printf("check: %d [%d/%d]\n", pfds[i].fd, i, nfds); */
+
+                if (pfds[i].revents & POLLNVAL) {  // bad file descriptor
+                    assert(!"POLLNVAL received (this should never happen!)");
+                    ret = errno;
+                    goto kill;
+                }
 
                 if (pfds[i].revents & POLLERR) {
                     /* printf("POLLERR: %d [%d/%d]\n", pfds[i].fd, i, nfds); */
@@ -775,46 +762,33 @@ REB_R Call_Core(REBFRM *frame_) {
                         assert(*used < *capacity);
                     } while (nbytes == to_read);
                 }
-                else if (pfds[i].revents & POLLHUP) {
+
+                // A pipe can hangup and also have input (e.g. OS X sets both
+                // POLLIN | POLLHUP at once).
+                //
+                if (pfds[i].revents & POLLHUP) {
                     /* printf("POLLHUP: %d [%d/%d]\n", pfds[i].fd, i, nfds); */
                     close(pfds[i].fd);
                     pfds[i].fd = -1;
                     valid_nfds --;
                 }
-                else if (pfds[i].revents & POLLNVAL) {
-                    /* printf("POLLNVAL: %d [%d/%d]\n", pfds[i].fd, i, nfds); */
-                    ret = errno;
-                    goto kill;
-                }
             }
         }
 
         if (valid_nfds == 0 and flag_wait) {
-          #ifdef DEBUG_STDIO_OK
-            printf("final wait...\n");  // Temporary...
-          #endif
-            if (waitpid(fpid, &status, 0) < 0) {
+            if (waitpid(forked_pid, &status, 0) < 0) {
                 ret = errno;
                 goto error;
             }
         }
-        else {
-          #ifdef DEBUG_STDIO_OK
-            printf("not final waiting...\n");
-          #endif
-        }
-    }
-    else {  // error
-        ret = errno;
-        goto error;
     }
 
     goto cleanup;
 
   kill:
 
-    kill(fpid, SIGKILL);
-    waitpid(fpid, NULL, 0);
+    kill(forked_pid, SIGKILL);
+    waitpid(forked_pid, nullptr, 0);
 
   error:
 
@@ -839,7 +813,7 @@ REB_R Call_Core(REBFRM *frame_) {
         assert(infobuf_used == 0);
 
        exit_code = WEXITSTATUS(status);
-       pid = fpid;
+       pid = forked_pid;
     }
     else if (WIFSIGNALED(status)) {
         non_errno_ret = WTERMSIG(status);
@@ -858,7 +832,7 @@ REB_R Call_Core(REBFRM *frame_) {
         non_errno_ret = -2048;  // !!! randomly picked
     }
 
-    if (infobuf != NULL)
+    if (infobuf != nullptr)
         rebFree(infobuf);
 
   info_pipe_err:
@@ -914,7 +888,7 @@ REB_R Call_Core(REBFRM *frame_) {
     for (i = 0; i != argc; ++i)
         rebFree(m_cast(char*, argv[i]));
 
-    if (cmd != NULL)
+    if (cmd != nullptr)
         rebFree(cmd);
 
     rebFree(m_cast(char**, argv));
