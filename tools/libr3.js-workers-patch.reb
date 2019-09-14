@@ -45,7 +45,7 @@ patch1: {
    //</ren-c-modification>
 }
 
-find2: "PThread.unusedWorkerPool.push(worker);"
+find2: "PThread.unusedWorkers.push(worker);"
 patch2:{
    //<ren-c-modification>
    ^})
