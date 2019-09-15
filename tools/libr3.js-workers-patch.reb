@@ -59,7 +59,7 @@ parse text [
   to find1 remove find1
   insert patch1
 
-  ; There are two occurrences of "PThread.unusedWorkerPool.push(worker);" at
+  ; There are two occurrences of "PThread.unusedWorkers.push(worker);" at
   ; time of writing.  We don't want the first one, skip until after the
   ; `PthreadWorkerInit: PthreadWorkerInit`
   ;

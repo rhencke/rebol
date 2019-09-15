@@ -1172,37 +1172,19 @@ REBLEN Recycle_Core(bool shutdown, REBSER *sweeplist)
     PG_Reb_Stats->Recycle_Prior_Eval = Eval_Cycles;
 #endif
 
-    // Do not adjust task variables or boot strings in shutdown when they
-    // are being freed.
+    // !!! This reset of the "ballast" is the original code from R3-Alpha:
     //
-    if (not shutdown) {
-        //
-        // !!! This code was added by Atronix to deal with frequent garbage
-        // collection, but the logic is not correct.  The issue has been
-        // raised and is commented out pending a correct solution.
-        //
-        // https://github.com/zsx/r3/issues/32
-        //
-        /*if (GC_Ballast <= TG_Ballast / 2
-            && TG_Task_Ballast < INT32_MAX) {
-            //increasing ballast by half
-            TG_Ballast /= 2;
-            TG_Ballast *= 3;
-        } else if (GC_Ballast >= TG_Ballast * 2) {
-            //reduce ballast by half
-            TG_Ballast /= 2;
-        }
-
-        // avoid overflow
-        if (
-            TG_Ballast < 0
-            || TG_Ballast >= INT32_MAX
-        ) {
-            TG_Ballast = INT32_MAX;
-        }*/
-
+    // https://github.com/rebol/rebol/blob/25033f897b2bd466068d7663563cd3ff64740b94/src/core/m-gc.c#L599
+    //
+    // Atronix R3 modified it, but that modification created problems:
+    //
+    // https://github.com/zsx/r3/issues/32
+    //
+    // Reverted to the R3-Alpha state, accommodating a comment "do not adjust
+    // task variables or boot strings in shutdown when they are being freed."
+    //
+    if (not shutdown)
         GC_Ballast = TG_Ballast;
-    }
 
     ASSERT_NO_GC_MARKS_PENDING();
 
