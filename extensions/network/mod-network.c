@@ -99,7 +99,7 @@ static REB_R Transport_Actor(
     // characters, a likely oversight from the addition of unicode).
     //
     REBVAL *port_data = CTX_VAR(ctx, STD_PORT_DATA);
-    assert(IS_BINARY(port_data) or IS_TEXT(port_data) or IS_BLANK(port_data));
+    assert(IS_BINARY(port_data) or IS_BLANK(port_data));
 
     // sock->timeout = 4000; // where does this go? !!!
 
@@ -259,26 +259,12 @@ static REB_R Transport_Actor(
             ASSERT_SERIES_TERM(VAL_BINARY(port_data));
         }
         else if (req->command == RDC_WRITE) {
-            enum Reb_Kind kind = VAL_TYPE(port_data);
-            assert(kind == REB_BINARY or kind == REB_TEXT);
-            UNUSED(kind);
-
-            // !!! Still uses the convention of passing a byte pointer to
-            // the device layer, vs. a BINARY!.  Pointer is advanced on each
-            // section of write.  WROTE event happens only when all the data
-            // has been written.
             //
-            REBSIZ size;
-            assert(
-                req->common.data ==
-                    VAL_BYTES_AT(&size, port_data) + req->length
-            );
-            UNUSED(size);
-
-            // !!! R3-Alpha said "write is done" here, and threw away the
-            // port data by blanking it.  But was it done?
+            // This WAKE-UP apparently does not always mean that the operation
+            // has completed (that was previously assumed...)
             //
-            Init_Blank(port_data);
+            if (req->actual == req->length)  // completion trashes
+                assert(IS_POINTER_TRASH_DEBUG(req->common.binary));
         }
         else
             assert(
@@ -379,17 +365,6 @@ static REB_R Transport_Actor(
             fail (Error_On_Port(SYM_NOT_CONNECTED, port, -15));
         }
 
-        // Determine length. Clip /PART to size of string if needed.
-        REBVAL *data = ARG(data);
-
-        REBLEN len = VAL_LEN_AT(data);
-        if (REF(part)) {
-            REBLEN n = Int32s(ARG(part), 0);
-            if (n <= len)
-                len = n;
-        }
-
-        // Setup the write:
 
         // !!! R3-Alpha did not lay out the invariants of the port model,
         // or what datatypes it would accept at what levels.  TEXT! could be
@@ -398,17 +373,30 @@ static REB_R Transport_Actor(
         // that point (always UTF-8 bytes)...but the port model needs a top
         // to bottom review of what types are accepted where and why.
         //
-        // !!! Uses m_cast, but should not modify!
+        REBVAL *data = ARG(data);
 
-        assert(IS_BINARY(data) or IS_TEXT(data));
-        Move_Value(port_data, data);  // GC-safety (blanked out on UPDATE)
+        // Setup the write.  We copy the data into the request, so that you
+        // can say things like:
+        //
+        //     data: {abc}
+        //     write port data
+        //     reverse data
+        //     write port data
+        //
+        // We also want to make sure the /PART is handled correctly, so by
+        // delegating to COPY/PART we get that for free.
+        //
+        TRASH_POINTER_IF_DEBUG(req->common.data);
+        req->common.binary = rebValue(
+            "as binary! copy/part", data, ARG(part),
+        rebEND);
 
-        REBSIZ size;
-        req->common.data = m_cast(REBYTE*, VAL_BYTES_AT(&size, data));
-        assert(len == size);
-        UNUSED(size);
-        req->length = len;
+        // Because requests can be handled asynchronously, we won't
+        // necessarily free the handle before WRITE ends.  Unmanage it.
+        //
+        rebUnmanage(req->common.binary);
 
+        req->length = VAL_LEN_AT(req->common.binary);
         req->actual = 0;
 
         REBVAL *result = OS_DO_DEVICE(sock, RDC_WRITE);

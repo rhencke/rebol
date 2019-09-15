@@ -437,9 +437,6 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
     int result;
 
     if (mode == RSM_SEND) {
-        if (req->length == 0)
-            return DR_DONE;  // !!! Why are these getting here?
-
         // If host is no longer connected:
         Set_Addr(
             &remote_addr,
@@ -448,20 +445,22 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
         );
         result = sendto(
             req->requestee.socket,
-            s_cast(req->common.data), len,
+            s_cast(VAL_BIN_AT_HEAD(req->common.binary, req->actual)), len,
             MSG_NOSIGNAL, // Flags
             cast(struct sockaddr*, &remote_addr), addr_len
         );
         WATCH2("send() len: %d actual: %d\n", cast(int, len), result);
 
         if (result < 0)
-            goto error;
+            goto error_unless_wouldblock;  // may release and trash binary
 
-        req->common.data += result;
         req->actual += result;
 
         assert(req->actual <= req->length);
         if (req->actual == req->length) {
+            rebRelease(req->common.binary);
+            TRASH_POINTER_IF_DEBUG(req->common.binary);
+
             rebElide(
                 "insert system/ports/system make event! [",
                     "type: 'wrote",
@@ -491,7 +490,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
         WATCH2("recv() len: %d result: %d\n", cast(int, len), result);
 
         if (result < 0)
-            goto error;
+            goto error_unless_wouldblock;
 
         if (result == 0) {  // The socket gracefully closed.
             TERM_BIN_LEN(bin, old_len);
@@ -523,12 +522,18 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
         return DR_DONE;
     }
 
-  error:
+  error_unless_wouldblock:
 
     result = GET_ERROR;
 
-    if (result != NE_WOULDBLOCK)
+    if (result != NE_WOULDBLOCK) {
+        if (mode == RSM_SEND) {
+            rebRelease(req->common.binary);
+            TRASH_POINTER_IF_DEBUG(req->common.binary);
+        }
+
         rebFail_OS (result);
+    }
 
     return DR_PEND; // still waiting
 }
