@@ -372,13 +372,13 @@ REBNATIVE(wait)
 
     if (NOT_END(val)) {
         switch (VAL_TYPE(val)) {
-        case REB_INTEGER:
-        case REB_DECIMAL:
-        case REB_TIME:
+          case REB_INTEGER:
+          case REB_DECIMAL:
+          case REB_TIME:
             timeout = Milliseconds_From_Value(val);
             break;
 
-        case REB_PORT:
+          case REB_PORT:
             if (not Pending_Port(KNOWN(val)))
                 return nullptr;
             ports = Make_Array(1);
@@ -386,11 +386,11 @@ REBNATIVE(wait)
             timeout = ALL_BITS;
             break;
 
-        case REB_BLANK:
+          case REB_BLANK:
             timeout = ALL_BITS; // wait for all windows
             break;
 
-        default:
+          default:
             fail (Error_Bad_Value_Core(val, SPECIFIED));
         }
     }

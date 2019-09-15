@@ -106,30 +106,29 @@ static REB_R Transport_Actor(
     // !!! Comment said "HOW TO PREVENT OVERWRITE DURING BUSY OPERATION!!!
     // Should it just ignore it or cause an error?"
 
-    // Actions for an unopened socket:
-
     if (not (req->flags & RRF_OPEN)) {
-
-        switch (VAL_WORD_SYM(verb)) { // Ordered by frequency
-
-        case SYM_REFLECT: {
+        //
+        // Actions for an unopened socket
+        //
+        switch (VAL_WORD_SYM(verb)) {
+          case SYM_REFLECT: {
             INCLUDE_PARAMS_OF_REFLECT;
 
-            UNUSED(ARG(value)); // covered by `port`
+            UNUSED(ARG(value));  // covered by `port`
             REBSYM property = VAL_WORD_SYM(ARG(property));
             assert(property != SYM_0);
 
             switch (property) {
-            case SYM_OPEN_Q:
+              case SYM_OPEN_Q:
                 return Init_False(D_OUT);
 
-            default:
+              default:
                 break;
             }
 
             fail (Error_On_Port(SYM_NOT_OPEN, port, -12)); }
 
-        case SYM_OPEN: {
+          case SYM_OPEN: {
             REBVAL *arg = Obj_Value(spec, STD_PORT_SPEC_NET_HOST);
             REBVAL *port_id = Obj_Value(spec, STD_PORT_SPEC_NET_PORT_ID);
 
@@ -169,7 +168,7 @@ static REB_R Transport_Actor(
                 //
                 REBVAL *l_result = OS_DO_DEVICE(sock, RDC_LOOKUP);
 
-                assert(l_result != NULL);
+                assert(l_result != nullptr);
                 if (rebDid("error?", l_result, rebEND))
                     rebJumps("FAIL", l_result, rebEND);
                 rebRelease(l_result); // ignore result
@@ -200,22 +199,21 @@ static REB_R Transport_Actor(
                 fail (Error_On_Port(SYM_INVALID_SPEC, port, -10));
             break; }
 
-        case SYM_CLOSE:
+          case SYM_CLOSE:
             RETURN (port);
 
-        case SYM_ON_WAKE_UP:  // allowed after a close
+          case SYM_ON_WAKE_UP:  // allowed after a close
             break;
 
-        default:
+          default:
             fail (Error_On_Port(SYM_NOT_OPEN, port, -12));
         }
     }
 
-  open_socket_actions:;
+  open_socket_actions:
 
     switch (VAL_WORD_SYM(verb)) { // Ordered by frequency
-
-    case SYM_REFLECT: {
+      case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
 
         UNUSED(ARG(value)); // covered by `port`
@@ -223,13 +221,13 @@ static REB_R Transport_Actor(
         assert(property != SYM_0);
 
         switch (property) {
-        case SYM_LENGTH: {
+          case SYM_LENGTH: {
             return Init_Integer(
                 D_OUT,
                 IS_BINARY(port_data) ? VAL_LEN_HEAD(port_data) : 0
             ); }
 
-        case SYM_OPEN_Q:
+          case SYM_OPEN_Q:
             //
             // Connect for clients, bind for servers:
             //
@@ -238,13 +236,13 @@ static REB_R Transport_Actor(
                 (req->state & (RSM_CONNECT | RSM_BIND)) != 0
             );
 
-        default:
+          default:
             break;
         }
 
         break; }
 
-    case SYM_ON_WAKE_UP: {
+      case SYM_ON_WAKE_UP: {
         //
         // Update the port object after a READ or WRITE operation.
         // This is normally called by the WAKE-UP function.
@@ -292,7 +290,7 @@ static REB_R Transport_Actor(
 
         return Init_Void(D_OUT); }
 
-    case SYM_READ: {
+      case SYM_READ: {
         INCLUDE_PARAMS_OF_READ;
 
         UNUSED(PAR(source));
@@ -348,7 +346,7 @@ static REB_R Transport_Actor(
         req->actual = 0; // actual for THIS read (not for total)
 
         REBVAL *result = OS_DO_DEVICE(sock, RDC_READ);
-        if (result == NULL) {
+        if (result == nullptr) {
             //
             // Request pending
         }
@@ -363,7 +361,7 @@ static REB_R Transport_Actor(
 
         RETURN (port); }
 
-    case SYM_WRITE: {
+      case SYM_WRITE: {
         INCLUDE_PARAMS_OF_WRITE;
 
         UNUSED(PAR(destination));
@@ -415,7 +413,7 @@ static REB_R Transport_Actor(
 
         REBVAL *result = OS_DO_DEVICE(sock, RDC_WRITE);
 
-        if (result == NULL) {
+        if (result == nullptr) {
             //
             // Write pending !!! old comment said "do we get here?"
         }
@@ -430,7 +428,7 @@ static REB_R Transport_Actor(
 
         RETURN (port); }
 
-    case SYM_TAKE_P: {
+      case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
         UNUSED(PAR(series));
 
@@ -444,7 +442,7 @@ static REB_R Transport_Actor(
                 rebEND
         ); }
 
-    case SYM_PICK: {
+      case SYM_PICK: {
         fail (
             "Listening network PORT!s no longer support FIRST (or PICK) to"
             " extract the connection PORT! in an accept event.  It was"
@@ -453,7 +451,7 @@ static REB_R Transport_Actor(
             " read-only way of looking at the accept list."
         ); }
 
-    case SYM_QUERY: {
+      case SYM_QUERY: {
         //
         // Get specific information - the scheme's info object.
         // Special notation allows just getting part of the info.
@@ -461,7 +459,7 @@ static REB_R Transport_Actor(
         Query_Net(D_OUT, port, ReqNet(sock));
         return D_OUT; }
 
-    case SYM_CLOSE: {
+      case SYM_CLOSE: {
         if (req->flags & RRF_OPEN) {
             OS_DO_DEVICE_SYNC(sock, RDC_CLOSE);
 
@@ -469,9 +467,9 @@ static REB_R Transport_Actor(
         }
         RETURN (port); }
 
-    case SYM_OPEN: {
+      case SYM_OPEN: {
         REBVAL *result = OS_DO_DEVICE(sock, RDC_CONNECT);
-        if (result == NULL) {
+        if (result == nullptr) {
             //
             // Asynchronous connect, this happens in TCP_Actor
         }
@@ -489,7 +487,7 @@ static REB_R Transport_Actor(
         }
         RETURN (port); }
 
-    default:
+      default:
         break;
     }
 

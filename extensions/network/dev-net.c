@@ -31,7 +31,7 @@
 #include "sys-net.h"
 
 #ifdef IS_ERROR
-#undef IS_ERROR //winerror.h defines this, so undef it to avoid the warning
+    #undef IS_ERROR  // winerror.h defines, so undef it to avoid the warning
 #endif
 #include "sys-core.h"
 
@@ -39,7 +39,7 @@
 
 #include "reb-net.h"
 
-#if (0)
+#if 0
     #define WATCH1(s,a) printf(s, a)
     #define WATCH2(s,a,b) printf(s, a, b)
     #define WATCH4(s,a,b,c,d) printf(s, a, b, c, d)
@@ -60,7 +60,7 @@ DEVICE_CMD Listen_Socket(REBREQ *sock);
 // Linux does not support SO_NOSIGPIPE
 //
 #ifndef MSG_NOSIGNAL
-#define MSG_NOSIGNAL 0
+    #define MSG_NOSIGNAL 0
 #endif
 
 /***********************************************************************
@@ -90,7 +90,7 @@ static void Get_Local_IP(REBREQ *sock)
     ReqNet(sock)->local_port = ntohs(sa.sin_port);
 }
 
-static bool Set_Sock_Options(SOCKET sock)
+static bool Try_Set_Sock_Options(SOCKET sock)
 {
   #if defined(SO_NOSIGPIPE)
     //
@@ -126,7 +126,7 @@ DEVICE_CMD Init_Net(REBREQ *dr)
 {
     REBDEV *dev = cast(REBDEV*, dr);
 
-#ifdef TO_WINDOWS
+  #ifdef TO_WINDOWS
     //
     // Initialize Windows Socket API with given VERSION.
     // It is ok to call twice, as long as WSACleanup twice.
@@ -134,7 +134,7 @@ DEVICE_CMD Init_Net(REBREQ *dr)
     WSADATA wsaData;
     if (WSAStartup(0x0101, &wsaData))
         rebFail_OS (GET_ERROR);
-#endif
+  #endif
 
     dev->flags |= RDF_INIT;
     return DR_DONE;
@@ -205,7 +205,7 @@ DEVICE_CMD Open_Socket(REBREQ *req)
     sock->state |= RSM_OPEN;
 
     // Set socket to non-blocking async mode:
-    if (!Set_Sock_Options(sock->requestee.socket))
+    if (not Try_Set_Sock_Options(sock->requestee.socket))
         rebFail_OS (GET_ERROR);
 
     if (ReqNet(req)->local_port != 0) {
@@ -351,27 +351,27 @@ DEVICE_CMD Connect_Socket(REBREQ *sock)
         req->requestee.socket, cast(struct sockaddr *, &sa), sizeof(sa)
     );
 
-    if (result != 0) result = GET_ERROR;
+    if (result != 0)
+        result = GET_ERROR;
 
     WATCH2("connect() error: %d - %s\n", result, strerror(result));
 
     switch (result) {
+      case 0:  // no error
+      case NE_ISCONN:
+        break;  // connected, set state
 
-    case 0: // no error
-    case NE_ISCONN:
-        break; // connected, set state
-
-#ifdef TO_WINDOWS
-    case NE_INVALID: // Corrects for Microsoft bug
-#endif
-    case NE_WOULDBLOCK:
-    case NE_INPROGRESS:
-    case NE_ALREADY:
+    #ifdef TO_WINDOWS
+      case NE_INVALID:  // Comment said "Corrects for Microsoft bug"
+    #endif
+      case NE_WOULDBLOCK:
+      case NE_INPROGRESS:
+      case NE_ALREADY:
         // Still trying:
         req->state |= RSM_ATTEMPT;
         return DR_PEND;
 
-    default:
+      default:
         req->state &= ~RSM_ATTEMPT;
         rebFail_OS (result);
     }
@@ -437,6 +437,9 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
     int result;
 
     if (mode == RSM_SEND) {
+        if (req->length == 0)
+            return DR_DONE;  // !!! Why are these getting here?
+
         // If host is no longer connected:
         Set_Addr(
             &remote_addr,
@@ -449,25 +452,28 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
             MSG_NOSIGNAL, // Flags
             cast(struct sockaddr*, &remote_addr), addr_len
         );
-        WATCH2("send() len: %d actual: %d\n", len, result);
+        WATCH2("send() len: %d actual: %d\n", cast(int, len), result);
 
-        if (result >= 0) {
-            req->common.data += result;
-            req->actual += result;
-            if (req->actual >= req->length) {
-                rebElide(
-                    "insert system/ports/system make event! [",
-                        "type: 'wrote",
-                        "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
-                    "]",
-                rebEND);
+        if (result < 0)
+            goto error;
 
-                return DR_DONE;
-            }
-            req->flags |= RRF_ACTIVE; // notify OS_WAIT of activity
-            return DR_PEND;
+        req->common.data += result;
+        req->actual += result;
+
+        assert(req->actual <= req->length);
+        if (req->actual == req->length) {
+            rebElide(
+                "insert system/ports/system make event! [",
+                    "type: 'wrote",
+                    "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
+                "]",
+            rebEND);
+
+            return DR_DONE;
         }
-        // if (result < 0) ...
+
+        req->flags |= RRF_ACTIVE; // notify OS_WAIT of activity
+        return DR_PEND;  // still more to go
     }
     else {
         assert(VAL_INDEX(req->common.binary) == 0);
@@ -482,27 +488,14 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
             0, // Flags
             cast(struct sockaddr*, &remote_addr), &addr_len
         );
-        WATCH2("recv() len: %d result: %d\n", len, result);
+        WATCH2("recv() len: %d result: %d\n", cast(int, len), result);
 
-        if (result > 0) {
-            if (req->modes & RST_UDP) {
-                ReqNet(sock)->remote_ip = remote_addr.sin_addr.s_addr;
-                ReqNet(sock)->remote_port = ntohs(remote_addr.sin_port);
-            }
-            TERM_BIN_LEN(bin, old_len + result);
+        if (result < 0)
+            goto error;
 
-            rebElide(
-                "insert system/ports/system make event! [",
-                    "type: 'read",
-                    "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
-                "]",
-            rebEND);
-
-            return DR_DONE;
-        }
-        if (result == 0) {      // The socket gracefully closed.
+        if (result == 0) {  // The socket gracefully closed.
             TERM_BIN_LEN(bin, old_len);
-            req->state &= ~RSM_CONNECT; // But, keep RRF_OPEN true
+            req->state &= ~RSM_CONNECT;  // But, keep RRF_OPEN true
 
             rebElide(
                 "insert system/ports/system make event! [",
@@ -513,8 +506,24 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
 
             return DR_DONE;
         }
-        // if (result < 0) ...
+
+        if (req->modes & RST_UDP) {
+            ReqNet(sock)->remote_ip = remote_addr.sin_addr.s_addr;
+            ReqNet(sock)->remote_port = ntohs(remote_addr.sin_port);
+        }
+        TERM_BIN_LEN(bin, old_len + result);
+
+        rebElide(
+            "insert system/ports/system make event! [",
+                "type: 'read",
+                "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
+            "]",
+        rebEND);
+
+        return DR_DONE;
     }
+
+  error:
 
     result = GET_ERROR;
 
@@ -705,7 +714,7 @@ DEVICE_CMD Accept_Socket(REBREQ *sock)
         rebFail_OS (errnum);
     }
 
-    if (not Set_Sock_Options(fd))
+    if (not Try_Set_Sock_Options(fd))
         rebFail_OS (GET_ERROR);
 
     // Create a new port using ACCEPT
