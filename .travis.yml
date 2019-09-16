@@ -98,6 +98,8 @@ env:
     # e.g. "The previous command failed, possibly due to a malformed secure
     # environment variable."
     #
+    # https://stackoverflow.com/q/42525861/how-to-encrypt-your-travis-keys
+    #
     # The entries labeled "secure" are encrypted environment variables, which
     # are tailored to the main repo.  If you're browsing logs on Travis for
     # a pull request building against your own repo, you might see:
@@ -114,11 +116,10 @@ env:
  
     - AWS_S3_BUCKET_NAME: 'metaeducation'
 
-  matrix:
     # Address Sanitizer output needs to be "symbolized" to get symbols and
     # line numbers.  This option must be set along with ASAN_SYMBOLIZER_PATH.
     # However, some modern gcc and clang will figure it out even if there is
-    # no path set, so go ahead and put this option in all matrixes.
+    # no path set, so go ahead and set this for all the build environments.
     #
     - ASAN_OPTIONS='symbolize=1'
 

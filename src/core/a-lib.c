@@ -1775,14 +1775,10 @@ void *RL_rebDeflateDetectAlloc(
 #endif
 
 //
-//  rebFail_OS: RL_API [
-//      #noreturn
-//  ]
+//  rebError_OS: RL_API
 //
 // Produce an error from an OS error code, by asking the OS for textual
 // information it knows internally from its database of error strings.
-//
-// This function is called via a macro which adds DEAD_END; after it.
 //
 // Note that error codes coming from WSAGetLastError are the same as codes
 // coming from GetLastError in 32-bit and above Windows:
@@ -1792,7 +1788,7 @@ void *RL_rebDeflateDetectAlloc(
 // !!! Should not be in core, but extensions need a way to trigger the
 // common functionality one way or another.
 //
-void RL_rebFail_OS(int errnum)
+REBVAL *RL_rebError_OS(int errnum)  // see also convenience macro rebFail_OS()
 {
     REBCTX *error;
 
@@ -1897,9 +1893,7 @@ void RL_rebFail_OS(int errnum)
     #endif
   #endif
 
-    DECLARE_LOCAL (temp);
-    Init_Error(temp, error);
-    rebJumps("fail", temp, rebEND);
+    return Init_Error(Alloc_Value(), error);
 }
 
 

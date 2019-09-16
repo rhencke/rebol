@@ -535,6 +535,20 @@ e-lib/emit {
         rebR(rebLogic(flag))
 
     /*
+     * !!! This is a convenience wrapper over the function that makes a
+     * failure code from an OS error ID.  Since rebError_OS() links in OS
+     * specific knowledge to the build, it probably doesn't belong in the
+     * core build.  But to make things easier it's there for the moment.
+     * Ultimately it should come from a "Windows Extension"/"POSIX extension"
+     * or something otherwise.
+     *
+     * Note: There is no need to rebR() the handle due to the failure; the
+     * handles will auto-GC.
+     */
+    #define rebFail_OS(errnum) \
+        rebJumps("fail", rebError_OS(errnum), rebEND);  // !!! or...LIB/FAIL ?
+
+    /*
      * Function entry points for reb-lib.  Formulating this way allows the
      * interface structure to be passed from an EXE to a DLL, then the DLL
      * can call into the EXE (which is not generically possible via linking).
