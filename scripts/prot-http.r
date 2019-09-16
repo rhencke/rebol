@@ -56,17 +56,17 @@ sync-op: function [port body] [
 
     do body
 
-    if state/state = 'ready [do-request port]
+    if state/mode = 'ready [do-request port]
 
     ; Wait in a WHILE loop so the timeout cannot occur during 'reading-data
     ; state.  The timeout should be triggered only when the response from
     ; the other side exceeds the timeout value.
     ;
-    while [not find [ready close] state/state] [
+    while [not find [ready close] state/mode] [
         if not port? wait [state/connection port/spec/timeout] [
             fail make-http-error "Timeout"
         ]
-        if state/state = 'reading-data [
+        if state/mode = 'reading-data [
             read state/connection
         ]
     ]
@@ -95,8 +95,8 @@ read-sync-awake: function [return: [logic!] event [event!]] [
         'done [true]
         'close [true]
         'error [
-            error: event/port/state/error
-            event/port/state/error: _
+            error: event/port/error
+            event/port/error: _
             fail error
         ]
         default [false]
@@ -117,7 +117,7 @@ http-awake: function [return: [logic!] event [event!]] [
         ]
         'wrote [
             awake make event! [type: 'wrote port: http-port]
-            state/state: 'reading-headers
+            state/mode: 'reading-headers
             read port
             false
         ]
@@ -126,16 +126,16 @@ http-awake: function [return: [logic!] event [event!]] [
             false
         ]
         'connect [
-            state/state: 'ready
+            state/mode: 'ready
             awake make event! [type: 'connect port: http-port]
         ]
         'close [
-            res: try switch state/state [
+            res: try switch state/mode [
                 'ready [
                     awake make event! [type: 'close port: http-port]
                 ]
                 'doing-request 'reading-headers [
-                    state/error: make-http-error "Server closed connection"
+                    http-port/error: make-http-error "Server closed connection"
                     awake make event! [type: 'error port: http-port]
                 ]
                 'reading-data [
@@ -143,13 +143,13 @@ http-awake: function [return: [logic!] event [event!]] [
                         integer? state/info/headers/content-length
                         state/info/headers/transfer-encoding = "chunked"
                     ][
-                        state/error: make-http-error "Server closed connection"
+                        http-port/error: make-http-error "Server closed connection"
                         awake make event! [type: 'error port: http-port]
                     ] [
-                        ; set state to CLOSE so the WAIT loop in 'sync-op can
+                        ; set mode to CLOSE so the WAIT loop in 'sync-op can
                         ; be interrupted
                         ;
-                        state/state: 'close
+                        state/mode: 'close
                         any [
                             awake make event! [type: 'done port: http-port]
                             awake make event! [type: 'close port: http-port]
@@ -227,7 +227,7 @@ do-request: function [
         ]
         User-Agent: "REBOL"
     ] spec/headers
-    port/state/state: 'doing-request
+    port/state/mode: 'doing-request
     info/headers: info/response-line: info/response-parsed: port/data:
     info/size: info/date: info/name: blank
     write port/state/connection
@@ -307,7 +307,7 @@ check-response: function [port] [
             info/date: try attempt [idate-to-date headers/last-modified]
         ]
         remove/part conn/data d2
-        state/state: 'reading-data
+        state/mode: 'reading-data
         if lit (txt) <> last body-of :net-log [ ; net-log is in active state
             print "Dumping Webserver headers and body"
             net-log/S info
@@ -374,14 +374,14 @@ check-response: function [port] [
     switch/all info/response-parsed [
         'ok [
             if spec/method = 'HEAD [
-                state/state: 'ready
+                state/mode: 'ready
                 res: any [
                     awake make event! [type: 'done port: port]
                     awake make event! [type: 'ready port: port]
                 ]
             ] else [
                 res: check-data port
-                if (not res) and [state/state = 'ready] [
+                if (not res) and [state/mode = 'ready] [
                     res: any [
                         awake make event! [type: 'done port: port]
                         awake make event! [type: 'ready port: port]
@@ -392,7 +392,7 @@ check-response: function [port] [
         'redirect
         'see-other [
             if spec/method = 'HEAD [
-                state/state: 'ready
+                state/mode: 'ready
                 res: awake make event! [type: 'custom port: port code: 0]
             ] else [
                 res: check-data port
@@ -400,15 +400,15 @@ check-response: function [port] [
                     ;
                     ; !!! comment said: "some servers(e.g. yahoo.com) don't
                     ; supply content-data in the redirect header so the
-                    ; state/state can be left in 'reading-data after
+                    ; state/mode can be left in 'reading-data after
                     ; check-data call.  I think it is better to check if port
                     ; has been closed here and set the state so redirect
                     ; sequence can happen."
                     ;
-                    state/state: 'ready
+                    state/mode: 'ready
                 ]
             ]
-            if (not res) and [state/state = 'ready] [
+            if (not res) and [state/mode = 'ready] [
                 all [
                     find [get head] spec/method else [all [
                         info/response-parsed = 'see-other
@@ -418,7 +418,7 @@ check-response: function [port] [
                 ] also [
                     res: do-redirect port headers/location headers
                 ] else [
-                    state/error: make error! [
+                    port/error: make error! [
                         type: 'Access
                         id: 'Protocol
                         arg1: "Redirect requires manual intervention"
@@ -433,39 +433,39 @@ check-response: function [port] [
         'server-error
         'proxy-auth [
             if spec/method = 'HEAD [
-                state/state: 'ready
+                state/mode: 'ready
             ] else [
                 check-data port
             ]
         ]
         'unauthorized [
-            state/error: make-http-error "Authentication not supported yet"
+            port/error: make-http-error "Authentication not supported yet"
             res: awake make event! [type: 'error port: port]
         ]
         'client-error
         'server-error [
-            state/error: make-http-error ["Server error: " line]
+            port/error: make-http-error ["Server error: " line]
             res: awake make event! [type: 'error port: port]
         ]
         'not-modified [
-            state/state: 'ready
+            state/mode: 'ready
             res: any [
                 awake make event! [type: 'done port: port]
                 awake make event! [type: 'ready port: port]
             ]
         ]
         'use-proxy [
-            state/state: 'ready
-            state/error: make-http-error "Proxies not supported yet"
+            state/mode: 'ready
+            port/error: make-http-error "Proxies not supported yet"
             res: awake make event! [type: 'error port: port]
         ]
         'proxy-auth [
-            state/error: (make-http-error
+            port/error: (make-http-error
                 "Authentication and proxies not supported yet")
             res: awake make event! [type: 'error port: port]
         ]
         'no-content [
-            state/state: 'ready
+            state/mode: 'ready
             res: any [
                 awake make event! [type: 'done port: port]
                 awake make event! [type: 'ready port: port]
@@ -476,11 +476,11 @@ check-response: function [port] [
             info/response-line: _
             info/response-parsed: _
             port/data: _
-            state/state: 'reading-headers
+            state/mode: 'reading-headers
             read conn
         ]
         'version-not-supported [
-            state/error: make-http-error "HTTP response version not supported"
+            port/error: make-http-error "HTTP response version not supported"
             res: awake make event! [type: 'error port: port]
             close port
         ]
@@ -519,7 +519,7 @@ do-redirect: func [
 
     new-uri: construct/with/only new-uri port/scheme/spec
     if not find [http https] new-uri/scheme [
-        state/error: make-http-error
+        port/error: make-http-error
             {Redirect to a protocol different from HTTP or HTTPS not supported}
         return state/awake make event! [type: 'error port: port]
     ]
@@ -537,7 +537,7 @@ do-redirect: func [
         false
     ]
     else [
-        state/error: make error! [
+        port/error: make error! [
             type: 'Access
             id: 'Protocol
             arg1: "Redirect to other host - requires custom handling"
@@ -589,7 +589,7 @@ check-data: function [
                     ] then [
                         trailer: construct/only trailer
                         append headers body-of trailer
-                        state/state: 'ready
+                        state/mode: 'ready
                         res: state/awake make event! [
                             type: 'custom
                             port: port
@@ -610,14 +610,14 @@ check-data: function [
                 ]
             ]
 
-            if state/state <> 'ready [
+            if state/mode <> 'ready [
                 awaken-wait-loop
             ]
         ]
         integer? headers/content-length [
             port/data: conn/data
             if headers/content-length <= length of port/data [
-                state/state: 'ready
+                state/mode: 'ready
                 conn/data: make binary! 32000
                 res: state/awake make event! [
                     type: 'custom
@@ -675,7 +675,7 @@ sys/make-scheme [
                 if not open? port [
                     cause-error 'Access 'not-open port/spec/ref
                 ]
-                if port/state/state <> 'ready [
+                if port/state/mode <> 'ready [
                     fail make-http-error "Port not ready"
                 ]
                 port/state/awake: :port/awake
@@ -714,7 +714,7 @@ sys/make-scheme [
                 if not open? port [
                     cause-error 'Access 'not-open port/spec/ref
                 ]
-                if port/state/state <> 'ready [
+                if port/state/mode <> 'ready [
                     fail make-http-error "Port not ready"
                 ]
                 port/state/awake: :port/awake
@@ -735,9 +735,22 @@ sys/make-scheme [
                 fail make-http-error "Missing host address"
             ]
             port/state: make object! [
-                state: 'inited
+                ;
+                ; !!! PORT!s in R3-Alpha were made to have a generic concept
+                ; of "state", which is custom to each port.  Making matters
+                ; confusing, the http port's "state" reused the name for an
+                ; enumeration of what mode it was currently in.  To make the
+                ; code easier to follow (for however long it remains relevant,
+                ; which may not be long), Ren-C changed this to "mode".
+                ;
+                mode: 'inited
+
+                ; Note: an `error` field which was specific to HTTP errors has
+                ; been generalized to be located in the `port/error` field for
+                ; every port using error events--hence not in this customized
+                ; state object.
+
                 connection: _
-                error: _
                 close?: no
                 info: make port/scheme/info [type: 'file]
                 awake: ensure [action! blank!] :port/awake
@@ -801,8 +814,8 @@ sys/make-scheme [
             <local> error state
         ][
             if state: port/state [
-                either error? error: state/error [
-                    state/error: _
+                either error? error: port/error [
+                    port/error: _
                     error
                 ][
                     state/info

@@ -309,6 +309,23 @@ standard: make object! [
         data:       ; data buffer (usually binary or block)
         locals:     ; user-defined storage of local data
 
+        ; R3-Alpha had a `type: 'error` EVENT!, but it was used only by the
+        ; http protocol.  So it lived inside that protocol's internal
+        ; `port/state` field:
+        ;
+        ; https://github.com/rebol/rebol/blob/25033f897b2bd466068d7663563cd3ff64740b94/src/mezz/prot-http.r#L463
+        ;
+        ; To generalize error handling across ports, the field has to be in
+        ; a known location for all port types.  So it was moved here to be
+        ; findable in the standard port object's layout.
+        ;
+        ; !!! Solving R3-Alpha's legacy port model isn't a Ren-C priority, but
+        ; this is needed so `httpd.reb` is robust when connections close:
+        ;
+        ; https://github.com/metaeducation/rebol-httpd/issues/4
+        ;
+        error: _
+
         ; !!! The `connections` field is a BLOCK! used only by TCP listen
         ; ports.  Since it is a Rebol series value, the GC needs to be aware
         ; of it, so it can't be in the port-subtype-specific REBREQ data.
