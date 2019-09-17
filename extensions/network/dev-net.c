@@ -430,13 +430,15 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
     int mode = (req->command == RDC_READ ? RSM_RECEIVE : RSM_SEND);
     req->state |= mode;
 
-    // Limit size of transfer
-    //
-    size_t len = MIN(req->length - req->actual, MAX_TRANSFER);
-
     int result;
 
+    REBVAL *port = CTX_ARCHETYPE(CTX(ReqPortCtx(sock)));
+
+    assert(req->actual < req->length);  // else we should've returned DR_DONE
+
     if (mode == RSM_SEND) {
+        size_t len = req->length - req->actual;  // how much to try to write
+
         // If host is no longer connected:
         Set_Addr(
             &remote_addr,
@@ -464,7 +466,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
             rebElide(
                 "insert system/ports/system make event! [",
                     "type: 'wrote",
-                    "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
+                    "port:", port,
                 "]",
             rebEND);
 
@@ -475,10 +477,20 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
         return DR_PEND;  // still more to go
     }
     else {
+        // The buffer should be big enough to hold the request size (or some
+        // implementation-defined NET_BUF_SIZE if req->length is MAX_UINT32).
+        //
+        REBBIN *bin = VAL_BINARY(req->common.binary);
+        size_t len;
+        if (req->length == UINT32_MAX)
+            len = SER_AVAIL(bin);
+        else {
+            len = req->length - req->actual;
+            assert(SER_AVAIL(bin) >= len);
+        }
+
         assert(VAL_INDEX(req->common.binary) == 0);
 
-        REBBIN *bin = VAL_BINARY(req->common.binary);
-        assert(SER_AVAIL(bin) >= len);
         REBLEN old_len = BIN_LEN(bin);
 
         result = recvfrom(
@@ -492,50 +504,96 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
         if (result < 0)
             goto error_unless_wouldblock;
 
-        if (result == 0) {  // The socket gracefully closed.
-            TERM_BIN_LEN(bin, old_len);
-            req->state &= ~RSM_CONNECT;  // But, keep RRF_OPEN true
-
-            rebElide(
-                "insert system/ports/system make event! [",
-                    "type: 'close",
-                    "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
-                "]",
-            rebEND);
-
-            return DR_DONE;
-        }
+        TERM_BIN_LEN(bin, old_len + result);
+        req->actual += result;
 
         if (req->modes & RST_UDP) {
             ReqNet(sock)->remote_ip = remote_addr.sin_addr.s_addr;
             ReqNet(sock)->remote_port = ntohs(remote_addr.sin_port);
         }
-        TERM_BIN_LEN(bin, old_len + result);
 
-        rebElide(
-            "insert system/ports/system make event! [",
-                "type: 'read",
-                "port:", CTX_ARCHETYPE(CTX(ReqPortCtx(sock))),
-            "]",
-        rebEND);
+        bool finished;
+        if (
+            req->length == UINT32_MAX  // want to read however much you can
+            or req->length == req->actual  // read an exact amount
+            or result == 0  // socket closed gracefully
+        ){
+            // If we had a /PART setting on the READ, we follow the Rebol
+            // convention of allowing less than that to be accepted, which
+            // FILE! does as well:
+            //
+            //     >> write %test.dat #{01}
+            //
+            //     >> read/part %test.dat 100000
+            //     == #{01}
+            //
+            // Hence it is the caller's responsibility to check how much
+            // data they actually got with a READ/PART call.
+            //
+            rebElide(
+                "insert system/ports/system make event! [",
+                    "type: 'read",
+                    "port:", port,
+                "]",
+            rebEND);
 
-        return DR_DONE;
+            finished = true;  // we'll return DR_DONE (not yet, if closing...)
+        }
+        else
+            finished = false;
+
+        if (result == 0) {  // The socket gracefully closed.
+            req->state &= ~RSM_CONNECT;  // But, keep RRF_OPEN true
+
+            rebElide(
+                "insert system/ports/system make event! [",
+                    "type: 'close",
+                    "port:", port,
+                "]",
+            rebEND);
+        }
+
+        if (finished)
+            return DR_DONE;  // This request got everything it needed
+
+        return DR_PEND;  // Not done (and we didn't send a READ EVENT! yet)
     }
 
   error_unless_wouldblock:
 
     result = GET_ERROR;
 
-    if (result != NE_WOULDBLOCK) {
-        if (mode == RSM_SEND) {
-            rebRelease(req->common.binary);
-            TRASH_POINTER_IF_DEBUG(req->common.binary);
-        }
+    if (result == NE_WOULDBLOCK)
+        return DR_PEND;  // don't consider blocking to be an actual "error"
+        
+    REBVAL *error = rebError_OS(result);
 
-        rebFail_OS (result);
+    // Don't want to raise errors synchronously because we may be in the
+    // event loop, e.g. `trap [write ...]` can't work if the writing
+    // winds up happening outside the TRAP.  Try poking an error into
+    // the state.
+    //
+    rebElide(
+        "(", port, ")/error:", rebR(error),
+
+        "insert system/ports/system make event! [",
+            "type: 'error",
+            "port:", port,
+        "]",
+    rebEND);
+
+    // The default awake handlers will just FAIL on the error, but this
+    // can be overridden.
+
+    if (mode == RSM_SEND) {
+        rebRelease(req->common.binary);
+        TRASH_POINTER_IF_DEBUG(req->common.binary);
     }
 
-    return DR_PEND; // still waiting
+    // We are killing the request that has the network error (it cannot be
+    // continued).  Returning DR_DONE will detach it.
+
+    return DR_DONE;
 }
 
 

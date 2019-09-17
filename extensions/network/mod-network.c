@@ -281,7 +281,7 @@ static REB_R Transport_Actor(
 
         UNUSED(PAR(source));
 
-        if (REF(part) or REF(seek))
+        if (REF(seek))
             fail (Error_Bad_Refines_Raw());
 
         UNUSED(PAR(string)); // handled in dispatcher
@@ -296,11 +296,30 @@ static REB_R Transport_Actor(
             fail (Error_On_Port(SYM_NOT_CONNECTED, port, -15));
         }
 
+        REBSIZ bufsize;
+
+        if (REF(part)) {
+            if (not IS_INTEGER(ARG(part)))
+                fail (ARG(part));
+
+            bufsize = req->length = VAL_INT32(ARG(part));
+        }
+        else {
+            // !!! R3-Alpha didn't have a working READ/PART for networking; it
+            // would just accrue data as each chunk came in.  The inability
+            // to limit the read length meant it was difficult to implement
+            // network protocols.  Ren-C has R3-Alpha's behavior if no /PART
+            // is specified.
+            //
+            req->length = UINT32_MAX;  // signal "read as much as you can"
+            bufsize = NET_BUF_SIZE;
+        }
+
         // Setup the read buffer (allocate a buffer if needed)
         //
         REBBIN *buffer;
         if (IS_BLANK(port_data)) {
-            buffer = Make_Binary(NET_BUF_SIZE);
+            buffer = Make_Binary(bufsize);
             Init_Binary(port_data, buffer);
         }
         else {
@@ -322,11 +341,10 @@ static REB_R Transport_Actor(
             //
             assert(VAL_INDEX(port_data) == 0);
 
-            if (SER_AVAIL(buffer) < NET_BUF_SIZE / 2)
-                Extend_Series(buffer, NET_BUF_SIZE);
+            if (SER_AVAIL(buffer) < bufsize)
+                Extend_Series(buffer, bufsize - SER_AVAIL(buffer));
         }
 
-        req->length = SER_AVAIL(buffer);
         TRASH_POINTER_IF_DEBUG(req->common.data);
         req->common.binary = port_data; // write at tail
         req->actual = 0; // actual for THIS read (not for total)
