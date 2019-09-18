@@ -107,16 +107,17 @@ ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
 #ifdef DEBUG_HAS_PROBE
 
 inline static void Probe_Print_Helper(
-    const void *p,
-    const char *label,
-    const char *file,
-    int line
+    const void *p,  // the REBVAL*, REBSER*, or UTF-8 char*
+    const char *expr,  // stringified contents of the PROBE() macro
+    const char *label,  // detected type of `p` (see %rebnod.h)
+    const char *file,  // file where this PROBE() was invoked
+    int line  // line where this PROBE() was invoked
 ){
-    printf("\n**PROBE(%s, %p): ", label, p);
+    printf("\n-- (%s)=0x%p : %s", expr, p, label);
   #ifdef DEBUG_COUNT_TICKS
-    printf("tick %d ", cast(int, TG_Tick));
+    printf(" : tick %d", cast(int, TG_Tick));
   #endif
-    printf("%s:%d\n", file, line);
+    printf(" %s @%d\n", file, line);
 
     fflush(stdout);
     fflush(stderr);
@@ -129,7 +130,7 @@ inline static void Probe_Molded_Value(const REBVAL *v)
     Push_Mold(mo);
     Mold_Value(mo, v);
 
-    printf("%s\n", s_cast(BIN_AT(SER(mo->series), mo->offset)));
+    printf("%s\n", STR_AT(mo->series, mo->index));
     fflush(stdout);
 
     Drop_Mold(mo);
@@ -143,6 +144,7 @@ inline static void Probe_Molded_Value(const REBVAL *v)
 //
 void* Probe_Core_Debug(
     const void *p,
+    const char *expr,
     const char *file,
     int line
 ){
@@ -153,17 +155,15 @@ void* Probe_Core_Debug(
     GC_Disabled = true;
 
     if (not p) {
-
-        Probe_Print_Helper(p, "C nullptr", file, line);
-
-    } else switch (Detect_Rebol_Pointer(p)) {
-
-    case DETECTED_AS_UTF8:
-        Probe_Print_Helper(p, "C String", file, line);
+        Probe_Print_Helper(p, expr, "C nullptr", file, line);
+    }
+    else switch (Detect_Rebol_Pointer(p)) {
+      case DETECTED_AS_UTF8:
+        Probe_Print_Helper(p, expr, "C String", file, line);
         printf("\"%s\"\n", cast(const char*, p));
         break;
 
-    case DETECTED_AS_SERIES: {
+      case DETECTED_AS_SERIES: {
         REBSER *s = m_cast(REBSER*, cast(const REBSER*, p));
 
         ASSERT_SERIES(s); // if corrupt, gives better info than a print crash
@@ -176,13 +176,13 @@ void* Probe_Core_Debug(
             if (GET_SERIES_FLAG(s, IS_STRING)) {
                 REBSTR *str = STR(s);
                 if (IS_STR_SYMBOL(str))
-                    Probe_Print_Helper(p, "UTF-8 WORD! Series", file, line);
+                    Probe_Print_Helper(p, expr, "WORD! series", file, line);
                 else
-                    Probe_Print_Helper(p, "UTF-8 STRING! Series", file, line);
+                    Probe_Print_Helper(p, expr, "STRING! series", file, line);
                 Mold_Text_Series_At(mo, str, 0);  // or could be TAG!, etc.
             }
             else {
-                Probe_Print_Helper(p, "Byte-Size Series", file, line);
+                Probe_Print_Helper(p, expr, "Byte-Size Series", file, line);
 
                 // !!! Duplication of code in MF_Binary
                 //
@@ -194,11 +194,11 @@ void* Probe_Core_Debug(
         }
         else if (IS_SER_ARRAY(s)) {
             if (GET_ARRAY_FLAG(s, IS_VARLIST)) {
-                Probe_Print_Helper(p, "Context Varlist", file, line);
+                Probe_Print_Helper(p, expr, "Context Varlist", file, line);
                 Probe_Molded_Value(CTX_ARCHETYPE(CTX(s)));
             }
             else {
-                Probe_Print_Helper(p, "Array", file, line);
+                Probe_Print_Helper(p, expr, "Array", file, line);
                 Mold_Array_At(mo, ARR(s), 0, "[]"); // not necessarily BLOCK!
             }
         }
@@ -214,14 +214,14 @@ void* Probe_Core_Debug(
             panic (s);
         break; }
 
-    case DETECTED_AS_FREED_SERIES:
-        Probe_Print_Helper(p, "Freed Series", file, line);
+      case DETECTED_AS_FREED_SERIES:
+        Probe_Print_Helper(p, expr, "Freed Series", file, line);
         panic (p);
 
-    case DETECTED_AS_CELL: {
+      case DETECTED_AS_CELL: {
         const REBVAL *v = cast(const REBVAL*, p);
         if (IS_PARAM(v)) {
-            Probe_Print_Helper(p, "Param Cell", file, line);
+            Probe_Print_Helper(p, expr, "Param Cell", file, line);
 
             REBSTR *spelling = VAL_KEY_SPELLING(v);
             Append_Ascii(mo->series, "(");
@@ -234,22 +234,22 @@ void* Probe_Core_Debug(
             Append_Ascii(mo->series, "..."); // probe types?
         }
         else {
-            Probe_Print_Helper(p, "Value", file, line);
+            Probe_Print_Helper(p, expr, "Value", file, line);
             Mold_Value(mo, v);
         }
         break; }
 
-    case DETECTED_AS_END:
-        Probe_Print_Helper(p, "END", file, line);
+      case DETECTED_AS_END:
+        Probe_Print_Helper(p, expr, "END", file, line);
         break;
 
-    case DETECTED_AS_FREED_CELL:
-        Probe_Print_Helper(p, "Freed Cell", file, line);
+      case DETECTED_AS_FREED_CELL:
+        Probe_Print_Helper(p, expr, "Freed Cell", file, line);
         panic (p);
     }
 
     if (mo->offset != STR_LEN(mo->series))
-        printf("%s\n", s_cast(BIN_AT(SER(mo->series), mo->offset)));
+        printf("%s\n", STR_AT(mo->series, mo->index));
     fflush(stdout);
 
     Drop_Mold(mo);

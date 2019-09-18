@@ -87,6 +87,16 @@
 
 #include "reb-c.h"
 
+#if defined(CPLUSPLUS_11) && defined(DEBUG_HAS_PROBE)
+    //
+    // We allow you to do PROBE(some_integer) as well as PROBE(some_rebval)
+    // etc. in C++11 - and the stringification comes from the << operator.
+    // We must do C++ includes before defining the fail() macro, otherwise
+    // the use of fail() methods in C++ won't be able to compile.
+    //
+    #include <sstream>
+#endif
+
 #include <stdarg.h> // va_list, va_arg()...
 #include <string.h>
 #include <setjmp.h>

@@ -63,16 +63,39 @@
 
 #if defined(DEBUG_HAS_PROBE)
     #ifdef CPLUSPLUS_11
-        template <typename T>
-        T Probe_Cpp_Helper(T v, const char *file, int line) {
-            return cast(T, Probe_Core_Debug(v, file, line));
+        template <
+            typename T,
+            typename std::enable_if<
+                std::is_pointer<T>::value  // assume pointers are REBNOD*
+            >::type* = nullptr
+        >
+        T Probe_Cpp_Helper(T v, const char *expr, const char *file, int line)
+        {
+            Probe_Core_Debug(v, expr, file, line);
+            return v;
+        }
+
+        template <
+            typename T,
+            typename std::enable_if<
+                !std::is_pointer<T>::value  // ordinary << output operator
+            >::type* = nullptr
+        >
+        T Probe_Cpp_Helper(T v, const char *expr, const char *file, int line)
+        {
+            std::stringstream ss;
+            ss << v;
+            printf("PROBE(%s) => %s\n", expr, ss.str().c_str());
+            UNUSED(file);
+            UNUSED(line);
+            return v;
         }
 
         #define PROBE(v) \
-            Probe_Cpp_Helper((v), __FILE__, __LINE__) // passes input as-is
+            Probe_Cpp_Helper((v), #v, __FILE__, __LINE__)
     #else
         #define PROBE(v) \
-            Probe_Core_Debug((v), __FILE__, __LINE__) // just returns void* :(
+            Probe_Core_Debug((v), #v, __FILE__, __LINE__)  // returns void*
     #endif
 #elif !defined(NDEBUG) // don't cause compile time error on PROBE()
     #define PROBE(v) \
