@@ -1030,6 +1030,17 @@ append app-config/cflags opt switch user-config/rigorous [
             ; codebase being built as C++, so there shouldn't be throws.
             ;
             <msc:/wd5039>
+
+            ; Microsoft's own xlocale/xlocnum/etc. files trigger a SEH warning
+            ; in VC2017 after an update.  Apparently they don't care--
+            ; presumably because they're focused on VC2019 now.
+            ;
+            <msc:/wd4571>
+
+            ; Same deal with format strings not being string literals.
+            ; Headers in string from MSVC screws this up.
+            ;
+            <msc:/wd4774>
         ]
     ]
     _ #[false] 'no 'off 'false [
