@@ -60,7 +60,6 @@ enum Reb_Device_Command {
     RDC_CONNECT,    // connect (in or out)
 
     RDC_QUERY,      // query unit info
-    RDC_MODIFY,     // set modes (also get modes)
 
     RDC_CREATE,     // create unit target
     RDC_DELETE,     // delete unit target

@@ -653,78 +653,6 @@ DEVICE_CMD Listen_Socket(REBREQ *sock)
 }
 
 
-
-//
-//  Modify_Socket: C
-//
-// !!! R3-Alpha had no RDC_MODIFY commands.  Some way was needed to get
-// multicast setting through to the platform-specific port code, and this
-// method was chosen.  Eventually, the ports *themselves* should be extension
-// modules instead of in core, and then there won't be concern about the
-// mixture of port dispatch code with platform code.
-//
-DEVICE_CMD Modify_Socket(REBREQ *sock)
-{
-    struct rebol_devreq *req = Req(sock);
-
-    assert(req->command == RDC_MODIFY);
-
-    REBFRM *frame_ = FRM(cast(void*, req->common.data));
-    int result = 0;
-
-    switch (req->flags) {
-    case 3171: {
-        NETWORK_INCLUDE_PARAMS_OF_SET_UDP_MULTICAST;
-
-        UNUSED(ARG(port)); // implicit from sock, which caller extracted
-
-        if (not (req->modes & RST_UDP)) // !!! other checks?
-            rebJumps("FAIL {SET-UDP-MULTICAST used on non-UDP port}", rebEND);
-
-        struct ip_mreq mreq;
-        memcpy(&mreq.imr_multiaddr.s_addr, VAL_TUPLE(ARG(group)), 4);
-        memcpy(&mreq.imr_interface.s_addr, VAL_TUPLE(ARG(member)), 4);
-
-        result = setsockopt(
-            req->requestee.socket,
-            IPPROTO_IP,
-            REF(drop) ? IP_DROP_MEMBERSHIP : IP_ADD_MEMBERSHIP,
-            cast(char*, &mreq),
-            sizeof(mreq)
-        );
-
-        break; }
-
-    case 2365: {
-        NETWORK_INCLUDE_PARAMS_OF_SET_UDP_TTL;
-
-        UNUSED(ARG(port)); // implicit from sock, which caller extracted
-
-        if (not (req->modes & RST_UDP)) // !!! other checks?
-            rebJumps("FAIL {SET-UDP-TTL used on non-UDP port}", rebEND);
-
-        int ttl = VAL_INT32(ARG(ttl));
-        result = setsockopt(
-            req->requestee.socket,
-            IPPROTO_IP,
-            IP_TTL,
-            cast(char*, &ttl),
-            sizeof(ttl)
-        );
-
-        break; }
-
-    default:
-        rebJumps("FAIL {Unknown socket MODIFY operation}", rebEND);
-    }
-
-    if (result < 0)
-        rebFail_OS (result);
-
-    return DR_DONE;
-}
-
-
 //
 //  Accept_Socket: C
 //
@@ -849,7 +777,6 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] = {
     Transfer_Socket,        // Write
     Connect_Socket,
     0,  // query
-    Modify_Socket,          // modify
     Accept_Socket,          // Create
     0,  // delete
     0,  // rename

@@ -888,7 +888,6 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] = {
     Write_File,
     0,  // connect
     Query_File,
-    0,  // modify
     Create_File,
     Delete_File,
     Rename_File,

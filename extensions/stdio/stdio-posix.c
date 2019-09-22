@@ -238,7 +238,6 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] =
     Write_IO,
     0,  // connect
     0,  // query
-    0,  // modify
     0,  // CREATE previously used for opening echo file
 };
 

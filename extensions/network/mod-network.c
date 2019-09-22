@@ -22,6 +22,10 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 
+#include "sys-net.h"
+
+#undef IS_ERROR
+
 #include "sys-core.h"
 
 #include "reb-net.h"
@@ -574,7 +578,7 @@ REBNATIVE(get_udp_actor_handle)
 //
 //  {Join (or leave) an IPv4 multicast group}
 //
-//      return: [<opt>]
+//      return: [<void>]
 //      port [port!]
 //          {An open UDP port}
 //      group [tuple!]
@@ -587,43 +591,37 @@ REBNATIVE(get_udp_actor_handle)
 //
 REBNATIVE(set_udp_multicast)
 //
-// !!! SET-MODES was never standardized or implemented for R3-Alpha, so there
-// was no RDC_MODIFY written.  While it is tempting to just go ahead and
-// start writing `setsockopt` calls right here in this file, that would mean
-// adding platform-sensitive network includes into the core.
-//
-// Ultimately, the desire is that ports would be modules--consisting of some
-// Rebol code, and some C code (possibly with platform-conditional libs).
-// This is the direction for the extension model, where the artificial limit
-// of having "native port actors" that can't just do the OS calls they want
-// will disappear.
-//
-// Until that happens, we want to pass this through to the Reb_Device layer
-// somehow.  It's not easy to see how to modify this "REBREQ" which is
-// actually *the port's state* to pass it the necessary information for this
-// request.  Hence the cheat is just to pass it the frame, and then let
-// Reb_Device implementations go ahead and use the extension API to pick
-// that frame apart.
+// !!! This was originally the kind of thing that SET-MODES though of using
+// RDC_MODIFY for.  But that was never standardized or implemented for
+// R3-Alpha (nor was RDC_MODIFY written.  With the networking broken out to
+// an extension, it is less of a concern to be including platform-specific
+// network calls here (though sockets are abstracted across Windows and POSIX,
+// one still doesn't want it in the interpreter core...e.g. when the WASM
+// build doesn't use it at all.)
 {
     NETWORK_INCLUDE_PARAMS_OF_SET_UDP_MULTICAST;
 
     REBREQ *sock = Ensure_Port_State(ARG(port), &Dev_Net);
 
     struct rebol_devreq *req = Req(sock);
+    if (not (req->modes & RST_UDP)) // !!! other checks?
+        rebJumps("FAIL {SET-UDP-MULTICAST used on non-UDP port}", rebEND);
 
-    req->common.data = cast(REBYTE*, frame_);
+    struct ip_mreq mreq;
+    memcpy(&mreq.imr_multiaddr.s_addr, VAL_TUPLE(ARG(group)), 4);
+    memcpy(&mreq.imr_interface.s_addr, VAL_TUPLE(ARG(member)), 4);
 
-    // req->command is going to just be RDC_MODIFY, so all there is to go
-    // by is the data and flags.  Since RFC3171 specifies IPv4 multicast
-    // address space...how about that?
-    //
-    req->flags = 3171;
+    int result = setsockopt(
+        req->requestee.socket,
+        IPPROTO_IP,
+        REF(drop) ? IP_DROP_MEMBERSHIP : IP_ADD_MEMBERSHIP,
+        cast(char*, &mreq),
+        sizeof(mreq)
+    );
 
-    UNUSED(ARG(group));
-    UNUSED(ARG(member));
-    UNUSED(REF(drop));
+    if (result < 0)
+        rebFail_OS (result);
 
-    OS_DO_DEVICE_SYNC(sock, RDC_MODIFY);
     return nullptr;
 }
 
@@ -633,7 +631,7 @@ REBNATIVE(set_udp_multicast)
 //
 //  {Set the TTL of a UDP port}
 //
-//      return: [<opt>]
+//      return: [<void>]
 //      port [port!]
 //          {An open UDP port}
 //      ttl [integer!]
@@ -641,22 +639,28 @@ REBNATIVE(set_udp_multicast)
 //  ]
 //
 REBNATIVE(set_udp_ttl)
+//
+// !!! See notes on SET_UDP_MULTICAST
 {
     NETWORK_INCLUDE_PARAMS_OF_SET_UDP_TTL;
 
     REBREQ *sock = Ensure_Port_State(ARG(port), &Dev_Net);
     struct rebol_devreq *req = Req(sock);
 
-    req->common.data = cast(REBYTE*, frame_);
+    if (not (req->modes & RST_UDP)) // !!! other checks?
+        rebJumps("FAIL {SET-UDP-TTL used on non-UDP port}", rebEND);
 
-    // req->command is going to just be RDC_MODIFY, so all there is to go
-    // by is the data and flags.  Since RFC2365 specifies IPv4 multicast
-    // administrative boundaries...how about that?
-    //
-    req->flags = 2365;
+    int ttl = VAL_INT32(ARG(ttl));
+    int result = setsockopt(
+        req->requestee.socket,
+        IPPROTO_IP,
+        IP_TTL,
+        cast(char*, &ttl),
+        sizeof(ttl)
+    );
 
-    UNUSED(ARG(ttl));
+    if (result < 0)
+        rebFail_OS (result);
 
-    OS_DO_DEVICE_SYNC(sock, RDC_MODIFY);
     return nullptr;
 }

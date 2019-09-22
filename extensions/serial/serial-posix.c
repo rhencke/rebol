@@ -371,7 +371,6 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] = {
     Write_Serial,
     0,  // connect
     Query_Serial,
-    0,  // modify
     0,  // create
     0,  // delete
     0   // rename

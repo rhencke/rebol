@@ -308,8 +308,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     // including FLUSH, POKE, etc.
 
     switch (VAL_WORD_SYM(verb)) {
-
-    case SYM_REFLECT: {
+      case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
 
         UNUSED(ARG(value)); // implicitly comes from `port`
@@ -317,32 +316,32 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         assert(property != SYM_0);
 
         switch (property) {
-        case SYM_INDEX:
+          case SYM_INDEX:
             return Init_Integer(D_OUT, ReqFile(file)->index + 1);
 
-        case SYM_LENGTH:
+          case SYM_LENGTH:
             //
             // Comment said "clip at zero"
             ///
             return Init_Integer(D_OUT, ReqFile(file)->size - ReqFile(file)->index);
 
-        case SYM_HEAD:
+          case SYM_HEAD:
             ReqFile(file)->index = 0;
             req->modes |= RFM_RESEEK;
             RETURN (port);
 
-        case SYM_TAIL:
+          case SYM_TAIL:
             ReqFile(file)->index = ReqFile(file)->size;
             req->modes |= RFM_RESEEK;
             RETURN (port);
 
-        case SYM_HEAD_Q:
+          case SYM_HEAD_Q:
             return Init_Logic(D_OUT, ReqFile(file)->index == 0);
 
-        case SYM_TAIL_Q:
+          case SYM_TAIL_Q:
             return Init_Logic(D_OUT, ReqFile(file)->index >= ReqFile(file)->size);
 
-        case SYM_PAST_Q:
+          case SYM_PAST_Q:
             return Init_Logic(D_OUT, ReqFile(file)->index > ReqFile(file)->size);
 
         case SYM_OPEN_Q:
@@ -354,7 +353,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         break; }
 
-    case SYM_READ: {
+      case SYM_READ: {
         INCLUDE_PARAMS_OF_READ;
 
         UNUSED(PAR(source));
@@ -398,7 +397,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         return D_OUT; }
 
-    case SYM_APPEND:
+      case SYM_APPEND:
         //
         // !!! This is hacky, but less hacky than falling through to SYM_WRITE
         // assuming the frame is the same for APPEND and WRITE (which is what
@@ -406,7 +405,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         //
         return Retrigger_Append_As_Write(frame_);
 
-    case SYM_WRITE: {
+      case SYM_WRITE: {
         INCLUDE_PARAMS_OF_WRITE;
 
         UNUSED(PAR(destination));
@@ -468,7 +467,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         RETURN (port); }
 
-    case SYM_OPEN: {
+      case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
 
         UNUSED(PAR(spec));
@@ -491,7 +490,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         RETURN (port); }
 
-    case SYM_COPY: {
+      case SYM_COPY: {
         INCLUDE_PARAMS_OF_COPY;
 
         UNUSED(PAR(value));
@@ -507,7 +506,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         Read_File_Port(D_OUT, port, file, path, flags, len);
         return D_OUT; }
 
-    case SYM_CLOSE: {
+      case SYM_CLOSE: {
         INCLUDE_PARAMS_OF_CLOSE;
         UNUSED(PAR(port));
 
@@ -524,7 +523,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         }
         RETURN (port); }
 
-    case SYM_DELETE: {
+      case SYM_DELETE: {
         INCLUDE_PARAMS_OF_DELETE;
         UNUSED(PAR(port));
 
@@ -541,7 +540,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         rebRelease(result); // ignore result
         RETURN (port); }
 
-    case SYM_RENAME: {
+      case SYM_RENAME: {
         INCLUDE_PARAMS_OF_RENAME;
 
         if (req->flags & RRF_OPEN)
@@ -559,7 +558,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         RETURN (ARG(from)); }
 
-    case SYM_CREATE: {
+      case SYM_CREATE: {
         if (not (req->flags & RRF_OPEN)) {
             Setup_File(file, AM_OPEN_WRITE | AM_OPEN_NEW, path);
 
@@ -580,7 +579,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         RETURN (port); }
 
-    case SYM_QUERY: {
+      case SYM_QUERY: {
         INCLUDE_PARAMS_OF_QUERY;
 
         UNUSED(PAR(target));
@@ -604,28 +603,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         return D_OUT; }
 
-    case SYM_MODIFY: {
-        INCLUDE_PARAMS_OF_MODIFY;
-
-        UNUSED(PAR(target));
-        UNUSED(PAR(field));
-        UNUSED(PAR(value));
-
-        // !!! Set_Mode_Value() was called here, but a no-op in R3-Alpha
-        if (not (req->flags & RRF_OPEN)) {
-            Setup_File(file, 0, path);
-
-            REBVAL *result = OS_DO_DEVICE(file, RDC_MODIFY);
-            assert(result != NULL);
-            if (rebDid("error?", result, rebEND)) {
-                rebRelease(result); // !!! R3-Alpha returned blank on error
-                return Init_False(D_OUT);
-            }
-            rebRelease(result); // ignore result
-        }
-        return Init_True(D_OUT); }
-
-    case SYM_SKIP: {
+      case SYM_SKIP: {
         INCLUDE_PARAMS_OF_SKIP;
 
         UNUSED(PAR(series));
@@ -635,7 +613,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         req->modes |= RFM_RESEEK;
         RETURN (port); }
 
-    case SYM_CLEAR: {
+      case SYM_CLEAR: {
         // !! check for write enabled?
         req->modes |= RFM_RESEEK;
         req->modes |= RFM_TRUNCATE;
@@ -644,7 +622,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         OS_DO_DEVICE_SYNC(file, RDC_WRITE);
         RETURN (port); }
 
-    default:
+      default:
         break;
     }
 
