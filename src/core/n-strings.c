@@ -119,7 +119,7 @@ REBNATIVE(deflate)
 //  "Decompresses DEFLATEd data: https://en.wikipedia.org/wiki/DEFLATE"
 //
 //      return: [binary!]
-//      data [binary!]
+//      data [binary! handle!]
 //      /part "Length of compressed data (must match end marker)"
 //          [any-value!]
 //      /max "Error out if result is larger than this"
@@ -129,6 +129,16 @@ REBNATIVE(deflate)
 //  ]
 //
 REBNATIVE(inflate)
+//
+// GZIP is a slight variant envelope which uses a CRC32 checksum.  For data
+// whose original size was < 2^32 bytes, the gzip envelope stored that size...
+// so memory efficiency is achieved even if max = -1.
+//
+// Note: That size guarantee exists for data compressed with rebGzipAlloc() or
+// adhering to the gzip standard.  However, archives created with the GNU
+// gzip tool make streams with possible trailing zeros or concatenations:
+//
+// http://stackoverflow.com/a/9213826
 {
     INCLUDE_PARAMS_OF_INFLATE;
 
@@ -141,9 +151,16 @@ REBNATIVE(inflate)
     else
         max = -1;
 
-    // v-- measured in bytes (length of a BINARY!)
-    //
-    REBLEN len = Part_Len_May_Modify_Index(ARG(data), ARG(part));
+    REBYTE *data;
+    REBSIZ size;
+    if (IS_BINARY(ARG(data))) {
+        data = VAL_BIN_AT(ARG(data));
+        size = Part_Len_May_Modify_Index(ARG(data), ARG(part));
+    }
+    else {
+        data = VAL_HANDLE_POINTER(REBYTE, ARG(data));
+        size = VAL_HANDLE_LEN(ARG(data));
+    }
 
     REBSTR *envelope;
     if (not REF(envelope))
@@ -164,8 +181,8 @@ REBNATIVE(inflate)
     size_t decompressed_size;
     void *decompressed = Decompress_Alloc_Core(
         &decompressed_size,
-        VAL_BIN_AT(ARG(data)),
-        len,
+        data,
+        size,
         max,
         envelope
     );

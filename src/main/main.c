@@ -232,19 +232,17 @@ int main(int argc, char *argv_ansi[])
     }
   #endif
 
-    size_t startup_utf8_size;
-    const int max = -1;  // decompressed size is stored in gzip
-    void *startup_utf8_bytes = rebGunzipAlloc(
-        &startup_utf8_size,
-        &Main_Startup_Code[0],
-        MAIN_STARTUP_SIZE,
-        max
-    );
-
-    // The inflated data was allocated with rebMalloc, and hence can be
-    // repossessed as a BINARY!
+    // Unzip the Gzip'd compressed startup code (embedded as bytes in a C
+    // global variable) to make a BINARY!.  GUNZIP accepts a HANDLE! as input,
+    // so pass it in here.
     //
-    REBVAL *startup_bin = rebRepossess(startup_utf8_bytes, startup_utf8_size);
+    REBVAL *startup_bin = rebValue(
+        "gunzip", rebR(rebHandle(
+            m_cast(void*, &Main_Startup_Code[0]),
+            MAIN_STARTUP_SIZE,
+            nullptr
+        )),
+    rebEND);
 
     // !!! The startup code isn't really set up to run as a Module, though it
     // probably should be.  This is a carry-over of what some %sys-core.h

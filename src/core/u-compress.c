@@ -129,9 +129,9 @@ static REBCTX *Error_Compression(const z_stream *strm, int ret)
 // Exported as rebDeflateAlloc() and rebGunzipAlloc() for clarity.
 //
 unsigned char *Compress_Alloc_Core(
-    size_t *out_len,
+    size_t *size_out,
     const void* input,
-    size_t in_len,
+    size_t size_in,
     REBSTR *envelope // NONE, ZLIB, or GZIP... null defaults GZIP
 ){
     z_stream strm;
@@ -180,9 +180,9 @@ unsigned char *Compress_Alloc_Core(
 
     // http://stackoverflow.com/a/4938401
     //
-    REBLEN buf_size = deflateBound(&strm, in_len);
+    REBLEN buf_size = deflateBound(&strm, size_in);
 
-    strm.avail_in = in_len;
+    strm.avail_in = size_in;
     strm.next_in = cast(const z_Bytef*, input);
 
     REBYTE *output = rebAllocN(REBYTE, buf_size);
@@ -194,8 +194,8 @@ unsigned char *Compress_Alloc_Core(
         fail (Error_Compression(&strm, ret_deflate));
 
     assert(strm.total_out == buf_size - strm.avail_out);
-    if (out_len)
-        *out_len = strm.total_out;
+    if (size_out)
+        *size_out = strm.total_out;
 
   #if !defined(NDEBUG)
     //
@@ -206,7 +206,7 @@ unsigned char *Compress_Alloc_Core(
         uint32_t gzip_len = Bytes_To_U32_BE(
             output + strm.total_out - sizeof(uint32_t)
         );
-        assert(in_len == gzip_len); // !!! 64-bit REBLEN would need modulo
+        assert(size_in == gzip_len); // !!! 64-bit REBLEN would need modulo
     }
   #endif
 
@@ -228,9 +228,9 @@ unsigned char *Compress_Alloc_Core(
 // Exported as rebInflateAlloc() and rebGunzipAlloc() for clarity.
 //
 unsigned char *Decompress_Alloc_Core(
-    size_t *len_out,
+    size_t *size_out,
     const void *input,
-    size_t len_in,
+    size_t size_in,
     int max,
     REBSTR *envelope // NONE, ZLIB, GZIP, or DETECT... null defaults GZIP
 ){
@@ -240,7 +240,7 @@ unsigned char *Decompress_Alloc_Core(
     strm.opaque = nullptr; // passed to zalloc and zfree, not needed currently
     strm.total_out = 0;
 
-    strm.avail_in = len_in;
+    strm.avail_in = size_in;
     strm.next_in = cast(const z_Bytef*, input);
 
     int window_bits = window_bits_gzip;
@@ -279,10 +279,10 @@ unsigned char *Decompress_Alloc_Core(
     if (
         envelope
         and STR_SYMBOL(envelope) == SYM_GZIP // not DETECT...trust stored size
-        and len_in < 4161808 // (2^32 / 1032 + 18) ->1032 is max deflate ratio
+        and size_in < 4161808 // (2^32 / 1032 + 18) ->1032 max deflate ratio
     ){
         const REBSIZ gzip_min_overhead = 18; // at *least* 18 bytes
-        if (len_in < gzip_min_overhead)
+        if (size_in < gzip_min_overhead)
             fail ("GZIP compressed size less than minimum for gzip format");
 
         // Size (modulo 2^32) is in the last 4 bytes, *if* it's trusted:
@@ -294,7 +294,7 @@ unsigned char *Decompress_Alloc_Core(
         // (compared to the input data) is actually wrong.
         //
         buf_size = Bytes_To_U32_BE(
-            cast(const REBYTE*, input) + len_in - sizeof(uint32_t)
+            cast(const REBYTE*, input) + size_in - sizeof(uint32_t)
         );
     }
     else {
@@ -316,10 +316,10 @@ unsigned char *Decompress_Alloc_Core(
 
         // "Typical zlib compression ratios are from 1:2 to 1:5"
 
-        if (max >= 0 and (cast(REBLEN, max) < len_in * 6))
+        if (max >= 0 and (cast(REBLEN, max) < size_in * 6))
             buf_size = max;
         else
-            buf_size = len_in * 3;
+            buf_size = size_in * 3;
     }
 
     // Use memory backed by a managed series (can be converted to a series
@@ -377,8 +377,8 @@ unsigned char *Decompress_Alloc_Core(
     if (strm.total_out - buf_size > 1024)
         output = cast(REBYTE*, rebRealloc(output, strm.total_out));
 
-    if (len_out)
-        *len_out = strm.total_out;
+    if (size_out)
+        *size_out = strm.total_out;
 
     inflateEnd(&strm); // done last (so strm variables can be read up to end)
     return output;

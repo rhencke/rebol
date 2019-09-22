@@ -278,15 +278,8 @@ REBNATIVE(load_extension)
 
     // Now we have an empty context that has natives in it.  Ultimately what
     // we want is to run the init code for a module.
-
-    size_t script_size;
-    void *script_utf8 = rebGunzipAlloc(
-        &script_size,
-        VAL_HANDLE_POINTER(REBYTE, script_compressed),
-        VAL_HANDLE_LEN(script_compressed),
-        -1 // max
-    );
-    REBVAL *script_bin = rebRepossess(script_utf8, script_size);
+    //
+    REBVAL *script_bin = rebValue("gunzip", script_compressed, rebEND);
 
     // Module loading mechanics are supposed to be mostly done in usermode,
     // so try and honor that.  This means everything about whether the module

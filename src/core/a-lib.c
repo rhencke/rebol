@@ -629,8 +629,13 @@ REBVAL *RL_rebTextWide(const REBWCHAR *wstr)
 // pointers.  Also, there is an optional size stored in the handle, and a
 // cleanup function the GC may call when references to the handle are gone.
 //
-REBVAL *RL_rebHandle(void *data, size_t length, CLEANUP_CFUNC *cleaner)
- { return Init_Handle_Cdata_Managed(Alloc_Value(), data, length, cleaner); }
+REBVAL *RL_rebHandle(
+    void *data,  // !!! What about `const void*`?  How to handle const?
+    size_t length,
+    CLEANUP_CFUNC *cleaner
+){
+    return Init_Handle_Cdata_Managed(Alloc_Value(), data, length, cleaner);
+}
 
 
 //
@@ -948,6 +953,24 @@ uint32_t RL_rebUnboxChar(
     return VAL_CHAR(result);
 }
 
+
+//
+//  rebUnboxHandle: RL_API
+//
+void *RL_rebUnboxHandle(
+    unsigned char quotes,
+    size_t *size_out,
+    const void *p, va_list *vaptr
+){
+    DECLARE_LOCAL (result);
+    Run_Va_May_Fail(result, quotes, p, vaptr);  // calls va_end()
+
+    if (VAL_TYPE(result) != REB_HANDLE)
+        fail ("rebUnboxHandle() called on non-HANDLE!");
+
+    *size_out = VAL_HANDLE_LEN(result);
+    return VAL_HANDLE_POINTER(void*, result);
+}
 
 
 //
@@ -1623,29 +1646,14 @@ void RL_rebRelease(const REBVAL *v)
 
 
 //
-//  rebDeflateAlloc: RL_API
-//
-// Exposure of the deflate() of the built-in zlib.  Assumes no envelope.
-//
-// Uses zlib's recommended default for compression level.
-//
-// See rebRepossess() for the ability to mutate the result into a BINARY!
-//
-void *RL_rebDeflateAlloc(
-    size_t *out_len,
-    const void *input,
-    size_t in_len
-){
-    REBSTR *envelope = Canon(SYM_NONE);
-    return Compress_Alloc_Core(out_len, input, in_len, envelope);
-}
-
-
-//
 //  rebZdeflateAlloc: RL_API
 //
 // Variant of rebDeflateAlloc() which adds a zlib envelope...which is a 2-byte
 // header and 32-bit ADLER32 CRC at the tail.
+//
+// !!! TBD: Clients should be able to use a plain Rebol call to ZDEFLATE and
+// be able to get the data back using something like rebRepossess.  That
+// would eliminate this API.
 //
 void *RL_rebZdeflateAlloc(
     size_t *out_len,
@@ -1658,47 +1666,14 @@ void *RL_rebZdeflateAlloc(
 
 
 //
-//  rebGzipAlloc: RL_API
-//
-// Slight variant of deflate() which stores the uncompressed data's size
-// implicitly in the returned data, and a CRC32 checksum.
-//
-void *RL_rebGzipAlloc(
-    size_t *out_len,
-    const void *input,
-    size_t in_len
-){
-    REBSTR *envelope = nullptr; // see notes in Gunzip on why GZIP is default
-    return Compress_Alloc_Core(out_len, input, in_len, envelope);
-}
-
-
-//
-//  rebInflateAlloc: RL_API
-//
-// Exposure of the inflate() of the built-in zlib.  Assumes no envelope.
-//
-// Use max = -1 to guess decompressed size, or for best memory efficiency,
-// specify `max` as the precise size of the original data.
-//
-// See rebRepossess() for the ability to mutate the result into a BINARY!
-//
-void *RL_rebInflateAlloc(
-    size_t *len_out,
-    const void *input,
-    size_t len_in,
-    int max
-){
-    REBSTR *envelope = Canon(SYM_NONE);
-    return Decompress_Alloc_Core(len_out, input, len_in, max, envelope);
-}
-
-
-//
 //  rebZinflateAlloc: RL_API
 //
 // Variant of rebInflateAlloc() which assumes a zlib envelope...checking for
 // the 2-byte header and verifying the 32-bit ADLER32 CRC at the tail.
+//
+// !!! TBD: Clients should be able to use a plain Rebol call to ZINFLATE and
+// be able to get the data back using something like rebRepossess.  That
+// would eliminate this API.
 //
 void *RL_rebZinflateAlloc(
     size_t *len_out,
@@ -1707,53 +1682,6 @@ void *RL_rebZinflateAlloc(
     int max
 ){
     REBSTR *envelope = Canon(SYM_ZLIB);
-    return Decompress_Alloc_Core(len_out, input, len_in, max, envelope);
-}
-
-
-//
-//  rebGunzipAlloc: RL_API
-//
-// Slight variant of inflate() which is compatible with gzip, and checks its
-// CRC32.  For data whose original size was < 2^32 bytes, the gzip envelope
-// stored that size...so memory efficiency is achieved even if max = -1.
-//
-// Note: That size guarantee exists for data compressed with rebGzipAlloc() or
-// adhering to the gzip standard.  However, archives created with the GNU
-// gzip tool make streams with possible trailing zeros or concatenations:
-//
-// http://stackoverflow.com/a/9213826
-//
-void *RL_rebGunzipAlloc(
-    size_t *len_out,
-    const void *input,
-    size_t len_in,
-    int max
-){
-    // Note: Because GZIP is what Rebol uses for booting, `nullptr` means
-    // use GZIP.  That's because symbols in %words.r haven't been loaded yet,
-    // so a call to Canon(SYM_XXX) would fail.
-    //
-    REBSTR *envelope = nullptr; // GZIP is the default
-    return Decompress_Alloc_Core(len_out, input, len_in, max, envelope);
-}
-
-
-//
-//  rebDeflateDetectAlloc: RL_API
-//
-// Does DEFLATE with detection, and also ignores the size information in a
-// gzip file, due to the reasoning here:
-//
-// http://stackoverflow.com/a/9213826
-//
-void *RL_rebDeflateDetectAlloc(
-    size_t *len_out,
-    const void *input,
-    size_t len_in,
-    int max
-){
-    REBSTR *envelope = Canon(SYM_DETECT);
     return Decompress_Alloc_Core(len_out, input, len_in, max, envelope);
 }
 
