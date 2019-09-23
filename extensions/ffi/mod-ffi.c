@@ -46,7 +46,7 @@ static ffi_abi Abi_From_Word(const REBVAL *word) {
       case SYM_SYSV:
         return FFI_SYSV;
 
-      // !!! While these are defined on newer versions of LINUX X86 and X64 
+      // !!! While these are defined on newer versions of LINUX X86 and X64
       // FFI, older versions (e.g. 3.0.13) only have STDCALL/THISCALL/FASTCALL
       // on Windows.  We could detect the FFI version, but since basically
       // no one uses anything but the default punt on it for now.

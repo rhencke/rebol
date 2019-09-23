@@ -86,11 +86,10 @@ static void Ensure_Basics(void)
     // REBSER places the `info` bits exactly after a REBVAL so they can do
     // double-duty as terminator for that REBVAL when enumerated as an ARRAY.
 
-    blockscope {
-        size_t offset = offsetof(REBSER, info);  // in variable avoids warning
-        if (offset - offsetof(REBSER, content) != sizeof(REBVAL))
-            panic ("bad structure alignment for internal array termination");
-    }
+  blockscope {
+    size_t offset = offsetof(REBSER, info);  // in variable avoids warning
+    if (offset - offsetof(REBSER, content) != sizeof(REBVAL))
+        panic ("bad structure alignment for internal array termination"); }
 
     //=//// CHECK BYTE-ORDERING SENSITIVE FLAGS //////////////////////////=//
 

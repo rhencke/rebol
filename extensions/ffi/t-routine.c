@@ -736,22 +736,22 @@ REB_R Routine_Dispatcher(REBFRM *f)
     // the parameter specification.  They might also be out of range, e.g.
     // a too-large or negative INTEGER! passed to a uint8.  Could fail() here.
     //
-    blockscope {
-        REBLEN i = 0;
-        for (; i < num_fixed; ++i) {
-            uintptr_t offset = arg_to_ffi(
-                store,  // ffi-converted arg appended here
-                nullptr,  // dest pointer must be nullptr if store is non-null
-                FRM_ARG(f, i + 1),  // 1-based
-                RIN_ARG_SCHEMA(rin, i),  // 0-based
-                ACT_PARAM(FRM_PHASE(f), i + 1)  // 1-based
-            );
+  blockscope {
+    REBLEN i = 0;
+    for (; i < num_fixed; ++i) {
+        uintptr_t offset = arg_to_ffi(
+            store,  // ffi-converted arg appended here
+            nullptr,  // dest pointer must be nullptr if store is non-null
+            FRM_ARG(f, i + 1),  // 1-based
+            RIN_ARG_SCHEMA(rin, i),  // 0-based
+            ACT_PARAM(FRM_PHASE(f), i + 1)  // 1-based
+        );
 
-            // We will convert the offset to a pointer later
-            //
-            *SER_AT(void*, arg_offsets, i) = cast(void*, offset);
-        }
+        // We will convert the offset to a pointer later
+        //
+        *SER_AT(void*, arg_offsets, i) = cast(void*, offset);
     }
+  }
 
     // If an FFI routine takes a fixed number of arguments, then its Call
     // InterFace (CIF) can be created just once.  This will be in the RIN_CIF.
@@ -835,19 +835,19 @@ REB_R Routine_Dispatcher(REBFRM *f)
     // the offsets of each FFI argument into actual pointers (since the
     // data won't be relocated)
     //
-    blockscope {
-        if (IS_BLANK(RIN_RET_SCHEMA(rin)))
-            ret_offset = nullptr;
-        else
-            ret_offset = SER_DATA_RAW(store) + cast(uintptr_t, ret_offset);
+  blockscope {
+    if (IS_BLANK(RIN_RET_SCHEMA(rin)))
+        ret_offset = nullptr;
+    else
+        ret_offset = SER_DATA_RAW(store) + cast(uintptr_t, ret_offset);
 
-        REBLEN i;
-        for (i = 0; i < num_args; ++i) {
-            uintptr_t off = cast(uintptr_t, *SER_AT(void*, arg_offsets, i));
-            assert(off == 0 or off < SER_LEN(store));
-            *SER_AT(void*, arg_offsets, i) = SER_DATA_RAW(store) + off;
-        }
+    REBLEN i;
+    for (i = 0; i < num_args; ++i) {
+        uintptr_t off = cast(uintptr_t, *SER_AT(void*, arg_offsets, i));
+        assert(off == 0 or off < SER_LEN(store));
+        *SER_AT(void*, arg_offsets, i) = SER_DATA_RAW(store) + off;
     }
+  }
 
     // THE ACTUAL FFI CALL
     //

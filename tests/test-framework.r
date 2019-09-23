@@ -107,7 +107,7 @@ make object! compose [
                     ; relative the directory where the test is running.  So
                     ; we CHANGE-DIR to the test file's path.
                     ;
-                    change-dir first split-path test-file 
+                    change-dir first split-path test-file
                 )
                     |
                 'dialect set value: text! (

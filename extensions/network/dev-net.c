@@ -565,7 +565,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
 
     if (result == NE_WOULDBLOCK)
         return DR_PEND;  // don't consider blocking to be an actual "error"
-        
+
     REBVAL *error = rebError_OS(result);
 
     // Don't want to raise errors synchronously because we may be in the

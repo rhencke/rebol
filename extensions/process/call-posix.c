@@ -242,8 +242,7 @@ REB_R Call_Core(REBFRM *frame_) {
     else
         fail (PAR(command));
 
-    REBU64 pid = 1020;  // Initialize with garbage to avoid compiler warning
-    int exit_code = 304;  // ...same...
+    int exit_code = 20;  // should be overwritten if actually returned
 
     // If a STRING! or BINARY! is used for the output or error, then that
     // is treated as a request to append the results of the pipe to them.
@@ -813,7 +812,6 @@ REB_R Call_Core(REBFRM *frame_) {
         assert(infobuf_used == 0);
 
        exit_code = WEXITSTATUS(status);
-       pid = forked_pid;
     }
     else if (WIFSIGNALED(status)) {
         non_errno_ret = WTERMSIG(status);
@@ -935,7 +933,7 @@ REB_R Call_Core(REBFRM *frame_) {
     if (REF(info)) {
         REBCTX *info = Alloc_Context(REB_OBJECT, 2);
 
-        Init_Integer(Append_Context(info, nullptr, Canon(SYM_ID)), pid);
+        Init_Integer(Append_Context(info, nullptr, Canon(SYM_ID)), forked_pid);
         if (REF(wait))
             Init_Integer(
                 Append_Context(info, nullptr, Canon(SYM_EXIT_CODE)),
@@ -951,5 +949,5 @@ REB_R Call_Core(REBFRM *frame_) {
     if (REF(wait))
         return Init_Integer(D_OUT, exit_code);
 
-    return Init_Integer(D_OUT, pid);
+    return Init_Integer(D_OUT, forked_pid);
 }

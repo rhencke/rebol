@@ -1,6 +1,6 @@
 //
 //  File: %sys-stack.h
-//  Summary: {Definitions for "Data Stack", "Chunk Stack" and the C stack}
+//  Summary: {Definitions for "Data Stack" and the C stack}
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
 //
@@ -48,6 +48,21 @@
 // end markers between the DSP and that capacity.  This way, if a push runs
 // up against an END it knows to do an expansion.
 //
+//=// NOTES ///////////////////////////////////////////////////////////////=//
+//
+// * The data stack is limited in size, and this means code that uses it may
+//   break down when working on larger cases:
+//
+//   https://github.com/metaeducation/ren-c/issues/679
+//
+// * Although R3-Alpha used the data stack for pushing function arguments,
+//   the arguments were frequently passed around by pointer (vs. using an
+//   indexed "DSP" position).  This was bad since the data stack could
+//   relocate its contents due to growth.  For this and oher reasons,
+//   the Rebol call stack is built out of linked REBARR allocations which
+//   can be used to back FRAME! contexts.
+//
+
 
 // DSP stands for "(D)ata (S)tack "(P)osition", and is the index of the top
 // of the data stack (last valid item in the underlying array)

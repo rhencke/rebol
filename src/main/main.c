@@ -238,7 +238,7 @@ int main(int argc, char *argv_ansi[])
     //
     REBVAL *startup_bin = rebValue(
         "gunzip", rebR(rebHandle(
-            m_cast(void*, &Main_Startup_Code[0]),
+            m_cast(unsigned char*, &Main_Startup_Code[0]),
             MAIN_STARTUP_SIZE,
             nullptr
         )),

@@ -237,32 +237,32 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
 
         assert(GET_SERIES_INFO(canon, STRING_CANON));
 
-        blockscope {
-            REBINT cmp = Compare_UTF8(STR_HEAD(canon), utf8, size);
-            if (cmp == 0)
-                return canon;  // was a case-sensitive match
-            if (cmp < 0)
-                goto next_candidate_slot;  // wasn't an alternate casing
-        }
+      blockscope {
+        REBINT cmp = Compare_UTF8(STR_HEAD(canon), utf8, size);
+        if (cmp == 0)
+            return canon;  // was a case-sensitive match
+        if (cmp < 0)
+            goto next_candidate_slot;  // wasn't an alternate casing
+      }
 
         // The > 0 result means that the canon word that was found is an
         // alternate casing ("synonym") for the string we're interning.  The
         // synonyms are attached to the canon form with a circularly linked
         // list.  Walk the list to see if any of the synonyms are a match.
         //
-        blockscope {
-            REBSTR *synonym = LINK_SYNONYM(canon);
-            while (synonym != canon) {
-                assert(NOT_SERIES_INFO(synonym, STRING_CANON));
+      blockscope {
+        REBSTR *synonym = LINK_SYNONYM(canon);
+        while (synonym != canon) {
+            assert(NOT_SERIES_INFO(synonym, STRING_CANON));
 
-                REBINT cmp = Compare_UTF8(STR_HEAD(synonym), utf8, size);
-                if (cmp == 0)
-                    return synonym;  // exact match means no new interning
+            REBINT cmp = Compare_UTF8(STR_HEAD(synonym), utf8, size);
+            if (cmp == 0)
+                return synonym;  // exact match means no new interning
 
-                assert(cmp > 0);  // at least a synonym if in this list
-                synonym = LINK_SYNONYM(synonym);  // look until cycle
-            }
+            assert(cmp > 0);  // at least a synonym if in this list
+            synonym = LINK_SYNONYM(synonym);  // look until cycle
         }
+      }
 
         goto new_interning;  // no synonym matched, make new synonym for canon
 

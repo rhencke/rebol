@@ -159,7 +159,8 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
 
     RELVAL *collect_key = ARR_AT(BUF_COLLECT, len);
     for (; NOT_END(collect_key); ++collect_key)
-        Append_Context(context, NULL, VAL_KEY_SPELLING(collect_key)); }
+        Append_Context(context, NULL, VAL_KEY_SPELLING(collect_key));
+  }
 
     // Set new values to obj words
     for (word = item; NOT_END(word); word += 2) {
