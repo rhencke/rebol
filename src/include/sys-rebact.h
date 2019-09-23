@@ -43,7 +43,7 @@ struct Reb_Action {
         | ARRAY_FLAG_IS_PARAMLIST)
 
 #define SERIES_MASK_DETAILS \
-    (NODE_FLAG_NODE | SERIES_FLAG_FIXED_SIZE \
+    (NODE_FLAG_NODE  /* not fixed size, may expand via HIJACK etc.*/ \
         | SERIES_FLAG_LINK_NODE_NEEDS_MARK  /* speciality */ \
         /* dispatcher is a c function pointer, should not mark */ )
 
