@@ -119,23 +119,25 @@ void Bind_Values_Core(
     // Associate the canon of a word with an index number.  (This association
     // is done by poking the index into the REBSER of the series behind the
     // ANY-WORD!, so it must be cleaned up to not break future bindings.)
-
+    //
+  blockscope {
     REBLEN index = 1;
     REBVAL *key = CTX_KEYS_HEAD(context);
     for (; index <= CTX_LEN(context); key++, index++)
         if (not Is_Param_Unbindable(key))
             Add_Binder_Index(&binder, VAL_KEY_CANON(key), index);
+  }
 
     Bind_Values_Inner_Loop(
         &binder, head, context, bind_types, add_midstream_types, flags
     );
 
-    // Reset all the binder indices to zero, balancing out what was added.
-
-    key = CTX_KEYS_HEAD(context);
+  blockscope {  // Reset all the binder indices to zero
+    RELVAL *key = CTX_KEYS_HEAD(context);
     for (; NOT_END(key); key++)
         if (not Is_Param_Unbindable(key))
             Remove_Binder_Index(&binder, VAL_KEY_CANON(key));
+  }
 
     SHUTDOWN_BINDER(&binder);
 }
@@ -256,9 +258,19 @@ static void Bind_Relative_Inner_Loop(
 //
 REBARR *Copy_And_Bind_Relative_Deep_Managed(
     const REBVAL *body,
-    REBARR *paramlist, // body of function is not actually ready yet
+    REBARR *paramlist,  // body of function is not actually ready yet
     REBU64 bind_types
-) {
+){
+    struct Reb_Binder binder;
+    INIT_BINDER(&binder);
+
+  blockscope {  // Setup binding table from the argument word list
+    REBLEN index = 1;
+    RELVAL *param = ARR_AT(paramlist, 1);  // [0] is ACT_ARCETYPE() ACTION!
+    for (; NOT_END(param); param++, index++)
+        Add_Binder_Index(&binder, VAL_KEY_CANON(param), index);
+  }
+
     // !!! Currently this is done in two phases, because the historical code
     // would use the generic copying code and then do a bind phase afterward.
     // Both phases are folded into this routine to make it easier to make
@@ -274,23 +286,13 @@ REBARR *Copy_And_Bind_Relative_Deep_Managed(
         (TS_SERIES | TS_PATH) & ~TS_NOT_COPIED // types to copy deeply
     );
 
-    struct Reb_Binder binder;
-    INIT_BINDER(&binder);
-
-    // Setup binding table from the argument word list
-    //
-    REBLEN index = 1;
-    RELVAL *param = ARR_AT(paramlist, 1); // [0] is ACTION! value
-    for (; NOT_END(param); param++, index++)
-        Add_Binder_Index(&binder, VAL_KEY_CANON(param), index);
-
     Bind_Relative_Inner_Loop(&binder, ARR_HEAD(copy), paramlist, bind_types);
 
-    // Reset binding table
-    //
-    param = ARR_AT(paramlist, 1); // [0] is ACTION! value
+  blockscope {  // Reset binding table
+    RELVAL *param = ARR_AT(paramlist, 1);  // [0] is ACT_ARCHETYPE() ACTION!
     for (; NOT_END(param); param++)
         Remove_Binder_Index(&binder, VAL_KEY_CANON(param));
+  }
 
     SHUTDOWN_BINDER(&binder);
     return copy;
@@ -684,15 +686,14 @@ void Init_Interning_Binder(
 ){
     INIT_BINDER(binder);
 
-    REBVAL *key;
-    REBINT index;
-
     // Use positive numbers for all the keys in the context.
     //
-    key = CTX_KEYS_HEAD(ctx);
-    index = 1;
+  blockscope {
+    REBVAL *key = CTX_KEYS_HEAD(ctx);
+    REBINT index = 1;
     for (; NOT_END(key); ++key, ++index)
-        Add_Binder_Index(binder, VAL_KEY_CANON(key), index); // positives
+        Add_Binder_Index(binder, VAL_KEY_CANON(key), index);  // positives
+  }
 
     // For all the keys that aren't in the supplied context but *are* in lib,
     // use a negative index to locate its position in lib.  Its meaning can be
@@ -700,13 +701,13 @@ void Init_Interning_Binder(
     // new positive index.
     //
     if (ctx != Lib_Context) {
-        key = CTX_KEYS_HEAD(Lib_Context);
-        index = 1;
+        REBVAL *key = CTX_KEYS_HEAD(Lib_Context);
+        REBINT index = 1;
         for (; NOT_END(key); ++key, ++index) {
             REBSTR *canon = VAL_KEY_CANON(key);
             REBINT n = Get_Binder_Index_Else_0(binder, canon);
             if (n == 0)
-                Add_Binder_Index(binder, canon, -index);
+                Add_Binder_Index(binder, canon, - index);
         }
     }
 }
@@ -720,25 +721,24 @@ void Init_Interning_Binder(
 //
 void Shutdown_Interning_Binder(struct Reb_Binder *binder, REBCTX *ctx)
 {
-    REBVAL *key;
-    REBINT index;
-
     // All of the user context keys should be positive, and removable
     //
-    key = CTX_KEYS_HEAD(ctx);
-    index = 1;
+  blockscope {
+    REBVAL *key = CTX_KEYS_HEAD(ctx);
+    REBINT index = 1;
     for (; NOT_END(key); ++key, ++index) {
         REBINT n = Remove_Binder_Index_Else_0(binder, VAL_KEY_CANON(key));
         assert(n == index);
         UNUSED(n);
     }
+  }
 
     // The lib context keys may have been imported, so you won't necessarily
     // find them in the list any more.
     //
     if (ctx != Lib_Context) {
-        key = CTX_KEYS_HEAD(Lib_Context);
-        index = 1;
+        REBVAL *key = CTX_KEYS_HEAD(Lib_Context);
+        REBINT index = 1;
         for (; NOT_END(key); ++key, ++index) {
             REBINT n = Remove_Binder_Index_Else_0(binder, VAL_KEY_CANON(key));
             assert(n == 0 or n == -index);

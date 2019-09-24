@@ -685,12 +685,12 @@ REBARR *Collect_Unique_Words_Managed(
             // number (overkill, but helps test binders).
             //
             if (not Try_Add_Binder_Index(&cl->binder, canon, -1)) {
-            #if !defined(NDEBUG)
+              #if !defined(NDEBUG)
                 REBINT i = Get_Binder_Index_Else_0(&cl->binder, canon);
                 assert(i < 0);
                 Remove_Binder_Index_Else_0(&cl->binder, canon);
                 Add_Binder_Index(&cl->binder, canon, i - 1);
-            #endif
+              #endif
             }
         }
     }
@@ -1166,15 +1166,14 @@ void Resolve_Context(
     struct Reb_Binder binder;
     INIT_BINDER(&binder);
 
-    REBVAL *key;
-    REBVAL *var;
-
+  blockscope {
     REBINT n = 0;
 
     // If limited resolve, tag the word ids that need to be copied:
     if (i != 0) {
         // Only the new words of the target:
-        for (key = CTX_KEY(target, i); NOT_END(key); key++)
+        REBVAL *key = CTX_KEY(target, i);
+        for (; NOT_END(key); key++)
             Add_Binder_Index(&binder, VAL_KEY_CANON(key), -1);
         n = CTX_LEN(target);
     }
@@ -1195,7 +1194,8 @@ void Resolve_Context(
     // Expand target as needed:
     if (expand and n > 0) {
         // Determine how many new words to add:
-        for (key = CTX_KEYS_HEAD(target); NOT_END(key); key++)
+        REBVAL *key = CTX_KEYS_HEAD(target);
+        for (; NOT_END(key); key++)
             if (Get_Binder_Index_Else_0(&binder, VAL_KEY_CANON(key)) != 0)
                 --n;
 
@@ -1205,11 +1205,15 @@ void Resolve_Context(
         else
             expand = false;
     }
+  }
 
     // Maps a word to its value index in the source context.
     // Done by marking all source words (in bind table):
-    key = CTX_KEYS_HEAD(source);
-    for (n = 1; NOT_END(key); n++, key++) {
+    //
+  blockscope {
+    REBVAL *key = CTX_KEYS_HEAD(source);
+    REBINT n = 1;
+    for (; NOT_END(key); n++, key++) {
         REBSTR *canon = VAL_KEY_CANON(key);
         if (IS_BLANK(only_words))
             Add_Binder_Index(&binder, canon, n);
@@ -1220,11 +1224,13 @@ void Resolve_Context(
             }
         }
     }
+  }
 
     // Foreach word in target, copy the correct value from source:
     //
-    var = i != 0 ? CTX_VAR(target, i) : CTX_VARS_HEAD(target);
-    key = i != 0 ? CTX_KEY(target, i) : CTX_KEYS_HEAD(target);
+  blockscope {
+    REBVAL *var = i != 0 ? CTX_VAR(target, i) : CTX_VARS_HEAD(target);
+    REBVAL *key = i != 0 ? CTX_KEY(target, i) : CTX_KEYS_HEAD(target);
     for (; NOT_END(key); key++, var++) {
         REBINT m = Remove_Binder_Index_Else_0(&binder, VAL_KEY_CANON(key));
         if (m != 0) {
@@ -1234,22 +1240,24 @@ void Resolve_Context(
                 if (m < 0)
                     Init_Nulled(var); // no value in source context
                 else
-                    Move_Var(var, CTX_VAR(source, m)); // preserves enfix
+                    Move_Var(var, CTX_VAR(source, m));  // preserves flags
             }
         }
     }
+  }
 
     // Add any new words and values:
     if (expand) {
-        key = CTX_KEYS_HEAD(source);
-        for (n = 1; NOT_END(key); n++, key++) {
+        REBVAL *key = CTX_KEYS_HEAD(source);
+        REBINT n = 1;
+        for (; NOT_END(key); n++, key++) {
             REBSTR *canon = VAL_KEY_CANON(key);
             if (Remove_Binder_Index_Else_0(&binder, canon) != 0) {
                 //
                 // Note: no protect check is needed here
                 //
-                var = Append_Context(target, 0, canon);
-                Move_Var(var, CTX_VAR(source, n)); // preserves enfix
+                REBVAL *var = Append_Context(target, 0, canon);
+                Move_Var(var, CTX_VAR(source, n));  // preserves flags
             }
         }
     }
@@ -1261,7 +1269,8 @@ void Resolve_Context(
         // but the fault-tolerant Remove_Binder_Index_Else_0()
         //
         if (i != 0) {
-            for (key = CTX_KEY(target, i); NOT_END(key); key++)
+            REBVAL *key = CTX_KEY(target, i);
+            for (; NOT_END(key); key++)
                 Remove_Binder_Index_Else_0(&binder, VAL_KEY_CANON(key));
         }
         else if (IS_BLOCK(only_words)) {
@@ -1272,7 +1281,8 @@ void Resolve_Context(
             }
         }
         else {
-            for (key = CTX_KEYS_HEAD(source); NOT_END(key); key++)
+            REBVAL *key = CTX_KEYS_HEAD(source);
+            for (; NOT_END(key); key++)
                 Remove_Binder_Index_Else_0(&binder, VAL_KEY_CANON(key));
         }
     }
