@@ -852,7 +852,7 @@ REBCTX *Make_Selfish_Context_Detect_Managed(
         REBVAL *dest = CTX_VARS_HEAD(context);
         REBVAL *src = CTX_VARS_HEAD(opt_parent);
         for (; NOT_END(src); ++dest, ++src) {
-            REBFLGS flags = 0; // !!! Review
+            REBFLGS flags = NODE_FLAG_MANAGED;  // !!! Review, what flags?
             Move_Value(dest, src);
             Clonify(dest, flags, TS_CLONE);
         }
@@ -1109,7 +1109,7 @@ REBCTX *Merge_Contexts_Selfish_Managed(REBCTX *parent1, REBCTX *parent2)
         // Deep copy the child.
         // Context vars are REBVALs, already fully specified
         //
-        REBFLGS flags = 0; // !!! Review
+        REBFLGS flags = NODE_FLAG_MANAGED;  // !!! Review, which flags?
         Clonify(
             Move_Value(CTX_VAR(merged, n), value),
             flags,

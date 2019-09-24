@@ -184,64 +184,134 @@ REBLEN Try_Bind_Word(REBCTX *context, REBVAL *word)
 
 
 //
-//  Bind_Relative_Inner_Loop: C
+//  Clonify_And_Bind_Relative: C
 //
-// Recursive function for relative function word binding.
+// Recursive function for relative function word binding.  The code for
+// Clonify() is merged in for efficiency, because it recurses...and we want
+// to do the binding in the same pass.
+//
+// !!! Since the ultimate desire is to factor out common code, try not to
+// constant-fold the Clonify implementation here--to make the factoring clear.
 //
 // !!! Should this return true if any relative bindings were made?
 //
-static void Bind_Relative_Inner_Loop(
+static void Clonify_And_Bind_Relative(
+    REBVAL *v,  // Note: incoming value is not relative
+    REBFLGS flags,
+    REBU64 deep_types,
     struct Reb_Binder *binder,
-    RELVAL *head,
     REBARR *paramlist,
     REBU64 bind_types
 ){
-    for (; NOT_END(head); ++head) {
-        //
-        // The two-pass copy-and-then-bind should have gotten rid of all the
-        // relative values to other functions during the copy.
-        //
-        // !!! Long term, in a single pass copy, this would have to deal
-        // with relative values and run them through the specification
-        // process if they were not just getting overwritten.
-        //
-        assert(not IS_RELATIVE(head));
+    if (C_STACK_OVERFLOWING(&bind_types))
+        Fail_Stack_Overflow();
 
-        const REBCEL *cell = VAL_UNESCAPED(head);
-        enum Reb_Kind kind = CELL_KIND(cell);
+    assert(flags & NODE_FLAG_MANAGED);
 
-        REBU64 type_bit = FLAGIT_KIND(kind);
-        if (type_bit & bind_types) {
-            REBINT n = Get_Binder_Index_Else_0(binder, VAL_WORD_CANON(cell));
-            if (n != 0) {
+    // !!! Could theoretically do what COPY does and generate a new hijackable
+    // identity.  There's no obvious use for this; hence not implemented.
+    //
+    assert(not (deep_types & FLAGIT_KIND(REB_ACTION)));
+
+    // !!! It may be possible to do this faster/better, the impacts on higher
+    // quoting levels could be incurring more cost than necessary...but for
+    // now err on the side of correctness.  Unescape the value while cloning
+    // and then escape it back.
+    //
+    REBLEN num_quotes = VAL_NUM_QUOTES(v);
+    Dequotify(v);
+
+    enum Reb_Kind kind = cast(enum Reb_Kind, KIND_BYTE_UNCHECKED(v));
+    assert(kind < REB_MAX_PLUS_MAX); // we dequoted it (pseudotypes ok)
+
+    if (deep_types & FLAGIT_KIND(kind) & TS_SERIES_OBJ) {
+        //
+        // Objects and series get shallow copied at minimum
+        //
+        REBSER *series;
+        if (ANY_CONTEXT(v)) {
+            INIT_VAL_CONTEXT_VARLIST(
+                v,
+                CTX_VARLIST(Copy_Context_Shallow_Managed(VAL_CONTEXT(v)))
+            );
+            series = SER(CTX_VARLIST(VAL_CONTEXT(v)));
+        }
+        else {
+            if (IS_SER_ARRAY(VAL_SERIES(v))) {
+                series = SER(
+                    Copy_Array_At_Extra_Shallow(
+                        VAL_ARRAY(v),
+                        0, // !!! what if VAL_INDEX() is nonzero?
+                        VAL_SPECIFIER(v),
+                        0,
+                        NODE_FLAG_MANAGED
+                    )
+                );
+
+                INIT_VAL_NODE(v, series); // copies args
+
+                // If it was relative, then copying with a specifier
+                // means it isn't relative any more.
                 //
-                // Word's canon symbol is in frame.  Relatively bind it.
-                // (clear out existing binding flags first).
-                //
-                REBLEN depth = Dequotify(head); // must ensure new cell
-                Unbind_Any_Word(head);
-                INIT_BINDING(head, paramlist); // incomplete func
-                INIT_WORD_INDEX(head, n);
-                Quotify(head, depth); // new cell made for higher escapes
+                INIT_BINDING(v, UNBOUND);
+            }
+            else {
+                series = Copy_Sequence_Core(
+                    VAL_SERIES(v),
+                    NODE_FLAG_MANAGED
+                );
+                INIT_VAL_NODE(v, series);
             }
         }
-        else if (ANY_ARRAY_OR_PATH_KIND(kind)) {
 
-            Bind_Relative_Inner_Loop(
-                binder, VAL_ARRAY_AT(cell), paramlist, bind_types
-            );
-
-            // !!! Technically speaking it is not necessary for an array to
-            // be marked relative if it doesn't contain any relative words
-            // under it.  However, for uniformity in the near term, it's
-            // easiest to debug if there is a clear mark on arrays that are
-            // part of a deep copy of a function body either way.
-            //
-            REBLEN depth = Dequotify(head); // must ensure new cell
-            INIT_BINDING(head, paramlist); // incomplete func
-            Quotify(head, depth); // new cell made for higher escapes
+        // If we're going to copy deeply, we go back over the shallow
+        // copied series and "clonify" the values in it.
+        //
+        if (deep_types & FLAGIT_KIND(kind) & TS_ARRAYS_OBJ) {
+            REBVAL *sub = KNOWN(ARR_HEAD(ARR(series)));
+            for (; NOT_END(sub); ++sub)
+                Clonify_And_Bind_Relative(
+                    sub,
+                    flags,
+                    deep_types,
+                    binder,
+                    paramlist,
+                    bind_types
+                );
         }
     }
+    else {
+        // We're not copying the value, so inherit the const bit from the
+        // original value's point of view, if applicable.
+        //
+        if (NOT_CELL_FLAG(v, EXPLICITLY_MUTABLE))
+            v->header.bits |= (flags & ARRAY_FLAG_CONST_SHALLOW);
+    }
+
+    if (FLAGIT_KIND(kind) & bind_types) {
+        REBINT n = Get_Binder_Index_Else_0(binder, VAL_WORD_CANON(v));
+        if (n != 0) {
+            //
+            // Word's canon symbol is in frame.  Relatively bind it.
+            // (clear out existing binding flags first).
+            //
+            Unbind_Any_Word(v);
+            INIT_BINDING(v, paramlist); // incomplete func
+            INIT_WORD_INDEX(v, n);
+        }
+    }
+    else if (ANY_ARRAY_OR_PATH_KIND(kind)) {
+
+        // !!! Technically speaking it is not necessary for an array to
+        // be marked relative if it doesn't contain any relative words
+        // under it.  However, for uniformity in the near term, it's
+        // easiest to debug if there is a clear mark on arrays that are
+        // part of a deep copy of a function body either way.
+        //
+        INIT_BINDING(v, paramlist); // incomplete func
+    }
+
+    Quotify_Core(v, num_quotes);  // Quotify() won't work on RELVAL*
 }
 
 
@@ -266,27 +336,44 @@ REBARR *Copy_And_Bind_Relative_Deep_Managed(
 
   blockscope {  // Setup binding table from the argument word list
     REBLEN index = 1;
-    RELVAL *param = ARR_AT(paramlist, 1);  // [0] is ACT_ARCETYPE() ACTION!
+    RELVAL *param = ARR_AT(paramlist, 1);  // [0] is ACT_ARCHETYPE() ACTION!
     for (; NOT_END(param); param++, index++)
         Add_Binder_Index(&binder, VAL_KEY_CANON(param), index);
   }
 
-    // !!! Currently this is done in two phases, because the historical code
-    // would use the generic copying code and then do a bind phase afterward.
-    // Both phases are folded into this routine to make it easier to make
-    // a one-pass version when time permits.
-    //
-    REBARR *copy = Copy_Array_Core_Managed(
-        VAL_ARRAY(body),
-        VAL_INDEX(body), // at
-        VAL_SPECIFIER(body),
-        VAL_LEN_AT(body), // tail
-        0, // extra
-        ARRAY_MASK_HAS_FILE_LINE, // ask to preserve file and line info
-        (TS_SERIES | TS_PATH) & ~TS_NOT_COPIED // types to copy deeply
-    );
+    REBARR *original = VAL_ARRAY(body);
+    REBLEN index = VAL_INDEX(body);
+    REBSPC *specifier = VAL_SPECIFIER(body);
+    REBLEN tail = VAL_LEN_AT(body);
+    assert(tail <= ARR_LEN(original));
 
-    Bind_Relative_Inner_Loop(&binder, ARR_HEAD(copy), paramlist, bind_types);
+    if (index > tail)  // !!! should this be asserted?
+        index = tail;
+
+    REBFLGS flags = ARRAY_MASK_HAS_FILE_LINE | NODE_FLAG_MANAGED;
+    REBU64 deep_types = (TS_SERIES | TS_PATH) & ~TS_NOT_COPIED;
+
+    REBLEN len = tail - index;
+
+    // Currently we start by making a shallow copy and then adjust it
+
+    REBARR *copy = Make_Array_For_Copy(len, flags, original);
+
+    RELVAL *src = ARR_AT(original, index);
+    RELVAL *dest = ARR_HEAD(copy);
+    REBLEN count = 0;
+    for (; count < len; ++count, ++dest, ++src) {
+        Clonify_And_Bind_Relative(
+            Derelativize(dest, src, specifier),
+            flags | NODE_FLAG_MANAGED,
+            deep_types,
+            &binder,
+            paramlist,
+            bind_types
+        );
+    }
+
+    TERM_ARRAY_LEN(copy, len);
 
   blockscope {  // Reset binding table
     RELVAL *param = ARR_AT(paramlist, 1);  // [0] is ACT_ARCHETYPE() ACTION!

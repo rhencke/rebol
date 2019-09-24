@@ -137,10 +137,17 @@ REBARR *Copy_Values_Len_Extra_Shallow_Core(
 void Clonify(
     REBVAL *v,
     REBFLGS flags,
-    REBU64 types
+    REBU64 deep_types
 ){
-    if (C_STACK_OVERFLOWING(&types))
+    if (C_STACK_OVERFLOWING(&deep_types))
         Fail_Stack_Overflow();
+
+    assert(flags & NODE_FLAG_MANAGED);
+
+    // !!! Could theoretically do what COPY does and generate a new hijackable
+    // identity.  There's no obvious use for this; hence not implemented.
+    //
+    assert(not (deep_types & FLAGIT_KIND(REB_ACTION)));
 
     // !!! It may be possible to do this faster/better, the impacts on higher
     // quoting levels could be incurring more cost than necessary...but for
@@ -153,7 +160,7 @@ void Clonify(
     enum Reb_Kind kind = cast(enum Reb_Kind, KIND_BYTE_UNCHECKED(v));
     assert(kind < REB_MAX_PLUS_MAX); // we dequoted it (pseudotypes ok)
 
-    if (types & FLAGIT_KIND(kind) & TS_SERIES_OBJ) {
+    if (deep_types & FLAGIT_KIND(kind) & TS_SERIES_OBJ) {
         //
         // Objects and series get shallow copied at minimum
         //
@@ -196,24 +203,11 @@ void Clonify(
         // If we're going to copy deeply, we go back over the shallow
         // copied series and "clonify" the values in it.
         //
-        if (types & FLAGIT_KIND(kind) & TS_ARRAYS_OBJ) {
+        if (deep_types & FLAGIT_KIND(kind) & TS_ARRAYS_OBJ) {
             REBVAL *sub = KNOWN(ARR_HEAD(ARR(series)));
             for (; NOT_END(sub); ++sub)
-                Clonify(sub, flags, types);
+                Clonify(sub, flags, deep_types);
         }
-    }
-    else if (types & FLAGIT_KIND(kind) & FLAGIT_KIND(REB_ACTION)) {
-        //
-        // !!! While Ren-C has abandoned the concept of copying the body
-        // of functions (they are black boxes which may not *have* a
-        // body), it would still theoretically be possible to do what
-        // COPY does and make a function with a new and independently
-        // hijackable identity.  Assume for now it's better that the
-        // HIJACK of a method for one object will hijack it for all
-        // objects, and one must filter in the hijacking's body if one
-        // wants to take more specific action.
-        //
-        assert(false);
     }
     else {
         // We're not copying the value, so inherit the const bit from the
@@ -224,45 +218,6 @@ void Clonify(
     }
 
     Quotify(v, num_quotes);
-}
-
-
-//
-//  Copy_Array_Core_Managed_Inner_Loop: C
-//
-//
-static REBARR *Copy_Array_Core_Managed_Inner_Loop(
-    REBARR *original,
-    REBLEN index,
-    REBSPC *specifier,
-    REBLEN tail,
-    REBLEN extra, // currently no one uses--would it also apply deep (?)
-    REBFLGS flags,
-    REBU64 types
-){
-    assert(index <= tail and tail <= ARR_LEN(original));
-    assert(flags & NODE_FLAG_MANAGED);
-
-    REBLEN len = tail - index;
-
-    // Currently we start by making a shallow copy and then adjust it
-
-    REBARR *copy = Make_Array_For_Copy(len + extra, flags, original);
-
-    RELVAL *src = ARR_AT(original, index);
-    RELVAL *dest = ARR_HEAD(copy);
-    REBLEN count = 0;
-    for (; count < len; ++count, ++dest, ++src) {
-        Clonify(
-            Derelativize(dest, src, specifier),
-            flags,
-            types
-        );
-    }
-
-    TERM_ARRAY_LEN(copy, len);
-
-    return copy;
 }
 
 
@@ -282,7 +237,7 @@ REBARR *Copy_Array_Core_Managed(
     REBLEN tail,
     REBLEN extra,
     REBFLGS flags,
-    REBU64 types
+    REBU64 deep_types
 ){
     if (index > tail) // !!! should this be asserted?
         index = tail;
@@ -290,15 +245,32 @@ REBARR *Copy_Array_Core_Managed(
     if (index > ARR_LEN(original)) // !!! should this be asserted?
         return Make_Array_Core(extra, flags | NODE_FLAG_MANAGED);
 
-    return Copy_Array_Core_Managed_Inner_Loop(
-        original,
-        index,
-        specifier,
-        tail,
-        extra,
+    assert(index <= tail and tail <= ARR_LEN(original));
+
+    REBLEN len = tail - index;
+
+    // Currently we start by making a shallow copy and then adjust it
+
+    REBARR *copy = Make_Array_For_Copy(
+        len + extra,
         flags | NODE_FLAG_MANAGED,
-        types
+        original
     );
+
+    RELVAL *src = ARR_AT(original, index);
+    RELVAL *dest = ARR_HEAD(copy);
+    REBLEN count = 0;
+    for (; count < len; ++count, ++dest, ++src) {
+        Clonify(
+            Derelativize(dest, src, specifier),
+            flags | NODE_FLAG_MANAGED,
+            deep_types
+        );
+    }
+
+    TERM_ARRAY_LEN(copy, len);
+
+    return copy;
 }
 
 

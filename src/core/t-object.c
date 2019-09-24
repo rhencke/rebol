@@ -538,7 +538,7 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
     for (; NOT_END(src); ++src, ++dest) {
         Move_Var(dest, src); // keep ARG_MARKED_CHECKED
 
-        REBFLGS flags = 0; // !!! Review
+        REBFLGS flags = NODE_FLAG_MANAGED;  // !!! Review, which flags?
         Clonify(dest, flags, types);
     }
 
