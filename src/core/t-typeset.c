@@ -331,13 +331,14 @@ void MF_Typeset(REB_MOLD *mo, const REBCEL *v, bool form)
     if (TYPE_CHECK(v, REB_0_END))
         Append_Ascii(mo->series, "<end> ");
 
+    STATIC_ASSERT(REB_NULLED == 1);
     if (TYPE_CHECK(v, REB_NULLED))
         Append_Ascii(mo->series, "<opt> ");
 
     // !!! What about REB_TS_SKIPPABLE and other parameter properties, that
     // don't really fit into "types", but you can get with TYPESETS OF action?
 
-    for (n = REB_0 + 1; n < REB_MAX; n++) {
+    for (n = REB_NULLED + 1; n < REB_MAX; n++) {
         enum Reb_Kind kind = cast(enum Reb_Kind, n);
         if (TYPE_CHECK(v, kind)) {
             if (kind == REB_CUSTOM) {

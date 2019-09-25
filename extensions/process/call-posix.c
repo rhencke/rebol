@@ -280,6 +280,8 @@ REB_R Call_Core(REBFRM *frame_) {
     int stderr_pipe[] = {-1, -1};
     int info_pipe[] = {-1, -1};
 
+    pid_t forked_pid = -1;
+
     if (IS_TEXT(ARG(input)) or IS_BINARY(ARG(input))) {
         if (Open_Pipe_Fails(stdin_pipe))
             goto stdin_pipe_err;
@@ -298,8 +300,7 @@ REB_R Call_Core(REBFRM *frame_) {
     if (Open_Pipe_Fails(info_pipe))
         goto info_pipe_err;
 
-    pid_t forked_pid;  // gotos would cross initialization
-    forked_pid = fork();
+    forked_pid = fork();  // can't declare here (gotos cross initialization)
 
     if (forked_pid < 0) {  // error
         ret = errno;

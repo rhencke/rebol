@@ -784,7 +784,14 @@ void Startup_Mold(REBLEN size)
 {
     TG_Mold_Stack = Make_Series(10, sizeof(void*));
 
-    TG_Mold_Buf = Make_String(size);
+    // Most string code tries to optimize "bookmarks" that help map indices
+    // to encoded codepoint positions in such a way that when the string
+    // gets short, the bookmarks are discarded.  The mold buffer does not
+    // do this.
+    //
+    // !!! Review, seems like the mold buffer logic is broken.  :-/
+    //
+    TG_Mold_Buf = Make_String_Core(size, SERIES_FLAG_ALWAYS_DYNAMIC);
 }
 
 
