@@ -251,9 +251,25 @@ REBTYPE(Pair)
 {
     REBVAL *v = D_ARG(1);
 
+    REBVAL *x1 = VAL_PAIR_X(v);
+    REBVAL *y1 = VAL_PAIR_Y(v);
+
+    REBVAL *x2 = nullptr;
+    REBVAL *y2 = nullptr;
+
     switch (VAL_WORD_SYM(verb)) {
       case SYM_REVERSE:
         return Init_Pair(D_OUT, VAL_PAIR_Y(v), VAL_PAIR_X(v));
+
+      case SYM_ADD:
+      case SYM_SUBTRACT:
+      case SYM_DIVIDE:
+      case SYM_MULTIPLY:
+        if (IS_PAIR(D_ARG(2))) {
+            x2 = VAL_PAIR_X(D_ARG(2));
+            y2 = VAL_PAIR_Y(D_ARG(2));
+        }
+        break;  // delegate to pairwise operation
 
       default:
         break;
@@ -267,11 +283,6 @@ REBTYPE(Pair)
     // already running...and the check for that would be subverted.
 
     REBVAL *frame = Init_Frame(D_OUT, Context_For_Frame_May_Manage(frame_));
-
-    REBVAL *x1 = VAL_PAIR_X(v);
-    REBVAL *y1 = VAL_PAIR_Y(v);
-    REBVAL *x2 = IS_PAIR(D_ARG(2)) ? VAL_PAIR_X(D_ARG(2)) : nullptr;
-    REBVAL *y2 = IS_PAIR(D_ARG(2)) ? VAL_PAIR_Y(D_ARG(2)) : nullptr;
 
     Move_Value(D_ARG(1), x1);
     if (x2)

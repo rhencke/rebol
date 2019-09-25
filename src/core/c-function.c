@@ -562,14 +562,12 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // Definitional RETURN slots must have their argument value fulfilled with
     // an ACTION! specific to the action called on *every instantiation*.
     // They are marked with special parameter classes to avoid needing to
-    // separately do canon comparison of their symbols to find them.  In
-    // addition, since RETURN's typeset holds types that need to be checked at
-    // the end of the function run, it is moved to a predictable location:
-    // last slot of the paramlist.
+    // separately do canon comparison of their symbols to find them.
     //
-    // !!! The ability to add locals anywhere in the frame exists to make it
-    // possible to expand frames, so it might work to put it in the first
-    // slot--these mechanisms should have some review.
+    // Note: Since RETURN's typeset holds types that need to be checked at
+    // the end of the function run, it is moved to a predictable location:
+    // first slot of the paramlist.  Initially it was the last slot...but this
+    // enables adding more arguments/refinements/locals in derived functions.
 
     if (flags & MKF_RETURN) {
         if (definitional_return_dsp == 0) { // no explicit RETURN: pure local
@@ -588,7 +586,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
             Move_Value(DS_PUSH(), EMPTY_BLOCK);
             Move_Value(DS_PUSH(), EMPTY_TEXT);
-            // no need to move it--it's already at the tail position
         }
         else {
             REBVAL *param = DS_AT(definitional_return_dsp);
@@ -597,10 +594,11 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             mutable_KIND_BYTE(param) = REB_P_RETURN;
 
             assert(MIRROR_BYTE(param) == REB_TYPESET);
-
-            // definitional_return handled specially when paramlist copied
-            // off of the stack...
         }
+
+        // definitional_return handled specially when paramlist copied
+        // off of the stack...moved to head position.
+
         has_return = true;
     }
 
@@ -613,7 +611,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     //
     REBVAL *definitional_return =
         definitional_return_dsp == 0
-            ? NULL
+            ? nullptr
             : DS_AT(definitional_return_dsp);
 
     // Must make the function "paramlist" even if "empty", for identity.
@@ -653,6 +651,12 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
         REBVAL *src = DS_AT(dsp_orig + 1) + 3;
 
+        if (definitional_return) {
+            assert(flags & MKF_RETURN);
+            Move_Value(dest, definitional_return);
+            ++dest;
+        }
+
         // Weird due to Spectre/MSVC: https://stackoverflow.com/q/50399940
         //
         for (; src != DS_TOP + 1; src += 3) {
@@ -663,12 +667,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 continue;
 
             Move_Value(dest, src);
-            ++dest;
-        }
-
-        if (definitional_return) {
-            assert(flags & MKF_RETURN);
-            Move_Value(dest, definitional_return);
             ++dest;
         }
 
@@ -748,17 +746,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
         REBVAL *src = DS_AT(dsp_orig + 2);
         src += 3;
-        for (; src <= DS_TOP; src += 3) {
-            assert(IS_BLOCK(src));
-            if (definitional_return and src == definitional_return + 1)
-                continue;
-
-            if (VAL_ARRAY_LEN_AT(src) == 0)
-                Init_Nulled(dest);
-            else
-                Move_Value(dest, src);
-            ++dest;
-        }
 
         if (definitional_return) {
             //
@@ -777,6 +764,18 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             }
 
             Init_Nulled(dest); // clear the local RETURN: var's description
+            ++dest;
+        }
+
+        for (; src <= DS_TOP; src += 3) {
+            assert(IS_BLOCK(src));
+            if (definitional_return and src == definitional_return + 1)
+                continue;
+
+            if (VAL_ARRAY_LEN_AT(src) == 0)
+                Init_Nulled(dest);
+            else
+                Move_Value(dest, src);
             ++dest;
         }
 
@@ -812,17 +811,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
         REBVAL *src = DS_AT(dsp_orig + 3);
         src += 3;
-        for (; src <= DS_TOP; src += 3) {
-            assert(IS_TEXT(src));
-            if (definitional_return and src == definitional_return + 2)
-                continue;
-
-            if (SER_LEN(VAL_SERIES(src)) == 0)
-                Init_Nulled(dest);
-            else
-                Move_Value(dest, src);
-            ++dest;
-        }
 
         if (definitional_return) {
             //
@@ -840,6 +828,18 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             }
 
             Init_Nulled(dest);
+            ++dest;
+        }
+
+        for (; src <= DS_TOP; src += 3) {
+            assert(IS_TEXT(src));
+            if (definitional_return and src == definitional_return + 2)
+                continue;
+
+            if (SER_LEN(VAL_SERIES(src)) == 0)
+                Init_Nulled(dest);
+            else
+                Move_Value(dest, src);
             ++dest;
         }
 
@@ -991,7 +991,7 @@ REBACT *Make_Action(
     // uses it as well).
 
     if (GET_ACTION_FLAG(act, HAS_RETURN)) {
-        REBVAL *param = ACT_PARAM(act, ACT_NUM_PARAMS(act));
+        REBVAL *param = ACT_PARAMS_HEAD(act);
         assert(VAL_PARAM_SYM(param) == SYM_RETURN);
 
         if (Is_Typeset_Invisible(param))  // e.g. `return []`
@@ -1262,7 +1262,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
             ACT_DISPATCHER(a) = &Voider_Dispatcher;  // !!! ^-- see info note
         }
         else if (GET_ACTION_FLAG(a, HAS_RETURN)) {
-            REBVAL *typeset = ACT_PARAM(a, ACT_NUM_PARAMS(a));
+            REBVAL *typeset = ACT_PARAMS_HEAD(a);
             assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
             if (not TYPE_CHECK(typeset, REB_NULLED))  // `do []` returns
                 ACT_DISPATCHER(a) = &Returner_Dispatcher;  // error when run
@@ -1393,11 +1393,21 @@ REBTYPE(Fail)
 //
 REB_R Generic_Dispatcher(REBFRM *f)
 {
-    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    REBACT *phase = FRM_PHASE(f);
+    REBARR *details = ACT_DETAILS(phase);
     REBVAL *verb = KNOWN(ARR_HEAD(details));
     assert(IS_WORD(verb));
 
-    return Run_Generic_Dispatch(FRM_ARG(f, 1), f, verb);
+    // !!! It's technically possible to throw in locals or refinements at
+    // any point in the sequence.  So this should really be using something
+    // like a First_Unspecialized_Arg() call.  For now, we just handle the
+    // case of a RETURN: sitting in the first parameter slot.
+    //
+    REBVAL *first_arg = GET_ACTION_FLAG(phase, HAS_RETURN)
+        ? FRM_ARG(f, 2)
+        : FRM_ARG(f, 1);
+
+    return Run_Generic_Dispatch(first_arg, f, verb);
 }
 
 

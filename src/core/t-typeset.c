@@ -367,11 +367,12 @@ void MF_Typeset(REB_MOLD *mo, const REBCEL *v, bool form)
 //
 REBTYPE(Typeset)
 {
-    REBVAL *val = D_ARG(1);
+    REBVAL *v = D_ARG(1);
 
     switch (VAL_WORD_SYM(verb)) {
       case SYM_FIND: {
         INCLUDE_PARAMS_OF_FIND;
+        UNUSED(ARG(series));  // covered by `v`
 
         UNUSED(REF(only));  // !!! tolerate, even though ignored?
         UNUSED(REF(case));  // !!! tolerate, even though ignored?
@@ -387,7 +388,7 @@ REBTYPE(Typeset)
         if (not IS_DATATYPE(pattern))
             fail (pattern);
 
-        if (TYPE_CHECK(val, VAL_TYPE_KIND(pattern)))
+        if (TYPE_CHECK(v, VAL_TYPE_KIND(pattern)))
             return Init_True(D_OUT);
 
         return nullptr; }
@@ -410,27 +411,27 @@ REBTYPE(Typeset)
             fail (arg);
 
         if (VAL_WORD_SYM(verb) == SYM_UNION) {
-            VAL_TYPESET_LOW_BITS(val) |= VAL_TYPESET_LOW_BITS(arg);
-            VAL_TYPESET_HIGH_BITS(val) |= VAL_TYPESET_HIGH_BITS(arg);
+            VAL_TYPESET_LOW_BITS(v) |= VAL_TYPESET_LOW_BITS(arg);
+            VAL_TYPESET_HIGH_BITS(v) |= VAL_TYPESET_HIGH_BITS(arg);
         }
         else if (VAL_WORD_SYM(verb) == SYM_INTERSECT) {
-            VAL_TYPESET_LOW_BITS(val) &= VAL_TYPESET_LOW_BITS(arg);
-            VAL_TYPESET_HIGH_BITS(val) &= VAL_TYPESET_HIGH_BITS(arg);
+            VAL_TYPESET_LOW_BITS(v) &= VAL_TYPESET_LOW_BITS(arg);
+            VAL_TYPESET_HIGH_BITS(v) &= VAL_TYPESET_HIGH_BITS(arg);
         }
         else {
             assert(VAL_WORD_SYM(verb) == SYM_DIFFERENCE);
-            VAL_TYPESET_LOW_BITS(val) ^= VAL_TYPESET_LOW_BITS(arg);
-            VAL_TYPESET_HIGH_BITS(val) ^= VAL_TYPESET_HIGH_BITS(arg);
+            VAL_TYPESET_LOW_BITS(v) ^= VAL_TYPESET_LOW_BITS(arg);
+            VAL_TYPESET_HIGH_BITS(v) ^= VAL_TYPESET_HIGH_BITS(arg);
         }
-        RETURN (val); }
+        RETURN (v); }
 
       case SYM_COMPLEMENT: {
-        VAL_TYPESET_LOW_BITS(val) = ~VAL_TYPESET_LOW_BITS(val);
-        VAL_TYPESET_HIGH_BITS(val) = ~VAL_TYPESET_HIGH_BITS(val);
-        RETURN (val); }
+        VAL_TYPESET_LOW_BITS(v) = ~VAL_TYPESET_LOW_BITS(v);
+        VAL_TYPESET_HIGH_BITS(v) = ~VAL_TYPESET_HIGH_BITS(v);
+        RETURN (v); }
 
       case SYM_COPY:
-        RETURN (val);
+        RETURN (v);
 
       default:
         break;

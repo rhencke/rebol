@@ -82,6 +82,21 @@ emit-include-params-macro: function [
 
     n: 1
     items: try collect* [
+        ;
+        ; All natives *should* specify a `return:`, because it's important
+        ; to document what the return types are (and HELP should show it).
+        ; However, only the debug build actually *type checks* the result;
+        ; the C code is trusted otherwise to do the correct thing.
+        ;
+        ; By convention, definitional returns are the first argument.  (It is
+        ; not currently enforced they actually be first in the parameter list
+        ; the user provides...so making actions may have to shuffle the
+        ; position.  But it may come to be enforced for efficiency).
+        ;
+        keep {PARAM(1, return)}
+        keep {USED(ARG(return))}  ; Suppress warning about not using return
+        n: n + 1
+
         for-each item paramlist [
             any [
                 not match [any-word! refinement! lit-word!] item

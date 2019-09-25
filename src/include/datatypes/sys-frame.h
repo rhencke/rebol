@@ -863,9 +863,25 @@ inline static void Drop_Action(REBFRM *f) {
 //
 #define D_FRAME     frame_
 #define D_OUT       FRM_OUT(frame_)         // GC-safe slot for output value
-#define D_ARG(n)    FRM_ARG(frame_, (n))    // pass 1 for first arg
 #define D_SPARE     FRM_SPARE(frame_)       // scratch GC-safe cell
 
+// !!! Numbered arguments got more complicated with the idea of moving the
+// definitional returns into the first slot (if applicable).  This makes it
+// more important to use the named ARG() and REF() macros.  As a stopgap
+// measure, we just sense whether the phase has a return or not.
+//
+inline static REBVAL *D_ARG_Core(REBFRM *f, REBLEN n) {  // 1 for first arg
+    return GET_ACTION_FLAG(FRM_PHASE(f), HAS_RETURN)
+        ? FRM_ARG(f, n + 1)
+        : FRM_ARG(f, n);
+}
+#define D_ARG(n) \
+    D_ARG_Core(frame_, (n))
+
+// Convenience routine for returning a value which is *not* located in D_OUT.
+// (If at all possible, it's better to build values directly into D_OUT and
+// then return the D_OUT pointer...this is the fastest form of returning.)
+//
 #define RETURN(v) \
     return Move_Value(D_OUT, (v));
 
@@ -896,7 +912,7 @@ inline static void Enter_Native(REBFRM *f) {
 //
 inline static void FAIL_IF_BAD_RETURN_TYPE(REBFRM *f) {
     REBACT *phase = FRM_PHASE(f);
-    REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
+    REBVAL *typeset = ACT_PARAMS_HEAD(phase);
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
 
     // Typeset bits for locals in frames are usually ignored, but the RETURN:

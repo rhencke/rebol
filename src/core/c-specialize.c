@@ -1184,8 +1184,12 @@ REBNATIVE(does)
             nullptr // don't set up a binder; just poke specializee in frame
         );
         assert(GET_SERIES_FLAG(exemplar, MANAGED));
-        Move_Value(CTX_VAR(exemplar, 1), specializee);
-        SET_CELL_FLAG(CTX_VAR(exemplar, 1), ARG_MARKED_CHECKED); // checked
+
+        // Put argument into DO's *second* frame slot (first is RETURN)
+        //
+        assert(VAL_KEY_SYM(CTX_KEY(exemplar, 1)) == SYM_RETURN);
+        Move_Value(CTX_VAR(exemplar, 2), specializee);
+        SET_CELL_FLAG(CTX_VAR(exemplar, 2), ARG_MARKED_CHECKED);
         Move_Value(specializee, NAT_VALUE(do));
     }
 

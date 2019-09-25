@@ -95,7 +95,7 @@
 
 //=//// PARAMLIST_FLAG_HAS_RETURN /////////////////////////////////////////=//
 //
-// Has a definitional RETURN in the last paramlist slot.
+// Has a definitional RETURN in the first paramlist slot.
 //
 #define PARAMLIST_FLAG_HAS_RETURN \
     ARRAY_FLAG_23

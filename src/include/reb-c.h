@@ -772,6 +772,10 @@
 // Though the version here is more verbose, it uses the specializations to
 // avoid excessive calls to memset() in the debug build.
 //
+
+#define USED(x) \
+    ((void)(x))
+
 #if defined(NDEBUG) || !defined(CPLUSPLUS_11)
     #define UNUSED(x) \
         ((void)(x))

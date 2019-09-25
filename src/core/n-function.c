@@ -181,7 +181,6 @@ REBNATIVE(return)
     if (not f_binding)
         fail (Error_Return_Archetype_Raw()); // must have binding to jump to
 
-    assert(f_binding->header.bits & ARRAY_FLAG_IS_VARLIST);
     target_frame = CTX_FRAME_MAY_FAIL(CTX(f_binding));
 
     // !!! We only have a REBFRM via the binding.  We don't have distinct
@@ -208,7 +207,7 @@ REBNATIVE(return)
     // Defininitional returns are "locals"--there's no argument type check.
     // So TYPESET! bits in the RETURN param are used for legal return types.
     //
-    REBVAL *typeset = ACT_PARAM(target_fun, ACT_NUM_PARAMS(target_fun));
+    REBVAL *typeset = ACT_PARAMS_HEAD(target_fun);
     assert(VAL_PARAM_CLASS(typeset) == REB_P_RETURN);
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
 
@@ -758,7 +757,7 @@ REBNATIVE(skinner_return_helper)
 
     REBACT *phase = ACT(FRM_BINDING(f));
 
-    REBVAL *param = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
+    REBVAL *param = ACT_PARAMS_HEAD(phase);
     assert(VAL_PARAM_SYM(param) == SYM_RETURN);
 
     // Typeset bits for locals in frames are usually ignored, but the RETURN:

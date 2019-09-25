@@ -9,6 +9,6 @@
 
     did all [
        [arg] = parameters of :foo  ; doesn't expose locals
-       [arg local frame return] = foo 20  ; exposes locals as WORD!s
+       [return arg local frame] = foo 20  ; exposes locals as WORD!s
     ]
 )

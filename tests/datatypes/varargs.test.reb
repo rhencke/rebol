@@ -185,15 +185,15 @@
             [<opt> any-value!]
         :args [<opt> any-value! <...>]
         :args-normal [<opt> any-value! <...>]
-        <local> first-key first-val
+        <local> first-arg
     ][
         test: first args
         switch type of :test [
             word! path! [
                 if action? get test [
                     f: make frame! args
-                    for-each ['first-key 'first-val] f [break]
-                    either-match false do f [return first-val]
+                    first-arg: get in f first parameters of action of f
+                    either-match false do f [return first-arg]
                     return null
                 ]
             ]

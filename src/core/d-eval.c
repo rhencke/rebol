@@ -279,7 +279,7 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
     //
   #ifdef DEBUG_NATIVE_RETURNS
     if (GET_ACTION_FLAG(phase, HAS_RETURN)) {
-        REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
+        REBVAL *typeset = ACT_PARAMS_HEAD(phase);
         assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
         if (
             not Typecheck_Including_Quoteds(typeset, f->out)

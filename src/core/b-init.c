@@ -220,13 +220,15 @@ REBNATIVE(generic)
     // be able to inventory which types had registered generic dispatchers
     // and list the appropriate types from HELP.
     //
-    RELVAL *first_param = ARR_AT(paramlist, 1);
-    TYPE_SET(first_param, REB_CUSTOM);
+    RELVAL *param = ARR_AT(paramlist, 1);
     if (SER(paramlist)->header.bits & PARAMLIST_FLAG_HAS_RETURN) {
-        RELVAL *return_param = ARR_AT(paramlist, ARR_LEN(paramlist) - 1);
-        assert(VAL_PARAM_SYM(return_param) == SYM_RETURN);
-        TYPE_SET(return_param, REB_CUSTOM);
+        assert(VAL_PARAM_SYM(param) == SYM_RETURN);
+        TYPE_SET(param, REB_CUSTOM);
+        ++param;
     }
+    while (VAL_PARAM_CLASS(param) != REB_P_NORMAL)
+        ++param;
+    TYPE_SET(param, REB_CUSTOM);
 
     REBACT *generic = Make_Action(
         paramlist,
