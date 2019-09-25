@@ -55,8 +55,6 @@ EXTERN_C REBDEV Dev_Net;
 //
 static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 {
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
-
     // !!! The DNS shares "lazy initialization" code with the network code.
     // This is because before you can call any network operations on Windows,
     // you need to call WSAStartup, but you don't necessarily want to pay
@@ -74,13 +72,13 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
     switch (VAL_WORD_SYM(verb)) {
       case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
+        UNUSED(ARG(value));  // covered by `port`
 
-        UNUSED(ARG(value));
         REBSYM property = VAL_WORD_SYM(ARG(property));
         assert(property != SYM_0);
 
         switch (property) {
-        case SYM_OPEN_Q:
+          case SYM_OPEN_Q:
             return Init_Logic(D_OUT, did (sock->flags & RRF_OPEN));
 
           default:
@@ -91,8 +89,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
       case SYM_READ: {
         INCLUDE_PARAMS_OF_READ;
-
-        UNUSED(PAR(source));
+        UNUSED(PAR(source));  // covered by `port`
 
         if (REF(part) or REF(seek))
             fail (Error_Bad_Refines_Raw());
@@ -103,7 +100,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         if (not (sock->flags & RRF_OPEN))
             OS_DO_DEVICE_SYNC(req, RDC_OPEN);  // e.g. to call WSAStartup()
 
-        arg = Obj_Value(spec, STD_PORT_SPEC_NET_HOST);
+        REBVAL *host = Obj_Value(spec, STD_PORT_SPEC_NET_HOST);
 
         HOSTENT *he;
 
@@ -111,23 +108,23 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         // lookup.  The scheme handler may pass in either a TUPLE! or a string
         // that scans to a tuple, at this time (currently uses a string)
         //
-        if (IS_TUPLE(arg)) {
+        if (IS_TUPLE(host)) {
           reverse_lookup:
-            if (VAL_TUPLE_LEN(arg) != 4)
+            if (VAL_TUPLE_LEN(host) != 4)
                 fail ("Reverse DNS lookup requires length 4 TUPLE!");
 
             // 93.184.216.34 => example.com
-            he = gethostbyaddr(cast(char*, VAL_TUPLE(arg)), 4, AF_INET);
+            he = gethostbyaddr(cast(char*, VAL_TUPLE(host)), 4, AF_INET);
             if (he != nullptr)
                 return Init_Text(D_OUT, Make_String_UTF8(he->h_name));
 
             // ...else fall through to error handling...
         }
-        else if (IS_TEXT(arg)) {
+        else if (IS_TEXT(host)) {
             REBSIZ utf8_size;
-            const REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, arg);
+            const REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, host);
 
-            if (Scan_Tuple(arg, utf8, utf8_size) != NULL)
+            if (Scan_Tuple(host, utf8, utf8_size) != NULL)
                 goto reverse_lookup;
 
             // example.com => 93.184.216.34

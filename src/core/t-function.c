@@ -164,10 +164,9 @@ void MF_Action(REB_MOLD *mo, const REBCEL *v, bool form)
 REBTYPE(Action)
 {
     REBVAL *value = D_ARG(1);
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     switch (VAL_WORD_SYM(verb)) {
-    case SYM_COPY: {
+      case SYM_COPY: {
         INCLUDE_PARAMS_OF_COPY;
 
         UNUSED(PAR(value));
@@ -220,12 +219,12 @@ REBTYPE(Action)
 
         return Init_Action_Maybe_Bound(D_OUT, proxy, VAL_BINDING(value)); }
 
-    case SYM_REFLECT: {
+      case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
         UNUSED(ARG(value));
 
-        REBSYM property = VAL_WORD_SYM(ARG(property));
-        switch (property) {
+        REBVAL *property = ARG(property);
+        switch (VAL_WORD_SYM(property)) {
           case SYM_BINDING: {
             if (Did_Get_Binding_Of(D_OUT, value))
                 return D_OUT;
@@ -286,7 +285,9 @@ REBTYPE(Action)
             if (NOT_ARRAY_FLAG(a, HAS_FILE_LINE_UNMASKED))
                 return nullptr;
 
-            if (property == SYM_FILE)  // !!! How to tell URL! vs FILE! ?
+            // !!! How to tell URL! vs FILE! ?
+            //
+            if (VAL_WORD_SYM(property) == SYM_FILE)
                 Init_File(D_OUT, LINK_FILE(a));
             else
                 Init_Integer(D_OUT, MISC(a).line);
@@ -294,7 +295,7 @@ REBTYPE(Action)
             return D_OUT; }
 
           default:
-            fail (Error_Cannot_Reflect(VAL_TYPE(value), arg));
+            fail (Error_Cannot_Reflect(VAL_TYPE(value), property));
         }
         break; }
 

@@ -123,8 +123,8 @@ REB_R MAKE_Array(
         //
         if (
             VAL_ARRAY_LEN_AT(arg) != 2
-            || !ANY_ARRAY(VAL_ARRAY_AT(arg))
-            || !IS_INTEGER(VAL_ARRAY_AT(arg) + 1)
+            or not ANY_ARRAY(VAL_ARRAY_AT(arg))
+            or not IS_INTEGER(VAL_ARRAY_AT(arg) + 1)
         ) {
             goto bad_make;
         }
@@ -132,7 +132,7 @@ REB_R MAKE_Array(
         RELVAL *any_array = VAL_ARRAY_AT(arg);
         REBINT index = VAL_INDEX(any_array) + Int32(VAL_ARRAY_AT(arg) + 1) - 1;
 
-        if (index < 0 || index > cast(REBINT, VAL_LEN_HEAD(any_array)))
+        if (index < 0 or index > cast(REBINT, VAL_LEN_HEAD(any_array)))
             goto bad_make;
 
         // !!! Previously this code would clear line break options on path
@@ -337,14 +337,14 @@ REBLEN Find_In_Array(
     // Optimized find word in block
     //
     if (ANY_WORD(target)) {
-        for (; index >= start && index < end; index += skip) {
+        for (; index >= start and index < end; index += skip) {
             RELVAL *item = ARR_AT(array, index);
             REBSTR *target_canon = VAL_WORD_CANON(target); // canonize once
             if (ANY_WORD(item)) {
                 if (flags & AM_FIND_CASE) { // Must be same type and spelling
                     if (
                         VAL_WORD_SPELLING(item) == VAL_WORD_SPELLING(target)
-                        && VAL_TYPE(item) == VAL_TYPE(target)
+                        and VAL_TYPE(item) == VAL_TYPE(target)
                     ){
                         return index;
                     }
@@ -370,7 +370,7 @@ REBLEN Find_In_Array(
             RELVAL *other = VAL_ARRAY_AT(target);
             for (; NOT_END(other); ++other, ++item) {
                 if (
-                    IS_END(item) ||
+                    IS_END(item) or
                     0 != Cmp_Value(item, other, did (flags & AM_FIND_CASE))
                 ){
                     break;
@@ -386,8 +386,8 @@ REBLEN Find_In_Array(
 
     // Find a datatype in block
     //
-    if (IS_DATATYPE(target) || IS_TYPESET(target)) {
-        for (; index >= start && index < end; index += skip) {
+    if (IS_DATATYPE(target) or IS_TYPESET(target)) {
+        for (; index >= start and index < end; index += skip) {
             RELVAL *item = ARR_AT(array, index);
 
             if (IS_DATATYPE(target)) {
@@ -395,7 +395,7 @@ REBLEN Find_In_Array(
                     return index;
                 if (
                     IS_DATATYPE(item)
-                    && VAL_TYPE_KIND(item) == VAL_TYPE_KIND(target)
+                    and VAL_TYPE_KIND(item) == VAL_TYPE_KIND(target)
                 ){
                     return index;
                 }
@@ -405,11 +405,11 @@ REBLEN Find_In_Array(
                     return index;
                 if (
                     IS_DATATYPE(item)
-                    && TYPE_CHECK(target, VAL_TYPE_KIND(item))
+                    and TYPE_CHECK(target, VAL_TYPE_KIND(item))
                 ){
                     return index;
                 }
-                if (IS_TYPESET(item) && EQUAL_TYPESET(item, target))
+                if (IS_TYPESET(item) and EQUAL_TYPESET(item, target))
                     return index;
             }
             if (flags & AM_FIND_MATCH)
@@ -420,7 +420,7 @@ REBLEN Find_In_Array(
 
     // All other cases
 
-    for (; index >= start && index < end; index += skip) {
+    for (; index >= start and index < end; index += skip) {
         RELVAL *item = ARR_AT(array, index);
         if (0 == Cmp_Value(item, target, did (flags & AM_FIND_CASE)))
             return index;
@@ -562,7 +562,7 @@ static void Sort_Block(
     REBLEN skip;
     if (not IS_BLANK(skipv)) {
         skip = Get_Num_From_Arg(skipv);
-        if (skip <= 0 || len % skip != 0 || skip > len)
+        if (skip <= 0 or len % skip != 0 or skip > len)
             fail (Error_Out_Of_Range(skipv));
     }
     else
@@ -651,7 +651,7 @@ REB_R PD_Array(
         RELVAL *item = VAL_ARRAY_AT(pvs->out);
         REBLEN index = VAL_INDEX(pvs->out);
         for (; NOT_END(item); ++item, ++index) {
-            if (ANY_WORD(item) && canon == VAL_WORD_CANON(item)) {
+            if (ANY_WORD(item) and canon == VAL_WORD_CANON(item)) {
                 n = index + 1;
                 break;
             }
@@ -706,7 +706,7 @@ RELVAL *Pick_Block(REBVAL *out, const REBVAL *block, const REBVAL *picker)
 {
     REBINT n = Get_Num_From_Arg(picker);
     n += VAL_INDEX(block) - 1;
-    if (n < 0 || cast(REBLEN, n) >= VAL_LEN_HEAD(block)) {
+    if (n < 0 or cast(REBLEN, n) >= VAL_LEN_HEAD(block)) {
         Init_Nulled(out);
         return NULL;
     }
@@ -735,7 +735,7 @@ void MF_Array(REB_MOLD *mo, const REBCEL *v, bool form)
     }
 
     bool all;
-    if (VAL_INDEX(v) == 0) { // "&& VAL_TYPE(v) <= REB_LIT_PATH" commented out
+    if (VAL_INDEX(v) == 0) { // "and VAL_TYPE(v) <= REB_LIT_PATH" commented out
         //
         // Optimize when no index needed
         //
@@ -819,7 +819,6 @@ void MF_Array(REB_MOLD *mo, const REBCEL *v, bool form)
 REBTYPE(Array)
 {
     REBVAL *array = D_ARG(1);
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     REBARR *arr = VAL_ARRAY(array);
     REBSPC *specifier = VAL_SPECIFIER(array);
@@ -881,14 +880,14 @@ REBTYPE(Array)
       case SYM_FIND:
       case SYM_SELECT: {
         INCLUDE_PARAMS_OF_FIND; // must be same as select
+        UNUSED(PAR(series));
 
         UNUSED(REF(reverse));  // Deprecated https://forum.rebol.info/t/1126
         UNUSED(REF(last));  // ...a HIJACK in %mezz-legacy errors if used
 
-        UNUSED(PAR(series));
-        UNUSED(PAR(pattern)); // aliased as arg
+        REBVAL *pattern = ARG(pattern);
 
-        REBINT len = ANY_ARRAY(arg) ? VAL_ARRAY_LEN_AT(arg) : 1;
+        REBINT len = ANY_ARRAY(pattern) ? VAL_ARRAY_LEN_AT(pattern) : 1;
 
         REBLEN limit = Part_Tail_May_Modify_Index(array, ARG(part));
 
@@ -910,7 +909,7 @@ REBTYPE(Array)
             skip = 1;
 
         REBLEN ret = Find_In_Array(
-            arr, index, limit, arg, len, flags, skip
+            arr, index, limit, pattern, len, flags, skip
         );
 
         if (ret == NOT_FOUND)
@@ -922,7 +921,7 @@ REBTYPE(Array)
             len = 1;
 
         if (VAL_WORD_SYM(verb) == SYM_FIND) {
-            if (REF(tail) || REF(match))
+            if (REF(tail) or REF(match))
                 ret += len;
             VAL_INDEX(array) = ret;
             Move_Value(D_OUT, array);
@@ -941,9 +940,7 @@ REBTYPE(Array)
       case SYM_INSERT:
       case SYM_CHANGE: {
         INCLUDE_PARAMS_OF_INSERT;
-
         UNUSED(PAR(series));
-        UNUSED(PAR(value));
 
         REBLEN len; // length of target
         if (VAL_WORD_SYM(verb) == SYM_CHANGE)
@@ -954,7 +951,7 @@ REBTYPE(Array)
         // Note that while inserting or appending NULL is a no-op, CHANGE with
         // a /PART can actually erase data.
         //
-        if (IS_NULLED(arg) and len == 0) { // only nulls bypass write attempts
+        if (IS_NULLED(ARG(value)) and len == 0) {  // only nulls bypass writes
             if (sym == SYM_APPEND) // append always returns head
                 VAL_INDEX(array) = 0;
             RETURN (array); // don't fail on read only if it would be a no-op
@@ -966,7 +963,7 @@ REBTYPE(Array)
         REBFLGS flags = 0;
         if (
             not REF(only)
-            and Splices_Into_Type_Without_Only(VAL_TYPE(array), arg)
+            and Splices_Into_Type_Without_Only(VAL_TYPE(array), ARG(value))
         ){
             flags |= AM_SPLICE;
         }
@@ -980,7 +977,7 @@ REBTYPE(Array)
             VAL_WORD_SPELLING(verb),
             arr,
             index,
-            arg,
+            ARG(value),
             flags,
             len,
             REF(dup) ? Int32(ARG(dup)) : 1
@@ -1002,9 +999,8 @@ REBTYPE(Array)
 
     //-- Creation:
 
-    case SYM_COPY: {
+      case SYM_COPY: {
         INCLUDE_PARAMS_OF_COPY;
-
         UNUSED(PAR(value));
 
         REBU64 types = 0;
@@ -1043,12 +1039,12 @@ REBTYPE(Array)
             types // types to copy deeply
         );
 
-        return Init_Any_Array(D_OUT, VAL_TYPE(array), copy);
-    }
+        return Init_Any_Array(D_OUT, VAL_TYPE(array), copy); }
 
     //-- Special actions:
 
-    case SYM_SWAP: {
+      case SYM_SWAP: {
+        REBVAL *arg = D_ARG(2);
         if (not ANY_ARRAY(arg))
             fail (arg);
 
@@ -1059,7 +1055,7 @@ REBTYPE(Array)
 
         if (
             index < VAL_LEN_HEAD(array)
-            && VAL_INDEX(arg) < VAL_LEN_HEAD(arg)
+            and VAL_INDEX(arg) < VAL_LEN_HEAD(arg)
         ){
             // RELVAL bits can be copied within the same array
             //
@@ -1071,12 +1067,11 @@ REBTYPE(Array)
             Blit_Cell(VAL_ARRAY_AT(array), VAL_ARRAY_AT(arg));
             Blit_Cell(VAL_ARRAY_AT(arg), &temp);
         }
-        RETURN (array);
-    }
+        RETURN (array); }
 
-    case SYM_REVERSE: {
+      case SYM_REVERSE: {
         INCLUDE_PARAMS_OF_REVERSE;
-        UNUSED(ARG(series));
+        UNUSED(ARG(series));  // covered by `v`
 
         FAIL_IF_READ_ONLY(array);
 
@@ -1125,13 +1120,11 @@ REBTYPE(Array)
             else
                 CLEAR_CELL_FLAG(back, NEWLINE_BEFORE);
         }
-        RETURN (array);
-    }
+        RETURN (array); }
 
-    case SYM_SORT: {
+      case SYM_SORT: {
         INCLUDE_PARAMS_OF_SORT;
-
-        UNUSED(PAR(series));
+        UNUSED(PAR(series));  // covered by `v`
 
         FAIL_IF_READ_ONLY(array);
 
@@ -1144,13 +1137,11 @@ REBTYPE(Array)
             REF(all),
             REF(reverse)
         );
-        RETURN (array);
-    }
+        RETURN (array); }
 
-    case SYM_RANDOM: {
+      case SYM_RANDOM: {
         INCLUDE_PARAMS_OF_RANDOM;
-
-        UNUSED(PAR(value));
+        UNUSED(PAR(value));  // covered by `v`
 
         REBLEN index = VAL_INDEX(array);
 
@@ -1173,15 +1164,13 @@ REBTYPE(Array)
                 return nullptr;
             }
             return Inherit_Const(D_OUT, array);
-
         }
 
         FAIL_IF_READ_ONLY(array);
         Shuffle_Block(array, REF(secure));
-        RETURN (array);
-    }
+        RETURN (array); }
 
-    default:
+      default:
         break; // fallthrough to error
     }
 

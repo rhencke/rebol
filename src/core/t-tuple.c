@@ -317,7 +317,6 @@ void MF_Tuple(REB_MOLD *mo, const REBCEL *v, bool form)
 REBTYPE(Tuple)
 {
     REBVAL *value = D_ARG(1);
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
     const REBYTE *ap;
     REBLEN alen;
     REBINT  a;
@@ -345,6 +344,8 @@ REBTYPE(Tuple)
         or sym == SYM_DIFFERENCE
     ){
         assert(vp);
+
+        REBVAL *arg = D_ARG(2);
 
         if (IS_INTEGER(arg)) {
             dec = -207.6382; // unused but avoid maybe uninitialized warning

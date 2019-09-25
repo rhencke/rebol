@@ -128,8 +128,6 @@ REBVAL *Find_Last_Event(REBINT model, uint32_t type)
 //
 REB_R Event_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 {
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
-
     // Validate and fetch relevant PORT fields:
     //
     REBCTX *ctx = VAL_CONTEXT(port);
@@ -167,14 +165,16 @@ REB_R Event_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
     // Normal block actions done on events:
     case SYM_POKE:
-        if (!IS_EVENT(D_ARG(3)))
+        if (not IS_EVENT(D_ARG(3)))
             fail (D_ARG(3));
         goto act_blk;
+
     case SYM_INSERT:
     case SYM_APPEND:
-        if (!IS_EVENT(arg))
-            fail (arg);
-        // falls through
+        if (not IS_EVENT(D_ARG(2)))
+            fail (D_ARG(2));
+        goto act_blk;
+
     case SYM_PICK: {
     act_blk:;
         //

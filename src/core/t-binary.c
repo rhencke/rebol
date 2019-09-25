@@ -573,8 +573,6 @@ REBTYPE(Binary)
     REBVAL *v = D_ARG(1);
     assert(IS_BINARY(v));
 
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
-
     // Common setup code for all actions:
     //
     REBINT index = cast(REBINT, VAL_INDEX(v));
@@ -583,24 +581,22 @@ REBTYPE(Binary)
     REBSYM sym = VAL_WORD_SYM(verb);
     switch (sym) {
 
-        // INTERSECT, UNION, DIFFERENCE handled later in the switch
+        // Note: INTERSECT, UNION, DIFFERENCE handled later in the switch
         //
-    case SYM_REFLECT:
-    case SYM_SKIP:
-    case SYM_AT:
-    case SYM_REMOVE:
+      case SYM_REFLECT:
+      case SYM_SKIP:
+      case SYM_AT:
+      case SYM_REMOVE:
         return Series_Common_Action_Maybe_Unhandled(frame_, verb);
 
     //-- Modification:
-    case SYM_APPEND:
-    case SYM_INSERT:
-    case SYM_CHANGE: {
-        INCLUDE_PARAMS_OF_INSERT;
+      case SYM_APPEND:
+      case SYM_INSERT:
+      case SYM_CHANGE: {
+        INCLUDE_PARAMS_OF_INSERT;  // compatible frame with APPEND, CHANGE
+        UNUSED(PAR(series));  // covered by `v`
 
         FAIL_IF_READ_ONLY(v);
-
-        UNUSED(PAR(series));
-        UNUSED(PAR(value));
 
         if (REF(only)) {
             // !!! Doesn't pay attention...all binary appends are /ONLY
@@ -621,7 +617,7 @@ REBTYPE(Binary)
         VAL_INDEX(v) = Modify_String_Or_Binary(
             v,
             VAL_WORD_CANON(verb),
-            arg,
+            ARG(value),
             flags,
             len,
             REF(dup) ? Int32(ARG(dup)) : 1
@@ -629,14 +625,14 @@ REBTYPE(Binary)
         RETURN (v); }
 
     //-- Search:
-    case SYM_SELECT:
-    case SYM_FIND: {
+      case SYM_SELECT:
+      case SYM_FIND: {
         INCLUDE_PARAMS_OF_FIND;
+        UNUSED(PAR(series));  // covered by `v`
 
         UNUSED(REF(reverse));  // Deprecated https://forum.rebol.info/t/1126
         UNUSED(REF(last));  // ...a HIJACK in %mezz-legacy errors if used
 
-        UNUSED(PAR(series));
         REBVAL *pattern = ARG(pattern);
 
         // !!! R3-Alpha FIND/MATCH historically implied /TAIL.  Should it?
@@ -678,7 +674,7 @@ REBTYPE(Binary)
 
         return Init_Integer(D_OUT, *BIN_AT(VAL_SERIES(v), ret)); }
 
-    case SYM_TAKE_P: {
+      case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
 
         FAIL_IF_READ_ONLY(v);
@@ -731,7 +727,7 @@ REBTYPE(Binary)
         Remove_Series_Units(ser, VAL_INDEX(v), len);
         return D_OUT; }
 
-    case SYM_CLEAR: {
+      case SYM_CLEAR: {
         REBSER *ser = VAL_SERIES(v);
         FAIL_IF_READ_ONLY(v);
 
@@ -750,7 +746,7 @@ REBTYPE(Binary)
 
     //-- Creation:
 
-    case SYM_COPY: {
+      case SYM_COPY: {
         INCLUDE_PARAMS_OF_COPY;
 
         UNUSED(PAR(value));
@@ -768,9 +764,11 @@ REBTYPE(Binary)
 
     //-- Bitwise:
 
-    case SYM_INTERSECT:
-    case SYM_UNION:
-    case SYM_DIFFERENCE: {
+      case SYM_INTERSECT:
+      case SYM_UNION:
+      case SYM_DIFFERENCE: {
+        REBVAL *arg = D_ARG(2);
+
         if (VAL_INDEX(v) > VAL_LEN_HEAD(v))
             VAL_INDEX(v) = VAL_LEN_HEAD(v);
 
@@ -783,7 +781,7 @@ REBTYPE(Binary)
             Xandor_Binary(verb, v, arg)
         ); }
 
-    case SYM_COMPLEMENT: {
+      case SYM_COMPLEMENT: {
         return Init_Any_Series(
             D_OUT,
             REB_BINARY,
@@ -812,9 +810,10 @@ REBTYPE(Binary)
     // integer implementation was used; e.g. integers which exceeded the size
     // of the platform REBI64 would use BINARY! under the hood.
 
-    case SYM_SUBTRACT:
-    case SYM_ADD: {
+      case SYM_SUBTRACT:
+      case SYM_ADD: {
         FAIL_IF_READ_ONLY(v);
+        REBVAL *arg = D_ARG(2);
 
         REBINT amount;
         if (IS_INTEGER(arg))
@@ -869,8 +868,10 @@ REBTYPE(Binary)
 
     //-- Special actions:
 
-    case SYM_SWAP: {
+      case SYM_SWAP: {
         FAIL_IF_READ_ONLY(v);
+
+        REBVAL *arg = D_ARG(2);
 
         if (VAL_TYPE(v) != VAL_TYPE(arg))
             fail (Error_Not_Same_Type_Raw());
@@ -884,7 +885,7 @@ REBTYPE(Binary)
         }
         RETURN (v); }
 
-    case SYM_REVERSE: {
+      case SYM_REVERSE: {
         INCLUDE_PARAMS_OF_REVERSE;
         UNUSED(ARG(series));
 
@@ -895,7 +896,7 @@ REBTYPE(Binary)
             reverse_binary(v, len);
         RETURN (v); }
 
-    case SYM_SORT: {
+      case SYM_SORT: {
         INCLUDE_PARAMS_OF_SORT;
 
         FAIL_IF_READ_ONLY(v);
@@ -918,7 +919,7 @@ REBTYPE(Binary)
         );
         RETURN (v); }
 
-    case SYM_RANDOM: {
+      case SYM_RANDOM: {
         INCLUDE_PARAMS_OF_RANDOM;
 
         UNUSED(PAR(value));
@@ -941,7 +942,7 @@ REBTYPE(Binary)
         Shuffle_String(v, REF(secure));
         RETURN (v); }
 
-    default:
+      default:
         break;
     }
 

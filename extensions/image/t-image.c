@@ -947,7 +947,6 @@ void MF_Image(REB_MOLD *mo, const REBCEL *v, bool form)
 REBTYPE(Image)
 {
     REBVAL  *value = D_ARG(1);
-    REBVAL  *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
     REBINT  diff, len, w, h;
     REBVAL  *val;
 
@@ -1018,7 +1017,9 @@ REBTYPE(Image)
         return D_OUT;
 
     case SYM_SKIP:
-    case SYM_AT:
+    case SYM_AT: {
+        REBVAL *arg = D_ARG(2);
+
         // This logic is somewhat complicated by the fact that INTEGER args use
         // base-1 indexing, but PAIR args use base-0.
         if (IS_PAIR(arg)) {
@@ -1045,7 +1046,7 @@ REBTYPE(Image)
             index = 0;
 
         VAL_IMAGE_POS(value) = cast(REBLEN, index);
-        RETURN (value);
+        RETURN (value); }
 
     case SYM_CLEAR:
         FAIL_IF_READ_ONLY(value);
@@ -1088,16 +1089,16 @@ REBTYPE(Image)
         RETURN (value); }
 
     case SYM_APPEND:
-    case SYM_INSERT:  // insert ser val /part len /only /dup count
-    case SYM_CHANGE:  // change ser val /part len /only /dup count
-        if (IS_NULLED_OR_BLANK(arg)) {
+    case SYM_INSERT:   // insert ser val /part len /only /dup count
+    case SYM_CHANGE: { // change ser val /part len /only /dup count
+        if (IS_NULLED_OR_BLANK(D_ARG(2))) {
             if (sym == SYM_APPEND) // append returns head position
                 VAL_IMAGE_POS(value) = 0;
             RETURN (value); // don't fail on read only if it would be a no-op
         }
         FAIL_IF_READ_ONLY(value);
 
-        return Modify_Image(frame_, verb);
+        return Modify_Image(frame_, verb); }
 
     case SYM_FIND:
         Find_Image(frame_); // sets DS_OUT
@@ -1114,6 +1115,7 @@ REBTYPE(Image)
         if (REF(types))
             fail (Error_Bad_Refines_Raw());
 
+        REBVAL *arg;
         if (not REF(part)) {
             arg = value;
             goto makeCopy;

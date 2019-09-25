@@ -501,17 +501,12 @@ REB_R PD_Time(
 //
 REBTYPE(Time)
 {
-    REBVAL *val = D_ARG(1);
+    REBVAL *v = D_ARG(1);
 
-    REBI64 secs = VAL_NANO(val);
-
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
+    REBI64 secs = VAL_NANO(v);
 
     REBSYM sym = VAL_WORD_SYM(verb);
 
-    // !!! This used to use IS_BINARY_ACT(), which is not available under
-    // the symbol-based dispatch.  Consider doing another way.
-    //
     if (
         sym == SYM_ADD
         or sym == SYM_SUBTRACT
@@ -519,23 +514,22 @@ REBTYPE(Time)
         or sym == SYM_DIVIDE
         or sym == SYM_REMAINDER
     ){
-        REBINT  type = VAL_TYPE(arg);
-
-        assert(arg);
+        REBVAL *arg = D_ARG(2);
+        REBINT type = VAL_TYPE(arg);
 
         if (type == REB_TIME) {     // handle TIME - TIME cases
             REBI64 secs2 = VAL_NANO(arg);
 
             switch (sym) {
-            case SYM_ADD:
+              case SYM_ADD:
                 secs = Add_Max(REB_TIME, secs, secs2, MAX_TIME);
                 return Init_Time_Nanoseconds(D_OUT, secs);
 
-            case SYM_SUBTRACT:
+              case SYM_SUBTRACT:
                 secs = Add_Max(REB_TIME, secs, -secs2, MAX_TIME);
                 return Init_Time_Nanoseconds(D_OUT, secs);
 
-            case SYM_DIVIDE:
+              case SYM_DIVIDE:
                 if (secs2 == 0)
                     fail (Error_Zero_Divide_Raw());
                 return Init_Decimal(
@@ -543,13 +537,13 @@ REBTYPE(Time)
                     cast(REBDEC, secs) / cast(REBDEC, secs2)
                 );
 
-            case SYM_REMAINDER:
+              case SYM_REMAINDER:
                 if (secs2 == 0)
                     fail (Error_Zero_Divide_Raw());
                 secs %= secs2;
                 return Init_Time_Nanoseconds(D_OUT, secs);
 
-            default:
+              default:
                 fail (Error_Math_Args(REB_TIME, verb));
             }
         }
@@ -557,34 +551,34 @@ REBTYPE(Time)
             REBI64 num = VAL_INT64(arg);
 
             switch (VAL_WORD_SYM(verb)) {
-            case SYM_ADD:
+              case SYM_ADD:
                 secs = Add_Max(REB_TIME, secs, num * SEC_SEC, MAX_TIME);
                 return Init_Time_Nanoseconds(D_OUT, secs);
 
-            case SYM_SUBTRACT:
+              case SYM_SUBTRACT:
                 secs = Add_Max(REB_TIME, secs, num * -SEC_SEC, MAX_TIME);
                 return Init_Time_Nanoseconds(D_OUT, secs);
 
-            case SYM_MULTIPLY:
+              case SYM_MULTIPLY:
                 secs *= num;
                 if (secs < -MAX_TIME || secs > MAX_TIME)
                     fail (Error_Type_Limit_Raw(Datatype_From_Kind(REB_TIME)));
                 return Init_Time_Nanoseconds(D_OUT, secs);
 
-            case SYM_DIVIDE:
+              case SYM_DIVIDE:
                 if (num == 0)
                     fail (Error_Zero_Divide_Raw());
                 secs /= num;
                 Init_Integer(D_OUT, secs);
                 return Init_Time_Nanoseconds(D_OUT, secs);
 
-            case SYM_REMAINDER:
+              case SYM_REMAINDER:
                 if (num == 0)
                     fail (Error_Zero_Divide_Raw());
                 secs %= num;
                 return Init_Time_Nanoseconds(D_OUT, secs);
 
-            default:
+              default:
                 fail (Error_Math_Args(REB_TIME, verb));
             }
         }
@@ -592,7 +586,7 @@ REBTYPE(Time)
             REBDEC dec = VAL_DECIMAL(arg);
 
             switch (VAL_WORD_SYM(verb)) {
-            case SYM_ADD:
+              case SYM_ADD:
                 secs = Add_Max(
                     REB_TIME,
                     secs,
@@ -601,7 +595,7 @@ REBTYPE(Time)
                 );
                 return Init_Time_Nanoseconds(D_OUT, secs);
 
-            case SYM_SUBTRACT:
+              case SYM_SUBTRACT:
                 secs = Add_Max(
                     REB_TIME,
                     secs,
@@ -610,29 +604,34 @@ REBTYPE(Time)
                 );
                 return Init_Time_Nanoseconds(D_OUT, secs);
 
-            case SYM_MULTIPLY:
+              case SYM_MULTIPLY:
                 secs = cast(int64_t, secs * dec);
                 return Init_Time_Nanoseconds(D_OUT, secs);
 
-            case SYM_DIVIDE:
+              case SYM_DIVIDE:
                 if (dec == 0.0)
                     fail (Error_Zero_Divide_Raw());
                 secs = cast(int64_t, secs / dec);
                 return Init_Time_Nanoseconds(D_OUT, secs);
 
-//          case SYM_REMAINDER:
-//              ld = fmod(ld, VAL_DECIMAL(arg));
-//              goto decTime;
+              /*  // !!! Was commented out, why?
+             case SYM_REMAINDER:
+               ld = fmod(ld, VAL_DECIMAL(arg));
+               goto decTime; */
 
-            default:
+              default:
                 fail (Error_Math_Args(REB_TIME, verb));
             }
         }
-        else if (type == REB_DATE and sym == SYM_ADD) { // TIME + DATE case
-            // Swap args and call DATE datatupe:
-            Move_Value(D_ARG(3), val); // (temporary location for swap)
+        else if (type == REB_DATE and sym == SYM_ADD) {
+            //
+            // We're adding a time and a date, code for which exists in the
+            // date dispatcher already.  Instead of repeating the code here in
+            // the time dispatcher, swap the arguments and call DATE's version.
+            //
+            Move_Value(D_SPARE, v);
             Move_Value(D_ARG(1), arg);
-            Move_Value(D_ARG(2), D_ARG(3));
+            Move_Value(D_ARG(2), D_SPARE);
             return T_Date(frame_, verb);
         }
         fail (Error_Math_Args(REB_TIME, verb));
@@ -640,27 +639,26 @@ REBTYPE(Time)
     else {
         // unary actions
         switch (sym) {
-        case SYM_COPY:
-            RETURN (val);  // immediate type, just copy bits
+          case SYM_COPY:
+            RETURN (v);  // immediate type, just copy bits
 
-        case SYM_ODD_Q:
+          case SYM_ODD_Q:
             return Init_Logic(D_OUT, (SECS_FROM_NANO(secs) & 1) != 0);
 
-        case SYM_EVEN_Q:
+          case SYM_EVEN_Q:
             return Init_Logic(D_OUT, (SECS_FROM_NANO(secs) & 1) == 0);
 
-        case SYM_NEGATE:
+          case SYM_NEGATE:
             secs = -secs;
             return Init_Time_Nanoseconds(D_OUT, secs);
 
-        case SYM_ABSOLUTE:
+          case SYM_ABSOLUTE:
             if (secs < 0) secs = -secs;
             return Init_Time_Nanoseconds(D_OUT, secs);
 
-        case SYM_ROUND: {
+          case SYM_ROUND: {
             INCLUDE_PARAMS_OF_ROUND;
-
-            UNUSED(PAR(value));
+            UNUSED(PAR(value));  // covered by `v`
 
             REBFLGS flags = (
                 (REF(to) ? RF_TO : 0)
@@ -700,7 +698,7 @@ REBTYPE(Time)
 
             fail (PAR(to)); }
 
-        case SYM_RANDOM: {
+          case SYM_RANDOM: {
             INCLUDE_PARAMS_OF_RANDOM;
 
             UNUSED(PAR(value));
@@ -715,7 +713,7 @@ REBTYPE(Time)
             secs = Random_Range(secs / SEC_SEC, REF(secure)) * SEC_SEC;
             return Init_Time_Nanoseconds(D_OUT, secs); }
 
-        default:
+          default:
             break;
         }
     }

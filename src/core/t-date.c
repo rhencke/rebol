@@ -101,9 +101,9 @@ void MF_Date(REB_MOLD *mo, const REBCEL *v_orig, bool form)
 
     if (
         VAL_MONTH(v) == 0
-        || VAL_MONTH(v) > 12
-        || VAL_DAY(v) == 0
-        || VAL_DAY(v) > 31
+        or VAL_MONTH(v) > 12
+        or VAL_DAY(v) == 0
+        or VAL_DAY(v) > 31
     ) {
         Append_Ascii(mo->series, "?date?");
         return;
@@ -167,10 +167,10 @@ static REBLEN Month_Length(REBLEN month, REBLEN year)
         return Month_Max_Days[month];
 
     return (
-        ((year % 4) == 0) &&        // divisible by four is a leap year
+        ((year % 4) == 0) and  // divisible by four is a leap year
         (
-            ((year % 100) != 0) ||  // except when divisible by 100
-            ((year % 400) == 0)     // but not when divisible by 400
+            ((year % 100) != 0) or // except when divisible by 100
+            ((year % 400) == 0)  // but not when divisible by 400
         )
     ) ? 29 : 28;
 }
@@ -240,8 +240,8 @@ REBINT Diff_Date(REBYMD d1, REBYMD d2)
 
         REBLEN y;
         for (y = d2.year + 1; y < d1.year; y++) {
-            days += (((y % 4) == 0) &&  // divisible by four is a leap year
-                (((y % 100) != 0) ||    // except when divisible by 100
+            days += (((y % 4) == 0) and  // divisible by four is a leap year
+                (((y % 100) != 0) or  // except when divisible by 100
                 ((y % 400) == 0)))  // but not when divisible by 400
                 ? 366u : 365u;
         }
@@ -331,7 +331,7 @@ static REBYMD Normalize_Date(REBINT day, REBINT month, REBINT year, REBINT tz)
         day += cast(REBINT, Month_Length(month, year));
     }
 
-    if (year < 0 || year > MAX_YEAR)
+    if (year < 0 or year > MAX_YEAR)
         fail (Error_Type_Limit_Raw(Datatype_From_Kind(REB_DATE)));
 
     REBYMD dr;
@@ -461,7 +461,7 @@ REB_R MAKE_Date(
         return out;
     }
 
-    if (ANY_ARRAY(arg) && VAL_ARRAY_LEN_AT(arg) >= 3) {
+    if (ANY_ARRAY(arg) and VAL_ARRAY_LEN_AT(arg) >= 3) {
         const RELVAL *item = VAL_ARRAY_AT(arg);
         if (not IS_INTEGER(item))
             goto bad_make;
@@ -489,16 +489,16 @@ REB_R MAKE_Date(
             ++item;
         }
 
-        if (month < 1 || month > 12)
+        if (month < 1 or month > 12)
             goto bad_make;
 
-        if (year > MAX_YEAR || day < 1 || day > Month_Max_Days[month-1])
+        if (year > MAX_YEAR or day < 1 or day > Month_Max_Days[month-1])
             goto bad_make;
 
         // Check February for leap year or century:
-        if (month == 2 && day == 29) {
-            if (((year % 4) != 0) ||        // not leap year
-                ((year % 100) == 0 &&       // century?
+        if (month == 2 and day == 29) {
+            if (((year % 4) != 0) or        // not leap year
+                ((year % 100) == 0 and       // century?
                 (year % 400) != 0)) goto bad_make; // not leap century
         }
 
@@ -525,7 +525,7 @@ REB_R MAKE_Date(
                     goto bad_make;
 
                 tz = cast(REBINT, VAL_NANO(item) / (ZONE_MINS * MIN_SEC));
-                if (tz < -MAX_ZONE || tz > MAX_ZONE)
+                if (tz < -MAX_ZONE or tz > MAX_ZONE)
                     fail (Error_Out_Of_Range(KNOWN(item)));
                 ++item;
             }
@@ -559,7 +559,7 @@ REB_R TO_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
 
 static REBINT Int_From_Date_Arg(const REBVAL *opt_poke) {
-    if (IS_INTEGER(opt_poke) || IS_DECIMAL(opt_poke))
+    if (IS_INTEGER(opt_poke) or IS_DECIMAL(opt_poke))
         return Int32s(opt_poke, 0);
 
     if (IS_BLANK(opt_poke))
@@ -748,7 +748,7 @@ void Pick_Or_Poke_Date(
                 return;
             }
 
-            if (IS_TIME(opt_poke) || IS_DATE(opt_poke))
+            if (IS_TIME(opt_poke) or IS_DATE(opt_poke))
                 secs = VAL_NANO(opt_poke);
             else if (IS_INTEGER(opt_poke))
                 secs = Int_From_Date_Arg(opt_poke) * SEC_SEC;
@@ -773,7 +773,7 @@ void Pick_Or_Poke_Date(
                 tz = VAL_ZONE(opt_poke);
             else
                 tz = Int_From_Date_Arg(opt_poke) * (60 / ZONE_MINS);
-            if (tz > MAX_ZONE || tz < -MAX_ZONE)
+            if (tz > MAX_ZONE or tz < -MAX_ZONE)
                 fail (Error_Out_Of_Range(opt_poke));
             break;
 
@@ -887,23 +887,20 @@ REB_R PD_Date(
 //
 REBTYPE(Date)
 {
-    REBVAL *val = D_ARG(1);
-    assert(IS_DATE(val));
+    REBVAL *v = D_ARG(1);
+    assert(IS_DATE(v));
 
     REBSYM sym = VAL_WORD_SYM(verb);
 
-    RESET_CELL(D_OUT, REB_DATE, CELL_MASK_NONE);
+    REBYMD date = VAL_DATE(v);
+    REBLEN day = VAL_DAY(v) - 1;
+    REBLEN month = VAL_MONTH(v) - 1;
+    REBLEN year = VAL_YEAR(v);
+    REBI64 secs = Does_Date_Have_Time(v) ? VAL_NANO(v) : NO_DATE_TIME;
 
-    REBYMD date = VAL_DATE(val);
-    REBLEN day = VAL_DAY(val) - 1;
-    REBLEN month = VAL_MONTH(val) - 1;
-    REBLEN year = VAL_YEAR(val);
-    REBI64 secs = Does_Date_Have_Time(val) ? VAL_NANO(val) : NO_DATE_TIME;
-
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
-
-    if (sym == SYM_SUBTRACT || sym == SYM_ADD) {
-        REBINT  type = VAL_TYPE(arg);
+    if (sym == SYM_SUBTRACT or sym == SYM_ADD) {
+        REBVAL *arg = D_ARG(2);
+        REBINT type = VAL_TYPE(arg);
 
         if (type == REB_DATE) {
             if (sym == SYM_SUBTRACT)
@@ -914,24 +911,24 @@ REBTYPE(Date)
                 if (secs == NO_DATE_TIME)
                     secs = 0;
                 secs += VAL_NANO(arg);
-                goto fixTime;
+                goto fix_time;
             }
             if (sym == SYM_SUBTRACT) {
                 if (secs == NO_DATE_TIME)
                     secs = 0;
                 secs -= VAL_NANO(arg);
-                goto fixTime;
+                goto fix_time;
             }
         }
         else if (type == REB_INTEGER) {
             REBINT num = Int32(arg);
             if (sym == SYM_ADD) {
                 day += num;
-                goto fixDate;
+                goto fix_date;
             }
             if (sym == SYM_SUBTRACT) {
                 day -= num;
-                goto fixDate;
+                goto fix_date;
             }
         }
         else if (type == REB_DECIMAL) {
@@ -939,31 +936,30 @@ REBTYPE(Date)
             if (sym == SYM_ADD) {
                 if (secs == NO_DATE_TIME)
                     secs = 0;
-                secs += (REBI64)(dec * TIME_IN_DAY);
-                goto fixTime;
+                secs += cast(REBI64, dec * TIME_IN_DAY);
+                goto fix_time;
             }
             if (sym == SYM_SUBTRACT) {
                 if (secs == NO_DATE_TIME)
                     secs = 0;
-                secs -= (REBI64)(dec * TIME_IN_DAY);
-                goto fixTime;
+                secs -= cast(REBI64, dec * TIME_IN_DAY);
+                goto fix_time;
             }
         }
     }
     else {
         switch (sym) {
-        case SYM_COPY:
-            RETURN (val);  // immediate type, just copy bits
+          case SYM_COPY:
+            RETURN (v);  // immediate type, just copy bits
 
-        case SYM_EVEN_Q:
+          case SYM_EVEN_Q:
             return Init_Logic(D_OUT, ((~day) & 1) == 0);
 
-        case SYM_ODD_Q:
+          case SYM_ODD_Q:
             return Init_Logic(D_OUT, (day & 1) == 0);
 
-        case SYM_RANDOM: {
+          case SYM_RANDOM: {
             INCLUDE_PARAMS_OF_RANDOM;
-
             UNUSED(PAR(value));
 
             if (REF(only))
@@ -992,13 +988,12 @@ REBTYPE(Date)
             if (secs != NO_DATE_TIME)
                 secs = Random_Range(TIME_IN_DAY, secure);
 
-            goto fixDate;
-        }
+            goto fix_date; }
 
-        case SYM_ABSOLUTE:
-            goto setDate;
+          case SYM_ABSOLUTE:
+            goto set_date;
 
-        case SYM_DIFFERENCE: {
+          case SYM_DIFFERENCE: {
             INCLUDE_PARAMS_OF_DIFFERENCE;
 
             REBVAL *val1 = ARG(value1);
@@ -1023,25 +1018,26 @@ REBTYPE(Date)
             Subtract_Date(val1, val2, D_OUT);
             return D_OUT; }
 
-        default:
+          default:
             break;
         }
     }
 
     return R_UNHANDLED;
 
-fixTime:
+  fix_time:
     Normalize_Time(&secs, &day);
 
-fixDate:
+  fix_date:
     date = Normalize_Date(
         day,
         month,
         year,
-        Does_Date_Have_Zone(val) ? VAL_ZONE(val) : 0
+        Does_Date_Have_Zone(v) ? VAL_ZONE(v) : 0
     );
 
-setDate:
+  set_date:
+    RESET_CELL(D_OUT, REB_DATE, CELL_MASK_NONE);
     VAL_DATE(D_OUT) = date;
     PAYLOAD(Time, D_OUT).nanoseconds = secs; // may be NO_DATE_TIME
     if (secs == NO_DATE_TIME)

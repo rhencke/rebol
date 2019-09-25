@@ -860,13 +860,11 @@ void MF_Gob(REB_MOLD *mo, const REBCEL *v, bool form)
 //
 REBTYPE(Gob)
 {
-    const REBVAL *val = D_ARG(1);
+    const REBVAL *v = D_ARG(1);
 
-    REBGOB *gob = VAL_GOB(val);
-    REBLEN index = VAL_GOB_INDEX(val);
+    REBGOB *gob = VAL_GOB(v);
+    REBLEN index = VAL_GOB_INDEX(v);
     REBLEN tail = GOB_PANE(gob) ? GOB_LEN(gob) : 0;
-
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     // unary actions
     switch (VAL_WORD_SYM(verb)) {
@@ -934,12 +932,11 @@ REBTYPE(Gob)
         // fallthrough */
     case SYM_CHANGE: {
         INCLUDE_PARAMS_OF_CHANGE;
+        UNUSED(PAR(series));  // covered by `v`
 
-        UNUSED(PAR(series));
-        UNUSED(PAR(value)); // handled as `arg`
-
-        if (!IS_GOB(arg))
-            fail (arg);
+        REBVAL *value = ARG(value);
+        if (!IS_GOB(value))
+            fail (PAR(value));
 
         if (REF(line))
             fail (Error_Bad_Refines_Raw());
@@ -953,9 +950,9 @@ REBTYPE(Gob)
             fail (Error_Not_Done_Raw());
         }
 
-        Insert_Gobs(gob, arg, index, 1, false);
+        Insert_Gobs(gob, value, index, 1, false);
         if (VAL_WORD_SYM(verb) == SYM_POKE) {
-            Move_Value(D_OUT, arg);
+            Move_Value(D_OUT, value);
             return D_OUT;
         }
         index++;
@@ -966,12 +963,12 @@ REBTYPE(Gob)
         // falls through
     case SYM_INSERT: {
         INCLUDE_PARAMS_OF_INSERT;
+        UNUSED(PAR(series));  // covered by `v`
 
-        if (IS_NULLED_OR_BLANK(arg))
-            RETURN (val); // don't fail on read only if it would be a no-op
+        REBVAL *value = ARG(value);
 
-        UNUSED(PAR(series));
-        UNUSED(PAR(value));
+        if (IS_NULLED_OR_BLANK(value))
+            RETURN (v);  // don't fail on read only if it would be a no-op
 
         if (REF(line))
             fail (Error_Bad_Refines_Raw());
@@ -980,30 +977,29 @@ REBTYPE(Gob)
             fail (Error_Not_Done_Raw());
 
         REBLEN len;
-        if (IS_GOB(arg)) {
+        if (IS_GOB(value)) {
             len = 1;
         }
-        else if (IS_BLOCK(arg)) {
-            len = VAL_ARRAY_LEN_AT(arg);
-            arg = KNOWN(VAL_ARRAY_AT(arg)); // !!! REVIEW
+        else if (IS_BLOCK(value)) {
+            len = VAL_ARRAY_LEN_AT(value);
+            value = KNOWN(VAL_ARRAY_AT(value)); // !!! REVIEW
         }
         else
-            fail (arg);
+            fail (PAR(value));
 
-        Insert_Gobs(gob, arg, index, len, false);
+        Insert_Gobs(gob, value, index, len, false);
 
-        return Move_Value(D_OUT, val); }
+        RETURN (v); }
 
     case SYM_CLEAR:
         if (tail > index)
             Remove_Gobs(gob, index, tail - index);
 
-        Move_Value(D_OUT, val);
-        return D_OUT;
+        RETURN (v);
 
     case SYM_REMOVE: {
         INCLUDE_PARAMS_OF_REMOVE;
-        UNUSED(PAR(series));
+        UNUSED(PAR(series));  // covered by `v`
 
         REBLEN len = REF(part) ? Get_Num_From_Arg(ARG(part)) : 1;
         if (index + len > tail)
@@ -1011,13 +1007,11 @@ REBTYPE(Gob)
         if (index < tail && len != 0)
             Remove_Gobs(gob, index, len);
 
-        RETURN (val); }
+        RETURN (v); }
 
     case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
-
-        UNUSED(PAR(series)); // implicitly, it was this GOB!
-        /* UNUSED(REF(part)); */ // !!! APPLY not taking implicitly, review
+        UNUSED(PAR(series));  // covered by `v`
 
         // Pane is an ordinary array, so chain to the ordinary TAKE* code.
         // Its index is always at zero, because the GOB! instances are the
@@ -1040,12 +1034,12 @@ REBTYPE(Gob)
         index--;
         // falls through
     case SYM_SKIP:
-        index += VAL_INT32(arg);
+        index += VAL_INT32(D_ARG(2));
         goto set_index;
 
     case SYM_FIND:
-        if (IS_GOB(arg)) {
-            index = Find_Gob(gob, VAL_GOB(arg));
+        if (IS_GOB(D_ARG(2))) {
+            index = Find_Gob(gob, VAL_GOB(D_ARG(2)));
             if (index == NOT_FOUND)
                 return nullptr;
             goto set_index;

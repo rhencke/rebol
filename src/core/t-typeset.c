@@ -368,21 +368,35 @@ void MF_Typeset(REB_MOLD *mo, const REBCEL *v, bool form)
 REBTYPE(Typeset)
 {
     REBVAL *val = D_ARG(1);
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     switch (VAL_WORD_SYM(verb)) {
-      case SYM_FIND:
-        if (not IS_DATATYPE(arg))
-            fail (arg);
+      case SYM_FIND: {
+        INCLUDE_PARAMS_OF_FIND;
 
-        if (TYPE_CHECK(val, VAL_TYPE_KIND(arg)))
+        UNUSED(REF(only));  // !!! tolerate, even though ignored?
+        UNUSED(REF(case));  // !!! tolerate, even though ignored?
+
+        if (
+            REF(part) or REF(skip) or REF(tail) or REF(match)
+            or REF(reverse) or REF(last)
+        ){
+            fail (Error_Bad_Refines_Raw());
+        }
+
+        REBVAL *pattern = ARG(pattern);
+        if (not IS_DATATYPE(pattern))
+            fail (pattern);
+
+        if (TYPE_CHECK(val, VAL_TYPE_KIND(pattern)))
             return Init_True(D_OUT);
 
-        return nullptr;
+        return nullptr; }
 
       case SYM_INTERSECT:
       case SYM_UNION:
-      case SYM_DIFFERENCE:
+      case SYM_DIFFERENCE: {
+        REBVAL *arg = D_ARG(2);
+
         if (IS_DATATYPE(arg)) {
             REBYTE n = cast(REBYTE, VAL_TYPE(arg));
             if (n < 32)
@@ -408,7 +422,7 @@ REBTYPE(Typeset)
             VAL_TYPESET_LOW_BITS(val) ^= VAL_TYPESET_LOW_BITS(arg);
             VAL_TYPESET_HIGH_BITS(val) ^= VAL_TYPESET_HIGH_BITS(arg);
         }
-        RETURN (val);
+        RETURN (val); }
 
       case SYM_COMPLEMENT: {
         VAL_TYPESET_LOW_BITS(val) = ~VAL_TYPESET_LOW_BITS(val);

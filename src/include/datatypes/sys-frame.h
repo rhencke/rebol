@@ -863,7 +863,6 @@ inline static void Drop_Action(REBFRM *f) {
 //
 #define D_FRAME     frame_
 #define D_OUT       FRM_OUT(frame_)         // GC-safe slot for output value
-#define D_ARGC      FRM_NUM_ARGS(frame_)    // count of args+refinements/args
 #define D_ARG(n)    FRM_ARG(frame_, (n))    // pass 1 for first arg
 #define D_SPARE     FRM_SPARE(frame_)       // scratch GC-safe cell
 

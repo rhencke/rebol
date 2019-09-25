@@ -43,7 +43,6 @@ REB_R Series_Common_Action_Maybe_Unhandled(
     const REBVAL *verb
 ){
     REBVAL *value = D_ARG(1);
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     REBINT index = cast(REBINT, VAL_INDEX(value));
     REBINT tail = cast(REBINT, VAL_LEN_HEAD(value));
@@ -52,7 +51,10 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
     switch (VAL_WORD_SYM(verb)) {
       case SYM_REFLECT: {
-        REBSYM property = VAL_WORD_SYM(arg);
+        INCLUDE_PARAMS_OF_REFLECT;
+        UNUSED(PAR(value));  // covered by `value`
+
+        REBSYM property = VAL_WORD_SYM(ARG(property));
         assert(property != SYM_0);
 
         switch (property) {
@@ -106,19 +108,19 @@ REB_R Series_Common_Action_Maybe_Unhandled(
       case SYM_SKIP:
       case SYM_AT: {
         INCLUDE_PARAMS_OF_SKIP; // must be compatible with AT
-
         UNUSED(ARG(series)); // is already `value`
-        UNUSED(ARG(offset)); // is already `arg` (AT calls this ARG(index))
 
-        REBINT len = Get_Num_From_Arg(arg);
+        REBVAL *offset = ARG(offset);
+
+        REBINT len = Get_Num_From_Arg(offset);
         REBI64 i;
         if (VAL_WORD_SYM(verb) == SYM_SKIP) {
             //
             // `skip x logic` means `either logic [skip x] [x]` (this is
             // reversed from R3-Alpha and Rebol2, which skipped when false)
             //
-            if (IS_LOGIC(arg)) {
-                if (VAL_LOGIC(arg))
+            if (IS_LOGIC(offset)) {
+                if (VAL_LOGIC(offset))
                     i = cast(REBI64, index) + 1;
                 else
                     i = cast(REBI64, index);
@@ -188,13 +190,11 @@ REB_R Series_Common_Action_Maybe_Unhandled(
         goto set_operation;
 
       set_operation: {
+        INCLUDE_PARAMS_OF_DIFFERENCE;  // should all have same spec
+        UNUSED(ARG(value1));  // covered by `value`
 
         if (IS_BINARY(value))
             return R_UNHANDLED; // !!! unhandled; use bitwise math, for now
-
-        INCLUDE_PARAMS_OF_DIFFERENCE;  // should all have same spec
-
-        UNUSED(ARG(value1)); // covered by value
 
         return Init_Any_Series(
             D_OUT,

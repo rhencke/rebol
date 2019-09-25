@@ -47,11 +47,8 @@ static REB_R Clipboard_Actor(
     REBVAL *port,
     const REBVAL *verb
 ){
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
-
     switch (VAL_WORD_SYM(verb)) {
-
-    case SYM_REFLECT: {
+      case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
         UNUSED(ARG(value));  // implied by `port`
 
@@ -59,7 +56,7 @@ static REB_R Clipboard_Actor(
         assert(property != 0);
 
         switch (property) {
-        case SYM_OPEN_Q:
+          case SYM_OPEN_Q:
             return Init_Logic(D_OUT, true); // !!! need "port state"?  :-/
 
         default:
@@ -68,7 +65,7 @@ static REB_R Clipboard_Actor(
 
         break; }
 
-    case SYM_READ: {
+      case SYM_READ: {
         INCLUDE_PARAMS_OF_READ;
         UNUSED(ARG(source));  // implied by `port`
 
@@ -122,24 +119,25 @@ static REB_R Clipboard_Actor(
 
         return binary; }
 
-    case SYM_WRITE: {
+      case SYM_WRITE: {
         INCLUDE_PARAMS_OF_WRITE;
         UNUSED(ARG(destination));  // implied by `port`
-        UNUSED(ARG(data)); // implied by `arg`
 
         if (REF(seek) or REF(append) or REF(allow) or REF(lines))
             fail (Error_Bad_Refines_Raw());
+
+        REBVAL *data = ARG(data);
 
         // !!! Traditionally the currency of READ and WRITE is binary data.
         // R3-Alpha had a behavior of ostensibly taking string or binary, but
         // the length only made sense if it was a string.  Review.
         //
-        if (rebNot("text?", arg, rebEND))
-            fail (Error_Invalid_Port_Arg_Raw(arg));
+        if (rebNot("text?", data, rebEND))
+            fail (Error_Invalid_Port_Arg_Raw(data));
 
         // Handle /part refinement:
         //
-        REBINT len = VAL_LEN_AT(arg);
+        REBINT len = VAL_LEN_AT(data);
         if (REF(part) and VAL_INT32(ARG(part)) < len)
             len = VAL_INT32(ARG(part));
 
@@ -169,9 +167,9 @@ static REB_R Clipboard_Actor(
                 "FAIL {GlobalLock() fail on clipboard write}", rebEND
             );
 
-        // Extract the UTF-16
+        // Extract text as UTF-16
         //
-        REBINT len_check = rebSpellIntoWideQ(wide, len, arg, rebEND);
+        REBINT len_check = rebSpellIntoWideQ(wide, len, data, rebEND);
         assert(len <= len_check); // may only be writing /PART of the string
         UNUSED(len_check);
 
@@ -187,7 +185,7 @@ static REB_R Clipboard_Actor(
 
         RETURN (port); }
 
-    case SYM_OPEN: {
+      case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
         UNUSED(PAR(spec));
 
@@ -198,13 +196,13 @@ static REB_R Clipboard_Actor(
 
         RETURN (port); }
 
-    case SYM_CLOSE: {
+      case SYM_CLOSE: {
 
         // !!! Currently just ignore (it didn't do anything)
 
         RETURN (port); }
 
-    default:
+      default:
         break;
     }
 

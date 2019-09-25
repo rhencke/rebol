@@ -674,42 +674,40 @@ REB_R Context_Common_Action_Maybe_Unhandled(
     REBFRM *frame_,
     const REBVAL *verb
 ){
-    REBVAL *value = D_ARG(1);
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
-
-    REBCTX *c = VAL_CONTEXT(value);
+    REBVAL *v = D_ARG(1);
+    REBCTX *c = VAL_CONTEXT(v);
 
     switch (VAL_WORD_SYM(verb)) {
+      case SYM_REFLECT: {
+        INCLUDE_PARAMS_OF_REFLECT;
+        UNUSED(ARG(value));  // covered by `v`
 
-    case SYM_REFLECT: {
-        REBSYM property = VAL_WORD_SYM(arg);
-        assert(property != SYM_0);
-
-        switch (property) {
-        case SYM_LENGTH: // !!! Should this be legal?
+        REBVAL *property = ARG(property);
+        switch (VAL_WORD_SYM(property)) {
+          case SYM_LENGTH: // !!! Should this be legal?
             return Init_Integer(D_OUT, CTX_LEN(c));
 
-        case SYM_TAIL_Q: // !!! Should this be legal?
+          case SYM_TAIL_Q: // !!! Should this be legal?
             return Init_Logic(D_OUT, CTX_LEN(c) == 0);
 
-        case SYM_WORDS:
+          case SYM_WORDS:
             return Init_Block(D_OUT, Context_To_Array(c, 1));
 
-        case SYM_VALUES:
+          case SYM_VALUES:
             return Init_Block(D_OUT, Context_To_Array(c, 2));
 
-        case SYM_BODY:
+          case SYM_BODY:
             return Init_Block(D_OUT, Context_To_Array(c, 3));
 
         // Noticeably not handled by average objects: SYM_OPEN_Q (`open?`)
 
-        default:
+          default:
             break;
         }
 
-        break; }
+        return R_UNHANDLED; }
 
-    default:
+      default:
         break;
     }
 
@@ -728,18 +726,19 @@ REBTYPE(Context)
     if (r != R_UNHANDLED)
         return r;
 
-    REBVAL *value = D_ARG(1);
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
-
-    REBCTX *c = VAL_CONTEXT(value);
+    REBVAL *v = D_ARG(1);
+    REBCTX *c = VAL_CONTEXT(v);
 
     switch (VAL_WORD_SYM(verb)) {
+      case SYM_REFLECT: {
+        INCLUDE_PARAMS_OF_REFLECT;
+        UNUSED(ARG(value));  // covered by `v`
 
-    case SYM_REFLECT: {
-        REBSYM sym = VAL_WORD_SYM(arg);
-        if (VAL_TYPE(value) != REB_FRAME)
+        if (VAL_TYPE(v) != REB_FRAME)
             break;
 
+        REBVAL *property = ARG(property);
+        REBSYM sym = VAL_WORD_SYM(property);
         if (sym == SYM_ACTION) {
             //
             // Currently this can be answered for any frame, even if it is
@@ -750,8 +749,8 @@ REBTYPE(Context)
             //
             return Init_Action_Maybe_Bound(
                 D_OUT,
-                VAL_PHASE(value),  // archetypal, so no binding
-                EXTRA(Binding, value).node  // e.g. where RETURN returns to
+                VAL_PHASE(v),  // archetypal, so no binding
+                EXTRA(Binding, v).node  // e.g. where RETURN returns to
             );
         }
 
@@ -798,23 +797,23 @@ REBTYPE(Context)
           default:
             break;
         }
-        fail (Error_Cannot_Reflect(VAL_TYPE(value), arg)); }
+        fail (Error_Cannot_Reflect(VAL_TYPE(v), property)); }
 
 
-      case SYM_APPEND:
+      case SYM_APPEND: {
+        REBVAL *arg = D_ARG(2);
         if (IS_NULLED_OR_BLANK(arg))
-            RETURN (value); // don't fail on read only if it would be a no-op
+            RETURN (v);  // don't fail on read only if it would be a no-op
 
-        FAIL_IF_READ_ONLY(value);
-        if (not IS_OBJECT(value) and not IS_MODULE(value))
+        FAIL_IF_READ_ONLY(v);
+        if (not IS_OBJECT(v) and not IS_MODULE(v))
             return R_UNHANDLED;
         Append_To_Context(c, arg);
-        RETURN (value);
+        RETURN (v); }
 
-      case SYM_COPY: { // Note: words are not copied and bindings not changed!
+      case SYM_COPY: {  // Note: words are not copied and bindings not changed!
         INCLUDE_PARAMS_OF_COPY;
-
-        UNUSED(PAR(value));
+        UNUSED(PAR(value));  // covered by `v`
 
         if (REF(part))
             fail (Error_Bad_Refines_Raw());
@@ -833,12 +832,13 @@ REBTYPE(Context)
 
         return Init_Any_Context(
             D_OUT,
-            VAL_TYPE(value),
+            VAL_TYPE(v),
             Copy_Context_Core_Managed(c, types)
         ); }
 
       case SYM_SELECT:
       case SYM_FIND: {
+        REBVAL *arg = D_ARG(2);
         if (not IS_WORD(arg))
             return nullptr;
 

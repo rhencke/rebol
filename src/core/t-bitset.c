@@ -573,7 +573,6 @@ void Trim_Tail_Zeros(REBSER *ser)
 REBTYPE(Bitset)
 {
     REBVAL *v = D_ARG(1);
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     switch (VAL_WORD_SYM(verb)) {
       case SYM_REFLECT: {
@@ -599,17 +598,15 @@ REBTYPE(Bitset)
 
       case SYM_FIND: {
         INCLUDE_PARAMS_OF_FIND;
+        UNUSED(PAR(series));  // covered by `v`
 
         UNUSED(REF(reverse));  // Deprecated https://forum.rebol.info/t/1126
         UNUSED(REF(last));  // ...a HIJACK in %mezz-legacy errors if used
 
-        UNUSED(PAR(series));
-        UNUSED(PAR(pattern));
-
         if (REF(part) or REF(only) or REF(skip) or REF(tail) or REF(match))
             fail (Error_Bad_Refines_Raw());
 
-        if (not Check_Bits(VAL_BITSET(v), arg, REF(case)))
+        if (not Check_Bits(VAL_BITSET(v), ARG(pattern), REF(case)))
             return nullptr;
         return Init_True(D_OUT); }
 
@@ -621,6 +618,7 @@ REBTYPE(Bitset)
 
       case SYM_APPEND:  // Accepts: #"a" "abc" [1 - 10] [#"a" - #"z"] etc.
       case SYM_INSERT: {
+        REBVAL *arg = D_ARG(2);
         if (IS_NULLED_OR_BLANK(arg))
             RETURN (v);  // don't fail on read only if it would be a no-op
 
@@ -667,6 +665,7 @@ REBTYPE(Bitset)
       case SYM_INTERSECT:
       case SYM_UNION:
       case SYM_DIFFERENCE: {
+        REBVAL *arg = D_ARG(2);
         if (IS_BITSET(arg)) {
             if (BITS_NOT(VAL_BITSET(arg)))  // !!! see #2365
                 fail ("Bitset negation not handled by set operations");

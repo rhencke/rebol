@@ -635,58 +635,50 @@ void MF_Map(REB_MOLD *mo, const REBCEL *v, bool form)
 //
 REBTYPE(Map)
 {
-    REBVAL *val = D_ARG(1);
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
-
-    REBMAP *map = VAL_MAP(val);
+    REBVAL *v = D_ARG(1);
+    REBMAP *map = VAL_MAP(v);
 
     switch (VAL_WORD_SYM(verb)) {
-
-    case SYM_REFLECT: {
+      case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
+        UNUSED(ARG(value));  // covered by `v`
 
-        UNUSED(ARG(value)); // covered by `val`
-        REBSYM property = VAL_WORD_SYM(ARG(property));
-        assert(property != SYM_0);
-
-        switch (property) {
-        case SYM_LENGTH:
+        REBVAL *property = ARG(property);
+        switch (VAL_WORD_SYM(property)) {
+          case SYM_LENGTH:
             return Init_Integer(D_OUT, Length_Map(map));
 
-        case SYM_VALUES:
+          case SYM_VALUES:
             return Init_Block(D_OUT, Map_To_Array(map, 1));
 
-        case SYM_WORDS:
+          case SYM_WORDS:
             return Init_Block(D_OUT, Map_To_Array(map, -1));
 
-        case SYM_BODY:
+          case SYM_BODY:
             return Init_Block(D_OUT, Map_To_Array(map, 0));
 
-        case SYM_TAIL_Q:
+          case SYM_TAIL_Q:
             return Init_Logic(D_OUT, Length_Map(map) == 0);
 
-        default:
+          default:
             break;
         }
-
-        fail (Error_Cannot_Reflect(REB_MAP, arg)); }
+        fail (Error_Cannot_Reflect(REB_MAP, property)); }
 
     case SYM_FIND:
     case SYM_SELECT: {
         INCLUDE_PARAMS_OF_FIND;
+        UNUSED(PAR(series));  // covered by `v`
 
         UNUSED(REF(reverse));  // Deprecated https://forum.rebol.info/t/1126
         UNUSED(REF(last));  // ...a HIJACK in %mezz-legacy errors if used
-
-        UNUSED(PAR(series));
-        UNUSED(PAR(pattern)); // handled as `arg`
 
         if (REF(part) or REF(only) or REF(skip) or REF(tail) or REF(match))
             fail (Error_Bad_Refines_Raw());
 
         REBINT n = Find_Map_Entry(
             map,
-            arg,
+            ARG(pattern),
             SPECIFIED,
             NULL,
             SPECIFIED,
@@ -725,27 +717,27 @@ REBTYPE(Map)
     case SYM_INSERT:
     case SYM_APPEND: {
         INCLUDE_PARAMS_OF_INSERT;
-
-        if (IS_NULLED_OR_BLANK(arg))
-            RETURN (val); // don't fail on read only if it would be a no-op
-
-        FAIL_IF_READ_ONLY(val);
-
         UNUSED(PAR(series));
+
+        REBVAL *value = ARG(value);
+        if (IS_NULLED_OR_BLANK(value))
+            RETURN (v);  // don't fail on read only if it would be a no-op
+
+        FAIL_IF_READ_ONLY(v);
 
         if (REF(only) or REF(line) or REF(dup))
             fail (Error_Bad_Refines_Raw());
 
-        if (not IS_BLOCK(arg))
+        if (not IS_BLOCK(value))
             fail (PAR(value));
 
-        REBLEN len = Part_Len_May_Modify_Index(arg, ARG(part));
+        REBLEN len = Part_Len_May_Modify_Index(value, ARG(part));
 
         Append_Map(
             map,
-            VAL_ARRAY(arg),
-            VAL_INDEX(arg),
-            VAL_SPECIFIER(arg),
+            VAL_ARRAY(value),
+            VAL_INDEX(value),
+            VAL_SPECIFIER(value),
             len
         );
 
@@ -775,7 +767,7 @@ REBTYPE(Map)
         return Init_Map(D_OUT, Copy_Map(map, types)); }
 
     case SYM_CLEAR:
-        FAIL_IF_READ_ONLY(val);
+        FAIL_IF_READ_ONLY(v);
 
         Reset_Array(MAP_PAIRLIST(map));
 

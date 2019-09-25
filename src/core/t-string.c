@@ -32,12 +32,12 @@
 
 REBYTE *Char_Escapes;
 #define MAX_ESC_CHAR (0x60-1) // size of escape table
-#define IS_CHR_ESC(c) ((c) <= MAX_ESC_CHAR && Char_Escapes[c])
+#define IS_CHR_ESC(c) ((c) <= MAX_ESC_CHAR and Char_Escapes[c])
 
 REBYTE *URL_Escapes;
 #define MAX_URL_CHAR (0x80-1)
-#define IS_URL_ESC(c)  ((c) <= MAX_URL_CHAR && (URL_Escapes[c] & ESC_URL))
-#define IS_FILE_ESC(c) ((c) <= MAX_URL_CHAR && (URL_Escapes[c] & ESC_FILE))
+#define IS_URL_ESC(c)  ((c) <= MAX_URL_CHAR and (URL_Escapes[c] & ESC_URL))
+#define IS_FILE_ESC(c) ((c) <= MAX_URL_CHAR and (URL_Escapes[c] & ESC_FILE))
 
 enum {
     ESC_URL = 1,
@@ -392,7 +392,7 @@ REB_R MAKE_String(
             goto bad_make;
 
         REBINT i = Int32(index) - 1 + VAL_INDEX(first);
-        if (i < 0 || i > cast(REBINT, VAL_LEN_AT(first)))
+        if (i < 0 or i > cast(REBINT, VAL_LEN_AT(first)))
             goto bad_make;
 
         return Init_Any_Series_At(out, kind, VAL_SERIES(first), i);
@@ -437,7 +437,7 @@ static int Compare_Chr(void *thunk, const void *v1, const void *v2)
     REBYTE b1 = *cast(const REBYTE*, v1);
     REBYTE b2 = *cast(const REBYTE*, v2);
 
-    assert(b1 < 0x80 && b2 < 0x80);
+    assert(b1 < 0x80 and b2 < 0x80);
 
     if (*flags & CC_FLAG_CASE) {
         if (*flags & CC_FLAG_REVERSE)
@@ -483,7 +483,7 @@ static void Sort_String(
 
     if (not IS_BLANK(skipv)) {
         skip = Get_Num_From_Arg(skipv);
-        if (skip <= 0 || len % skip != 0 || skip > len)
+        if (skip <= 0 or len % skip != 0 or skip > len)
             fail (skipv);
     }
 
@@ -525,8 +525,8 @@ REB_R PD_String(
         REBINT len = Get_Num_From_Arg(arg);
         if (
             REB_I32_SUB_OF(len, 1, &len)
-            || REB_I32_ADD_OF(index, len, &index)
-            || index < 0 || index >= tail
+            or REB_I32_ADD_OF(index, len, &index)
+            or index < 0 or index >= tail
         ){
             fail (Error_Out_Of_Range(arg));
         }
@@ -640,7 +640,7 @@ REB_R PD_String(
     }
     else if (IS_INTEGER(opt_setval)) {
         c = Int32(opt_setval);
-        if (c > cast(REBI64, MAX_UNI) || c < 0)
+        if (c > cast(REBI64, MAX_UNI) or c < 0)
             return R_UNHANDLED;
     }
     else if (ANY_BINSTR(opt_setval)) {
@@ -712,13 +712,13 @@ void Mold_Uni_Char(REB_MOLD *mo, REBUNI c, bool parened)
     //      but Rebol uses ^ to indicate escaping so it has to do
     //      something else with that one."
 
-    if (c >= 0x7F || c == 0x1E || c == 0xFEFF) {
+    if (c >= 0x7F or c == 0x1E or c == 0xFEFF) {
         //
         // non ASCII, "^" (RS), or byte-order-mark must be ^(00) escaped.
         //
         // !!! Comment here said "do not AND with the above"
         //
-        if (parened || c == 0x1E || c == 0xFEFF) {
+        if (parened or c == 0x1E or c == 0xFEFF) {
             REBLEN len_old = STR_LEN(buf);
             REBSIZ size_old = STR_SIZE(buf);
             EXPAND_SERIES_TAIL(SER(buf), 7);  // worst case: ^(1234)
@@ -826,7 +826,7 @@ void Mold_Text_Series_At(REB_MOLD *mo, REBSTR *s, REBLEN index) {
 
     // If it is a short quoted string, emit it as "string"
     //
-    if (len <= MAX_QUOTED_STR && quote == 0 && newline < 3) {
+    if (len <= MAX_QUOTED_STR and quote == 0 and newline < 3) {
         Append_Codepoint(buf, '"');
 
         REBLEN n;
@@ -933,7 +933,7 @@ void MF_String(REB_MOLD *mo, const REBCEL *v, bool form)
 
     // Special format for MOLD/ALL string series when not at head
     //
-    if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL) && VAL_INDEX(v) != 0) {
+    if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL) and VAL_INDEX(v) != 0) {
         Pre_Mold(mo, v); // e.g. #[file! part
         Mold_Text_Series_At(mo, VAL_STRING(v), 0);
         Post_Mold(mo, v);
@@ -991,8 +991,6 @@ REBTYPE(String)
     REBVAL *v = D_ARG(1);
     assert(ANY_STRING(v));
 
-    REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
-
     REBLEN index = VAL_INDEX(v);
     REBLEN tail = VAL_LEN_HEAD(v);
 
@@ -1016,7 +1014,7 @@ REBTYPE(String)
         REBSTR *s = VAL_STRING(v);
         FAIL_IF_READ_ONLY(v);
 
-        REBINT limit =  Part_Len_May_Modify_Index(v, ARG(part));
+        REBINT limit = Part_Len_May_Modify_Index(v, ARG(part));
         if (index >= tail or limit == 0)
             RETURN (v);
 
@@ -1052,7 +1050,7 @@ REBTYPE(String)
         // Note that while inserting or appending NULL is a no-op, CHANGE with
         // a /PART can actually erase data.
         //
-        if (IS_NULLED(arg) and len == 0) { // only nulls bypass write attempts
+        if (IS_NULLED(ARG(value)) and len == 0) {  // only nulls bypass
             if (sym == SYM_APPEND) // append always returns head
                 VAL_INDEX(v) = 0;
             RETURN (v); // don't fail on read only if it would be a no-op
@@ -1067,7 +1065,7 @@ REBTYPE(String)
         VAL_INDEX(v) = Modify_String_Or_Binary(  // does read-only check
             v,
             VAL_WORD_SPELLING(verb),
-            arg,
+            ARG(value),
             flags,
             len,
             REF(dup) ? Int32(ARG(dup)) : 1
@@ -1075,15 +1073,14 @@ REBTYPE(String)
         RETURN (v); }
 
     //-- Search:
-    case SYM_SELECT:
-    case SYM_FIND: {
+      case SYM_SELECT:
+      case SYM_FIND: {
         INCLUDE_PARAMS_OF_FIND;
 
         UNUSED(REF(reverse));  // Deprecated https://forum.rebol.info/t/1126
         UNUSED(REF(last));  // ...a HIJACK in %mezz-legacy errors if used
 
         UNUSED(PAR(series));
-        UNUSED(PAR(pattern));
 
         // !!! R3-Alpha FIND/MATCH historically implied /TAIL.  Should it?
         //
@@ -1107,7 +1104,7 @@ REBTYPE(String)
 
         REBLEN len;
         REBLEN ret = find_string(
-            &len, VAL_STRING(v), index, tail, arg, flags, skip
+            &len, VAL_STRING(v), index, tail, ARG(pattern), flags, skip
         );
 
         if (ret == NOT_FOUND)
@@ -1132,7 +1129,7 @@ REBTYPE(String)
             CHR_CODE(STR_AT(VAL_STRING(v), ret))
         ); }
 
-    case SYM_TAKE_P: {
+      case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
 
         FAIL_IF_READ_ONLY(v);
@@ -1180,7 +1177,7 @@ REBTYPE(String)
         Remove_Series_Len(SER(s), VAL_INDEX(v), len);
         return D_OUT; }
 
-    case SYM_CLEAR: {
+      case SYM_CLEAR: {
         FAIL_IF_READ_ONLY(v);
         REBSTR *s = VAL_STRING(v);
 
@@ -1203,7 +1200,7 @@ REBTYPE(String)
 
     //-- Creation:
 
-    case SYM_COPY: {
+      case SYM_COPY: {
         INCLUDE_PARAMS_OF_COPY;
 
         UNUSED(PAR(value));
@@ -1234,7 +1231,6 @@ REBTYPE(String)
         goto set_operation;
 
       set_operation: {
-
         INCLUDE_PARAMS_OF_DIFFERENCE;  // should all have same spec
 
         UNUSED(ARG(value1)); // covered by value
@@ -1253,19 +1249,21 @@ REBTYPE(String)
 
     //-- Special actions:
 
-    case SYM_SWAP: {
+      case SYM_SWAP: {
         FAIL_IF_READ_ONLY(v);
+
+        REBVAL *arg = D_ARG(2);
 
         if (VAL_TYPE(v) != VAL_TYPE(arg))
             fail (Error_Not_Same_Type_Raw());
 
         FAIL_IF_READ_ONLY(arg);
 
-        if (index < tail && VAL_INDEX(arg) < VAL_LEN_HEAD(arg))
+        if (index < tail and VAL_INDEX(arg) < VAL_LEN_HEAD(arg))
             swap_chars(v, arg);
         RETURN (v); }
 
-    case SYM_REVERSE: {
+      case SYM_REVERSE: {
         INCLUDE_PARAMS_OF_REVERSE;
         UNUSED(ARG(series));
 
@@ -1276,7 +1274,7 @@ REBTYPE(String)
             reverse_string(v, len);
         RETURN (v); }
 
-    case SYM_SORT: {
+      case SYM_SORT: {
         INCLUDE_PARAMS_OF_SORT;
 
         FAIL_IF_READ_ONLY(v);
@@ -1299,7 +1297,7 @@ REBTYPE(String)
         );
         RETURN (v); }
 
-    case SYM_RANDOM: {
+      case SYM_RANDOM: {
         INCLUDE_PARAMS_OF_RANDOM;
 
         UNUSED(PAR(value));
@@ -1334,7 +1332,7 @@ REBTYPE(String)
         Shuffle_String(v, REF(secure));
         RETURN (v); }
 
-    default:
+      default:
         // Let the port system try the action, e.g. OPEN %foo.txt
         //
         if ((IS_FILE(v) or IS_URL(v)))
