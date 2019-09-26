@@ -642,77 +642,77 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     if (has_return)
         SER(paramlist)->header.bits |= PARAMLIST_FLAG_HAS_RETURN;
 
-    if (true) {
-        REBVAL *archetype = RESET_CELL(
-            ARR_HEAD(paramlist),
-            REB_ACTION,
-            CELL_MASK_ACTION
-        );
-        VAL_ACT_PARAMLIST_NODE(archetype) = NOD(paramlist);
-        INIT_BINDING(archetype, UNBOUND);
+  blockscope {
+    REBVAL *archetype = RESET_CELL(
+        ARR_HEAD(paramlist),
+        REB_ACTION,
+        CELL_MASK_ACTION
+    );
+    VAL_ACT_PARAMLIST_NODE(archetype) = NOD(paramlist);
+    INIT_BINDING(archetype, UNBOUND);
 
-        REBVAL *dest = archetype + 1;
+    REBVAL *dest = archetype + 1;
 
-        // We want to check for duplicates and a Binder can be used for that
-        // purpose--but note that a fail() cannot happen while binders are
-        // in effect UNLESS the BUF_COLLECT contains information to undo it!
-        // There's no BUF_COLLECT here, so don't fail while binder in effect.
-        //
-        // (This is why we wait until the parameter list gathering process
-        // is over to do the duplicate checks--it can fail.)
-        //
-        struct Reb_Binder binder;
-        INIT_BINDER(&binder);
+    // We want to check for duplicates and a Binder can be used for that
+    // purpose--but note that a fail() cannot happen while binders are
+    // in effect UNLESS the BUF_COLLECT contains information to undo it!
+    // There's no BUF_COLLECT here, so don't fail while binder in effect.
+    //
+    // (This is why we wait until the parameter list gathering process
+    // is over to do the duplicate checks--it can fail.)
+    //
+    struct Reb_Binder binder;
+    INIT_BINDER(&binder);
 
-        REBSTR *duplicate = NULL;
+    REBSTR *duplicate = NULL;
 
-        REBVAL *src = DS_AT(dsp_orig + 1) + 3;
+    REBVAL *src = DS_AT(dsp_orig + 1) + 3;
 
-        if (definitional_return) {
-            assert(flags & MKF_RETURN);
-            Move_Value(dest, definitional_return);
-            ++dest;
-        }
-
-        // Weird due to Spectre/MSVC: https://stackoverflow.com/q/50399940
-        //
-        for (; src != DS_TOP + 1; src += 3) {
-            if (not Try_Add_Binder_Index(&binder, VAL_PARAM_CANON(src), 1020))
-                duplicate = VAL_PARAM_SPELLING(src);
-
-            if (definitional_return and src == definitional_return)
-                continue;
-
-            Move_Value(dest, src);
-            ++dest;
-        }
-
-        // Must remove binder indexes for all words, even if about to fail
-        //
-        src = DS_AT(dsp_orig + 1) + 3;
-
-        // Weird due to Spectre/MSVC: https://stackoverflow.com/q/50399940
-        //
-        for (; src != DS_TOP + 1; src += 3, ++dest) {
-            if (
-                Remove_Binder_Index_Else_0(&binder, VAL_PARAM_CANON(src))
-                == 0
-            ){
-                assert(duplicate);
-            }
-        }
-
-        SHUTDOWN_BINDER(&binder);
-
-        if (duplicate) {
-            DECLARE_LOCAL (word);
-            Init_Word(word, duplicate);
-            fail (Error_Dup_Vars_Raw(word));
-        }
-
-        TERM_ARRAY_LEN(paramlist, num_slots);
-        Manage_Array(paramlist);
+    if (definitional_return) {
+        assert(flags & MKF_RETURN);
+        Move_Value(dest, definitional_return);
+        ++dest;
     }
+
+    // Weird due to Spectre/MSVC: https://stackoverflow.com/q/50399940
+    //
+    for (; src != DS_TOP + 1; src += 3) {
+        if (not Try_Add_Binder_Index(&binder, VAL_PARAM_CANON(src), 1020))
+            duplicate = VAL_PARAM_SPELLING(src);
+
+        if (definitional_return and src == definitional_return)
+            continue;
+
+        Move_Value(dest, src);
+        ++dest;
+    }
+
+    // Must remove binder indexes for all words, even if about to fail
+    //
+    src = DS_AT(dsp_orig + 1) + 3;
+
+    // Weird due to Spectre/MSVC: https://stackoverflow.com/q/50399940
+    //
+    for (; src != DS_TOP + 1; src += 3, ++dest) {
+        if (
+            Remove_Binder_Index_Else_0(&binder, VAL_PARAM_CANON(src))
+            == 0
+        ){
+            assert(duplicate);
+        }
+    }
+
+    SHUTDOWN_BINDER(&binder);
+
+    if (duplicate) {
+        DECLARE_LOCAL (word);
+        Init_Word(word, duplicate);
+        fail (Error_Dup_Vars_Raw(word));
+    }
+
+    TERM_ARRAY_LEN(paramlist, num_slots);
+    Manage_Array(paramlist);
+  }
 
     //=///////////////////////////////////////////////////////////////////=//
     //
