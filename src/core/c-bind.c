@@ -184,6 +184,27 @@ REBLEN Try_Bind_Word(REBCTX *context, REBVAL *word)
 
 
 //
+//  let: native [
+//
+//  {LET is noticed by FUNC to mean "create a local binding"}
+//
+//      return: []
+//  ]
+//
+REBNATIVE(let)
+//
+// !!! Currently LET is a no-op, but in the future should be able to inject
+// new bindings into a code stream as it goes.  The mechanisms for that are
+// not yet designed, hence the means for creating new variables is actually
+// parallel to how SET-WORD!s were scanned for in R3-Alpha's FUNCTION.
+{
+    INCLUDE_PARAMS_OF_LET;
+
+    return nullptr;
+}
+
+
+//
 //  Clonify_And_Bind_Relative: C
 //
 // Recursive function for relative function word binding.  The code for
@@ -197,14 +218,35 @@ REBLEN Try_Bind_Word(REBCTX *context, REBVAL *word)
 //
 static void Clonify_And_Bind_Relative(
     REBVAL *v,  // Note: incoming value is not relative
+    const RELVAL *src,
     REBFLGS flags,
     REBU64 deep_types,
     struct Reb_Binder *binder,
     REBARR *paramlist,
-    REBU64 bind_types
+    REBU64 bind_types,
+    REBLEN *param_num  // if not null, gathering LETs (next index for LET)
 ){
     if (C_STACK_OVERFLOWING(&bind_types))
         Fail_Stack_Overflow();
+
+    if (param_num and IS_WORD(src) and VAL_WORD_SYM(src) == SYM_LET) {
+        if (IS_WORD(src + 1) or IS_SET_WORD(src + 1)) {
+            REBSTR *canon = VAL_WORD_CANON(src + 1);
+            if (Try_Add_Binder_Index(binder, canon, *param_num)) {
+                Init_Word(DS_PUSH(), canon);
+                ++(*param_num);
+            }
+            else {
+                // !!! Should double LETs be an error?  With virtual binding
+                // it would override, but we can't do that now...so it may
+                // be better to just prohibit it.
+            }
+        }
+
+        // !!! We don't actually add the new words as we go, but rather all at
+        // once from the stack.  This may be superfluous, and we could use
+        // regular appends and trust the expansion logic.
+    }
 
     assert(flags & NODE_FLAG_MANAGED);
 
@@ -222,19 +264,21 @@ static void Clonify_And_Bind_Relative(
     Dequotify(v);
 
     enum Reb_Kind kind = cast(enum Reb_Kind, KIND_BYTE_UNCHECKED(v));
-    assert(kind < REB_MAX_PLUS_MAX); // we dequoted it (pseudotypes ok)
+    assert(kind < REB_MAX_PLUS_MAX);  // we dequoted it (pseudotypes ok)
 
     if (deep_types & FLAGIT_KIND(kind) & TS_SERIES_OBJ) {
         //
         // Objects and series get shallow copied at minimum
         //
         REBSER *series;
+        const RELVAL *sub_src;
         if (ANY_CONTEXT(v)) {
             INIT_VAL_CONTEXT_VARLIST(
                 v,
                 CTX_VARLIST(Copy_Context_Shallow_Managed(VAL_CONTEXT(v)))
             );
             series = SER(CTX_VARLIST(VAL_CONTEXT(v)));
+            sub_src = BLANK_VALUE;  // don't try to look for LETs
         }
         else {
             if (IS_SER_ARRAY(VAL_SERIES(v))) {
@@ -254,6 +298,8 @@ static void Clonify_And_Bind_Relative(
                 // means it isn't relative any more.
                 //
                 INIT_BINDING(v, UNBOUND);
+
+                sub_src = VAL_ARRAY_AT(v);  // look for LETs
             }
             else {
                 series = Copy_Sequence_Core(
@@ -261,6 +307,7 @@ static void Clonify_And_Bind_Relative(
                     NODE_FLAG_MANAGED
                 );
                 INIT_VAL_NODE(v, series);
+                sub_src = BLANK_VALUE;  // don't try to look for LETs
             }
         }
 
@@ -272,11 +319,13 @@ static void Clonify_And_Bind_Relative(
             for (; NOT_END(sub); ++sub)
                 Clonify_And_Bind_Relative(
                     sub,
+                    sub_src,
                     flags,
                     deep_types,
                     binder,
                     paramlist,
-                    bind_types
+                    bind_types,
+                    param_num
                 );
         }
     }
@@ -297,7 +346,14 @@ static void Clonify_And_Bind_Relative(
             //
             Unbind_Any_Word(v);
             INIT_BINDING(v, paramlist); // incomplete func
-            INIT_WORD_INDEX(v, n);
+
+            // !!! Right now we don't actually add the parameters as we go.
+            // This means INIT_WORD_INDEX() will complain when binding the
+            // LET cases because it doesn't see a corresponding key.  The
+            // efficiency may not be worth not just trusting the expansion
+            // logic--review.  For now, don't check when we set the index.
+            //
+            INIT_WORD_INDEX_UNCHECKED(v, n);
         }
     }
     else if (ANY_ARRAY_OR_PATH_KIND(kind)) {
@@ -329,16 +385,18 @@ static void Clonify_And_Bind_Relative(
 REBARR *Copy_And_Bind_Relative_Deep_Managed(
     const REBVAL *body,
     REBARR *paramlist,  // body of function is not actually ready yet
-    REBU64 bind_types
+    REBU64 bind_types,
+    bool gather_lets
 ){
     struct Reb_Binder binder;
     INIT_BINDER(&binder);
 
+    REBLEN param_num = 1;
+
   blockscope {  // Setup binding table from the argument word list
-    REBLEN index = 1;
     RELVAL *param = ARR_AT(paramlist, 1);  // [0] is ACT_ARCHETYPE() ACTION!
-    for (; NOT_END(param); param++, index++)
-        Add_Binder_Index(&binder, VAL_KEY_CANON(param), index);
+    for (; NOT_END(param); ++param, ++param_num)
+        Add_Binder_Index(&binder, VAL_KEY_CANON(param), param_num);
   }
 
     REBARR *original = VAL_ARRAY(body);
@@ -355,6 +413,8 @@ REBARR *Copy_And_Bind_Relative_Deep_Managed(
 
     REBLEN len = tail - index;
 
+    REBDSP dsp_orig = DSP;
+
     // Currently we start by making a shallow copy and then adjust it
 
     REBARR *copy = Make_Array_For_Copy(len, flags, original);
@@ -365,15 +425,55 @@ REBARR *Copy_And_Bind_Relative_Deep_Managed(
     for (; count < len; ++count, ++dest, ++src) {
         Clonify_And_Bind_Relative(
             Derelativize(dest, src, specifier),
+            src,
             flags | NODE_FLAG_MANAGED,
             deep_types,
             &binder,
             paramlist,
-            bind_types
+            bind_types,
+            gather_lets
+                ? &param_num  // next bind index for a LET to use
+                : nullptr
         );
     }
 
     TERM_ARRAY_LEN(copy, len);
+
+    if (gather_lets) {
+        //
+        // Extend the paramlist with any LET variables we gathered...
+        //
+        REBLEN num_lets = DSP - dsp_orig;
+        if (num_lets != 0) {
+            //
+            // !!! We can only clear this flag because Make_Paramlist_Managed()
+            // created the array *without* SERIES_FLAG_FIXED_SIZE, but then
+            // added it after the fact.  If at Make_Array() time you pass in the
+            // flag, then the cells will be formatted such that the flag cannot
+            // be taken off.
+            //
+            assert(GET_SERIES_FLAG(paramlist, FIXED_SIZE));
+            CLEAR_SERIES_FLAG(paramlist, FIXED_SIZE);
+
+            REBLEN old_paramlist_len = ARR_LEN(paramlist);
+            EXPAND_SERIES_TAIL(SER(paramlist), num_lets);
+            RELVAL *param = ARR_AT(paramlist, old_paramlist_len);
+
+            REBDSP dsp = dsp_orig;
+            while (dsp != DSP) {
+                REBSTR *spelling = VAL_WORD_SPELLING(DS_AT(dsp + 1));
+                Init_Param(param, REB_P_LOCAL, spelling, 0);
+                ++dsp;
+                ++param;
+
+                // Will be removed from binder below
+            }
+            DS_DROP_TO(dsp_orig);
+
+            TERM_ARRAY_LEN(paramlist, old_paramlist_len + num_lets);
+            SET_SERIES_FLAG(paramlist, FIXED_SIZE);
+        }
+    }
 
   blockscope {  // Reset binding table
     RELVAL *param = ARR_AT(paramlist, 1);  // [0] is ACT_ARCHETYPE() ACTION!

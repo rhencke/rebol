@@ -862,7 +862,8 @@ REB_R Block_Dispatcher(REBFRM *f)
         REBARR *body_array = Copy_And_Bind_Relative_Deep_Managed(
             KNOWN(block),
             ACT_PARAMLIST(FRM_PHASE(f)),
-            TS_WORD
+            TS_WORD,
+            false  // do not gather LETs
         );
 
         // Preserve file and line information from the original, if present.

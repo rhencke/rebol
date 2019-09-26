@@ -201,6 +201,12 @@ enum Reb_Spec_Mode {
 // You don't have to use it if you don't want to...and may overwrite the
 // variable.  But it won't be a void at the start.
 //
+// Note: While paramlists should ultimately carry SERIES_FLAG_FIXED_SIZE,
+// the product of this routine might need to be added to.  And series that
+// are created fixed size have special preparation such that they will trip
+// more asserts.  So the fixed size flag is *not* added here, but ensured
+// in the Make_Action() step.
+//
 REBARR *Make_Paramlist_Managed_May_Fail(
     const REBVAL *spec,
     REBFLGS flags
@@ -616,7 +622,18 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     // Must make the function "paramlist" even if "empty", for identity.
     //
-    REBARR *paramlist = Make_Array_Core(num_slots, SERIES_MASK_PARAMLIST);
+    // !!! In order to facilitate adding to the frame in the copy and
+    // relativize step to add LET variables, don't pass SERIES_FLAG_FIXED_SIZE
+    // in the creation step.  This formats cells in such a way that the
+    // series mechanically cannot be expanded even if the flag is removed.
+    // Instead, add it onto a series allocated as resizable.  This is likely
+    // temporary--as LET mechanics should use some form of "virtual binding".
+    //
+    REBARR *paramlist = Make_Array_Core(
+        num_slots,
+        SERIES_MASK_PARAMLIST & ~(SERIES_FLAG_FIXED_SIZE)
+    );
+    SET_SERIES_FLAG(paramlist, FIXED_SIZE);
 
     // Note: not a valid ACTION! paramlist yet, don't use SET_ACTION_FLAG()
     //
@@ -1289,7 +1306,8 @@ REBACT *Make_Interpreted_Action_May_Fail(
         copy = Copy_And_Bind_Relative_Deep_Managed(
             body,  // new copy has locals bound relatively to the new action
             ACT_PARAMLIST(a),
-            TS_WORD
+            TS_WORD,
+            true  // gather the LETs (transitional method)
         );
     }
 

@@ -157,6 +157,7 @@
 %functions/frame.test.reb
 %functions/hijack.test.reb
 %functions/invisible.test.reb
+%functions/let.test.reb
 %functions/modal.test.reb
 %functions/oneshot.test.reb
 %functions/redescribe.test.reb
