@@ -244,6 +244,9 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
              continue; // don't add a callsite expression for it (can't)!
         }
 
+        if (TYPE_CHECK(f->param, REB_TS_SKIPPABLE) and IS_NULLED(f->arg))
+            continue;  // don't throw in skippable args that are nulled out
+
         if (TYPE_CHECK(f->param, REB_TS_REFINEMENT)) {
             if (IS_BLANK(f->arg))  // don't add to PATH!
                 continue;

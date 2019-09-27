@@ -560,7 +560,13 @@ REBARR *Pop_Paramlist_With_Meta_May_Fail(
         else {
             REBVAL *param = DS_AT(definitional_return_dsp);
 
-            assert(VAL_PARAM_CLASS(param) == REB_P_LOCAL);
+            // Note: AUGMENT may be copying an already REB_P_RETURN'd argument
+            // from a pre-existing parameter list.  Else REB_P_LOCAL.
+            //
+            assert(
+                VAL_PARAM_CLASS(param) == REB_P_LOCAL
+                or VAL_PARAM_CLASS(param) == REB_P_RETURN
+            );
             mutable_KIND_BYTE(param) = REB_P_RETURN;
 
             assert(MIRROR_BYTE(param) == REB_TYPESET);

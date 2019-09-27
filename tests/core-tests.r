@@ -150,6 +150,7 @@
 %file/file-typeq.test.reb
 
 %functions/adapt.test.reb
+%functions/augment.test.reb
 %functions/chain.test.reb
 %functions/does.test.reb
 %functions/enclose.test.reb

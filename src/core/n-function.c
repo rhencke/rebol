@@ -585,6 +585,173 @@ REBNATIVE(enclose)
 
 
 //
+//  augment: native [
+//
+//  {Create an ACTION! variant that acts the same, but has added parameters}
+//
+//      return: [action!]
+//      augmentee [action! word! path!]
+//          "Function or specifying word (preserves word name for debug info)"
+//      spec [block!]
+//          "Spec dialect for words to add to the derived function"
+//  ]
+//
+REBNATIVE(augment)
+{
+    INCLUDE_PARAMS_OF_AUGMENT;
+
+    REBVAL *augmentee = ARG(augmentee);
+
+    REBSTR *opt_augmentee_name;
+    const bool push_refinements = false;
+    if (Get_If_Word_Or_Path_Throws(
+        D_OUT,
+        &opt_augmentee_name,
+        augmentee,
+        SPECIFIED,
+        push_refinements
+    )){
+        return R_THROWN;
+    }
+
+    if (not IS_ACTION(D_OUT))
+        fail (PAR(augmentee));
+    Move_Value(augmentee, D_OUT);  // Frees D_OUT, and GC safe (in ARG slot)
+
+    // We reuse the process from Make_Paramlist_Managed_May_Fail(), which
+    // pushes parameters to the stack in groups of three items per parameter.
+
+    REBDSP dsp_orig = DSP;
+    REBDSP definitional_return_dsp = 0;
+
+    // Start with pushing a cell for the special [0] slot
+    //
+    Init_Unreadable_Blank(DS_PUSH());  // paramlist[0] becomes ACT_ARCHETYPE()
+    Move_Value(DS_PUSH(), EMPTY_BLOCK);  // param_types[0] (object canon)
+    Move_Value(DS_PUSH(), EMPTY_TEXT);  // param_notes[0] (desc, then canon)
+
+    REBFLGS flags = MKF_KEYWORDS;
+    if (GET_ACTION_FLAG(VAL_ACTION(augmentee), HAS_RETURN)) {
+        flags |= MKF_RETURN;
+        definitional_return_dsp = DSP + 1;
+    }
+
+    // !!! How exactly the HELP meta information is inherited on all of these
+    // function compositions is not really clear.  For the moment, leverage
+    // the usermode code that derives the help and just reuse it.
+    //
+    REBVAL *dug = rebValueQ("dig-action-meta-fields", augmentee, rebEND);
+
+    REBVAL *parameter_types = rebValueQ(
+        "pick", dug, "'parameter-types",
+    rebEND);
+
+    REBVAL *parameter_notes = rebValueQ(
+        "pick", dug, "'parameter-notes",
+    rebEND);
+
+    const REBVAL *type = END_NODE;
+    if (parameter_types)
+        type = CTX_VARS_HEAD(VAL_CONTEXT(parameter_types));
+
+    const REBVAL *note = END_NODE;
+    if (parameter_notes)
+        note = CTX_VARS_HEAD(VAL_CONTEXT(parameter_notes));
+
+    // For each parameter in the original function, we push a corresponding
+    // "triad".
+    //
+    REBVAL *param = ACT_PARAMS_HEAD(VAL_ACTION(augmentee));
+    for (; NOT_END(param); ++param) {
+        Move_Value(DS_PUSH(), param);
+        if (IS_END(type))
+            Move_Value(DS_PUSH(), EMPTY_BLOCK);
+        else {
+            if (IS_BLOCK(type))
+                Move_Value(DS_PUSH(), type);
+            else
+                Move_Value(DS_PUSH(), EMPTY_BLOCK);
+            ++type;
+        }
+        if (IS_END(note))
+            Move_Value(DS_PUSH(), EMPTY_TEXT);
+        else {
+            if (IS_TEXT(note))
+                Move_Value(DS_PUSH(), note);
+            else
+                Move_Value(DS_PUSH(), EMPTY_TEXT);
+            ++note;
+        }
+    }
+
+    rebRelease(parameter_types);
+    rebRelease(parameter_notes);
+
+    // Now we reuse the spec analysis logic, which pushes more parameters to
+    // the stack.  This may add duplicates--which will be detected when we
+    // try to pop the stack into a paramlist.
+    //
+    assert(flags & MKF_RETURN);
+    Push_Paramlist_Triads_May_Fail(
+        ARG(spec),
+        &flags,
+        dsp_orig,
+        &definitional_return_dsp
+    );
+
+    REBARR *paramlist = Pop_Paramlist_With_Meta_May_Fail(
+        dsp_orig,
+        flags,
+        definitional_return_dsp
+    );
+
+    // The action we create has the same dispatcher and other same properties
+    // as the original.  It just has an expanded frame.
+
+    REBACT* augmentated = Make_Action(
+        paramlist,
+        ACT_DISPATCHER(VAL_ACTION(augmentee)),
+        ACT_UNDERLYING(VAL_ACTION(augmentee)),
+        ACT_EXEMPLAR(VAL_ACTION(augmentee)),
+        ARR_LEN(ACT_DETAILS(VAL_ACTION(augmentee)))
+    );
+
+    RELVAL* src = ARR_HEAD(ACT_DETAILS(VAL_ACTION(augmentee)));
+    RELVAL* dest = ARR_HEAD(ACT_DETAILS(augmentated));
+    for (; NOT_END(src); ++src, ++dest)
+        Blit_Cell(dest, src);
+
+    REBCTX *meta = ACT_META(augmentated);
+
+    if (meta) {
+        //
+        // If they didn't override the description, try and inherit it from
+        // the augmentee's description.
+        //
+        rebElideQ(
+            "(", CTX_ARCHETYPE(meta), ")/description:",
+                "default [pick", dug, "'description]",
+        rebEND);
+
+        // !!! Overriding RETURN: is not really set up to work.  This needs
+        // to be rethought, as does most of the META stuff--which was very
+        // experimental to begin with.
+        //
+        rebElideQ(
+            "(", CTX_ARCHETYPE(meta), ")/return-type:",
+                "default [try pick", dug, "'return-type]",
+            "(", CTX_ARCHETYPE(meta), ")/return-note:",
+                "default [try pick", dug, "'return-note]",
+        rebEND);
+    }
+
+    rebRelease(dug);
+
+    return Init_Action_Unbound(D_OUT, augmentated);
+}
+
+
+//
 //  hijack: native [
 //
 //  {Cause all existing references to an ACTION! to invoke another ACTION!}
@@ -649,7 +816,10 @@ REBNATIVE(hijack)
     REBARR *hijacker_paramlist = ACT_PARAMLIST(hijacker);
     REBARR *hijacker_details = ACT_DETAILS(hijacker);
 
-    if (ACT_UNDERLYING(hijacker) == ACT_UNDERLYING(victim)) {
+    if (
+        ACT_UNDERLYING(hijacker) == ACT_UNDERLYING(victim)
+        and (ACT_NUM_PARAMS(hijacker) == ACT_NUM_PARAMS(victim))
+    ){
         //
         // Should the underliers of the hijacker and victim match, that means
         // any ADAPT or CHAIN or SPECIALIZE of the victim can work equally
