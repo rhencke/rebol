@@ -621,7 +621,7 @@ deci decimal_to_deci(REBDEC a) {
 
     d = CHR_TO_INT(c);
 
-    result.s = s;
+    result.s = (s != 0);
     result.m2 = 0;
     result.m1 = (uint32_t)(d >> 32);
     result.m0 = (uint32_t)d;

@@ -68,7 +68,7 @@ bool Match_Sub_Path(REBSTR *s1, REBSTR *s2)
     REBUNI c2;
 
     REBLEN n;
-    for (n = 0; n < len1; n++) {  // includes terminator
+    for (n = 0; n != len1; n++) {  // includes terminator
         cp1 = NEXT_CHR(&c1, cp1);
         cp2 = NEXT_CHR(&c2, cp2);
         if (LO_CASE(c1) != LO_CASE(c2))

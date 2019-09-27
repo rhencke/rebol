@@ -1601,8 +1601,12 @@ Execution: make generator-class [
 visual-studio: make generator-class [
     solution-format-version: "12.00"
     tools-version: "15.0"  ; "15.00" warns in 'Detailed' MSBuild output
-    target-win-version: "10.0.17134.0"  ; should autodetect
-    platform-tool-set: "v141"
+
+    ; should autodetect.  These are the choices that upgrading to vs2019 gave.
+    ;
+    target-win-version: "10.0"  ; vs2017 picked "10.0.17134.0"
+    platform-tool-set: "v142"  ; vs2017 picked "v141"
+
     platform: cpu: "x64"
     build-type: "Release"
 
@@ -1671,8 +1675,11 @@ visual-studio: make generator-class [
             project/name
         ]
         append buf unspaced [
-            {Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "} to text! project-name {",}
-            {"} project-name {.vcxproj", "} project/id {"} newline
+            {Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}")}
+                space {=} space {"} to text! project-name {"} {,}
+                space {"} project-name {.vcxproj} {"} {,}
+                space {"} project/id {"}
+                newline
         ]
 
         ;print ["emitting..."]
@@ -1830,7 +1837,7 @@ visual-studio: make generator-class [
             fail ["unsupported project:" (project/class)]
         ]
 
-        project/id: take uuid-pool
+        project/id: uppercase copy take uuid-pool
 
         config: unspaced [build-type {|} platform]
         project-dir: unspaced [project-name ".dir\" build-type "\"]
@@ -1922,7 +1929,7 @@ visual-studio: make generator-class [
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
-  <ConfigurationType>} switch project/class [
+    <ConfigurationType>} switch project/class [
       #static-library #object-library ["StaticLibrary"]
       #dynamic-library ["DynamicLibrary"]
       #application ["Application"]
@@ -2177,7 +2184,13 @@ visual-studio: make generator-class [
         config: unspaced [build-type {|} platform]
 
         append buf unspaced [
-            "Microsoft Visual Studio Solution File, Format Version " solution-format-version newline
+            "Microsoft Visual Studio Solution File, Format Version"
+                space solution-format-version newline
+
+            ; Visual Studio 2019 added this
+            "# Visual Studio Version 16" newline
+            "VisualStudioVersion = 16.0.29324.140" newline
+            "MinimumVisualStudioVersion = 10.0.40219.1" newline
         ]
 
         ;print ["vars:" mold vars]
@@ -2208,21 +2221,33 @@ visual-studio: make generator-class [
         ; Global section
         append buf unspaced [
             "Global^/"
-            "^-GlobalSection(SolutionCOnfigurationPlatforms) = preSolution^/"
+            "^-GlobalSection(SolutionConfigurationPlatforms) = preSolution^/"
             tab tab config { = } config newline
             "^-EndGlobalSection^/"
-            "^-GlobalSection(SolutionCOnfigurationPlatforms) = postSolution^/"
+            "^-GlobalSection(ProjectConfigurationPlatforms) = postSolution^/"
         ]
         for-each proj projects [
             append buf unspaced [
                 tab tab proj/id {.} config {.ActiveCfg = } config newline
+
+                ; Visual Studio 2019 added this
+                tab tab proj/id {.} config {.Build.0 = } config newline
             ]
         ]
 
+        append buf "^-EndGlobalSection^/"
+
+        ; Visual Studio 2019 added this
         append buf unspaced [
-            "^-EndGlobalSection^/"
-            "EndGlobal"
+            {^-GlobalSection(SolutionProperties) = preSolution^/}
+            {^-^-HideSolutionNode = FALSE^/}
+            {^-EndGlobalSection^/}
+            {^-GlobalSection(ExtensibilityGlobals) = postSolution^/}
+            {^-^-SolutionGuid = {E262A8CB-4AA6-4845-89B5-BD3D0A43C041}^/}
+            {^-EndGlobalSection^/}
         ]
+
+        append buf "EndGlobal^/"
 
         write output-dir/(unspaced [solution/name ".sln"]) buf
     ]

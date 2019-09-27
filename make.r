@@ -1041,6 +1041,36 @@ append app-config/cflags opt switch user-config/rigorous [
             ; Headers in string from MSVC screws this up.
             ;
             <msc:/wd4774>
+
+            ; There's really no winning with the Spectre mitigation warnings.
+            ; Early on it seemed simple changes could make them go away:
+            ;
+            ; https://stackoverflow.com/q/50399940/
+            ;
+            ; But each version of the compiler adds more, to where it looks
+            ; like if you use a comparison operator you will get these.  It's
+            ; more or less a losing battle, so just disable the warning.
+            ;
+            <msc:/wd5045>
+
+            ; "Arithmetic overflow: Using operator '*' on a 4 byte value and
+            ; then casting the result to a 8 byte value. Cast the value to the
+            ; wider type before calling operator '*' to avoid overflow"
+            ;
+            ; Overflow issues are unfortunately widespread, and this warning
+            ; is not particularly high priority in the scope of what the
+            ; project is exploring.  Disable for now.
+            ;
+            <msc:/wd26451>
+
+            ; "The enum type xxx is unscoped. Prefer 'enum class' over 'enum'"
+            ; "Variable xxx is uninitialized.  Always initialize a member..."
+            ;
+            ; Ren-C is C, so C++-specific warnings when building as C++ are
+            ; not relevant.
+            ;
+            <msc:/wd26812>
+            <msc:/wd26495>
         ]
     ]
     _ #[false] 'no 'off 'false [

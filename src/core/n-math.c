@@ -768,7 +768,7 @@ REBNATIVE(same_q)
     // seems that "sameness" should go through whatever extension mechanism
     // for comparison user defined types would have.
     //
-    return Init_Logic(D_OUT, Compare_Modify_Values(v1, v2, 1));
+    return Init_Logic(D_OUT, Compare_Modify_Values(v1, v2, 1) != 0);
 }
 
 
