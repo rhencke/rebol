@@ -255,7 +255,20 @@ enum Boot_Levels {
 enum {
     MKF_RETURN      = 1 << 0,   // give a RETURN (but local RETURN: overrides)
     MKF_KEYWORDS    = 1 << 1,   // respond to tags like <opt>, <with>, <local>
-    MKF_ANY_VALUE   = 1 << 2    // args and return are [<opt> any-value!]
+    MKF_ANY_VALUE   = 1 << 2,   // args and return are [<opt> any-value!]
+
+    // These flags are set during the process of spec analysis.  It helps
+    // avoid the inefficiency of creating documentation frames on functions
+    // that don't have any.
+    //
+    MKF_HAS_DESCRIPTION = 1 << 3,
+    MKF_HAS_TYPES = 1 << 4,
+    MKF_HAS_NOTES = 1 << 5,
+
+    // These flags are also set during the spec analysis process.
+    //
+    MKF_IS_VOIDER = 1 << 6,
+    MKF_HAS_RETURN = 1 << 7
 };
 
 #define MKF_MASK_NONE 0 // no special handling (e.g. MAKE ACTION!)

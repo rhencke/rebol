@@ -393,7 +393,7 @@ targets: [
     'nmake [
         rebmake/nmake/generate %makefile solution
     ]
-    'vs2017
+    'vs2019
     'visual-studio [
         x86: try if system-config/os-name = 'Windows-x86 ['x86]
         rebmake/visual-studio/generate/(x86) %. solution
@@ -401,6 +401,12 @@ targets: [
     'vs2015 [
         x86: try if system-config/os-name = 'Windows-x86 ['x86]
         rebmake/vs2015/generate/(x86) %. solution
+    ]
+    'vs2017 [
+        fail [
+            "Only minor changes needed to support vs2017, please get in"
+            "touch if this is an issue and you need it for some reason."
+        ]
     ]
 ]
 

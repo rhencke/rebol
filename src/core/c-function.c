@@ -170,82 +170,30 @@ enum Reb_Spec_Mode {
 
 
 //
-//  Make_Paramlist_Managed_May_Fail: C
+//  Push_Paramlist_Triads_May_Fail: C
 //
-// Check function spec of the form:
+// This is an implementation routine for Make_Paramlist_Managed_May_Fail().
+// It was broken out into its own separate routine so that the AUGMENT
+// function could reuse the logic for function spec analysis.  It may not
+// be broken out in a particularly elegant way, but it's a start.
 //
-//     ["description" arg "notes" [type! type2! ...] /ref ...]
-//
-// !!! The spec language was not formalized in R3-Alpha.  Strings were left
-// in and it was HELP's job (and any other clients) to make sense of it, e.g.:
-//
-//     [foo [type!] {doc string :-)}]
-//     [foo {doc string :-/} [type!]]
-//     [foo {doc string1 :-/} {doc string2 :-(} [type!]]
-//
-// Ren-C breaks this into two parts: one is the mechanical understanding of
-// MAKE ACTION! for parameters in the evaluator.  Then it is the job
-// of a generator to tag the resulting function with a "meta object" with any
-// descriptions.  As a proxy for the work of a usermode generator, this
-// routine tries to fill in FUNCTION-META (see %sysobj.r) as well as to
-// produce a paramlist suitable for the function.
-//
-// Note a "true local" (indicated by a set-word) is considered to be tacit
-// approval of wanting a definitional return by the generator.  This helps
-// because Red's model for specifying returns uses a SET-WORD!
-//
-//     func [return: [integer!] {returns an integer}]
-//
-// In Ren-C's case it just means you want a local called return, but the
-// generator will be "initializing it with a definitional return" for you.
-// You don't have to use it if you don't want to...and may overwrite the
-// variable.  But it won't be a void at the start.
-//
-// Note: While paramlists should ultimately carry SERIES_FLAG_FIXED_SIZE,
-// the product of this routine might need to be added to.  And series that
-// are created fixed size have special preparation such that they will trip
-// more asserts.  So the fixed size flag is *not* added here, but ensured
-// in the Make_Action() step.
-//
-REBARR *Make_Paramlist_Managed_May_Fail(
+void Push_Paramlist_Triads_May_Fail(
     const REBVAL *spec,
-    REBFLGS flags
-) {
+    REBFLGS *flags,
+    REBDSP dsp_orig,
+    REBDSP *definitional_return_dsp
+){
     assert(IS_BLOCK(spec));
-
-    REBDSP dsp_orig = DSP;
-    assert(DS_TOP == DS_AT(dsp_orig));
-
-    REBDSP definitional_return_dsp = 0;
-
-    // As we go through the spec block, we push TYPESET! BLOCK! TEXT! triples.
-    // These will be split out into separate arrays after the process is done.
-    // The first slot of the paramlist needs to be the function canon value,
-    // while the other two first slots need to be rootkeys.  Get the process
-    // started right after a BLOCK! so it's willing to take a string for
-    // the function description--it will be extracted from the slot before
-    // it is turned into a rootkey for param_notes.
-    //
-    Init_Unreadable_Blank(DS_PUSH()); // paramlist[0] becomes ACT_ARCHETYPE()
-    Move_Value(DS_PUSH(), EMPTY_BLOCK); // param_types[0] (object canon)
-    Move_Value(DS_PUSH(), EMPTY_TEXT); // param_notes[0] (desc, then canon)
-
-    bool has_description = false;
-    bool has_types = false;
-    bool has_notes = false;
-
-    bool is_voider = false;
-    bool has_return = false;
 
     enum Reb_Spec_Mode mode = SPEC_MODE_NORMAL;
 
     bool refinement_seen = false;
 
-    const RELVAL *value = VAL_ARRAY_AT(spec);
+    const RELVAL* value = VAL_ARRAY_AT(spec);
 
     while (NOT_END(value)) {
-        const RELVAL *item = value; // "faked", e.g. <return> => RETURN:
-        ++value; // go ahead and consume next
+        const RELVAL* item = value;  // "faked", e.g. <return> => RETURN:
+        ++value;  // go ahead and consume next
 
     //=//// STRING! FOR FUNCTION DESCRIPTION OR PARAMETER NOTE ////////////=//
 
@@ -259,27 +207,27 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 continue;
 
             if (IS_PARAM(DS_TOP))
-                Move_Value(DS_PUSH(), EMPTY_BLOCK); // need block in position
+                Move_Value(DS_PUSH(), EMPTY_BLOCK);  // need block in position
 
-            if (IS_BLOCK(DS_TOP)) { // we're in right spot to push notes/title
-                Init_Text(DS_PUSH(),  Copy_String_At(item));
+            if (IS_BLOCK(DS_TOP)) {  // in right spot to push notes/title
+                Init_Text(DS_PUSH(), Copy_String_At(item));
             }
-            else { // !!! A string was already pushed.  Should we append?
+            else {  // !!! A string was already pushed.  Should we append?
                 assert(IS_TEXT(DS_TOP));
                 Init_Text(DS_TOP, Copy_String_At(item));
             }
 
             if (DS_TOP == DS_AT(dsp_orig + 3))
-                has_description = true;
+                *flags |= MKF_HAS_DESCRIPTION;
             else
-                has_notes = true;
+                *flags |= MKF_HAS_NOTES;
 
             continue;
         }
 
     //=//// TOP-LEVEL SPEC TAGS LIKE <local>, <with> etc. /////////////////=//
 
-        if (IS_TAG(item) and (flags & MKF_KEYWORDS)) {
+        if (IS_TAG(item) and (*flags & MKF_KEYWORDS)) {
             if (0 == Compare_String_Vals(item, Root_With_Tag, true)) {
                 mode = SPEC_MODE_WITH;
                 continue;
@@ -289,7 +237,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 continue;
             }
             else if (0 == Compare_String_Vals(item, Root_Void_Tag, true)) {
-                is_voider = true; // use Voider_Dispatcher()
+                *flags |= MKF_IS_VOIDER;  // use Voider_Dispatcher()
 
                 // Fake as if they said [void!] !!! make more efficient
                 //
@@ -322,9 +270,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
             // Save the block for parameter types.
             //
-            REBVAL *param;
+            REBVAL* param;
             if (IS_PARAM(DS_TOP)) {
-                REBSPC *derived = Derive_Specifier(VAL_SPECIFIER(spec), item);
+                REBSPC* derived = Derive_Specifier(VAL_SPECIFIER(spec), item);
                 Init_Block(
                     DS_PUSH(),
                     Copy_Array_At_Deep_Managed(
@@ -334,10 +282,10 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                     )
                 );
 
-                param = DS_TOP - 1; // volatile if you DS_PUSH()!
+                param = DS_TOP - 1;  // volatile if you DS_PUSH()!
             }
             else {
-                assert(IS_TEXT(DS_TOP)); // !!! are blocks after notes good?
+                assert(IS_TEXT(DS_TOP));  // !!! are blocks after notes good?
 
                 if (IS_BLANK_RAW(DS_TOP - 2)) {
                     //
@@ -353,7 +301,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 if (VAL_ARRAY(DS_TOP - 1) != EMPTY_ARRAY)
                     fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
 
-                REBSPC *derived = Derive_Specifier(VAL_SPECIFIER(spec), item);
+                REBSPC* derived = Derive_Specifier(VAL_SPECIFIER(spec), item);
                 Init_Block(
                     DS_TOP - 1,
                     Copy_Array_At_Deep_Managed(
@@ -368,7 +316,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // Leaves VAL_TYPESET_SYM as-is.
             //
             bool was_refinement = TYPE_CHECK(param, REB_TS_REFINEMENT);
-            REBSPC *derived = Derive_Specifier(VAL_SPECIFIER(spec), item);
+            REBSPC* derived = Derive_Specifier(VAL_SPECIFIER(spec), item);
             VAL_TYPESET_LOW_BITS(param) = 0;
             VAL_TYPESET_HIGH_BITS(param) = 0;
             Add_Typeset_Bits_Core(
@@ -379,7 +327,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             if (was_refinement)
                 TYPE_SET(param, REB_TS_REFINEMENT);
 
-            has_types = true;
+            *flags |= MKF_HAS_TYPES;
             continue;
         }
 
@@ -392,9 +340,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             quoted = true;
         }
 
-        const REBCEL *cell = VAL_UNESCAPED(item);
+        const REBCEL* cell = VAL_UNESCAPED(item);
 
-        REBSTR *spelling;
+        REBSTR* spelling;
         Reb_Param_Class pclass = REB_P_DETECT;
 
         bool refinement = false;  // paths with blanks at head are refinements
@@ -418,7 +366,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             mode = SPEC_MODE_NORMAL;
 
             spelling = VAL_WORD_SPELLING(VAL_ARRAY_AT(cell) + 1);
-            if (STR_SYMBOL(spelling) == SYM_LOCAL)  // /local
+            if (STR_SYMBOL(spelling) == SYM_LOCAL)  // /LOCAL
                 if (ANY_WORD_KIND(KIND_BYTE(item + 1)))  // END is 0
                     fail (Error_Legacy_Local_Raw(spec));  // -> <local>
 
@@ -473,13 +421,13 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 pclass = REB_P_LOCAL;
         }
 
-        REBSTR *canon = STR_CANON(spelling);
+        REBSTR* canon = STR_CANON(spelling);
         if (STR_SYMBOL(canon) == SYM_RETURN and pclass != REB_P_LOCAL) {
             //
             // Cancel definitional return if any non-SET-WORD! uses the name
             // RETURN when defining a FUNC.
             //
-            flags &= ~MKF_RETURN;
+            *flags &= ~MKF_RETURN;
         }
 
         // Because FUNC does not do any locals gathering by default, the main
@@ -526,9 +474,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 DS_PUSH(),
                 pclass,
                 spelling,  // don't canonize, see #2258
-                (flags & MKF_ANY_VALUE)
-                    ? TS_OPT_VALUE
-                    : TS_VALUE & ~(
+                (*flags & MKF_ANY_VALUE)
+                  ? TS_OPT_VALUE
+                  : TS_VALUE & ~(
                         FLAGIT_KIND(REB_ACTION)
                         | FLAGIT_KIND(REB_VOID)
                     )
@@ -545,18 +493,34 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // (despite violating the "pure locals are NULL" premise)
         //
         if (STR_SYMBOL(canon) == SYM_RETURN) {
-            if (definitional_return_dsp != 0) {
-                DECLARE_LOCAL (word);
+            if (*definitional_return_dsp != 0) {
+                DECLARE_LOCAL(word);
                 Init_Word(word, canon);
-                fail (Error_Dup_Vars_Raw(word)); // most dup checks done later
+                fail (Error_Dup_Vars_Raw(word));  // most dup checks are later
             }
             if (pclass == REB_P_LOCAL)
-                definitional_return_dsp = DSP; // RETURN: explicitly tolerated
+                *definitional_return_dsp = DSP;  // RETURN: explicit, tolerate
             else
-                flags &= ~MKF_RETURN;
+                *flags &= ~MKF_RETURN;
         }
     }
+}
 
+
+//
+//  Pop_Paramlist_And_Meta_May_Fail: C
+//
+// Assuming the stack is formed in a rhythm of the parameter, a type spec
+// block, and a description...produce a paramlist in a state suitable to be
+// passed to Make_Action().  It may not succeed because there could be
+// duplicate parameters on the stack, and the checking via a binder is done
+// as part of this popping process.
+//
+REBARR *Pop_Paramlist_With_Meta_May_Fail(
+    REBDSP dsp_orig,
+    REBFLGS flags,
+    REBDSP definitional_return_dsp
+){
     // Go ahead and flesh out the TYPESET! BLOCK! TEXT! triples.
     //
     if (IS_PARAM(DS_TOP))
@@ -605,7 +569,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // definitional_return handled specially when paramlist copied
         // off of the stack...moved to head position.
 
-        has_return = true;
+        flags |= MKF_HAS_RETURN;
     }
 
     // Slots, which is length +1 (includes the rootvar or rootparam)
@@ -637,9 +601,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     // Note: not a valid ACTION! paramlist yet, don't use SET_ACTION_FLAG()
     //
-    if (is_voider)
+    if (flags & MKF_IS_VOIDER)
         SER(paramlist)->info.bits |= ARRAY_INFO_MISC_VOIDER;  // !!! see note
-    if (has_return)
+    if (flags & MKF_HAS_RETURN)
         SER(paramlist)->header.bits |= PARAMLIST_FLAG_HAS_RETURN;
 
   blockscope {
@@ -654,7 +618,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     REBVAL *dest = archetype + 1;
 
     // We want to check for duplicates and a Binder can be used for that
-    // purpose--but note that a fail() cannot happen while binders are
+    // purpose--but note that a fail () cannot happen while binders are
     // in effect UNLESS the BUF_COLLECT contains information to undo it!
     // There's no BUF_COLLECT here, so don't fail while binder in effect.
     //
@@ -664,7 +628,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     struct Reb_Binder binder;
     INIT_BINDER(&binder);
 
-    REBSTR *duplicate = NULL;
+    REBSTR *duplicate = nullptr;
 
     REBVAL *src = DS_AT(dsp_orig + 1) + 3;
 
@@ -724,7 +688,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     REBCTX *meta = nullptr;
 
-    if (has_description or has_types or has_notes)
+    if (flags & (MKF_HAS_DESCRIPTION | MKF_HAS_TYPES | MKF_HAS_NOTES))
         meta = Copy_Context_Shallow_Managed(VAL_CONTEXT(Root_Action_Meta));
 
     MISC_META_NODE(paramlist) = NOD(meta);
@@ -732,7 +696,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // If a description string was gathered, it's sitting in the first string
     // slot, the third cell we pushed onto the stack.  Extract it if so.
     //
-    if (has_description) {
+    if (flags & MKF_HAS_DESCRIPTION) {
         assert(IS_TEXT(DS_AT(dsp_orig + 3)));
         Move_Value(
             CTX_VAR(meta, STD_ACTION_META_DESCRIPTION),
@@ -742,7 +706,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     // Only make `parameter-types` if there were blocks in the spec
     //
-    if (has_types) {
+    if (flags & MKF_HAS_TYPES) {
         REBARR *types_varlist = Make_Array_Core(
             num_slots,
             SERIES_MASK_VARLIST | NODE_FLAG_MANAGED
@@ -807,7 +771,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     // Only make `parameter-notes` if there were strings (besides description)
     //
-    if (has_notes) {
+    if (flags & MKF_HAS_NOTES) {
         REBARR *notes_varlist = Make_Array_Core(
             num_slots,
             SERIES_MASK_VARLIST | NODE_FLAG_MANAGED
@@ -873,6 +837,82 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     DS_DROP_TO(dsp_orig);
 
     return paramlist;
+}
+
+
+//
+//  Make_Paramlist_Managed_May_Fail: C
+//
+// Check function spec of the form:
+//
+//     ["description" arg "notes" [type! type2! ...] /ref ...]
+//
+// !!! The spec language was not formalized in R3-Alpha.  Strings were left
+// in and it was HELP's job (and any other clients) to make sense of it, e.g.:
+//
+//     [foo [type!] {doc string :-)}]
+//     [foo {doc string :-/} [type!]]
+//     [foo {doc string1 :-/} {doc string2 :-(} [type!]]
+//
+// Ren-C breaks this into two parts: one is the mechanical understanding of
+// MAKE ACTION! for parameters in the evaluator.  Then it is the job
+// of a generator to tag the resulting function with a "meta object" with any
+// descriptions.  As a proxy for the work of a usermode generator, this
+// routine tries to fill in FUNCTION-META (see %sysobj.r) as well as to
+// produce a paramlist suitable for the function.
+//
+// Note a "true local" (indicated by a set-word) is considered to be tacit
+// approval of wanting a definitional return by the generator.  This helps
+// because Red's model for specifying returns uses a SET-WORD!
+//
+//     func [return: [integer!] {returns an integer}]
+//
+// In Ren-C's case it just means you want a local called return, but the
+// generator will be "initializing it with a definitional return" for you.
+// You don't have to use it if you don't want to...and may overwrite the
+// variable.  But it won't be a void at the start.
+//
+// Note: While paramlists should ultimately carry SERIES_FLAG_FIXED_SIZE,
+// the product of this routine might need to be added to.  And series that
+// are created fixed size have special preparation such that they will trip
+// more asserts.  So the fixed size flag is *not* added here, but ensured
+// in the Make_Action() step.
+//
+REBARR *Make_Paramlist_Managed_May_Fail(
+    const REBVAL *spec,
+    REBFLGS flags
+){
+    REBDSP dsp_orig = DSP;
+    assert(DS_TOP == DS_AT(dsp_orig));
+
+    REBDSP definitional_return_dsp = 0;
+
+    // As we go through the spec block, we push TYPESET! BLOCK! TEXT! triples.
+    // These will be split out into separate arrays after the process is done.
+    // The first slot of the paramlist needs to be the function canon value,
+    // while the other two first slots need to be rootkeys.  Get the process
+    // started right after a BLOCK! so it's willing to take a string for
+    // the function description--it will be extracted from the slot before
+    // it is turned into a rootkey for param_notes.
+    //
+    Init_Unreadable_Blank(DS_PUSH()); // paramlist[0] becomes ACT_ARCHETYPE()
+    Move_Value(DS_PUSH(), EMPTY_BLOCK); // param_types[0] (object canon)
+    Move_Value(DS_PUSH(), EMPTY_TEXT); // param_notes[0] (desc, then canon)
+
+    // The process is broken up into phases so that the spec analysis code
+    // can be reused in AUGMENT.
+    //
+    Push_Paramlist_Triads_May_Fail(
+        spec,
+        &flags,
+        dsp_orig,
+        &definitional_return_dsp
+    );
+    return Pop_Paramlist_With_Meta_May_Fail(
+        dsp_orig,
+        flags,
+        definitional_return_dsp
+    );
 }
 
 
