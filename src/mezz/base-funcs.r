@@ -268,6 +268,7 @@ dig-action-meta-fields: function [value [action!]] [
         select meta 'specializee
         select meta 'adaptee
         first try match block! select meta 'chainees
+        select meta 'inner
     ]
 
     fields: try all [:underlying | dig-action-meta-fields :underlying]

@@ -54,7 +54,7 @@
 //          [<opt> any-value!]
 //      condition [<opt> any-value!]
 //      'branch "If arity-1 ACTION!, receives the evaluated condition"
-//          [block! action! quoted!]
+//          [block! action! quoted! blank!]
 //  ]
 //
 REBNATIVE(if)
@@ -80,8 +80,8 @@ REBNATIVE(if)
 //          "Returns null if either branch returns null (unlike IF...ELSE)"
 //      condition [<opt> any-value!]
 //      'true-branch "If arity-1 ACTION!, receives the evaluated condition"
-//          [block! action! quoted!]
-//      'false-branch [block! action! quoted!]
+//          [block! action! quoted! blank!]
+//      'false-branch [block! action! quoted! blank!]
 //  ]
 //
 REBNATIVE(either)
@@ -383,7 +383,7 @@ bool Match_Core_Throws(
 //          [<opt> any-value!]
 //      optional "<deferred argument> Run branch if this is null"
 //          [<opt> any-value!]
-//      'branch [block! action! quoted!]
+//      'branch [block! action! quoted! blank!]
 //  ]
 //
 REBNATIVE(else)  // see `tweak :else #defer on` in %base-defs.r
@@ -410,7 +410,7 @@ REBNATIVE(else)  // see `tweak :else #defer on` in %base-defs.r
 //      optional "<deferred argument> Run branch if this is not null"
 //          [<opt> any-value!]
 //      'branch "If arity-1 ACTION!, receives value that triggered branch"
-//          [block! action! quoted!]
+//          [block! action! quoted! blank!]
 //  ]
 //
 REBNATIVE(then)  // see `tweak :then #defer on` in %base-defs.r
@@ -437,7 +437,7 @@ REBNATIVE(then)  // see `tweak :then #defer on` in %base-defs.r
 //      optional "<deferred argument> Run branch if this is not null"
 //          [<opt> any-value!]
 //      'branch "If arity-1 ACTION!, receives value that triggered branch"
-//          [block! action! quoted!]
+//          [blank! block! action! quoted!]
 //  ]
 //
 REBNATIVE(also)  // see `tweak :also #defer on` in %base-defs.r

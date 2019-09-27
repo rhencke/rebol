@@ -174,22 +174,26 @@ inline static bool Do_Branch_Core_Throws(
 ){
     assert(branch != out and condition != out);
 
-    if (IS_QUOTED(branch)) {
+    if (IS_QUOTED(branch)) {  // make this fastest
         Unquotify(Move_Value(out, branch), 1);
         return false;
     }
 
-    if (IS_BLOCK(branch))
+    if (IS_BLOCK(branch))  // 2nd fastest
         return Do_Any_Array_At_Throws(out, branch, SPECIFIED);
 
-    assert(IS_ACTION(branch));
-    return RunQ_Throws(
-        out,
-        false, // !fully, e.g. arity-0 functions can ignore condition
-        rebU1(branch),
-        condition, // may be an END marker, if not Do_Branch_With() case
-        rebEND // ...but if condition wasn't an END marker, we need one
-    );
+    if (IS_ACTION(branch))  // 3rd fastest
+        return RunQ_Throws(
+            out,
+            false, // !fully, e.g. arity-0 functions can ignore condition
+            rebU1(branch),
+            condition, // may be an END marker, if not Do_Branch_With() case
+            rebEND // ...but if condition wasn't an END marker, we need one
+        );
+
+    assert(IS_BLANK(branch));  // assume opting out is rarest
+    Init_Nulled(out);
+    return false;
 }
 
 #define Do_Branch_With_Throws(out,branch,condition) \
