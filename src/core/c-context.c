@@ -717,7 +717,7 @@ REBARR *Collect_Unique_Words_Managed(
             const REBCEL *unescaped = VAL_UNESCAPED(item); // allow 'X, ''#Y
             REBSTR *canon = VAL_WORD_CANON(unescaped);
 
-        #if !defined(NDEBUG)
+          #if !defined(NDEBUG)
             REBINT i = Get_Binder_Index_Else_0(&cl->binder, canon);
             assert(i < 0);
             if (i != -1) {
@@ -725,7 +725,7 @@ REBARR *Collect_Unique_Words_Managed(
                 Add_Binder_Index(&cl->binder, canon, i + 1);
                 continue;
             }
-        #endif
+          #endif
 
             Remove_Binder_Index(&cl->binder, canon);
         }

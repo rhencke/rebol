@@ -426,7 +426,7 @@ bool Specialize_Action_Throws(
         if (not IS_NULLED(arg))
             goto specialized_arg_with_check;
 
-    unspecialized_arg:
+      unspecialized_arg:
 
         assert(NOT_CELL_FLAG(arg, ARG_MARKED_CHECKED));
         assert(
@@ -436,7 +436,7 @@ bool Specialize_Action_Throws(
         Move_Value(DS_PUSH(), param);
         continue;
 
-    specialized_arg_with_check:
+      specialized_arg_with_check:
 
         // !!! If argument was previously specialized, should have been type
         // checked already... don't type check again (?)
@@ -456,7 +456,7 @@ bool Specialize_Action_Throws(
 
        SET_CELL_FLAG(arg, ARG_MARKED_CHECKED);
 
-    specialized_arg_no_typecheck:
+      specialized_arg_no_typecheck:
 
         // Specialized-out arguments must still be in the parameter list,
         // for enumeration in the evaluator to line up with the frame values

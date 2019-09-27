@@ -460,7 +460,7 @@ REBNATIVE(adapt)
     //
     REBARR *prelude = Copy_And_Bind_Relative_Deep_Managed(
         ARG(prelude),
-        ACT_PARAMLIST(underlying), // relative bindings ALWAYS use underlying
+        paramlist,
         TS_WORD,
         false  // do not gather LETs
     );
