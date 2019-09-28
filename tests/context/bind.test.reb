@@ -48,6 +48,5 @@
 
 [#1893 (
     word: reeval func [x] ['x] 1
-    e: trap [same? word bind 'x word]
-    e/id = 'expired-frame
+    same? word bind 'x word
 )]

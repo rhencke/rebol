@@ -331,15 +331,24 @@
     f: does (reduce [does [true]])
     f
 )]
-; no-rebind test--succeeds in R3-Alpha but fails in Ren-C.  Second time f is
-; called, `a` has been cleared so `a [d]` doesn't recapture the local, and
-; `c` holds the `[d]` from the first call.
+
+; Second time f is called, `a` has been cleared so `a [d]` doesn't recapture
+; the local, and `c` holds the `[d]` from the first call.  This succeeds in
+; R3-Alpha for a different reason than it succeeds in Ren-C; Ren-C has
+; closure semantics for functions so the c: [d] where d is 1 survives.
+; R3-Alpha recycles variables based on stack searching (non-specific binding).
 (
-    a: func [b] [a: _ c: b]
-    f: func [d] [a [d] do c]
+    a: func [b] [
+        a: _  comment "erases a so only first call saves c"
+        c: b
+    ]
+    f: func [d] [
+        a [d]
+        do c
+    ]
     did all [
         1 = f 1
-        error? trap [2 = f 2]
+        1 = f 2
     ]
 )
 [#1528
