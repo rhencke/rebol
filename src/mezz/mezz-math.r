@@ -52,6 +52,7 @@ modulo: function [
 ]
 
 mod: enfixed :modulo
+pow: enfixed :power
 
 sign-of: func [
     "Returns sign of number as 1, 0, or -1 (to use as multiplier)."
