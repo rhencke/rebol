@@ -46,5 +46,5 @@
 
     (1020 = switch-d 'b ['b [1000 + 20]])
     (1020 = switch-d/default 'b ['b [1000 + 20]] [300 + 4])
-    (304 = switch-d/default 'j ['b [1000 + 20]] [300 + 4]) 
+    (304 = switch-d/default 'j ['b [1000 + 20]] [300 + 4])
 ]

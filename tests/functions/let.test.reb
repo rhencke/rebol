@@ -8,7 +8,7 @@
     did all [
         1020 = plus1000 20
         b = <global>
-        [j] = parameters of :plus1000 
+        [j] = parameters of :plus1000
         [return j b] = words of make frame! :plus1000
-    ] 
+    ]
 )

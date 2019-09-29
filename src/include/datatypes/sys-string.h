@@ -578,7 +578,7 @@ inline static REBCHR(*) STR_AT(REBSTR *s, REBLEN at) {
     // track the last access--which speeds up the most common case of an
     // iteration.  Improve as time permits!
     //
-    assert(not LINK(bookmark).bookmarks);  // only one for now
+    assert(not bookmark or not LINK(bookmark).bookmarks);  // only one for now
 
   blockscope {
     REBLEN booked = BMK_INDEX(bookmark);

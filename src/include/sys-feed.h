@@ -269,11 +269,6 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
             fail (error_ctx);
         }
 
-        // !!! for now, assume scan went to the end; ultimately it would need
-        // to pass the feed in as a parameter for partial scans
-        //
-        feed->vaptr = nullptr;
-
         if (DSP == dsp_orig) {
             //
             // This happens when somone says rebValue(..., "", ...) or similar,
@@ -285,6 +280,11 @@ inline static const RELVAL *Detect_Feed_Pointer_Maybe_Fetch(
             p = va_arg(*feed->vaptr, const void*);
             goto detect_again;
         }
+
+        // !!! for now, assume scan went to the end; ultimately it would need
+        // to pass the feed in as a parameter for partial scans
+        //
+        feed->vaptr = nullptr;
 
         REBARR *reified = Pop_Stack_Values(dsp_orig);
 
