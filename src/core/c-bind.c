@@ -189,6 +189,7 @@ REBLEN Try_Bind_Word(REBCTX *context, REBVAL *word)
 //  {LET is noticed by FUNC to mean "create a local binding"}
 //
 //      return: []
+//      :word [<skip> word!]
 //  ]
 //
 REBNATIVE(let)
@@ -199,8 +200,9 @@ REBNATIVE(let)
 // parallel to how SET-WORD!s were scanned for in R3-Alpha's FUNCTION.
 {
     INCLUDE_PARAMS_OF_LET;
+    UNUSED(ARG(word));  // just skip over WORD!s (vs. look them up)
 
-    return nullptr;
+    return R_INVISIBLE;
 }
 
 
@@ -316,7 +318,7 @@ static void Clonify_And_Bind_Relative(
         //
         if (deep_types & FLAGIT_KIND(kind) & TS_ARRAYS_OBJ) {
             REBVAL *sub = KNOWN(ARR_HEAD(ARR(series)));
-            for (; NOT_END(sub); ++sub)
+            for (; NOT_END(sub); ++sub, ++sub_src)
                 Clonify_And_Bind_Relative(
                     sub,
                     sub_src,
