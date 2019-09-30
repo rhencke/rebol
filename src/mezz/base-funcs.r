@@ -10,13 +10,13 @@ REBOL [
         See: http://www.apache.org/licenses/LICENSE-2.0
     }
     Note: {
-        This code is evaluated just after actions, natives, sysobj, and other lower
-        levels definitions. This file intializes a minimal working environment
+        This code is evaluated just after actions, natives, sysobj, and other
+        lower-level definitions.  It intializes a minimal working environment
         that is used for the rest of the boot.
     }
 ]
 
-assert: func [
+assert: func* [
     {Ensure conditions are conditionally true if hooked by debugging}
 
     return: []
@@ -31,7 +31,7 @@ assert: func [
 ]
 
 
-maybe: enfixed func [
+maybe: enfixed func* [
     "Set word or path to a default value if that value is a value"
 
     return: [<opt> any-value!]
@@ -39,8 +39,6 @@ maybe: enfixed func [
         "The word to which might be set"
     optional [<opt> any-value!]
         "Value to assign only if it is not null"
-
-    <local> gotten
 ][
     if semiquoted? 'optional [
         ;
@@ -62,7 +60,7 @@ maybe: enfixed func [
 ]
 
 
-steal: func [
+steal: func* [
     {Return a variable's value prior to an assignment, then do the assignment}
 
     return: [<opt> any-value!]
@@ -79,18 +77,42 @@ steal: func [
 assert [null = binding of :return]  ; it's archetypal, nowhere to return to
 unset 'return  ; so don't let the archetype be visible
 
-function: func [
+func: func* [
     {Make action with set-words as locals, <static>, <in>, <with>, <local>}
+
     return: [action!]
-    spec [block!]
-        {Help string (opt) followed by arg words (and opt type and string)}
-    body [block!]
-        {The body block of the function}
+    spec "Help string (opt) followed by arg words (and opt type and string)"
+        [block!]
+    body "The body block of the function"
+        [<const> block!]
+    /gather "Gather SET-WORD! as local variables (preferably, please use LET)"
     <local>
         new-spec var other
         new-body exclusions locals defaulters statics
 ][
-    exclusions: copy []
+    ; R3-Alpha offered features on FUNCTION (a complex usermode construct)
+    ; that the simpler/faster FUNC did not have.  Ren-C seeks to make FUNC and
+    ; FUNCTION synonyms:
+    ;
+    ; https://forum.rebol.info/t/abbreviations-as-synonyms/1211
+    ;
+    ; To get a little ways along this path, there needs to be a way for FUNC
+    ; to get features like <static> which are easier to write in usermode.
+    ; So the lower-level FUNC* is implemented as a native, and this wrapper
+    ; does a fast shortcut to check to see if the spec has no tags...and if
+    ; not, it quickly falls through to that fast implementation.
+    ;
+    ; Note: Long term, FUNC could be a native which does this check in raw
+    ; C and then calls out to usermode if there are tags.  That would be even
+    ; faster than this usermode prelude.
+    ;
+    all [
+        not gather
+        not find spec tag!
+        return func* spec body
+    ]
+
+    let exclusions: copy []
 
     ; Rather than MAKE BLOCK! LENGTH OF SPEC here, we copy the spec and clear
     ; it.  This costs slightly more, but it means we inherit the file and line
@@ -100,12 +122,13 @@ function: func [
     ; !!! General API control to set the file and line on blocks is another
     ; possibility, but since it's so new, we'd rather get experience first.
     ;
-    new-spec: clear copy spec
+    let new-spec: clear copy spec
 
-    new-body: _
-    statics: _
-    defaulters: _
-    var: <dummy>  ; want to enter PARSE with truthy state (gets overwritten)
+    let new-body: _
+    let statics: _
+    let defaulters: _
+    let var: <dummy>  ; enter PARSE with truthy state (gets overwritten)
+    let with-return: _
 
     ; Gather the SET-WORD!s in the body, excluding the collected ANY-WORD!s
     ; that should not be considered.  Note that COLLECT is not defined by
@@ -113,6 +136,7 @@ function: func [
     ;
     ; !!! REVIEW: ignore self too if binding object?
     ;
+    let other
     parse spec [any [
         <void> (append new-spec <void>)
     |
@@ -190,7 +214,14 @@ function: func [
         ]
     |
         <with> any [
-            set other: [word! | path!] (append exclusions other)
+            set other: [word! | path!] (
+                append exclusions other
+
+                ; Definitional returns need to be signaled even if FUNC, so
+                ; the FUNC* doesn't automatically generate one.
+                ;
+                if other = 'return [with-return: [<with> return]]
+            )
         |
             text!  ; skip over as commentary
         ]
@@ -224,7 +255,7 @@ function: func [
         )
     ] end]
 
-    locals: collect-words/deep/set/ignore body exclusions
+    locals: try if gather [collect-words/deep/set/ignore body exclusions]
 
     if statics [
         statics: make object! statics
@@ -240,7 +271,16 @@ function: func [
         append new-spec to set-word! loc
     ]
 
-    func new-spec either defaulters [
+    append new-spec opt with-return  ; if FUNC* suppresses return generation
+
+    ; The constness of the body parameter influences whether FUNC* will allow
+    ; mutations of the created function body or not.  It's disallowed by
+    ; default, but TWEAK can be used to create variations e.g. a compatible
+    ; implementation with Rebol2's FUNC.
+    ;
+    if const? body [new-body: const new-body]
+
+    func* new-spec either defaulters [
         append/only defaulters as group! any [new-body body]
     ][
         any [new-body body]
@@ -248,13 +288,22 @@ function: func [
 ]
 
 
+; Historical FUNCTION is intended to one day be a synonym for FUNC, once there
+; are solutions such that LET can take the place of what SET-WORD! gathering
+; was able to do.  This will be an ongoing process.
+;
+; https://forum.rebol.info/t/rethinking-auto-gathered-set-word-locals/1150
+;
+function: :func/gather
+
+
 ; Actions can be chained, adapted, and specialized--repeatedly.  The meta
 ; information from which HELP is determined can be inherited through links
 ; in that meta information.  Though in order to mutate the information for
 ; the purposes of distinguishing a derived action, it must be copied.
 ;
-dig-action-meta-fields: function [value [action!]] [
-    meta: meta-of :value else [
+dig-action-meta-fields: func [value [action!]] [
+    let meta: meta-of :value else [
         return make system/standard/action-meta [
             description: _
             return-type: _
@@ -264,17 +313,17 @@ dig-action-meta-fields: function [value [action!]] [
         ]
     ]
 
-    underlying: try ensure [<opt> action!] any [
+    let underlying: try ensure [<opt> action!] any [
         select meta 'specializee
         select meta 'adaptee
         first try match block! select meta 'chainees
         select meta 'inner
     ]
 
-    fields: try all [:underlying | dig-action-meta-fields :underlying]
+    let fields: try all [:underlying | dig-action-meta-fields :underlying]
 
-    inherit-frame: function [parent [<blank> frame!]] [
-        child: make frame! :value
+    let inherit-frame: func [parent [<blank> frame!]] [
+        let child: make frame! :value
         for-each param words of child [  ; `for-each param child` locks child
             child/(param): maybe select parent param
         ]
@@ -306,14 +355,14 @@ dig-action-meta-fields: function [value [action!]] [
 ]
 
 
-what-dir: function [  ; This can be HIJACK'd by a "smarter" version
+what-dir: func [  ; This can be HIJACK'd by a "smarter" version
     {Returns the current directory path}
     return: [<opt> file! url!]
 ][
     return opt system/options/current-path
 ]
 
-change-dir: function [  ; This can be HIJACK'd by a "smarter" version
+change-dir: func [  ; This can be HIJACK'd by a "smarter" version
     {Changes the current path (where scripts with relative paths will be run).}
     return: [file! url!]
     path [file! url!]
@@ -322,7 +371,7 @@ change-dir: function [  ; This can be HIJACK'd by a "smarter" version
 ]
 
 
-redescribe: function [
+redescribe: func [
     {Mutate action description with new title and/or new argument notes.}
 
     return: [action!]
@@ -332,15 +381,16 @@ redescribe: function [
     value [action!]
         {(modified) Action whose description is to be updated.}
 ][
-    meta: meta-of :value
-    notes: _
+    let meta: meta-of :value
+    let notes: _
+    let description: _
 
     ; For efficiency, objects are only created on demand by hitting the
     ; required point in the PARSE.  Hence `redescribe [] :foo` will not tamper
     ; with the meta information at all, while `redescribe [{stuff}] :foo` will
     ; only manipulate the description.
 
-    on-demand-meta: does [
+    let on-demand-meta: does [
         meta: default [set-meta :value copy system/standard/action-meta]
 
         if not find meta 'description [
@@ -352,12 +402,9 @@ redescribe: function [
                 fail [{PARAMETER-NOTES in META-OF is not a FRAME!} notes]
             ]
 
-          ; !!! Getting error on equality test from expired frame...review
-          comment [
             if not equal? :value (action of notes) [
                 fail [{PARAMETER-NOTES in META-OF frame mismatch} notes]
             ]
-          ]
         ]
     ]
 
@@ -369,11 +416,11 @@ redescribe: function [
     ; but to reuse archetypal ones.  Also to limit the total number of
     ; variations that clients like HELP have to reason about.)
     ;
-    on-demand-notes: does [  ; was a DOES CATCH, removed during DOES tweaking
+    let on-demand-notes: does [  ; was DOES CATCH, removed during DOES tweak
         on-demand-meta
 
         if find meta 'parameter-notes [
-            fields: dig-action-meta-fields :value
+            let fields: dig-action-meta-fields :value
 
             meta: _  ; need to get a parameter-notes field in the OBJECT!
             on-demand-meta  ; ...so this loses SPECIALIZEE, etc.
@@ -428,7 +475,7 @@ redescribe: function [
                             fail [param "not found in frame to describe"]
                         ]
 
-                        actual: first find parameters of :value param
+                        let actual: first find parameters of :value param
                         if not strict-equal? param actual [
                             fail [param {doesn't match word type of} actual]
                         ]
@@ -450,7 +497,7 @@ redescribe: function [
         meta/parameter-notes: _
     ]
 
-    :value  ; should have updated the meta
+    return :value  ; should have updated the meta
 ]
 
 
@@ -474,8 +521,8 @@ so: enfixed func [
             arg1: compose [((:condition)) so]
         ]
     ]
-    if tail? feed [return void]
-    set* lit feed: take feed
+    if tail? feed [return]
+    set* 'feed take feed
     if (block? :feed) and [semiquoted? 'feed] [
         fail "Don't use literal block as SO right hand side, use ([...])"
     ]
@@ -487,9 +534,9 @@ tweak :so 'postpone on
 matched: enfixed redescribe [
     "Assert that the left hand side--when fully evaluated--MATCHES the right"
 ](
-    enclose :matches function [f [frame!]] [
-        test: :f/test  ; save for reporting, note DO F makes F/XXX unavailable
-        value: :f/value  ; returned value
+    enclose :matches func [f [frame!]] [
+        let test: :f/test  ; note DO F makes F/XXX unavailable
+        let value: :f/value  ; returned value
 
         if not do f [
             fail @f make error! [
@@ -498,7 +545,7 @@ matched: enfixed redescribe [
                 arg1: compose [(:value) matches (:test)]
             ]
         ]
-        :value
+        return :value
     ]
 )
 tweak :matched 'postpone on
@@ -510,7 +557,7 @@ match?: chain [:match | :value?]
 was: enfixed redescribe [
     "Assert that the left hand side--when fully evaluated--IS the right"
 ](
-    function [left [<opt> any-value!] right [<opt> any-value!]] [
+    func [left [<opt> any-value!] right [<opt> any-value!]] [
         if :left != :right [
             fail @return make error! [
                 type: 'Script
@@ -518,7 +565,7 @@ was: enfixed redescribe [
                 arg1: compose [(:left) is (:right)]
             ]
         ]
-        :left  ; choose left in case binding or case matters somehow
+        return :left  ; choose left in case binding or case matters somehow
     ]
 )
 tweak :was 'postpone on
@@ -738,7 +785,7 @@ lock-of: redescribe [
 
 ; => cannot be loaded by R3-Alpha, or even earlier Ren-C
 ;
-lambda: function [
+lambda: func [
     {Convenience variadic wrapper for MAKE ACTION!}
 
     return: [action!]
@@ -787,21 +834,6 @@ once-bar: func [
 ]
 
 
-method: enfixed func [
-    {FUNCTION variant that creates an ACTION! implicitly bound in a context}
-
-    return: [action!]
-    :member [set-word! set-path!]
-    spec [block!]
-    body [block!]
-    <local> context
-][
-    context: binding of member else [
-        fail [member "must be bound to an ANY-CONTEXT! to use METHOD"]
-    ]
-    set member bind (function compose [((spec)) <in> ((context))] body) context
-]
-
 meth: enfixed func [
     {FUNC variant that creates an ACTION! implicitly bound in a context}
 
@@ -809,22 +841,25 @@ meth: enfixed func [
     :member [set-word! set-path!]
     spec [block!]
     body [block!]
-    <local> context
+    /gather "Temporary compatibility tweak for METHOD (until synonymous)"
 ][
-    context: binding of member else [
-        fail [target "must be bound to an ANY-CONTEXT! to use METH"]
+    let context: binding of member else [
+        fail [member "must be bound to an ANY-CONTEXT! to use METHOD"]
     ]
-
-    ; !!! This is somewhat inefficient because <in> is currently implemented
-    ; in usermode...so the body will get copied twice.  The contention is
-    ; between not wanting to alter the bindings in the caller's body variable
-    ; and wanting to update them for the purposes of the FUNC.  Review.
-    ;
-    set member bind (func spec bind copy/deep body context) context
+    set member bind (
+        func/(gather) compose [((spec)) <in> (context)] body
+    ) context
 ]
 
+; See notes on the future where FUNC and FUNCTION are synonyms (same will be
+; true of METH and METHOD:
+;
+; https://forum.rebol.info/t/rethinking-auto-gathered-set-word-locals/1150
+;
+method: enfixed :meth/gather
 
-module: function [
+
+module: func [
     {Creates a new module}
 
     spec "The header block of the module (modified)"
@@ -886,9 +921,10 @@ module: function [
     ; In Ren-C, MAKE MODULE! acts just like MAKE OBJECT! due to the generic
     ; facility for SET-META.
 
-    mod: into: default [
+    into: default [
         make module! 7 ; arbitrary starting size
     ]
+    let mod: into
 
     if find spec/options 'extension [
         append mod 'lib-base ; specific runtime values MUST BE FIRST
@@ -903,6 +939,7 @@ module: function [
         ]
 
         ; Note: 'export overrides 'hidden, silently for now
+        let w
         parse body [while [
             to 'export remove skip opt remove 'hidden opt
             [
@@ -920,7 +957,7 @@ module: function [
     ]
 
     ; Collect 'hidden keyword words, removing the keywords. Ignore exports.
-    hidden: _
+    let hidden: _
     if find body 'hidden [
         hidden: make block! 10
         ; Note: Exports are not hidden, silently for now
@@ -950,7 +987,7 @@ module: function [
     ; Add exported words at top of context (performance):
     if block? select spec 'exports [bind/new spec/exports mod]
 
-    either find spec/options 'isolate [
+    if find spec/options 'isolate [
         ;
         ; All words of the module body are module variables:
         ;
@@ -961,7 +998,8 @@ module: function [
         if object? mixin [resolve mod mixin]
 
         resolve mod lib
-    ][
+    ]
+    else [
         ; Only top level defined words are module variables.
         ;
         bind/only/set body mod
@@ -976,7 +1014,7 @@ module: function [
     bind body mod  ; !!! "Redundant?" (said the comment...)
     do body
 
-    mod
+    return mod
 ]
 
 
@@ -1014,7 +1052,7 @@ cause-error: func [
 ;
 ; Though HIJACK would have to be aware of it and preserve the rule.
 ;
-fail: function [
+fail: func [
     {Interrupts execution by reporting an error (a TRAP can intercept it).}
 
     :blame "Point to variable or parameter to blame"
@@ -1039,9 +1077,9 @@ fail: function [
     ; !!! PATH! doesn't do BINDING OF, and in the general case it couldn't
     ; tell you where it resolved to without evaluating, just do WORD! for now.
     ;
-    frame: try match frame! binding of try match sym-word! :blame
+    let frame: try match frame! binding of try match sym-word! :blame
 
-    error: switch type of :reason [
+    let error: switch type of :reason [
         error! [reason]
         text! [make error! reason]
         block! [
@@ -1092,41 +1130,41 @@ fail: function [
 unreachable: specialize 'fail [reason: "Unreachable code"]
 
 
-generate: function [ "Make a generator."
+generate: func [ "Make a generator."
     init [block!] "Init code"
     condition [block! blank!] "While condition"
     iteration [block!] "Step code"
 ][
-    words: make block! 2
+    let words: make block! 2
     for-each x reduce [init condition iteration] [
         if not block? x [continue]
-        w: collect-words/deep/set x
+        let w: collect-words/deep/set x
         if not empty? intersect w [count result] [ fail [
             "count: and result: set-words aren't allowed in" mold x
         ]]
         append words w
     ]
-    spec: compose [/reset [block!] <static> ((unique words)) count]
-    body: compose/deep [
+    let spec: compose [/reset [block!] <static> ((unique words)) count]
+    let body: compose/deep [
         if reset [count: reset return]
         if block? count [
-            result: bind count 'count
+            let result: bind count 'count
             count: 1
             return do result
         ]
         count: me + 1
-        result: (to group! iteration)
+        let result: (to group! iteration)
         ((either empty? condition
             [[ return result ]]
             [compose [ return if (to group! condition) [result] ]]
         ))
     ]
-    f: function spec body
+    let f: function spec body
     f/reset init
-    :f
+    return :f
 ]
 
-read-lines: function [
+read-lines: func [
     {Makes a generator that yields lines from a file or port.}
     src [port! file! blank!]
     /delimiter [binary! char! text! bitset!]
@@ -1136,7 +1174,8 @@ read-lines: function [
     if blank? src [src: system/ports/input]
     if file? src [src: open src]
 
-    rule: compose/deep/only either delimiter [
+    let pos
+    let rule: compose/deep/only either delimiter [
         either keep
         [ [thru (delimiter) pos:] ]
         [ [to (delimiter) remove (delimiter) pos:] ]
@@ -1149,20 +1188,21 @@ read-lines: function [
         ]
     ]
 
-    f: function compose [
+    let f: function compose [
         <static> buffer (to group! [make binary! 4096])
         <static> port (groupify src)
     ] compose/deep [
-        crlf: charset "^/^M"
-        data: _ eof: false
+        let crlf: charset "^/^M"
+        let data: _
+        let eof: false
         cycle [
-            pos: _
+            let pos: _
             parse buffer (rule)
             if pos [break]
             ((if same? src system/ports/input
-                [[data: read port ]]
+                '[data: read port]
                 else
-                [[data: read/part port 4096]]
+                '[data: read/part port 4096]
             ))
             if empty? data [
                 eof: true
@@ -1172,7 +1212,7 @@ read-lines: function [
             append buffer data
         ]
         if all [eof empty? buffer] [return null]
-        ((if not binary [[to text!]])) take/part buffer pos
+        ((if not binary '[to text!])) take/part buffer pos
     ]
 ]
 

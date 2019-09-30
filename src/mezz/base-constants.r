@@ -64,7 +64,7 @@ blank: _   ; e.g. sometimes `return blank` reads better than `return _`
 ; to null.  But there can't be a literal type that *is* null, by definition.
 ; See the NULL native.
 
-void: func [
+void: func* [
     "Function returning void result (alternative for `#[void]`)"
     return: <void>
 ][

@@ -24,7 +24,7 @@ acos: :arccosine/radians
 asin: :arcsine/radians
 atan: :arctangent/radians
 
-modulo: function [
+modulo: func [
     "Compute a remainder of A divided by B with the sign of B."
     a [any-number! money! time!]
     b [any-number! money! time!] "Must be nonzero."
@@ -35,7 +35,7 @@ modulo: function [
     ; but it is "almost" zero, i.e. "almost non-negative"
 
     ; Compute the smallest remainder with the same sign as b
-    r: remainder a b
+    let r: remainder a b
     if (sign? r) = negate sign? b [r: r + b]
     if not adjusted [return r]
     if (sign? a) = negate sign? b [a: negate a]
@@ -65,7 +65,7 @@ sign-of: func [
     ]
 ]
 
-extreme-of: function [
+extreme-of: func [
     {Finds the value with a property in a series that is the most "extreme"}
 
     return: "Position where the extreme value was found"
@@ -78,7 +78,7 @@ extreme-of: function [
 ][
     skip: default [1]
     if 1 > skip [cause-error 'script 'out-of-range skip]
-    spot: series
+    let spot: series
     iterate-skip series skip [
         if (comparator first series first spot) [spot: series]
     ]
@@ -101,9 +101,9 @@ maximum-of: redescribe [
 ; A simple iterative implementation; returns 1 for negative
 ; numbers. FEEL FREE TO IMPROVE THIS!
 ;
-factorial: func [n [integer!] <local> res] [
+factorial: func [n [integer!]] [
     if n < 2 [return 1]
-    res: 1
+    let res: 1
     ; should avoid doing the loop for i = 1...
     count-up i n [res: res * i]
 ]
@@ -114,7 +114,7 @@ factorial: func [n [integer!] <local> res] [
 ; much-requested (by new users) idea of * and / running before + and - in
 ; math expressions. Expanded to include functions.
 ;
-math: function [
+math: func [
     {Process expression taking "usual" operator precedence into account.}
 
     expr [block!]
@@ -228,7 +228,7 @@ math: function [
     ])
 ][
     clear nested-expr-val
-    res: either parse expr expression [expr-val] [blank]
+    let res: either parse expr expression [expr-val] [blank]
 
     either only [
         res

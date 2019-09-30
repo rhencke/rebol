@@ -28,7 +28,7 @@ c-break-debug: :c-debug-break  ; easy to mix up
 
 lit: :literal  ; because it's shorter
 
-|: enfixed func [
+|: enfixed func* [
     "Expression barrier - invisible so it vanishes, but blocks evaluation"
     return: []
     discarded [<opt> <end> any-value!]
@@ -40,7 +40,7 @@ tweak :| 'postpone on
 
 
 ??:  ; shorthand form to use in debug sessions, not intended to be committed
-probe: func [
+probe: func* [
     {Debug print a molded value and returns that same value.}
 
     return: "Same as the input value"
@@ -70,7 +70,7 @@ tweak :also 'defer on
 
 ; Common "Invisibles"
 
-comment: enfixed func [
+comment: enfixed func* [
     {Ignores the argument value, but does no evaluation (see also ELIDE).}
 
     return: []
@@ -82,7 +82,7 @@ comment: enfixed func [
 ][
 ]
 
-elide: func [
+elide: func* [
     {Argument is evaluative, but discarded (see also COMMENT).}
 
     return: []
@@ -92,7 +92,7 @@ elide: func [
 ][
 ]
 
-nihil: enfixed func [
+nihil: enfixed func* [
     {Arity-0 form of COMMENT}
     return: [] {Evaluator will skip result}
 ][
@@ -102,13 +102,13 @@ nihil: enfixed func [
 ; it could dump those remarks out...perhaps based on how many == there are.
 ; (This is a good reason for retaking ==, as that looks like a divider.)
 ;
-===: func [:remarks [any-value! <...>]] [
+===: func* [:remarks [any-value! <...>]] [
     until [
         equal? '=== take remarks
     ]
 ]
 
-|||: func [
+|||: func* [
     {Inertly consumes all subsequent data, evaluating to previous result.}
 
     return: []
@@ -147,13 +147,13 @@ newlined: chain [
         ]
     ]
         |
-    func [t [<opt> text!]] [
+    func* [t [<opt> text!]] [
         if unset? 't [return null]
         append t newline  ; Terminal newline is POSIX standard, more useful
     ]
 ]
 
-an: func [
+an: func* [
     {Prepends the correct "a" or "an" to a string, based on leading character}
     value <local> s
 ][
@@ -185,7 +185,7 @@ past?: specialize 'reflect [property: 'past?]
 open?: specialize 'reflect [property: 'open?]
 
 
-empty?: func [
+empty?: func* [
     {TRUE if empty or BLANK!, or if series is at or beyond its tail.}
     return: [logic!]
     series [any-series! object! port! bitset! map! blank!]
@@ -194,7 +194,7 @@ empty?: func [
 ]
 
 
-reeval func [
+reeval func* [
     {Make fast type testing functions (variadic to quote "top-level" words)}
     return: <void>
     'set-word... [set-word! tag! <...>]
@@ -279,20 +279,20 @@ reeval func [
 ; set up in %b-init.c.  Also LIT-WORD! and LIT-PATH! are handled specially in
 ; %words.r for bootstrap compatibility as a parse keyword.
 
-lit-word?: func [value [<opt> any-value!]] [
+lit-word?: func* [value [<opt> any-value!]] [
     lit-word! == type of :value  ; note plain = would not work here
 ]
-to-lit-word: func [value [any-value!]] [
+to-lit-word: func* [value [any-value!]] [
     quote to word! dequote :value
 ]
-lit-path?: func [value [<opt> any-value!]] [
+lit-path?: func* [value [<opt> any-value!]] [
     lit-path! == type of :value  ; note plain = would not work here
 ]
-to-lit-path: func [value [any-value!]] [
+to-lit-path: func* [value [any-value!]] [
     quote to path! dequote :value
 ]
 
-refinement?: func [value [<opt> any-value!]] [
+refinement?: func* [value [<opt> any-value!]] [
     did all [
         path? :value
         equal? length of value 2  ; Called by FUNCTION when = not defined yet
@@ -302,7 +302,7 @@ refinement?: func [value [<opt> any-value!]] [
 ]
 ; !!! refinement! is set to #refinement! during boot; signals a PATH! filter
 
-print: func [
+print: func* [
     {Textually output spaced line (evaluating elements if a block)}
 
     return: "NULL if blank input or effectively empty block, otherwise VOID!"
@@ -336,7 +336,7 @@ immediate!: make typeset! [
     blank! logic! any-scalar! date! any-word! datatype! typeset! event!
 ]
 
-ok?: func [
+ok?: func* [
     "Returns TRUE on all values that are not ERROR!"
     value [<opt> any-value!]
 ][

@@ -38,27 +38,24 @@ script-pre-load-hook: _
 ; for ANY-STRING! and BINARY! types (presumably because it would be laborious
 ; to express as C).
 ;
-do*: function [
-    {SYS: Called by system for DO on datatypes that require special handling.}
+do*: func [
+    {SYS: Called by system for DO on datatypes that require special handling}
+
     return: [<opt> any-value!]
-    source [file! url! text! binary! tag!]
-        {Files, urls and modules evaluate as scripts, other strings don't.}
-    args [any-value!]
-        "Args passed as system/script/args to a script (normally a string)"
-    only [logic!]
-        "Do not catch quits...propagate them."
+    source "Files, urls and modules evaluate as scripts, other strings don't"
+        [file! url! text! binary! tag!]
+    args "Args passed as system/script/args to a script (normally a string)"
+        [any-value!]
+    only "Do not catch quits...propagate them"
+        [logic!]
 ][
-    ; Refinements on the original DO, re-derive for helper
-
-    next: :lib/next
-
     ; !!! DEMONSTRATION OF CONCEPT... this translates a tag into a URL!, but
     ; it should be using a more "official" URL instead of on individuals
     ; websites.  There should also be some kind of local caching facility.
     ;
     ; force-remote-import is defined in sys-load.r
     ;
-    old-force-remote-import: force-remote-import
+    let old-force-remote-import: force-remote-import
 
     if tag? source [
         set 'force-remote-import true
@@ -77,15 +74,15 @@ do*: function [
     ; !!! There are some issues with this idea of preserving the path--one of
     ; which is that WHAT-DIR may return null.
     ;
-    original-path: try what-dir
-    original-script: _
+    let original-path: try what-dir
+    let original-script: _
 
-    finalizer: func [
+    let finalizer: func [
         value [<opt> any-value!]
         /quit
         <with> return
     ][
-        quit_FINALIZER: quit
+        let quit_FINALIZER: quit
         quit: :lib/quit
 
         ; Restore system/script and the dir if they were changed
@@ -112,7 +109,7 @@ do*: function [
     ; LOAD it will trigger before the failure of changing the working dir)
     ; It is loaded as UNBOUND so that DO-NEEDS runs before INTERN.
     ;
-    code: ensure block! (load/header/type source 'unbound)
+    let code: ensure block! (load/header/type source 'unbound)
 
     ; LOAD/header returns a block with the header object in the first
     ; position, or will cause an error.  No exceptions, not even for
@@ -124,9 +121,10 @@ do*: function [
     ; of the returned result to avoid LOCKing it when the code array is locked
     ; because even with series not at their head, LOCK NEXT CODE will lock it.
     ;
-    hdr: ensure [object! blank!] take code
-    is-module: 'module = select hdr 'type
+    let hdr: ensure [object! blank!] take code
+    let is-module: 'module = select hdr 'type
 
+    let result
     if (text? source) and [not is-module] [
         ;
         ; Return result without "script overhead" (e.g. don't change the
@@ -157,9 +155,8 @@ do*: function [
         ;
         all [
             match [file! url!] source
-            file: find-last/tail source slash
-        ] then [
-            change-dir copy/part source file
+            let file: find-last/tail source slash
+            elide change-dir copy/part source file
         ]
 
         ; Make the new script object
@@ -200,7 +197,7 @@ do*: function [
         ]
     ]
 
-    finalizer :result
+    return finalizer :result
 ]
 
 export: func [

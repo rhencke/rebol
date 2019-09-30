@@ -31,7 +31,7 @@
 #include "sys-core.h"
 
 //
-//  func: native [
+//  func*: native [
 //
 //  "Defines an ACTION! with given spec and body"
 //
@@ -39,12 +39,12 @@
 //      spec "Help string (opt) followed by arg words (and opt type + string)"
 //          [block!]
 //      body "Code implementing the function--use RETURN to yield a result"
-//          [<const> block!]
+//          [block!]
 //  ]
 //
-REBNATIVE(func)
+REBNATIVE(func_p)
 {
-    INCLUDE_PARAMS_OF_FUNC;
+    INCLUDE_PARAMS_OF_FUNC_P;
 
     REBACT *func = Make_Interpreted_Action_May_Fail(
         ARG(spec),
