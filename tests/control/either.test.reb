@@ -86,3 +86,30 @@
 
     ('arg-required = (trap [takes-2-logics true infix-voider true false])/id)
 ]
+
+; Soft Quoted Branching
+; https://forum.rebol.info/t/soft-quoted-branching-light-elegant-fast/1020
+(
+    [1 + 2] = either true '[1 + 2] [3 + 4]
+)(
+    7 = either false '[1 + 2] [3 + 4]
+)(
+    1020 = either true '1020 '304
+)
+
+; Lit-Branching
+(
+    j: 304
+    304 = either true @j [fail "Shouldn't run"]
+)(
+    o: make object! [b: 1020]
+    1020 = either true @o/b [fail "Shouldn't run"]
+)(
+    var: <something>
+    did all [
+        304 = either false @(var: <something-else> [1000 + 20]) [300 + 4]
+        var = <something>
+        1020 = if true @(var: <something-else> [1000 + 20]) [300 + 4]
+        var = <something-else>
+    ]
+)

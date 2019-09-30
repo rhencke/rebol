@@ -54,7 +54,7 @@
 //          [<opt> any-value!]
 //      condition [<opt> any-value!]
 //      'branch "If arity-1 ACTION!, receives the evaluated condition"
-//          [block! action! quoted! blank!]
+//          [block! action! quoted! sym-word! sym-path! sym-group! blank!]
 //  ]
 //
 REBNATIVE(if)
@@ -64,7 +64,7 @@ REBNATIVE(if)
     if (IS_CONDITIONAL_FALSE(ARG(condition))) // fails on void, literal blocks
         return nullptr;
 
-    if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(condition)))
+    if (Do_Branch_With_Throws(D_OUT, D_SPARE, ARG(branch), ARG(condition)))
         return R_THROWN;
 
     return Voidify_If_Nulled(D_OUT); // null means no branch (cues ELSE, etc.)
@@ -80,8 +80,9 @@ REBNATIVE(if)
 //          "Returns null if either branch returns null (unlike IF...ELSE)"
 //      condition [<opt> any-value!]
 //      'true-branch "If arity-1 ACTION!, receives the evaluated condition"
-//          [block! action! quoted! blank!]
-//      'false-branch [block! action! quoted! blank!]
+//          [block! action! quoted! sym-word! sym-path! sym-group! blank!]
+//      'false-branch
+//          [block! action! quoted! sym-word! sym-path! sym-group! blank!]
 //  ]
 //
 REBNATIVE(either)
@@ -90,6 +91,7 @@ REBNATIVE(either)
 
     if (Do_Branch_With_Throws(
         D_OUT,
+        D_SPARE,
         IS_CONDITIONAL_TRUE(ARG(condition)) // fails on void, literal blocks
             ? ARG(true_branch)
             : ARG(false_branch),
@@ -393,7 +395,7 @@ REBNATIVE(else)  // see `tweak :else #defer on` in %base-defs.r
     if (not IS_NULLED(ARG(optional)))  // Note: VOID!s are crucially non-NULL
         RETURN (ARG(optional));
 
-    if (Do_Branch_With_Throws(D_OUT, ARG(branch), NULLED_CELL))
+    if (Do_Branch_With_Throws(D_OUT, D_SPARE, ARG(branch), NULLED_CELL))
         return R_THROWN;
 
     return D_OUT;  // don't voidify, allows chaining: `else [...] then [...]`
@@ -420,7 +422,7 @@ REBNATIVE(then)  // see `tweak :then #defer on` in %base-defs.r
     if (IS_NULLED(ARG(optional)))  // Note: VOID!s are crucially non-NULL
         return nullptr;  // left didn't run, so signal THEN didn't run either
 
-    if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(optional)))
+    if (Do_Branch_With_Throws(D_OUT, D_SPARE, ARG(branch), ARG(optional)))
         return R_THROWN;
 
     return D_OUT;  // don't voidify, allows chaining: `then [...] then [...]`
@@ -447,7 +449,7 @@ REBNATIVE(also)  // see `tweak :also #defer on` in %base-defs.r
     if (IS_NULLED(ARG(optional)))  // Note: VOID!s are crucially non-NULL
         return nullptr;  // telegraph original input, but don't run
 
-    if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(optional)))
+    if (Do_Branch_With_Throws(D_OUT, D_SPARE, ARG(branch), ARG(optional)))
         return R_THROWN;
 
     RETURN (ARG(optional));  // ran, but pass thru the original input
@@ -488,7 +490,7 @@ REBNATIVE(either_match)
     if (VAL_LOGIC(D_OUT))
         RETURN (ARG(value));
 
-    if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(value)))
+    if (Do_Branch_With_Throws(D_OUT, D_SPARE, ARG(branch), ARG(value)))
         return R_THROWN;
 
     return D_OUT;
@@ -952,7 +954,7 @@ REBNATIVE(case)
         }
         else if (IS_ACTION(*v)) {
             DECLARE_LOCAL (temp);
-            if (Do_Branch_With_Throws(temp, KNOWN(*v), D_OUT)) {
+            if (Do_Branch_With_Throws(temp, nullptr, KNOWN(*v), D_OUT)) {
                 Move_Value(D_OUT, temp);
                 goto threw;
             }
@@ -1225,7 +1227,7 @@ REBNATIVE(default)
         if (NOT_END(frame_->feed->value))  // !!! shortcut w/variadic for now
             fail ("DEFAULT usage with no left hand side must be at <end>");
 
-        if (Do_Branch_Throws(D_OUT, ARG(branch)))
+        if (Do_Branch_Throws(D_OUT, D_SPARE, ARG(branch)))
             return R_THROWN;
 
         return D_OUT; // NULL is okay in this case
@@ -1287,7 +1289,7 @@ REBNATIVE(default)
     if (not IS_NULLED(D_OUT) and (not IS_BLANK(D_OUT) or REF(only)))
         return D_OUT; // count it as "already set" !!! what about VOID! ?
 
-    if (Do_Branch_Throws(D_OUT, ARG(branch)))
+    if (Do_Branch_Throws(D_OUT, D_SPARE, ARG(branch)))
         return R_THROWN;
 
     if (IS_SET_WORD(target))
