@@ -129,7 +129,7 @@ reform: deprecated [
 ]
 
 unless: checked [
-    enfixed function [
+    enfixed func [
         {Returns left hand side, unless the right hand side is a value}
 
         return: [<opt> any-value!]
@@ -137,7 +137,7 @@ unless: checked [
         :right [any-value! <...>]
         :look [any-value! <...>]
     ][
-        set* lit right: take* right
+        right: take* right
         if (unset? 'left) or [not group? right] or [block? first look] [
             fail @look [
                 "UNLESS has been repurposed in Ren-C as an infix operator"

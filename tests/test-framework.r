@@ -31,7 +31,7 @@ make object! compose [
 
     allowed-flags: _
 
-    process-vector: function [
+    process-vector: func [
         return: <void>
         flags [block!]
         source [text!]
@@ -45,6 +45,7 @@ make object! compose [
             return
         ]
 
+        let result
         case [
             error? trap [test-block: as block! load source] [
                 "cannot load test source"
@@ -53,7 +54,7 @@ make object! compose [
             elide (
                 print mold test-block  ; !!! make this an option
 
-                set* lit result: entrap test-block
+                result: entrap test-block
                 recycle
             )
 
@@ -64,7 +65,7 @@ make object! compose [
                 spaced ["error" any [to text! result/id | "w/no ID"]]
             ]
 
-            elide (set* 'result: first result)
+            elide (result: first result)
 
             void? :result [
                 "test returned void"

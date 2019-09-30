@@ -74,8 +74,7 @@ console!: make object! [
     repl: true  ; used to identify this as a console! object
     is-loaded:  false  ; if true then this is a loaded (external) skin
     was-updated: false  ; if true then console! object found in loaded skin
-    last-result: <set-to-void>  ; last evaluated result (sent by HOST-CONSOLE)
-    set* 'last-result void  ; !!! '#[void] assignment, not in bootstrap
+    last-result: void  ; last evaluated result (sent by HOST-CONSOLE)
 
     === APPEARANCE (can be overridden) ===
 
@@ -117,7 +116,7 @@ console!: make object! [
     ]
 
     print-result: method [return: <void> v [<opt> any-value!]] [
-        set* (lit last-result:) :v
+        last-result: :v
         case [
             null? :v [
                 print "; null"  ; no representation, use comment

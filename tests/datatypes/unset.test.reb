@@ -14,10 +14,10 @@
     ('need-non-end = (trap [a: ()])/id)
 ]
 
-(error? trap [set* lit a: null a])
+(error? trap [a: null a])
 (not error? trap [set* 'a null])
 
-(error? trap [set* lit a: void a])
+(error? trap [a: void a])
 (not error? trap [set* 'a void])
 
 (

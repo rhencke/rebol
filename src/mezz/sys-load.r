@@ -248,7 +248,7 @@ load-header: function [
 ; (For bootstrap, don't use anything too tricky so older Ren-C can load this)
 ;
 no-all: make object! [all: _]
-set* lit no-all/all: void
+no-all/all: void
 protect 'no-all/all
 
 load: function [

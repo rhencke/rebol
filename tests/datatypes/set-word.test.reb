@@ -45,6 +45,5 @@
     e: trap [x: comment "Hi"]
     e/id = 'need-non-end
 )(
-    e: trap [x: print "Hi"]
-    e/id = 'need-non-void
+    void? x: print "Hi"
 )]

@@ -1203,8 +1203,9 @@ REBNATIVE(switch)
 //          return do :branch
 //      ]
 //      if set-path? target [target: compose target]
+//      let gotten
 //      either all [
-//          value? set* lit gotten: get/hard target
+//          value? gotten: get/hard target
 //          only or [not blank? :gotten]
 //      ][
 //          :gotten  ; so that `x: y: default z` leads to `x = y`

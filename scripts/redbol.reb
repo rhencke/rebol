@@ -195,7 +195,7 @@ rewrite-spec-and-body: helper [
         ; add support for an EXIT that's a synonym for returning void.
         ;
         insert body [
-            exit: specialize 'return [set/any (lit value:) void]
+            exit: specialize 'return [value: void]
         ]
         append spec [<local> exit]  ; FUNC needs it (function doesn't...)
     ]
@@ -430,7 +430,7 @@ set: emulate [
 
         applique 'set [
             target: either any-context? target [words of target] [target]
-            set* (lit value:) :value
+            value: :value
             some: some
             opt: set_ANY
         ]
@@ -438,20 +438,20 @@ set: emulate [
 ]
 
 get: emulate [
-    function [
+    func [
         {Now no OBJECT! support, unset vars always null, use <- to check}
         return: [<opt> any-value!]
         source {Legacy handles Rebol2 types, not *any* type like R3-Alpha}
             [blank! any-word! any-path! any-context! block!]
         /any "/ANY in Ren-C is covered by TRY"
     ][
-        any_GET: any
+        let any_GET: any
         any: :lib/any
 
         if block? :source [
             return source  ; this is what it did :-/
         ]
-        set* lit result: either any-context? source [
+        let result: either any-context? source [
             get words of source
         ][
             get source

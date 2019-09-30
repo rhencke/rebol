@@ -139,7 +139,7 @@ do*: func [
             ;
             ;     do "append {abc} {de}"
             ;
-            set* lit result: do code  ; !!! pass args implicitly?
+            result: do code  ; !!! pass args implicitly?
         ] then :finalizer/quit
     ] else [
         ; Otherwise we are in script mode.  When we run a script, the
@@ -186,13 +186,13 @@ do*: func [
                 ;
                 ; https://github.com/rebol/rebol-issues/issues/2373
                 ;
-                set/any lit result: void
+                result: void
             ] then :finalizer/quit
         ][
             do-needs hdr  ; Load the script requirements
             intern code   ; Bind the user script
             catch/quit [
-                set* lit result: do code
+                result: do code
             ] then :finalizer/quit
         ]
     ]

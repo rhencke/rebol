@@ -354,9 +354,6 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     SHORTHAND (specifier, f->feed->specifier, REBSPC*);
 
     if (GET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT))  { // e.g. `10 -> x:`
-        if (IS_VOID(f->out))  // some set-xxx! accept null, none take void
-            fail (Error_Need_Non_Void_Core(v, *specifier));
-
         CLEAR_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
         CLEAR_CELL_FLAG(f->out, UNEVALUATED);  // this helper counts as eval
         return false;
@@ -384,8 +381,7 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
     REBFLGS flags = EVAL_MASK_DEFAULT
             | (f->flags.bits & EVAL_FLAG_FULFILLING_ARG);  // if f was, we are
 
-    Init_Void(f->out); // `1 x: comment "hi"` shouldn't set x to 1!
-    SET_CELL_FLAG(f->out, OUT_MARKED_STALE);  // ...but distinguish that case
+    SET_END(f->out);  // `1 x: comment "hi"` shouldn't set x to 1!
 
     if (CURRENT_CHANGES_IF_FETCH_NEXT) { // must use new frame
         if (Eval_Step_In_Subframe_Throws(f->out, f, flags))
@@ -396,16 +392,8 @@ inline static bool Rightward_Evaluate_Nonvoid_Into_Out_Throws(
             return true;
     }
 
-    if (IS_VOID(f->out))  { // some set-xxx! accept null, none take void
-        if (NOT_CELL_FLAG(f->out, OUT_MARKED_STALE))
-            fail (Error_Need_Non_Void_Core(v, *specifier));
-
-        // We preload with a stale void so we don't need a separate IS_END()
-        // test on the common case.  But we want a distinct error if the
-        // code was actually `x: ()` or `x: comment "hi"`.
-        //
+    if (IS_END(f->out))  // e.g. `do [x: ()]` or `(x: comment "hi")`.
         fail (Error_Need_Non_End_Core(v, *specifier));
-    }
 
     CLEAR_CELL_FLAG(f->out, UNEVALUATED);  // this helper counts as eval
     return false;
