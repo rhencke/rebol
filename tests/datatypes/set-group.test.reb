@@ -7,14 +7,14 @@
     m: <before>
     word: 'm
     (word): 1020
-    (word = 'm) and (m = 1020)
+    (word = 'm) and [m = 1020]
 )
 
 (
     o: make object! [f: <before>]
     path: 'o/f
     (path): 304
-    (path = 'o/f) and (o/f = 304)
+    (path = 'o/f) and [o/f = 304]
 )
 
 (
@@ -22,7 +22,7 @@
     o: make object! [f: <before>]
     block: [m o/f]
     (block): [1020 304]
-    (block = [m o/f]) and (m = 1020) and (o/f = 304)
+    (block = [m o/f]) and [m = 1020] and [o/f = 304]
 )
 
 ; GET-GROUP! can run arity-1 functions.  Right hand side should be executed

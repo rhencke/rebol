@@ -205,14 +205,14 @@ REBNATIVE(xor_q)
 //
 //  and: enfix native [
 //
-//  {Boolean AND, with short-circuit mode if right hand side is BLOCK!}
+//  {Boolean AND, with short-circuit if right hand side is BLOCK!}
 //
 //      return: "Conditionally true or false value (not coerced to LOGIC!)"
 //          [<opt> any-value!]
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
-//      :right "BLOCK! or QUOTED! evaluated only if LEFT is logically true"
-//          [block! group! 'word! 'path!]
+//      'right "Evaluated as a branch only if LEFT is logically true"
+//          [block! action! quoted! sym-word! sym-path! sym-group! blank!]
 //  ]
 //
 REBNATIVE(and)
@@ -222,26 +222,17 @@ REBNATIVE(and)
     REBVAL *left = ARG(left);
     REBVAL *right = ARG(right);
 
-    if (IS_BLOCK(left) or IS_QUOTED(left))
+    if (IS_BLOCK(left))
         if (GET_CELL_FLAG(left, UNEVALUATED))
             fail ("left side of AND should not be literal block or quote");
 
-    if (IS_FALSEY(left)) {
-        if (IS_GROUP(right)) { // no need to evaluate right if block/quoted
-            if (Do_Any_Array_At_Throws(D_OUT, right, SPECIFIED))
-                return R_THROWN;
-        }
-        RETURN (left); // preserve falsey value
-    }
+    if (IS_FALSEY(left))
+        RETURN (left);  // preserve falsey value
 
-    if (IS_QUOTED(right)) {
-        if (Eval_Value_Throws(D_OUT, Unquotify(right, 1), SPECIFIED))
-            return R_THROWN;
-    }
-    else if (Do_Any_Array_At_Throws(D_OUT, right, SPECIFIED))
+    if (Do_Branch_With_Throws(D_OUT, D_SPARE, right, left))
         return R_THROWN;
 
-    return D_OUT; // preserve the exact truthy or falsey value
+    return D_OUT;  // preserve the exact truthy or falsey value
 }
 
 
@@ -253,8 +244,8 @@ REBNATIVE(and)
 //          [<opt> any-value!]
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
-//      :right "BLOCK! or QUOTED! evaluated only if LEFT is logically false"
-//          [block! group! 'word! 'path!]
+//      'right "Evaluated as a branch only if LEFT is logically false"
+//          [block! group! quoted! sym-word! sym-path! sym-group! blank!]
 //  ]
 REBNATIVE(or)
 {
@@ -267,22 +258,13 @@ REBNATIVE(or)
         if (GET_CELL_FLAG(left, UNEVALUATED))
             fail ("left side of OR should not be literal block or quote");
 
-    if (IS_TRUTHY(left)) {
-        if (IS_GROUP(right)) { // no need to evaluate right if block/quoted
-            if (Do_Any_Array_At_Throws(D_OUT, right, SPECIFIED))
-                return R_THROWN;
-        }
+    if (IS_TRUTHY(left))
         RETURN (left);
-    }
 
-    if (IS_QUOTED(right)) {
-        if (Eval_Value_Throws(D_OUT, Unquotify(right, 1), SPECIFIED))
-            return R_THROWN;
-    }
-    else if (Do_Any_Array_At_Throws(D_OUT, right, SPECIFIED))
+    if (Do_Branch_With_Throws(D_OUT, D_SPARE, right, left))
         return R_THROWN;
 
-    return D_OUT; // preserve the exact truthy or falsey value
+    return D_OUT;  // preserve the exact truthy or falsey value
 }
 
 
@@ -295,8 +277,8 @@ REBNATIVE(or)
 //          [<opt> any-value!]
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
-//      :right "Expression that's also always evaluated (can't short circuit)"
-//          [group!]
+//      'right "Expression that's also always evaluated (can't short circuit)"
+//          [block! group! quoted! sym-word! sym-path! sym-group! blank!]
 //  ]
 //
 REBNATIVE(xor)
@@ -308,20 +290,20 @@ REBNATIVE(xor)
     if (IS_BLOCK(left) and GET_CELL_FLAG(left, UNEVALUATED))
         fail ("left hand side of XOR should not be literal block");
 
-    if (Do_Any_Array_At_Throws(D_OUT, ARG(right), SPECIFIED))  // always eval
-        return R_THROWN;
+    if (Do_Branch_With_Throws(D_OUT, D_SPARE, ARG(right), left))
+        return R_THROWN;  // ^-- we *always* evaluate the right hand side
 
     REBVAL *right = D_OUT;
 
     if (IS_FALSEY(left)) {
         if (IS_FALSEY(right))
-            return Init_False(D_OUT); // default to logic false if both false
+            return Init_False(D_OUT);  // default to logic false if both false
 
         return right;
     }
 
     if (IS_TRUTHY(right))
-        return Init_False(D_OUT); // default to logic false if both true
+        return Init_False(D_OUT);  // default to logic false if both true
 
     RETURN (left);
 }

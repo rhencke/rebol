@@ -1860,11 +1860,11 @@ bool Get_If_Word_Or_Path_Throws(
     REBSPC *specifier,
     bool push_refinements
 ) {
-    if (IS_WORD(v) or IS_GET_WORD(v)) {
+    if (IS_WORD(v) or IS_GET_WORD(v) or IS_SYM_WORD(v)) {
         *opt_name_out = VAL_WORD_SPELLING(v);
         Move_Opt_Var_May_Fail(out, v, specifier);
     }
-    else if (IS_PATH(v) or IS_GET_PATH(v)) {
+    else if (IS_PATH(v) or IS_GET_PATH(v) or IS_SYM_PATH(v)) {
         REBSPC *derived = Derive_Specifier(specifier, v);
         if (Eval_Path_Throws_Core(
             out,

@@ -63,7 +63,7 @@ runner: function [
     expression: collect [
         while [not find [--assert --test-- ===end-group===] first look] [
             line: either new-line? look [/line] [_]
-            any-newlines: me or 'line
+            any-newlines: me or @line
             keep/only/(line) take look
         ]
     ]

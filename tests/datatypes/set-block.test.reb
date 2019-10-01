@@ -6,9 +6,9 @@
 (
     a: _ b: _
     [a b]: [10 20]
-    (a = 10) and (b = 20)
+    (a = 10) and [b = 20]
 )(
     a: _ b: _
     [a b]: <thing>
-    (a = <thing>) and (b = <thing>)
+    (a = <thing>) and [b = <thing>]
 )

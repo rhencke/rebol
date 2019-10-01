@@ -277,7 +277,7 @@ load: function [
     ; Note that IMPORT has its own loader, and does not use LOAD directly.
     ; /TYPE with anything other than 'EXTENSION disables extension loading.
 
-    if header and 'self/all [
+    if header and [self/all] [
         fail "Cannot use /ALL and /HEADER refinements together"
     ]
 
@@ -777,7 +777,7 @@ load-module: function [
     ]
 
     ; If no further processing is needed, shortcut return
-    if (not override?) and [mod or 'delay] [return reduce [name mod]]
+    if (not override?) and [mod or [delay]] [return reduce [name mod]]
 
     ; If /DELAY, save the intermediate form
     if delay [
@@ -821,7 +821,7 @@ load-module: function [
         ]
     ]
 
-    if (not no-lib) and 'override? [
+    if (not no-lib) and [override?] [
         if pos [
             pos/2: mod  ; replace delayed module
         ] else [

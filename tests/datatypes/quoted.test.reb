@@ -31,7 +31,7 @@
         set 'y x
     ]
     foo
-    x = 10 and (y = 20)
+    x = 10 and [y = 20]
 )
 
 ; Try again, but set a QUOTED! (and not WORD! that results from literal)
@@ -48,7 +48,7 @@
         set lit 'y x
     ]
     foo
-    x = 10 and (y = 20)
+    x = 10 and [y = 20]
 )
 
 ; Now exceed the size of a literal that can be overlaid in a cell
@@ -65,7 +65,7 @@
         set lit '''''''y x
     ]
     foo
-    x = 10 and (y = 20)
+    x = 10 and [y = 20]
 )
 
 
@@ -81,7 +81,7 @@
     word: ''''''''''a:
     w1: bind word o1
     w2: bind word o2
-    (0 = get word) and (1 = get w1) and (2 = get w2)
+    (0 = get word) and [1 = get w1] and [2 = get w2]
 )(
     foo: function [] [
         a: 0
@@ -90,7 +90,7 @@
         word: ''''''''''a:
         w1: bind word o1
         w2: bind word o2
-        (0 = get word) and (1 = get w1) and (2 = get w2)
+        (0 = get word) and [1 = get w1] and [2 = get w2]
     ]
     foo
 )
