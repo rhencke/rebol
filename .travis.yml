@@ -1008,21 +1008,6 @@ script:
     
 # DEPLOY STEP:
 
-    # By default a web worker cannot be loaded cross-domain.  We want to be
-    # able to host pthread-enabled build (0.16.2), so we use a workaround that
-    # uses CORS-enabled fetch() to get the worker JS as a Blob, and runs that.
-    # This requires a crude patch of the libr3.js build product, but the
-    # suggestion has been made to Emscripten to allow a newWorker() hook:
-    #
-    # https://github.com/emscripten-core/emscripten/issues/8338
-    #
-    # Note: Patcher starts in directory of the script, not current dir (!)
-    - |
-      if [[ $OS_ID = 0.16.2 ]]
-      then
-        "$R3_MAKE" ../tools/libr3.js-workers-patch.reb ../build/libr3.js
-      fi
-    
     # !!! This used to delete things because otherwise they would be uploaded
     # to s3 along with the whole build directory.  It doesn't really matter
     # now, because we are specific about what we upload using the aws tool.

@@ -168,12 +168,12 @@ if (hasShared) {
     let test = new WebAssembly.Memory({
         "initial": 0, "maximum": 0, "shared": true
     });
-    hasThreads = (test.buffer instanceof SharedArrayBuffer)
+    hasThreads = test.buffer instanceof SharedArrayBuffer
 }
 config.info("Has Threads => " + hasThreads)
 
 let use_asyncify = ! hasThreads
-let os_id = (use_asyncify ? "0.16.1" : "0.16.2")
+let os_id = use_asyncify ? "0.16.1" : "0.16.2"
 
 config.info("Use Asyncify => " + use_asyncify)
 
@@ -191,10 +191,10 @@ let is_debug = false
 let base_dir = null
 let me = document.querySelector('script[src$="/load-r3.js"]')
 
-let args = (location.search
+let args = location.search
     ? location.search.substring(1).split('&')
     : []
-)
+
 for (let i = 0; i < args.length; i++) {
     args[i] = decodeURIComponent(args[i])
     if (args[i] == 'debug') {
@@ -244,11 +244,11 @@ if (!base_dir) {
 let load_js_promiser = (url) => new Promise(function(resolve, reject) {
     let script = document.createElement('script')
     script.src = url
-    script.onload = () => {resolve(url)}
-    script.onerror = () => {reject(url)}
-    if (document.body) {
+    script.onload = () => { resolve(url) }
+    script.onerror = () => { reject(url) }
+    if (document.body)
         document.body.appendChild(script)
-    } else {
+    else {
         document.addEventListener(
             'DOMContentLoaded',
             () => { document.body.appendChild(script) }
@@ -266,6 +266,7 @@ let git_commit = undefined
 let assign_git_commit_promiser = (os_id) => {  // assigns, but no return value
     if (base_dir != "https://metaeducation.s3.amazonaws.com/travis-builds/") {
         git_commit = ""
+        config.log("Base URL is not s3 location, not using git_commit in URL")
         return Promise.resolve(undefined)
     }
     return fetch(base_dir + os_id + "/last-deploy.short-hash")
@@ -279,6 +280,7 @@ let assign_git_commit_promiser = (os_id) => {  // assigns, but no return value
       }).then((text) => {
 
         git_commit = text
+        config.log("Identified git_commit as: " + git_commit)
         return Promise.resolve(undefined)
 
       })
@@ -314,26 +316,6 @@ function libRebolComponentURL(suffix) {  // suffix includes the dot
             )
     }
 
-    // When using pthread emulation, Emscripten generates `libr3.worker.js`.
-    // You tell it how many workers to "pre-spawn" so they are available
-    // at the moment you call `pthread_create()`, see PTHREAD_POOL_SIZE.  Each
-    // worker needs to load its own copy of the libr3.js interface to have
-    // the cwraps to the WASM heap available (since workers do not have access
-    // to letiables on the GUI thread).
-    //
-    // Due to origin policy restrictions, you typically need to have a
-    // worker live in the same place your page is coming from.  To make Ren-C
-    // fully hostable remotely it uses a hack of fetching the JS file via
-    // CORS as a Blob, and running the worker from that.  An Emscripten change
-    // that would be better than patching libr3.js post-build discussed here:
-    //
-    // https://github.com/emscripten-core/emscripten/issues/8338
-    //
-    if (false) {  // page-relative location not enforced due to workaround
-        if (suffix == ".worker.js")
-            return "libr3" + suffix
-    }
-
     // !!! These files should only be generated if you are debugging, and
     // are optional.  But it seems locateFile() can be called to ask for
     // them anyway--even if it doesn't try to fetch them (e.g. no entry in
@@ -350,6 +332,49 @@ function libRebolComponentURL(suffix) {  // suffix includes the dot
     let opt_dash = git_commit ? "-" : "";
     return base_dir + os_id + "/libr3" + opt_dash + git_commit + suffix
 }
+
+
+// When using pthread emulation, Emscripten generates `libr3.worker.js`.
+// You tell it how many workers to "pre-spawn" so they are available
+// at the moment you call `pthread_create()`, see PTHREAD_POOL_SIZE.  Each
+// worker needs to load its own copy of the libr3.js interface to have
+// the cwraps to the WASM heap available (since workers do not have access
+// to variables on the GUI thread).
+//
+// Due to origin policy restrictions, you typically need to have a
+// worker live in the same place your page is coming from.  To make Ren-C
+// fully hostable remotely it uses a hack of fetching the JS file via
+// CORS as a Blob, and running the worker from that.  However, since the
+// callback asking for the URL of a component file is synchronous, it cannot
+// do the asynchronous fetch as a response.  So we must prefetch the blob
+// before kicking off emscripten, so as to be able to provide the URL in a
+// synchronous way:
+//
+// https://github.com/emscripten-core/emscripten/issues/8338
+//
+let workerJsBlob = null
+let prefetch_worker_js_promiser = () => new Promise(
+    function (resolve, reject) {
+        if (!hasThreads) {
+            resolve()
+            return
+        }
+        var pthreadMainJs = libRebolComponentURL('.worker.js');
+        fetch(pthreadMainJs)
+          .then(function (response) {
+            // https://www.tjvantoll.com/2015/09/13/fetch-and-errors/
+            if (!response.ok)
+                throw Error(response.statusText)
+            return response.blob()
+          })
+          .then(function (blob) {
+            config.log("Retrieved worker.js blob")
+            workerJsBlob = blob
+            resolve()
+            return
+          })
+    }
+)
 
 
 Module = {  // Note that this is assigning a global
@@ -393,6 +418,9 @@ Module = {  // Note that this is assigning a global
         if (stem != "libr3")
             throw Error("Unknown libRebol stem: " + stem)
 
+        if (suffix == ".worker.js")
+            return URL.createObjectURL(workerJsBlob)
+
         return libRebolComponentURL(suffix)
     },
 
@@ -400,7 +428,7 @@ Module = {  // Note that this is assigning a global
     // library (%libr3.js in this case).  It's turned into a promise instead
     // of a callback.  Sanity check it's not used prior by making it a string.
     //
-    onRuntimeInitialized: "<mutated from a callback into a Promise>",
+    onRuntimeInitialized: "<mutated from a callback into a Promise>"
 }
 
 
@@ -490,7 +518,14 @@ let load_rebol_scripts = function(defer) {
     return promise
 }
 
+
+//=//// MAIN PROMISE CHAIN ////////////////////////////////////////////////=//
+
 return assign_git_commit_promiser(os_id)  // sets git_commit
+  .then(function () {
+    config.log("prefetching worker...")
+    return prefetch_worker_js_promiser()  // no-op in the non-pthread build
+  })
   .then(function() {
 
     load_js_promiser(libRebolComponentURL(".js"))  // needs git_commit
