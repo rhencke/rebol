@@ -81,7 +81,6 @@
 // http://stackoverflow.com/a/17241278
 //
 #include <assert.h>
-#include "assert-fixes.h"
 
 //=//// STANDARD DEPENDENCIES FOR CORE ////////////////////////////////////=//
 

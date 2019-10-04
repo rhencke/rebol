@@ -43,9 +43,6 @@
 // REBREQ in their state previously).
 //
 
-#include <assert.h>
-#include "assert-fixes.h"
-
 
 enum Reb_Device_Command {
     RDC_INIT,       // init device driver resources

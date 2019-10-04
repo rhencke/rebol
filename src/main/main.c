@@ -65,8 +65,6 @@
     #include "sys-core.h"
 #endif
 
-#include "assert-fixes.h"  // see file for notes
-
 #include "reb-c.h"  // provides cast(), UNUSED(), etc.
 
 

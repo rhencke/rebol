@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2018 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -90,6 +90,58 @@
 // compatible with codebases that have `char* true = "Spandau";` or similar
 // in them.  So Rebol can use `true` and `false.
 //
+
+
+//=//// EXPECTS <assert.h> TO BE INCLUDED, PATCH BUG //////////////////////=//
+//
+// There is a bug in older GCC where the assert macro expands arguments
+// unnecessarily.  Since Rebol tries to build on fairly old systems, this
+// patch corrects the issue:
+//
+// https://sourceware.org/bugzilla/show_bug.cgi?id=18604
+//
+
+#if !defined(assert)
+    #error "Include <assert.h> before including reb-c.h"
+#endif
+
+#if !defined(NDEBUG) && defined(__GLIBC__) && defined(__GLIBC_MINOR__) \
+    && (__GLIBC__ < 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ < 23))
+
+    #undef assert
+  #if !defined(__GNUC__) || defined (__STRICT_ANSI__)
+    #define assert(expr) \
+        ((expr) \
+            ? __ASSERT_VOID_CAST (0) \
+            : __assert_fail (#expr, __FILE__, __LINE__, __ASSERT_FUNCTION))
+  #else
+    #define assert(expr) \
+        ({ \
+          if (expr) \
+            ; /* empty */ \
+          else \
+            __assert_fail (#expr, __FILE__, __LINE__, __ASSERT_FUNCTION); \
+        })
+    #endif
+
+#endif
+
+
+//=//// ISO646 ALTERNATE TOKENS FOR BOOLEAN OPERATIONS ////////////////////=//
+//
+// It is much more readable to see `and` and `or` instead of `&&` and `||`
+// when reading expressions.  Ren-C embraces the ISO646 standard:
+//
+// https://en.wikipedia.org/wiki/C_alternative_tokens
+//
+// It also adds one more to the list: `did` for converting "truthy" values to
+// boolean.  This is clearer than `not not` or `!!`:
+//
+// http://blog.hostilefork.com/did-programming-opposite-of-not/
+//
+
+#define did !!  // Not in iso646.h
+
 #ifdef __cplusplus
   #if defined(_MSC_VER)
     #include <iso646.h>  // MSVC doesn't have `and`, `not`, etc. w/o this
@@ -97,13 +149,9 @@
     // legitimate compilers define them, they're even in the C++98 standard!
   #endif
 #else
-    // Since the C90 standard of C, iso646.h has been defined:
-    //
-    // https://en.wikipedia.org/wiki/C_alternative_tokens
-    //
-    // ...but TCC doesn't ship with it, and maybe other C's don't either.  The
-    // issue isn't so much the file, as it is agreeing on the 11 macros, so
-    // just define them here.
+    // is646.h has been defined since the C90 standard of C.  But TCC doesn't
+    // ship with it, and maybe other C's don't either.  The issue isn't so
+    // much the file, as it is agreeing on the 11 macros, just define them.
     //
     #define and &&
     #define and_eq &=
@@ -117,24 +165,6 @@
     #define xor ^
     #define xor_eq ^=
 #endif
-
-// A 12th macro: http://blog.hostilefork.com/did-programming-opposite-of-not/
-//
-// It's better than what was previously used, a (bool)cast_of_expression.
-// And it makes it much safer to use ordinary `&` operations to test for
-// flags, more succinctly even:
-//
-//     bool b = GET_FLAG(flags, SOME_FLAG_ORDINAL);
-//     bool b = !GET_FLAG(flags, SOME_FLAG_ORDINAL);
-//
-// vs.
-//
-//     bool b = did (flags & SOME_FLAG_BITWISE); // 3 fewer chars
-//     bool b = not (flags & SOME_FLAG_BITWISE); // 4 fewer chars
-//
-// (Bitwise vs. ordinal also permits initializing options by just |'ing them.)
-//
-#define did !!
 
 
 //=//// CPLUSPLUS_11 PREPROCESSOR DEFINE //////////////////////////////////=//
