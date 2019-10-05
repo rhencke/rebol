@@ -437,29 +437,23 @@ alter: func [
 ]
 
 
-collect*-with: func [
-    "Evaluate body, and return block of values collected via keep function."
+collect*: func [
+    {Evaluate body, and return block of values collected via keep function}
 
-    return: "result block, or null if no KEEPs (prevent nulls with KEEP [])"
+    return: "Result block, or null if no KEEPs (prevent nulls with KEEP [])"
         [<opt> block!]
-    'name [word! lit-word!]
-        "Name to which keep function will be assigned (<local> if word!)"
-    body [<blank> block!]
-        "Block to evaluate"
-
-    <local> out keeper
+    body "Block to evaluate"
+        [<blank> block!]
 ][
-    ; Derive from APPEND to inherit /ONLY, /LINE, /DUP automatically
-
-    keeper: specialize (
-        ; SPECIALIZE in order to remove series argument
-
-        enclose 'append function [f [frame!] <with> out] [
-            ; ENCLOSE (vs. ADAPT) in order to alter return result
-
+    let out: null
+    let keeper: specialize (  ; SPECIALIZE to hide series argument
+        enclose 'append function [  ; Derive from APPEND for /ONLY /LINE /DUP
+            f [frame!]
+            <with> out
+        ][
             if null? :f/value [return null]  ; doesn't "count" as collected
 
-            f/series: out: default [make block! 16]  ; won't return null now
+            f/series: out: default [make block! 16]  ; no null return now
             :f/value  ; ELIDE leaves as result (F/VALUE invalid after DO F)
             elide do f
         ]
@@ -467,23 +461,12 @@ collect*-with: func [
         series: <replaced>
     ]
 
-    either word? name [
-        ; body not bound to word, use FUNC do binding work
-
-        reeval func compose [(name) [action!] <with> return] body :keeper
-    ][
-        ; lit-word! means variable exists, just set it and DO body as-is
-
-        set name :keeper
-        do body
-    ]
+    ; use FUNC for binding work of connecting KEEP with the keeper function
+    ;
+    reeval func compose [keep [action!] <with> return] body :keeper
 
     :out
 ]
-
-collect*: redescribe [
-    "Evaluate body, and return block of values collected via KEEP function."
-] specialize :collect*-with [name: 'keep]
 
 
 ; Classic version of COLLECT which assumes that the word you want to use

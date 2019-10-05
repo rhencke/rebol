@@ -430,6 +430,9 @@ redescribe: func [
             types: meta/parameter-types: fields/parameter-types
         ]
     ]
+
+    let param: _
+    let note: _
     parse spec [
         opt [
             copy description any text! (
