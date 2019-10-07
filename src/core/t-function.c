@@ -189,8 +189,7 @@ REBTYPE(Action)
             SPECIFIED,  // !!! Note: not actually "deep", just typesets
             SERIES_MASK_PARAMLIST
         );
-        VAL_ACT_PARAMLIST_NODE(ARR_HEAD(proxy_paramlist))
-            = NOD(proxy_paramlist);
+        Sync_Paramlist_Archetype(proxy_paramlist);
         MISC_META_NODE(proxy_paramlist) = NOD(ACT_META(act));
 
         // If the function had code, then that code will be bound relative

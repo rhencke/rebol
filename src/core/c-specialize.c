@@ -240,7 +240,7 @@ REBCTX *Make_Context_For_Action(
         CELL_MASK_NON_STACK
     );
 
-    Manage_Array(CTX_VARLIST(exemplar)); // !!! was needed before, review
+    Manage_Array(CTX_VARLIST(exemplar));  // !!! was needed before, review
     DS_DROP_TO(lowest_ordered_dsp);
     return exemplar;
 }
@@ -263,10 +263,11 @@ bool Specialize_Action_Throws(
     REBVAL *out,
     REBVAL *specializee,
     REBSTR *opt_specializee_name,
-    REBVAL *opt_def, // !!! REVIEW: binding modified directly (not copied)
+    REBVAL *opt_def,  // !!! REVIEW: binding modified directly (not copied)
     REBDSP lowest_ordered_dsp
 ){
     assert(out != specializee);
+    UNUSED(opt_specializee_name);  // was used when this did META as well
 
     struct Reb_Binder binder;
     if (opt_def)
@@ -304,8 +305,8 @@ bool Specialize_Action_Throws(
             &binder,
             VAL_ARRAY_AT(opt_def),
             exemplar,
-            FLAGIT_KIND(REB_SET_WORD), // types to bind (just set-word!)
-            0, // types to "add midstream" to binding as we go (nothing)
+            FLAGIT_KIND(REB_SET_WORD),  // types to bind (just set-word!)
+            0,  // types to "add midstream" to binding as we go (nothing)
             BIND_DEEP
         );
 
@@ -316,13 +317,13 @@ bool Specialize_Action_Throws(
         REBVAL *var = CTX_VARS_HEAD(exemplar);
         for (; NOT_END(key); ++key, ++var) {
             if (Is_Param_Unbindable(key))
-                continue; // !!! is this flag still relevant?
+                continue;  // !!! is this flag still relevant?
             if (Is_Param_Hidden(key)) {
                 assert(GET_CELL_FLAG(var, ARG_MARKED_CHECKED));
                 continue;
             }
             if (GET_CELL_FLAG(var, ARG_MARKED_CHECKED))
-                continue; // may be refinement from stack, now specialized out
+                continue;  // maybe refinement from stack, now specialized out
             Remove_Binder_Index(&binder, VAL_KEY_CANON(key));
         }
         SHUTDOWN_BINDER(&binder);
@@ -414,7 +415,7 @@ bool Specialize_Action_Throws(
         switch (VAL_PARAM_CLASS(param)) {
           case REB_P_RETURN:
           case REB_P_LOCAL:
-            assert(IS_NULLED(arg)); // no bindings, you can't set these
+            assert(IS_NULLED(arg));  // no bindings, you can't set these
             goto unspecialized_arg;
 
           default:
@@ -449,10 +450,10 @@ bool Specialize_Action_Throws(
             // Have to leave the quotes on, but still want to type check.
 
             if (not TYPE_CHECK(param, CELL_KIND(VAL_UNESCAPED(arg))))
-                fail (arg); // !!! merge w/Error_Invalid_Arg()
+                fail (arg);  // !!! merge w/Error_Invalid_Arg()
         }
         else if (not TYPE_CHECK(param, VAL_TYPE(arg)))
-            fail (arg); // !!! merge w/Error_Invalid_Arg()
+            fail (arg);  // !!! merge w/Error_Invalid_Arg()
 
        SET_CELL_FLAG(arg, ARG_MARKED_CHECKED);
 
@@ -477,6 +478,8 @@ bool Specialize_Action_Throws(
     RELVAL *rootparam = ARR_HEAD(paramlist);
     VAL_ACT_PARAMLIST_NODE(rootparam) = NOD(paramlist);
 
+    MISC_META_NODE(paramlist) = nullptr;
+
     // Everything should have balanced out for a valid specialization
     //
     while (ordered_dsp != DSP) {
@@ -491,33 +494,12 @@ bool Specialize_Action_Throws(
     }
     DS_DROP_TO(lowest_ordered_dsp);
 
-    // See %sysobj.r for `specialized-meta:` object template
-
-    REBVAL *example = Get_System(SYS_STANDARD, STD_SPECIALIZED_META);
-
-    REBCTX *meta = Copy_Context_Shallow_Managed(VAL_CONTEXT(example));
-
-    Init_Nulled(CTX_VAR(meta, STD_SPECIALIZED_META_DESCRIPTION)); // default
-    Move_Value(
-        CTX_VAR(meta, STD_SPECIALIZED_META_SPECIALIZEE),
-        specializee
-    );
-    if (not opt_specializee_name)
-        Init_Nulled(CTX_VAR(meta, STD_SPECIALIZED_META_SPECIALIZEE_NAME));
-    else
-        Init_Word(
-            CTX_VAR(meta, STD_SPECIALIZED_META_SPECIALIZEE_NAME),
-            opt_specializee_name
-        );
-
-    MISC_META_NODE(paramlist) = NOD(meta);
-
     REBACT *specialized = Make_Action(
         paramlist,
         &Specializer_Dispatcher,
-        ACT_UNDERLYING(unspecialized), // same underlying action as this
-        exemplar, // also provide a context of specialization values
-        1 // details array capacity
+        ACT_UNDERLYING(unspecialized),  // same underlying action as this
+        exemplar,  // also provide a context of specialization values
+        1  // details array capacity
     );
     assert(CTX_KEYLIST(exemplar) == ACT_PARAMLIST(unspecialized));
 
@@ -537,7 +519,7 @@ bool Specialize_Action_Throws(
     INIT_VAL_CONTEXT_PHASE(body, unspecialized);
 
     Init_Action_Unbound(out, specialized);
-    return false; // code block did not throw
+    return false;  // code block did not throw
 }
 
 
@@ -565,20 +547,20 @@ REB_R Specializer_Dispatcher(REBFRM *f)
 
 
 //
-//  specialize: native [
+//  specialize*: native [
 //
 //  {Create a new action through partial or full specialization of another}
 //
 //      return: [action!]
-//      specializee [action! word! path!]
-//          {Function or specifying word (preserves word name for debug info)}
-//      def [block!]
-//          {Definition for FRAME! fields for args and refinements}
+//      specializee "Function or specifying word (keeps word for debug info)"
+//          [action! word! path!]
+//      def "Definition for FRAME! fields for args and refinements"
+//          [block!]
 //  ]
 //
-REBNATIVE(specialize)
+REBNATIVE(specialize_p)  // see extended definition SPECIALIZE in %base-defs.r
 {
-    INCLUDE_PARAMS_OF_SPECIALIZE;
+    INCLUDE_PARAMS_OF_SPECIALIZE_P;
 
     REBVAL *specializee = ARG(specializee);
 
@@ -796,10 +778,10 @@ static bool First_Param_Hook(REBVAL *param, REBFLGS flags, void *opaque)
 //
 // This can be somewhat complex in the worst case:
 //
-//     >> foo: func [/a aa /b bb /c cc /d dd] [...]
+//     >> foo: func [/a [block!] /b [block!] /c [block!] /d [block!]] [...]
 //     >> foo-d: :foo/d
 //
-// This means that the last parameter (DD) is actually the first of FOO-D.
+// This means that the last parameter (D) is actually the first of FOO-D.
 //
 REBVAL *First_Unspecialized_Param(REBACT *act)
 {
@@ -832,8 +814,8 @@ REBVAL *First_Unspecialized_Param(REBACT *act)
 REB_R Block_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
-    RELVAL *block = ARR_HEAD(details);
-    assert(IS_BLOCK(block));
+    RELVAL *block = ARR_HEAD(details);  // note NON-CONST, may get updated!
+    assert(IS_BLOCK(block) and VAL_INDEX(block) == 0);
 
     if (IS_SPECIFIC(block)) {
         if (FRM_BINDING(f) == UNBOUND) {
@@ -874,14 +856,10 @@ REB_R Block_Dispatcher(REBFRM *f)
             SET_ARRAY_FLAG(body_array, HAS_FILE_LINE_UNMASKED);
         }
 
-        // Need to do a raw initialization of this block RELVAL because it is
-        // relative to a function.  (Init_Block assumes all specific values.)
+        // Update block cell as a relativized copy (we won't do this again).
         //
-        INIT_VAL_NODE(block, body_array);
-        VAL_INDEX(block) = 0;
-        INIT_BINDING(block, FRM_PHASE(f)); // relative binding
-
-        // Block is now a relativized copy; we won't do this again.
+        REBACT *phase = FRM_PHASE(f);
+        Init_Relative_Block(block, phase, body_array);
     }
 
     assert(IS_RELATIVE(block));

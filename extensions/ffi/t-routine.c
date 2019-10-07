@@ -1148,7 +1148,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
         REB_ACTION,
         CELL_MASK_ACTION
     );
-    VAL_ACT_PARAMLIST_NODE(rootparam) = NOD(paramlist);
+    Sync_Paramlist_Archetype(paramlist);
     INIT_BINDING(rootparam, UNBOUND);
 
     MISC_META_NODE(paramlist) = nullptr;

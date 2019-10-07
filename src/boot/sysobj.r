@@ -207,42 +207,6 @@ standard: make object! [
             _
     ]
 
-    ; The common case is that derived actions will not need to be
-    ; REDESCRIBE'd besides their title.  If they are, then they switch the
-    ; meta archetype to `action-meta` and subset the parameters.  Otherwise
-    ; HELP just follows the link (`specializee`, `adaptee`) and gets
-    ; descriptions there.
-
-    specialized-meta: make object! [
-        description:
-        specializee:
-        specializee-name:
-            _
-    ]
-
-    adapted-meta: make object! [
-        description:
-        adaptee:
-        adaptee-name:
-            _
-    ]
-
-    enclosed-meta: make object! [
-        description:
-        inner:
-        inner-name:
-        outer:
-        outer-name:
-            _
-    ]
-
-    chained-meta: make object! [
-        description:
-        chainees:
-        chainee-names:
-            _
-    ]
-
     ; !!! This is the template used for all errors, to which extra fields are
     ; added if the error has parameters.  It likely makes sense to put this
     ; information into the META-OF of the error, so that parameterizing the

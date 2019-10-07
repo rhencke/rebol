@@ -112,7 +112,7 @@ void Startup_Frame_Stack(void)
         CELL_MASK_ACTION
     );
     EXTRA(Binding, archetype).node = UNBOUND;
-    VAL_ACT_PARAMLIST_NODE(archetype) = NOD(paramlist);
+    Sync_Paramlist_Archetype(paramlist);
     TERM_ARRAY_LEN(paramlist, 1);
 
     PG_Dummy_Action = Make_Action(

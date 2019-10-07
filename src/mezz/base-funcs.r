@@ -297,64 +297,6 @@ func: func* [
 function: :func/gather
 
 
-; Actions can be chained, adapted, and specialized--repeatedly.  The meta
-; information from which HELP is determined can be inherited through links
-; in that meta information.  Though in order to mutate the information for
-; the purposes of distinguishing a derived action, it must be copied.
-;
-dig-action-meta-fields: func [value [action!]] [
-    let meta: meta-of :value else [
-        return make system/standard/action-meta [
-            description: _
-            return-type: _
-            return-note: _
-            parameter-types: make frame! :value
-            parameter-notes: make frame! :value
-        ]
-    ]
-
-    let underlying: try ensure [<opt> action!] any [
-        select meta 'specializee
-        select meta 'adaptee
-        first try match block! select meta 'chainees
-        select meta 'inner
-    ]
-
-    let fields: try all [:underlying | dig-action-meta-fields :underlying]
-
-    let inherit-frame: func [parent [<blank> frame!]] [
-        let child: make frame! :value
-        for-each param words of child [  ; `for-each param child` locks child
-            child/(param): maybe select parent param
-        ]
-        return child
-    ]
-
-    return make system/standard/action-meta [
-        description: try ensure [<opt> text!] any [
-            select meta 'description
-            copy try select fields 'description
-        ]
-        return-type: try ensure [<opt> block!] any [
-            select meta 'return-type
-            copy try select fields 'return-type
-        ]
-        return-note: try ensure [<opt> text!] any [
-            select meta 'return-note
-            copy try select fields 'return-note
-        ]
-        parameter-types: try ensure [<opt> frame!] any [
-            select meta 'parameter-types
-            inherit-frame try select fields 'parameter-types
-        ]
-        parameter-notes: try ensure [<opt> frame!] any [
-            select meta 'parameter-notes
-            inherit-frame try select fields 'parameter-notes
-        ]
-    ]
-]
-
-
 what-dir: func [  ; This can be HIJACK'd by a "smarter" version
     {Returns the current directory path}
     return: [<opt> file! url!]
@@ -408,20 +350,10 @@ redescribe: func [
         ]
     ]
 
-    ; !!! SPECIALIZEE and SPECIALIZEE-NAME will be lost if a REDESCRIBE is
-    ; done of a specialized function that needs to change more than just the
-    ; main description.  Same with ADAPTEE and ADAPTEE-NAME in adaptations.
-    ;
-    ; (This is for efficiency to not generate new keylists on each describe
-    ; but to reuse archetypal ones.  Also to limit the total number of
-    ; variations that clients like HELP have to reason about.)
-    ;
     let on-demand-notes: does [  ; was DOES CATCH, removed during DOES tweak
         on-demand-meta
 
         if find meta 'parameter-notes [
-            let fields: dig-action-meta-fields :value
-
             meta: _  ; need to get a parameter-notes field in the OBJECT!
             on-demand-meta  ; ...so this loses SPECIALIZEE, etc.
 

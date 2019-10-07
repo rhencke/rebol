@@ -618,7 +618,7 @@ REBARR *Pop_Paramlist_With_Meta_May_Fail(
         REB_ACTION,
         CELL_MASK_ACTION
     );
-    VAL_ACT_PARAMLIST_NODE(archetype) = NOD(paramlist);
+    Sync_Paramlist_Archetype(paramlist);
     INIT_BINDING(archetype, UNBOUND);
 
     REBVAL *dest = archetype + 1;
@@ -1357,15 +1357,6 @@ REBACT *Make_Interpreted_Action_May_Fail(
         );
     }
 
-    RELVAL *rebound = RESET_CELL(
-        ARR_HEAD(ACT_DETAILS(a)),
-        REB_BLOCK,
-        CELL_FLAG_FIRST_IS_NODE
-    );
-    INIT_VAL_NODE(rebound, copy);
-    VAL_INDEX(rebound) = 0;
-    INIT_BINDING(rebound, a);  // Record that block is relative to a function
-
     // Favor the spec first, then the body, for file and line information.
     //
     if (GET_ARRAY_FLAG(VAL_ARRAY(spec), HAS_FILE_LINE_UNMASKED)) {
@@ -1383,6 +1374,18 @@ REBACT *Make_Interpreted_Action_May_Fail(
         // At the moment, if a function is created in the body of another
         // function it doesn't work...trying to fix that.
     }
+
+    // Save the relativized body in the action's details block.  Since it is
+    // a RELVAL* and not a REBVAL*, the dispatcher must combine it with a
+    // running frame instance (the REBFRM* received by the dispatcher) before
+    // executing the interpreted code.
+    //
+    REBARR *details = ACT_DETAILS(a);
+    RELVAL *rebound = Init_Relative_Block(
+        ARR_AT(details, IDX_NATIVE_BODY),
+        a,
+        copy
+    ); 
 
     // Capture the mutability flag that was in effect when this action was
     // created.  This allows the following to work:
@@ -1404,7 +1407,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
     // their frame, the words would refer to that specific recursion...and not
     // get picked up by other recursions that see the common structure.  This
     // means compatibility would be with the behavior of R3-Alpha CLOSURE,
-    // not with FUNCTION.
+    // not with R3-Alpha FUNCTION.
     //
     if (GET_CELL_FLAG(body, CONST))
         SET_CELL_FLAG(rebound, CONST);  // Inherit_Const() would need REBVAL*

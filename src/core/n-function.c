@@ -295,39 +295,23 @@ REBNATIVE(typechecker)
 
 
 //
-//  chain: native [
+//  chain*: native [
 //
 //  {Create a processing pipeline of actions, each consuming the last result}
 //
 //      return: [action!]
-//      pipeline [block!]
-//          {List of actions to apply.  Reduced by default.}
-//      /quote
-//          {Do not reduce the pipeline--use the values as-is.}
+//      pipeline "Block of ACTION!s to apply (will be LOCKed)"
+//          [block!]
 //  ]
 //
-REBNATIVE(chain)
+REBNATIVE(chain_p)  // see extended definition CHAIN in %base-defs.r
 {
-    INCLUDE_PARAMS_OF_CHAIN;
+    INCLUDE_PARAMS_OF_CHAIN_P;
 
-    REBVAL *out = D_OUT; // plan ahead for factoring into Chain_Action(out..
+    REBVAL *out = D_OUT;  // plan ahead for factoring into Chain_Action(out..
 
     REBVAL *pipeline = ARG(pipeline);
-    REBARR *chainees;
-    if (REF(quote))
-        chainees = COPY_ANY_ARRAY_AT_DEEP_MANAGED(pipeline);
-    else {
-        REBDSP dsp_orig = DSP;
-        if (Reduce_To_Stack_Throws(out, pipeline, VAL_SPECIFIER(pipeline)))
-            return out;
-
-        // No more evaluations *should* run before putting this array in a
-        // GC-safe spot, but leave unmanaged anyway.
-        //
-        chainees = Pop_Stack_Values(dsp_orig); // no NODE_FLAG_MANAGED
-    }
-
-    REBVAL *first = KNOWN(ARR_HEAD(chainees));
+    REBVAL *first = KNOWN(VAL_ARRAY_AT(pipeline));
 
     // !!! Current validation is that all are functions.  Should there be other
     // checks?  (That inputs match outputs in the chain?)  Should it be
@@ -340,32 +324,13 @@ REBNATIVE(chain)
         ++check;
     }
 
-    // Paramlist needs to be unique to identify the new function, but will be
-    // a compatible interface with the first function in the chain.
-    //
     REBARR *paramlist = Copy_Array_Shallow_Flags(
-        VAL_ACT_PARAMLIST(ARR_HEAD(chainees)),
+        VAL_ACT_PARAMLIST(first),  // same interface as head of the chain
         SPECIFIED,
-        SERIES_MASK_PARAMLIST | NODE_FLAG_MANAGED // flags not auto-copied
+        SERIES_MASK_PARAMLIST | NODE_FLAG_MANAGED  // flags not auto-copied
     );
-    VAL_ACT_PARAMLIST_NODE(ARR_HEAD(paramlist)) = NOD(paramlist);
-
-    // Initialize the "meta" information, which is used by HELP.  Because it
-    // has a link to the "chainees", it is not necessary to copy parameter
-    // descriptions...HELP can follow the link and find the information.
-    //
-    // See %sysobj.r for `chained-meta:` object template
-    //
-    // !!! There could be a system for preserving names in the chain, by
-    // accepting lit-words instead of functions--or even by reading the
-    // GET-WORD!s in the block.  Consider for the future.
-    //
-    REBVAL *std_meta = Get_System(SYS_STANDARD, STD_CHAINED_META);
-    REBCTX *meta = Copy_Context_Shallow_Managed(VAL_CONTEXT(std_meta));
-    Init_Nulled(CTX_VAR(meta, STD_CHAINED_META_DESCRIPTION)); // default
-    Init_Block(CTX_VAR(meta, STD_CHAINED_META_CHAINEES), chainees);
-    Init_Nulled(CTX_VAR(meta, STD_CHAINED_META_CHAINEE_NAMES));
-    MISC_META_NODE(paramlist) = NOD(meta);  // must init before Make_Action
+    Sync_Paramlist_Archetype(paramlist);  // [0] cell must hold copied pointer
+    MISC_META_NODE(paramlist) = nullptr;  // defaults to being trash
 
     REBACT *chain = Make_Action(
         paramlist,
@@ -374,27 +339,28 @@ REBNATIVE(chain)
         ACT_EXEMPLAR(VAL_ACTION(first)),  // same exemplar as first action
         1  // details array capacity
     );
-    Init_Block(ARR_HEAD(ACT_DETAILS(chain)), chainees);
+    Deep_Freeze_Array(VAL_ARRAY(pipeline));
+    Move_Value(ARR_HEAD(ACT_DETAILS(chain)), pipeline);
 
     return Init_Action_Unbound(out, chain);
 }
 
 
 //
-//  adapt: native [
+//  adapt*: native [
 //
 //  {Create a variant of an ACTION! that preprocesses its arguments}
 //
 //      return: [action!]
-//      adaptee [action! word! path!]
-//          {Function or specifying word (preserves word name for debug info)}
-//      prelude [block!]
-//          {Code to run in constructed frame before adapted function runs}
+//      adaptee "Function or specifying word (preserves word for debug info)"
+//          [action! word! path!]
+//      prelude "Code to run in constructed frame before adaptee runs"
+//          [block!]
 //  ]
 //
-REBNATIVE(adapt)
+REBNATIVE(adapt_p)  // see extended definition ADAPT in %base-defs.r
 {
-    INCLUDE_PARAMS_OF_ADAPT;
+    INCLUDE_PARAMS_OF_ADAPT_P;
 
     REBVAL *adaptee = ARG(adaptee);
 
@@ -412,37 +378,17 @@ REBNATIVE(adapt)
 
     if (not IS_ACTION(D_OUT))
         fail (PAR(adaptee));
-    Move_Value(adaptee, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
+    Move_Value(adaptee, D_OUT);  // Frees D_OUT, and GC safe (in ARG slot)
 
-    // The paramlist needs to be unique to designate this function, but
-    // will be identical typesets to the original.  It's [0] element must
-    // identify the function we're creating vs the original, however.
-    //
     REBARR *paramlist = Copy_Array_Shallow_Flags(
-        VAL_ACT_PARAMLIST(adaptee),
+        VAL_ACT_PARAMLIST(adaptee),  // same interface as head of pipeline
         SPECIFIED,
         SERIES_MASK_PARAMLIST
             | (SER(VAL_ACTION(adaptee))->header.bits & PARAMLIST_MASK_INHERIT)
             | NODE_FLAG_MANAGED
     );
-    VAL_ACT_PARAMLIST_NODE(ARR_HEAD(paramlist)) = NOD(paramlist);
-
-    // See %sysobj.r for `adapted-meta:` object template
-
-    REBVAL *example = Get_System(SYS_STANDARD, STD_ADAPTED_META);
-
-    REBCTX *meta = Copy_Context_Shallow_Managed(VAL_CONTEXT(example));
-    Init_Nulled(CTX_VAR(meta, STD_ADAPTED_META_DESCRIPTION)); // default
-    Move_Value(CTX_VAR(meta, STD_ADAPTED_META_ADAPTEE), adaptee);
-    if (opt_adaptee_name == NULL)
-        Init_Nulled(CTX_VAR(meta, STD_ADAPTED_META_ADAPTEE_NAME));
-    else
-        Init_Word(
-            CTX_VAR(meta, STD_ADAPTED_META_ADAPTEE_NAME),
-            opt_adaptee_name
-        );
-
-    MISC_META_NODE(paramlist) = NOD(meta);
+    Sync_Paramlist_Archetype(paramlist);  // [0] cell must hold copied pointer
+    MISC_META_NODE(paramlist) = nullptr;  // defaults to being trash
 
     REBACT *underlying = ACT_UNDERLYING(VAL_ACTION(adaptee));
 
@@ -465,17 +411,13 @@ REBNATIVE(adapt)
         false  // do not gather LETs
     );
 
+    // We can't use a simple Init_Block() here, because the prelude has been
+    // relativized.  It is thus not a REBVAL*, but a RELVAL*...so the
+    // Adapter_Dispatcher() must combine it with the FRAME! instance before
+    // it can be executed (e.g. the `REBFRM *f` it is dispatching).
+    //
     REBARR *details = ACT_DETAILS(adaptation);
-
-    REBVAL *block = RESET_CELL(
-        ARR_AT(details, 0),
-        REB_BLOCK,
-        CELL_FLAG_FIRST_IS_NODE
-    );
-    INIT_VAL_NODE(block, prelude);
-    VAL_INDEX(block) = 0;
-    INIT_BINDING(block, underlying); // relative binding
-
+    Init_Relative_Block(ARR_AT(details, 0), underlying, prelude);
     Move_Value(ARR_AT(details, 1), adaptee);
 
     return Init_Action_Unbound(D_OUT, adaptation);
@@ -483,20 +425,20 @@ REBNATIVE(adapt)
 
 
 //
-//  enclose: native [
+//  enclose*: native [
 //
 //  {Wrap code around an ACTION! with access to its FRAME! and return value}
 //
 //      return: [action!]
-//      inner [action! word! path!]
-//          {Action that a FRAME! will be built for, then passed to OUTER}
-//      outer [action! word! path!]
-//          {Gets a FRAME! for INNER before invocation, can DO it (or not)}
+//      inner "Action that a FRAME! will be built for, then passed to OUTER"
+//          [action! word! path!]
+//      outer "Gets a FRAME! for INNER before invocation, can DO it (or not)"
+//          [action! word! path!]
 //  ]
 //
-REBNATIVE(enclose)
+REBNATIVE(enclose_p)
 {
-    INCLUDE_PARAMS_OF_ENCLOSE;
+    INCLUDE_PARAMS_OF_ENCLOSE_P;
 
     REBVAL *inner = ARG(inner);
     REBSTR *opt_inner_name;
@@ -529,44 +471,15 @@ REBNATIVE(enclose)
 
     if (not IS_ACTION(D_OUT))
         fail (PAR(outer));
-    Move_Value(outer, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
+    Move_Value(outer, D_OUT);  // Frees D_OUT, and GC safe (in ARG slot)
 
-    // The paramlist needs to be unique to designate this function, but
-    // will be identical typesets to the inner.  It's [0] element must
-    // identify the function we're creating vs the original, however.
-    //
     REBARR *paramlist = Copy_Array_Shallow_Flags(
-        VAL_ACT_PARAMLIST(inner),
+        VAL_ACT_PARAMLIST(inner),  // new function same interface as `inner`
         SPECIFIED,
         SERIES_MASK_PARAMLIST | NODE_FLAG_MANAGED
     );
-    REBVAL *rootparam = KNOWN(ARR_HEAD(paramlist));
-    VAL_ACT_PARAMLIST_NODE(rootparam) = NOD(paramlist);
-
-    // See %sysobj.r for `enclosed-meta:` object template
-
-    REBVAL *example = Get_System(SYS_STANDARD, STD_ENCLOSED_META);
-
-    REBCTX *meta = Copy_Context_Shallow_Managed(VAL_CONTEXT(example));
-    Init_Nulled(CTX_VAR(meta, STD_ENCLOSED_META_DESCRIPTION)); // default
-    Move_Value(CTX_VAR(meta, STD_ENCLOSED_META_INNER), inner);
-    if (opt_inner_name == NULL)
-        Init_Nulled(CTX_VAR(meta, STD_ENCLOSED_META_INNER_NAME));
-    else
-        Init_Word(
-            CTX_VAR(meta, STD_ENCLOSED_META_INNER_NAME),
-            opt_inner_name
-        );
-    Move_Value(CTX_VAR(meta, STD_ENCLOSED_META_OUTER), outer);
-    if (opt_outer_name == NULL)
-        Init_Nulled(CTX_VAR(meta, STD_ENCLOSED_META_OUTER_NAME));
-    else
-        Init_Word(
-            CTX_VAR(meta, STD_ENCLOSED_META_OUTER_NAME),
-            opt_outer_name
-        );
-
-    MISC_META_NODE(paramlist) = NOD(meta);
+    Sync_Paramlist_Archetype(paramlist);  // [0] cell must hold copied pointer
+    MISC_META_NODE(paramlist) = nullptr;  // defaults to being trash
 
     REBACT *enclosure = Make_Action(
         paramlist,
@@ -585,7 +498,7 @@ REBNATIVE(enclose)
 
 
 //
-//  augment: native [
+//  augment*: native [
 //
 //  {Create an ACTION! variant that acts the same, but has added parameters}
 //
@@ -596,9 +509,9 @@ REBNATIVE(enclose)
 //          "Spec dialect for words to add to the derived function"
 //  ]
 //
-REBNATIVE(augment)
+REBNATIVE(augment_p)  // see extended definition AUGMENT in %base-defs.r
 {
-    INCLUDE_PARAMS_OF_AUGMENT;
+    INCLUDE_PARAMS_OF_AUGMENT_P;
 
     REBVAL *augmentee = ARG(augmentee);
 
@@ -636,56 +549,15 @@ REBNATIVE(augment)
         definitional_return_dsp = DSP + 1;
     }
 
-    // !!! How exactly the HELP meta information is inherited on all of these
-    // function compositions is not really clear.  For the moment, leverage
-    // the usermode code that derives the help and just reuse it.
-    //
-    REBVAL *dug = rebValueQ("dig-action-meta-fields", augmentee, rebEND);
-
-    REBVAL *parameter_types = rebValueQ(
-        "pick", dug, "'parameter-types",
-    rebEND);
-
-    REBVAL *parameter_notes = rebValueQ(
-        "pick", dug, "'parameter-notes",
-    rebEND);
-
-    const REBVAL *type = END_NODE;
-    if (parameter_types)
-        type = CTX_VARS_HEAD(VAL_CONTEXT(parameter_types));
-
-    const REBVAL *note = END_NODE;
-    if (parameter_notes)
-        note = CTX_VARS_HEAD(VAL_CONTEXT(parameter_notes));
-
     // For each parameter in the original function, we push a corresponding
     // "triad".
     //
     REBVAL *param = ACT_PARAMS_HEAD(VAL_ACTION(augmentee));
     for (; NOT_END(param); ++param) {
         Move_Value(DS_PUSH(), param);
-        if (IS_END(type))
-            Move_Value(DS_PUSH(), EMPTY_BLOCK);
-        else {
-            if (IS_BLOCK(type))
-                Move_Value(DS_PUSH(), type);
-            else
-                Move_Value(DS_PUSH(), EMPTY_BLOCK);
-            ++type;
-        }
-        if (IS_END(note))
-            Move_Value(DS_PUSH(), EMPTY_TEXT);
-        else {
-            if (IS_TEXT(note))
-                Move_Value(DS_PUSH(), note);
-            else
-                Move_Value(DS_PUSH(), EMPTY_TEXT);
-            ++note;
-        }
+        Move_Value(DS_PUSH(), EMPTY_BLOCK);
+        Move_Value(DS_PUSH(), EMPTY_TEXT);
     }
-
-    rebRelease(parameter_types);
-    rebRelease(parameter_notes);
 
     // Now we reuse the spec analysis logic, which pushes more parameters to
     // the stack.  This may add duplicates--which will be detected when we
@@ -720,32 +592,6 @@ REBNATIVE(augment)
     RELVAL* dest = ARR_HEAD(ACT_DETAILS(augmentated));
     for (; NOT_END(src); ++src, ++dest)
         Blit_Cell(dest, src);
-
-    REBCTX *meta = ACT_META(augmentated);
-
-    if (meta) {
-        //
-        // If they didn't override the description, try and inherit it from
-        // the augmentee's description.
-        //
-        rebElideQ(
-            "(", CTX_ARCHETYPE(meta), ")/description:",
-                "default [pick", dug, "'description]",
-        rebEND);
-
-        // !!! Overriding RETURN: is not really set up to work.  This needs
-        // to be rethought, as does most of the META stuff--which was very
-        // experimental to begin with.
-        //
-        rebElideQ(
-            "(", CTX_ARCHETYPE(meta), ")/return-type:",
-                "default [try pick", dug, "'return-type]",
-            "(", CTX_ARCHETYPE(meta), ")/return-note:",
-                "default [try pick", dug, "'return-note]",
-        rebEND);
-    }
-
-    rebRelease(dug);
 
     return Init_Action_Unbound(D_OUT, augmentated);
 }

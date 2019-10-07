@@ -399,13 +399,13 @@ REB_R Compose_To_Stack_Core(
 //
 //  {Evaluates only contents of GROUP!-delimited expressions in an array}
 //
-//      return: [any-word! any-array! any-path!]
+//      return: [any-array! any-path! any-word! action!]
 //      :predicate [<skip> action! path!]
 //          "Function to run on composed slots (default: ENBLOCK)"
 //      :label "Distinguish compose groups, e.g. [(plain) (<*> composed)]"
 //          [<skip> tag! file!]
-//      value "Array to use as the template for substitution (no-op if WORD!)"
-//          [any-word! any-array! any-path!]
+//      value "Array to use as the template (no-op if WORD! or ACTION!)"
+//          [any-array! any-path! any-word! action!]
 //      /deep "Compose deeply into nested arrays"
 //      /only "Do not exempt ((...)) from predicate application"
 //  ]
@@ -435,7 +435,7 @@ REBNATIVE(compose)
         Move_Value(predicate, D_OUT);
     }
 
-    if (ANY_WORD(ARG(value)))
+    if (ANY_WORD(ARG(value)) or IS_ACTION(ARG(value)))
         RETURN (ARG(value));  // makes it easier to `set/hard compose target`
 
     REBDSP dsp_orig = DSP;

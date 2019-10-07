@@ -118,6 +118,80 @@ nihil: enfixed func* [
 ]
 
 
+; Function derivations have core implementations (SPECIALIZE*, ADAPT*, etc.)
+; that don't create META information for the HELP.  Those can be used in
+; performance-sensitive code.
+;
+; These higher-level variations without the * (SPECIALIZE, ADAPT, etc.) do the
+; inheritance for you.  This makes them a little slower, and the generated
+; functions will be bigger due to having their own objects describing the
+; HELP information.  That's not such a big deal for functions that are made
+; only one time, but something like a KEEP inside a COLLECT might be better
+; off being defined with ENCLOSE* instead of ENCLOSE and foregoing HELP.
+;
+; Once HELP has been made for a derived function, it can be customized via
+; REDESCRIBE.
+;
+; https://forum.rebol.info/t/1222
+;
+; Note: ENCLOSE is the first wrapped version here; so that the other wrappers
+; can use it, thus inheriting HELP from their core (*-having) implementations.
+
+inherit-meta: func* [
+    return: "Same as derived (assists in efficient chaining)"
+        [action!]
+    derived [action!]
+    original [action! word! path!]
+    /augment "Additional spec information to scan"
+        [block!]
+][
+    if not equal? action! reflect :original 'type [original: get original]
+    if let m1: meta-of :original [
+        set-meta :derived let m2: copy :m1  ; shallow copy
+        if in m1 'parameter-notes [  ; shallow copy, but make frame match
+            m2/parameter-notes: make frame! :derived
+            for-each [key value] :m1/parameter-notes [
+                m2/parameter-notes/(key): :value
+            ]
+        ]
+        if in m2 'parameter-types [  ; shallow copy, but make frame match
+            m2/parameter-types: make frame! :derived
+            for-each [key value] :m1/parameter-types [
+                m2/parameter-types/(key): :value
+            ]
+        ]
+    ]
+    return :derived
+]
+
+enclose: enclose* 'enclose* func* [f] [  ; uses low-level ENCLOSE* to make
+    let inner: f/inner: compose :f/inner
+    inherit-meta do f :inner
+]
+inherit-meta :enclose 'enclose*  ; needed since we used ENCLOSE*
+
+specialize: enclose 'specialize* func* [f] [  ; now we have high-level ENCLOSE
+    let specializee: f/specializee: compose :f/specializee
+    inherit-meta do f :specializee
+]
+
+adapt: enclose 'adapt* func* [f] [
+    let adaptee: f/adaptee: compose :f/adaptee
+    inherit-meta do f :adaptee
+]
+
+chain: enclose 'chain* func* [f] [
+    let pipeline: f/pipeline: reduce :f/pipeline
+    inherit-meta do f pick pipeline 1
+]
+
+augment: enclose 'augment* func* [f] [
+    let augmentee: f/augmentee: compose :f/augmentee
+    let spec: :f/spec
+    inherit-meta/augment do f :augmentee spec
+]
+
+
 ; !!! NEXT and BACK seem somewhat "noun-like" and desirable to use as variable
 ; names, but are very entrenched in Rebol history.  Also, since they are
 ; specializations they don't fit easily into the NEXT OF SERIES model--this

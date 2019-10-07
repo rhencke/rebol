@@ -224,7 +224,6 @@
     ((cast(REBSER*, ACT(s))->header.bits & PARAMLIST_FLAG_##name) == 0)
 
 
-
 //=//// PSEUDOTYPES FOR RETURN VALUES /////////////////////////////////////=//
 //
 // An arbitrary cell pointer may be returned from a native--in which case it
@@ -314,8 +313,19 @@ inline static REBARR *ACT_PARAMLIST(REBACT *a) {
     return &a->paramlist;
 }
 
+
+// An action's "archetype" is data in the head cell (index [0]) of the array
+// that is the paramlist.  This is an ACTION! cell which must have its
+// paramlist value match the paramlist it is in.  So when copying one array
+// to make a new paramlist from another, you must ensure the new array's
+// archetype is updated to match its container.
+
 #define ACT_ARCHETYPE(a) \
     VAL(SER(ACT_PARAMLIST(a))->content.dynamic.data)
+
+inline static void Sync_Paramlist_Archetype(REBARR *paramlist)
+  { VAL_ACT_PARAMLIST_NODE(ARR_HEAD(paramlist)) = NOD(paramlist); }
+
 
 #define ACT_DETAILS_NODE(a) \
     PAYLOAD(Any, ACT_ARCHETYPE(a)).second.node  // assignable, but is a node

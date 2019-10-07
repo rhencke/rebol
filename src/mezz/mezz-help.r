@@ -79,8 +79,8 @@ description-of: function [
             copy spec/title
         ]
         action! [
-            try if fields: dig-action-meta-fields :v [
-                copy get 'fields/description
+            try if meta: meta-of :v [
+                copy get 'meta/description
             ]
         ]
         gob! [spaced ["offset:" v/offset "size:" v/size]]
@@ -349,65 +349,23 @@ help: function [
         ]
     ]
 
-    ; Dig deeply, but try to inherit the most specific meta fields available
-    ;
-    fields: dig-action-meta-fields :value
-
-    ; For reporting what *kind* of action this is, don't dig at all--just
-    ; look at the meta information of the action being asked about.  Note that
-    ; not all actions have META-OF (e.g. those from MAKE ACTION!, or FUNC
-    ; when there was no type annotations or description information.)
-    ;
     meta: try meta-of :value
-
-    original-name: try ensure [<opt> word!] any [
-        select meta 'specializee-name
-        select meta 'adaptee-name
-    ] also (lambda name [
-        as word! uppercase mold name
-    ])
-
-    specializee: try ensure [<opt> action!] select meta 'specializee
-    adaptee: try ensure [<opt> action!] select meta 'adaptee
-    chainees: try ensure [<opt> block!] select meta 'chainees
-
-    classification: case [
-        :specializee [
-            either original-name [
-                spaced [{a specialization of} original-name]
-            ][
-                {a specialized ACTION!}
-            ]
-        ]
-
-        :adaptee [
-            either original-name [
-                spaced [{an adaptation of} original-name]
-            ][
-                {an adapted ACTION!}
-            ]
-        ]
-
-        :chainees [{a chained ACTION!}]
-    ] else [
-        {an ACTION!}
-    ]
 
     print newline
 
     print "DESCRIPTION:"
-    print unspaced [space4 fields/description or ["(undocumented)"]]
+    print unspaced [space4 (:meta/description or '{(undocumented)})]
     print unspaced [
-        space4 spaced [(uppercase mold topic) {is} classification]
+        space4 spaced [(uppercase mold topic) {is an ACTION!}]
     ]
 
     print-args: function [list /indent-words] [
         for-each param list [
             type: try ensure [<opt> block!] (
-                select fields/parameter-types to-word param
+                select meta/parameter-types to-word param
             )
             note: try ensure [<opt> text!] (
-                select fields/parameter-notes to-word param
+                select meta/parameter-notes to-word param
             )
 
             ; parameter name and type line
@@ -425,13 +383,9 @@ help: function [
     ]
 
     print newline
-    if any [fields/return-type fields/return-note] [
-        print ["RETURNS:" if fields/return-type [mold fields/return-type]]
-        if fields/return-note [
-            print unspaced [space4 fields/return-note]
-        ]
-    ] else [
-        print ["RETURNS: (undocumented)"]
+    print ["RETURNS:" any [mold :meta/return-type | "(undocumented)"]]
+    if :meta/return-note [
+        print unspaced [space4 meta/return-note]
     ]
 
     if not empty? args [

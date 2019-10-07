@@ -516,6 +516,23 @@ inline static RELVAL *VAL_ARRAY_AT_HEAD(const RELVAL *v, REBLEN n) {
     Init_Any_Array((v), REB_GROUP, (s))
 
 
+inline static RELVAL *Init_Relative_Block_At(
+    RELVAL *out,
+    REBACT *action,  // action to which array has relative bindings
+    REBARR *array,
+    REBLEN index
+){
+    RELVAL *block = RESET_CELL(out, REB_BLOCK, CELL_FLAG_FIRST_IS_NODE);
+    INIT_VAL_NODE(block, array);
+    VAL_INDEX(block) = index;
+    INIT_BINDING(block, action);
+    return block;
+}
+
+#define Init_Relative_Block(out,action,array) \
+    Init_Relative_Block_At((out), (action), (array), 0)
+
+
 // PATH! types will splice into each other, but not into a BLOCK! or GROUP!.
 // BLOCK! or GROUP! will splice into any other array:
 //
