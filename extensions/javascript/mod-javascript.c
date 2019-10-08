@@ -1089,13 +1089,36 @@ REBNATIVE(js_native)
     // synchronously wait on the registration.  (Continuing without blocking
     // would be bad--what if they ran the function right after declaring it?)
     //
+    // Badly formed JavaScript can cause an error which we want to give back
+    // to Rebol.  Since we're going to give it back to Rebol anyway, we go
+    // ahead and have the code we run on the main thread translate the JS
+    // error object into a Rebol error, so that the handle can be passed
+    // back (proxying the JS error object and receiving it in this C call
+    // would be more complex).
+    //
     // Note: There is no main_thread_emscripten_run_script(), but all that
     // emscripten_run_script() does is call eval() anyway.  :-/
     //
-    MAIN_THREAD_EM_ASM(
-        { eval(UTF8ToString($0)) },
-        js
+    heapaddr_t error_addr = MAIN_THREAD_EM_ASM_INT(
+        {
+            try {
+                eval(UTF8ToString($0));
+                return null;
+            }
+            catch (e) {
+                return reb.Value("make error!", reb.T(e.toString()));
+            }
+        },
+        js  /* JS code registering the function body (the `$0` parameter) */
     );
+    REBVAL *error = cast(REBVAL*, Pointer_From_Heapaddr(error_addr));
+    if (error) {
+        REBCTX *ctx = VAL_CONTEXT(error);
+        rebRelease(error);  // !!! failing, so not actually needed (?)
+
+        TRACE("JS-NATIVE had malformed JS, calling fail() w/error context");
+        fail (ctx);
+    }
 
     Drop_Mold(mo);
 
