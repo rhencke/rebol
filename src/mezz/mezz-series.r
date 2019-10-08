@@ -445,17 +445,18 @@ collect*: func [
     body "Block to evaluate"
         [<blank> block!]
 ][
-    let out: null
-    let keeper: specialize (  ; SPECIALIZE to hide series argument
-        enclose 'append function [  ; Derive from APPEND for /ONLY /LINE /DUP
+    let out
+    let keeper: specialize* (  ; SPECIALIZE to hide series argument
+        enclose* 'append func* [  ; Derive from APPEND for /ONLY /LINE /DUP
             f [frame!]
             <with> out
         ][
-            if null? :f/value [return null]  ; doesn't "count" as collected
-
-            f/series: out: default [make block! 16]  ; no null return now
-            :f/value  ; ELIDE leaves as result (F/VALUE invalid after DO F)
-            elide do f
+            :f/value then [  ; null won't run block, nor "count" as collected
+                f/series: out: default [make block! 16]  ; no null return now
+                :f/value  ; ELIDE leaves as result (DO F invalidates F/VALUE)
+                elide do f
+            ]
+            ; ^-- failed THEN returns NULL
         ]
     )[
         series: <replaced>
@@ -488,7 +489,7 @@ collect-lines: redescribe [
     KEEPed blocks become spaced TEXT!.}
 ] adapt 'collect [  ; https://forum.rebol.info/t/945/1
     body: compose [
-        keep: adapt specialize 'keep [
+        keep: adapt* specialize* 'keep [
             line: true | only: false | part: _
         ] [value: spaced try :value]
         (as group! body)
@@ -501,7 +502,7 @@ collect-text: redescribe [
 ] chain [  ; https://forum.rebol.info/t/945/2
     adapt 'collect [
         body: compose [
-            keep: adapt specialize 'keep [
+            keep: adapt* specialize* 'keep [
                 line: false | only: false | part: _
             ][
                 value: unspaced try :value
@@ -509,9 +510,10 @@ collect-text: redescribe [
             (as group! body)
         ]
     ]
+        |
     :spaced
         |
-    specialize 'else [branch: [copy ""]]
+    specialize* 'else [branch: [copy ""]]
 ]
 
 format: function [

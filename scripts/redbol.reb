@@ -669,25 +669,26 @@ collect: emulate [
         body [block!]
         /into "https://forum.rebol.info/t/stopping-the-into-virus/705"
             [any-series!]
-        <local> keeper
     ][
-        output: any [into | make block! 16]
+        let out: any [into | make block! 16]
 
-        keeper: specialize (
-            enclose 'insert function [
+        let keeper: specialize* (
+            enclose* 'insert func [
                 f [frame!]
-                <static> o (:output)
+                <with> out
             ][
-                f/series: o
-                o: do f  ; update static's position on each insertion
-                :f/value
+                f/series: out
+                :f/value  ; capture before the DO to be return result
+                elide out: do f  ; update position on each insertion
+
+                ; original f/value will be returned due to ELIDE
             ]
         )[
             series: <remove-unused-series-parameter>
         ]
 
         reeval func compose [(name) [action!] <with> return] body :keeper
-        either into [output] [head of output]
+        either into [out] [head of out]
     ]
 ]
 
