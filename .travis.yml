@@ -581,31 +581,23 @@ install:
     if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]; then
       git clone --depth 1 https://github.com/emscripten-core/emsdk
       cd emsdk
-      ./emsdk update
+      ./emsdk update-tags  # no `emsdk update` on git clone, use git pull
 
-      # The WASM-based Emterpreter is being replaced in the upstream master by
-      # Asyncify, which is at least 7x faster (and can probably be tuned to
-      # be even better).  Since it is a much better solution for non-threaded
-      # browsers we go ahead and use that bleeding edge for 0.16.1
+      # We use the latest incoming branch of emscripten (`tot-upstream`), not
+      # the latest upstream release (`latest-upstream`) or the latest stable
+      # release (`latest`).  While this is a more volatile choice, it helps
+      # find out about potential problems faster...and make use of patches
+      # that are applied to address our issues as soon as they are available.
       #
-      # However, that version of the SDK does not support MAIN_THREAD_EM_ASM,
-      # which is required for the thread-enabled browser build.  They are
-      # planning to fix that before deploying the new backend:
+      # Note: At the time of writing, (9-Oct-2019) our non-pthreads branch
+      # will not compile on `latest`, as that is the "fastcomp" version with
+      # the emterpreter.  The source now hinges on the "binaryen" version with
+      # "Asyncify", which gives a much faster libr3.
       #
-      # https://github.com/emscripten-core/emscripten/issues/9410
-      #
-      # So we currently split the versions used.  But once that bug is
-      # resolved they can both use the same SDK version.
-      #
-      if [[ $OS_ID = 0.16.1 ]]; then
-        ./emsdk install latest-upstream
-        ./emsdk activate latest-upstream
-      else
-        ./emsdk install latest
-        ./emsdk activate latest
-      fi
+      ./emsdk install tot-upstream
+      ./emsdk activate tot-upstream
 
-      source emsdk_env.sh
+      source emsdk_env.sh  # `source` => "inherit the environment variables"
       cd ..
     fi
 
