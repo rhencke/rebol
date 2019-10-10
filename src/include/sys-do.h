@@ -147,7 +147,7 @@ inline static bool RunQ_Throws(
     bool threw = Eval_Step_In_Va_Throws_Core(
         SET_END(out),  // start at END to detect error if no eval product
         FEED_MASK_DEFAULT | FLAG_QUOTING_BYTE(1),
-        p,  // opt_first
+        p,  // first argument (C variadic protocol: at least 1 normal arg)
         &va,  // va_end() handled by Eval_Va_Core on success/fail/throw
         EVAL_MASK_DEFAULT
             | (fully ? EVAL_FLAG_NO_RESIDUE : 0)

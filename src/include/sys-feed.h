@@ -514,7 +514,7 @@ inline static const RELVAL *Fetch_Next_In_Feed_Core(
 }
 
 #define Fetch_First_In_Feed(feed) \
-    Fetch_Next_In_Feed_Core((feed), false)
+    Fetch_Next_In_Feed_Core((feed), false)  // !!! not used at time of writing
 
 inline static const RELVAL *Fetch_Next_In_Feed(  // adds not-end checking
     struct Reb_Feed *feed,
@@ -623,7 +623,7 @@ inline static void Prep_Array_Feed(
 
 inline static void Prep_Va_Feed(
     struct Reb_Feed *feed,
-    const void *opt_first,
+    const void *p,
     va_list *vaptr,
     REBFLGS flags
 ){
@@ -638,10 +638,7 @@ inline static void Prep_Va_Feed(
     feed->vaptr = vaptr;
     feed->pending = END_NODE;  // signal next fetch comes from va_list
     feed->specifier = SPECIFIED;  // relative values not allowed
-    if (opt_first)
-        Detect_Feed_Pointer_Maybe_Fetch(feed, opt_first, false);
-    else
-        Fetch_First_In_Feed(feed);
+    Detect_Feed_Pointer_Maybe_Fetch(feed, p, false);
 
     feed->gotten = nullptr;
     assert(IS_END(feed->value) or READABLE(feed->value, __FILE__, __LINE__));
@@ -651,9 +648,9 @@ inline static void Prep_Va_Feed(
 // fetch as part of the initialization from the opt_first...and if you want
 // FLAG_QUOTING_BYTE() to take effect, it must be passed in up front.
 //
-#define DECLARE_VA_FEED(name,opt_first,vaptr,flags) \
+#define DECLARE_VA_FEED(name,p,vaptr,flags) \
     struct Reb_Feed name##struct; \
-    Prep_Va_Feed(&name##struct, (opt_first), (vaptr), (flags)); \
+    Prep_Va_Feed(&name##struct, (p), (vaptr), (flags)); \
     struct Reb_Feed *name = &name##struct
 
 inline static void Prep_Any_Array_Feed(

@@ -356,11 +356,11 @@ inline static bool Eval_Step_In_Any_Array_At_Throws(
 inline static bool Eval_Step_In_Va_Throws_Core(
     REBVAL *out,  // must be initialized, won't change if all empty/invisible
     REBFLGS feed_flags,
-    const void *opt_first,
+    const void *p,
     va_list *vaptr,
     REBFLGS eval_flags
 ){
-    DECLARE_VA_FEED (feed, opt_first, vaptr, feed_flags);
+    DECLARE_VA_FEED (feed, p, vaptr, feed_flags);
 
     DECLARE_FRAME (f, feed, eval_flags);
 

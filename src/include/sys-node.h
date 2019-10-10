@@ -201,38 +201,44 @@ enum Reb_Pointer_Detect {
     DETECTED_AS_END = 5 // may be a cell, or made with Endlike_Header()
 };
 
+// !!! Given how often this is called, would a 256 byte table mapping bytes
+// to types be worth it?  The function call could be avoided entirely.
+// Alternately, it could be folded into the UTF-8 detection so that the
+// invalid Rebol-oriented cases gave illegal codepoints...that way, it could
+// already be on its first step of a UTF-8 decode otherwise.
+//
 inline static enum Reb_Pointer_Detect Detect_Rebol_Pointer(const void *p) {
     const REBYTE* bp = cast(const REBYTE*, p);
 
-    switch (bp[0] >> 4) { // switch on the left 4 bits of the byte
-    case 0:
-    case 1:
-    case 2:
-    case 3:
-    case 4:
-    case 5:
-    case 6:
-    case 7:
-        return DETECTED_AS_UTF8; // ASCII codepoints 0 - 127
+    switch (bp[0] >> 4) {  // switch on the left 4 bits of the byte
+      case 0:
+      case 1:
+      case 2:
+      case 3:
+      case 4:
+      case 5:
+      case 6:
+      case 7:
+        return DETECTED_AS_UTF8;  // ASCII codepoints 0 - 127
 
     // v-- bit sequences starting with `10` (continuation bytes, so not
     // valid starting points for a UTF-8 string)
 
-    case 8: // 0xb1000
+      case 8:  // 0xb1000
         if (bp[1] == REB_0)
-            return DETECTED_AS_END; // may be end cell or "endlike" header
+            return DETECTED_AS_END;  // may be end cell or "endlike" header
         if (bp[0] & 0x1)
-            return DETECTED_AS_CELL; // unmanaged
-        return DETECTED_AS_SERIES; // unmanaged
+            return DETECTED_AS_CELL;  // unmanaged
+        return DETECTED_AS_SERIES;  // unmanaged
 
-    case 9: // 0xb1001
+      case 9:  // 0xb1001
         if (bp[1] == REB_0)
-            return DETECTED_AS_END; // has to be an "endlike" header
-        assert(bp[0] & 0x1); // marked and unmanaged, must be a cell
+            return DETECTED_AS_END;  // has to be an "endlike" header
+        assert(bp[0] & 0x1);  // marked and unmanaged, must be a cell
         return DETECTED_AS_CELL;
 
-    case 10: // 0b1010
-    case 11: // 0b1011
+      case 10:  // 0b1010
+      case 11:  // 0b1011
         if (bp[1] == REB_0)
             return DETECTED_AS_END;
         if (bp[0] & 0x1)
@@ -243,18 +249,16 @@ inline static enum Reb_Pointer_Detect Detect_Rebol_Pointer(const void *p) {
     // valid starting points for UTF-8, with only the exceptions made for
     // the illegal 192 and 193 bytes which represent freed series and cells.
 
-    case 12: // 0b1100
+      case 12:  // 0b1100
         if (bp[0] == FREED_SERIES_BYTE)
             return DETECTED_AS_FREED_SERIES;
-
         if (bp[0] == FREED_CELL_BYTE)
             return DETECTED_AS_FREED_CELL;
-
         return DETECTED_AS_UTF8;
 
-    case 13: // 0b1101
-    case 14: // 0b1110
-    case 15: // 0b1111
+      case 13:  // 0b1101
+      case 14:  // 0b1110
+      case 15:  // 0b1111
         return DETECTED_AS_UTF8;
     }
 

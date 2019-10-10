@@ -739,14 +739,14 @@ REBVAL *RL_rebArg(unsigned char quotes, const void *p, va_list *vaptr)
 static void Run_Va_May_Fail(
     REBVAL *out,
     unsigned char quotes,  // how many quote levels to add to spliced values
-    const void *opt_first,  // optional element to inject *before* the va_list
+    const void *p,  // first pointer (may be END, nullptr means NULLED)
     va_list *vaptr  // va_end() handled by feed for all cases (throws, fails)
 ){
     Init_Void(out);
 
     REBFLGS flags = EVAL_MASK_DEFAULT | FLAG_QUOTING_BYTE(quotes);
 
-    DECLARE_VA_FEED (feed, opt_first, vaptr, flags);
+    DECLARE_VA_FEED (feed, p, vaptr, flags);
     if (Do_Feed_To_End_Maybe_Stale_Throws(out, feed)) {
         //
         // !!! Being able to THROW across C stacks is necessary in the general
@@ -1471,10 +1471,10 @@ static const void *rebSpliceQuoteAdjuster_internal(
     // just calling rebQ(value) to get a quote on a single value.  Sense
     // that situation and make it faster.
     //
-    if (Detect_Rebol_Pointer(p) == DETECTED_AS_CELL) {
-        const REBVAL *first = VAL(p);  // save pointer
+    if (not p or Detect_Rebol_Pointer(p) == DETECTED_AS_CELL) {
+        const REBVAL *first = REIFY_NULL(VAL(p));  // save pointer
         p = va_arg(*vaptr, const void*);  // advance next pointer (fast!)
-        if (Detect_Rebol_Pointer(p) == DETECTED_AS_END) {
+        if (p and Detect_Rebol_Pointer(p) == DETECTED_AS_END) {
             a = Alloc_Singular(NODE_FLAG_MANAGED);
             CLEAR_SERIES_FLAG(a, MANAGED);  // see notes above on why we lied
             Move_Value(ARR_SINGLE(a), first);
