@@ -310,7 +310,8 @@ insert: generic [
     {Inserts element(s); for series, returns just past the insert.}
 
     return: "Just past the insert"
-        [<requote> any-series! port! map! object! bitset! port!]
+        [<requote> any-series! port! map! object! bitset! port!
+        integer!]  ; !!! INSERT returns INTEGER! in ODBC, review this
     series "At position (modified)"
         [<dequote> any-series! port! map! object! bitset! port!]
     value [<opt> any-value!] {The value to insert}

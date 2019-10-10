@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2010-2011 Christian Ensel
-// Copyright 2017-2018 Rebol Open Source Contributors
+// Copyright 2017-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -275,8 +275,8 @@ REBNATIVE(open_connection)
         fail (error);
     }
 
-    REBVAL *henv_value = rebHandle(henv, 0, &cleanup_henv);
-    REBVAL *hdbc_value = rebHandle(hdbc, 0, &cleanup_hdbc);
+    REBVAL *henv_value = rebHandle(henv, sizeof(henv), &cleanup_henv);
+    REBVAL *hdbc_value = rebHandle(hdbc, sizeof(hdbc), &cleanup_hdbc);
 
     rebElide("poke", ARG(connection), "'henv", rebR(henv_value), rebEND);
     rebElide("poke", ARG(connection), "'hdbc", rebR(hdbc_value), rebEND);
@@ -314,7 +314,7 @@ REBNATIVE(open_statement)
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Dbc(hdbc));
 
-    REBVAL *hstmt_value = rebHandle(hstmt, 0, nullptr);
+    REBVAL *hstmt_value = rebHandle(hstmt, sizeof(hstmt), nullptr);
 
     rebElide("poke", ARG(statement), "'hstmt", rebR(hstmt_value), rebEND);
 
@@ -521,7 +521,7 @@ SQLRETURN ODBC_GetCatalog(
     SQLRETURN rc;
 
     int w = rebUnbox(
-        "switch ensure word!", which, "[",
+        "switch ensure word!", rebQ1(which), "[",
             "'tables [1]",
             "'columns [2]",
             "'types [3]",
@@ -607,6 +607,22 @@ int ODBC_UnCamelCase(SQLWCHAR *source, SQLWCHAR *target) {
 
 #define COLUMN_TITLE_SIZE 255
 
+static void cleanup_columns(const REBVAL *v) {
+    COLUMN *columns = cast(COLUMN*, VAL_HANDLE_VOID_POINTER(v));
+    if (columns == nullptr)
+        return;  // cleanup_columns() may be called explicitly
+
+    SQLSMALLINT num_columns = VAL_HANDLE_LEN(v);
+    SQLSMALLINT col_num;
+    for (col_num = 0; col_num < num_columns; ++col_num) {
+        COLUMN *c = &columns[col_num];
+        FREE_N(char, c->buffer_size, cast(char*, c->buffer));
+        rebRelease(c->title_word);
+    }
+    free(columns);
+}
+
+
 //
 // Sets up the COLUMNS description, retrieves column titles and descriptions
 //
@@ -670,7 +686,7 @@ SQLRETURN ODBC_DescribeResults(
         // int length = ODBC_UnCamelCase(column->title, title);
 
         column->title_word = rebValue(
-            "as word!", rebLengthedTextWide(title, title_length),
+            "as word!", rebR(rebLengthedTextWide(title, title_length)),
         rebEND);
         rebUnmanage(column->title_word);
     }
@@ -876,7 +892,7 @@ REBNATIVE(insert_odbc)
     bool use_cache = false;
 
     bool get_catalog = rebDid(
-        "word? <- match [word! text!]", value, "else [",
+        "switch type of", rebQ1(value), "[word! [true] text! [false]] else [",
             "fail {SQL dialect must start with WORD! or STRING! value}"
         "]", rebEND
     );
@@ -1005,8 +1021,8 @@ REBNATIVE(insert_odbc)
         "opt ensure [handle! blank!] pick", statement, "'columns", rebEND
     );
     if (old_columns_value) {
-        COLUMN *old_columns = VAL_HANDLE_POINTER(COLUMN, old_columns_value);
-        free(old_columns);
+        cleanup_columns(old_columns_value);
+        SET_HANDLE_CDATA(old_columns_value, nullptr);
         rebRelease(old_columns_value);
     }
 
@@ -1014,7 +1030,7 @@ REBNATIVE(insert_odbc)
     if (not columns)
         fail ("Couldn't allocate column buffers!");
 
-    REBVAL *columns_value = rebHandle(columns, num_columns, NULL);
+    REBVAL *columns_value = rebHandle(columns, num_columns, &cleanup_columns);
 
     rebElide("poke", statement, "'columns", rebR(columns_value), rebEND);
 
@@ -1029,7 +1045,7 @@ REBNATIVE(insert_odbc)
     REBVAL *titles = rebValue("make block!", rebI(num_columns), rebEND);
     int col;
     for (col = 0; col != num_columns; ++col)
-        rebElide("append", titles, columns[col].title_word, rebEND);
+        rebElide("append", titles, rebQ1(columns[col].title_word), rebEND);
 
     // remember column titles if next call matches, return them as the result
     //
@@ -1149,7 +1165,10 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
       case SQL_CHAR:
       case SQL_VARCHAR:
       case SQL_LONGVARCHAR:
-        fail ("Non-WCHAR data not supported by ODBC (currently)");
+        return rebSizedText(
+            cast(char*, col->buffer),  // char as unixodbc SQLCHAR is unsigned
+            col->length
+        );
 
       case SQL_WCHAR:
       case SQL_WVARCHAR:
@@ -1309,17 +1328,9 @@ REBNATIVE(close_statement)
         "opt ensure [handle! blank!] pick", statement, "'columns", rebEND
     );
     if (columns_value) {
-        COLUMN *columns = VAL_HANDLE_POINTER(COLUMN, columns_value);
-        assert(columns);
-
-        REBLEN num_columns = VAL_HANDLE_LEN(columns_value);
-        REBLEN col;
-        for (col = 0; col != num_columns; ++col)
-            rebRelease(columns[col].title_word);
-
-        free(columns);
-        SET_HANDLE_CDATA(columns_value, NULL);  // avoid GC cleanup
-        rebElide("poke", statement, "'columns", "blank", rebEND);
+        cleanup_columns(columns_value);
+        SET_HANDLE_CDATA(columns_value, nullptr);  // avoid GC cleanup
+        rebElide("poke", statement, "'columns", "blank");
 
         rebRelease(columns_value);
     }

@@ -104,13 +104,13 @@ sys/make-scheme [
             return: <void>
             port [port!]
         ][
-            if get in (statement: port/locals) 'hstmt [
+            if get try in (statement: port/locals) 'hstmt [
                 remove find head statement/database/statements port
                 close-statement statement
                 return
             ]
 
-            if get in (connection: port/locals) 'hdbc [
+            if get try in (connection: port/locals) 'hdbc [
                 for-each stmt-port connection/statements [close stmt-port]
                 clear connection/statements
                 close-connection connection
@@ -123,7 +123,7 @@ sys/make-scheme [
             sql [text! word! block!]
                 {SQL statement or catalog, parameter blocks are reduced first}
         ][
-            insert-odbc port/locals reduce compose [(sql)]
+            insert-odbc port/locals reduce compose [((sql))]
         ]
 
         copy: function [port [port!] /part [integer!]] [
