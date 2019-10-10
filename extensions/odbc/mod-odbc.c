@@ -331,34 +331,25 @@ SQLRETURN ODBC_BindParameter(
 ){
     assert(number != 0);
 
-    SQLSMALLINT c_type;
-    SQLSMALLINT sql_type;
-
     p->length = 0;  // ignored for most types
     p->column_size = 0;  // also ignored for most types
     TRASH_POINTER_IF_DEBUG(p->buffer);  // required to be set by switch()
 
-    switch (VAL_TYPE(v)) {
-      case REB_BLANK: {
-        p->buffer_size = 0;
-        p->buffer = nullptr;
+    // We don't expose integer mappings for Rebol data types in libRebol to
+    // use in a switch() statement, so no:
+    //
+    //    switch (VAL_TYPE(v)) { case REB_INTEGER: {...} ...}
+    //
+    // But since the goal is to translate into ODBC types anyway, we can go
+    // ahead and do that with Rebol code that embeds those types.  See
+    // the `rebPrepare()` proposal for how this pattern could be sped up:
+    //
+    // https://forum.rebol.info/t/689/2
+    //
+    SQLSMALLINT c_type = rebUnboxInteger("switch type of", rebQ(v), "[",
+        "blank! [", rebI(SQL_C_DEFAULT), "]",
+        "logic! [", rebI(SQL_C_BIT), "]",
 
-        c_type = SQL_C_DEFAULT;
-        sql_type = SQL_NULL_DATA;
-        break; }
-
-      case REB_LOGIC: {
-        p->buffer_size = sizeof(unsigned char);
-        p->buffer = rebAllocN(char, p->buffer_size);
-
-        *cast(unsigned char*, p->buffer) = VAL_LOGIC(v);
-
-        c_type = SQL_C_BIT;
-        sql_type = SQL_BIT;
-        break; }
-
-      case REB_INTEGER: {
-        //
         // When we ask to insert data, the ODBC layer is supposed to be able
         // to take a C variable in any known integral type format, and so
         // long as the actual number represented is not out of range for the
@@ -380,115 +371,134 @@ SQLRETURN ODBC_BindParameter(
         //
         // The bounds are part of the ODBC standard, so appear literally here.
         //
-        if (VAL_INT64(v) > 2147483647) {  // use unsigned insertion
-            if (VAL_INT64(v) > 4294967295) {  // use BigNum (spotty support!)
-                p->buffer_size = sizeof(SQLUBIGINT);
-                p->buffer = rebAllocN(char, p->buffer_size);
-                *cast(SQLUBIGINT*, p->buffer) = VAL_INT64(v);
-                c_type = SQL_C_UBIGINT;
-            }
-            else {  // use unsigned long whenever feasible (broader support)
-                p->buffer_size = sizeof(SQLUINTEGER);
-                p->buffer = rebAllocN(char, p->buffer_size);
-                *cast(SQLUINTEGER*, p->buffer) = VAL_INT64(v);
-                c_type = SQL_C_ULONG;
-            }
-        }
-        else {
-            if (VAL_INT64(v) < -2147483648) {  // use BigNum (spotty support!)
-                p->buffer_size = sizeof(SQLBIGINT);
-                p->buffer = rebAllocN(char, p->buffer_size);
-                *cast(SQLBIGINT*, p->buffer) = VAL_INT64(v);
-                c_type = SQL_C_SBIGINT;
-            }
-            else {  // use signed long whenever feasible (broader support)
-                p->buffer_size = sizeof(SQLINTEGER);  // use signed insertion
-                p->buffer = rebAllocN(char, p->buffer_size);
-                *cast(SQLINTEGER*, p->buffer) = VAL_INT64(v);
-                c_type = SQL_C_SLONG;
-            }
-        }
-        sql_type = SQL_INTEGER;
+        "integer! [",
+            "case [",
+                v, "> 4294967295 [", rebI(SQL_C_UBIGINT), "]",
+                v, "> 2147483647 [", rebI(SQL_C_ULONG), "]",
+                v, "< -2147483648 [", rebI(SQL_C_SBIGINT), "]",
+                "default [", rebI(SQL_C_LONG), "]",
+            "]",
+        "]",
+        "decimal! [", rebI(SQL_C_DOUBLE), "]",
+        "time! [", rebI(SQL_C_TYPE_TIME), "]",
+        "date! [",
+            "either pick", v, "'time [",  // does it have a time component?
+                rebI(SQL_C_TYPE_TIMESTAMP),  // can hold both date and time
+            "][",
+                rebI(SQL_C_TYPE_DATE),  // just holds the date component
+            "]",
+        "]",
+        "text! [", rebI(SQL_C_WCHAR), "]",
+        "binary! [", rebI(SQL_C_BINARY), "]",
+        "default [ fail {Non-SQL-mappable type used in parameter binding} ]",
+    "]");
+
+    SQLSMALLINT sql_type;
+
+    switch (c_type) {
+      case SQL_C_DEFAULT: {  // BLANK!
+        sql_type = SQL_NULL_DATA;
+        p->buffer_size = 0;
+        p->buffer = nullptr;
         break; }
 
-      case REB_DECIMAL: {
+      case SQL_C_BIT: {  // LOGIC!
+        sql_type = SQL_BIT;
+        p->buffer_size = sizeof(unsigned char);
+        p->buffer = rebAllocN(char, p->buffer_size);
+        *cast(unsigned char*, p->buffer) = rebDid(v);
+        break; }
+
+      case SQL_C_ULONG: {  // unsigned INTEGER! in 32-bit positive range
+        sql_type = SQL_INTEGER;
+        p->buffer_size = sizeof(SQLUINTEGER);
+        p->buffer = rebAllocN(char, p->buffer_size);
+        *cast(SQLUINTEGER*, p->buffer) = rebUnboxInteger(v);
+        break; }
+
+      case SQL_C_LONG: {  // signed INTEGER! in 32-bit negative range
+        sql_type = SQL_INTEGER;
+        p->buffer_size = sizeof(SQLINTEGER);  // use signed insertion
+        p->buffer = rebAllocN(char, p->buffer_size);
+        *cast(SQLINTEGER*, p->buffer) = rebUnboxInteger(v);
+        break; }
+
+      case SQL_C_UBIGINT: {  // unsigned INTEGER! above 32-bit positive range
+        sql_type = SQL_INTEGER;
+        p->buffer_size = sizeof(SQLUBIGINT);  // !!! See notes RE: ODBC BIGINT
+        p->buffer = rebAllocN(char, p->buffer_size);
+        *cast(SQLUBIGINT*, p->buffer) = rebUnboxInteger(v);
+        break; }
+
+      case SQL_C_SBIGINT: {  // signed INTEGER! below 32-bit negative range
+        sql_type = SQL_INTEGER;
+        p->buffer_size = sizeof(SQLBIGINT);  // !!! See notes RE: ODBC BIGINT
+        p->buffer = rebAllocN(char, p->buffer_size);
+        *cast(SQLBIGINT*, p->buffer) = rebUnboxInteger(v);
+        break; }
+
+      case SQL_C_DOUBLE: {  // DECIMAL!
+        sql_type = SQL_DOUBLE;
         p->buffer_size = sizeof(SQLDOUBLE);
         p->buffer = rebAllocN(char, p->buffer_size);
-
-        *cast(SQLDOUBLE*, p->buffer) = VAL_DECIMAL(v);
-
-        c_type = SQL_C_DOUBLE;
-        sql_type = SQL_DOUBLE;
+        *cast(SQLDOUBLE*, p->buffer) = rebUnboxDecimal(v);
         break; }
 
-      case REB_TIME: {
+      case SQL_C_TYPE_TIME: {  // // TIME! (fractions not preserved)
+        sql_type = SQL_TYPE_TIME;
         p->buffer_size = sizeof(TIME_STRUCT);
         p->buffer = rebAllocN(char, p->buffer_size);
 
         TIME_STRUCT *time = cast(TIME_STRUCT*, p->buffer);
-
-        REB_TIMEF tf;
-        Split_Time(VAL_NANO(v), &tf);  // loses sign
-
-        time->hour = tf.h;
-        time->minute = tf.m;
-        time->second = tf.s;  // cast(REBDEC, tf.s)+(tf.n * NANO) for precise
-
-        c_type = SQL_C_TYPE_TIME;
-        sql_type = SQL_TYPE_TIME;
+        time->hour = rebUnboxInteger("pick", v, "'hour");
+        time->minute = rebUnboxInteger("pick", v, "'minute");
+        time->second = rebUnboxInteger("pick", v, "'second");
         break; }
 
-      case REB_DATE: {
-        if (rebNot("pick", v, "'time")) {  // no time component, just a date
-            p->buffer_size = sizeof(DATE_STRUCT);
-            p->buffer = rebAllocN(char, p->buffer_size);
+      case SQL_C_TYPE_DATE: {  // DATE! with no time component
+        sql_type = SQL_TYPE_DATE;
+        p->buffer_size = sizeof(DATE_STRUCT);
+        p->buffer = rebAllocN(char, p->buffer_size);
 
-            DATE_STRUCT *date = cast(DATE_STRUCT*, p->buffer);
-
-            date->year = rebUnboxInteger("pick", v, "'year");
-            date->month = rebUnboxInteger("pick", v, "'month");
-            date->day = rebUnboxInteger("pick", v, "'day");
-
-            c_type = SQL_C_TYPE_DATE;
-            sql_type = SQL_TYPE_DATE;
-        }
-        else {  // date + time => timestamp
-            p->buffer_size = sizeof(TIMESTAMP_STRUCT);
-            p->buffer = rebAllocN(char, p->buffer_size);
-
-            TIMESTAMP_STRUCT *stamp = cast(TIMESTAMP_STRUCT*, p->buffer);
-
-            stamp->year = rebUnboxInteger("pick", v, "'year");
-            stamp->month = rebUnboxInteger("pick", v, "'month");
-            stamp->day = rebUnboxInteger("pick", v, "'day");
-
-            REBVAL *time = rebValue("pick", v, "'time");
-            stamp->hour = rebUnboxInteger("pick", time, "1");
-            stamp->minute = rebUnboxInteger("pick", time, "2");
-
-            REBVAL *seconds = rebValue("pick", time, "3");
-            stamp->second = rebUnboxInteger(
-                "to integer! round/down", seconds
-            );
-
-            // !!! Although we write a `fraction` out, this appears to often
-            // be dropped by the ODBC binding:
-            //
-            // https://github.com/metaeducation/rebol-odbc/issues/1
-            //
-            stamp->fraction = rebUnboxInteger(
-                "to integer! round/down (", seconds, "mod 1) * 1000000000"
-            );
-
-            rebRelease(seconds);
-            rebRelease(time);
-
-            c_type = SQL_C_TYPE_TIMESTAMP;
-            sql_type = SQL_TYPE_TIMESTAMP;
-        }
+        DATE_STRUCT *date = cast(DATE_STRUCT*, p->buffer);
+        date->year = rebUnboxInteger("pick", v, "'year");
+        date->month = rebUnboxInteger("pick", v, "'month");
+        date->day = rebUnboxInteger("pick", v, "'day");
         break; }
 
-      case REB_TEXT: {
+      case SQL_C_TYPE_TIMESTAMP: {  // DATE! with a time component
+        sql_type = SQL_TYPE_TIMESTAMP;
+        p->buffer_size = sizeof(TIMESTAMP_STRUCT);
+        p->buffer = rebAllocN(char, p->buffer_size);
+
+        REBVAL *time = rebValue("pick", v, "'time");
+        REBVAL *second_and_fraction = rebValue("pick", time, "'second");
+
+        // !!! Although we write a `fraction` out, this appears to often
+        // be dropped by the ODBC binding:
+        //
+        // https://github.com/metaeducation/rebol-odbc/issues/1
+        //
+        TIMESTAMP_STRUCT *stamp = cast(TIMESTAMP_STRUCT*, p->buffer);
+        stamp->year = rebUnboxInteger("pick", v, "'year");
+        stamp->month = rebUnboxInteger("pick", v, "'month");
+        stamp->day = rebUnboxInteger("pick", v, "'day");
+        stamp->hour = rebUnboxInteger("pick", time, "'hour");
+        stamp->minute = rebUnboxInteger("pick", time, "'minute");
+        stamp->second = rebUnboxInteger(
+            "to integer! round/down", second_and_fraction
+        );
+        stamp->fraction = rebUnboxInteger(  // see note above
+            "to integer! round/down (",
+                second_and_fraction, "mod 1",
+            ") * 1000000000"
+        );
+
+        rebRelease(second_and_fraction);
+        rebRelease(time);
+        break; }
+
+      case SQL_C_WCHAR: {  // TEXT!
         //
         // Call to get the length of how big a buffer to make, then a second
         // call to fill the buffer after its made.
@@ -499,29 +509,24 @@ SQLRETURN ODBC_BindParameter(
         assert(len_check == len_no_term);
         UNUSED(len_check);
 
-        p->buffer_size = sizeof(SQLWCHAR) * len_no_term;
-
-        p->length = p->column_size = cast(SQLSMALLINT, 2 * len_no_term);
-
-        c_type = SQL_C_WCHAR;
         sql_type = SQL_VARCHAR;
+        p->buffer_size = sizeof(SQLWCHAR) * len_no_term;
         p->buffer = chars;
+        p->length = p->column_size = cast(SQLSMALLINT, 2 * len_no_term);
         break; }
 
-      case REB_BINARY: {
-        p->buffer_size = VAL_LEN_AT(v);  // sizeof(char) guaranteed to be 1
-        p->buffer = rebAllocN(char, p->buffer_size);
+      case SQL_C_BINARY: {  // BINARY!
+        size_t size;
+        unsigned char *bytes = rebBytes(&size, v);
 
-        memcpy(p->buffer, VAL_BIN_AT(v), p->buffer_size);
-
-        p->length = p->column_size = p->buffer_size;
-
-        c_type = SQL_C_BINARY;
         sql_type = SQL_VARBINARY;
+        p->buffer = bytes;
+        p->buffer_size = size;  // sizeof(char) guaranteed to be 1
+        p->length = p->column_size = p->buffer_size;
         break; }
 
-      default:  // used to do same as REB_BLANK, should it?
-        fail ("Non-SQL type used in parameter binding");
+      default:
+        rebJumps ("panic {Unhandled SQL type in switch() statement}");
     }
 
     SQLRETURN rc = SQLBindParameter(

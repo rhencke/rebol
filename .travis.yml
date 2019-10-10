@@ -450,7 +450,7 @@ matrix:
         - OS_ID=0.3.40
         - DEBUG=asserts
         - CROSS_PREFIX=x86_64-w64-mingw32-  # trailing hyphen is intentional
-        - STANDARD=c++98
+        - STANDARD=c++11  # was C++98 but C++11 needed for variadic macro ODBC
         - RIGOROUS=yes
         - STATIC=yes
         - TCC=x86_64-win32-tcc
