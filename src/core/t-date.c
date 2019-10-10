@@ -276,6 +276,7 @@ REBLEN Week_Day(REBYMD date)
 void Normalize_Time(REBI64 *sp, REBLEN *dp)
 {
     REBI64 secs = *sp;
+    assert(secs != NO_DATE_TIME);
 
     // how many days worth of seconds do we have ?
     //
@@ -534,7 +535,8 @@ REB_R MAKE_Date(
         if (NOT_END(item))
             goto bad_make;
 
-        Normalize_Time(&secs, &day);
+        if (secs != NO_DATE_TIME)
+            Normalize_Time(&secs, &day);
 
         RESET_CELL(out, REB_DATE, CELL_MASK_NONE);
         VAL_DATE(out) = Normalize_Date(day, month, year, tz);

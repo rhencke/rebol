@@ -421,13 +421,30 @@ SQLRETURN ODBC_BindParameter(
 
             TIMESTAMP_STRUCT *stamp = cast(TIMESTAMP_STRUCT*, p->buffer);
 
-            stamp->year = VAL_YEAR(v);
-            stamp->month = VAL_MONTH(v);
-            stamp->day = VAL_DAY(v);
-            stamp->hour = VAL_SECS(v) / 3600;
-            stamp->minute = (VAL_SECS(v) % 3600) / 60;
-            stamp->second = VAL_SECS(v) % 60;
-            stamp->fraction = VAL_NANO(v) % SEC_SEC;
+            stamp->year = rebUnboxInteger("pick", v, "'year");
+            stamp->month = rebUnboxInteger("pick", v, "'month");
+            stamp->day = rebUnboxInteger("pick", v, "'day");
+
+            REBVAL *time = rebValue("pick", v, "'time");
+            stamp->hour = rebUnboxInteger("pick", time, "1");
+            stamp->minute = rebUnboxInteger("pick", time, "2");
+
+            REBVAL *seconds = rebValue("pick", time, "3");
+            stamp->second = rebUnboxInteger(
+                "to integer! round/down", seconds
+            );
+
+            // !!! Although we write a `fraction` out, this appears to often
+            // be dropped by the ODBC binding:
+            //
+            // https://github.com/metaeducation/rebol-odbc/issues/1
+            //
+            stamp->fraction = rebUnboxInteger(
+                "to integer! round/down (", seconds, "mod 1) * 1000000000"
+            );
+
+            rebRelease(seconds);
+            rebRelease(time);
 
             c_type = SQL_C_TYPE_TIMESTAMP;
             sql_type = SQL_TYPE_TIMESTAMP;
@@ -1130,6 +1147,13 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
       case SQL_TYPE_TIMESTAMP: {
         TIMESTAMP_STRUCT *stamp = cast(TIMESTAMP_STRUCT*, col->buffer);
 
+        // !!! The fraction is generally 0, even if you wrote a nonzero value
+        // in the timestamp:
+        //
+        // https://github.com/metaeducation/rebol-odbc/issues/1
+        //
+        SQLUINTEGER fraction = stamp->fraction;
+
         // !!! This isn't a very elegant way of combining a date and time
         // component, but the point is that however it is done...it should
         // be done with Rebol code vs. some special C date API.  See
@@ -1142,9 +1166,9 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
             rebI(
                 stamp->hour * 3600 + stamp->minute * 60 + stamp->second
             ),  // seconds
-            rebI(stamp->fraction),  // billionths of a second (nanoseconds)
-            "0"  // timezone
-        ")", rebEND); }
+            rebI(fraction),  // billionths of a second (nanoseconds)
+            "_"  // timezone (leave blank)
+        ")"); }
 
       case SQL_BIT:
         //
