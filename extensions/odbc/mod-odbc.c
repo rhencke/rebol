@@ -358,20 +358,64 @@ SQLRETURN ODBC_BindParameter(
         break; }
 
       case REB_INTEGER: {
-        p->buffer_size = sizeof(REBI64);
-        p->buffer = rebAllocN(char, p->buffer_size);
-
-        *cast(REBI64*, p->buffer) = VAL_INT64(v);
-
-        c_type = SQL_C_SBIGINT;  // Rebol's INTEGER! type is signed
+        //
+        // When we ask to insert data, the ODBC layer is supposed to be able
+        // to take a C variable in any known integral type format, and so
+        // long as the actual number represented is not out of range for the
+        // column it should still work.  So a multi-byte integer should go
+        // into a byte column as long as it's only using the range 0-255.
+        //
+        // !!! Originally this went ahead and always requested to insert a
+        // "BigInt" to correspond to R3-Alpha's 64-bit standard.  However,
+        // SQL_C_SBIGINT doesn't work on various ODBC drivers...among them
+        // Oracle (and MySQL won't translate bigints, at least on unixodbc):
+        //
+        // https://stackoverflow.com/a/41598379
+        //
+        // There is a suggestion from MySQL that using SQL_NUMERIC can work
+        // around this, but it doesn't seem to help.  Instead, try using just
+        // a SQLINTEGER so long as the number fits in that range...and then
+        // escalate to BigNum only when necessary.  (The worst it could do is
+        // fail, and you'd get an out of range error otherwise anyway.)
+        //
+        // The bounds are part of the ODBC standard, so appear literally here.
+        //
+        if (VAL_INT64(v) > 2147483647) {  // use unsigned insertion
+            if (VAL_INT64(v) > 4294967295) {  // use BigNum (spotty support!)
+                p->buffer_size = sizeof(SQLUBIGINT);
+                p->buffer = rebAllocN(char, p->buffer_size);
+                *cast(SQLUBIGINT*, p->buffer) = VAL_INT64(v);
+                c_type = SQL_C_UBIGINT;
+            }
+            else {  // use unsigned long whenever feasible (broader support)
+                p->buffer_size = sizeof(SQLUINTEGER);
+                p->buffer = rebAllocN(char, p->buffer_size);
+                *cast(SQLUINTEGER*, p->buffer) = VAL_INT64(v);
+                c_type = SQL_C_ULONG;
+            }
+        }
+        else {
+            if (VAL_INT64(v) < -2147483648) {  // use BigNum (spotty support!)
+                p->buffer_size = sizeof(SQLBIGINT);
+                p->buffer = rebAllocN(char, p->buffer_size);
+                *cast(SQLBIGINT*, p->buffer) = VAL_INT64(v);
+                c_type = SQL_C_SBIGINT;
+            }
+            else {  // use signed long whenever feasible (broader support)
+                p->buffer_size = sizeof(SQLINTEGER);  // use signed insertion
+                p->buffer = rebAllocN(char, p->buffer_size);
+                *cast(SQLINTEGER*, p->buffer) = VAL_INT64(v);
+                c_type = SQL_C_SLONG;
+            }
+        }
         sql_type = SQL_INTEGER;
         break; }
 
       case REB_DECIMAL: {
-        p->buffer_size = sizeof(double);
+        p->buffer_size = sizeof(SQLDOUBLE);
         p->buffer = rebAllocN(char, p->buffer_size);
 
-        *cast(double*, p->buffer) = VAL_DECIMAL(v);
+        *cast(SQLDOUBLE*, p->buffer) = VAL_DECIMAL(v);
 
         c_type = SQL_C_DOUBLE;
         sql_type = SQL_DOUBLE;
@@ -731,11 +775,11 @@ SQLRETURN ODBC_BindColumns(
           case SQL_INTEGER:
             if (c->is_unsigned) {
                 c->c_type = SQL_C_ULONG;
-                c->buffer_size = sizeof(unsigned long int);
+                c->buffer_size = sizeof(SQLUINTEGER);
             }
             else {
                 c->c_type = SQL_C_SLONG;
-                c->buffer_size = sizeof(signed long int);
+                c->buffer_size = sizeof(SQLINTEGER);
             }
             break;
 
@@ -746,11 +790,11 @@ SQLRETURN ODBC_BindColumns(
           case SQL_BIGINT:
             if (c->is_unsigned) {
                 c->c_type = SQL_C_UBIGINT;
-                c->buffer_size = sizeof(REBU64);
+                c->buffer_size = sizeof(SQLUBIGINT);
             }
             else {
                 c->c_type = SQL_C_SBIGINT;
-                c->buffer_size = sizeof(REBI64);
+                c->buffer_size = sizeof(SQLBIGINT);
             }
             break;
 
@@ -760,7 +804,7 @@ SQLRETURN ODBC_BindColumns(
           case SQL_FLOAT:
           case SQL_DOUBLE:
             c->c_type = SQL_C_DOUBLE;
-            c->buffer_size = sizeof(double);
+            c->buffer_size = sizeof(SQLDOUBLE);
             break;
 
           case SQL_TYPE_DATE:
@@ -787,29 +831,27 @@ SQLRETURN ODBC_BindColumns(
 
           case SQL_CHAR:
           case SQL_VARCHAR:
-          case SQL_WCHAR:
-          case SQL_WVARCHAR:
-            //
-            // !!! Should the non-wide char types use less space by asking
-            // for regular SQL_C_CHAR?  Would it be UTF-8?  Latin1?
-            //
-            c->c_type = SQL_C_WCHAR;
+            c->c_type = SQL_C_CHAR;
 
             // "The driver counts the null-termination character when it
             // returns character data to *TargetValuePtr.  *TargetValuePtr
             // must therefore contain space for the null-termination character
             // or the driver will truncate the data"
             //
+            c->buffer_size = c->column_size + 1;
+            break;
+
+          case SQL_WCHAR:
+          case SQL_WVARCHAR:
+            c->c_type = SQL_C_WCHAR;
+
+            // See note above in the non-(W)ide SQL_CHAR/SQL_VARCHAR cases.
+            //
             c->buffer_size = sizeof(WCHAR) * (c->column_size + 1);
             break;
 
           case SQL_LONGVARCHAR:
-          case SQL_WLONGVARCHAR:
-            //
-            // !!! Should the non-wide char type use less space by asking
-            // for regular SQL_C_CHAR?  Would it be UTF-8?  Latin1?
-            //
-            c->c_type = SQL_C_WCHAR;
+            c->c_type = SQL_C_CHAR;
 
             // The LONG variants of VARCHAR have no length limit specified in
             // the schema:
@@ -823,6 +865,14 @@ SQLRETURN ODBC_BindColumns(
             // with a larger buffer size.
             //
             // As above, the + 1 is for the terminator.
+            //
+            c->buffer_size = (32700 + 1);
+            break;
+
+          case SQL_WLONGVARCHAR:
+            c->c_type = SQL_C_WCHAR;
+
+            // See note above in the non-(W)ide SQL_LONGVARCHAR case.
             //
             c->buffer_size = sizeof(WCHAR) * (32700 + 1);
             break;
@@ -1082,9 +1132,9 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
         // types as SQL_C_SLONG or SQL_C_ULONG, regardless of actual size.
         //
         if (col->is_unsigned)
-            return rebInteger(*cast(unsigned long*, col->buffer));
+            return rebInteger(*cast(SQLUINTEGER*, col->buffer));
 
-        return rebInteger(*cast(signed long*, col->buffer));
+        return rebInteger(*cast(SQLINTEGER*, col->buffer));
 
       case SQL_BIGINT:  // signed: -2[63]..2[63]-1, unsigned: 0..2[64] - 1
         //
@@ -1094,10 +1144,10 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
             if (*cast(REBU64*, col->buffer) > INT64_MAX)
                 fail ("INTEGER! can't hold some unsigned 64-bit values");
 
-            return rebInteger(*cast(REBU64*, col->buffer));
+            return rebInteger(*cast(SQLUBIGINT*, col->buffer));
         }
 
-        return rebInteger(*cast(REBI64*, col->buffer));
+        return rebInteger(*cast(SQLBIGINT*, col->buffer));
 
       case SQL_REAL:  // precision 24
       case SQL_DOUBLE:  // precision 53
@@ -1108,7 +1158,7 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
         // ODBC was asked at column binding time to give back all floating
         // point types as SQL_C_DOUBLE, regardless of actual size.
         //
-        return rebDecimal(*cast(double*, col->buffer));
+        return rebDecimal(*cast(SQLDOUBLE*, col->buffer));
 
       case SQL_TYPE_DATE: {
         DATE_STRUCT *date = cast(DATE_STRUCT*, col->buffer);
@@ -1181,6 +1231,11 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
       case SQL_CHAR:
       case SQL_VARCHAR:
       case SQL_LONGVARCHAR:
+        //
+        // We basically assume UTF-8 for these cases.  This suggests that it
+        // might in many cases be superior to use the "ASCII" drivers; e.g.
+        // due to the incompatibility with iodbc's `wchar_t` usage.
+        //
         return rebSizedText(
             cast(char*, col->buffer),  // char as unixodbc SQLCHAR is unsigned
             col->length
