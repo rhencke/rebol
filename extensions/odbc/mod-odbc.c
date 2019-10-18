@@ -34,11 +34,6 @@
 // the usermode Rebol code merge into a single string) is to make it easier to
 // defend against SQL injection attacks.  This way, the scheme code does not
 // need to worry about doing SQL-syntax-aware string escaping.
-//
-// The version of ODBC that this is written to use is 3.0, which was released
-// around 1995.  At time of writing (2017) it is uncommon to encounter ODBC
-// systems that don't implement at least that.
-//
 
 #ifdef TO_WINDOWS
     #define WIN32_LEAN_AND_MEAN  // trim down the Win32 headers
@@ -56,6 +51,16 @@
 
 #include <sql.h>
 #include <sqlext.h>
+
+// The version of ODBC that this is written to use is 3.0, which was released
+// around 1995.  At time of writing (2017) it is uncommon to encounter ODBC
+// systems that don't implement at least that.  It's not clear if ODBCVER is
+// actually standard or not, so define it to 3.0 if it isn't.
+// https://stackoverflow.com/q/58443534
+//
+#ifndef ODBCVER
+    #define ODBCVER 0x0300
+#endif
 
 
 //
@@ -111,13 +116,18 @@ typedef struct {
 // just being strings.
 //
 
-REBVAL *Error_ODBC(SQLSMALLINT handleType, SQLHANDLE handle) {
+REBVAL *Error_ODBC_Core(
+    SQLSMALLINT handleType,
+    SQLHANDLE handle,
+    const char *file,  // nullptr in release builds
+    int line
+){
     SQLWCHAR state[6];
     SQLINTEGER native;
 
     const SQLSMALLINT buffer_size = 4086;
     SQLWCHAR message[4086];
-    SQLSMALLINT message_len = 0;
+    SQLSMALLINT message_len;
 
     SQLRETURN rc = SQLGetDiagRecW(  // WCHAR API in case internationalized?
         handleType,
@@ -130,13 +140,57 @@ REBVAL *Error_ODBC(SQLSMALLINT handleType, SQLHANDLE handle) {
         &message_len
     );
 
-    if (rc == SQL_SUCCESS or rc == SQL_SUCCESS_WITH_INFO)  // error has info
+    switch (rc) {
+      case SQL_SUCCESS_WITH_INFO:  // error buffer wasn't big enough
+        message_len = buffer_size;  // !!! REVIEW: reallocate vs. truncate?
+        goto success;
+
+      case SQL_SUCCESS:
+      success:
         return rebValue(
             "make error!", rebR(rebLengthedTextWide(message, message_len))
         );
+    }
 
-    return rebValue("make error! {Unknown ODBC error}");  // no useful info
+    // The following errors should not happen, so it's good in the debug
+    // build to have a bit more information about exactly which call had
+    // the problem.
+    //
+  #ifdef DEBUG_STDIO_OK
+    printf("!! Couldn't get ODBC Error Message: %s @ %d\n", file, line);
+  #endif
+
+    switch (rc) {
+      case SQL_INVALID_HANDLE:
+        return rebValue(
+            "make error! {Internal ODBC extension error (invalid handle)}"
+        );
+
+      case SQL_ERROR:
+        return rebValue(
+            "make error! {Internal ODBC extension error (bad diag record #)"
+        );
+
+      case SQL_NO_DATA:
+        return rebValue(
+            "make error! {No ODBC diagnostic information available}"
+        );
+
+      default:
+        break;  // should not happen if the ODBC interface/driver are working
+    }
+
+    assert(!"SQLGetDiagRecW returned undocumented SQLRESULT value");
+    return rebValue("make error! {Undocumented SQLRESULT in SQLGetDiagRecW}");
 }
+
+#if defined(DEBUG_STDIO_OK)  // report file/line info with mystery errors
+    #define Error_ODBC(handleType,handle) \
+        Error_ODBC_Core((handleType), (handle), __FILE__, __LINE__)
+#else
+    #define Error_ODBC(handleType,handle) \
+        Error_ODBC_Core((handleType), (handle), nullptr, 0)
+#endif
 
 #define Error_ODBC_Stmt(hstmt) \
     Error_ODBC(SQL_HANDLE_STMT, hstmt)
@@ -239,7 +293,7 @@ REBNATIVE(open_connection)
 
     rc = SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, cast(SQLPOINTER, 5), 0);
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO) {
-        REBVAL *error = Error_ODBC_Env(henv);
+        REBVAL *error = Error_ODBC_Dbc(hdbc);
         SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
         SQLFreeHandle(SQL_HANDLE_ENV, henv);
         rebJumps ("fail", error);
@@ -264,7 +318,7 @@ REBNATIVE(open_connection)
     rebFree(connect);
 
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO) {
-        REBVAL *error = Error_ODBC_Env(henv);
+        REBVAL *error = Error_ODBC_Dbc(hdbc);
         SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
         SQLFreeHandle(SQL_HANDLE_ENV, henv);
         rebJumps ("fail", error);
@@ -1040,8 +1094,35 @@ REBNATIVE(insert_odbc)
             rebFree(params);
         }
 
-        if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
+        switch (rc) {
+          case SQL_SUCCESS:
+          case SQL_SUCCESS_WITH_INFO:
+            break;
+
+          case SQL_NO_DATA:  // UPDATE, INSERT, or DELETE affecting no rows
+            break;
+
+          case SQL_NEED_DATA:
+            assert(!"SQL_NEED_DATA seen...only happens w/data @ execution");
             fail (Error_ODBC_Stmt(hstmt));
+
+          case SQL_STILL_EXECUTING:
+            assert(!"SQL_STILL_EXECUTING seen...only w/async calls");
+            fail (Error_ODBC_Stmt(hstmt));
+
+          case SQL_ERROR:
+            fail (Error_ODBC_Stmt(hstmt));
+
+          case SQL_INVALID_HANDLE:
+            assert(!"SQL_INVALID_HANDLE seen...should never happen");
+            fail (Error_ODBC_Stmt(hstmt));
+
+        #if ODBCVER >= 0x0380
+          case SQL_PARAM_DATA_AVAILABLE:
+            assert(!"SQL_PARAM_DATA_AVAILABLE seen...only in ODBC 3.8");
+            fail (Error_ODBC_Stmt(hstmt));
+        #endif
+        }
     }
 
     //=//// RETURN RECORD COUNT IF NO RESULT ROWS /////////////////////////=//
