@@ -398,11 +398,17 @@ linker-flags: make object! [
     ARC: <gnu:-arch i386>
     PIE: <gnu:-pie>
     HID: <gnu:-fvisibility=hidden>  ; all syms are hidden
+
+    ; The `-rdynamic` option is not a POSIX C option, but makes symbols from
+    ; the executable visible.  This is generally used for debugging (e.g.
+    ; backtrace()), but may have interesting applications in letting a file
+    ; be both an executable and a shared library providing libRebol services.
+    ; https://stackoverflow.com/q/36692315
+    ;
     DYN: <gnu:-rdynamic>
 
     CON: [<gnu:-mconsole> <msc:/subsystem:console>]
     S4M: [<gnu:-Wl,--stack=4194300> <msc:/stack:4194300>]
-    ;NOWASM: "-s WASM=0" ; emscripten webassembly
 ]
 
 system-libraries: make object! [
