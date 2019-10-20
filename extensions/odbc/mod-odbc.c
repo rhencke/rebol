@@ -302,9 +302,8 @@ REBNATIVE(open_connection)
         rebJumps ("fail", error);
     }
 
-    // Connect to the Driver, using the converted connection string
-    //
-    REBLEN connect_len = rebUnbox("length of", ARG(spec));
+    // Connect to the Driver
+
     SQLWCHAR *connect = rebSpellWide(ARG(spec));
 
     SQLSMALLINT out_connect_len;
@@ -312,7 +311,7 @@ REBNATIVE(open_connection)
         hdbc,  // ConnectionHandle
         nullptr,  // WindowHandle
         connect,  // InConnectionString
-        cast(SQLSMALLINT, connect_len),  // StringLength1
+        SQL_NTS,  // StringLength1 (null terminated string)
         nullptr,  // OutConnectionString (not interested in this)
         0,  // BufferLength (again, not interested)
         &out_connect_len,  // StringLength2Ptr (gets returned anyway)
@@ -627,39 +626,10 @@ SQLRETURN ODBC_BindParameter(
 
 SQLRETURN ODBC_GetCatalog(
     SQLHSTMT hstmt,
-    const REBVAL *which,
     REBVAL *block
 ){
-    assert(IS_BLOCK(block));  // !!! Should it ensure exactly 4 items?
-
-    SQLSMALLINT length[4];
-    SQLWCHAR *pattern[4];
-
-    int arg;
-    for (arg = 0; arg < 4; arg++) {
-        //
-        // !!! What if not at head?  Original code seems incorrect, because
-        // it passed the array at the catalog word, vs TEXT!.
-        //
-        REBVAL *value = rebValue(
-            "ensure [<opt> text!] pick", block, rebI(arg + 1)
-        );
-        if (value) {
-            REBLEN len = rebUnbox("length of", value);
-            pattern[arg] = rebSpellWide(value);
-            length[arg] = len;
-            rebRelease(value);
-        }
-        else {
-            length[arg] = 0;
-            pattern[arg] = nullptr;
-        }
-    }
-
-    SQLRETURN rc;
-
-    int w = rebUnbox(
-        "switch ensure word!", rebQ(which), "[",
+    int which = rebUnbox(
+        "switch first ensure block!", rebQ(block), "[",
             "'tables [1]",
             "'columns [2]",
             "'types [3]",
@@ -668,24 +638,44 @@ SQLRETURN ODBC_GetCatalog(
         "]"
     );
 
-    switch (w) {
+    rebElide(
+        "if 5 < length of", block, "[",
+            "fail {Catalog block should not have more than 4 patterns}",
+        "]"
+    );
+
+    SQLWCHAR *pattern[4];
+
+  blockscope {
+    int index;
+    for (index = 2; index != 6; ++index) {
+        pattern[index - 2] = rebSpellWide(  // gives nullptr if NULL
+            "ensure [<opt> text!]",
+                "pick ensure block!", block, rebI(index)
+        );
+    }
+  }
+
+    SQLRETURN rc;
+
+    switch (which) {
       case 1:
         rc = SQLTablesW(
             hstmt,
-            pattern[2], length[2],  // catalog
-            pattern[1], length[1],  // schema
-            pattern[0], length[0],  // table
-            pattern[3], length[3]  // type
+            pattern[2], SQL_NTS,  // catalog
+            pattern[1], SQL_NTS,  // schema
+            pattern[0], SQL_NTS,  // table
+            pattern[3], SQL_NTS  // type
         );
         break;
 
       case 2:
         rc = SQLColumnsW(
             hstmt,
-            pattern[3], length[3],  // catalog
-            pattern[2], length[2],  // schema
-            pattern[0], length[0],  // table
-            pattern[1], length[1]  // column
+            pattern[3], SQL_NTS,  // catalog
+            pattern[2], SQL_NTS,  // schema
+            pattern[0], SQL_NTS,  // table
+            pattern[1], SQL_NTS  // column
         );
         break;
 
@@ -697,10 +687,14 @@ SQLRETURN ODBC_GetCatalog(
         panic ("Invalid GET_CATALOG_XXX value");
     }
 
-    for (arg = 0; arg != 4; arg++) {
-        if (pattern[arg] != nullptr)
-            rebFree(pattern[arg]);
-    }
+  blockscope {
+    int n;
+    for (n = 0; n != 4; ++n)
+        rebFree(pattern[n]);  // no-op if nullptr
+  }
+
+    if (not SQL_SUCCEEDED(rc))
+        rebJumps("fail", Error_ODBC_Stmt(hstmt));
 
     return rc;
 }
@@ -1008,7 +1002,7 @@ REBNATIVE(insert_odbc)
     // The block passed in is used to form a query.
 
     REBLEN sql_index = 1;
-    REBVAL *value = rebValue(
+    REBVAL *first = rebValue(
         "pick", ARG(sql), rebI(sql_index),
         "else [fail {Empty array passed for SQL dialect}]"
     );
@@ -1016,13 +1010,13 @@ REBNATIVE(insert_odbc)
     bool use_cache = false;
 
     bool get_catalog = rebDid(
-        "switch type of", rebQ(value), "[word! [true] text! [false]] else [",
-            "fail {SQL dialect must start with WORD! or STRING! value}"
+        "switch type of", rebQ(first), "[word! [true] text! [false]] else [",
+            "fail {SQL dialect must start with WORD! or TEXT! value}"
         "]"
     );
 
     if (get_catalog) {
-        rc = ODBC_GetCatalog(hstmt, value, ARG(sql));
+        rc = ODBC_GetCatalog(hstmt, ARG(sql));
     }
     else {
         // Prepare/Execute statement, when first element in the block is a
@@ -1032,15 +1026,18 @@ REBNATIVE(insert_odbc)
         // then prepare a new statement.
         //
         use_cache = rebDid(
-            value, "==",
+            first, "==",
             "ensure [text! blank!] pick", statement, "'string"
         );
 
         if (not use_cache) {
-            REBLEN length = rebUnbox("length of", value);
-            SQLWCHAR *sql_string = rebSpellWide(value);
+            SQLWCHAR *sql_string = rebSpellWide(first);
 
-            rc = SQLPrepareW(hstmt, sql_string, cast(SQLSMALLINT, length));
+            rc = SQLPrepareW(
+                hstmt,
+                sql_string,
+                SQL_NTS  // Null-Terminated String
+            );
             if (not SQL_SUCCEEDED(rc))
                 fail (Error_ODBC_Stmt(hstmt));
 
@@ -1051,9 +1048,9 @@ REBNATIVE(insert_odbc)
             //
             // !!! Could re-use value with existing series if read only
             //
-            rebElide("poke", statement, "'string", "(copy", value, ")");
+            rebElide("poke", statement, "'string", "(copy", first, ")");
         }
-        rebRelease(value);
+        rebRelease(first);
 
         // The SQL string may contain ? characters, which indicates that it is
         // a parameterized query.  The separation of the parameters into a
@@ -1070,7 +1067,7 @@ REBNATIVE(insert_odbc)
 
             REBLEN n;
             for (n = 0; n < num_params; ++n, ++sql_index) {
-                value = rebValue("pick", ARG(sql), rebI(sql_index));
+                REBVAL *value = rebValue("pick", ARG(sql), rebI(sql_index));
                 rc = ODBC_BindParameter(
                     hstmt,
                     &params[n],
