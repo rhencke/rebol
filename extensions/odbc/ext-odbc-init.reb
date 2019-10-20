@@ -9,7 +9,7 @@ REBOL [
 
     Rights: [
         "Copyright (C) 2010-2011 Christian Ensel" (MIT License)
-        "Copyright (C) 2017-2018 Rebol Open Source Developers" (Apache)
+        "Copyright (C) 2017-2019 Rebol Open Source Developers" (Apache)
     ]
 
     License: {Apache 2.0}
@@ -133,56 +133,50 @@ sys/make-scheme [
 ]
 
 
-comment [
-    a: b: c: 0
-    dt [loop 512 [
-        cache: open odbc://cachesamples
-        a: a + 1
-        close cache
-        b: b + 1
-    ]]
-]
+; https://forum.rebol.info/t/1234
+;
+odbc-execute: func [
+    {Run a query in the ODBC extension using the Rebol SQL query dialect}
 
-comment [
-    a: b: c: 0
-    dt [loop 512 [
-        cache: open odbc://cachesamples
-        a: a + 1
-        db: first cache
-        b: b + 1
-        close cache
-        c: c + 1
-    ]]
-]
+    statement [port!]
+    query "SQL text, or block that runs SPACED with @(...) as parameters"
+        [text! block!]
+    /parameters "Explicit parameters (used if SQL string contains `?`)"
+        [block!]
+    /verbose "Show the SQL string before running it"
+][
+    parameters: default [copy []]
 
-comment [
-    dbs: []
-    a: 0
-    dt [
-        cache: open odbc://cachesamples
-        loop 512 [append dbs first cache | a: a + 1]
-        close cache
+    if block? query [
+        ;
+        ; REDUCE first, in case code portions took @xxx as function args
+        ;
+        query: spaced map-each item reduce query [
+            switch type of item [
+                sym-word! sym-path! [
+                    get item
+                ]
+                sym-group! [
+                        reduce as group! item
+                ]
+            ] then (value => [
+                append parameters :value
+                "?"
+            ]) else [
+                ; REDUCE may have evaluated items and made WORD!/etc.
+                ; But SPACED reduces implicitly.  So map to a quoted
+                ; version to avoid double-evaluations.
+                ;
+                quote :item
+            ]
+        ]
     ]
+
+    if verbose [
+        print [">> SQL:" mold query]
+    ]
+
+    insert statement compose [(query) ((parameters))]
 ]
 
-comment [
-    a: b: c: 0
-    dt [loop 512 [
-        postgresql: open odbc://pgsamples
-        a: a + 1
-        close postgresql
-        b: b + 1
-    ]]
-]
-
-comment [
-    a: b: c: 0
-    dt [loop 512 [
-        postgresql: open odbc://pgsamples
-        a: a + 1
-        db: first postgresql
-        b: b + 1
-        close postgresql
-        c: c + 1
-    ]]
-]
+sys/export [odbc-execute]
