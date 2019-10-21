@@ -784,11 +784,17 @@ void ODBC_DescribeResults(
         // name to override if it isn't actually a VARCHAR:
         // https://stackoverflow.com/a/58438457/
         //
+        // Additionally, it seems that even if you call `SQLColAttribute` and
+        // not `SQLColAttributeW`, the Windows driver still gives back wide
+        // characters for the type name.  So use the W version, despite that
+        // type names are really just ASCII:
+        // https://github.com/metaeducation/rebol-odbc/issues/7
+        //
       #if defined(USE_SQLITE_DESCRIBECOL_WORKAROUND)
         if (col->sql_type == SQL_VARCHAR) {
-            char type_name[32];  // Note: `typename` is a C++ keyword
+            SQLWCHAR type_name[32];  // Note: `typename` is a C++ keyword
             SQLSMALLINT type_name_len;
-            rc = SQLColAttribute(
+            rc = SQLColAttributeW(  // See above for why the "W" version used
                 hstmt,  // StatementHandle
                 column_index,  // ColumnNumber
                 SQL_DESC_TYPE_NAME,  // FieldIdentifier, see SQL_DESC_XXX list
@@ -798,26 +804,23 @@ void ODBC_DescribeResults(
                 nullptr  // NumericAttributePtr, not needed w/string attribute
             );
 
-            // The type that comes back doesn't have any size attached.  But it
-            // may be upper or lower case, and perhaps mixed (e.g. if it preserves
-            // whatever case the user typed in their SQL).  MySQL seems to report
-            // lowercase--for what it's worth.
+            // The type that comes back doesn't have any size attached.  But
+            // it may be upper or lower case, and perhaps mixed--e.g. if it
+            // preserves whatever case the user typed in their SQL.  (MySQL
+            // seems to report lowercase--for what it's worth.)
             //
-            if (0 == strcmp(type_name, "varchar"))
-                goto no_workaround_needed;
-            if (0 == strcmp(type_name, "VARCHAR"))
-                goto no_workaround_needed;
-
             // We use Rebol code to do the comparison since it's automatically
-            // case insensitive and only badly behaved drivers should get here.
+            // case insensitive.  It's not super fast, but this only happens
+            // once per query--not per row.
             //
-            REBVAL *type_name_rebval = rebText(type_name);
+            REBVAL *type_name_rebval = rebTextWide(type_name);
             col->sql_type = rebUnboxInteger(
                 "switch", type_name_rebval, "[",
+                    "{VARCHAR} [", rebI(SQL_VARCHAR), "]",  // make fastest
+
                     "{BINARY} [", rebI(SQL_BINARY), "]",
                     "{VARBINARY} [", rebI(SQL_VARBINARY), "]",
                     "{CHAR} [", rebI(SQL_CHAR), "]",
-                    "{VARCHAR} [", rebI(SQL_VARCHAR), "]",
                     "{NCHAR} [", rebI(SQL_WCHAR), "]",
                     "{NVARCHAR} [", rebI(SQL_WVARCHAR), "]",
                     "{DECIMAL} [", rebI(SQL_DECIMAL), "]",
@@ -830,7 +833,6 @@ void ODBC_DescribeResults(
             );
             rebRelease(type_name_rebval);
         }
-        no_workaround_needed: NOOP;
       #endif
 
         // With the SQL_type hopefully accurate, pick an implementation type
@@ -1001,18 +1003,13 @@ REBNATIVE(insert_odbc)
     //
     // The block passed in is used to form a query.
 
-    REBLEN sql_index = 1;
-    REBVAL *first = rebValue(
-        "pick", ARG(sql), rebI(sql_index),
-        "else [fail {Empty array passed for SQL dialect}]"
-    );
-
     bool use_cache = false;
 
     bool get_catalog = rebDid(
-        "switch type of", rebQ(first), "[word! [true] text! [false]] else [",
-            "fail {SQL dialect must start with WORD! or TEXT! value}"
-        "]"
+        "switch type of first", rebQ(ARG(sql)), "[",
+            "lit-word! [true]",  // like Rebol2: 'tables, 'columns, 'types
+            "text! [false]",
+        "] else [fail {SQL dialect must start with WORD! or TEXT! value}]"
     );
 
     if (get_catalog) {
@@ -1026,12 +1023,14 @@ REBNATIVE(insert_odbc)
         // then prepare a new statement.
         //
         use_cache = rebDid(
-            first, "==",
-            "ensure [text! blank!] pick", statement, "'string"
+            "strict-equal? first", ARG(sql),
+                "ensure [text! blank!] pick", statement, "'string"
         );
 
+        REBLEN sql_index = 1;
+
         if (not use_cache) {
-            SQLWCHAR *sql_string = rebSpellWide(first);
+            SQLWCHAR *sql_string = rebSpellWide("first", ARG(sql));
 
             rc = SQLPrepareW(
                 hstmt,
@@ -1048,9 +1047,10 @@ REBNATIVE(insert_odbc)
             //
             // !!! Could re-use value with existing series if read only
             //
-            rebElide("poke", statement, "'string", "(copy", first, ")");
+            rebElide(
+                "poke", statement, "'string", "(copy first", ARG(sql), ")"
+            );
         }
-        rebRelease(first);
 
         // The SQL string may contain ? characters, which indicates that it is
         // a parameterized query.  The separation of the parameters into a
@@ -1059,6 +1059,7 @@ REBNATIVE(insert_odbc)
 
         REBLEN num_params
             = rebUnbox("length of", ARG(sql)) - sql_index;  // after SQL
+
         ++sql_index;
 
         PARAMETER *params = nullptr;
