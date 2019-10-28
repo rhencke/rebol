@@ -232,6 +232,56 @@ static void cleanup_henv(const REBVAL *v) {
 }
 
 
+bool encode_as_latin1 = false;
+
+//
+//  export odbc-set-char-encoding: native [
+//
+//  {Set the encoding for CHAR, CHAR(n), VARCHAR(n), LONGVARCHAR fields}
+//
+//      return: <void>
+//      encoding "Either UTF-8 or Latin-1"
+//          [word!]
+//  ]
+//
+REBNATIVE(odbc_set_char_encoding)
+//
+// !!! SQL introduced "NCHAR" for "Native Characters", which typically are
+// 2-bytes-per-character instead of just one.  As time has gone on, that's no
+// longer enough...and the UTF-8 encoding is the most pervasive way of storing
+// strings.  But it uses a varying number of bytes per character, which runs
+// counter to SQL's desire to use fixed-size-records.
+//
+// There is no clear endgame in the SQL world for what is going to be done
+// about this.  So many text strings (that might have emoji/etc.) get stored
+// as BLOB, which limits their searchability from within the SQL language
+// itself.  NoSQL databases have been edging into this space as a result.
+//
+// Since Ren-C makes the long bet on UTF-8, it will default to storing and
+// fetching UTF-8 from CHAR-based fields.  But some systems (e.g. Excel) will
+// use Latin1 when writing into CHAR() fields via SQL interfaces.  So if you
+// are to say:
+//
+//     odbc-execute c "insert into [test$] (id, test) values ('101', 'ľšč');"
+//
+// Then that won't store the field as valid UTF-8.  As a workaround, this lets
+// you globally set the encoding/decoding of CHAR fields.
+{
+    ODBC_INCLUDE_PARAMS_OF_ODBC_SET_CHAR_ENCODING;
+
+    encode_as_latin1 = rebDid(
+        "switch", rebQ(ARG(encoding)), "[",
+            "'utf-8 [false]",  // https://stackoverflow.com/q/809620/
+            "'latin-1 [true]",
+        "] else [",
+            "fail {ENCODING must be UTF-8 or LATIN-1}"
+        "]"
+    );
+
+    return rebVoid();
+}
+
+
 //
 //  export open-connection: native [
 //
@@ -565,11 +615,26 @@ SQLRETURN ODBC_BindParameter(
         //
       case SQL_C_CHAR: {  // TEXT! when target column is VARCHAR
         REBSIZ encoded_size_no_term;
-        unsigned char *utf8 = rebBytes(&encoded_size_no_term, v);
+        if (encode_as_latin1) {
+            REBVAL *temp = rebValue(
+                "append make binary! length of", v,
+                    "map-each ch", v, "["
+                        "if 255 < to integer! ch ["
+                            "fail {Codepoint too high for Latin1}"
+                         "]"
+                         "to integer! ch"
+                    "]"
+            );
+            unsigned char *latin1 = rebBytes(&encoded_size_no_term, temp);
+            rebRelease(temp);
+            p->buffer = latin1;
+        }
+        else {
+            unsigned char *utf8 = rebBytes(&encoded_size_no_term, v);
+            p->buffer = utf8;
+        }
 
         sql_type = SQL_VARCHAR;
-        p->buffer_size = encoded_size_no_term;
-        p->buffer = utf8;
         p->length = p->column_size = cast(SQLSMALLINT, encoded_size_no_term);
         break; }
 
@@ -1314,11 +1379,26 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col)
     // !!! Should there be a Latin1 fallback if the UTF-8 interpretation
     // fails?
 
-      case SQL_C_CHAR:
-        return rebSizedText(
-            cast(char*, col->buffer),  // char as unixodbc SQLCHAR is unsigned
+      case SQL_C_CHAR: {
+        if (not encode_as_latin1)
+            return rebSizedText(
+                cast(char*, col->buffer),  // unixodbc SQLCHAR is unsigned
+                col->length
+            );
+
+        // Need to do a UTF-8 conversion for Rebol to use the string.
+        //
+        // !!! This is a slow way to do it; but optimize when needed.
+        // (Should there be rebSizedTextLatin1() ?)
+        //
+        REBVAL *binary = rebSizedBinary(
+            cast(unsigned char*, col->buffer),
             col->length
         );
+        return rebValue(
+            "append make text!", rebI(col->length),
+                "map-each byte", rebR(binary), "[to char! byte]"
+        ); }
 
       case SQL_C_WCHAR:
         assert(col->length % 2 == 0);
