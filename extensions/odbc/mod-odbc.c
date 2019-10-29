@@ -1022,6 +1022,9 @@ void ODBC_DescribeResults(
             break;
 
           case SQL_LONGVARCHAR:
+            if (char_column_encoding == CHAR_COL_UCS2)
+                goto decode_as_long_ucs2;  // !!! see notes on CHAR_COL_UCS2
+
             col->c_type = SQL_C_CHAR;
 
             // The LONG variants of VARCHAR have no length limit specified in
@@ -1040,6 +1043,7 @@ void ODBC_DescribeResults(
             col->buffer_size = (32700 + 1);
             break;
 
+          decode_as_long_ucs2:
           case SQL_WLONGVARCHAR:
             col->c_type = SQL_C_WCHAR;
 
