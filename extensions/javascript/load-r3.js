@@ -120,7 +120,8 @@ const default_config = {
     log: console_in.log,
     info: console_in.info,
     error: console_in.error,
-    warn: console_in.warn
+    warn: console_in.warn,
+    tracing_on: false
 }
 
 let console = undefined;  // force use e.g. of config.log(), not console.log()
@@ -203,6 +204,8 @@ for (let i = 0; i < args.length; i++) {
         base_dir = "./"
     } else if (args[i] == 'remote') {
         base_dir = "https://metaeducation.s3.amazonaws.com/travis-builds/"
+    } else if (args[i] == 'tracing_on') {
+        config.tracing_on = true
     }
 }
 
@@ -541,7 +544,19 @@ return assign_git_commit_promiser(os_id)  // sets git_commit
   }).then(function() {  // emscripten's onRuntimeInitialized() has no args
 
     config.info('Executing Rebol boot code...')
-    reb.Startup()
+
+    // Some debug options must be set before a Rebol evaluator is ready.
+    // Historically this is done with environment variables, because right now
+    // they're only debug options and designing some parameterization of
+    // reb.Startup() would be hard to maintain and overkill.  Fortunately
+    // Emscripten can simulate getenv() with ENV.
+    //
+    if (config.tracing_on) {
+        ENV['R3_TRACE_JAVASCRIPT'] = '1'
+        ENV['R3_PROBE_FAILURES'] = '1'  // !!! Separate config flag needed?
+    }
+
+    reb.Startup()  // Sets up memory pools, symbols, base, sys, mezzanine...
 
     // Scripts have to have an idea of what the "current directory is" when
     // they are running.  If a resource is requested as a FILE! (as opposed

@@ -230,6 +230,15 @@ void Trapped_Helper(struct Reb_State *s)
 //
 ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
 {
+  #if defined(DEBUG_PRINTF_FAIL_LOCATIONS) && defined(DEBUG_COUNT_TICKS)
+    //
+    // File and line are printed by the calling macro to capture __FILE__ and
+    // __LINE__ without adding parameter overhead to this function for non
+    // debug builds.
+    //
+    printf("%ld\n", cast(long, TG_Tick));  /* tick count prefix */
+  #endif
+
   #ifdef DEBUG_HAS_PROBE
     if (PG_Probe_Failures) {  // see R3_PROBE_FAILURES environment variable
         static bool probing = false;
