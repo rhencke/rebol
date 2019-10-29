@@ -198,8 +198,16 @@ inline static REBVAL *DS_AT(REBDSP d) {
 // http://stackoverflow.com/questions/5013806/
 //
 
+#if defined(TO_EMSCRIPTEN)
+    //
+    // !!! Catching stack overflows in emscripten stopped working in the
+    // BinaryEn build; the stack seems to not grow up or down specifically.
+    // As a temporary non-solution, see what happens to just let it crash.
+    //
+    #define C_STACK_OVERFLOWING(address_of_local_var) \
+        false
 
-#if defined(OS_STACK_GROWS_UP)
+#elif defined(OS_STACK_GROWS_UP)
 
     #define C_STACK_OVERFLOWING(address_of_local_var) \
         (cast(uintptr_t, (address_of_local_var)) >= TG_Stack_Limit)

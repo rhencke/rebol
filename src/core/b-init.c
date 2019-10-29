@@ -1172,7 +1172,7 @@ void Startup_Core(void)
     // thread switch must also be a site of trapping all errors.  (Or the
     // limit must be saved in thread local storage.)
 
-    int dummy; // variable whose address acts as base of stack for below code
+    int dummy;  // variable whose address acts as base of stack for below code
     Set_Stack_Limit(&dummy, DEFAULT_STACK_BOUNDS);
 
 //=//// INITIALIZE BASIC DIAGNOSTICS //////////////////////////////////////=//

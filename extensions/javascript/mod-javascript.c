@@ -479,7 +479,8 @@ void RunPromise(void)
     // compile %c-eval.c with -O2 to try and avoid too many recursions, so
     // see #prefer-O2-optimization in %file-base.r.
     //
-    Set_Stack_Limit(&saved_stack_limit, DEFAULT_STACK_BOUNDS / 5);
+    int dummy;  // variable whose address acts as base of stack for below code
+    Set_Stack_Limit(&dummy, DEFAULT_STACK_BOUNDS / 5);
 
     struct Reb_Promise_Info *info = PG_Promises;
     assert(info->state == PROMISE_STATE_QUEUEING);
@@ -1234,16 +1235,17 @@ REBNATIVE(init_javascript_extension)
 
     PG_Main_Thread = pthread_self();  // remember for debug checks
 
+    ret |= pthread_mutex_init(&PG_Promise_Mutex, nullptr);
+    ret |= pthread_cond_init(&PG_Promise_Cond, nullptr);
+    ret |= pthread_mutex_init(&PG_Await_Mutex, nullptr);
+    ret |= pthread_cond_init(&PG_Await_Cond, nullptr);
+
     ret |= pthread_create(
         &PG_Worker_Thread,
         nullptr,  // pthread attributes (optional)
         &promise_worker,
         m_cast(REBVAL*, END_NODE)  // unused arg (reads global state directly)
     );
-    ret |= pthread_mutex_init(&PG_Promise_Mutex, nullptr);
-    ret |= pthread_cond_init(&PG_Promise_Cond, nullptr);
-    ret |= pthread_mutex_init(&PG_Await_Mutex, nullptr);
-    ret |= pthread_cond_init(&PG_Await_Cond, nullptr);
 
     if (ret != 0)
         fail ("non-zero pthread API result in INIT-JAVASCRIPT-EXTENSION");
