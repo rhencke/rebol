@@ -232,19 +232,6 @@ static void cleanup_henv(const REBVAL *v) {
 }
 
 
-bool encode_as_latin1 = false;
-
-//
-//  export odbc-set-char-encoding: native [
-//
-//  {Set the encoding for CHAR, CHAR(n), VARCHAR(n), LONGVARCHAR fields}
-//
-//      return: <void>
-//      encoding "Either UTF-8 or Latin-1"
-//          [word!]
-//  ]
-//
-REBNATIVE(odbc_set_char_encoding)
 //
 // !!! SQL introduced "NCHAR" for "Native Characters", which typically are
 // 2-bytes-per-character instead of just one.  As time has gone on, that's no
@@ -257,26 +244,53 @@ REBNATIVE(odbc_set_char_encoding)
 // as BLOB, which limits their searchability from within the SQL language
 // itself.  NoSQL databases have been edging into this space as a result.
 //
-// Since Ren-C makes the long bet on UTF-8, it will default to storing and
-// fetching UTF-8 from CHAR-based fields.  But some systems (e.g. Excel) will
-// use Latin1 when writing into CHAR() fields via SQL interfaces.  So if you
-// are to say:
+// Since Ren-C makes the long bet on UTF-8, it started out by storing and
+// fetching UTF-8 from CHAR-based fields.  But some systems (e.g. Excel) seem
+// to not be returning UTF-8 when you request a CHAR() field via SQL_C_CHAR:
 //
-//     odbc-execute c "insert into [test$] (id, test) values ('101', 'ľšč');"
+// https://github.com/metaeducation/rebol-odbc/issues/8
 //
-// Then that won't store the field as valid UTF-8.  As a workaround, this lets
-// you globally set the encoding/decoding of CHAR fields.
+// Latin1 was tried, but it wasn't that either.  As a workaround, we let
+// you globally set the encoding/decoding method of CHAR fields.
+//
+enum CharColumnEncoding {
+    CHAR_COL_UTF8,
+    CHAR_COL_UCS2,
+    CHAR_COL_LATIN1
+};
+
+// !!! For now, default to the most conservative choice...which is to let the
+// driver/driver-manager do the translation from wide characters, but that is
+// inefficient (UCS-2, when Rebol string encoding is "UTF-8 Everywhere").  It
+// also disallows codepoints higher than 65535.
+//
+enum CharColumnEncoding char_column_encoding = CHAR_COL_UCS2;
+
+//
+//  export odbc-set-char-encoding: native [
+//
+//  {Set the encoding for CHAR, CHAR(n), VARCHAR(n), LONGVARCHAR fields}
+//
+//      return: <void>
+//      encoding "Either UTF-8, Latin-1, or UCS-2"
+//          [word!]
+//  ]
+//
+REBNATIVE(odbc_set_char_encoding)
+//
+// UTF-8 is preferred to UTF8: https://stackoverflow.com/q/809620/
 {
     ODBC_INCLUDE_PARAMS_OF_ODBC_SET_CHAR_ENCODING;
 
-    encode_as_latin1 = rebDid(
+    char_column_encoding = cast(enum CharColumnEncoding, rebUnboxInteger(
         "switch", rebQ(ARG(encoding)), "[",
-            "'utf-8 [false]",  // https://stackoverflow.com/q/809620/
-            "'latin-1 [true]",
+            "'utf-8 [", rebI(CHAR_COL_UTF8), "]",
+            "'ucs-2 [", rebI(CHAR_COL_UCS2), "]",
+            "'latin-1 [", rebI(CHAR_COL_LATIN1), "]",
         "] else [",
-            "fail {ENCODING must be UTF-8 or LATIN-1}"
+            "fail {ENCODING must be UTF-8, UCS-2, or LATIN-1}"
         "]"
-    );
+    ));
 
     return rebVoid();
 }
@@ -615,7 +629,16 @@ SQLRETURN ODBC_BindParameter(
         //
       case SQL_C_CHAR: {  // TEXT! when target column is VARCHAR
         REBSIZ encoded_size_no_term;
-        if (encode_as_latin1) {
+        switch (char_column_encoding) {
+          case CHAR_COL_UTF8: {
+            unsigned char *utf8 = rebBytes(&encoded_size_no_term, v);
+            p->buffer = utf8;
+            break; }
+
+          case CHAR_COL_UCS2:
+            goto encode_as_ucs2;  // if driver can't handle UTF-8
+
+          case CHAR_COL_LATIN1: {
             REBVAL *temp = rebValue(
                 "append make binary! length of", v,
                     "map-each ch", v, "["
@@ -628,10 +651,11 @@ SQLRETURN ODBC_BindParameter(
             unsigned char *latin1 = rebBytes(&encoded_size_no_term, temp);
             rebRelease(temp);
             p->buffer = latin1;
-        }
-        else {
-            unsigned char *utf8 = rebBytes(&encoded_size_no_term, v);
-            p->buffer = utf8;
+            break; }
+
+          default:
+            assert(!"Invalid CHAR_COL_XXX enumeration");
+            fail ("Invalid CHAR_COL_XXX enumeration");
         }
 
         sql_type = SQL_VARCHAR;
@@ -641,6 +665,10 @@ SQLRETURN ODBC_BindParameter(
         // In the specific case where the target column is an NCHAR, we try
         // to go through the WCHAR based APIs.
         //
+        // !!! We also jump here if we don't trust the driver's UTF-8 ability
+        // with a SQL_C_CHAR field.  See notes.
+        //
+      encode_as_ucs2:
       case SQL_C_WCHAR: {  // TEXT! when target column is NCHAR
         //
         // Call to get the length of how big a buffer to make, then a second
@@ -970,6 +998,9 @@ void ODBC_DescribeResults(
 
           case SQL_CHAR:
           case SQL_VARCHAR:
+            if (char_column_encoding == CHAR_COL_UCS2)
+                goto decode_as_ucs2;  // !!! see notes on CHAR_COL_UCS2
+
             col->c_type = SQL_C_CHAR;
 
             // "The driver counts the null-termination character when it
@@ -980,6 +1011,7 @@ void ODBC_DescribeResults(
             col->buffer_size = col->column_size + 1;
             break;
 
+          decode_as_ucs2:
           case SQL_WCHAR:
           case SQL_WVARCHAR:
             col->c_type = SQL_C_WCHAR;
@@ -1380,25 +1412,33 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col)
     // fails?
 
       case SQL_C_CHAR: {
-        if (not encode_as_latin1)
+        switch (char_column_encoding) {
+          case CHAR_COL_UTF8:
             return rebSizedText(
                 cast(char*, col->buffer),  // unixodbc SQLCHAR is unsigned
                 col->length
             );
 
-        // Need to do a UTF-8 conversion for Rebol to use the string.
-        //
-        // !!! This is a slow way to do it; but optimize when needed.
-        // (Should there be rebSizedTextLatin1() ?)
-        //
-        REBVAL *binary = rebSizedBinary(
-            cast(unsigned char*, col->buffer),
-            col->length
-        );
-        return rebValue(
-            "append make text!", rebI(col->length),
-                "map-each byte", rebR(binary), "[to char! byte]"
-        ); }
+          case CHAR_COL_UCS2:
+            assert(!"UCS-2 should have requested SQL_C_WCHAR");
+            break;
+
+          case CHAR_COL_LATIN1: {
+            // Need to do a UTF-8 conversion for Rebol to use the string.
+            //
+            // !!! This is a slow way to do it; but optimize when needed.
+            // (Should there be rebSizedTextLatin1() ?)
+            //
+            REBVAL *binary = rebSizedBinary(
+                cast(unsigned char*, col->buffer),
+                col->length
+            );
+            return rebValue(
+                "append make text!", rebI(col->length),
+                    "map-each byte", rebR(binary), "[to char! byte]"
+            ); }
+        }
+        break; }
 
       case SQL_C_WCHAR:
         assert(col->length % 2 == 0);
