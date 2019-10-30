@@ -1,6 +1,6 @@
 //
 //  File: %c-specialize.c
-//  Summary: "function related datatypes"
+//  Summary: "Routines for Creating Function Variations with Fixed Parameters"
 //  Section: datatypes
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
@@ -1067,6 +1067,63 @@ bool Make_Frame_From_Varargs_Throws(
 
 
 //
+//  Make_Action_From_Exemplar: C
+//
+REBACT *Make_Action_From_Exemplar(REBCTX *exemplar)
+{
+    REBACT *unspecialized = ACT(CTX_KEYLIST(exemplar));
+
+    REBLEN num_slots = ACT_NUM_PARAMS(unspecialized) + 1;
+    REBARR *paramlist = Make_Array_Core(num_slots, SERIES_MASK_PARAMLIST);
+
+    RELVAL *archetype = RESET_CELL(
+        ARR_HEAD(paramlist),
+        REB_ACTION,
+        CELL_MASK_ACTION
+    );
+    VAL_ACT_PARAMLIST_NODE(archetype) = NOD(paramlist);
+    INIT_BINDING(archetype, UNBOUND);
+    TERM_ARRAY_LEN(paramlist, 1);
+
+    MISC_META_NODE(paramlist) = nullptr;  // REDESCRIBE can add help
+
+    REBVAL *param = ACT_PARAMS_HEAD(unspecialized);
+    REBVAL *arg = CTX_VARS_HEAD(exemplar);
+    RELVAL *alias = archetype + 1;
+    for (; NOT_END(param); ++param, ++arg, ++alias) {
+        Move_Value(alias, param);
+        if (not IS_NULLED(arg)) {
+            //
+            // Don't show argument in the parameter list.
+            //
+            TYPE_SET(alias, REB_TS_HIDDEN);
+            TYPE_SET(alias, REB_TS_UNBINDABLE);
+
+            // Indicate that argument is specialized out.
+            //
+            SET_CELL_FLAG(arg, ARG_MARKED_CHECKED);
+        }
+    }
+
+    TERM_ARRAY_LEN(paramlist, num_slots);
+    Manage_Array(paramlist);
+
+    // This code parallels Specialize_Action_Throws(), see comments there
+
+    REBACT *action = Make_Action(
+        paramlist,
+        &Specializer_Dispatcher,
+        ACT_UNDERLYING(unspecialized), // common underlying action
+        exemplar, // also provide a context of specialization values
+        1 // details array capacity
+    );
+
+    Init_Frame(ARR_HEAD(ACT_DETAILS(action)), exemplar);
+    return action;
+}
+
+
+//
 //  does: native [
 //
 //  {Specializes DO for a value (or for args of another named function)}
@@ -1172,44 +1229,6 @@ REBNATIVE(does)
         Move_Value(specializee, NAT_VALUE(do));
     }
 
-    REBACT *unspecialized = ACT(CTX_KEYLIST(exemplar));
-
-    REBLEN num_slots = ACT_NUM_PARAMS(unspecialized) + 1;
-    REBARR *paramlist = Make_Array_Core(num_slots, SERIES_MASK_PARAMLIST);
-
-    RELVAL *archetype = RESET_CELL(
-        ARR_HEAD(paramlist),
-        REB_ACTION,
-        CELL_MASK_ACTION
-    );
-    VAL_ACT_PARAMLIST_NODE(archetype) = NOD(paramlist);
-    INIT_BINDING(archetype, UNBOUND);
-    TERM_ARRAY_LEN(paramlist, 1);
-
-    MISC_META_NODE(paramlist) = nullptr;  // REDESCRIBE can add help
-
-    REBVAL *param = ACT_PARAMS_HEAD(unspecialized);
-    RELVAL *alias = archetype + 1;
-    for (; NOT_END(param); ++param, ++alias) {
-        Move_Value(alias, param);
-        TYPE_SET(alias, REB_TS_HIDDEN);
-        TYPE_SET(alias, REB_TS_UNBINDABLE);
-    }
-
-    TERM_ARRAY_LEN(paramlist, num_slots);
-    Manage_Array(paramlist);
-
-    // This code parallels Specialize_Action_Throws(), see comments there
-
-    REBACT *doer = Make_Action(
-        paramlist,
-        &Specializer_Dispatcher,
-        ACT_UNDERLYING(unspecialized), // common underlying action
-        exemplar, // also provide a context of specialization values
-        1 // details array capacity
-    );
-
-    Init_Frame(ARR_HEAD(ACT_DETAILS(doer)), exemplar);
-
+    REBACT *doer = Make_Action_From_Exemplar(exemplar);
     return Init_Action_Unbound(D_OUT, doer);
 }

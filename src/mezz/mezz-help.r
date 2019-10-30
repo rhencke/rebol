@@ -362,10 +362,10 @@ help: function [
     print-args: function [list /indent-words] [
         for-each param list [
             type: try ensure [<opt> block!] (
-                select meta/parameter-types to-word param
+                select try :meta/parameter-types to-word param
             )
             note: try ensure [<opt> text!] (
-                select meta/parameter-notes to-word param
+                select try :meta/parameter-notes to-word param
             )
 
             ; parameter name and type line
@@ -383,7 +383,10 @@ help: function [
     ]
 
     print newline
-    print ["RETURNS:" any [mold :meta/return-type | "(undocumented)"]]
+    print [
+        "RETURNS:"
+        either :meta/return-type [mold :meta/return-type] ["(undocumented)"]
+    ]
     if :meta/return-note [
         print unspaced [space4 meta/return-note]
     ]

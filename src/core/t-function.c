@@ -77,6 +77,27 @@ REB_R MAKE_Action(
     if (opt_parent)
         fail (Error_Bad_Make_Parent(kind, opt_parent));
 
+    // MAKE ACTION! on a FRAME! will create an action where the NULLs are
+    // assumed to be unspecialized.
+    // !!! Techniques for passing NULL literally should be examined.
+    //
+    if (IS_FRAME(arg)) {
+        //
+        // Use a copy of the frame's values so original frame is left as is.
+        // !!! Could also expire original frame and steal variables, and ask
+        // user to copy if they care, for efficiency?
+        //
+        REBVAL *frame_copy = rebValue("copy", arg, rebEND);
+        REBCTX *exemplar = VAL_CONTEXT(frame_copy);
+        rebRelease(frame_copy);
+
+        return Init_Action_Maybe_Bound(
+            out,
+            Make_Action_From_Exemplar(exemplar),
+            VAL_BINDING(arg)  // is this right?
+        );
+    }
+
     if (
         not IS_BLOCK(arg)
         or VAL_LEN_AT(arg) != 2
