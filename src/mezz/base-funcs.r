@@ -718,25 +718,6 @@ lock-of: redescribe [
     specialize 'lock [clone: true]
 )
 
-
-; => cannot be loaded by R3-Alpha, or even earlier Ren-C
-;
-lambda: func [
-    {Convenience variadic wrapper for MAKE ACTION!}
-
-    return: [action!]
-    :args [<end> word! block!]
-        {Block of argument words, or a single word (if only one argument)}
-    :body [any-value! <...>]
-        {Block that serves as the body or variadic elements for the body}
-][
-    make action! compose [
-        (blockify :args)
-        (const if block? first body [take body] else [make block! body])
-    ]
-]
-
-
 eval-all: func [
     {Evaluate any number of expressions and discard them}
 

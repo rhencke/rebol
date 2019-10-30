@@ -118,6 +118,77 @@ nihil: enfixed func* [
 ]
 
 
+; !!! While POINTFREE is being experimented with in its design, it is being
+; designed in usermode.  It would be turned into an optimized native when it
+; is finalized (and when it is comfortably believed a user could have written
+; it themselves and had it work properly.)
+;
+pointfree*: func* [
+    {Specialize by example: https://en.wikipedia.org/wiki/Tacit_programming}
+
+    return: [action!]
+    action [action!]  ; lower level version takes action AND a block
+    block [block!]
+    <local> params frame var
+][
+    ; If we did a GET of a PATH! it will come back as a partially specialized
+    ; function, where the refinements are reported as normal args at the
+    ; right spot in the evaluation order.  (e.g. GET 'APPEND/DUP returns a
+    ; function where DUP is a plain WORD! parameter in the third spot).
+    ;
+    ; We prune out any unused refinements for convenience.
+    ;
+    params: map-each w parameters of :action [
+        match [word! lit-word! get-word!] w  ; !!! what about skippable params?
+    ]
+
+    frame: make frame! :action  ; all frame fields default to NULL
+
+    ; Step through the block we are given--first looking to see if there is
+    ; a BLANK! in the slot where a parameter was accepted.  If it is blank,
+    ; then leave the parameter null in the frame.  Otherwise take one step
+    ; of evaluation or literal (as appropriate) and put the parameter in the
+    ; frame slot.
+    ;
+    for-skip p params 1 [
+        case [
+            ; !!! Have to use STRICT-EQUAL?, else '_ says type equal to blank
+            strict-equal? blank! type of :block/1 [block: skip block 1]
+
+            match word! p/1 [
+                if not block: try evaluate @var block [
+                    break  ; ran out of args, assume remaining unspecialized
+                ]
+                frame/(p/1): :var
+            ]
+            
+            all [
+                match lit-word! p/1
+                match [group! get-word! get-path!] :block/1
+            ][
+                frame/(p/1): reeval :block/1
+                block: skip block 1  ; NEXT not defined yet
+            ]
+
+            ; Note: DEFAULT not defined yet
+            true [  ; hard literal argument or non-escaped soft literal
+                frame/(p/1): :block/1
+                block: skip block 1  ; NEXT not defined yet
+            ]
+        ]
+    ]
+
+    if :block/1 [
+        fail @block ["Unused argument data at end of POINTFREE block"]
+    ]
+
+    ; We now create an action out of the frame.  NULL parameters are taken as
+    ; being unspecialized and gathered at the callsite.
+    ;
+    return make action! :frame
+]
+
+
 ; Function derivations have core implementations (SPECIALIZE*, ADAPT*, etc.)
 ; that don't create META information for the HELP.  Those can be used in
 ; performance-sensitive code.
@@ -151,13 +222,17 @@ inherit-meta: func* [
         if in m1 'parameter-notes [  ; shallow copy, but make frame match
             m2/parameter-notes: make frame! :derived
             for-each [key value] :m1/parameter-notes [
-                m2/parameter-notes/(key): :value
+                if in m2/parameter-notes key [
+                    m2/parameter-notes/(key): :value
+                ]
             ]
         ]
         if in m2 'parameter-types [  ; shallow copy, but make frame match
             m2/parameter-types: make frame! :derived
             for-each [key value] :m1/parameter-types [
-                m2/parameter-types/(key): :value
+                if in m2/parameter-types key [
+                    m2/parameter-types/(key): :value
+                ]
             ]
         ]
     ]
@@ -189,6 +264,47 @@ augment: enclose 'augment* func* [f] [
     let augmentee: f/augmentee: compose :f/augmentee
     let spec: :f/spec
     inherit-meta/augment do f :augmentee spec
+]
+
+; The lower-level pointfree function separates out the action it takes, but
+; the higher level one uses a block.  Specialize out the action as void, and
+; then overwrite it in the enclosure with an action taken out of the block.
+;
+pointfree: enclose (specialize* 'pointfree* [action: :void]) func* [f] [
+    let action: f/action: (match action! any [
+        if match [word! path!] :f/block/1 [get compose f/block/1]
+        :f/block/1
+    ]) else [
+        fail "POINTFREE requires ACTION! argument at head of block"
+    ]
+
+    ; rest of block is invocation by example
+    f/block: skip f/block 1  ; Note: NEXT not defined yet
+
+    inherit-meta do f :action
+]
+
+
+=>: enfixed lambda: func* [
+    {Convenience variadic wrapper for MAKE ACTION! or POINTFREE}
+
+    return: [action!]
+    :args [<end> word! block!]
+        {Block of argument words, or a single word (if only one argument)}
+    :body [any-value! <...>]
+        {Block that serves as the body, or pointfree expression if no block}
+][
+    if strict-equal? block! type of pick body 1 [
+        make action! compose [  ; use MAKE ACTION! for no RETURN handling
+            (blockify :args)
+            (const take body)
+        ]
+    ] else [
+        if :args [
+            fail @args ["=> without block on right hand side can't take args"]
+        ]
+        pointfree make block! body  ; !!! Allow varargs direct for efficiency?
+    ]
 ]
 
 
