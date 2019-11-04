@@ -3,6 +3,7 @@ REBOL [
     Title: "REBOL 3 Boot Base: Other Definitions"
     Rights: {
         Copyright 2012 REBOL Technologies
+        Copyright 2012-2019 Rebol Open Source Developers
         REBOL is a trademark of REBOL Technologies
     }
     License: {

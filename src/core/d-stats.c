@@ -346,12 +346,14 @@ REBNATIVE(callgrind)
 
   #if defined(INCLUDE_CALLGRIND_NATIVE)
     switch (VAL_WORD_SYM(ARG(instruction))) {
-    case SYM_ON:
+      case SYM_ON:
+        PG_Callgrind_On = true;
         CALLGRIND_START_INSTRUMENTATION;
         CALLGRIND_TOGGLE_COLLECT;
         break;
 
-    case SYM_OFF:
+      case SYM_OFF:
+        PG_Callgrind_On = false;
         CALLGRIND_TOGGLE_COLLECT;
         CALLGRIND_STOP_INSTRUMENTATION;
         break;

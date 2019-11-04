@@ -514,6 +514,18 @@ inline static void Free_Bookmarks_Maybe_Null(REBSTR *s) {
     }
 #endif
 
+// The caching strategy of UTF-8 Everywhere is fairly experimental, and it
+// helps to be able to debug it.  Currently it is selectively debuggable when
+// callgrind is enabled, as part of performance analysis.
+//
+#ifdef DEBUG_TRACE_BOOKMARKS
+    #define BOOKMARK_TRACE(...)  /* variadic, requires at least C99 */ \
+        do { if (PG_Callgrind_On) { \
+            printf("/ ");  /* separate sections (spare leading /) */ \
+            printf(__VA_ARGS__); \
+        } } while (0)
+#endif
+
 // Note that we only ever create caches for strings that have had STR_AT()
 // run on them.  So the more operations that avoid STR_AT(), the better!
 // Using STR_HEAD() and STR_TAIL() will give a REBCHR(*) that can be used to
@@ -543,6 +555,12 @@ inline static REBCHR(*) STR_AT(REBSTR *s, REBLEN at) {
   #endif
 
     REBLEN len = STR_LEN(s);
+
+  #ifdef DEBUG_TRACE_BOOKMARKS
+    BOOKMARK_TRACE("len %ld @ %ld ", len, at);
+    BOOKMARK_TRACE("%s", bookmark ? "bookmarked" : "no bookmark");
+  #endif
+
     if (at < len / 2) {
         if (len < sizeof(REBVAL)) {
             if (not IS_STR_SYMBOL(s))
@@ -583,30 +601,47 @@ inline static REBCHR(*) STR_AT(REBSTR *s, REBLEN at) {
   blockscope {
     REBLEN booked = BMK_INDEX(bookmark);
 
-    if (at < booked / 2) {  // !!! when faster to seek from head?
-        bookmark = nullptr;
+    // `at` is always positive.  `booked - at` may be negative, but if it
+    // is positive and bigger than `at`, faster to seek from head.
+    //
+    if (cast(REBINT, at) < cast(REBINT, booked) - cast(REBINT, at)) {
+        if (booked > sizeof(REBVAL))
+            bookmark = nullptr;  // don't throw away bookmark for low searches
         goto scan_from_head;
     }
-    if (at > len - (booked / 2)) {  // !!! when faster to seek from tail?
-        bookmark = nullptr;
+
+    // `len - at` is always positive.  `at - booked` may be negative, but if
+    // it is positive and bigger than `len - at`, faster to seek from tail.
+    //
+    if (cast(REBINT, len - at) < cast(REBINT, at) - cast(REBINT, booked)) {
+        if (booked > sizeof(REBVAL))
+            bookmark = nullptr;  // don't throw away bookmark for low searches
         goto scan_from_tail;
     }
 
     index = booked;
     cp = cast(REBCHR(*), SER_DATA_RAW(SER(s)) + BMK_OFFSET(bookmark)); }
 
-    if (index > at)
+    if (index > at) {
+      #ifdef DEBUG_TRACE_BOOKMARKS
+        BOOKMARK_TRACE("backward scan %ld", index - at);
+      #endif
         goto scan_backward;
+    }
 
+  #ifdef DEBUG_TRACE_BOOKMARKS
+    BOOKMARK_TRACE("forward scan %ld", at - index);
+  #endif
     goto scan_forward;
 
   scan_from_head:
-
+  #ifdef DEBUG_TRACE_BOOKMARKS
+    BOOKMARK_TRACE("scan from head");
+  #endif
     cp = STR_HEAD(s);
     index = 0;
 
   scan_forward:
-
     assert(index <= at);
     for (; index != at; ++index)
         cp = NEXT_STR(cp);
@@ -617,21 +652,28 @@ inline static REBCHR(*) STR_AT(REBSTR *s, REBLEN at) {
     goto update_bookmark;
 
   scan_from_tail:
-
+  #ifdef DEBUG_TRACE_BOOKMARKS
+    BOOKMARK_TRACE("scan from tail");
+  #endif
     cp = STR_TAIL(s);
     index = len;
 
   scan_backward:
-
     assert(index >= at);
     for (; index != at; --index)
         cp = BACK_STR(cp);
 
-    if (not bookmark)
+    if (not bookmark) {
+      #ifdef DEBUG_TRACE_BOOKMARKS
+        BOOKMARK_TRACE("not cached\n");
+      #endif
         return cp;
+    }
 
   update_bookmark:
-
+  #ifdef DEBUG_TRACE_BOOKMARKS
+    BOOKMARK_TRACE("caching %ld\n", index);
+  #endif
     BMK_INDEX(bookmark) = index;
     BMK_OFFSET(bookmark) = cp - STR_HEAD(s);
 
