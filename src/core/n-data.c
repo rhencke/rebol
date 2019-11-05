@@ -761,13 +761,10 @@ REBNATIVE(try)
 {
     INCLUDE_PARAMS_OF_TRY;
 
-    if (IS_VOID(ARG(optional)))
-        fail ("TRY cannot accept VOID! values");
-
     if (IS_NULLED(ARG(optional)))
         return Init_Blank(D_OUT);
 
-    RETURN (ARG(optional));
+    RETURN (ARG(optional));  // Accepts VOID! for generality (once it didn't)
 }
 
 

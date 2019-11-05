@@ -1007,26 +1007,19 @@ devoider: helper [
 if: emulate [devoider :if]
 unless: emulate [devoider adapt 'if [condition: not :condition]]
 case: emulate [devoider :case]
-switch: emulate [redescribe [
-    {Ren-C SWITCH evaluates matches: https://trello.com/c/9ChhSWC4/}
-](
-    chain [
-        adapt 'switch [
-            cases: collect [
-                for-each c cases [
-                    keep/only either block? :c [:c] [quote :c]
-                ]
-                if default [  ; /DEFAULT refinement -- convert to fallout
-                    keep/only as group! default
-                    default: false
-                    unset 'default
-                ]
-            ]
+
+switch: emulate [  ; Ren-C evaluates cases: https://trello.com/c/9ChhSWC4/
+    enclose (augment 'switch [
+        /default "Default case if no others are found"
+            [block!]
+    ]) func [f [frame!]] [
+        f/cases: map-each c f/cases [
+            either block? :c [c] [quote c]  ; suppress eval on non-blocks
         ]
-            |
-        :try  ; wants blank on failed SWITCH, not null
+        let def: f/default  ; the DO expires frame right now (for safety)
+        try (do f else (def))  ; try for BLANK! on failed SWITCH, not null
     ]
-)]
+]
 
 
 for-each-nonconst: emulate [
@@ -1248,29 +1241,21 @@ encloak: emulate [
 
 
 write: emulate [
-    function [
-        {Writes to a file, url, or port-spec (block or object).}
-        destination [file! url! object! block!]
-        value
+    adapt (augment 'write [
         /binary "Preserves contents exactly."
-        /string "Translates all line terminators."
         /direct "Opens the port without buffering."
-        /append "Writes to the end of an existing file."
         /no-wait "Returns immediately without waiting if no data."
-        /lines "Handles data as lines."
-        /part "Reads a specified amount of data."
-            [number!]
         /with "Specifies alternate line termination."
             [char! string!]
-        /allow "Specifies the protection attributes when created."
-            [block!]
+;        /allow "Specifies the protection attributes when created."
+;            [block!]  ; this is still on WRITE, but not implemented (?)
         /mode "Block of above refinements."
             [block!]
         /custom "Allows special refinements."
             [block!]
         /as {(Red) Write with the specified encoding, default is 'UTF-8}
             [word!]
-    ][
+    ]) [
         all [binary? value | not binary] then [
             fail [
                 {Rebol2 would do LF => CR LF substitution in BINARY! WRITE}
@@ -1284,15 +1269,32 @@ write: emulate [
                 fail [unspaced ["write/" w] "not currently in Redbol"]
             ]
         ]
+    ]
+]
 
-        applique 'write [
-            destination: destination
-            data: :value
-            string: string
-            append: append
-            lines: lines
-            part: part
+read: emulate [
+    enclose (augment 'read [
+        /binary "Preserves contents exactly."
+        /direct "Opens the port without buffering."
+        /no-wait "Returns immediately without waiting if no data."
+        /with "Specifies alternate line termination."
+            [char! string!]
+        /mode "Block of above refinements."
+            [block!]
+        /custom "Allows special refinements."
+            [block!]
+        /as {(Red) Read with the specified encoding, default is 'UTF-8}
+            [word!]
+    ]) func [f [frame!]] [
+        for-each w [direct no-wait with part mode custom as] [
+            if get compose 'f/(w) [
+                fail [unspaced ["write/" w] "not currently in Redbol"]
+            ]
         ]
+
+        ; !!! Rebol2 defaulted READ to be TEXT!.  Is Red preserving this?
+        ;
+        return if f/binary [do f] else [as text! do f]
     ]
 ]
 
@@ -1347,4 +1349,11 @@ hijack 'lib/transcode enclose copy :lib/transcode function [f [frame!]] [
     result
 ]
 
+
+call: emulate [
+    :call-internal*  ; brings back the /WAIT switch (Ren-C waits by default)
+]
+
+
+=== LEAVE AS LAST LINE ===
 void  ; so that `do <redbol>` doesn't show any output
