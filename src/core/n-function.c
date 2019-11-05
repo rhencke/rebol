@@ -498,6 +498,27 @@ REBNATIVE(enclose_p)
 
 
 //
+//  Augmenter_Dispatcher: C
+//
+// It might seem an augmentation can just run the underlying frame directly,
+// but it needs to switch phases in order to get the frame to report the
+// more limited set of fields that are in effect when the frame runs.  So it
+// does a cheap switch of phase, and a redo without needing new type checking.
+//
+REB_R Augmenter_Dispatcher(REBFRM *f)
+{
+    REBACT *phase = FRM_PHASE(f);
+    REBARR *details = ACT_DETAILS(phase);
+    RELVAL *augmentee = ARR_HEAD(details);
+
+    INIT_FRM_PHASE(f, VAL_ACTION(augmentee));
+    FRM_BINDING(f) = VAL_BINDING(augmentee);
+
+    return R_REDO_UNCHECKED;  // signatures should match
+}
+
+
+//
 //  augment*: native [
 //
 //  {Create an ACTION! variant that acts the same, but has added parameters}
@@ -577,21 +598,18 @@ REBNATIVE(augment_p)  // see extended definition AUGMENT in %base-defs.r
         definitional_return_dsp
     );
 
-    // The action we create has the same dispatcher and other same properties
-    // as the original.  It just has an expanded frame.
+    // We have to inject a simple dispatcher to flip the phase to one that has
+    // the more limited frame.
 
     REBACT* augmentated = Make_Action(
         paramlist,
-        ACT_DISPATCHER(VAL_ACTION(augmentee)),
+        &Augmenter_Dispatcher,
         ACT_UNDERLYING(VAL_ACTION(augmentee)),
         ACT_EXEMPLAR(VAL_ACTION(augmentee)),
-        ARR_LEN(ACT_DETAILS(VAL_ACTION(augmentee)))
+        1  // size of the ACT_DETAILS array
     );
 
-    RELVAL* src = ARR_HEAD(ACT_DETAILS(VAL_ACTION(augmentee)));
-    RELVAL* dest = ARR_HEAD(ACT_DETAILS(augmentated));
-    for (; NOT_END(src); ++src, ++dest)
-        Blit_Cell(dest, src);
+    Move_Value(ARR_HEAD(ACT_DETAILS(augmentated)), augmentee);
 
     return Init_Action_Unbound(D_OUT, augmentated);
 }

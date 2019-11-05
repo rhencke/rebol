@@ -1385,7 +1385,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
         ARR_AT(details, IDX_NATIVE_BODY),
         a,
         copy
-    ); 
+    );
 
     // Capture the mutability flag that was in effect when this action was
     // created.  This allows the following to work:

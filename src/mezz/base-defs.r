@@ -162,7 +162,7 @@ pointfree*: func* [
                 ]
                 frame/(p/1): :var
             ]
-            
+
             all [
                 match lit-word! p/1
                 match [group! get-word! get-path!] :block/1

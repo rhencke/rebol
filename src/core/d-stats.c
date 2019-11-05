@@ -358,7 +358,7 @@ REBNATIVE(callgrind)
         CALLGRIND_STOP_INSTRUMENTATION;
         break;
 
-    default:
+      default:
         fail ("Currently CALLGRIND only supports ON and OFF");
     }
     return Init_Void(D_OUT);

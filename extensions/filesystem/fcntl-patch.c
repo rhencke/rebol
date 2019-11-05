@@ -39,7 +39,7 @@
 
 // "symver" does the remapping so that fcntl64 is given the meaning of an
 // older linkage in Glibc.
-// 
+//
 // https://stackoverflow.com/q/4032373/
 //
 asm (".symver fcntl64, fcntl@GLIBC_2.2.5");
@@ -75,7 +75,7 @@ EXTERN_C int __wrap_fcntl64(int fd, int cmd, ...)
       case F_SETFL: goto takes_int;
 
       // File byte range locking, not held across fork() or clone()
-      // 
+      //
       case F_SETLK: goto takes_flock_ptr;
       case F_SETLKW: goto takes_flock_ptr;
       case F_GETLK: goto takes_flock_ptr;
