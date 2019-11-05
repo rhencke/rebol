@@ -1256,7 +1256,7 @@ write: emulate [
         /as {(Red) Write with the specified encoding, default is 'UTF-8}
             [word!]
     ]) [
-        all [binary? value | not binary] then [
+        all [binary? data | not binary] then [
             fail [
                 {Rebol2 would do LF => CR LF substitution in BINARY! WRITE}
                 {unless you specified /BINARY.  Doing this quietly is a bad}
@@ -1351,7 +1351,7 @@ hijack 'lib/transcode enclose copy :lib/transcode function [f [frame!]] [
 
 
 call: emulate [
-    :call-internal*  ; brings back the /WAIT switch (Ren-C waits by default)
+    :call*  ; brings back the /WAIT switch (Ren-C waits by default)
 ]
 
 
