@@ -556,3 +556,10 @@
 )(
     <outlier> = countify ["a" "b" "c"] "aaabccbbcd"
 )]
+
+[
+    https://github.com/rebol/rebol-issues/issues/2393
+    (not parse "aa" [some [#"a"] reject])
+    (not parse "aabb" [some [#"a"] reject some [#"b"]])
+    (not parse "aabb" [some [#"a" reject] to end])
+]

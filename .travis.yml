@@ -1027,7 +1027,7 @@ script:
       export LIBREBOL_INCLUDE_DIR="${TOP_DIR}/build/prep/include"
       if [[ (! -z $TCC) && ($TCC != no) ]]; then
         if [[ $OS_ID = 0.4.40 ]]; then
-          $RUNNER ./r3 ../tests/misc/fib.r
+          $RUNNER ./r3 ../extensions/tcc/tests/fib.r
           R3_EXIT_STATUS=$?
         elif [[ $OS_ID = 0.4.4 ]]; then
           #
@@ -1039,7 +1039,7 @@ script:
           # for library directories to override `/usr/lib` with.
           #
           export REBOL_TCC_EXTENSION_32BIT_ON_64BIT=1
-          $RUNNER ./r3 ../tests/misc/fib.r
+          $RUNNER ./r3 ../extensions/tcc/tests/fib.r
           R3_EXIT_STATUS=$?
         fi
       else
