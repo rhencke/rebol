@@ -59,10 +59,7 @@ abs: :absolute
 rebol.com: http://www.rebol.com
 
 blank: _   ; e.g. sometimes `return blank` reads better than `return _`
-
-; A single apostrophe with nothing after it is a quoted null, and evaluates
-; to null.  But there can't be a literal type that *is* null, by definition.
-; See the NULL native.
+null: '  ; a single apostrophe with nothing after it is a quoted null
 
 void: func* [
     "Function returning void result (alternative for `#[void]`)"

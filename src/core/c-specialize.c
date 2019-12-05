@@ -27,7 +27,7 @@
 //
 // The method used is to store a FRAME! in the specialization's ACT_BODY.
 // Any of those items that have ARG_MARKED_CHECKED are copied from
-// that frame instead of gathered from the callsite.  Eval_Core() heeds theis
+// that frame instead of gathered from the callsite.  Eval_Core() heeds this
 // when walking parameters (see `f->special`).
 //
 // Code is shared between the SPECIALIZE native and specialization of a
@@ -356,6 +356,17 @@ bool Specialize_Action_Throws(
 
     for (; NOT_END(param); ++param, ++arg) {
         if (TYPE_CHECK(param, REB_TS_REFINEMENT)) {
+            if (IS_BLANK(arg)) {
+                //
+                // !!! Temporary compatibility solution... blank refinements
+                // are considered to be unusable ones that have been
+                // specialized out.
+                //
+                Init_Nulled(arg);
+                SET_CELL_FLAG(arg, ARG_MARKED_CHECKED);
+                goto specialized_arg_no_typecheck;
+            }
+
             if (IS_NULLED(arg)) {
                 //
                 // A refinement that is nulled is a candidate for usage at the
@@ -396,7 +407,7 @@ bool Specialize_Action_Throws(
 
             if (GET_CELL_FLAG(arg, ARG_MARKED_CHECKED)) {
                 assert(
-                    IS_BLANK(arg)
+                    IS_NULLED(arg)
                     or (
                         IS_REFINEMENT(arg)
                         and (

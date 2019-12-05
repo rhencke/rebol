@@ -199,7 +199,7 @@ trim: function [
             ]
 
             rule: case [
-                blank? with [charset reduce [space tab]]
+                null? with [charset reduce [space tab]]
                 bitset? with [with]
                 default [charset with]
             ]

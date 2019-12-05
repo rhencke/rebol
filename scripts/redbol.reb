@@ -168,11 +168,11 @@ rewrite-spec-and-body: helper [
             ; Red missing refinements are #[false], or #[true] if present
             ; Rebol2 and Red arguments to unused refinements are #[none]
             ; Since there's no agreement, Redbol goes with the Rebol2 way,
-            ; since NONE! is closer to Ren-C's BLANK! for unused refinements.)
+            ; since NONE! is closer to Ren-C's NULL for unused refinements.)
 
             insert body compose/deep [
-                (argument): :(refinement)
-                if not blank? :(refinement) [(refinement): true]
+                (argument): :(try refinement)
+                if value? :(refinement) [(refinement): true]
             ]
 
             if tail? spec [break]
@@ -328,18 +328,12 @@ null: emulate [
     #"^@" ; NUL in Ren-C https://en.wikipedia.org/wiki/Null_character
 ]
 
-; Ren-C's VOID! is the closest analogue to UNSET! that there is in behavior,
-; but it's not used for relaying the unset state of variables:
+; Ren-C's VOID! is nearly identical to UNSET!, but the concept is that
+; *variables* are "unset", not *values*.  So the name is different.  An
+; "unset" value is one that holds VOID!.
 ;
 ; https://forum.rebol.info/t/947
 ;
-; Try saying that either a VOID! value or NULL state are unset, but 
-;
-unset?: emulate [
-    func [x [<opt> any-value!]] [
-        any [void? :x null? :x]
-    ]
-]
 unset!: emulate [:void!]
 
 ; NONE is reserved for `if none [x = 1 | y = 2] [...]`
@@ -443,7 +437,7 @@ get: emulate [
         return: [<opt> any-value!]
         source {Legacy handles Rebol2 types, not *any* type like R3-Alpha}
             [blank! any-word! any-path! any-context! block!]
-        /any "/ANY in Ren-C is covered by TRY"
+        /any
     ][
         let any_GET: any
         any: :lib/any
@@ -452,12 +446,9 @@ get: emulate [
             return source  ; this is what it did :-/
         ]
         let result: either any-context? source [
-            get words of source
+            get/(any_GET) words of source
         ][
-            get source
-        ]
-        if (not any_GET) and [null? :result] [
-            fail "Legacy GET won't get an unset variable without /ANY"
+            get/(any_GET) source
         ]
         return :result
     ]
@@ -997,7 +988,6 @@ devoider: helper [
                 |
             func [x [<opt> any-value!]] [
                 if null? :x [return blank]  ; "none"
-                if void? :x [return null]  ; "unset"
                 :x
             ]
         ]

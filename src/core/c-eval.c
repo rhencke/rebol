@@ -924,10 +924,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
               unused_refinement:  // Note: might get pushed by a later slot
 
-                if (TYPE_CHECK(f->param, REB_NULLED))
-                    Init_Nulled(f->arg);  // <opt> refinements null if unused
-                else
-                    Init_Blank(f->arg);
+                Init_Nulled(f->arg);
                 SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
@@ -964,7 +961,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                 if (SPECIAL_IS_ARBITRARY_SO_SPECIALIZED)
                     assert(IS_NULLED(f->special));
 
-                Init_Nulled(f->arg);
+                Init_Void(f->arg);
                 SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
@@ -1495,7 +1492,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                 goto arg_loop_and_any_pickups_done;
             }
 
-            assert(IS_UNREADABLE_DEBUG(f->arg) or IS_BLANK(f->arg));
+            assert(IS_UNREADABLE_DEBUG(f->arg) or IS_NULLED(f->arg));
             SET_EVAL_FLAG(f, DOING_PICKUPS);
             goto fulfill_arg;
         }
@@ -1837,11 +1834,8 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             goto process_action;
         }
 
-        if (IS_NULLED_OR_VOID(gotten)) { // need `:x` if it's unset or void
-            if (IS_NULLED(gotten))
-                fail (Error_No_Value_Core(v, *specifier));
+        if (IS_VOID(gotten))  // need `:x` if it's void ("unset")
             fail (Error_Need_Non_Void_Core(v, *specifier));
-        }
 
         Move_Value(f->out, gotten); // no copy CELL_FLAG_UNEVALUATED
         break;
@@ -1983,11 +1977,8 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             goto process_action;
         }
 
-        if (IS_NULLED_OR_VOID(where)) {  // need `:x/y` if it's unset or void
-            if (IS_NULLED(where))
-                fail (Error_No_Value_Core(v, *specifier));
+        if (IS_VOID(where))  // need `:x/y` if it's void (unset)
             fail (Error_Need_Non_Void_Core(v, *specifier));
-        }
 
         if (where != f->out)
             Move_Value(f->out, where);  // won't move CELL_FLAG_UNEVALUATED

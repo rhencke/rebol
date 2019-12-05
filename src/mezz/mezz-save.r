@@ -76,7 +76,7 @@ save: function [
         ; Sync the header option with the /COMPRESS setting
         ;
         case [
-            blank? compress [
+            null? compress [
                 compress: did find try (select header 'options) 'compress
             ]
             compress = false [
@@ -108,7 +108,7 @@ save: function [
     append data newline  ; MOLD does not append a newline
 
     case/all [
-        tmp: find header 'checksum [
+        tmp: find try header 'checksum [
             ; Checksum uncompressed data, if requested
             change next tmp (checksum-core data 'crc32)
         ]

@@ -85,8 +85,8 @@
 
     ([] = do [soft])
     (
-        a: null
-        (trap [a soft])/id = 'no-value
+        a: void
+        (trap [a soft])/id = 'need-non-void
     )
     ([7] = do [(1 + 2) (3 + 4) soft])
 ][
@@ -103,8 +103,8 @@
 
     ([] = do [hard])
     (
-        a: null
-        (trap [a hard])/id = 'no-value
+        a: void
+        (trap [a hard])/id = 'need-non-void
     )
     ([(3 + 4)] = do [(1 + 2) (3 + 4) hard])
 ]
@@ -132,7 +132,7 @@
 )
 
 (
-    is-barrier?: func [x [<end> integer!]] [unset? 'x]
+    is-barrier?: func [x [<end> integer!]] [null? x]
     is-barrier? (<| 10)
 )
 (

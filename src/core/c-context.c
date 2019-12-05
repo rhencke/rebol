@@ -231,7 +231,7 @@ REBVAL *Append_Context(
     //
     EXPAND_SERIES_TAIL(SER(CTX_VARLIST(context)), 1);
 
-    REBVAL *value = Init_Nulled(ARR_LAST(CTX_VARLIST(context)));
+    REBVAL *value = Init_Void(ARR_LAST(CTX_VARLIST(context)));
     TERM_ARRAY_LEN(CTX_VARLIST(context), ARR_LEN(CTX_VARLIST(context)));
 
     if (not opt_any_word)
@@ -247,7 +247,7 @@ REBVAL *Append_Context(
         INIT_WORD_INDEX(opt_any_word, len);
     }
 
-    return value; // location we just added (nulled cell)
+    return value;  // location we just added (void cell)
 }
 
 
@@ -652,7 +652,7 @@ REBARR *Collect_Unique_Words_Managed(
     // the "ignore" bindings.)  Do a pre-pass to fail first, if there are
     // any non-words in a block the user passed in.
     //
-    if (not IS_BLANK(ignore)) {
+    if (not IS_NULLED(ignore)) {
         RELVAL *check = VAL_ARRAY_AT(ignore);
         for (; NOT_END(check); ++check) {
             if (not ANY_WORD_KIND(CELL_KIND(VAL_UNESCAPED(check))))
@@ -705,7 +705,7 @@ REBARR *Collect_Unique_Words_Managed(
         }
     }
     else
-        assert(IS_BLANK(ignore));
+        assert(IS_NULLED(ignore));
 
     Collect_Inner_Loop(cl, head);
 
@@ -736,7 +736,7 @@ REBARR *Collect_Unique_Words_Managed(
             Remove_Binder_Index(&cl->binder, VAL_KEY_CANON(key));
     }
     else
-        assert(IS_BLANK(ignore));
+        assert(IS_NULLED(ignore));
 
     Collect_End(cl);
     return array;
@@ -1215,7 +1215,7 @@ void Resolve_Context(
     REBINT n = 1;
     for (; NOT_END(key); n++, key++) {
         REBSTR *canon = VAL_KEY_CANON(key);
-        if (IS_BLANK(only_words))
+        if (IS_NULLED(only_words))
             Add_Binder_Index(&binder, canon, n);
         else {
             if (Get_Binder_Index_Else_0(&binder, canon) != 0) {
@@ -1236,9 +1236,9 @@ void Resolve_Context(
         if (m != 0) {
             // "the remove succeeded, so it's marked as set now" (old comment)
 
-            if (NOT_CELL_FLAG(var, PROTECTED) and (all or IS_NULLED(var))) {
+            if (NOT_CELL_FLAG(var, PROTECTED) and (all or IS_VOID(var))) {
                 if (m < 0)
-                    Init_Nulled(var); // no value in source context
+                    Init_Void(var);  // no value in source context
                 else
                     Move_Var(var, CTX_VAR(source, m));  // preserves flags
             }

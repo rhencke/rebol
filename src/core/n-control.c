@@ -1286,8 +1286,13 @@ REBNATIVE(default)
         }
     }
 
-    if (not IS_NULLED(D_OUT) and (not IS_BLANK(D_OUT) or REF(only)))
-        return D_OUT; // count it as "already set" !!! what about VOID! ?
+    if (
+        not IS_VOID(D_OUT)
+        and not IS_NULLED(D_OUT)
+        and (not IS_BLANK(D_OUT) or REF(only))
+    ){
+        return D_OUT;  // count it as "already set" !!! is this right?
+    }
 
     if (Do_Branch_Throws(D_OUT, D_SPARE, ARG(branch)))
         return R_THROWN;
@@ -1404,7 +1409,7 @@ REBNATIVE(catch)
     else {
         // Return THROW's arg only if it did not have a /NAME supplied
         //
-        if (IS_BLANK(label))
+        if (IS_NULLED(label))
             goto was_caught;
     }
 
@@ -1452,6 +1457,6 @@ REBNATIVE(throw)
     return Init_Thrown_With_Label(
         D_OUT,
         ARG(value),
-        ARG(name)  // will be BLANK! if unused (vs. null)
+        ARG(name)  // NULLED if unused
     );
 }

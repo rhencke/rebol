@@ -248,7 +248,7 @@ bool Redo_Action_Throws(REBVAL *out, REBFRM *f, REBACT *run)
             continue;  // don't throw in skippable args that are nulled out
 
         if (TYPE_CHECK(f->param, REB_TS_REFINEMENT)) {
-            if (IS_BLANK(f->arg))  // don't add to PATH!
+            if (IS_NULLED(f->arg))  // don't add to PATH!
                 continue;
 
             Init_Word(DS_PUSH(), VAL_PARAM_SPELLING(f->param));

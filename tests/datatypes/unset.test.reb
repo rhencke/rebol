@@ -4,7 +4,7 @@
 (not null? 1)
 
 (
-    is-barrier?: func [x [<end> integer!]] [unset? 'x]
+    is-barrier?: func [x [<end> integer!]] [null? x]
     is-barrier? ()
 )
 (void! = type of (do []))
@@ -14,7 +14,7 @@
     ('need-non-end = (trap [a: ()])/id)
 ]
 
-(error? trap [a: null a])
+(null? trap [a: null a])
 (not error? trap [set* 'a null])
 
 (error? trap [a: void a])
@@ -22,7 +22,7 @@
 
 (
     a-value: 10
-    unset 'a-value
+    undefine 'a-value
     e: trap [a-value]
-    e/id = 'no-value
+    e/id = 'need-non-void
 )

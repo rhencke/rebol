@@ -829,43 +829,6 @@ REBNATIVE(resolve)
 
 
 //
-//  unset: native [
-//
-//  {Unsets the value of a word (in its current context.)}
-//
-//      return: [<opt>]
-//      target [any-word! block!]
-//          "Word or block of words"
-//  ]
-//
-REBNATIVE(unset)
-{
-    INCLUDE_PARAMS_OF_UNSET;
-
-    REBVAL *target = ARG(target);
-
-    if (ANY_WORD(target)) {
-        REBVAL *var = Sink_Var_May_Fail(target, SPECIFIED);
-        Init_Nulled(var);
-        return nullptr;
-    }
-
-    assert(IS_BLOCK(target));
-
-    RELVAL *word;
-    for (word = VAL_ARRAY_AT(target); NOT_END(word); ++word) {
-        if (!ANY_WORD(word))
-            fail (Error_Bad_Value_Core(word, VAL_SPECIFIER(target)));
-
-        REBVAL *var = Sink_Var_May_Fail(word, VAL_SPECIFIER(target));
-        Init_Nulled(var);
-    }
-
-    return nullptr;
-}
-
-
-//
 //  enfixed?: native [
 //
 //  {TRUE if looks up to a function and gets first argument before the call}
@@ -1318,11 +1281,22 @@ REBNATIVE(aliases_q)
 inline static bool Is_Set(const REBVAL *location)
 {
     if (ANY_WORD(location))
-        return ANY_VALUE(Get_Opt_Var_May_Fail(location, SPECIFIED));
+        return not IS_NULLED(Get_Opt_Var_May_Fail(location, SPECIFIED));
 
     DECLARE_LOCAL (temp); // result may be generated
     Get_Path_Core(temp, location, SPECIFIED);
-    return ANY_VALUE(temp);
+    return not IS_NULLED(temp);
+}
+
+
+inline static bool Is_Defined(const REBVAL *location)
+{
+    if (ANY_WORD(location))
+        return not IS_VOID(Get_Opt_Var_May_Fail(location, SPECIFIED));
+
+    DECLARE_LOCAL (temp); // result may be generated
+    Get_Path_Core(temp, location, SPECIFIED);
+    return not IS_VOID(temp);
 }
 
 
@@ -1334,7 +1308,7 @@ inline static bool Is_Set(const REBVAL *location)
 //      return: [logic!]
 //      location [<dequote> any-word! any-path!]
 //  ][
-//      value? get location
+//      not null? get/any location
 //  ]
 //
 REBNATIVE(set_q)
@@ -1353,7 +1327,7 @@ REBNATIVE(set_q)
 //      return: [logic!]
 //      location [<dequote> any-word! any-path!]
 //  ][
-//      null? get location
+//      null? get/any location
 //  ]
 //
 REBNATIVE(unset_q)
@@ -1365,18 +1339,40 @@ REBNATIVE(unset_q)
 
 
 //
-//  null: native [
+//  defined?: native/body [
 //
-//  "Generator for the absence of a value"
+//  "Whether a bound word or path is not void (!!! shouldn't eval GROUP!s)"
 //
-//      return: [<opt>]
+//      return: [logic!]
+//      location [<dequote> any-word! any-path!]
+//  ][
+//      not void? get/any location
 //  ]
 //
-REBNATIVE(null)
+REBNATIVE(defined_q)
 {
-    INCLUDE_PARAMS_OF_NULL;
+    INCLUDE_PARAMS_OF_DEFINED_Q;
 
-    return nullptr;
+    return Init_Logic(D_OUT, Is_Defined(ARG(location)));
+}
+
+
+//
+//  undefined?: native/body [
+//
+//  "Whether a bound word or path is void (!!! shouldn't eval GROUP!s)"
+//
+//      return: [logic!]
+//      location [<dequote> any-word! any-path!]
+//  ][
+//      void? get/any location
+//  ]
+//
+REBNATIVE(undefined_q)
+{
+    INCLUDE_PARAMS_OF_UNDEFINED_Q;
+
+    return Init_Logic(D_OUT, not Is_Defined(ARG(location)));
 }
 
 
@@ -1448,7 +1444,8 @@ REBNATIVE(devoid)
 //  ][
 //      did any [
 //          unset? 'value
-//          blank? :value
+//          blank? value
+//          null? value
 //      ]
 //  ]
 //
@@ -1456,9 +1453,11 @@ REBNATIVE(nothing_q)
 {
     INCLUDE_PARAMS_OF_NOTHING_Q;
 
-    // !!! Should VOID! be considered "nothing" also?
-    //
-    return Init_Logic(D_OUT, IS_NULLED_OR_BLANK(ARG(value)));
+    return Init_Logic(
+        D_OUT,
+        IS_VOID(ARG(value))  // Should unset be also considered "nothing"?
+            or IS_NULLED_OR_BLANK(ARG(value))
+    );
 }
 
 

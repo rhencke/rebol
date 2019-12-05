@@ -214,11 +214,8 @@ inline static bool Do_Branch_Core_Throws(
             return true;
         }
 
-        if (IS_NULLED_OR_VOID(out)) {  // need `[:x]` if it's unset or void
-            if (IS_NULLED(out))
-                fail (Error_No_Value_Core(branch, SPECIFIED));
+        if (IS_VOID(out))  // need `[:x]` if it's void (unset)
             fail (Error_Need_Non_Void_Core(branch, SPECIFIED));
-        }
 
         return false; }
 

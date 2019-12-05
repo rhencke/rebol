@@ -77,8 +77,9 @@ array: function [
     size "Size or block of sizes for each dimension"
         [integer! block!]
     /initial "Initial value (will be called each time if a function)"
-        [any-value!]  ; refinement, so will default to BLANK!
+        [any-value!]
 ][
+    initial: :initial else '_  ; default to BLANK!
     if block? size [
         if tail? rest: next size [rest: _]
         if not integer? size: first size [
@@ -223,7 +224,7 @@ reword: function [
     prefix: _
     suffix: _
     case [
-        blank? escape [prefix: "$"]  ; refinement not used, so use default
+        null? escape [prefix: "$"]  ; refinement not used, so use default
 
         any [
             escape = ""
@@ -313,7 +314,7 @@ reword: function [
                     any-keyword-rule suffix (
                         append/part out a offset? a b  ; output before prefix
 
-                        v: select/(case_REWORD) values keyword-match
+                        v: select/(try case_REWORD) values keyword-match
                         append out switch type of :v [
                             action! [
                                 ; Give v the option of taking an argument, but
@@ -336,7 +337,7 @@ reword: function [
         (append out a)  ; finalize output - transfer any remainder verbatim
     ]
 
-    parse/(case_REWORD) source rule else [fail]  ; should succeed
+    parse/(try case_REWORD) source rule else [fail]  ; should succeed
     return out
 ]
 
@@ -445,7 +446,7 @@ collect*: func [
     body "Block to evaluate"
         [<blank> block!]
 ][
-    let out
+    let out: null
     let keeper: specialize* (  ; SPECIALIZE to hide series argument
         enclose* 'append func* [  ; Derive from APPEND for /ONLY /LINE /DUP
             f [frame!]

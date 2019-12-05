@@ -430,37 +430,15 @@ inline static void Typecheck_Refinement_And_Canonize(
     assert(NOT_CELL_FLAG(arg, ARG_MARKED_CHECKED));
     assert(TYPE_CHECK(param, REB_TS_REFINEMENT));
 
-    if (IS_BLANK(arg) and not TYPE_CHECK(param, REB_NULLED)) {
+    if (IS_NULLED(arg)) {
         //
-        // Nearly all refinements accept BLANK! (e.g. [/foo [integer!]]` does
-        // not need to explicitly say `[/foo [blank! integer!]]`...it is
-        // understood that blank means the refinement is not used).  However,
-        // an <opt> refinement will be null when it is not used (or used
-        // and explicitly passed null).  It must typecheck specifically for
-        // blanks if it is to accept them.
-    }
-    else if (IS_NULLED(arg)) {
-        //
-        // MAKE FRAME! creates a frame with all nulls.  It would be very
-        // inconvenient if one had to manually turn them into blanks to meet
-        // the expectations of the function body.  So unless the refinement
-        // explicitly requested nulls as ok, auto-convert to blank.
-        //
-        // (This suggests people might get in the habit of using nulls from
-        // an IF or other conditional to opt out of refinements, without
-        // regard to whether that function--today or someday--might give the
-        // null a special meaning.  However, even if it does, it will still
-        // be unable to discern unused from null...as an <opt> refinement is
-        // null if it is unused!)
-        //
-        if (not TYPE_CHECK(param, REB_NULLED))
-            Init_Blank(arg);  // coerces to blank if not expected verbatim
+        // Not in use
     }
     else if (Is_Typeset_Invisible(param)) {
         //
         // Refinements that don't have a corresponding argument are in a
         // sense LOGIC!-based.  But for convenience, Ren-C canonizes them as
-        // either a BLANK! or a refinement-style PATH!--providing logical
+        // either a NULL or a refinement-style PATH!--providing logical
         // false/true behavior while making it easier to chain them, e.g.
         //
         //    keep: func [value /only] [... append/(only) ...]
@@ -478,8 +456,10 @@ inline static void Typecheck_Refinement_And_Canonize(
         }
         else if (IS_LOGIC(arg)) {
             assert(not VAL_LOGIC(arg));
-            Init_Blank(arg);
+            Init_Nulled(arg);
         }
+        else if (IS_BLANK(arg))  // give an error to show where this is
+            fail ("Use NULL/FALSE for unused refinements, not BLANK!");
         else
             fail (Error_Invalid_Type(VAL_TYPE(arg)));
     }

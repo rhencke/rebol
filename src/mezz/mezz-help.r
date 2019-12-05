@@ -69,7 +69,7 @@ description-of: function [
     {One-line summary of a value's purpose}
 
     return: [<opt> text!]
-    v [any-value!]
+    v [<blank> any-value!]
 ][
     opt switch type of :v [
         any-array! [spaced ["array of length:" length of v]]
@@ -109,7 +109,7 @@ help: function [
     /doc
         "Open web browser to related documentation."
 ][
-    if unset? 'topic [
+    if null? :topic [
         ;
         ; Was just `>> help` or `do [help]` or similar.
         ; Print out generic help message.
@@ -221,8 +221,14 @@ help: function [
                 return
             ]
 
-            value: get topic else [
-                print ["No information on" topic "(has no value)"]
+            switch type of value: get/any topic [
+                null [
+                    print ["No information on" topic "(is null)"]
+                ]
+                void! [
+                    print [topic "is unset (e.g. a VOID! value)"]
+                ]
+            ] then [
                 return
             ]
             enfixed: did all [action? :value | enfixed? :value]

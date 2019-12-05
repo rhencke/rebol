@@ -1,6 +1,6 @@
 ; functions/context/valueq.r
-(false == set? 'nonsense)
-(true == set? 'set?)
+(false == defined? 'nonsense)
+(true == defined? 'set?)
 
 [#1914 (
     set? reeval func [x] ['x] blank

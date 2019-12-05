@@ -35,7 +35,7 @@ dump: function [
 
     val-to-text: function [return: [text!] val [<opt> any-value!]] [
         case [
-            not set? 'val ["\null\"]
+            null? :val ["\null\"]
             object? :val [unspaced ["make object! [" (summarize-obj val) "]"]]
             default [mold/limit :val system/options/dump-size]
         ]
@@ -220,7 +220,7 @@ summarize-obj: function [
             ]
 
             switch type of pattern [  ; filter out any non-matching items
-                blank! []
+                null []
 
                 datatype! [
                     if type != pattern [continue]
@@ -236,13 +236,13 @@ summarize-obj: function [
                 fail @pattern
             ]
 
-            if desc: description-of :val [
+            if desc: description-of try :val [
                 if 48 < length of desc [
                     desc: append copy/part desc 45 "..."
                 ]
             ]
 
-            keep ["  " (form-pad word 15) (form-pad type 10) :desc]
+            keep ["  " (form-pad word 15) (form-pad try type 10) :desc]
         ]
     ]
 ]

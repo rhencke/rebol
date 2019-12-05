@@ -833,7 +833,7 @@ inline static void Drop_Action(REBFRM *f) {
         ACT_PARAM(FRM_PHASE(frame_), (p_##name))  // a REB_P_XXX pseudovalue
 
     #define REF(name) \
-        (not IS_BLANK(ARG(name)))  // should be faster than IS_FALSEY()
+        (not IS_NULLED(ARG(name)))
 #else
     struct Native_Param {
         int num;
@@ -870,8 +870,8 @@ inline static void Drop_Action(REBFRM *f) {
 
     #define REF(name) \
         ((p_##name).used_cache /* used_cache use stops REF() on PARAM()s */ \
-            ? not IS_BLANK(ARG(name)) \
-            : not IS_BLANK(ARG(name)))
+            ? not IS_NULLED(ARG(name)) \
+            : not IS_NULLED(ARG(name)))
 #endif
 
 // Quick access functions from natives (or compatible functions that name a

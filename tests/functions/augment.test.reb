@@ -40,7 +40,7 @@
             [block!]
     ]) func [f [frame!]] [
         let def: f/default
-        do f else (def)
+        do f else (try def)
     ]
     true)
 

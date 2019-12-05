@@ -349,7 +349,7 @@ ext-console-impl: function [
     resumable "Is the RESUME function allowed to exit this console"
         [logic!]
     skin "Console skin to use if the console has to be launched"
-        [object! file! blank!]
+        [<opt> object! file!]
 ][
     === HOOK RETURN FUNCTION TO GIVE EMITTED INSTRUCTION ===
 
@@ -453,7 +453,7 @@ ext-console-impl: function [
         ;
         assert [blank? :result]
         if (unset? 'system/console) or [not system/console] [
-            emit [start-console/skin lit (<*> skin)]
+            emit [start-console/skin '(<*> skin)]
         ]
         return <prompt>
     ]
@@ -469,7 +469,7 @@ ext-console-impl: function [
     ]
 
     if find directives #start-console [
-        emit [start-console/skin lit (<*> skin)]
+        emit [start-console/skin '(<*> skin)]
         return <prompt>
     ]
 
@@ -506,7 +506,7 @@ ext-console-impl: function [
             return 128 + 2 ; standard cancellation exit status for bash
         ]
         if find directives #console-if-halt [
-            emit [start-console/skin lit (<*> skin)]
+            emit [start-console/skin '(<*> skin)]
             return <prompt>
         ]
         if find directives #unskin-if-halt [

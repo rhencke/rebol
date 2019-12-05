@@ -2661,13 +2661,13 @@ REBNATIVE(transcode)
         line_number = ARG(line);
 
     REBLIN start_line;
-    if (IS_INTEGER(line_number)) {
+    if (IS_NULLED(line_number)) {
+        start_line = 1;
+    }
+    else if (IS_INTEGER(line_number)) {
         start_line = VAL_INT32(line_number);
         if (start_line <= 0)
             fail (PAR(line));
-    }
-    else if (IS_BLANK(line_number)) {
-        start_line = 1;
     }
     else
         fail ("/LINE must be an INTEGER! or an ANY-WORD! integer variable");

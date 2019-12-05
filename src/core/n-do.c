@@ -387,7 +387,7 @@ REBNATIVE(do)
             true,  // fully = true, error if not all arguments consumed
             rebU1(sys_do_helper),
             source,
-            ARG(args),
+            NULLIFY_NULLED(ARG(args)),
             REF(only) ? TRUE_VALUE : FALSE_VALUE,
             rebEND
         )){

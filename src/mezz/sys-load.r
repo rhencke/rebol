@@ -183,9 +183,9 @@ load-header: function [
 
     if integer? tmp: select hdr 'length [
         end: skip rest tmp
+    ] else [
+        end: tail of data
     ]
-
-    end: default [tail of data]
 
     if only [  ; when it's /ONLY, decompression is not performed
         return reduce [hdr rest end]
@@ -326,7 +326,7 @@ load: function [
         ]
     ]
     else [
-        file: line: _
+        file: line: null
         data: source
         type: default ['rebol]
 
@@ -369,7 +369,7 @@ load: function [
 
     if not block? data [
         assert [match [binary! text!] data]  ; UTF-8
-        end: transcode/file/line (lit data:) data (opt file) 'line
+        end: transcode/file/line (lit data:) data file 'line
         assert [empty? end]  ; should have gone to completion
     ]
 
@@ -508,7 +508,7 @@ do-needs: function [
 ]
 
 
-load-module: function [
+load-module: func [
     {Loads a module and inserts it into the system module list.}
 
     source {Source (file, URL, binary, etc.) or block of sources}
@@ -526,8 +526,11 @@ load-module: function [
     /exports "Add exports on top of those in the EXPORTS: section"
         [block!]
 ][
-    name: as
+    let name: as
     as: :lib/as
+
+    let mod: null
+    let hdr: null
 
     ; NOTES:
     ;
@@ -548,6 +551,7 @@ load-module: function [
 
     ; Process the source, based on its type
 
+    let data
     switch type of source [
         word! [ ; loading the preloaded
             if name [
@@ -583,7 +587,7 @@ load-module: function [
 
         file!
         url! [
-            tmp: file-type? source
+            let tmp: file-type? source
             case [
                 tmp = 'rebol [
                     data: read source else [
@@ -601,7 +605,7 @@ load-module: function [
 
         module! [
             ; see if the same module is already in the list
-            if tmp: find/skip next system/modules mod: source 2 [
+            if let tmp: find/skip next system/modules mod: source 2 [
                 if name [
                     ; already imported
                     cause-error 'script 'bad-refine /as
@@ -626,6 +630,7 @@ load-module: function [
 
             data: make block! length of source
 
+            let tmp
             parse source [
                 any [
                     tmp:
@@ -673,7 +678,9 @@ load-module: function [
 
     ; Get and process the header
 
-    if unset? 'hdr [
+    let code
+    let line
+    if null? hdr [
         ; Only happens for string, binary or non-extension file/url source
 
         set [hdr: code: line:] load-header/required data
@@ -718,12 +725,17 @@ load-module: function [
             hdr/options: append any [hdr/options make block! 1] 'private
         ]
     ]
-    if not tuple? set 'modver :hdr/version [
+    if not tuple? let modver: :hdr/version [
         modver: 0.0.0 ; get version
     ]
 
     ; See if it's there already, or there is something more recent
 
+    let name0
+    let mod0
+    let ver0
+    let override?
+    let pos
     all [
         override?: not no-lib  ; set to false later if existing module is used
         set [name0: mod0:] pos: try find/skip system/modules name 2

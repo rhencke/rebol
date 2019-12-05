@@ -19,7 +19,13 @@
         ]
 
         if refinement? params/1 [
-            using-args: did set/any (in frame second params/1) :arg
+            comment {
+                Ren-C allows LOGIC! to control parameterless refinements and
+                canonizes to either null or the refinement name itself.  But
+                it does not allow BLANK!.  This makes a BLOCK!-style apply
+                using positions non-viable.  We OPT all nones here.
+            }
+            using-args: did set/any (in frame second params/1) opt :arg
         ] else [
             if using-args [
                 set/any (in frame params/1) :arg
@@ -50,24 +56,27 @@
 (error? trap [redbol-apply func [a] [a] []])
 (error? trap [redbol-apply/only func [a] [a] []])
 
-; CC#2237
-(error? trap [redbol-apply func [a] [a] [1 2]])
-(error? trap [redbol-apply/only func [a] [a] [1 2]])
+[#2237
+    (error? trap [redbol-apply func [a] [a] [1 2]])
+    (error? trap [redbol-apply/only func [a] [a] [1 2]])
+]
 
 (error? redbol-apply :make [error! ""])
 
 (/a = redbol-apply func [/a] [a] [#[true]])
-(_ = redbol-apply func [/a] [a] [#[false]])
-(_ = redbol-apply func [/a] [a] [])
+(null = redbol-apply func [/a] [a] [#[false]])
+(null = redbol-apply func [/a] [a] [])
 (/a = redbol-apply/only func [/a] [a] [#[true]])
-; the word 'false
+
 (
+    comment {The WORD! false, not #[false]}
+
     e: trap [/a = redbol-apply/only func [/a] [a] [false]]
     e/id = 'invalid-type
 )
-(_ == redbol-apply/only func [/a] [a] [])
+(null == redbol-apply/only func [/a] [a] [])
 (use [a] [a: true /a = redbol-apply func [/a] [a] [a]])
-(use [a] [a: false _ == redbol-apply func [/a] [a] [a]])
+(use [a] [a: false null == redbol-apply func [/a] [a] [a]])
 (use [a] [a: false /a = redbol-apply func [/a] [a] [/a]])
 (use [a] [a: false /a = redbol-apply/only func [/a] [/a] [/a]])
 (group! == redbol-apply/only (specialize 'of [property: 'type]) [()])
@@ -76,7 +85,6 @@
 ([[1]] == head of redbol-apply :insert [copy [] [1] blank true])
 (action! == redbol-apply (specialize 'of [property: 'type]) [:print])
 (get-word! == redbol-apply/only (specialize 'of [property: 'type]) [:print])
-
 
 [
     #1760
@@ -175,9 +183,10 @@
     ]
 )
 
-; MAKE FRAME! :RETURN should preserve binding in the FUNCTION OF the frame
-;
-(1 == reeval func [] [redbol-apply :return [1] 2])
+[(
+    comment {MAKE FRAME! :RETURN should preserve binding in the frame}
+    1 == reeval func [] [redbol-apply :return [1] 2]
+)]
 
-(_ == redbol-apply/only func [/a] [a] [#[false]])
+(null == redbol-apply/only func [/a] [a] [#[false]])
 (group! == redbol-apply/only :type-of [()])

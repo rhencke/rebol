@@ -470,7 +470,7 @@ static void Sort_String(
     // sized codepoints.  However, it could work if all the codepoints were
     // known to be ASCII range in the memory of interest, maybe common case.
 
-    if (not IS_BLANK(compv))
+    if (not IS_NULLED(compv))
         fail (Error_Bad_Refine_Raw(compv)); // !!! didn't seem to be supported (?)
 
     REBLEN skip = 1;
@@ -481,7 +481,7 @@ static void Sort_String(
     if (len <= 1)
         return;
 
-    if (not IS_BLANK(skipv)) {
+    if (not IS_NULLED(skipv)) {
         skip = Get_Num_From_Arg(skipv);
         if (skip <= 0 or len % skip != 0 or skip > len)
             fail (skipv);

@@ -317,7 +317,7 @@ REBNATIVE(console)
                 code,  // group! or block! executed prior (or blank!)
                 result,  // prior result quoted, or error (or blank!)
                 rebL(REF(resumable)),
-                ARG(skin),
+                NULLIFY_NULLED(ARG(skin)),
             "]", rebEND
         );
 

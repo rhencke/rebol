@@ -45,7 +45,7 @@ do*: func [
     source "Files, urls and modules evaluate as scripts, other strings don't"
         [file! url! text! binary! tag!]
     args "Args passed as system/script/args to a script (normally a string)"
-        [any-value!]
+        [<opt> any-value!]
     only "Do not catch quits...propagate them"
         [logic!]
 ][
@@ -166,7 +166,7 @@ do*: func [
             header: hdr
             parent: :original-script
             path: what-dir
-            args: (:args)
+            args: (try :args)
         ]
 
         if set? 'script-pre-load-hook [

@@ -10,7 +10,7 @@
     (
         foo: func [/A [integer!] /B [integer!] /C [integer!]] [
             return compose [
-                /A (A) /B (B) /C (C)
+                /A (A else '<null>) /B (B else '<null>) /C (C else '<null>)
             ]
         ]
 
@@ -19,10 +19,10 @@
         true
     )
 
-    ([/A _ /B 10 /C 20] = fooBC 10 20)
+    ([/A <null> /B 10 /C 20] = fooBC 10 20)
     ([/A 30 /B 10 /C 20] = fooBC/A 10 20 30)
 
-    ([/A _ /B 20 /C 10] = fooCB 10 20)
+    ([/A <null> /B 20 /C 10] = fooCB 10 20)
     ([/A 30 /B 20 /C 10] = fooCB/A 10 20 30)
 
     (error? trap [fooBC/B 1 2 3 4 5 6])

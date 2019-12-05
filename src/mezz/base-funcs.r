@@ -56,7 +56,7 @@ maybe: enfixed func* [
     ;
     ; https://github.com/rebol/rebol-issues/issues/2275
     ;
-    if unset? 'optional [return get/hard/any compose target]
+    if null? :optional [return get/hard/any compose target]
     set/hard/any compose target :optional
 ]
 
@@ -76,7 +76,7 @@ steal: func* [
 ]
 
 assert [null = binding of :return]  ; it's archetypal, nowhere to return to
-unset 'return  ; so don't let the archetype be visible
+return: void  ; so don't let the archetype be visible
 
 func: func* [
     {Make action with set-words as locals, <static>, <in>, <with>, <local>}
@@ -429,7 +429,7 @@ redescribe: func [
     ; If you kill all the notes then they will be cleaned up.  The meta
     ; object will be left behind, however.
     ;
-    if notes and [every [param note] notes [unset? 'note]] [
+    if notes and [every [param note] notes [null? :note]] [
         meta/parameter-notes: _
     ]
 
@@ -441,6 +441,18 @@ redescribe [
     {Create an ACTION, implicity gathering SET-WORD!s as <local> by default}
 ] :function
 
+
+undefine: redescribe [
+    {Sets the value of a word to VOID! (in its current context.)}
+](
+    specialize 'set [any: true | value: void]
+)
+
+unset: redescribe [
+    {Clear the value of a word to null (in its current context.)}
+](
+    adapt specialize 'set [value: <overwrite>] [value: null]  ; !!! fix
+)
 
 so: enfixed func [
     {Postfix assertion which won't keep running if left expression is false}
@@ -827,7 +839,7 @@ module: func [
     for-each [var types] [
         spec object!
         body block!
-        mixin [object! blank!]
+        mixin [<opt> object!]
         spec/name [word! blank!]
         spec/type [word! blank!]
         spec/version [tuple! blank!]
@@ -1007,21 +1019,21 @@ fail: func [
             ])
         ]
     ] else [
-        not set? 'reason so make error! compose [
+        null? reason so make error! compose [
             Type: 'Script
             ((case [
-                frame and [set? blame] '[
+                frame and [blame] '[
                     id: 'invalid-arg
                     arg1: label of frame
                     arg2: blame
                     arg3: get blame
                 ]
-                frame and [unset? blame] '[
+                frame and [not blame] '[
                     id: 'no-arg
                     arg1: label of frame
                     arg2: blame
                 ]
-                :blame and [set? blame] '[
+                blame and [get blame] '[
                     id: 'bad-value
                     arg1: get blame
                 ]

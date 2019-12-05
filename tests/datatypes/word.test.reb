@@ -149,9 +149,9 @@
     same? :a-value a-value
 )
 (
-    unset 'a-value
+    undefine 'a-value
     e: trap [a-value]
-    e/id = 'no-value
+    e/id = 'need-non-void
 )
 (
     a-value: 'a

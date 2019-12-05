@@ -435,7 +435,7 @@ static REBLEN Part_Len_Core(
     REBVAL *series,  // ANY-SERIES! value whose index may be modified
     const REBVAL *part  // /PART (number, position in value, or BLANK! cell)
 ){
-    if (IS_BLANK(part))  // indicates /PART refinement unused
+    if (IS_NULLED(part))  // indicates /PART refinement unused
         return VAL_LEN_AT(series);  // leave index alone, use plain length
 
     REBI64 len;
@@ -523,7 +523,7 @@ REBLEN Part_Tail_May_Modify_Index(REBVAL *series, const REBVAL *limit)
 // https://github.com/rebol/rebol-issues/issues/1570
 //
 REBLEN Part_Limit_Append_Insert(const REBVAL *part) {
-    if (IS_BLANK(part))
+    if (IS_NULLED(part))
         return UINT32_MAX;  // treat as no limit
 
     if (IS_INTEGER(part)) {

@@ -406,7 +406,7 @@ static void Sort_Binary(
 ){
     assert(IS_BINARY(binary));
 
-    if (not IS_BLANK(compv))
+    if (not IS_NULLED(compv))
         fail (Error_Bad_Refine_Raw(compv));  // !!! R3-Alpha didn't support
 
     REBFLGS thunk = 0;
@@ -416,7 +416,7 @@ static void Sort_Binary(
         return;
 
     REBLEN skip;
-    if (IS_BLANK(skipv))
+    if (IS_NULLED(skipv))
         skip = 1;
     else {
         skip = Get_Num_From_Arg(skipv);

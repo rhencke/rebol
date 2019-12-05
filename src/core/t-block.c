@@ -549,7 +549,7 @@ static void Sort_Block(
         flags.offset = Int32(compv) - 1;
     }
     else {
-        assert(IS_BLANK(compv));
+        assert(IS_NULLED(compv));
         flags.comparator = NULL;
         flags.offset = 0;
     }
@@ -560,7 +560,7 @@ static void Sort_Block(
 
     // Skip factor:
     REBLEN skip;
-    if (not IS_BLANK(skipv)) {
+    if (not IS_NULLED(skipv)) {
         skip = Get_Num_From_Arg(skipv);
         if (skip <= 0 or len % skip != 0 or skip > len)
             fail (Error_Out_Of_Range(skipv));
