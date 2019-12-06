@@ -309,7 +309,7 @@ parse-ext-build-spec: function [
             fail ["Could not parse extension build spec" mold spec]
         ]
 
-        if set? 'config [
+        if defined? 'config [
             do as block! config  ; Note: old Ren-Cs disallowed DO of GROUP!
         ]
     ]

@@ -43,6 +43,15 @@ REBOL [
 trap [
     func [i [<blank> integer!]] [...]
 ] else [
+    ; OPT has behavior of turning NULLs into VOID! to keep you from optioning
+    ; something you don't need to, but with refinement changes bootstrap code
+    ; would get ugly if it had to turn every OPT of a refinement into OPT TRY.
+    ; Bypass the voidification for the refinement sake.
+    ;
+    opt: func [v [<opt> any-value!]] [
+        either blank? :v [null] [:v]
+    ]
+
     QUIT
 ]
 
@@ -60,6 +69,15 @@ trap [
 ; mutating directly.
 ;
 enfixed: enfix :enfix
+
+; NULL was used for cases that were non-set variables that were unmentioned,
+; which could be also thought of as typos.  This was okay because NULL access
+; would cause errors through word or path access.  As NULL became more
+; normalized, the idea of an "unset" variable (no value) was complemented with
+; "undefined" variables (set to a VOID! value).  Older Ren-C conflated these.
+;
+defined?: :set?
+undefined?: :unset?
 
 ; COLLECT was changed back to default to returning an empty block on no
 ; collect, but it is built on a null collect lower-level primitive COLLECT*

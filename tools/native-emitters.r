@@ -105,7 +105,7 @@ emit-include-params-macro: function [
                 continue
             ]
 
-            param-name: as text! item
+            param-name: as text! to word! item
             keep cscape/with {PARAM($<n>, ${param-name})} [n param-name]
             n: n + 1
         ]
