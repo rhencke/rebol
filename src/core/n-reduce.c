@@ -445,9 +445,9 @@ REBNATIVE(compose)
         ARG(value),
         VAL_SPECIFIER(ARG(value)),
         ARG(label),
-        REF(deep),
-        IS_NULLED(predicate) ? nullptr : predicate,
-        REF(only)
+        did REF(deep),
+        NULLIFY_NULLED(predicate),
+        did REF(only)
     );
 
     if (r == R_THROWN)

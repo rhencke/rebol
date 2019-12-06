@@ -1242,7 +1242,7 @@ REBTYPE(String)
                 v,
                 ARG(value2),
                 sop_flags,
-                REF(case),
+                did REF(case),
                 REF(skip) ? Int32s(ARG(skip), 1) : 1
             )
         ); }
@@ -1289,11 +1289,11 @@ REBTYPE(String)
 
         Sort_String(
             v,
-            REF(case),
+            did REF(case),
             ARG(skip),  // blank! if not /SKIP
             ARG(compare),  // blank! if not /COMPARE
             ARG(part),  // blank! if not /PART
-            REF(reverse)
+            did REF(reverse)
         );
         RETURN (v); }
 
@@ -1316,7 +1316,8 @@ REBTYPE(String)
         if (REF(only)) {
             if (index >= tail)
                 return nullptr;
-            index += cast(REBLEN, Random_Int(REF(secure))) % (tail - index);
+            index += cast(REBLEN, Random_Int(did REF(secure)))
+                % (tail - index);
 
             return Init_Char_Unchecked(
                 D_OUT,
@@ -1329,7 +1330,7 @@ REBTYPE(String)
 
         FAIL_IF_READ_ONLY(v);
 
-        Shuffle_String(v, REF(secure));
+        Shuffle_String(v, did REF(secure));
         RETURN (v); }
 
       default:

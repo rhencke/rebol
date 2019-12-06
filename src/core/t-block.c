@@ -1130,12 +1130,12 @@ REBTYPE(Array)
 
         Sort_Block(
             array,
-            REF(case),
+            did REF(case),
             ARG(skip),   // blank! if no /SKIP
             ARG(compare),  // blank! if no /COMPARE
             ARG(part),  // blank! if no /PART
-            REF(all),
-            REF(reverse)
+            did REF(all),
+            did REF(reverse)
         );
         RETURN (array); }
 
@@ -1154,7 +1154,8 @@ REBTYPE(Array)
 
             Init_Integer(
                 ARG(seed),
-                1 + (Random_Int(REF(secure)) % (VAL_LEN_HEAD(array) - index))
+                1 + (Random_Int(did REF(secure))
+                    % (VAL_LEN_HEAD(array) - index))
             );
 
             RELVAL *slot = Pick_Block(D_OUT, array, ARG(seed));
@@ -1167,7 +1168,7 @@ REBTYPE(Array)
         }
 
         FAIL_IF_READ_ONLY(array);
-        Shuffle_Block(array, REF(secure));
+        Shuffle_Block(array, did REF(secure));
         RETURN (array); }
 
       default:

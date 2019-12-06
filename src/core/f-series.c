@@ -203,7 +203,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
                 value,
                 ARG(value2),
                 sop_flags,
-                REF(case),
+                did REF(case),
                 REF(skip) ? Int32s(ARG(skip), 1) : 1
             )
         ); }

@@ -1024,9 +1024,9 @@ REBTYPE(Gob)
         return rebValue(
             "applique :take* [",
                 "series: at", pane, rebI(index + 1),
-                "part:", rebQ1(NULLIFY_NULLED(ARG(part))),
-                "deep:", rebQ1(NULLIFY_NULLED(ARG(deep))),
-                "last:", rebQ1(NULLIFY_NULLED(ARG(last))),
+                "part:", rebQ1(REF(part)),
+                "deep:", rebQ1(REF(deep)),
+                "last:", rebQ1(REF(last)),
             "]",
         rebEND); }
 

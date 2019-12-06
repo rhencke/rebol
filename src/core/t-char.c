@@ -286,8 +286,11 @@ REBTYPE(Char)
             Set_Random(chr);
             return nullptr;
         }
-        if (chr == 0) break;
-        chr = cast(REBUNI, 1 + cast(REBLEN, Random_Int(REF(secure)) % chr));
+        if (chr == 0)
+            break;
+        chr = cast(REBUNI,
+            1 + cast(REBLEN, Random_Int(did REF(secure)) % chr)
+        );
         break; }
 
     default:

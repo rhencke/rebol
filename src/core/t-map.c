@@ -682,7 +682,7 @@ REBTYPE(Map)
             SPECIFIED,
             NULL,
             SPECIFIED,
-            REF(case)
+            did REF(case)
         );
 
         if (n == 0)
@@ -708,7 +708,7 @@ REBTYPE(Map)
             SPECIFIED,
             ARG(value),
             SPECIFIED,
-            REF(case)
+            did REF(case)
         );
         UNUSED(n);
 

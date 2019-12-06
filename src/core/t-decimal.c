@@ -538,7 +538,7 @@ REBTYPE(Decimal)
             Set_Random(i); // use IEEE bits
             return nullptr;
         }
-        d1 = Random_Dec(d1, REF(secure));
+        d1 = Random_Dec(d1, did REF(secure));
         goto setDec; }
 
     case SYM_COMPLEMENT:

@@ -915,7 +915,7 @@ REBTYPE(Binary)
             ARG(skip),  // blank! if not /SKIP
             ARG(compare),  // (blank! if not /COMPARE)
             ARG(part),   // (blank! if not /PART)
-            REF(reverse)
+            did REF(reverse)
         );
         RETURN (v); }
 
@@ -935,11 +935,12 @@ REBTYPE(Binary)
             if (index >= tail)
                 return Init_Blank(D_OUT);
 
-            index += cast(REBLEN, Random_Int(REF(secure))) % (tail - index);
+            index += cast(REBLEN, Random_Int(did REF(secure)))
+                % (tail - index);
             return Init_Integer(D_OUT, *VAL_BIN_AT_HEAD(v, index)); // PICK
         }
 
-        Shuffle_String(v, REF(secure));
+        Shuffle_String(v, did REF(secure));
         RETURN (v); }
 
       default:

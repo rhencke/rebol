@@ -467,7 +467,7 @@ REBNATIVE(unbind)
     if (ANY_WORD(word))
         Unbind_Any_Word(word);
     else
-        Unbind_Values_Core(VAL_ARRAY_AT(word), NULL, REF(deep));
+        Unbind_Values_Core(VAL_ARRAY_AT(word), NULL, did REF(deep));
 
     RETURN (word);
 }
@@ -568,8 +568,8 @@ REBNATIVE(get)
             D_OUT,
             source,
             SPECIFIED,
-            REF(any),
-            REF(hard)
+            did REF(any),
+            did REF(hard)
         );
         return D_OUT;  // IS_NULLED() is okay
     }
@@ -583,8 +583,8 @@ REBNATIVE(get)
             dest,
             item,
             VAL_SPECIFIER(source),
-            REF(any),
-            REF(hard)
+            did REF(any),
+            did REF(hard)
         );
         Voidify_If_Nulled(dest);  // blocks can't contain nulls
     }
@@ -702,8 +702,8 @@ REBNATIVE(set)
             SPECIFIED,
             IS_BLANK(value) and REF(some) ? NULLED_CELL : value,
             SPECIFIED,
-            REF(any),
-            REF(hard)
+            did REF(any),
+            did REF(hard)
         );
 
         RETURN (value);
@@ -738,8 +738,8 @@ REBNATIVE(set)
             (IS_BLOCK(value) and not REF(single))
                 ? VAL_SPECIFIER(value)
                 : SPECIFIED,
-            REF(any),
-            REF(hard)
+            did REF(any),
+            did REF(hard)
         );
     }
 
@@ -820,8 +820,8 @@ REBNATIVE(resolve)
         VAL_CONTEXT(ARG(target)),
         VAL_CONTEXT(ARG(source)),
         ARG(only),
-        REF(all),
-        REF(extend)
+        did REF(all),
+        did REF(extend)
     );
 
     RETURN (ARG(target));

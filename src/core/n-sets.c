@@ -376,7 +376,7 @@ REBNATIVE(exclude)
             val1,
             val2,
             SOP_FLAG_CHECK | SOP_FLAG_INVERT,
-            REF(case),
+            did REF(case),
             REF(skip) ? Int32s(ARG(skip), 1) : 1
         )
     );
@@ -410,7 +410,7 @@ REBNATIVE(unique)
             val,
             NULL,
             SOP_NONE,
-            REF(case),
+            did REF(case),
             REF(skip) ? Int32s(ARG(skip), 1) : 1
         )
     );

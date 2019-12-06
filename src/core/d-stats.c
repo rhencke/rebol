@@ -115,7 +115,7 @@ REBNATIVE(stats)
     if (REF(show))
         Dump_Pools();
 
-    return Init_Integer(D_OUT, Inspect_Series(REF(show)));
+    return Init_Integer(D_OUT, Inspect_Series(did REF(show)));
 #endif
 }
 

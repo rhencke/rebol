@@ -410,7 +410,7 @@ static REB_R Transport_Actor(
         //
         TRASH_POINTER_IF_DEBUG(req->common.data);
         req->common.binary = rebValue(
-            "as binary! copy/part", data, rebQ1(NULLIFY_NULLED(ARG(part))),
+            "as binary! copy/part", data, rebQ1(REF(part)),
         rebEND);
 
         // Because requests can be handled asynchronously, we won't

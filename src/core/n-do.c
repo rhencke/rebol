@@ -231,7 +231,7 @@ REBNATIVE(shove)
         frame_,
         shovee,
         flags,
-        REF(enfix)
+        did REF(enfix)
     )){
         rebRelease(composed_set_path);  // ok if nullptr
         return R_THROWN;
@@ -387,7 +387,7 @@ REBNATIVE(do)
             true,  // fully = true, error if not all arguments consumed
             rebU1(sys_do_helper),
             source,
-            NULLIFY_NULLED(ARG(args)),
+            REF(args),
             REF(only) ? TRUE_VALUE : FALSE_VALUE,
             rebEND
         )){

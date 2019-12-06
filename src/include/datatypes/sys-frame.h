@@ -778,101 +778,47 @@ inline static void Drop_Action(REBFRM *f) {
 }
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  ARGUMENT AND PARAMETER ACCESS HELPERS
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// ARGUMENT AND PARAMETER ACCESS HELPERS ////=///////////////////////////
 //
 // These accessors are what is behind the INCLUDE_PARAMS_OF_XXX macros that
 // are used in natives.  They capture the implicit Reb_Frame* passed to every
 // REBNATIVE ('frame_') and read the information out cleanly, like this:
 //
 //     PARAM(1, foo);
-//     REFINE(2, bar);
+//     PARAM(2, bar);
 //
 //     if (IS_INTEGER(ARG(foo)) and REF(bar)) { ... }
 //
-// Though REF can only be used with a REFINE() declaration, ARG can be used
-// with either.  By contract, Rebol functions are allowed to mutate their
-// arguments and refinements just as if they were locals...guaranteeing only
-// their return result as externally visible.  Hence the ARG() cell for a
-// refinement provides a GC-safe slot for natives to hold values once they
-// have observed what they need from the refinement.
+// The PARAM macro uses token pasting to name the indexes they are declaring
+// `p_name` instead of just `name`.  This prevents collisions with C/C++
+// identifiers, so PARAM(case) and PARAM(new) would make `p_case` and `p_new`
+// instead of just `case` and `new` as the variable names.
 //
-// Under the hood `PARAM(1, foo)` and `REFINE(2, bar)` are const values in
-// the release build.  Under optimization they disappear completely, so that
-// addressing is done directly into the call frame's cached `arg` pointer.
+// ARG() gives a mutable pointer to the argument's cell.  REF() is typically
+// used with refinements, and gives a const reference where NULLED cells are
+// turned into C nullptr.  This can be helpful for any argument that is
+// optional, as the libRebol API does not accept NULLED cells directly.
+//
+// By contract, Rebol functions are allowed to mutate their arguments and
+// refinements just as if they were locals...guaranteeing only their return
+// result as externally visible.  Hence the ARG() cells provide a GC-safe
+// slot for natives to hold values once they are no longer needed.
+//
 // It is also possible to get the typeset-with-symbol for a particular
 // parameter or refinement, e.g. with `PAR(foo)` or `PAR(bar)`.
-//
-// The PARAM and REFINE macros use token pasting to name the variables they
-// are declaring `p_name` instead of just `name`.  This prevents collisions
-// with C/C++ identifiers, so PARAM(case) and REFINE(new) would make `p_case`
-// and `p_new` instead of just `case` and `new` as the variable names.  (This
-// is only visible in the debugger.)
-//
-// As a further aid, the debug build version of the structures contain the
-// actual pointers to the arguments.  It also keeps a copy of a cache of the
-// type for the arguments, because the numeric type encoding in the bits of
-// the header requires a debug call (or by-hand-binary decoding) to interpret
-// Whether a refinement was used or not at time of call is also cached.
-//
 
-#ifdef NDEBUG
-    #define PARAM(n,name) \
-        static const int p_##name = n
+#define PARAM(n,name) \
+    static const int p_##name = n
 
-    #define REFINE(n,name) \
-        static const int p_##name = n
+#define ARG(name) \
+    FRM_ARG(frame_, (p_##name))
 
-    #define ARG(name) \
-        FRM_ARG(frame_, (p_##name))
+#define PAR(name) \
+    ACT_PARAM(FRM_PHASE(frame_), (p_##name))  // a REB_P_XXX pseudovalue
 
-    #define PAR(name) \
-        ACT_PARAM(FRM_PHASE(frame_), (p_##name))  // a REB_P_XXX pseudovalue
+#define REF(name) \
+    NULLIFY_NULLED(ARG(name))
 
-    #define REF(name) \
-        (not IS_NULLED(ARG(name)))
-#else
-    struct Native_Param {
-        int num;
-        enum Reb_Kind kind_cache; // for inspecting in watchlist
-        REBVAL *arg; // for inspecting in watchlist
-    };
-
-    struct Native_Refine {
-        int num;
-        bool used_cache; // for inspecting in watchlist
-        REBVAL *arg; // for inspecting in watchlist
-    };
-
-    // Note: Assigning non-const initializers to structs, e.g. `= {var, f()};`
-    // is a non-standard extension to C.  So we break out the assignments.
-
-    #define PARAM(n,name) \
-        struct Native_Param p_##name; \
-        p_##name.num = (n); \
-        p_##name.kind_cache = VAL_TYPE(FRM_ARG(frame_, (n))); \
-        p_##name.arg = FRM_ARG(frame_, (n)); \
-
-    #define REFINE(n,name) \
-        struct Native_Refine p_##name; \
-        p_##name.num = (n); \
-        p_##name.used_cache = IS_TRUTHY(FRM_ARG(frame_, (n))); \
-        p_##name.arg = FRM_ARG(frame_, (n)); \
-
-    #define ARG(name) \
-        FRM_ARG(frame_, (p_##name).num)
-
-    #define PAR(name) \
-        ACT_PARAM(FRM_PHASE(frame_), (p_##name).num) /* a TYPESET! */
-
-    #define REF(name) \
-        ((p_##name).used_cache /* used_cache use stops REF() on PARAM()s */ \
-            ? not IS_NULLED(ARG(name)) \
-            : not IS_NULLED(ARG(name)))
-#endif
 
 // Quick access functions from natives (or compatible functions that name a
 // Reb_Frame pointer `frame_`) to get some of the common public fields.

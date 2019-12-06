@@ -316,8 +316,8 @@ REBNATIVE(console)
                 "ext-console-impl",  // action! that takes 2 args, run it
                 code,  // group! or block! executed prior (or blank!)
                 result,  // prior result quoted, or error (or blank!)
-                rebL(REF(resumable)),
-                NULLIFY_NULLED(ARG(skin)),
+                rebL(did REF(resumable)),
+                REF(skin),
             "]", rebEND
         );
 

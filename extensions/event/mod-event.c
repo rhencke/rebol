@@ -402,7 +402,7 @@ REBNATIVE(wait)
         Init_Block(D_OUT, ports);
 
     // Process port events [stack-move]:
-    if (Wait_Ports_Throws(D_OUT, ports, timeout, REF(only)))
+    if (Wait_Ports_Throws(D_OUT, ports, timeout, did REF(only)))
         return R_THROWN;
 
     assert(IS_LOGIC(D_OUT));

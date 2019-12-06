@@ -352,7 +352,7 @@ REBNATIVE(to_integer)
 {
     INCLUDE_PARAMS_OF_TO_INTEGER;
 
-    Value_To_Int64(D_OUT, ARG(value), REF(unsigned));
+    Value_To_Int64(D_OUT, ARG(value), did REF(unsigned));
 
     return D_OUT;
 }
@@ -577,7 +577,7 @@ REBTYPE(Integer)
         }
         if (num == 0)
             break;
-        return Init_Integer(D_OUT, Random_Range(num, REF(secure))); }
+        return Init_Integer(D_OUT, Random_Range(num, did REF(secure))); }
 
     default:
         break;

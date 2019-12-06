@@ -442,7 +442,7 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
                 len = n;
         }
 
-        Write_File_Port(file, data, len, REF(lines));
+        Write_File_Port(file, data, len, did REF(lines));
 
         if (opened) {
             REBVAL *result = OS_DO_DEVICE(file, RDC_CLOSE);

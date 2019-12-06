@@ -448,7 +448,7 @@ REBTYPE(Tuple)
             fail (Error_Bad_Refines_Raw());
         for (; len > 0; len--, vp++) {
             if (*vp)
-                *vp = cast(REBYTE, Random_Int(REF(secure)) % (1 + *vp));
+                *vp = cast(REBYTE, Random_Int(did REF(secure)) % (1 + *vp));
         }
         RETURN (value);
     }

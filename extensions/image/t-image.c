@@ -609,7 +609,7 @@ REB_R Modify_Image(REBFRM *frame_, const REBVAL *verb)
     REBINT x = index % w;  // offset on the line
     REBINT y = index / w;  // offset line
 
-    bool only = REF(only);
+    bool only = did REF(only);
 
     // Validate that block arg is all tuple values:
     if (IS_BLOCK(arg) && Array_Has_Non_Tuple(&n, arg))
