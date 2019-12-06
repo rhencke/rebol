@@ -132,13 +132,6 @@ bool Next_Path_Throws(REBPVS *pvs)
         Derelativize(PVS_PICKER(pvs), *v, *specifier);
     }
 
-    // Disallow voids from being used in path dispatch.  This rule seems like
-    // common sense for safety, and also corresponds to voids being illegal
-    // to use in SELECT.
-    //
-    if (IS_NULLED(PVS_PICKER(pvs)))
-        fail (Error_No_Value_Core(*v, *specifier));
-
     Fetch_Next_Forget_Lookback(pvs);  // may be at end
 
   redo:;
@@ -217,6 +210,8 @@ bool Next_Path_Throws(REBPVS *pvs)
             Init_Nulled(pvs->out);
         }
         else if (r == R_UNHANDLED) {
+            if (IS_NULLED(PVS_PICKER(pvs)))
+                fail ("NULL used in path picking but was not handled");
             fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
         }
         else if (GET_CELL_FLAG(r, ROOT)) { // API, from Alloc_Value()

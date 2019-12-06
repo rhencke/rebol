@@ -596,7 +596,7 @@ parse: emulate [
             blank! [split input charset reduce [tab space CR LF]]
             text! [split input to-bitset rules]
         ] else [
-            if not pos: parse/(try if case_PARSE [/case]) input rules [
+            if not pos: parse/(case_PARSE) input rules [
                 return false
             ]
             return tail? pos

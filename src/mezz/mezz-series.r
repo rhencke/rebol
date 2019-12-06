@@ -164,7 +164,7 @@ replace: function [
         any-array? :pattern [length of :pattern]
     ]
 
-    while [pos: find/(try if case_REPLACE [/case]) target :pattern] [
+    while [pos: find/(case_REPLACE) target :pattern] [
         either action? :replacement [
             ;
             ; If arity-0 action, value gets replacement and pos discarded
@@ -314,7 +314,7 @@ reword: function [
                     any-keyword-rule suffix (
                         append/part out a offset? a b  ; output before prefix
 
-                        v: select/(try case_REWORD) values keyword-match
+                        v: select/(case_REWORD) values keyword-match
                         append out switch type of :v [
                             action! [
                                 ; Give v the option of taking an argument, but
@@ -337,7 +337,7 @@ reword: function [
         (append out a)  ; finalize output - transfer any remainder verbatim
     ]
 
-    parse/(try case_REWORD) source rule else [fail]  ; should succeed
+    parse/(case_REWORD) source rule else [fail]  ; should succeed
     return out
 ]
 
@@ -430,7 +430,7 @@ alter: func [
         append series :value
         return true
     ]
-    if remove (find/(try if case_ALTER [/case]) series :value) [
+    if remove (find/(case_ALTER) series :value) [
         append series :value
         return true
     ]

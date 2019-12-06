@@ -325,6 +325,9 @@ REB_R PD_Map(
 ){
     assert(IS_MAP(pvs->out));
 
+    if (IS_NULLED(picker))  // best to error on a null picker
+        return R_UNHANDLED;
+
     if (opt_setval)
         FAIL_IF_READ_ONLY(pvs->out);
 
