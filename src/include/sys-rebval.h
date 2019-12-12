@@ -556,10 +556,12 @@ union Reb_Value_Payload { //=/////////////// ACTUAL PAYLOAD DEFINITION ////=//
 // before changing!
 //
 
-#ifdef CPLUSPLUS_11
-    struct Reb_Cell
+#if defined(CPLUSPLUS_11)
+    struct alignas(ALIGN_SIZE) Reb_Cell
+#elif defined(C_11)
+    struct alignas(ALIGN_SIZE) Reb_Value
 #else
-    struct Reb_Value
+    struct Reb_Value  // ...have to just hope the alignment "works out"
 #endif
     {
         union Reb_Header header;

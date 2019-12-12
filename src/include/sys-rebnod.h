@@ -319,10 +319,9 @@ union Reb_Header {
     // FLAG_LEFT_BIT() for how these bits are laid out in a special way.
     //
     // !!! Future application of the 32 unused header bits on 64-bit machines
-    // might add some kind of optimization or instrumentation, though the
-    // unused bits are currently in weird byte positions.
+    // might add some kind of optimization or instrumentation.
     //
-    uintptr_t capacity; // how big we want this union to be for cell rules
+    uintptr_t capacity;  // how big we want this union to be for cell rules
 
     // uintptr_t may not be the fastest type for operating on 32 bits.  So
     // we do our accesses through whatever is, while making sure the header

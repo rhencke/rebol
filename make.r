@@ -197,6 +197,7 @@ gen-obj: func [
                     [
                         <gnu:-Wno-sign-compare>
                         <msc:/wd4388>
+                        <msc:/wd4018>  ; a 32-bit variant of the error
                     ]
                 ]
                 <implicit-fallthru> [

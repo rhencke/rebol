@@ -506,12 +506,23 @@ STATIC_ASSERT(31 < 32);
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// A REBSER node is the size of two REBVALs, and there are 3 basic layouts
-// which can be overlaid inside the node:
+// A REBSER node is normally the size of two REBVALs (though compiling with
+// certain debug flags can add tracking information).  See %sys-rebnod.h for
+// explanations of how obeying the header-in-first-slot convention allows a
+// REBSER to be distinguished from a REBVAL or a UTF-8 string and not run
+// afoul of strict aliasing requirements.
 //
-//      Dynamic: [header [allocation tracking] info link misc]
-//     Singular: [header [REBVAL cell] info link misc]
+// There are 3 basic layouts which can be overlaid inside the union:
+//
+//      Dynamic: [header link [allocation tracking] info misc]
+//     Singular: [header link [REBVAL cell] info misc]
 //      Pairing: [[REBVAL cell] [REBVAL cell]]
+//
+// The singular form has space the *size* of a cell, but can be addressed as
+// raw bytes used for UTF-8 strings or other smallish data.  If a REBSER is
+// aligned on a 64-bit boundary, the internal cell should be on a 64-bit
+// boundary as well, even on a 32-bit platform where the header and link are
+// each 32-bits.  See ALIGN_SIZE for notes on why this is important.
 //
 // `info` is not the start of a "Rebol Node" (REBNODE, e.g. either a REBSER or
 // a REBVAL cell).  But in the singular case it is positioned right where
