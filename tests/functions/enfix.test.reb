@@ -194,3 +194,139 @@
         count = 1
     ]
 )
+
+[
+    https://github.com/metaeducation/ren-c/issues/581
+
+    (
+        foo: func [] [
+            fail "foo should not run, it's prefix and runs on *next* step"]
+        did all [
+            [foo 304] == evaluate @var [1020 foo 304]
+            var == 1020
+        ]
+    )(
+        enfoo: enfixed func [] [<enfoo>]
+        did all [
+            [304] == evaluate @var [1020 enfoo 304]
+            var == <enfoo>
+        ]
+        comment "0-arity function, but enfixed so runs in *same* step"
+    )
+
+    (
+        ifoo: func [:i [<skip> integer!]] [
+            fail "ifoo should not run, it tests <skip> on *next* step"
+        ]
+        did all [
+            ignored: func [] [
+                ignored: _
+                return #ignored
+            ]
+            did all [
+                [ifoo 304] == evaluate @var [ignored ifoo 304]
+                var == #ignored
+                ignored == _
+            ]
+        ]
+    )(
+        enifoo: enfixed func [:i [<skip> integer!]] [
+            fail [
+                {enifoo should not run; when arguments are skipped this}
+                {defers the enfix until the next evaluator step.  Otherwise}
+                {`case [1 = 1 [print "good"] default [print "bad"]`}
+                {would print both `good` and `bad`.}
+            ]
+        ]
+        did all [
+            ignored: func [] [
+                ignored: _
+                return #ignored
+            ]
+            did all [
+                [enifoo 304] == evaluate @var [ignored enifoo 304]
+                var == #ignored
+                ignored == _
+            ]
+        ]
+    )(
+        enifoo: enfixed func [:i [<skip> integer!]] [compose '<enifoo>/(i)]
+        did all [
+            did all [
+                [304] == evaluate @var [1020 enifoo 304]
+                var == '<enifoo>/1020
+            ]
+            comment {
+                When arguments are not skipped, the behavior should be the
+                same as a non-skippable enfix function
+            }
+        ]
+    )
+
+    (
+        bar: func [return: []] [bar: _]
+        did all [
+            [bar 304] == evaluate @var [1020 bar 304]
+            var == 1020
+            action? :bar
+        ]
+        comment {Invisible normal arity-0 function should run on next eval}
+    )(
+        enbar: enfixed func [return: []] [enbar: _]
+        did all [
+            [304] == evaluate @var [1020 enbar 304]
+            var == 1020
+            enbar == _
+        ]
+        comment {Invisible enfix arity-0 function should run on same step}
+    )
+
+    (
+        ibar: func [:i [<skip> integer!]] [ibar: _]
+        did all [
+            ignored: func [] [
+                ignored: _
+                return #ignored
+            ]
+            did all [
+                [ibar 304] == evaluate @var [ignored ibar 304]
+                var == #ignored
+                ignored == _
+            ]
+            comment {skip irrelevant (tests right on *next* step)}
+        ]
+    )(
+        enibar: enfixed func [return: [] :i [<skip> integer!]] [
+            fail {
+                When arguments are skipped, this defers the enfix until the
+                next evaluator step.  Doing otherwise would mean that
+                `case [1 = 1 [print "good"] default [print "bad"]` would
+                print both `good` and `bad`.
+            }
+        ]
+        did all [
+            kept: func [] [
+                kept: _
+                return #kept
+            ]
+            did all [
+                [enibar 304] == evaluate @var [kept enibar 304]
+                var == #kept
+                kept == _
+            ]
+        ]
+    )(
+        enibar: enfixed func [return: [] :i [<skip> integer!]] [enibar: _]
+        did all [
+            did all [
+                [304] == evaluate @var [1020 enibar 304]
+                var == 1020
+                enibar == _
+            ]
+            comment {
+                When arguments are not skipped, the behavior should be the
+                same as a non-skippable enfix function
+            }
+        ]
+    )
+]

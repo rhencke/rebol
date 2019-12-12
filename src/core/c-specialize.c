@@ -752,7 +752,6 @@ void For_Each_Unspecialized_Param(
 }
 
 
-
 struct First_Param_State {
     REBACT *act;
     REBVAL *first_unspecialized;
@@ -761,16 +760,16 @@ struct First_Param_State {
 static bool First_Param_Hook(REBVAL *param, REBFLGS flags, void *opaque)
 {
     struct First_Param_State *s = cast(struct First_Param_State*, opaque);
-    assert(not s->first_unspecialized); // should stop enumerating if found
+    assert(not s->first_unspecialized);  // should stop enumerating if found
 
     if (not (flags & PHF_SORTED_PASS))
-        return true; // can't learn anything until second pass
+        return true;  // can't learn anything until second pass
 
     if (not (flags & PHF_UNREFINED) and TYPE_CHECK(param, REB_TS_REFINEMENT))
-        return false; // we know WORD!-based invocations will be 0 arity
+        return false;  // we know WORD!-based invocations will be 0 arity
 
     s->first_unspecialized = param;
-    return false; // found first_unspecialized, no need to look more
+    return false;  // found first_unspecialized, no need to look more
 }
 
 //
@@ -791,7 +790,7 @@ REBVAL *First_Unspecialized_Param(REBACT *act)
 
     For_Each_Unspecialized_Param(act, &First_Param_Hook, &s);
 
-    return s.first_unspecialized; // may be null
+    return s.first_unspecialized;  // may be nullptr
 }
 
 

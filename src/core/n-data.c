@@ -887,7 +887,7 @@ REBNATIVE(enfixed_q)
 //
 //  enfixed: native [
 //
-//  {For making enfix functions, e.g `+: enfix :add` (copies)}
+//  {For making enfix functions, e.g `+: enfixed :add` (copies)}
 //
 //      action [action!]
 //  ]

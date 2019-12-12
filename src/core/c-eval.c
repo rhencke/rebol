@@ -1518,7 +1518,16 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
       redo_unchecked:
 
-        assert(NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT));
+        // This happens if you have something intending to act as enfix but
+        // that does not consume arguments, e.g. `x: enfixed func [] []`.
+        // An enfixed function with no arguments might sound dumb, but that
+        // can be useful as a convenience way of saying "takes the left hand
+        // argument but ignores it" (e.g. with skippable args).  Allow it.
+        //
+        if (GET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT)) {
+            assert(GET_EVAL_FLAG(f, RUNNING_ENFIX));
+            CLEAR_EVAL_FLAG(f, NEXT_ARG_FROM_OUT);
+        }
 
         assert(IS_END(f->param));
         assert(
@@ -2347,7 +2356,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
         // don't have the word anymore to look up (and even if we did, what
         // it looks up to may have changed).
         //
-        assert(kind.byte == REB_WORD);
+        assert(kind.byte == REB_WORD or ANY_INERT(f->out));
     }
 
     // We're sitting at what "looks like the end" of an evaluation step.

@@ -93,10 +93,11 @@ elide: func* [
 ][
 ]
 
-nihil: enfixed func* [
-    {Arity-0 form of COMMENT}
+nihil: enfixed func* [  ; 0-arg so enfix doesn't matter, but tests issue below
+    {Arity-0 COMMENT (use to replace an arity-0 function with side effects)}
     return: [] {Evaluator will skip result}
 ][
+    ; https://github.com/metaeducation/ren-c/issues/581#issuecomment-562875470
 ]
 
 ; Simple "divider-style" thing for remarks.  At a certain verbosity level,
