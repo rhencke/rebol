@@ -181,7 +181,7 @@
 //
 #if defined(__cplusplus) && __cplusplus >= 201103L
     #define CPLUSPLUS_11
-#elif !defined(__cplusplus) && STDC_VERSION >= 201112L
+#elif defined(STDC_VERSION) && STDC_VERSION >= 201112L
     #define C_11
 #endif
 
