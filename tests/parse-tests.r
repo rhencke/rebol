@@ -509,3 +509,17 @@
 
 
 (did parse "a" [some [to end] end])
+
+[https://github.com/metaeducation/ren-c/issues/1032 (
+    s: {abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ}
+    t: {----------------------------------------------------}
+    for n 2 50 1 [
+        sub: copy/part s n
+        parse sub [any [
+            remove skip
+            insert "-"
+        ]]
+        if sub != copy/part t n [fail "Incorrect Replacement"]
+    ]
+    true
+)]

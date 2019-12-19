@@ -513,7 +513,7 @@ REBLEN Modify_String_Or_Binary(
         SET_SERIES_USED(dst_ser, dst_used + src_size_total);
 
         if (IS_SER_STRING(dst_ser)) {
-            if (bookmark and BMK_INDEX(bookmark) >= dst_idx)  // only INSERT
+            if (bookmark and BMK_INDEX(bookmark) > dst_idx)  // only INSERT
                 BMK_OFFSET(bookmark) += src_size_total;
             MISC(dst_ser).length = dst_len_old + src_len_total;
         }
