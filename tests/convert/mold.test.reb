@@ -136,3 +136,7 @@
 ;
 ("a b" = mold/only new-line [a b] true)
 ("[^/    a b]" = mold new-line [a b] true)
+
+[https://github.com/metaeducation/ren-c/issues/1033 (
+    "[^/    1^/    2^/]" == mold new-line/all [1 2] true
+)]

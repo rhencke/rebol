@@ -147,14 +147,6 @@ REBNATIVE(new_line)
 
     RELVAL *item = VAL_ARRAY_AT(pos);
 
-    if (IS_END(item)) { // no value at tail to mark; use bit in array
-        if (mark)
-            SET_ARRAY_FLAG(VAL_ARRAY(pos), NEWLINE_AT_TAIL);
-        else
-            CLEAR_ARRAY_FLAG(VAL_ARRAY(pos), NEWLINE_AT_TAIL);
-        RETURN (pos);
-    }
-
     REBINT skip;
     if (REF(all))
         skip = 1;
@@ -167,9 +159,17 @@ REBNATIVE(new_line)
         skip = 0;
 
     REBLEN n;
-    for (n = 0; NOT_END(item); ++n, ++item) {
+    for (n = 0; true; ++n, ++item) {
         if (skip != 0 and (n % skip != 0))
             continue;
+
+        if (IS_END(item)) {  // no cell at tail; use flag on array
+            if (mark)
+                SET_ARRAY_FLAG(VAL_ARRAY(pos), NEWLINE_AT_TAIL);
+            else
+                CLEAR_ARRAY_FLAG(VAL_ARRAY(pos), NEWLINE_AT_TAIL);
+            break;
+        }
 
         if (mark)
             SET_CELL_FLAG(item, NEWLINE_BEFORE);
