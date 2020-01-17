@@ -523,3 +523,36 @@
     ]
     true
 )]
+
+[(
+    countify: function [things data] [
+        counts: make map! []
+        rules: collect [
+            for-each t things [
+                counts/(t): 0
+                keep t
+                keep/only compose/deep '(counts/(t): me + 1)
+                keep/line '|
+            ]
+            keep/only 'fail
+        ]
+        parse data (compose/deep [
+            any [((rules))]
+            end
+        ]) then [
+            collect [
+                for-each [key value] counts [
+                    keep key
+                    keep value
+                ]
+            ]
+        ] else [
+            <outlier>
+        ]
+    ]
+    true
+)(
+    ["a" 3 "b" 3 "c" 3] = countify ["a" "b" "c"] "aaabccbbc"
+)(
+    <outlier> = countify ["a" "b" "c"] "aaabccbbcd"
+)]

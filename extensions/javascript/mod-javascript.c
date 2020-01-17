@@ -447,6 +447,9 @@ REBVAL *Run_Array_Dangerous(void *opaque) {
     }
 
     x->failed = false;  // Since end was reached, it did not fail...
+
+    if (IS_NULLED(result))  // don't leak API cell with nulled in it
+        return nullptr;
     return result;
 }
 
