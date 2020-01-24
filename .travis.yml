@@ -1047,6 +1047,7 @@ script:
       # Windows builds end in .exe
       if [[ -e r3.exe ]]; then
            cp r3.exe "${OS_ID}/${NEW_NAME}.exe"
+           mv r3.exe "${OS_ID}/r3.exe"
       fi
 
       # Most other platforms have no suffix
