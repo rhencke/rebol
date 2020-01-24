@@ -1053,22 +1053,27 @@ script:
       # Most other platforms have no suffix
       if [[ -e r3 ]]; then
            cp r3 "${OS_ID}/${NEW_NAME}"
+           mv r3 "${OS_ID}/r3"
       fi
 
       # All emscripten builds produce .js and .wasm
       if [[ -e libr3.js ]]; then
            cp libr3.js "${OS_ID}/lib${NEW_NAME}.js"
+           mv libr3.js "${OS_ID}/libr3.js"
       fi
       if [[ -e libr3.wasm ]]; then
            cp libr3.wasm "${OS_ID}/lib${NEW_NAME}.wasm"
+           mv libr3.wasm "${OS_ID}/libr3.wasm"
       fi
 
       # Only pthreads builds produce .js.mem and .worker.js
       if [[ -e libr3.js.mem ]]; then
            cp libr3.js.mem "${OS_ID}/lib${NEW_NAME}.js.mem"
+           mv libr3.js.mem "${OS_ID}/libr3.js.mem"
       fi
       if [[ -e libr3.worker.js ]]; then
            cp libr3.worker.js "${OS_ID}/lib${NEW_NAME}.worker.js"
+           mv libr3.worker.js "${OS_ID}/libr3.worker.js"
       fi
 
     # Ultimately we'd like extensions to have an easy standard way to encap
