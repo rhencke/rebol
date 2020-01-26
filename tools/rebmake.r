@@ -1329,7 +1329,7 @@ makefile: make generator-class [
                                 keep ["$(" w/name ")"]
                             ]
                             #entry [
-                                keep w/target
+                                keep to-text w/target
                             ]
                             #dynamic-extension #static-extension [
                                 ; only contribute to command line
