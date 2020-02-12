@@ -1762,6 +1762,7 @@ REBVAL *RL_rebError_OS(int errnum)  // see also convenience macro rebFail_OS()
         LocalFree(lpMsgBuf);
 
         error = Error(SYM_0, SYM_0, message, END_NODE);
+        rebRelease(message);
     }
   #else
     // strerror() is not thread-safe, but strerror_r is. Unfortunately, at
