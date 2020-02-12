@@ -68,9 +68,6 @@ Special internal defines used by RT, not Host-Kit developers:
                       * call host lib (OS_) via struct and macros
 
     REB_EXE         - build r3 as a standalone executable
-
-    REB_DEF         - special includes, symbols, and tables
-
 */
 
 //* Common *************************************************************

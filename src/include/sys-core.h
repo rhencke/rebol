@@ -57,7 +57,6 @@
 // Addressing that is an ongoing process.
 //
 
-#define REB_DEF // kernel definitions and structs
 #include "reb-config.h"
 
 

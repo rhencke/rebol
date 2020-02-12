@@ -81,11 +81,28 @@
 //
 #if defined(DEBUG_SERIES_ORIGINS) || defined(DEBUG_COUNT_TICKS)
     inline static void Touch_Series_Debug(void *p) {
-        REBSER *s = SER(p); // allow REBARR, REBCTX, REBACT...
+        REBSER *s = SER(p);  // allow REBARR, REBCTX, REBACT...
+
+        // NOTE: When series are allocated, the only thing valid here is the
+        // header.  Hence you can't tell (for instance) if it's an array or
+        // not, as that's in the info.
 
       #if defined(DEBUG_SERIES_ORIGINS)
-        s->guard = cast(intptr_t*, malloc(sizeof(*s->guard)));
-        free(s->guard);
+        #ifdef TO_WINDOWS
+            //
+            // The bug that %d-winstack.c was added for related to API handle
+            // leakage.  So we only instrument the root series for now.  (The
+            // stack tracking is rather slow if applied to all series, but
+            // it is possible...just don't do this test.)
+            //
+            if (not IS_SER_DYNAMIC(s) and GET_SERIES_FLAG(s, ROOT))
+                s->guard = cast(intptr_t*, Make_Winstack_Debug());
+            else
+                s->guard = nullptr;
+        #else
+            s->guard = cast(intptr_t*, malloc(sizeof(*s->guard)));
+            free(s->guard);
+        #endif
       #endif
 
       #if defined(DEBUG_COUNT_TICKS)

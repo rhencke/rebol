@@ -58,6 +58,7 @@ core: [
     d-stats.c
     d-test.c
     d-trace.c
+    d-winstack.c
 
     ; (F)???
     f-blocks.c
