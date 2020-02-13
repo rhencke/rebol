@@ -140,3 +140,21 @@
 [https://github.com/metaeducation/ren-c/issues/1033 (
     "[^/    1^/    2^/]" == mold new-line/all [1 2] true
 )]
+
+[https://github.com/metaeducation/rebol-httpd/issues/10 (
+    x: load "--^/a/b"
+    did all [
+        x = [-- a/b]
+        not new-line? x
+        new-line? next x
+        not new-line? next next x
+    ]
+)(
+    x: load "--^/a/b/c"
+    did all [
+        x = [-- a/b/c]
+        not new-line? x
+        new-line? next x
+        not new-line? next next x
+    ]
+)]

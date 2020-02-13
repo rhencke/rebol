@@ -2219,6 +2219,8 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             }
             else {
                 REBYTE saved_mode_char = ss->mode_char;
+                bool saved_newline_pending = ss->newline_pending;
+                ss->newline_pending = false;
 
                 ss->mode_char = '/';
                 if (ss->opts & SCAN_FLAG_RELAX)
@@ -2227,6 +2229,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                     Scan_To_Stack(ss);
 
                 ss->mode_char = saved_mode_char;
+                ss->newline_pending = saved_newline_pending;
             }
 
             // Any trailing colons should have been left on, because the child
