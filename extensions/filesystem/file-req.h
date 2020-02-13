@@ -29,7 +29,7 @@ inline static struct devreq_file* ReqFile(REBREQ *req) {
 }
 
 extern REBVAL *File_Time_To_Rebol(REBREQ *file);
-extern void Query_File_Or_Dir(REBVAL *out, REBVAL *port, REBREQ *file);
+extern REBVAL *Query_File_Or_Dir(const REBVAL *port, REBREQ *file);
 
 #ifdef TO_WINDOWS
     #define OS_DIR_SEP '\\'  // file path separator (Thanks Bill.)

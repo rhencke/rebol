@@ -84,31 +84,22 @@ static void Cleanup_File(REBREQ *file)
 //
 // Produces a STD_FILE_INFO object.
 //
-void Query_File_Or_Dir(REBVAL *out, REBVAL *port, REBREQ *file)
+REBVAL *Query_File_Or_Dir(const REBVAL *port, REBREQ *file)
 {
     struct rebol_devreq *req = Req(file);
-
-    REBVAL *info = rebValueQ(
-        "copy ensure object! (", port , ")/scheme/info", rebEND
-    ); // shallow copy
-
-    REBCTX *ctx = VAL_CONTEXT(info);
-
-    Init_Word(
-        CTX_VAR(ctx, STD_FILE_INFO_TYPE),
-        (req->modes & RFM_DIR) ? Canon(SYM_DIR) : Canon(SYM_FILE)
-    );
-    Init_Integer(CTX_VAR(ctx, STD_FILE_INFO_SIZE), ReqFile(file)->size);
+    assert(IS_FILE(ReqFile(file)->path));
 
     REBVAL *timestamp = File_Time_To_Rebol(file);
-    Move_Value(CTX_VAR(ctx, STD_FILE_INFO_DATE), timestamp);
-    rebRelease(timestamp);
 
-    assert(IS_FILE(ReqFile(file)->path));
-    Move_Value(CTX_VAR(ctx, STD_FILE_INFO_NAME), ReqFile(file)->path);
-
-    Move_Value(out, info);
-    rebRelease(info);
+    return rebValue(
+        "make ensure object! (", port , ")/scheme/info [",
+            "name:", ReqFile(file)->path,
+            "size:", rebI(ReqFile(file)->size),
+            "type:", (req->modes & RFM_DIR) ? "'dir" : "'file",
+            "date:", rebR(timestamp),
+        "]",
+        rebEND
+    );
 }
 
 
@@ -597,11 +588,10 @@ REB_R File_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
             }
             rebRelease(result); // ignore result
         }
-        Query_File_Or_Dir(D_OUT, port, file);
 
         // !!! free file path?
 
-        return D_OUT; }
+        return Query_File_Or_Dir(port, file); }
 
       case SYM_SKIP: {
         INCLUDE_PARAMS_OF_SKIP;

@@ -333,9 +333,9 @@ REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         rebRelease(result); // ignore result
 
-        Query_File_Or_Dir(D_OUT, port, dir);
+        REBVAL *info = Query_File_Or_Dir(port, dir);
         Free_Req(dir);
-        return D_OUT; }
+        return info; }
 
     default:
         break;

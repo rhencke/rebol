@@ -377,4 +377,9 @@ void Shutdown_Winstack(void) {
     initialized = false;
 }
 
+#else
+    // !!! There is a rule in standard C that you can't have an empty
+    // translation unit.  For now, just have an unused variable here.
+    //
+    char winstack_unused_variable = 0;
 #endif
