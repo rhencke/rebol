@@ -49,7 +49,7 @@
 # DO use $(...) vs. `...` for shell execution (save `...` for code comments)
 # https://stackoverflow.com/a/9406350/
 #
-# "$foo 123" -> substitues foo contents to get `foocontents 123`
+# "$foo 123" -> substitutes foo contents to get `foocontents 123`
 # '$foo 123' -> takes it literally, so you get `$foo 123`
 #
 # `xargs` may be a useful command when dealing with the shell:
@@ -532,24 +532,43 @@ matrix:
 # older Ren-C is now rather "thick", and slows the build down significantly.
 #
 install:
+  - export PREBUILT="$(pwd)/prebuilt"  # see README.md in %prebuilt/ directory
+
+  # If we do two builds, we use the bootstrap executable for the first and the
+  # resulting Rebol from that build to do the second.  To keep from making
+  # mistakes and accidentally using the wrong r3-make, the executables are
+  # named `r3-one` and `r3-two`.  (If we only do one build, then r3-one will
+  # just get renamed to r3-two.)
   - |
     if [[ $TRAVIS_OS_NAME = linux ]]; then
-      cd prebuilt
-      wget https://s3.amazonaws.com/r3bootstraps/r3-linux-x64-8994d23
-      chmod +x ./r3-linux-x64-8994d23
-      cd ..
-      export R3_MAKE=../prebuilt/r3-linux-x64-8994d23
+      wget -O "${PREBUILT}/r3-one" https://s3.amazonaws.com/r3bootstraps/r3-linux-x64-8994d23
+    elif [[ $TRAVIS_OS_NAME = osx ]]; then
+      #
+      # Brew was being installed even on minimal release builds, making it
+      # unnoticed that there was a .dylib dependency from the bootstrap
+      # release executable on ZeroMQ and ODBC.  This old debug build was
+      # captured at the same version number as the bootstrap executables.
+      # Use it for now until the next capture for the old OS X.
+      #
+      wget -O "${PREBUILT}/r3-one" https://s3.amazonaws.com/r3bootstraps/r3-osx-x64-8994d23-debug
+    else
+      echo "!!! Unknown Travis Platform !!!"
+      exit 1
     fi
 
+  - chmod +x "${PREBUILT}/r3-one"  # make bootstrap Rebol tool executable
+
+  - PATH="${PREBUILT}":$PATH  # so we can just say `r3-one` or `r3-two`
+
+  # Install "Homebrew" package manager.  The Travis OS X images have brew
+  # preinstalled, but get old and out of sync with the package database.
+  # This means brew has to update.  It's supposed to do this automatically,
+  # but circa 2017 it broke in some images due to the lack of a sufficiently
+  # up-to-date Ruby:
+  #
+  # https://github.com/travis-ci/travis-ci/issues/8552
   - |
-    if [[ $TRAVIS_OS_NAME = osx ]]; then
-      #
-      # The Travis OS X images have brew preinstalled, but get old and out of
-      # sync with the package database.  This means brew has to update.  It's
-      # supposed to do this automatically, but circa 2017 it broke in some
-      # images due to the lack of a sufficiently up-to-date Ruby:
-      #
-      # https://github.com/travis-ci/travis-ci/issues/8552
+    if [[ $TRAVIS_OS_NAME = osx && $BREW = yes ]]; then
       #
       # But even if brew can update automatically, it generates an unsightly
       # amount of output if it does so during a `brew install`.  So redirect
@@ -557,24 +576,10 @@ install:
       #
       # https://github.com/Homebrew/legacy-homebrew/issues/35662
       #
-      if [[ $BREW = yes ]]; then  # seems to not work on old OS X
-        brew update > /dev/null
+      brew update > /dev/null
 
-        brew install unixodbc  # for ODBC extension
-        brew install zmq  # for ZeroMQ extension
-      fi
-
-      # Brew was being installed even on minimal release builds, making it
-      # unnoticed that there was a .dylib dependency from the bootstrap
-      # release executable on ZeroMQ and ODBC.  This old debug build was
-      # captured at the same version number as the bootstrap executables.
-      # Use it for now until the next capture for the old OS X.
-      #
-      cd prebuilt
-      wget https://s3.amazonaws.com/r3bootstraps/r3-osx-x64-8994d23-debug
-      chmod +x ./r3-osx-x64-8994d23-debug
-      cd ..
-      export R3_MAKE="../prebuilt/r3-osx-x64-8994d23-debug"
+      brew install unixodbc  # for ODBC extension
+      brew install zmq  # for ZeroMQ extension
     fi
 
   - |
@@ -589,11 +594,6 @@ install:
       # find out about potential problems faster...and make use of patches
       # that are applied to address our issues as soon as they are available.
       #
-      # Note: At the time of writing, (9-Oct-2019) our non-pthreads branch
-      # will not compile on `latest`, as that is the "fastcomp" version with
-      # the emterpreter.  The source now hinges on the "binaryen" version with
-      # "Asyncify", which gives a much faster libr3.
-      #
       ./emsdk install tot-upstream
       ./emsdk activate tot-upstream
 
@@ -601,37 +601,45 @@ install:
       cd ..
     fi
 
+    # Check for Python install utility ("PIP").  This is required to get the
+    # Amazon Web Services command-line tool.  We only use the most basic
+    # installation feature, so any version of pip should suffice.
   - |
-    # Check PIP installation
-    #
-    if pip --version; then PIP=pip; fi
-    if pip2 --version; then PIP=pip2; fi
-    if pip3 --version; then PIP=pip3; fi
-    if $PIP --version
-    then echo PIP=$PIP
-    else echo "!!! PIP NOT FOUND !!!"; exit 1
+    if ( pip3 --version ); then
+      PIP=pip3
+    elif ( pip2 --version ); then
+      PIP=pip2
+    elif ( pip --version ); then
+      PIP=pip
+    else
+      echo "!!! NO VERSION OF PYTHON INSTALLER (PIP) FOUND !!!"
+      exit 1
     fi
+    echo "PIP=$PIP"
 
-  - |
     # Install the AWS command-line tool for uploading to s3 (which we use
     # instead of Travis's `deploy`)
-    if $PIP install awscli --upgrade --user
-    then echo AWS installed
+  - |
+    if ( $PIP install awscli --upgrade --user ); then
+        echo "AWS installed"
     else
         echo "!!! AWS not installed !!!"
         exit 1
     fi
-    
-    AWS="$(find /Users/travis/Library/Python/ -name aws)"
-    if aws --version; then AWS=aws;fi
-    if $AWS --version
-    then echo AWS=$AWS
-    else echo "!!! AWS NOT FOUND !!!"; exit 1
+    if ( aws --version ); then
+      AWS=aws  # it was in the path
+    else
+      AWS="$(find /Users/travis/Library/Python/ -name aws)"  # look for it
+      if ( ! $AWS --version ); then
+        echo "!!! AMAZON WEB SERVICE UPLOAD TOOL (AWS) NOT FOUND !!!"
+        exit 1
+      fi
     fi
+    echo "AWS=$AWS"
 
 script:
-    - |
       # whatever home directory Travis put us in, build there
+    - |
       TOP_DIR="$(pwd)"  # https://stackoverflow.com/a/10795195/
 
     - |
@@ -670,7 +678,7 @@ script:
     #
     # !!! Review making this use the package manager's libffi if possible
     - |
-      if [[ ($OS_ID = 0.3.40) || ($OS_ID = 0.3.1) ]]; then  # Win32/Win64
+      if [[ $OS_ID = 0.3.40 || $OS_ID = 0.3.1 ]]; then  # Win32/Win64
           if [[ $OS_ID = 0.3.40 ]]; then
               export PKG_CONFIG_PATH="${TOP_DIR}/extensions/ffi/ffi-prebuilt/lib64/pkgconfig"
           else
@@ -688,7 +696,7 @@ script:
     # clear why it wouldn't use the `sudo apt get` FFI packages of the distro
     # on 64-bit (other than to use a consistent version committed in the repo)
     - |
-      if [[ (-z $WITH_FFI) || ($WITH_FFI != no) ]]; then
+      if [[ -z $WITH_FFI || $WITH_FFI != no ]]; then
           mkdir ffi-build
           cd external/libffi
           ./autogen.sh
@@ -773,7 +781,7 @@ script:
               #
               # (export is so that if we run r3 to test tcc, it can see it)
               cd tcc
-              export CONFIG_TCCDIR=$(pwd)
+              export CONFIG_TCCDIR="$(pwd)"
 
               # If you want a "tcc.exe" cross compiler, you could use
               # `./configure --enable-cross` and then `make`.  However, a TCC
@@ -855,10 +863,6 @@ script:
     - GIT_COMMIT_SHORT="$(git show --format="%h" --no-patch)"
     - echo "$GIT_COMMIT_SHORT"
 
-    # We have to set R3_MAKE explicitly to circumvent the automatic r3-make
-    # filename inference, as we always use Linux "r3-make" (not "r3-make.exe")
-    # even when doing windows builds, since this is a cross-compilation.
-
     # As an extra step to test bootstrap ability, if the build can be run on
     # the Travis we are using...make the debug build go even further by doing
     # another full build, but using the just built r3 as its own r3-make.
@@ -866,7 +870,7 @@ script:
     # been installed
     #
     - |
-      if [[ ($DEBUG != none) && (($OS_ID = 0.4.40) || ($OS_ID = 0.4.4) || ($OS_ID = 0.2.40)) ]]; then
+      if [[ $DEBUG != none && ($OS_ID = 0.4.40 || $OS_ID = 0.4.4 || $OS_ID = 0.2.40) ]]; then
           #
           # If building twice, don't specify GIT_COMMIT for the first build.
           # This means there's a test of the build process when one is not
@@ -878,45 +882,62 @@ script:
           # we do not apply it to any of the binaries which are uploaded to s3
           # -- not even debug ones.
           #
-          "$R3_MAKE" ../make.r CONFIG="../configs/${CONFIG}" TARGET=makefile STANDARD="$STANDARD" OS_ID="$OS_ID" RIGOROUS="$RIGOROUS" DEBUG=sanitize OPTIMIZE=2 STATIC=no ODBC_REQUIRES_LTDL="$ODBC_REQUIRES_LTDL" EXTENSIONS="$EXTENSIONS" $EXTRA
+          r3-one ../make.r CONFIG="../configs/${CONFIG}" TARGET=makefile STANDARD="$STANDARD" OS_ID="$OS_ID" RIGOROUS="$RIGOROUS" DEBUG=sanitize OPTIMIZE=2 STATIC=no ODBC_REQUIRES_LTDL="$ODBC_REQUIRES_LTDL" EXTENSIONS="$EXTENSIONS" $EXTRA
           make clean prep folders
           make -j "$MAKE_JOBS"
+
+          # We have to set R3_MAKE explicitly to circumvent the automatic
+          # r3-make filename inference, as we always use Linux "r3-two"
+          # (not "r3-two.exe") even when doing windows builds, since this is
+          # a cross-compilation.
+          #
+          mv r3 "${PREBUILT}/r3-two"
+          rm "${PREBUILT}/r3-one"
+          export R3_MAKE="${PREBUILT}/r3-two"
+
+          # Now that we've moved the `r3` out of the way, try cleaning up the
+          # other build products...and make sure it doesn't accidentally pick
+          # up the old makefile.
+          #
+          make clean
+          rm makefile
+
+          # This instructs `r3-two` to use a mode in which allocations are not
+          # pooled, but each uses an individual `malloc()`.  That means we
+          # get the benefit of the checked/hooked allocator for address
+          # sanitizer, which the pools don't have a parallel to at the moment.
+          #
+          export R3_ALWAYS_MALLOC=1
 
           # We'll do a simple HTTPS read test on the second build.  But on
           # this first build, we also do it because it has the address
           # sanitizer, which may catch more problems.
           #
-          ./r3 --do "print {Testing...} quit either find to-text read https://example.com {<h1>Example Domain</h1>} [0] [1]";
+          r3-two --do "print {Testing...} quit either find to-text read https://example.com {<h1>Example Domain</h1>} [0] [1]";
           R3_EXIT_STATUS=$?
           echo $R3_EXIT_STATUS
+      else
+        mv "${PREBUILT}/r3-one" "${PREBUILT}/r3-two"
+      fi
 
-          mv r3 r3-make
-          make clean prep folders
-          export R3_ALWAYS_MALLOC=1
-          export R3_MAKE=./r3-make
-
-          # Make sure it doesn't accidentally pick up the old makefile
-          rm makefile
+    - |
+      if [[ -z $TCC ]]; then
+        export WITH_TCC=no
+      else
+        export WITH_TCC="%${PWD}/tcc/${TCC}"
       fi
 
     # On the second build of building twice, or just building once, include
     # the GIT_COMMIT
     #
-    - |
-      if [[ -z $TCC ]]; then
-          "$R3_MAKE" ../make.r CONFIG="../configs/${CONFIG}" TARGET=makefile STANDARD="$STANDARD" OS_ID="$OS_ID" DEBUG="$DEBUG" GIT_COMMIT="{$GIT_COMMIT}" RIGOROUS="$RIGOROUS" STATIC="$STATIC" WITH_FFI="$WITH_FFI" WITH_TCC="no" ODBC_REQUIRES_LTDL="$ODBC_REQUIRES_LTDL" EXTENSIONS="$EXTENSIONS" $EXTRA
-          make clean prep folders
-          make -j "$MAKE_JOBS"
-      else
-          "$R3_MAKE" ../make.r CONFIG="../configs/${CONFIG}" TARGET=makefile STANDARD="$STANDARD" OS_ID="$OS_ID" DEBUG="$DEBUG" GIT_COMMIT="{$GIT_COMMIT}" RIGOROUS="$RIGOROUS" STATIC="$STATIC" WITH_FFI="$WITH_FFI" WITH_TCC="%${PWD}/tcc/${TCC}" ODBC_REQUIRES_LTDL="$ODBC_REQUIRES_LTDL" EXTENSIONS="$EXTENSIONS" $EXTRA
-          make clean prep folders
-          make -j "$MAKE_JOBS"
-      fi
+    - r3-two ../make.r CONFIG="../configs/${CONFIG}" TARGET=makefile STANDARD="$STANDARD" OS_ID="$OS_ID" DEBUG="$DEBUG" GIT_COMMIT="{$GIT_COMMIT}" RIGOROUS="$RIGOROUS" STATIC="$STATIC" WITH_FFI="$WITH_FFI" WITH_TCC="$WITH_TCC" ODBC_REQUIRES_LTDL="$ODBC_REQUIRES_LTDL" EXTENSIONS="$EXTENSIONS" $EXTRA
 
-    # take a look at the preprocess header file
-    # - cat ../src/include/sys-core.i || true
+    # Do the main build of the files we will be uploading
+    #
+    - make clean prep folders
+    - make -j "$MAKE_JOBS"
 
-    # output the needed libraries
+    # Dump out a list of the library dependencies of the executable
     - |
       if [[ $OS_ID = 0.4.40 || $OS_ID = 0.4.4 ]]; then
           ldd ./r3
@@ -930,10 +951,10 @@ script:
     # Save the exit code ($?) so we can return it to Travis as last step
     #
     # !!! This is a very minimal sanity check to ensure the built R3 does
-    # *something*, and it can obviously only be used on the linux version.
-    # Running the full test suite would be a bit much, and developers are
-    # expected to have already done that.  But doing an HTTPS read exercises
-    # a fair amount of code.
+    # *something*, and it can't be used on cross-compilations (e.g. a Windows
+    # executable won't run on Linux).  Running the full test suite would be a
+    # bit much, and developers are expected to have already done that.  But
+    # doing an HTTPS read exercises a fair amount of code.
     #
     - |
       if [[ $OS_ID = 0.4.40 || $OS_ID = 0.4.4 || $OS_ID = 0.2.40 ]]; then
@@ -946,7 +967,7 @@ script:
 
     # Run basic testing on FFI if it is included and this container can run it
     - |
-      if [[ (-z $WITH_FFI) || ($WITH_FFI != no) ]]; then
+      if [[ -z $WITH_FFI || $WITH_FFI != no ]]; then
         if [[ $OS_ID = 0.4.40 || $OS_ID = 0.4.4 ]]; then
           ./r3 ../tests/misc/qsort_r.r
           R3_EXIT_STATUS=$?
@@ -994,10 +1015,10 @@ script:
       echo $R3_EXIT_STATUS
 
     - |
-      if [[ $R3_EXIT_STATUS != 0 ]]
-      then exit $R3_EXIT_STATUS
+      if [[ $R3_EXIT_STATUS != 0 ]]; then
+        exit $R3_EXIT_STATUS
       fi
-    
+
 # DEPLOY STEP:
 
     # !!! This used to delete things because otherwise they would be uploaded
@@ -1009,7 +1030,7 @@ script:
     - rm -f makefile*
     - rm -f Toolchain*
     - rm -f r3-make*  # `-f` for success even when r3-make* doesn't exist
-    
+
     # !!! When we *needed* to delete things, we would `- rm -rf tcc` and
     # `-rm -rf prep` here.  But we don't right now, because we wait until the
     # end (below) to zip together `rebol.h` and the TCC runtime files that the
@@ -1120,8 +1141,8 @@ script:
     # http://stackoverflow.com/a/42547424/211160
     #
     - |
-      if [[ ${TRAVIS_BRANCH} != "master" || ${TRAVIS_PULL_REQUEST} != "false" || ${R3_EXIT_STATUS} != 0 ]]
-      then exit 0 # skip the deploy step
+      if [[ ${TRAVIS_BRANCH} != "master" || ${TRAVIS_PULL_REQUEST} != "false" || ${R3_EXIT_STATUS} != 0 ]]; then
+        exit 0  # skip the deploy step
       fi
 
       function upload {
@@ -1133,8 +1154,7 @@ script:
         rm -f _
         $AWS s3 cp $1 s3://${AWS_S3_BUCKET_NAME}/travis-builds/$1 $OPT_TYPE
         $AWS s3 cp s3://${AWS_S3_BUCKET_NAME}/travis-builds/$1 _
-        if cmp $1 _
-        then
+        if ( cmp $1 _ ); then
           echo === UPLOADED $1 ===
         else
           echo === UPLOAD $1 FAILED ===
@@ -1165,8 +1185,7 @@ script:
       # Esmcripten build: copy load-r3.js to travis-builds/
       # (not in subdir of 0.16.x because loader needs to pick between them)
       #
-      if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]
-      then
+      if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]; then
           cp ../extensions/javascript/load-r3.js .
           upload load-r3.js
       fi

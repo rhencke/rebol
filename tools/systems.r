@@ -75,7 +75,8 @@ systems: [
         ; was: "Macintosh, FAT PPC, 68K"
 
     0.2.04 osx-ppc/osx "osx-ppc"
-        #SGD #BEN #LLC #F64 <NCM> /HID /DYN %M ; originally targeted OS X 10.2
+        #SGD #BEN #LLC #F64 <NCM> /HID /DYN %M
+        ; originally targeted OS X 10.2
 
     0.2.05 osx-x86/osx "osx-x86"
         #SGD #LEN #LLC #NSER #F64 <NCM> <NPS> <ARC> /HID /ARC /DYN %M
@@ -100,14 +101,14 @@ systems: [
     0.4.01 _ "libc5-x86"
         ; was: "Linux Libc5 iX86 1.2.1.4.1 view-pro041.tar.gz"
 
-    0.4.02 linux-x86/linux "libc6-2-3-x86"
-        #SGD #LEN #LLC #NSER #F64 <M32> <NSP> <UFS> /M32 %M %DL ;gliblc-2.3
+    0.4.02 linux-x86/linux "libc6-2-3-x86"  ; gliblc-2.3
+        #SGD #LEN #LLC #NSER #F64 <M32> <NSP> <UFS> /M32 %M %DL
 
-    0.4.03 linux-x86/linux "libc6-2-5-x86"
-        #SGD #LEN #LLC #F64 <M32> <UFS> /M32 %M %DL ;gliblc-2.5
+    0.4.03 linux-x86/linux "libc6-2-5-x86"  ; gliblc-2.5
+        #SGD #LEN #LLC #F64 <M32> <UFS> /M32 %M %DL
 
-    0.4.04 linux-x86/linux "libc6-2-11-x86"
-        #SGD #LEN #LLC #F64 #PIP2 <M32> <HID> /M32 /HID /DYN %M %DL ;glibc-2.11
+    0.4.04 linux-x86/linux "libc6-2-11-x86"  ; glibc-2.11
+        #SGD #LEN #LLC #F64 #PIP2 <M32> <HID> /M32 /HID /DYN %M %DL
 
     0.4.05 _ _
         ; was: "Linux 68K"
@@ -133,8 +134,8 @@ systems: [
     0.4.20 linux-arm/linux "libc6-arm"
         #SGD #LEN #LLC #F64 #PIP2 <HID> /HID /DYN %M %DL
 
-    0.4.21 linux-arm/linux _
-        #SGD #LEN #LLC #F64 #PIP2 <HID> <PIE> /HID /DYN %M %DL ;android
+    0.4.21 linux-arm/linux _  ; for modern Android builds, see Android section
+        #SGD #LEN #LLC #F64 #PIP2 <HID> <PIE> /HID /DYN %M %DL
 
     0.4.22 linux-aarch64/linux "libc6-aarch64"
         #SGD #LEN #LLC #F64 #PIP2 #LP64 <HID> /HID /DYN %M %DL
