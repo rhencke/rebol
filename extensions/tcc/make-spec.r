@@ -52,7 +52,23 @@ ldflags: compose [
     (if libtcc-lib-dir [unspaced [{-L} {"} libtcc-lib-dir {"}]])
 ]
 
-libraries: [%tcc]
+libraries: compose [  ; Note: dependent libraries first, dependencies after.
+    %tcc
+
+    ; As of 10-Dec-2019, pthreads became a dependency for libtcc on linux:
+    ;
+    ; https://repo.or.cz/tinycc.git?a=commit;h=72729d8e360489416146d6d4fd6bc57c9c72c29b
+    ; https://repo.or.cz/tinycc.git/blobdiff/6082dd62bb496ea4863f8a5501e480ffab775395..72729d8e360489416146d6d4fd6bc57c9c72c29b:/Makefile
+    ;
+    ; It would be nice if there were some sort of compilation option for the
+    ; library that let you pick whether you needed it or not.  But right now
+    ; there isn't, so just include pthread.  Note that Android includes the
+    ; pthread ability by default, so you shouldn't do -lpthread:
+    ;
+    ; https://stackoverflow.com/a/38672664/
+    ;
+    (if not find [Windows Android] system-config/os-base [%pthread])
+]
 
 requires: [
     Filesystem  ; uses LOCAL-TO-FILE
