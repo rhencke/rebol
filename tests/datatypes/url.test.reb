@@ -21,3 +21,14 @@
         url2 == http://a.b.c/d?e=f&
     ]
 )
+
+; Ren-C expands the delimiters that are legal in URLs unescaped
+; https://github.com/metaeducation/ren-c/issues/1046
+;
+(
+    b: load "[http://example.com/abc{def}]"
+    did all [
+        (length of b) = 1
+        (as text! first b) = "http://example.com/abc{def}"
+    ]
+)

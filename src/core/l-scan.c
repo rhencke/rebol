@@ -1443,7 +1443,7 @@ static enum Reb_Token Locate_Token_May_Push_Mold(
         cp = ss->end;  // then, must be a URL
         while (*cp == '/') {  // deal with path delimiter
             cp++;
-            while (IS_LEX_NOT_DELIMIT(*cp) or *cp == '/')
+            while (IS_LEX_NOT_DELIMIT(*cp) or not IS_LEX_DELIMIT_HARD(*cp))
                 ++cp;
         }
         ss->end = cp;

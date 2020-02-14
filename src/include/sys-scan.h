@@ -21,6 +21,8 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 
+extern const REBYTE Lex_Map[256];  // declared in %l-scan.c
+
 //
 //  Tokens returned by the scanner.  Keep in sync with Token_Names[].
 //
@@ -131,12 +133,24 @@ enum LEX_DELIMIT_ENUM {
     LEX_DELIMIT_RIGHT_PAREN,        /* 29 ) */
     LEX_DELIMIT_LEFT_BRACKET,       /* 5B [ */
     LEX_DELIMIT_RIGHT_BRACKET,      /* 5D ] */
+    LEX_DELIMIT_SEMICOLON,          /* 3B ; */
+
+    // As a step toward "Plan -4", the above delimiters are considered to
+    // always terminate, e.g. a URL `http://example.com/a)` will not pick up
+    // the parenthesis as part of the URL.  But the below delimiters will be
+    // picked up, so that `http://example.com/{a} is valid:
+    //
+    // https://github.com/metaeducation/ren-c/issues/1046
+    //
+    // Note: If you rearrange these, update IS_LEX_DELIMIT_HARD !
+
     LEX_DELIMIT_LEFT_BRACE,         /* 7B } */
     LEX_DELIMIT_RIGHT_BRACE,        /* 7D } */
     LEX_DELIMIT_DOUBLE_QUOTE,       /* 22 " */
     LEX_DELIMIT_SLASH,              /* 2F / - date, path, file */
-    LEX_DELIMIT_SEMICOLON,          /* 3B ; */
+
     LEX_DELIMIT_UTF8_ERROR,
+
     LEX_DELIMIT_MAX
 };
 
@@ -174,6 +188,11 @@ enum LEX_CLASS_ENUM {
 
 #define IS_LEX_NOT_DELIMIT(c)           (Lex_Map[(REBYTE)c] >= LEX_SPECIAL)
 #define IS_LEX_WORD_OR_NUMBER(c)        (Lex_Map[(REBYTE)c] >= LEX_WORD)
+
+inline static bool IS_LEX_DELIMIT_HARD(REBYTE c) {
+    assert(IS_LEX_DELIMIT(c));
+    return GET_LEX_VALUE(c) <= LEX_DELIMIT_RIGHT_BRACKET;
+}
 
 //
 //  Special Chars (encoded in the LEX_VALUE field)
@@ -329,11 +348,6 @@ enum {
 
 #define MAX_SCAN_WORD 255
 
-
-/*
-**  Externally Accessed Variables
-*/
-extern const REBYTE Lex_Map[256];
 
 #ifdef ITOA64 // Integer to ascii conversion
     #define INT_TO_STR(n,s) \
