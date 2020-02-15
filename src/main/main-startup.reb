@@ -363,10 +363,14 @@ main-startup: function [
     ; https://stackoverflow.com/q/1023306/
     ; http://stackoverflow.com/a/933996/211160
     ;
-    ; It's not foolproof, so it might come back blank.  The console code can
+    ; It's not foolproof, so it might come back null.  The console code can
     ; then decide if it wants to fall back on argv[0]
     ;
-    system/options/boot: lib/ensure [blank! file!] get-current-exec
+    switch type of system/options/boot: get-current-exec [
+        file! []  ; found it
+        null []  ; also okay (not foolproof!)
+        fail
+    ]
 
     === HELPER FUNCTIONS ===
 
