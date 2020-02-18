@@ -373,6 +373,15 @@ DEVICE_CMD Connect_Socket(REBREQ *sock)
 
       default:
         req->state &= ~RSM_ATTEMPT;
+
+        // !!! If there is a connect error, we don't want to leave the request
+        // hanging around such that the Poll_Devices() call will have that
+        // lingering error to fail on future READs.  (Review this in light of
+        // a general policy for asynchronous error delivery).
+        // https://github.com/metaeducation/ren-c/issues/1048
+        //
+        Close_Socket(sock);
+        OS_Abort_Device(sock);
         rebFail_OS (result);
     }
 
