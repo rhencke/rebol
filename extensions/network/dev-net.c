@@ -514,9 +514,15 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
 
         bool finished;
         if (
-            req->length == UINT32_MAX  // want to read however much you can
-            or req->length == req->actual  // read an exact amount
-            or result == 0  // socket closed gracefully
+            req->length == req->actual  // read an exact amount
+            or (
+                req->length == UINT32_MAX  // want to read as much you can
+                and result != 0  // ...and it wasn't a clean socket close
+            ) or (
+                req->length != UINT32_MAX  // we wanted to read exactly...
+                and result == 0  // ...but the socket closed cleanly
+                and req->actual > 0  // ...and there's some data in the buffer
+            )
         ){
             // If we had a /PART setting on the READ, we follow the Rebol
             // convention of allowing less than that to be accepted, which
@@ -551,6 +557,8 @@ DEVICE_CMD Transfer_Socket(REBREQ *sock)
                     "port:", port,
                 "]",
             rebEND);
+
+            return Close_Socket(sock);
         }
 
         if (finished)
