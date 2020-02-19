@@ -36,6 +36,7 @@ depends: [
     %crypt/rc4/rc4.c
     %crypt/rsa/rsa.c
     %crypt/sha256/sha256.c
+    %crypt/easy-ecc/ecc.c
 
     [%crypt/md5/u-md5.c <implicit-fallthru>]
 
