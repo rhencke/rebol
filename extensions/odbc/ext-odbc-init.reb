@@ -127,7 +127,7 @@ sys/make-scheme [
         ]
 
         copy: function [port [port!] /part [integer!]] [
-            copy-odbc port/locals part
+            copy-odbc/part port/locals part
         ]
     ]
 ]

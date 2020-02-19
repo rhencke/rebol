@@ -446,11 +446,10 @@ static REB_R Transport_Actor(
             fail ("TAKE is only available on TCP LISTEN ports");
 
         return rebValueQ(
-            "take*/part/(", ARG(deep), ")/(", ARG(last), ")",
+            "take*/part/(", REF(deep), ")/(", REF(last), ")",
                 CTX_VAR(ctx, STD_PORT_CONNECTIONS),
-                ARG(part),
-                rebEND
-        ); }
+                REF(part),
+        rebEND); }
 
       case SYM_PICK: {
         fail (

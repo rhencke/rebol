@@ -1438,6 +1438,14 @@ void Shutdown_Core(void)
 
     assert(Saved_State == NULL);
 
+    // !!! Currently the molding logic uses a test of the Boot_Phase to know
+    // if it's safe to check the system object for how many digits to mold.
+    // This isn't ideal, but if we are to be able to use PROBE() or other
+    // molding-based routines during shutdown, we have to signal not to look
+    // for that setting in the system object.
+    //
+    PG_Boot_Phase = BOOT_START;
+
     Shutdown_Data_Stack();
 
     Shutdown_Stackoverflow();

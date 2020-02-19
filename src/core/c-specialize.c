@@ -134,7 +134,7 @@ REBCTX *Make_Context_For_Action_Push_Partials(
 
           continue_specialized:
 
-            assert(not IS_NULLED(arg));
+            // Note: used to `assert(not IS_NULLED(arg));`
             assert(GET_CELL_FLAG(arg, ARG_MARKED_CHECKED));
             continue;  // Eval_Core() double-checks type in debug build
         }

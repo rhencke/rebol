@@ -173,7 +173,7 @@ class StackFrame {
 
         IMAGEHLP_LINE line_info;
         line_info.SizeOfStruct = sizeof(IMAGEHLP_LINE);
-            
+
         DWORD offset_ln = 0;
         if (SymGetLineFromAddr(
             process,
@@ -194,7 +194,7 @@ class StackFrame {
             //
             file_id = cast(unsigned int, -1);
             line = 0;
-        } 
+        }
     }
 
     std::string getName() const {

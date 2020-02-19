@@ -1468,7 +1468,7 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col)
 //      return: "Block of row blocks for selects and catalog functions"
 //          [block!]
 //      statement [object!]
-//      length [integer! blank!]
+//      /part [integer!]
 //  ]
 //
 REBNATIVE(copy_odbc)
@@ -1500,7 +1500,7 @@ REBNATIVE(copy_odbc)
     // compares-0 based row against num_rows, so -1 is chosen to never match
     // and hence mean "as many rows as available"
     //
-    SQLLEN num_rows = rebUnbox(ARG(length), "or [-1]");
+    SQLLEN num_rows = rebUnbox("any [", rebQ(REF(part)), "-1]");
 
     REBVAL *results = rebValue(
         "make block!", rebI(num_rows == -1 ? 10 : num_rows)
