@@ -1091,15 +1091,6 @@ REBNATIVE(insert_odbc)
     rc = SQLFreeStmt(hstmt, SQL_RESET_PARAMS);  // !!! check rc?
     rc = SQLCloseCursor(hstmt);  // !!! check rc?
 
-    // !!! Some code here would set the number of rows, but was commented out
-    // saying it was "in the wrong place" (?)
-    //
-    // SQLULEN max_rows = 0;
-    // rc = SQLSetStmtAttr(hstmt, SQL_ATTR_MAX_ROWS, &max_rows, SQL_IS_POINTER);
-    // if (not SQL_SUCCEEDED(rc))
-    //     rebJumps ("fail", Error_ODBC_Stmt(hstmt));
-
-
     //=//// MAKE SQL REQUEST FROM DIALECTED SQL BLOCK /////////////////////=//
     //
     // The block passed in is used to form a query.
