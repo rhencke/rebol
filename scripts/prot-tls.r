@@ -404,7 +404,7 @@ client-hello: function [
     /version "TLS version to request (block is [lowest highest] allowed)"
         [decimal! block!]
 ][
-    version: default [[1.0 1.2]]
+    version: default '[1.0 1.2]
 
     set [ctx/min-version: ctx/max-version:] case [
         decimal? version [reduce [version version]]
@@ -453,7 +453,7 @@ client-hello: function [
     ]
 
     emit ctx [
-      ClientHello: ; https://tools.ietf.org/html/rfc5246#section-7.4.1.2
+      ClientHello:  ; https://tools.ietf.org/html/rfc5246#section-7.4.1.2
         max-ver-bytes               ; max supported version by client
         ctx/client-random           ; 4 bytes gmt unix time + 28 random bytes
         #{00}                       ; session ID length
@@ -577,23 +577,22 @@ client-key-exchange: function [
 
             ; encrypt pre-master-secret
             rsa-key: rsa-make-key
-            rsa-key/e: ctx/pub-exp
-            rsa-key/n: ctx/pub-key
+            rsa-key/e: ctx/rsa-e
+            rsa-key/n: ctx/rsa-pub
 
             ; supply encrypted pre-master-secret to server
             key-data: rsa ctx/pre-master-secret rsa-key
+            key-len: to-bin length of key-data 2  ; Two bytes for this case
         ]
 
         <dhe-dss>
         <dhe-rsa> [
-            ; generate public/private keypair
-            dh-generate-key ctx/dh-key
+            ctx/dh-keypair: dh-generate-keypair ctx/dh-g ctx/dh-p
+            ctx/pre-master-secret: dh-compute-key ctx/dh-keypair ctx/dh-pub
 
             ; supply the client's public key to server
-            key-data: ctx/dh-key/pub-key
-
-            ; generate pre-master-secret
-            ctx/pre-master-secret: dh-compute-key ctx/dh-key ctx/dh-pub
+            key-data: ctx/dh-keypair/public
+            key-len: to-bin length of key-data 2  ; Two bytes for this case
         ]
     ]
 
@@ -601,17 +600,17 @@ client-key-exchange: function [
         #{16}                       ; protocol type (22=Handshake)
         ctx/ver-bytes               ; protocol version
 
-        ssl-record-length:
+      ssl-record-length:
         #{00 00}                    ; length of SSL record data
 
-        ssl-record:
+      ssl-record:
         #{10}                       ; message type (16=ClientKeyExchange)
 
-        message-length:
+      message-length:
         #{00 00 00}                 ; protocol message length
 
-        message:
-        to-bin length of key-data 2 ; length of the key (2 bytes)
+      message:
+        key-len                     ; may be one or two bytes (see above)
         key-data
     ]
 
@@ -876,6 +875,33 @@ parse-protocol: function [
 ]
 
 
+grab: enfixed func [
+    {Extracts N bytes from a BINARY!, and also updates its position}
+
+    return: "BINARY! (or INTEGER! if GRAB-INT enclosure is used)"
+        [binary! integer!]
+    :left "Needs variable name for assignment (to deliver errors)"
+        [set-word!]
+    var "Variable containing the BINARY! to be extracted and advanced"
+        [word!]
+    n "Number of bytes to extract (errors if not enough bytes available)"
+        [integer!]
+][
+    let data: ensure binary! get var
+    let result: copy/part data n
+    let actual: length of result  ; /PART accepts truncated data
+    if n != actual  [
+        fail ["Expected" n "bytes for" as word! left "but received" actual]
+    ]
+    set var skip data n  ; update variable to point past what was taken
+    return set left result  ; must manually assign if SET-WORD! overridden
+]
+
+grab-int: enfixed enclose 'grab func [f [frame!]] [
+    return set f/left (to-integer/unsigned do copy f)
+]
+
+
 parse-messages: function [
     ctx [object!]
     proto [object!]
@@ -888,9 +914,9 @@ parse-messages: function [
         2 <server-hello>
         11 <certificate>
         12 <server-key-exchange>
-        13 certificate-request@  ; not yet implemented
+        13 @certificate-request  ; not yet implemented
         14 #server-hello-done
-        15 certificate-verify@  ; not yet implemented
+        15 @certificate-verify  ; not yet implemented
         16 <client-key-exchange>
         20 <finished>
     ])
@@ -981,21 +1007,25 @@ parse-messages: function [
 
         #handshake [
             while [not tail? data] [
-                msg-type: try select message-types data/1
+                msg-type: try select message-types data/1  ; 1 byte
 
                 update-read-state ctx (
                     if ctx/encrypted? [#encrypted-handshake] else [msg-type]
                 )
 
-                len: to-integer/unsigned copy/part at data 2 3
+                len: to-integer/unsigned copy/part (skip data 1) 3
+
+                ; We don't mess with the data pointer itself as we use it, so
+                ; make a copy of the data.  Skip the 4 bytes we used.
+                ;
+                bin: copy/part (skip data 4) len
+
                 append result switch msg-type [
                     <server-hello> [
                         ; https://tools.ietf.org/html/rfc5246#section-7.4.1.3
 
-                        msg-content: copy/part at data 5 len
-
-                        server-version: select bytes-to-version copy/part msg-content 2
-                        (msg-content: my skip 2)
+                        server-version: grab 'bin 2
+                        server-version: select bytes-to-version server-version
                         if server-version < ctx/min-version [
                             fail [
                                 "Requested minimum TLS version" ctx/min-version
@@ -1009,36 +1039,44 @@ parse-messages: function [
                             type: msg-type
                             length: len
 
-                            version: server-version
+                            version: ctx/version
 
-                            server-random: copy/part msg-content 32
-                            (msg-content: my skip 32)
+                            server-random: grab 'bin 32
 
-                            session-id-len: msg-content/1
-                            (msg-content: my skip 1)
+                            session-id-len: grab-int 'bin 1
+                            session-id: grab 'bin session-id-len
 
-                            session-id: copy/part msg-content session-id-len
-                            (msg-content: my skip session-id-len)
+                            suite-id: grab 'bin 2
 
-                            suite-id: copy/part msg-content 2
-                            (msg-content: my skip 2)
-
-                            compression-method-length: msg-content/1
-                            (msg-content: my skip 1)
-
-                            compression-method:
-                                either compression-method-length = 0 [
-                                    blank
-                                ][
-                                    fail ["Error: CRIME vulnerability"]
-                                    copy/part msg-content compression-method-length
-                                    (msg-content: my skip compression-method-length)
+                            compression-method-length: grab-int 'bin 1
+                            if compression-method-length != 0 [
+                                comment [
+                                    compression-method:
+                                        grab 'bin compression-method-length
                                 ]
+                                fail ["TLS compression disabled (CRIME)"]
+                            ]
 
                             ; !!! After this point is responses based on the
                             ; extensions we asked for.  We should check to be
                             ; sure only extensions we asked for come back in
                             ; this list...but punt on that check for now.
+
+                            extensions-list-length: grab-int 'bin 2
+                            check-length: 0
+
+                            while [not tail? bin] [
+                                extension-id: grab 'bin 2
+                                extension-length: grab-int 'bin 2
+                                check-length: me + 2 + 2 + extension-length
+
+                                switch extension-id [
+                                    default [
+                                        dummy: grab 'bin extension-length
+                                    ]
+                                ]
+                            ]
+                            assert [check-length = extensions-list-length]
                         ]
 
                         ctx/suite: select cipher-suites msg-obj/suite-id else [
@@ -1053,31 +1091,37 @@ parse-messages: function [
                     ]
 
                     <certificate> [
-                        msg-content: copy/part at data 5 len
                         msg-obj: context [
                             type: msg-type
                             length: len
-                            certificates-length: to-integer/unsigned copy/part msg-content 3
+                            certificate-list-length: grab-int 'bin 3
                             certificate-list: make block! 4
-                            while [not tail? msg-content] [
-                                if 0 < clen: to-integer/unsigned copy/part skip msg-content 3 3 [
-                                    append certificate-list copy/part at msg-content 7 clen
-                                ]
-                                msg-content: skip msg-content 3 + clen
+                            while [not tail? bin] [
+                                certificate-length: grab-int 'bin 3
+                                certificate: grab 'bin certificate-length
+                                append certificate-list certificate
                             ]
                         ]
-                        ; no cert validation - just set it to be used
+
+                        ; !!! This is where the "S" for "Secure" is basically
+                        ; thrown out.  We read the certificates but don't
+                        ; actually verify that they match some known chain
+                        ; of trust...we just use the first one sent back.
+                        ; Makers of web browsers (Mozilla, Google, etc.) have
+                        ; lists built into them and rules for accepting or
+                        ; denying them.  We need something similar.
+                        ;
                         ctx/certificate: parse-asn msg-obj/certificate-list/1
 
                         switch ctx/key-method [
                             <rsa> [
                                 ; get the public key and exponent (hardcoded for now)
-                                ctx/pub-key: parse-asn (next
+                                temp: parse-asn (next
                                     comment [ctx/certificate/1/<sequence>/4/1/<sequence>/4/6/<sequence>/4/2/<bit-string>/4]
                                     ctx/certificate/1/<sequence>/4/1/<sequence>/4/7/<sequence>/4/2/<bit-string>/4
                                 )
-                                ctx/pub-exp: ctx/pub-key/1/<sequence>/4/2/<integer>/4
-                                ctx/pub-key: next ctx/pub-key/1/<sequence>/4/1/<integer>/4
+                                ctx/rsa-e: temp/1/<sequence>/4/2/<integer>/4
+                                ctx/rsa-pub: next temp/1/<sequence>/4/1/<integer>/4
                             ]
                             <dhe-dss>
                             <dhe-rsa> [
@@ -1094,29 +1138,40 @@ parse-messages: function [
                         switch ctx/key-method [
                             <dhe-dss>
                             <dhe-rsa> [
-                                msg-content: copy/part at data 5 len
                                 msg-obj: context [
                                     type: msg-type
                                     length: len
-                                    p-length: to-integer/unsigned copy/part msg-content 2
-                                    p: copy/part at msg-content 3 p-length
-                                    g-length: to-integer/unsigned copy/part at msg-content 3 + p-length 2
-                                    g: copy/part at msg-content 3 + p-length + 2 g-length
-                                    ys-length: to-integer/unsigned copy/part at msg-content 3 + p-length + 2 + g-length 2
-                                    ys: copy/part at msg-content 3 + p-length + 2 + g-length + 2 ys-length
-                                    signature-length: to-integer/unsigned copy/part at msg-content 3 + p-length + 2 + g-length + 2 + ys-length 2
-                                    signature: copy/part at msg-content 3 + p-length + 2 + g-length + 2 + ys-length + 2 signature-length
+                                    p-length: grab-int 'bin 2
+                                    p: grab 'bin p-length
+                                    g-length: grab-int 'bin 2
+                                    g: grab 'bin g-length
+                                    ys-length: grab-int 'bin 2
+                                    ys: grab 'bin ys-length
+
+                                    ; RFC 5246 Section 7.4.3 "Note that the
+                                    ; introduction of the algorithm field is a
+                                    ; change from previous versions"
+                                    ;
+                                    algorithm: _
+                                    if ctx/version >= 1.2 [
+                                        algorithm: grab 'bin 2
+                                    ]
+
+                                    signature-length: grab-int 'bin 2
+                                    signature: grab 'bin signature-length
                                 ]
 
-                                ctx/dh-key: dh-make-key
-                                ctx/dh-key/p: msg-obj/p
-                                ctx/dh-key/g: msg-obj/g
+                                ctx/dh-p: msg-obj/p  ; modulus
+                                ctx/dh-g: msg-obj/g  ; generator
                                 ctx/dh-pub: msg-obj/ys
 
-                                ; TODO: the signature sent by server should be verified using DSA or RSA algorithm to be sure the dh-key params are safe
+                                ; TODO: the signature sent by server should be
+                                ; verified using DSA or RSA algorithm to be
+                                ; sure the dh-key params are safe
+
                                 msg-obj
                             ]
-                        ] else [
+
                             fail "Server-key-exchange message sent illegally."
                         ]
                     ]
@@ -1129,18 +1184,16 @@ parse-messages: function [
                     ]
 
                     <client-hello> [
-                        msg-content: copy/part at data 7 len
                         context [
                             type: msg-type
-                            version: select bytes-to-version copy/part at data 5 2
+                            version: grab 'bin 2
                             length: len
-                            content: msg-content
+                            content: bin
                         ]
                     ]
 
                     <finished> [
                         ctx/seq-num-r: 0
-                        msg-content: copy/part at data 5 len
                         who-finished: either ctx/server? [
                             "client finished"
                         ][
@@ -1155,8 +1208,7 @@ parse-messages: function [
                             sha256 ctx/handshake-messages
                         ]
                         if (
-                            msg-content
-                            <> applique 'prf [
+                            bin <> applique 'prf [
                                 ctx: ctx
                                 secret: ctx/master-secret
                                 label: who-finished
@@ -1172,7 +1224,7 @@ parse-messages: function [
                         context [
                             type: msg-type
                             length: len
-                            content: msg-content
+                            content: bin
                         ]
                     ]
                 ]
@@ -1710,10 +1762,12 @@ sys/make-scheme [
                 key-block: _
 
                 certificate: _
-                pub-key: _
-                pub-exp: _
+                rsa-e: _
+                rsa-pub: _
 
-                dh-key: _
+                dh-g: _  ; generator
+                dh-p: _  ; modulus
+                dh-keypair: _
                 dh-pub: _
 
                 encrypt-stream: _

@@ -51,23 +51,6 @@ rsa-make-key: func [
 ]
 
 
-dh-make-key: func [
-    {Creates a key object for Diffie-Hellman algorithm.}
-;NOT YET IMPLEMENTED
-;   /generate
-;       size [integer!] \"Key length\"
-;       generator [integer!] \"Generator number\"
-][
-    make object! [
-        priv-key:   ;private key
-        pub-key:    ;public key
-        g:          ;generator
-        p:          ;prime modulus
-        _
-    ]
-]
-
-
 ; !!! Kludgey export mechanism; review correct approach for modules
 ;
-sys/export [hmac-sha256 rsa-make-key dh-make-key]
+sys/export [hmac-sha256 rsa-make-key]

@@ -470,59 +470,54 @@ REBNATIVE(rsa)
 
 
 //
-//  export dh-generate-key: native [
+//  export dh-generate-keypair: native [
 //
-//  "Update DH object with new DH private/public key pair."
+//  "Generate a new Diffie-Hellman private/public key pair"
 //
-//      return: "No result, object's PRIV-KEY and PUB-KEY members updated"
-//          <void>
-//      obj "(modified) Diffie-Hellman object, with generator(g) / modulus(p)"
+//      return: "Diffie-Hellman object, with P, PRIVATE, and PUBLIC members"
 //          [object!]
+//      g "generator"
+//          [binary!]
+//      p "modulus (saved in the object)"
+//          [binary!]
 //  ]
 //
-REBNATIVE(dh_generate_key)
+REBNATIVE(dh_generate_keypair)
+//
+// !!! A comment in the original Saphirion code said "NOT YET IMPLEMENTED" on:
+//
+//     /generate
+//         size [integer!] "Key length"
+//         generator [integer!] "Generator number"
 {
-    CRYPT_INCLUDE_PARAMS_OF_DH_GENERATE_KEY;
+    CRYPT_INCLUDE_PARAMS_OF_DH_GENERATE_KEYPAIR;
 
     DH_CTX dh_ctx;
     memset(&dh_ctx, 0, sizeof(dh_ctx));
 
-    REBVAL *obj = ARG(obj);
+    dh_ctx.g = VAL_BIN_AT(ARG(g));
+    dh_ctx.glen = rebUnbox("length of", ARG(g), rebEND);
 
-    // !!! This used to ensure that all other fields, besides SELF, were blank
-    //
-    REBVAL *g = rebValue("ensure binary! pick", obj, "'g", rebEND); // generator
-    REBVAL *p = rebValue("ensure binary! pick", obj, "'p", rebEND); // modulus
-
-    dh_ctx.g = VAL_BIN_AT(g);
-    dh_ctx.glen = rebUnbox("length of", g, rebEND);
-
-    dh_ctx.p = VAL_BIN_AT(p);
-    dh_ctx.len = rebUnbox("length of", p, rebEND);
+    dh_ctx.p = VAL_BIN_AT(ARG(p));
+    dh_ctx.len = rebUnbox("length of", ARG(p), rebEND);
 
     // Generate the private and public keys into memory that can be
     // rebRepossess()'d as the memory backing a BINARY! series
     //
-    dh_ctx.x = rebAllocN(REBYTE, dh_ctx.len); // x => private key
+    dh_ctx.x = rebAllocN(REBYTE, dh_ctx.len);  // x => private key
     memset(dh_ctx.x, 0, dh_ctx.len);
-    dh_ctx.gx = rebAllocN(REBYTE, dh_ctx.len); // gx => public key
+    dh_ctx.gx = rebAllocN(REBYTE, dh_ctx.len);  // gx => public key
     memset(dh_ctx.gx, 0, dh_ctx.len);
 
     DH_generate_key(&dh_ctx);
 
-    rebRelease(g);
-    rebRelease(p);
-
-    REBVAL *priv = rebRepossess(dh_ctx.x, dh_ctx.len);
-    REBVAL *pub = rebRepossess(dh_ctx.gx, dh_ctx.len);
-
-    rebElide("poke", obj, "'priv-key", priv, rebEND);
-    rebElide("poke", obj, "'pub-key", pub, rebEND);
-
-    rebRelease(priv);
-    rebRelease(pub);
-
-    return rebVoid();
+    return rebValue(
+        "make object! [",
+            "p:", ARG(p),
+            "private:", rebR(rebRepossess(dh_ctx.x, dh_ctx.len)),
+            "public:", rebR(rebRepossess(dh_ctx.gx, dh_ctx.len)),
+        "]",
+    rebEND);
 }
 
 
@@ -552,7 +547,7 @@ REBNATIVE(dh_compute_key)
     // otherwise gave Error(RE_EXT_CRYPT_INVALID_KEY_FIELD)
 
     REBVAL *p = rebValue("ensure binary! pick", obj, "'p", rebEND);
-    REBVAL *priv_key = rebValue("ensure binary! pick", obj, "'priv-key", rebEND);
+    REBVAL *priv_key = rebValue("ensure binary! pick", obj, "'private", rebEND);
 
     dh_ctx.p = VAL_BIN_AT(p);
     dh_ctx.len = rebUnbox("length of", p, rebEND);
