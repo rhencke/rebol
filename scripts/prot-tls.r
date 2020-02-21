@@ -23,6 +23,8 @@ REBOL [
         work.  But it would involve most of the same general methods, as the
         protocol is fairly symmetrical.
 
+                            !!! IMPORTANT WARNING !!!
+
         While this code encrypts communication according to the TLS protocol
         it does not yet validate certificates.  So it's not checking a site's
         credentials against a trusted certificate chain installed on the local
@@ -30,6 +32,18 @@ REBOL [
         man-in-the-middle attacks:
 
         https://en.wikipedia.org/wiki/Man-in-the-middle_attack
+
+        It also doesn't validate signatures, but for a different reason...many
+        of the signature routines are not built into the executable.  So it
+        lies and says it can check things it cannot, in order to prevent a
+        server from refusing to talk to it at all.
+
+        This is an unfortunate legacy of the code as it was inherited from
+        Saphirion, which there has not been time or resources to devote to
+        improving.  (Keeping it running in an ever-evolving cryptographic
+        environment is nearly a full time job for someone in and of itself.)
+        However, it does serve as a starting point for anyone interested in
+        hacking on a better answer in usermode Rebol.
     }
     Notes: {
         At time of writing (Sept 2018), TLS 1.0 and TLS 1.1 are in the process
@@ -51,12 +65,15 @@ REBOL [
         https://tools.ietf.org/html/rfc7568
     }
     Todo: {
-        -cached sessions
-        -automagic cert data lookup
-        -add more cipher suites
-        -server role support
-        -cert validation
-        -TLS 1.3
+        - cached sessions
+        - automagic cert data lookup
+        - add more cipher suites
+        - server role support
+        - cert validation
+        - TLS 1.3
+        - incorporate native BigNum INTEGER! math when available to do more
+          modular usermode protocols that can be pulled on demand (vs. needing
+          ever more native C crypto code baked in)
     }
 ]
 

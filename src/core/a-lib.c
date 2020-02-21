@@ -145,19 +145,19 @@ void RL_rebEnterApi_internal(void) {
 void *RL_rebMalloc(size_t size)
 {
     REBSER *s = Make_Series_Core(
-        ALIGN_SIZE // stores REBSER* (must be at least big enough for void*)
-            + size // for the actual data capacity (may be 0...see notes)
-            + 1, // for termination (even BINARY! has this, review necessity)
-        sizeof(REBYTE), // rebRepossess() only creates binary series ATM
-        SERIES_FLAG_DONT_RELOCATE // direct data pointer is being handed back!
-            | SERIES_FLAG_ALWAYS_DYNAMIC // rebRepossess() needs bias field
+        ALIGN_SIZE  // stores REBSER* (must be at least big enough for void*)
+            + size  // for the actual data capacity (may be 0, see notes)
+            + 1,  // for termination (AS TEXT! of rebRepossess(), see notes)
+        sizeof(REBYTE),  // rebRepossess() only creates binary series ATM
+        SERIES_FLAG_DONT_RELOCATE  // direct data pointer is being handed back
+            | SERIES_FLAG_ALWAYS_DYNAMIC  // rebRepossess() needs bias field
     );
 
     REBYTE *ptr = BIN_HEAD(s) + ALIGN_SIZE;
 
     REBSER **ps = (cast(REBSER**, ptr) - 1);
-    *ps = s; // save self in bytes *right before* data
-    POISON_MEMORY(ps, sizeof(REBSER*)); // let ASAN catch underruns
+    *ps = s;  // save self in bytes that appear immediately before the data
+    POISON_MEMORY(ps, sizeof(REBSER*));  // let ASAN catch underruns
 
     // !!! The data is uninitialized, and if it is turned into a BINARY! via
     // rebRepossess() before all bytes are assigned initialized, it could be
@@ -196,13 +196,13 @@ void *RL_rebMalloc(size_t size)
 //
 void *RL_rebRealloc(void *ptr, size_t new_size)
 {
-    assert(new_size > 0); // realloc() deprecated this as of C11 DR 400
+    assert(new_size > 0);  // realloc() deprecated this as of C11 DR 400
 
-    if (not ptr) // C realloc() accepts null
+    if (not ptr)  // C realloc() accepts null
         return rebMalloc(new_size);
 
     REBSER **ps = cast(REBSER**, ptr) - 1;
-    UNPOISON_MEMORY(ps, sizeof(REBSER*)); // need to underrun to fetch `s`
+    UNPOISON_MEMORY(ps, sizeof(REBSER*));  // need to underrun to fetch `s`
 
     REBSER *s = *ps;
 
@@ -231,7 +231,7 @@ void RL_rebFree(void *ptr)
         return;
 
     REBSER **ps = cast(REBSER**, ptr) - 1;
-    UNPOISON_MEMORY(ps, sizeof(REBSER*)); // need to underrun to fetch `s`
+    UNPOISON_MEMORY(ps, sizeof(REBSER*));  // need to underrun to fetch `s`
 
     REBSER *s = *ps;
     if (s->header.bits & NODE_FLAG_CELL) {
@@ -277,7 +277,7 @@ void RL_rebFree(void *ptr)
 REBVAL *RL_rebRepossess(void *ptr, size_t size)
 {
     REBSER **ps = cast(REBSER**, ptr) - 1;
-    UNPOISON_MEMORY(ps, sizeof(REBSER*)); // need to underrun to fetch `s`
+    UNPOISON_MEMORY(ps, sizeof(REBSER*));  // need to underrun to fetch `s`
 
     REBSER *s = *ps;
     assert(NOT_SERIES_FLAG(s, MANAGED));
@@ -301,7 +301,7 @@ REBVAL *RL_rebRepossess(void *ptr, size_t size)
     else {
         // Data is in REBSER node itself, no bias.  Just slide the bytes down.
         //
-        memmove( // src overlaps destination, can't use memcpy()
+        memmove(  // src overlaps destination, can't use memcpy()
             BIN_HEAD(s),
             BIN_HEAD(s) + ALIGN_SIZE,
             size
@@ -379,7 +379,7 @@ void RL_rebShutdown(bool clean)
 
   #if defined(NDEBUG)
     if (not clean)
-        return; // Only do the work above this line in an unclean shutdown
+        return;  // Only do the work above this line in an unclean shutdown
   #else
     // Run a clean shutdown anyway in debug builds--even if the caller didn't
     // need it--to see if it triggers any alerts.
@@ -704,8 +704,8 @@ REBVAL *RL_rebArg(unsigned char quotes, const void *p, va_list *vaptr)
     if (not argR)
         return nullptr;
 
-    REBVAL *arg = cast(REBVAL*, c_cast(void*, argR)); // sneaky, but we know!
-    return Move_Value(Alloc_Value(), arg); // don't give REBVAL* arg directly
+    REBVAL *arg = cast(REBVAL*, c_cast(void*, argR));  // sneaky, but we know!
+    return Move_Value(Alloc_Value(), arg);  // don't give REBVAL* arg directly
 }
 
 
@@ -1296,7 +1296,7 @@ REBVAL *RL_rebRescue(
     Push_Action(f, PG_Dummy_Action, UNBOUND);
     Begin_Prefix_Action(f, opt_label);
     assert(IS_END(f->arg));
-    f->param = END_NODE; // signal all arguments gathered
+    f->param = END_NODE;  // signal all arguments gathered
     f->arg = m_cast(REBVAL*, END_NODE);
     f->special = END_NODE;
 
@@ -1308,10 +1308,10 @@ REBVAL *RL_rebRescue(
     // `fail` can longjmp here, so 'error' won't be null *if* that happens!
     //
     if (error_ctx) {
-        assert(f->varlist); // action must be running
-        REBARR *stub = f->varlist; // will be stubbed, with info bits reset
+        assert(f->varlist);  // action must be running
+        REBARR *stub = f->varlist;  // will be stubbed, with info bits reset
         Drop_Action(f);
-        SET_SERIES_FLAG(stub, VARLIST_FRAME_FAILED); // signal API leaks ok
+        SET_SERIES_FLAG(stub, VARLIST_FRAME_FAILED);  // signal API leaks ok
         Abort_Frame(f);
         return Init_Error(Alloc_Value(), error_ctx);
     }
@@ -1330,7 +1330,7 @@ REBVAL *RL_rebRescue(
     DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
 
     if (not result)
-        return nullptr; // null is considered a legal result
+        return nullptr;  // null is considered a legal result
 
     // Analogous to how TRAP works, if you don't have a handler for the
     // error case then you can't return an ERROR!, since all errors indicate
@@ -1344,16 +1344,16 @@ REBVAL *RL_rebRescue(
     }
 
     if (not Is_Api_Value(result))
-        return result; // no proxying needed
+        return result;  // no proxying needed
 
-    assert(not IS_NULLED(result)); // leaked API nulled cell (not nullptr)
+    assert(not IS_NULLED(result));  // leaked API nulled cell (not nullptr)
 
     // !!! We automatically proxy the ownership of any managed handles to the
     // caller.  Any other handles that leak out (e.g. via state) will not be
     // covered by this, and would have to be unmanaged.  Do another allocation
     // just for the sake of it.
 
-    REBVAL *proxy = Move_Value(Alloc_Value(), result); // parent is not f
+    REBVAL *proxy = Move_Value(Alloc_Value(), result);  // parent is not f
     rebRelease(result);
     return proxy;
 }
@@ -1367,8 +1367,8 @@ REBVAL *RL_rebRescue(
 // Ruby's rescue2 operation.
 //
 REBVAL *RL_rebRescueWith(
-    REBDNG *dangerous, // !!! pure C function only if not using throw/catch!
-    REBRSC *rescuer, // errors in the rescuer function will *not* be caught
+    REBDNG *dangerous,  // !!! pure C function only if not using throw/catch!
+    REBRSC *rescuer,  // errors in the rescuer function will *not* be caught
     void *opaque
 ){
     struct Reb_State state;
@@ -1382,18 +1382,18 @@ REBVAL *RL_rebRescueWith(
     if (error_ctx) {
         REBVAL *error = Init_Error(Alloc_Value(), error_ctx);
 
-        REBVAL *result = (*rescuer)(error, opaque); // *not* guarded by trap!
+        REBVAL *result = (*rescuer)(error, opaque);  // *not* guarded by trap!
 
         rebRelease(error);
-        return result; // no special handling, may be null
+        return result;  // no special handling, may be null
     }
 
-    REBVAL *result = (*dangerous)(opaque); // guarded by trap
-    assert(not IS_NULLED(result)); // nulled cells not exposed by API
+    REBVAL *result = (*dangerous)(opaque);  // guarded by trap
+    assert(not IS_NULLED(result));  // nulled cells not exposed by API
 
     DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
 
-    return result; // no special handling, may be NULL
+    return result;  // no special handling, may be NULL
 }
 
 
@@ -1564,7 +1564,7 @@ const void *RL_rebRELEASING(REBVAL *v)
         fail ("Cannot apply rebR() more than once to the same API value");
 
     SET_ARRAY_FLAG(a, SINGULAR_API_RELEASE);
-    return a; // returned as const void* to discourage use outside variadics
+    return a;  // returned as const void* to discourage use outside variadics
 }
 
 
@@ -1642,7 +1642,7 @@ void RL_rebUnmanage(void *p)
 void RL_rebRelease(const REBVAL *v)
 {
     if (not v)
-        return; // less rigorous, but makes life easier for C programmers
+        return;  // less rigorous, but makes life easier for C programmers
 
     if (not Is_Api_Value(v))
         panic ("Attempt to rebRelease() a non-API handle");
@@ -1730,7 +1730,7 @@ REBVAL *RL_rebError_OS(int errnum)  // see also convenience macro rebFail_OS()
     if (errnum == 0)
         errnum = GetLastError();
 
-    WCHAR *lpMsgBuf; // FormatMessage writes allocated buffer address here
+    WCHAR *lpMsgBuf;  // FormatMessage writes allocated buffer address here
 
     // Specific errors have %1 %2 slots, and if you know the error ID and
     // that it's one of those then this lets you pass arguments to fill
