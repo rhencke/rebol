@@ -131,6 +131,10 @@ void RL_rebEnterApi_internal(void) {
 //
 // * Because of the above points, null is *never* returned.
 //
+// * In order to make it possible to rebRepossess() the memory as a BINARY!
+//   that is then safe to alias as text, it always has an extra 0 byte at
+//   the end of the data area.
+//
 // * It tries to be like malloc() by giving back a pointer "suitably aligned
 //   for the size of any fundamental type".  See notes on ALIGN_SIZE.
 //
@@ -1026,7 +1030,8 @@ char *RL_rebSpell(
         return nullptr;  // NULL is passed through, for opting out
 
     size_t size = rebSpellIntoQ(nullptr, 0, v, rebEND);
-    char *result = cast(char*, rebMalloc(size + 1)); // add space for term
+    char *result = cast(char*, rebMalloc(size));  // no +1 for term needed...
+    assert(result[size] == '\0');  // ...see rebRepossess() for why this is
     rebSpellIntoQ(result, size, v, rebEND);
     return result;
 }
@@ -1152,12 +1157,11 @@ size_t RL_rebBytesInto(
 
     if (not buf) {
         assert(buf_size == 0);
-        return size;  // currently, caller must allocate a buffer of size + 1
+        return size;  // exact size ('\0' only on rebRepossess()-able memory)
     }
 
     REBSIZ limit = MIN(buf_size, size);
     memcpy(s_cast(buf), cs_cast(VAL_BIN_AT(binary)), limit);
-    buf[limit] = '\0';
     return size;
 }
 
@@ -1187,7 +1191,8 @@ unsigned char *RL_rebBytes(
 
     if (ANY_WORD(series) or ANY_STRING(series)) {
         *size_out = rebSpellIntoQ(nullptr, 0, series, rebEND);
-        char *result = rebAllocN(char, (*size_out + 1));
+        char *result = rebAllocN(char, *size_out);  // no +1 needed...
+        assert(result[*size_out] == '\0');  // ...see rebRepossess() for why
         size_t check = rebSpellIntoQ(
             result,
             *size_out,
@@ -1200,7 +1205,8 @@ unsigned char *RL_rebBytes(
 
     if (IS_BINARY(series)) {
         *size_out = rebBytesIntoQ(nullptr, 0, series, rebEND);
-        unsigned char *result = rebAllocN(REBYTE, (*size_out + 1));
+        unsigned char *result = rebAllocN(REBYTE, *size_out);
+        assert(*size_out == '\0');  // ...see rebRepossess() for why this is
         size_t check = rebBytesIntoQ(
             result,
             *size_out,

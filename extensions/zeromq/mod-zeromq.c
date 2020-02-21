@@ -218,7 +218,7 @@ REBNATIVE(zmq_msg_init_data) {
     zmq_msg_t *msg = VAL_HANDLE_POINTER(zmq_msg_t, ARG(msg));
 
     size_t msg_size = rebBytesIntoQ(nullptr, 0, ARG(data));  // query size
-    REBYTE *msg_data = cast(REBYTE*, malloc(msg_size + 1));
+    REBYTE *msg_data = cast(REBYTE*, malloc(msg_size));
     if (not msg_data)
         rebJumps ("FAIL {Insufficient memory for msg_data}");
 
