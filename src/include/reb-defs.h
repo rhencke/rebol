@@ -259,6 +259,35 @@ typedef REB_R (MAKE_HOOK)(
 typedef REB_R (TO_HOOK)(REBVAL*, enum Reb_Kind, const REBVAL*);
 
 
+//=//// STRING MODES //////////////////////////////////////////////////////=//
+//
+// Ren-C is prescriptive about disallowing 0 bytes in strings to more safely
+// use the rebSpell() API, which only returns a pointer and must interoperate
+// with C.  It enforces the use of BINARY! if you want to embed 0 bytes (and
+// using the rebBytes() API, which always returns a size.)
+//
+// Additionally, it tries to build on Rebol's historical concept of unifying
+// strings within the system to use LF-only.  But rather than try "magic" to
+// filter out CR LF sequences (and "magically" put them back later), it adds
+// in speedbumps to try and stop CR from casually getting into strings.  Then
+// it encourages active involvement at the source level with functions like
+// ENLINE and DELINE when a circumstance can't be solved by standardizing the
+// data sources themselves:
+//
+// https://forum.rebol.info/t/1264
+//
+// Note: These policies may over time extend to adding more speedbumps for
+// other invisibles, e.g. choosing prescriptivisim about tab vs. space also.
+//
+
+enum Reb_Strmode {
+    STRMODE_ALL_CODEPOINTS,  // all codepoints allowed but 0
+    STRMODE_NO_CR,  // carriage returns not legal
+    STRMODE_CRLF_TO_LF,  // convert CR LF to LF (error on isolated CR or LF)
+    STRMODE_LF_TO_CRLF  // convert plain LF to CR LF (error on stray CR)
+};
+
+
 //=//// MOLDING ///////////////////////////////////////////////////////////=//
 //
 struct rebol_mold;

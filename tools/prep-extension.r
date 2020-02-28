@@ -77,10 +77,7 @@ verbose: false
 proto-count: 0
 module-header: _
 
-source.text: read c-src
-if system/version > 2.100.0 [  ; !!! Why is this necessary?
-    source.text: deline to-text source.text
-] 
+source.text: read/string c-src
 
 ; When the header information in the comments at the top of the file is
 ; seen, save it into a variable.

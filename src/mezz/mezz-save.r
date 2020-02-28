@@ -15,6 +15,22 @@ REBOL [
     }
 ]
 
+
+; Help try to avoid introducing CR into strings, and subvert the default
+; checking on output that text does not contain CR bytes.
+;
+write-enlined: redescribe [
+    {Write out a TEXT! with its LF sequences translated to CR LF}
+](
+    adapt 'write [
+        if not text? data [
+            fail ["WRITE-ENLINED only works on TEXT! data"]
+        ]
+        data: as binary! enline copy data
+    ]
+)
+
+
 mold64: function [
     "Temporary function to mold binary base 64." ; fix the need for this! -CS
     data

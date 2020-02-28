@@ -867,13 +867,11 @@ inline static REBLEN Num_Codepoints_For_Bytes(
     Make_String_Core((encoded_capacity), SERIES_FLAGS_NONE)
 
 inline static REBSTR *Make_String_UTF8(const char *utf8) {
-    const bool crlf_to_lf = false;
-    return Append_UTF8_May_Fail(NULL, utf8, strsize(utf8), crlf_to_lf);
+    return Append_UTF8_May_Fail(NULL, utf8, strsize(utf8), STRMODE_NO_CR);
 }
 
 inline static REBSTR *Make_Sized_String_UTF8(const char *utf8, size_t size) {
-    const bool crlf_to_lf = false;
-    return Append_UTF8_May_Fail(NULL, utf8, size, crlf_to_lf);
+    return Append_UTF8_May_Fail(NULL, utf8, size, STRMODE_NO_CR);
 }
 
 

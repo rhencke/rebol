@@ -231,9 +231,10 @@ do-request: function [
     info/headers: info/response-line: info/response-parsed: port/data:
     info/size: info/date: info/name: blank
     write port/state/connection
-    req: make-http-request spec/method any [spec/path %/]
-    spec/headers spec/content
-    net-log/C to text! req
+    req: (make-http-request spec/method any [spec/path %/]
+        spec/headers spec/content)
+
+    net-log/C as text! req  ; Note: may contain CR (can't use TO TEXT!)
 ]
 
 ; if a no-redirect keyword is found in the write dialect after 'headers then
@@ -489,7 +490,7 @@ check-response: function [port] [
 ]
 crlfbin: #{0D0A}
 crlf2bin: #{0D0A0D0A}
-crlf2: to text! crlf2bin
+crlf2: as text! crlf2bin
 http-response-headers: context [
     Content-Length: _
     Transfer-Encoding: _

@@ -984,6 +984,127 @@ REBNATIVE(free_q)
 
 
 //
+//  As_String_May_Fail: C
+//
+// Shared code from the refinement-bearing AS-TEXT and AS TEXT!.
+//
+bool Try_As_String(
+    REBVAL *out,
+    enum Reb_Kind new_kind,
+    const REBVAL *v,
+    REBLEN quotes,
+    enum Reb_Strmode strmode
+){
+    assert(strmode == STRMODE_ALL_CODEPOINTS or strmode == STRMODE_NO_CR);
+
+    if (ANY_WORD(v)) {  // ANY-WORD! can alias as a read only ANY-STRING!
+        Init_Any_String(out, new_kind, VAL_WORD_SPELLING(v));
+        Inherit_Const(Quotify(out, quotes), v);
+    }
+    else if (IS_BINARY(v)) {  // If valid UTF-8, BINARY! aliases as ANY-STRING!
+        REBBIN *bin = VAL_SERIES(v);
+        REBSIZ offset = VAL_INDEX(v);
+
+        // The position in the binary must correspond to an actual
+        // codepoint boundary.  UTF-8 continuation byte is any byte where
+        // top two bits are 10.
+        //
+        // !!! Should this be checked before or after the valid UTF-8?
+        // Checking before keeps from constraining input on errors, but
+        // may be misleading by suggesting a valid "codepoint" was seen.
+        //
+        REBYTE *at_ptr = BIN_AT(bin, offset);
+        if (Is_Continuation_Byte_If_Utf8(*at_ptr))
+            fail ("Index at codepoint to convert binary to ANY-STRING!");
+
+        REBSTR *str;
+        REBLEN index;
+        if (
+            NOT_SERIES_FLAG(bin, IS_STRING)
+            or strmode != STRMODE_ALL_CODEPOINTS
+        ){
+            // If the binary wasn't created as a view on string data to
+            // start with, there's no assurance that it's actually valid
+            // UTF-8.  So we check it and cache the length if so.  We
+            // can do this if it's locked, but not if it's just const...
+            // because we may not have the right to.
+            //
+            // Regardless of aliasing, not using STRMODE_ALL_CODEPOINTS means
+            // a valid UTF-8 string may have been edited to include CRs.
+            //
+            if (not Is_Series_Frozen(bin))
+                if (GET_CELL_FLAG(v, CONST))
+                    fail (Error_Alias_Constrains_Raw());
+
+            bool all_ascii = true;
+            REBLEN num_codepoints = 0;
+
+            index = 0;
+
+            REBSIZ bytes_left = BIN_LEN(bin);
+            const REBYTE *bp = BIN_HEAD(bin);
+            for (; bytes_left > 0; --bytes_left, ++bp) {
+                if (bp < at_ptr)
+                    ++index;
+
+                REBUNI c = *bp;
+                if (c < 0x80)
+                    Validate_Ascii_Byte(*bp, strmode);
+                else {
+                    bp = Back_Scan_UTF8_Char(&c, bp, &bytes_left);
+                    if (bp == NULL)  // !!! Should Back_Scan() fail?
+                        fail (Error_Bad_Utf8_Raw());
+
+                    all_ascii = false;
+                }
+
+                ++num_codepoints;
+            }
+            SET_SERIES_FLAG(bin, IS_STRING);
+            SET_SERIES_FLAG(bin, UTF8_NONWORD);
+            str = STR(bin);
+
+            SET_STR_LEN_SIZE(str, num_codepoints, BIN_LEN(bin));
+            LINK(bin).bookmarks = nullptr;
+
+            // !!! TBD: cache index/offset
+
+            UNUSED(all_ascii);  // TBD: maintain cache
+        }
+        else {
+            // !!! It's a string series, but or mapping acceleration is
+            // from index to offset... not offset to index.  Recalculate
+            // the slow way for now.
+
+            str = STR(bin);
+            index = 0;
+
+            REBCHR(*) cp = STR_HEAD(str);
+            REBLEN len = STR_LEN(str);
+            while (index < len and cp != at_ptr) {
+                ++index;
+                cp = NEXT_STR(cp);
+            }
+        }
+
+        Init_Any_String_At(out, new_kind, str, index);
+        Inherit_Const(Quotify(out, quotes), v);
+    }
+    else if (ANY_STRING(v)) {
+        Move_Value(out, v);
+        mutable_KIND_BYTE(out)
+            = mutable_MIRROR_BYTE(out)
+            = new_kind;
+        Trust_Const(Quotify(out, quotes));
+    }
+    else
+        return false;
+
+    return true;
+}
+
+
+//
 //  as: native [
 //
 //  {Aliases underlying data of one value to act as another of same class}
@@ -1056,98 +1177,17 @@ REBNATIVE(as)
       case REB_TAG:
       case REB_FILE:
       case REB_URL:
-      case REB_EMAIL: {
-        if (ANY_WORD(v)) {  // ANY-WORD! can alias as a read only ANY-STRING!
-            Init_Any_String(D_OUT, new_kind, VAL_WORD_SPELLING(v));
-            return Inherit_Const(Quotify(D_OUT, quotes), v);
-        }
-
-        if (IS_BINARY(v)) {  // If valid UTF-8, BINARY! aliases as ANY-STRING!
-            REBBIN *bin = VAL_SERIES(v);
-            REBSIZ offset = VAL_INDEX(v);
-
-            // The position in the binary must correspond to an actual
-            // codepoint boundary.  UTF-8 continuation byte is any byte where
-            // top two bits are 10.
-            //
-            // !!! Should this be checked before or after the valid UTF-8?
-            // Checking before keeps from constraining input on errors, but
-            // may be misleading by suggesting a valid "codepoint" was seen.
-            //
-            REBYTE *at_ptr = BIN_AT(bin, offset);
-            if (Is_Continuation_Byte_If_Utf8(*at_ptr))
-                fail ("Index at codepoint to convert binary to ANY-STRING!");
-
-            REBSTR *str;
-            REBLEN index;
-            if (NOT_SERIES_FLAG(bin, IS_STRING)) {
-                //
-                // If the binary wasn't created as a view on string data to
-                // start with, there's no assurance that it's actually valid
-                // UTF-8.  So we check it and cache the length if so.  We
-                // can do this if it's locked, but not if it's just const...
-                // because we may not have the right to.
-                //
-                if (not Is_Series_Frozen(bin))
-                    if (GET_CELL_FLAG(v, CONST))
-                        fail (Error_Alias_Constrains_Raw());
-
-                bool all_ascii = true;
-                REBLEN num_codepoints = 0;
-
-                index = 0;
-
-                REBSIZ bytes_left = BIN_LEN(bin);
-                const REBYTE *bp = BIN_HEAD(bin);
-                for (; bytes_left > 0; --bytes_left, ++bp) {
-                    if (bp < at_ptr)
-                        ++index;
-
-                    REBUNI c = *bp;
-                    if (c >= 0x80) {
-                        bp = Back_Scan_UTF8_Char(&c, bp, &bytes_left);
-                        if (bp == NULL)  // !!! Should Back_Scan() fail?
-                            fail (Error_Bad_Utf8_Raw());
-
-                        all_ascii = false;
-                    }
-
-                    ++num_codepoints;
-                }
-                SET_SERIES_FLAG(bin, IS_STRING);
-                SET_SERIES_FLAG(bin, UTF8_NONWORD);
-                str = STR(bin);
-
-                SET_STR_LEN_SIZE(str, num_codepoints, BIN_LEN(bin));
-                LINK(bin).bookmarks = nullptr;
-
-                // !!! TBD: cache index/offset
-
-                UNUSED(all_ascii);  // TBD: maintain cache
-            }
-            else {
-                // !!! It's a string series, but or mapping acceleration is
-                // from index to offset... not offset to index.  Recalculate
-                // the slow way for now.
-
-                str = STR(bin);
-                index = 0;
-
-                REBCHR(*) cp = STR_HEAD(str);
-                REBLEN len = STR_LEN(str);
-                while (index < len and cp != at_ptr) {
-                    ++index;
-                    cp = NEXT_STR(cp);
-                }
-            }
-
-            Init_Any_String_At(D_OUT, new_kind, str, index);
-            return Inherit_Const(Quotify(D_OUT, quotes), v);
-        }
-
-        if (not ANY_STRING(v))
+      case REB_EMAIL:
+        if (not Try_As_String(
+            D_OUT, 
+            new_kind,
+            v,
+            quotes,
+            STRMODE_ALL_CODEPOINTS  // See AS-TEXT/STRICT for stricter
+        )){
             goto bad_cast;
-        break; }
+        }
+        return D_OUT;
 
       case REB_WORD:
       case REB_GET_WORD:
@@ -1251,6 +1291,44 @@ REBNATIVE(as)
         = mutable_MIRROR_BYTE(D_OUT)
         = new_kind;
     return Trust_Const(Quotify(D_OUT, quotes));
+}
+
+
+//
+//  as-text: native [
+//      {AS TEXT! variant that may disallow CR LF sequences in BINARY! alias}
+//
+//      return: [<opt> text!]
+//      value [<blank> any-value!]
+//      /strict "Don't allow CR LF sequences in the alias"
+//  ]
+//
+REBNATIVE(as_text)
+{
+    INCLUDE_PARAMS_OF_AS_TEXT;
+
+    REBVAL *v = ARG(value);
+    Dequotify(v);  // number of incoming quotes not relevant
+    if (not ANY_SERIES(v) and not ANY_WORD(v) and not ANY_PATH(v))
+        fail (PAR(value));
+
+    const REBLEN quotes = 0;  // constant folding (see AS behavior)
+
+    enum Reb_Kind new_kind = REB_TEXT;
+    if (new_kind == VAL_TYPE(v) and not REF(strict))
+        RETURN (Quotify(v, quotes));  // just may change quotes
+
+    if (not Try_As_String(
+        D_OUT,
+        REB_TEXT,
+        v,
+        quotes,
+        REF(strict) ? STRMODE_NO_CR : STRMODE_ALL_CODEPOINTS
+    )){
+        fail (Error_Bad_Cast_Raw(v, Datatype_From_Kind(REB_TEXT)));
+    }
+
+    return D_OUT;
 }
 
 

@@ -499,14 +499,91 @@ DEVICE_CMD Write_File(REBREQ *file)
                 rebFail_OS (errno);
     }
 
+    req->actual = 0;  // count actual bytes written as we go along
+
     if (req->length == 0)
         return DR_DONE;
 
-    ssize_t bytes = write(req->requestee.id, req->common.data, req->length);
-    if (bytes < 0)
-        rebFail_OS (errno);
+    // !!! This repeats code in %file-windows.c for doing CR LF handling.
+    // See the notes there.  This needs to be captured in some kind of
+    // streaming codec built on a byte-level service.
+    //
+    const Reb_Strmode strmode = STRMODE_NO_CR;  // we assume this for now
 
-    req->actual = bytes;
+    if (not (req->modes & RFM_TEXT) or strmode == STRMODE_ALL_CODEPOINTS) {
+        //
+        // no LF => CR LF translation or error checking needed
+        //
+        assert(req->length != 0);  // checked above
+        ssize_t bytes = write(
+            req->requestee.id,
+            req->common.data,
+            req->length
+        );
+        if (bytes < 0)
+            rebFail_OS (errno);
+
+        req->actual = bytes;
+    }
+    else {
+        unsigned int start = 0;
+        unsigned int end = 0;
+
+        while (true) {
+            for (; end < req->length; ++end) {
+                switch (strmode) {
+                  case STRMODE_NO_CR:
+                    if (req->common.data[end] == CR)
+                        fail (Error_Illegal_Cr_Raw());  // !!! cleanup file?
+                    break;
+
+                  case STRMODE_LF_TO_CRLF:
+                    if (req->common.data[end] == CR)  // be strict, for sanity
+                        fail (Error_Illegal_Cr_Raw());  // !!! cleanup file?
+                    if (req->common.data[end] == LF)
+                        goto exit_loop;
+                    break;
+
+                  default:
+                    assert(!"Branch supports LF_TO_CRLF or NO_CR strmodes");
+                    break;
+                }
+            }
+
+          exit_loop:;
+            if (start != end) {
+                ssize_t bytes = write(
+                    req->requestee.id,
+                    req->common.data,
+                    req->length
+                );
+                if (bytes < 0)
+                    rebFail_OS (errno);
+                req->actual += bytes;
+            }
+
+            if (req->common.data[end] == '\0')
+                break;
+
+            assert(strmode == STRMODE_LF_TO_CRLF);
+            assert(req->common.data[end] == LF);
+
+            blockscope {
+                ssize_t bytes = write(
+                    req->requestee.id,
+                    req->common.data,
+                    req->length
+                );
+                if (bytes < 0)
+                    rebFail_OS (errno);
+                req->actual += bytes;
+            }
+
+            ++end;
+            start = end;
+        }
+    }
+
     return DR_DONE;
 }
 

@@ -393,7 +393,21 @@ DEVICE_CMD Write_File(REBREQ *file)
             SetEndOfFile(req->requestee.handle);
     }
 
-    if (not (req->modes & RFM_TEXT)) { // no LF => CR LF translation needed
+    // !!! We now are operating on the belief that CR LF does not count in the
+    // nominal idea of what a "text" file format is, so any CRs in the file
+    // trigger the need to use special codec settings or to write the file as
+    // binary (where the CR LF is handled by the person building and working
+    // with the strings, e.g. WRITE ENLINE STR).
+    //
+    // We save the translation code in case this winds up being used in a
+    // codec, but default to just making CRs completely illegal.
+    //
+    const Reb_Strmode strmode = STRMODE_NO_CR;
+
+    if (not (req->modes & RFM_TEXT) or strmode == STRMODE_ALL_CODEPOINTS) {
+        //
+        // no LF => CR LF translation or error checking needed
+        //
         if (req->length != 0) {
             BOOL ok = WriteFile(
                 req->requestee.handle,
@@ -417,8 +431,27 @@ DEVICE_CMD Write_File(REBREQ *file)
         req->actual = 0; // count actual bytes written as we go along
 
         while (true) {
-            while (end < req->length && req->common.data[end] != '\n')
-                ++end;
+            for (; end < req->length; ++end) {
+                switch (strmode) {
+                  case STRMODE_NO_CR:
+                    if (req->common.data[end] == CR)
+                        fail (Error_Illegal_Cr_Raw());  // !!! cleanup file?
+                    break;
+
+                  case STRMODE_LF_TO_CRLF:
+                    if (req->common.data[end] == CR)  // be strict, for sanity
+                        fail (Error_Illegal_Cr_Raw());  // !!! cleanup file?
+                    if (req->common.data[end] == LF)
+                        goto exit_loop;
+                    break;
+
+                  default:
+                    assert(!"Branch supports LF_TO_CRLF or NO_CR strmodes");
+                    break;
+                }
+            }
+
+          exit_loop:;
             DWORD total_bytes;
 
             if (start != end) {
@@ -437,7 +470,9 @@ DEVICE_CMD Write_File(REBREQ *file)
             if (req->common.data[end] == '\0')
                 break;
 
-            assert(req->common.data[end] == '\n');
+            assert(strmode == STRMODE_LF_TO_CRLF);
+            assert(req->common.data[end] == LF);
+
             BOOL ok = WriteFile(
                 req->requestee.handle,
                 "\r\n",

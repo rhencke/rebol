@@ -552,49 +552,76 @@ REBNATIVE(dehex)
 //
 //  {Converts string terminators to standard format, e.g. CR LF to LF.}
 //
-//      return: [any-string! block!]
-//      string "Will be modified (unless /LINES used)"
-//          [any-string!]
-//      /lines "Return block of lines (works for LF, CR, CR-LF endings)"
+//      return: [text! block!]
+//      input "Will be modified (unless /LINES used)"
+//          [text! binary!]
+//      /lines "Return block of lines (works for LF, CR-LF endings)"
 //  ]
 //
 REBNATIVE(deline)
 {
     INCLUDE_PARAMS_OF_DELINE;
 
-    REBVAL *val = ARG(string);
+    // AS TEXT! verifies the UTF-8 validity of a BINARY!, and checks for any
+    // embedded '\0' bytes, illegal in texts...without copying the input.
+    //
+    REBVAL *input = rebValue("as text!", ARG(input), rebEND);
 
-    if (REF(lines))
-        return Init_Block(D_OUT, Split_Lines(val));
+    if (REF(lines)) {
+        Init_Block(D_OUT, Split_Lines(input));
+        rebRelease(input);
+        return D_OUT;
+    }
 
-    REBSTR *s = VAL_STRING(val);
+    REBSTR *s = VAL_STRING(input);
     REBLEN len_head = STR_LEN(s);
 
-    REBLEN len_at = VAL_LEN_AT(val);
+    REBLEN len_at = VAL_LEN_AT(input);
 
-    REBCHR(*) dest = VAL_STRING_AT(val);
+    REBCHR(*) dest = VAL_STRING_AT(input);
     REBCHR(const*) src = dest;
+
+    // DELINE tolerates either LF or CR LF, in order to avoid disincentivizing
+    // remote data in CR LF format from being "fixed" to pure LF format, for
+    // fear of breaking someone else's script.  However, files must be in
+    // *all* CR LF or *all* LF format.  If they are mixed they are considered
+    // to be malformed...and need custom handling.
+    //
+    bool seen_a_cr_lf = false;
+    bool seen_a_lone_lf = false;
 
     REBLEN n;
     for (n = 0; n < len_at;) {
         REBUNI c;
         src = NEXT_CHR(&c, src);
         ++n;
+        if (c == LF) {
+            if (seen_a_cr_lf)
+                fail (Error_Mixed_Cr_Lf_Found_Raw());
+            seen_a_lone_lf = true;
+        }
+
         if (c == CR) {
+            if (seen_a_lone_lf)
+                fail (Error_Mixed_Cr_Lf_Found_Raw());
+
             dest = WRITE_CHR(dest, LF);
             src = NEXT_CHR(&c, src);
-            ++n; // will see NUL terminator before loop check, so is safe
+            ++n;  // will see '\0' terminator before loop check, so is safe
             if (c == LF) {
-                --len_head; // don't write carraige return, note loss of char
+                --len_head;  // don't write carraige return, note loss of char
+                seen_a_cr_lf = true;
                 continue;
             }
+            // DELINE requires any CR to be followed by an LF
+            fail (Error_Illegal_Cr_Raw());
         }
         dest = WRITE_CHR(dest, c);
     }
 
-    TERM_STR_LEN_SIZE(s, len_head, dest - VAL_STRING_AT(val));
+    TERM_STR_LEN_SIZE(s, len_head, dest - VAL_STRING_AT(input));
 
-    RETURN (ARG(string));
+    return input;
 }
 
 
@@ -631,14 +658,17 @@ REBNATIVE(enline)
 
     REBCHR(*) cp = STR_AT(s, idx);
 
+    bool relax = false;  // !!! in case we wanted to tolerate CR LF already?
     REBUNI c_prev = '\0';
 
     REBLEN n;
     for (n = 0; n < len; ++n) {
         REBUNI c;
         cp = NEXT_CHR(&c, cp);
-        if (c == LF and c_prev != CR)
+        if (c == LF and (not relax or c_prev != CR))
             ++delta;
+        if (c == CR and not relax)  // !!! Note: `relax` fixed at false, ATM
+            fail (Error_Illegal_Cr_Raw());
         c_prev = c;
     }
 
@@ -662,8 +692,17 @@ REBNATIVE(enline)
     // Add missing CRs
 
     while (delta > 0) {
-        bp[tail--] = bp[size]; // Copy src to dst.
-        if (bp[size] == LF and (size == 0 or bp[size - 1] != CR)) {
+
+        bp[tail--] = bp[size];  // Copy src to dst.
+
+        if (
+            bp[size] == LF
+            and (
+                not relax  // !!! Note: `relax` fixed at false, ATM
+                or size == 0
+                or bp[size - 1] != CR
+            )
+        ){
             bp[tail--] = CR;
             --delta;
         }

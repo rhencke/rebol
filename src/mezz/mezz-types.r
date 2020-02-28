@@ -21,17 +21,17 @@ REBOL [
 ; These must be listed explicitly in order for the words to be collected
 ; as legal "globals" for the mezzanine context (otherwise SET would fail)
 
-; Note that TO-LOGIC, TO-INTEGER are currently their own natives (even with
-; additional refinements), and thus should not be overwritten here
+; Note that TO-LOGIC, TO-INTEGER, and TO-TEXT are currently their own natives
+; (even with additional refinements), and thus should not be overwritten here.
 
 to-decimal: to-percent: to-money: to-char: to-pair:
 to-tuple: to-time: to-date: to-binary: to-file: to-email: to-url: to-tag:
-to-text: to-bitset: to-image: to-vector: to-block: to-group:
+to-bitset: to-image: to-vector: to-block: to-group:
 to-path: to-set-path: to-get-path: to-map: to-datatype: to-typeset:
 to-word: to-set-word: to-get-word: to-issue:
 to-function: to-object: to-module: to-error: to-port:
 to-gob: to-event:
-    blank
+    void
 
 ; Auto-build the functions for the above TO-* words.
 use [word] [
@@ -42,7 +42,7 @@ use [word] [
         ; overwrite any NATIVE! implementations.  (e.g. TO-INTEGER is a
         ; native with a refinement for interpreting as unsigned.)
 
-        if (word: in lib word) and [blank? get word] [
+        if (word: in lib word) and [undefined? word] [
             set word redescribe compose [
                 (spaced ["Converts to" form type "value."])
             ](

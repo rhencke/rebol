@@ -1106,7 +1106,7 @@ const REBYTE *Scan_URL(
     const REBYTE *cp,
     REBLEN len
 ){
-    return Scan_Any(out, cp, len, REB_URL);
+    return Scan_Any(out, cp, len, REB_URL, STRMODE_NO_CR);
 }
 
 
@@ -1266,7 +1266,8 @@ const REBYTE *Scan_Any(
     RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
     REBLEN num_bytes,
-    enum Reb_Kind type
+    enum Reb_Kind type,
+    enum Reb_Strmode strmode
 ) {
     TRASH_CELL_IF_DEBUG(out);
 
@@ -1281,9 +1282,16 @@ const REBYTE *Scan_Any(
     //
     // http://blog.hostilefork.com/death-to-carriage-return/
     //
-    bool crlf_to_lf = true;
-
-    REBSTR *s = Append_UTF8_May_Fail(NULL, cs_cast(cp), num_bytes, crlf_to_lf);
+    // So at time of writing it is always STRMODE_NO_CR, but the option is
+    // being left open to make the scanner flexible in this respect...to
+    // either convert CR LF sequences to just LF, or to preserve the CR.
+    //
+    REBSTR *s = Append_UTF8_May_Fail(
+        nullptr,
+        cs_cast(cp),
+        num_bytes,
+        strmode
+    );
     Init_Any_String(out, type, s);
 
     return cp + num_bytes;

@@ -19,8 +19,6 @@ do %native-emitters.r ;for emit-native-proto
 
 print "------ Generate tmp-natives.r"
 
-r3: system/version > 2.100.0
-
 src-dir: %../src
 output-dir: system/options/path/prep
 mkdir/deep output-dir/boot
@@ -36,8 +34,7 @@ process: function [
     the-file: file
     if verbose [probe [file]]
 
-    source.text: read join src-dir/core/% file
-    if r3 [source.text: deline to-text source.text]
+    source.text: read/string join src-dir/core/% file
     proto-parser/emit-proto: :emit-native-proto
     proto-parser/process source.text
 ]

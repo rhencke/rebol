@@ -328,11 +328,16 @@ REBLEN find_string(
 // Note also the existence of AS should be able to reduce copying, e.g.
 // `print ["spelling is" as string! word]` will be cheaper than TO or MAKE.
 //
-static REBSTR *MAKE_TO_String_Common(const REBVAL *arg)
-{
+static REBSTR *MAKE_TO_String_Common(
+    const REBVAL *arg,
+    enum Reb_Strmode strmode
+){
     if (IS_BINARY(arg))
-        return Make_Sized_String_UTF8(
-            cs_cast(VAL_BIN_AT(arg)), VAL_LEN_AT(arg)
+        return Append_UTF8_May_Fail(
+            nullptr,
+            cs_cast(VAL_BIN_AT(arg)),
+            VAL_LEN_AT(arg),
+            strmode
         );
 
     if (ANY_STRING(arg))
@@ -398,7 +403,11 @@ REB_R MAKE_String(
         return Init_Any_Series_At(out, kind, VAL_SERIES(first), i);
     }
 
-    return Init_Any_String(out, kind, MAKE_TO_String_Common(def));
+    return Init_Any_String(
+        out,
+        kind,
+        MAKE_TO_String_Common(def, STRMODE_NO_CR)
+    );
 
   bad_make:
     fail (Error_Bad_Make(kind, def));
@@ -410,7 +419,35 @@ REB_R MAKE_String(
 //
 REB_R TO_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    return Init_Any_String(out, kind, MAKE_TO_String_Common(arg));
+    return Init_Any_String(
+        out,
+        kind,
+        MAKE_TO_String_Common(arg, STRMODE_NO_CR)
+    );
+}
+
+
+//
+//  to-text: native [
+//      {Variant of TO TEXT! with option to tolerate invisible codepoints}
+//
+//      return: [<opt> text!]
+//      value [<blank> any-value!]
+//      /relax "Allow invisible codepoints like CR when converting BINARY!"
+//  ]
+//
+REBNATIVE(to_text)
+{
+    INCLUDE_PARAMS_OF_TO_TEXT;
+
+    return Init_Any_String(
+        D_OUT,
+        REB_TEXT,
+        MAKE_TO_String_Common(
+            ARG(value),
+            REF(relax) ? STRMODE_ALL_CODEPOINTS : STRMODE_NO_CR
+        )
+    );
 }
 
 

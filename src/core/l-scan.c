@@ -440,11 +440,23 @@ static const REBYTE *Scan_Quote_Push_Mold(
                 --nest;
             break;
 
-          case CR:  // scan a CR LF as just a LF
-            if (src[1] == LF)
-                ++src;
-            c = LF;
-            goto linefeed;
+          case CR: {
+            //
+            // !!! Historically CR LF was scanned as just an LF.  While a
+            // tolerant mode of the scanner might be created someday, for
+            // the moment we are being more prescriptive.
+            //
+            enum Reb_Strmode strmode = STRMODE_NO_CR;
+            if (strmode == STRMODE_CRLF_TO_LF) {
+                if (src[1] == LF) {
+                    ++src;
+                    c = LF;
+                    goto linefeed;
+                }
+            }
+            else
+                assert(strmode == STRMODE_NO_CR);
+            fail (Error_Illegal_Cr_Raw()); }
 
           case LF:
           linefeed:
@@ -994,10 +1006,24 @@ static enum Reb_Token Locate_Token_May_Push_Mold(
             goto delimit_return;
 
           case LEX_DELIMIT_RETURN:
-          delimit_return:
-            if (cp[1] == LF)
-                ++cp;
-            goto delimit_line_feed;
+          delimit_return: {
+            //
+            // !!! Ren-C is attempting to rationalize and standardize Rebol
+            // on line feeds only.  If for some reason we wanted a tolerant
+            // mode, that tolerance would go here.  Note that this code does
+            // not cover the case of CR that are embedded inside multi-line
+            // string literals.
+            //
+            enum Reb_Strmode strmode = STRMODE_NO_CR;  // ss->strmode ?
+            if (strmode == STRMODE_CRLF_TO_LF) {
+                if (cp[1] == LF) {
+                    ++cp;
+                    goto delimit_line_feed;
+                }
+            }
+            else
+                assert(strmode == STRMODE_NO_CR);
+            fail (Error_Illegal_Cr_Raw()); }
 
           case LEX_DELIMIT_LINEFEED:
           delimit_line_feed:
@@ -1996,8 +2022,15 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             // The Scan_Any routine (only used here for tag) doesn't
             // know where the tag ends, so it scans the len.
             //
-            if (ep - 1 != Scan_Any(DS_PUSH(), bp + 1, len - 2, REB_TAG))
+            if (ep - 1 != Scan_Any(
+                DS_PUSH(),
+                bp + 1,
+                len - 2,
+                REB_TAG,
+                STRMODE_NO_CR
+            )){
                 goto syntax_error;
+            }
             break;
 
           case TOKEN_CONSTRUCT: {

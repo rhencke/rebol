@@ -126,8 +126,7 @@ process: function [
     file
     <with> the-file  ; global we set
 ][
-    ; !!! is DELINE necessary?
-    data: deline to-text read the-file: file
+    data: read/string the-file: file
 
     proto-parser/emit-proto: :emit-proto
     proto-parser/emit-directive: :emit-directive

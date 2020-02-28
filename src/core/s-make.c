@@ -221,8 +221,7 @@ REBSTR *Append_Ascii(REBSTR *dst, const char *src)
 //
 REBSTR *Append_Utf8(REBSTR *dst, const char *utf8, size_t size)
 {
-    const bool crlf_to_lf = false;
-    return Append_UTF8_May_Fail(dst, utf8, size, crlf_to_lf);
+    return Append_UTF8_May_Fail(dst, utf8, size, STRMODE_NO_CR);
 }
 
 
@@ -304,11 +303,11 @@ REBSTR *Append_UTF8_May_Fail(
     REBSTR *dst,  // if nullptr, that means make a new string
     const char *utf8,
     REBSIZ size,
-    bool crlf_to_lf
+    enum Reb_Strmode strmode
 ){
     // This routine does not just append bytes blindly because:
     //
-    // * If crlf_to_lf is set, then some characters might need to be removed
+    // * If STRMODE_CRLF_TO_LF is set, some characters may need to be removed
     // * We want to check for invalid byte sequences, as this can be called
     //   with arbitrary outside data from the API.
     // * It's needed to know how many characters (length) are in the series,
@@ -319,7 +318,7 @@ REBSTR *Append_UTF8_May_Fail(
 
     const REBYTE *bp = cb_cast(utf8);
 
-    DECLARE_MOLD (mo); // !!! REVIEW: don't need intermediate if no crlf_to_lf
+    DECLARE_MOLD (mo); // !!! REVIEW: don't need intermediate if no CRLF_TO_LF
     Push_Mold(mo);
 
     bool all_ascii = true;
@@ -335,11 +334,8 @@ REBSTR *Append_UTF8_May_Fail(
 
             all_ascii = false;
         }
-        else if (c == CR && crlf_to_lf) {
-            if (bp[1] == LF)
-                continue; // skip the CR, do the decrement and get the LF
-            c = LF;
-        }
+        else if (Should_Skip_Ascii_Byte_May_Fail(bp, strmode))
+            continue;
 
         ++num_codepoints;
         Append_Codepoint(mo->series, c);
