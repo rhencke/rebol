@@ -614,7 +614,7 @@ REBNATIVE(deline)
                 continue;
             }
             // DELINE requires any CR to be followed by an LF
-            fail (Error_Illegal_Cr_Raw());
+            fail (Error_Illegal_Cr(BACK_STR(src), STR_HEAD(s)));
         }
         dest = WRITE_CHR(dest, c);
     }
@@ -668,7 +668,7 @@ REBNATIVE(enline)
         if (c == LF and (not relax or c_prev != CR))
             ++delta;
         if (c == CR and not relax)  // !!! Note: `relax` fixed at false, ATM
-            fail (Error_Illegal_Cr_Raw());
+            fail (Error_Illegal_Cr(BACK_STR(cp), STR_HEAD(s)));
         c_prev = c;
     }
 

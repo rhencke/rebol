@@ -904,3 +904,65 @@ inline static REBSER *Copy_Sequence_At_Len(
 ){
     return Copy_Sequence_At_Len_Extra(s, index, len, 0);
 }
+
+
+// Conveying the part of a string which contains a CR byte is helpful.  But
+// we may see this CR during a scan...e.g. the bytes that come after it have
+// not been checked to see if they are valid UTF-8.  We assume all the bytes
+// *prior* are known to be valid.
+//
+inline static REBCTX *Error_Illegal_Cr(const REBYTE *at, const REBYTE *start)
+{
+    assert(*at == CR);
+    REBLEN back_len = 0;
+    REBCHR(const*) back = cast(REBCHR(const*), at);
+    while (back_len < 41 and back != start) {
+        back = BACK_STR(back);
+        ++back_len;
+    }
+    REBVAL *str = rebSizedText(
+        cast(const char*, back),
+        at - back + 1  // include the CR (should show escaped, e.g. ^M)
+    );
+    REBCTX *error = Error_Illegal_Cr_Raw(str);
+    rebRelease(str);
+    return error;
+}
+
+
+// This routine is formulated in a way to try and share it in order to not
+// repeat code for implementing Reb_Strmode many places.  See notes there.
+//
+inline static bool Should_Skip_Ascii_Byte_May_Fail(
+    const REBYTE *bp,
+    enum Reb_Strmode strmode,
+    const REBYTE *start  // need for knowing how far back for error context
+){
+    if (*bp == '\0')
+        fail (Error_Illegal_Zero_Byte_Raw());  // never allow #{00} in strings
+
+    if (*bp == CR) {
+        switch (strmode) {
+          case STRMODE_ALL_CODEPOINTS:
+            break;  // let the CR slide
+
+          case STRMODE_CRLF_TO_LF: {
+            if (bp[1] == LF)
+                return true;  // skip the CR and get the LF as next character
+            goto strmode_no_cr; }  // don't allow e.g. CR CR
+
+          case STRMODE_NO_CR:
+          strmode_no_cr:
+            fail (Error_Illegal_Cr(bp, start));
+
+          case STRMODE_LF_TO_CRLF:
+            assert(!"STRMODE_LF_TO_CRLF handled by exporting routines only");
+            break;
+        }
+    }
+
+    return false;  // character is okay for string, don't skip
+}
+
+#define Validate_Ascii_Byte(bp,strmode,start) \
+    cast(void, Should_Skip_Ascii_Byte_May_Fail((bp), (strmode), (start)))

@@ -582,8 +582,15 @@ unsigned int RL_rebBinarySizeAt_internal(const REBVAL *binary)
 //
 // If utf8 does not contain valid UTF-8 data, this may fail().
 //
-REBVAL *RL_rebSizedText(const char *utf8, size_t size)
- { return Init_Text(Alloc_Value(), Make_Sized_String_UTF8(utf8, size)); }
+// !!! Should there be variants for Strict/Relaxed, e.g. a version that does
+// not accept CR and one that does?
+//
+REBVAL *RL_rebSizedText(const char *utf8, size_t size) {
+    return Init_Text(
+        Alloc_Value(),
+        Append_UTF8_May_Fail(nullptr, utf8, size, STRMODE_ALL_CODEPOINTS)
+    );
+}
 
 
 //

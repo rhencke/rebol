@@ -508,7 +508,7 @@ DEVICE_CMD Write_File(REBREQ *file)
     // See the notes there.  This needs to be captured in some kind of
     // streaming codec built on a byte-level service.
     //
-    const Reb_Strmode strmode = STRMODE_NO_CR;  // we assume this for now
+    const enum Reb_Strmode strmode = STRMODE_NO_CR;  // we assume this for now
 
     if (not (req->modes & RFM_TEXT) or strmode == STRMODE_ALL_CODEPOINTS) {
         //
@@ -534,12 +534,18 @@ DEVICE_CMD Write_File(REBREQ *file)
                 switch (strmode) {
                   case STRMODE_NO_CR:
                     if (req->common.data[end] == CR)
-                        fail (Error_Illegal_Cr_Raw());  // !!! cleanup file?
+                        fail (Error_Illegal_Cr(
+                            &req->common.data[end],
+                            req->common.data
+                        ));  // !!! cleanup file?
                     break;
 
                   case STRMODE_LF_TO_CRLF:
                     if (req->common.data[end] == CR)  // be strict, for sanity
-                        fail (Error_Illegal_Cr_Raw());  // !!! cleanup file?
+                        fail (Error_Illegal_Cr(
+                            &req->common.data[end],
+                            req->common.data
+                        ));  // !!! cleanup file?
                     if (req->common.data[end] == LF)
                         goto exit_loop;
                     break;

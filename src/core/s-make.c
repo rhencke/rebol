@@ -334,8 +334,13 @@ REBSTR *Append_UTF8_May_Fail(
 
             all_ascii = false;
         }
-        else if (Should_Skip_Ascii_Byte_May_Fail(bp, strmode))
+        else if (Should_Skip_Ascii_Byte_May_Fail(
+            bp,
+            strmode,
+            cast(const REBYTE*, utf8)
+        )){
             continue;
+        }
 
         ++num_codepoints;
         Append_Codepoint(mo->series, c);

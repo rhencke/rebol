@@ -402,7 +402,7 @@ DEVICE_CMD Write_File(REBREQ *file)
     // We save the translation code in case this winds up being used in a
     // codec, but default to just making CRs completely illegal.
     //
-    const Reb_Strmode strmode = STRMODE_NO_CR;
+    const enum Reb_Strmode strmode = STRMODE_NO_CR;
 
     if (not (req->modes & RFM_TEXT) or strmode == STRMODE_ALL_CODEPOINTS) {
         //
@@ -435,12 +435,18 @@ DEVICE_CMD Write_File(REBREQ *file)
                 switch (strmode) {
                   case STRMODE_NO_CR:
                     if (req->common.data[end] == CR)
-                        fail (Error_Illegal_Cr_Raw());  // !!! cleanup file?
+                        fail (Error_Illegal_Cr(
+                            &req->common.data[end],
+                            req->common.data
+                        ));  // !!! cleanup file?
                     break;
 
                   case STRMODE_LF_TO_CRLF:
                     if (req->common.data[end] == CR)  // be strict, for sanity
-                        fail (Error_Illegal_Cr_Raw());  // !!! cleanup file?
+                        fail (Error_Illegal_Cr(
+                            &req->common.data[end],
+                            req->common.data
+                        ));  // !!! cleanup file?
                     if (req->common.data[end] == LF)
                         goto exit_loop;
                     break;

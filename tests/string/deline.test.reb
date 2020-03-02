@@ -52,7 +52,7 @@
 ]
 
 ; Ren-C DELINE allows either all LF or all CR LF
-; (Rationale: enforce sanity, and do not disincentivize people from 
+; (Rationale: enforce sanity, and do not disincentivize people from
 ; "upgrading" CR LF files to just LF for fear of breaking scripts
 ; that had thrown in DELINE for tolerance.)
 [
@@ -89,7 +89,7 @@
     )
     (
         comment {Bypass by writing BINARY!, *but* ENLINE modifies}
-        str: "a^/b" 
+        str: "a^/b"
         write %enlined.tmp as binary! enline str
         did all [
             #{610D0A62} = read %enlined.tmp

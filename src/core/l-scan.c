@@ -456,7 +456,7 @@ static const REBYTE *Scan_Quote_Push_Mold(
             }
             else
                 assert(strmode == STRMODE_NO_CR);
-            fail (Error_Illegal_Cr_Raw()); }
+            fail (Error_Illegal_Cr(src, ss->begin)); }
 
           case LF:
           linefeed:
@@ -1000,9 +1000,10 @@ static enum Reb_Token Locate_Token_May_Push_Mold(
             while (not ANY_CR_LF_END(*cp))
                 ++cp;
             if (*cp == '\0')
-                --cp;  // avoid passing EOF
+                return TOKEN_END;  // `load ";"` is [] with no newline on tail
             if (*cp == LF)
                 goto delimit_line_feed;
+            assert(*cp == CR);
             goto delimit_return;
 
           case LEX_DELIMIT_RETURN:
@@ -1023,7 +1024,7 @@ static enum Reb_Token Locate_Token_May_Push_Mold(
             }
             else
                 assert(strmode == STRMODE_NO_CR);
-            fail (Error_Illegal_Cr_Raw()); }
+            fail (Error_Illegal_Cr(cp, ss->begin)); }
 
           case LEX_DELIMIT_LINEFEED:
           delimit_line_feed:

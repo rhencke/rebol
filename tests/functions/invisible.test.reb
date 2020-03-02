@@ -297,3 +297,13 @@
 ;
 (() 1 + () 2 = () 3)
 ((comment "one") 1 + (comment "two") 2 = (comment "three") 3)
+
+
+; !!! Should `;`-comment tests be grouped into their own file?
+(
+    b: load ";"
+    did all [
+        b = []
+        not new-line? b
+    ]
+)

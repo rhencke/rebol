@@ -1049,7 +1049,7 @@ bool Try_As_String(
 
                 REBUNI c = *bp;
                 if (c < 0x80)
-                    Validate_Ascii_Byte(*bp, strmode);
+                    Validate_Ascii_Byte(bp, strmode, BIN_HEAD(bin));
                 else {
                     bp = Back_Scan_UTF8_Char(&c, bp, &bytes_left);
                     if (bp == NULL)  // !!! Should Back_Scan() fail?

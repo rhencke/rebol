@@ -59,7 +59,7 @@ Internal: [
     bad-utf8:           {invalid UTF-8 byte sequence found during decoding}
     codepoint-too-high: [{codepoint} :arg1 {too large (or data is not UTF-8)}]
     illegal-zero-byte:  {#{00} bytes illegal in ANY-STRING!, use BINARY!}
-    illegal-cr:         {Illegal CR: See ENLINE, DELINE, and TO-TEXT/RELAX}
+    illegal-cr:         [{Illegal CR: See DELINE, and TO-TEXT/RELAX:} :arg1]
     mixed-cr-lf-found:  {DELINE requires files to be CR LF or LF consistently}
 
     debug-only:         {Feature available only in DEBUG builds}

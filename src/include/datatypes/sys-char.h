@@ -282,43 +282,6 @@ inline static bool isLegalUTF8(const REBYTE *source, int length) {
 }
 
 
-// This routine is formulated in a way to try and share it in order to not
-// repeat code for implementing Reb_Strmode many places.  See notes there.
-//
-inline static bool Should_Skip_Ascii_Byte_May_Fail(
-    const REBYTE *bp,
-    enum Reb_Strmode strmode
-){
-    if (*bp == '\0')
-        fail (Error_Illegal_Zero_Byte_Raw());  // never allow #{00} in strings
-
-    if (*bp == '\r') {
-        switch (strmode) {
-          case STRMODE_ALL_CODEPOINTS:
-            break;  // let the CR slide
-
-          case STRMODE_CRLF_TO_LF: {
-            if (bp[1] == LF)
-                return true;  // skip the CR and get the LF as next character
-            goto strmode_no_cr; }  // don't allow e.g. CR CR
-
-          case STRMODE_NO_CR:
-          strmode_no_cr:
-            fail (Error_Illegal_Cr_Raw());
-
-          case STRMODE_LF_TO_CRLF:
-            assert(!"STRMODE_LF_TO_CRLF handled by exporting routines only");
-            break;
-        }
-    }
-
-    return false;  // character is okay for string, don't skip
-}
-
-#define Validate_Ascii_Byte(c,strmode) \
-    cast(void, Should_Skip_Ascii_Byte_May_Fail(&(c), (strmode)))
-
-
 // Converts a single UTF8 code-point and returns the position *at the
 // the last byte of the character's data*.  (This differs from the usual
 // `Scan_XXX` interface of returning the position after the scanned
