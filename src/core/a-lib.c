@@ -1213,7 +1213,7 @@ unsigned char *RL_rebBytes(
     if (IS_BINARY(series)) {
         *size_out = rebBytesIntoQ(nullptr, 0, series, rebEND);
         unsigned char *result = rebAllocN(REBYTE, *size_out);
-        assert(*size_out == '\0');  // ...see rebRepossess() for why this is
+        assert(result[*size_out] == '\0');  // ...see rebRepossess() for why this is
         size_t check = rebBytesIntoQ(
             result,
             *size_out,
