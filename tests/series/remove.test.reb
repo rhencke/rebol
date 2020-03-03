@@ -1,6 +1,21 @@
 ; functions/series/remove.r
-([] = remove [])
-([] = head of remove [1])
+[
+    ([] = remove [])
+    ([] = head of remove [1])
+    ([2] = head of remove [1 2])
+]
+
+[
+    ("" = remove "")
+    ("" = head of remove "1")
+    ("2" = head of remove "12")
+]
+
+[
+    (#{} = remove #{})
+    (#{} = head of remove #{01})
+    (#{02} = head of remove #{0102})
+]
 
 ; bitset
 (

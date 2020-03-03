@@ -1051,7 +1051,11 @@ REBTYPE(String)
         REBSTR *s = VAL_STRING(v);
         FAIL_IF_READ_ONLY(v);
 
-        REBINT limit = Part_Len_May_Modify_Index(v, ARG(part));
+        REBINT limit;
+        if (REF(part))
+            limit = Part_Len_May_Modify_Index(v, ARG(part));
+        else
+            limit = 1;
         if (index >= tail or limit == 0)
             RETURN (v);
 
