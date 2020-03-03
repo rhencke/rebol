@@ -1009,8 +1009,8 @@ REBTYPE(Gob)
 
         RETURN (v); }
 
-    case SYM_TAKE_P: {
-        INCLUDE_PARAMS_OF_TAKE_P;
+    case SYM_TAKE: {
+        INCLUDE_PARAMS_OF_TAKE;
         UNUSED(PAR(series));  // covered by `v`
 
         // Pane is an ordinary array, so chain to the ordinary TAKE* code.
@@ -1022,7 +1022,7 @@ REBTYPE(Gob)
         //
         REBVAL *pane = KNOWN(ARR_AT(gob, IDX_GOB_PANE));
         return rebValue(
-            "applique :take* [",
+            "applique :take [",
                 "series: at", pane, rebI(index + 1),
                 "part:", rebQ1(REF(part)),
                 "deep:", rebQ1(REF(deep)),

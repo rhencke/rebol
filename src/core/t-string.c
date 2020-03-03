@@ -1170,8 +1170,8 @@ REBTYPE(String)
             CHR_CODE(STR_AT(VAL_STRING(v), ret))
         ); }
 
-      case SYM_TAKE_P: {
-        INCLUDE_PARAMS_OF_TAKE_P;
+      case SYM_TAKE: {
+        INCLUDE_PARAMS_OF_TAKE;
 
         FAIL_IF_READ_ONLY(v);
 

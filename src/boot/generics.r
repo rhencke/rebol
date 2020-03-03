@@ -291,7 +291,7 @@ copy: generic [
         [typeset! datatype!]
 ]
 
-take*: generic [
+take: generic [
     {Removes and returns one or more elements}
 
     return: [<opt> any-value!]

@@ -270,7 +270,7 @@ summarize-obj: function [
         [<opt> <end> any-value!]
     :args [any-value! <...>]
 ][
-    while [(not new-line? args) and [value: take* args]] [
+    while [(not new-line? args) and [value: take args]] [
         all [
             any-array? :value
             contains-newline value

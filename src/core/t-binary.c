@@ -674,8 +674,8 @@ REBTYPE(Binary)
 
         return Init_Integer(D_OUT, *BIN_AT(VAL_SERIES(v), ret)); }
 
-      case SYM_TAKE_P: {
-        INCLUDE_PARAMS_OF_TAKE_P;
+      case SYM_TAKE: {
+        INCLUDE_PARAMS_OF_TAKE;
 
         FAIL_IF_READ_ONLY(v);
 

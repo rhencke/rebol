@@ -137,7 +137,7 @@ unless: checked [
         :right [any-value! <...>]
         :look [any-value! <...>]
     ][
-        right: take* right
+        right: take right
         if (unset? 'left) or [not group? right] or [block? first look] [
             fail @look [
                 "UNLESS has been repurposed in Ren-C as an infix operator"

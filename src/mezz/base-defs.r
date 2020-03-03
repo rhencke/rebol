@@ -116,7 +116,7 @@ nihil: enfixed func* [  ; 0-arg so enfix doesn't matter, but tests issue below
     return: []
     :omit [any-value! <...>]
 ][
-    until [null? take* omit]
+    until [null? take omit]
 ]
 
 
@@ -393,7 +393,7 @@ reeval func* [
     <local>
         set-word type-name tester meta
 ][
-    while [not equal? <end> set-word: take* set-word...] [
+    while [not equal? <end> set-word: take set-word...] [
         type-name: copy as text! set-word
         change back tail of type-name "!"  ; change ? at tail to !
         tester: typechecker (get bind (as word! type-name) set-word)

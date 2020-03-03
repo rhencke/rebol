@@ -189,26 +189,32 @@
         left-normal: enfixed right-normal:
             func [return: [<opt> word!] x [word! <...>]] [take x]
         left-normal*: enfixed right-normal*:
-            func [return: [<opt> word!] x [word! <...> <end>]] [take* x]
+            func [return: [<opt> word!] x [word! <...> <end>]] [take x]
 
         left-soft: enfixed right-soft:
             func [return: [<opt> word!] 'x [word! <...>]] [take x]
         left-soft*: enfixed right-soft*:
-            func [return: [<opt> word!] 'x [word! <...> <end>]] [take* x]
+            func [return: [<opt> word!] 'x [word! <...> <end>]] [take x]
 
         left-hard: enfixed right-hard:
             func [return: [<opt> word!] :x [word! <...>]] [take x]
         left-hard*: enfixed right-hard*:
-            func [return: [<opt> word!] :x [word! <...> <end>]] [take* x]
+            func [return: [<opt> word!] :x [word! <...> <end>]] [take x]
 
         true
     )
 
-    (error? trap [right-normal |])
+; !!! A previous distinction between TAKE and TAKE* made errors on cases of
+; trying to TAKE from a non-endable parameter.  The definition has gotten
+; fuzzy:
+; https://github.com/metaeducation/ren-c/issues/1057
+;
+;    (error? trap [right-normal |])
+;    (error? trap [| left-normal])
+
     (null? do [right-normal* |])
     (null? do [right-normal*])
 
-    (error? trap [| left-normal])
     (null? do [| left-normal*])
     (null? do [left-normal*])
 

@@ -438,15 +438,15 @@ static REB_R Transport_Actor(
 
         RETURN (port); }
 
-      case SYM_TAKE_P: {
-        INCLUDE_PARAMS_OF_TAKE_P;
+      case SYM_TAKE: {
+        INCLUDE_PARAMS_OF_TAKE;
         UNUSED(PAR(series));
 
         if (not (req->modes & RST_LISTEN) or (req->modes & RST_UDP))
             fail ("TAKE is only available on TCP LISTEN ports");
 
         return rebValueQ(
-            "take*/part/(", REF(deep), ")/(", REF(last), ")",
+            "take/part/(", REF(deep), ")/(", REF(last), ")",
                 CTX_VAR(ctx, STD_PORT_CONNECTIONS),
                 REF(part),
         rebEND); }
