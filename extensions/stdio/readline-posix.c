@@ -80,7 +80,6 @@
 typedef struct term_data {
     unsigned char *buffer;
     unsigned char *residue;
-    unsigned char *out;
     int pos;
     int end;
     int hist;
@@ -88,8 +87,9 @@ typedef struct term_data {
 
 // Globals:
 static bool Term_Initialized = false; // Terminal init was successful
-static unsigned char **Line_History; // Prior input lines
-static int Line_Count; // Number of prior lines
+static REBVAL *Line_History;  // Prior input lines (BLOCK!)
+#define Line_Count \
+    rebUnboxInteger("length of", Line_History, rebEND)
 
 #ifndef NO_TTY_ATTRIBUTES
 static struct termios Term_Attrs;   // Initial settings, restored on exit
@@ -106,7 +106,7 @@ extern STD_TERM *Init_Terminal(void);
 //
 STD_TERM *Init_Terminal(void)
 {
-#ifndef NO_TTY_ATTRIBUTES
+  #ifndef NO_TTY_ATTRIBUTES
     //
     // Good reference on termios:
     //
@@ -134,18 +134,14 @@ STD_TERM *Init_Terminal(void)
     attrs.c_cc[VTIME] = 0;  // how long to wait for input
 
     tcsetattr(0, TCSADRAIN, &attrs);
-#endif
+  #endif
 
-    // Setup variables:
-    Line_History = cast(
-        unsigned char**,
-        malloc(sizeof(char*) * (MAX_HISTORY + 2))
-    );
-
-    // Make first line as an empty string
-    Line_History[0] = cast(unsigned char*, malloc(sizeof(char) * 1));
-    Line_History[0][0] = '\0';
-    Line_Count = 1;
+    // !!! Ultimately, we want to be able to recover line history from a
+    // file across sessions.  It makes more sense for the logic doing that
+    // to be doing it in Rebol.  For starters, we just make it fresh.
+    //
+    Line_History = rebValue("[{}]", rebEND);  // current line is empty string
+    rebUnmanage(Line_History);  // allow Line_History to live indefinitely
 
     STD_TERM *term = cast(STD_TERM*, malloc(sizeof(STD_TERM)));
     memset(term, '\0', sizeof(STD_TERM));
@@ -170,8 +166,6 @@ extern void Quit_Terminal(STD_TERM *term);
 //
 void Quit_Terminal(STD_TERM *term)
 {
-    int n;
-
     if (Term_Initialized) {
       #ifndef NO_TTY_ATTRIBUTES
         tcsetattr(0, TCSADRAIN, &Term_Attrs);
@@ -179,9 +173,8 @@ void Quit_Terminal(STD_TERM *term)
         free(term->residue);
         free(term->buffer);
         free(term);
-        for (n = 0; n < Line_Count; n++)
-            free(Line_History[n]);
-        free(Line_History);
+        rebRelease(Line_History);
+        Line_History = nullptr;
     }
 
     Term_Initialized = false;
@@ -254,28 +247,18 @@ static void Write_Char(unsigned char c, int n)
 //
 //  Store_Line: C
 //
-// Makes a copy of the current buffer and store it in the
-// history list. Returns the copied string.
+// Stores a copy of the current buffer in the history list.
 //
 static void Store_Line(STD_TERM *term)
 {
-    term->buffer[term->end] = 0;
-    term->out = cast(unsigned char*, malloc(sizeof(char) * (term->end + 1)));
-    strcpy(s_cast(term->out), s_cast(term->buffer));
+    term->buffer[term->end] = '\0';
 
-    // If max history, drop older lines (but not [0] empty line):
-    if (Line_Count >= MAX_HISTORY) {
-        free(Line_History[1]);
-        memmove(
-            Line_History + 1,
-            Line_History + 2,
-            (MAX_HISTORY - 2) * sizeof(char*)
-        );
-        Line_Count = MAX_HISTORY - 1;
-    }
+    // If max history, drop oldest line (but not first empty line)
+    //
+    if (Line_Count >= MAX_HISTORY)
+        rebElide("remove next", Line_History, rebEND);
 
-    Line_History[Line_Count] = term->out;
-    ++Line_Count;
+    rebElide("append", Line_History, rebT(cs_cast(term->buffer)), rebEND);
 }
 
 
@@ -289,10 +272,11 @@ static void Store_Line(STD_TERM *term)
 //
 static void Recall_Line(STD_TERM *term)
 {
-    if (term->hist < 0) term->hist = 0;
+    if (term->hist < 0)
+        term->hist = 0;
 
     if (term->hist == 0)
-        Write_Char(BEL, 1); // bell
+        Write_Char(BEL, 1);  // try an audible alert if no previous history
 
     if (term->hist >= Line_Count) {
         // Special case: no "next" line:
@@ -301,9 +285,14 @@ static void Recall_Line(STD_TERM *term)
         term->pos = term->end = 0;
     }
     else {
-        // Fetch prior line:
-        strcpy(s_cast(term->buffer), s_cast(Line_History[term->hist]));
-        term->pos = term->end = LEN_BYTES(term->buffer);
+        // Fetch prior line.  Note that rebSpellInto returns the number of
+        // UTF-8 bytes...not the number of characters (which is what the
+        // term->end and term->pos are supposed to be in terms of)
+        //
+        term->end = rebSpellInto(s_cast(term->buffer), TERM_BUF_LEN,
+            "pick", Line_History, rebI(term->hist + 1),  // 1-based
+        rebEND);
+        term->pos = term->end;
     }
 }
 
@@ -560,7 +549,6 @@ int Read_Line(STD_TERM *term, unsigned char *result, int limit)
     term->pos = 0;
     term->end = 0;
     term->hist = Line_Count;
-    term->out = 0;
     term->buffer[0] = 0;
 
 restart:;
@@ -810,7 +798,7 @@ restart:;
 
           line_feed:;
           case LF: // line feed (C0)
-            WRITE_STR("\r\n");
+            WRITE_STR("\n");
             Store_Line(term);
             ++cp;
             goto line_end_reached;
@@ -872,27 +860,26 @@ restart:;
         ++cp;
     }
 
-    if (term->out == 0)
-        goto restart;
+    goto restart;
 
-return_blank:
+  return_blank:
     //
     // INPUT has a display invariant that the author of the code expected
     // a newline to be part of what the user contributed.  To keep the visual
     // flow in the case of a cancellation key that didn't have a newline, we
     // have to throw one in.
     //
-    WRITE_STR("\r\n");
+    WRITE_STR("\n");
     result[0] = ESC;
     result[1] = '\0';
     return 1;
 
-return_halt:
-    WRITE_STR("\r\n"); // see note above on INPUT's display invariant
+  return_halt:
+    WRITE_STR("\n"); // see note above on INPUT's display invariant
     result[0] = '\0';
     return 0;
 
-line_end_reached:
+  line_end_reached:
     // Not at end of input? Save any unprocessed chars:
     if (*cp != '\0') {
         if (LEN_BYTES(term->residue) + LEN_BYTES(cp) >= TERM_BUF_LEN - 1) {
@@ -904,10 +891,10 @@ line_end_reached:
     }
 
     // Fill the output buffer:
-    int len = LEN_BYTES(term->out); // length of IO read
+    int len = LEN_BYTES(term->buffer); // length of IO read
     if (len >= limit - 1)
         len = limit - 2;
-    strncpy(s_cast(result), s_cast(term->out), limit);
+    strncpy(s_cast(result), s_cast(term->buffer), limit);
     result[len++] = LF;
     result[len] = '\0';
     return len;

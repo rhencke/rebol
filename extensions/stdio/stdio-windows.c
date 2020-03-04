@@ -426,7 +426,7 @@ DEVICE_CMD Read_IO(REBREQ *io)
     // encountered, we write a line to maintain the visual invariant.
     //
     WCHAR cr_lf_term[3];
-    cr_lf_term[0] = '\r';  // CR
+    cr_lf_term[0] = '\r';  // CR (necessary on Windows I/O)
     cr_lf_term[1] = '\n';  // LF
     cr_lf_term[2] = '\0';
 
