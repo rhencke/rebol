@@ -53,7 +53,7 @@ typedef struct term_data {
 
 extern STD_TERM *Init_Terminal();
 extern void Quit_Terminal(STD_TERM*);
-extern int Read_Line(STD_TERM*, unsigned char*, int);
+extern REBVAL *Read_Line(STD_TERM*);
 
 STD_TERM *Term_IO;
 #endif
@@ -206,16 +206,33 @@ DEVICE_CMD Read_IO(REBREQ *io)
 
     if (Std_Inp >= 0) {
       #ifndef HAS_SMART_CONSOLE  // falls through to stdin if not a console
-        if (Term_IO)
-            total = Read_Line(Term_IO, BIN_HEAD(bin), len);
+        if (Term_IO) {
+            REBVAL *result = Read_Line(Term_IO);
+            if (result == nullptr) {  // HALT received
+                total = 0;
+                TERM_BIN_LEN(bin, 0);
+            }
+            else if (rebDid("blank?", result, rebEND)) {  // ESCAPE received
+                total = 1;
+                *BIN_HEAD(bin) = ESC;
+                TERM_BIN_LEN(bin, 1);
+            }
+            else {
+                total = rebSpellInto(s_cast(BIN_HEAD(bin)), len,
+                    result,
+                rebEND);
+                TERM_BIN_LEN(bin, total);  // null terminated, but no length
+            }
+            rebRelease(result);  // nullptr tolerant
+        }
         else
       #endif
+        {
             total = read(Std_Inp, BIN_HEAD(bin), len);  // restarts on signal
-
-        if (total < 0)
-            rebFail_OS (errno);
-
-        TERM_BIN_LEN(bin, total);
+            if (total < 0)
+                rebFail_OS (errno);
+            TERM_BIN_LEN(bin, total);
+        }
     }
 
     return DR_DONE;

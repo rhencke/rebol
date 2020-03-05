@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2020 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -38,12 +38,13 @@
 
 #include "sys-core.h"
 
-// Configuration:
-#define TERM_BUF_LEN 4096   // chars allowed per line
-#define READ_BUF_LEN 64     // chars per read()
-#define MAX_HISTORY  300    // number of lines stored
 
-#define CHAR_LEN(c) (1 + trailingBytesForUTF8[c])
+//=//// CONFIGURATION /////////////////////////////////////////////////////=//
+
+#define RESIDUE_LEN 4096  // length of residue
+#define READ_BUF_LEN 64  // chars per read()
+#define MAX_HISTORY  300  // number of lines stored
+
 
 #define WRITE_CHAR(s) \
     do { \
@@ -52,47 +53,49 @@
         } \
     } while (0)
 
-#define WRITE_CHARS(s,n) \
+#define WRITE_UTF8(s,n) \
     do { \
         if (write(1, s, n) == -1) { \
             /* Error here, or better to "just try to keep going"? */ \
         } \
     } while (0)
 
-#define WRITE_STR(s) \
-    do { \
-        if (write(1, s, strlen(s)) == -1) { \
-            /* Error here, or better to "just try to keep going"? */ \
-        } \
-    } while (0)
+inline static void WRITE_STR(const char *s) {
+    do {
+        if (write(1, s, strlen(s)) == -1) {
+            /* Error here, or better to "just try to keep going"? */
+        }
+    } while (0);
+}
 
-//
-// Stepping backwards in UTF8 just means to keep going back so long
-// as you are looking at a byte with bit 7 set and bit 6 clear:
-//
-// https://stackoverflow.com/a/22257843/211160
-//
-#define STEP_BACKWARD(term) \
-    do { \
-        --term->pos; \
-    } while (Is_Continuation_Byte_If_Utf8(term->buffer[term->pos]));
 
 typedef struct term_data {
-    unsigned char *buffer;
+    REBVAL *buffer;  // a TEXT! used as a buffer
+    int pos;  // cursor position within the line
+    int hist;  // history position within the line history buffer
+
     unsigned char *residue;
-    int pos;
-    int end;
-    int hist;
 } STD_TERM;
 
-// Globals:
-static bool Term_Initialized = false; // Terminal init was successful
+inline static int Term_End(STD_TERM *term)
+  { return rebUnboxInteger("length of", term->buffer, rebEND); }
+
+inline static int Term_Remain(STD_TERM *term) {
+    return rebUnboxInteger(
+        "length of skip", term->buffer, rebI(term->pos),
+    rebEND);
+}
+
+
+//=//// GLOBALS ///////////////////////////////////////////////////////////=//
+
+static bool Term_Initialized = false;  // Terminal init was successful
 static REBVAL *Line_History;  // Prior input lines (BLOCK!)
 #define Line_Count \
     rebUnboxInteger("length of", Line_History, rebEND)
 
 #ifndef NO_TTY_ATTRIBUTES
-static struct termios Term_Attrs;   // Initial settings, restored on exit
+    static struct termios Term_Attrs;  // Initial settings, restored on exit
 #endif
 
 
@@ -101,8 +104,9 @@ extern STD_TERM *Init_Terminal(void);
 //
 //  Init_Terminal: C
 //
-// Change the terminal modes to those required for proper
-// REBOL console handling. Return TRUE on success.
+// If possible, change the terminal to "raw" mode (where characters are
+// received one at a time, as opposed to "cooked" mode where a whole line is
+// read at once.)
 //
 STD_TERM *Init_Terminal(void)
 {
@@ -120,16 +124,23 @@ STD_TERM *Init_Terminal(void)
 
     attrs = Term_Attrs;
 
-    // Local modes:
-    attrs.c_lflag &= ~(ECHO | ICANON); // raw input
+    // Local modes.
+    //
+    attrs.c_lflag &= ~(ECHO | ICANON);  // raw input
 
-    // Input modes:
-    attrs.c_iflag &= ~(ICRNL | INLCR); // leave CR an LF as is
+    // Input modes.  Note later Linuxes have a IUTF8 flag that POSIX doesn't,
+    // but it seems to only affect the "cooked" mode (as opposed to "raw").
+    //
+    attrs.c_iflag &= ~(ICRNL | INLCR);  // leave CR and LF as-is
 
-    // Output modes:
-    attrs.c_oflag |= ONLCR; // On output, emit CR LF
+    // Output modes.  If you don't add ONLCR then a single `\n` will just go
+    // to the next line and not put the cursor at the start of that line.
+    // So ONLCR is needed for the typical unix expectation `\n` does both.
+    //
+    attrs.c_oflag |= ONLCR;  // On (O)utput, map (N)ew(L)ine to (CR) LF
 
-    // Special modes:
+    // Special modes.
+    //
     attrs.c_cc[VMIN] = 1;   // min num of bytes for READ to return
     attrs.c_cc[VTIME] = 0;  // how long to wait for input
 
@@ -144,10 +155,10 @@ STD_TERM *Init_Terminal(void)
     rebUnmanage(Line_History);  // allow Line_History to live indefinitely
 
     STD_TERM *term = cast(STD_TERM*, malloc(sizeof(STD_TERM)));
-    memset(term, '\0', sizeof(STD_TERM));
-    term->buffer = cast(unsigned char*, malloc(sizeof(char) * TERM_BUF_LEN));
-    term->buffer[0] = 0;
-    term->residue = cast(unsigned char*, malloc(sizeof(char) * TERM_BUF_LEN));
+    term->buffer = rebValue("{}", rebEND);
+    rebUnmanage(term->buffer);
+
+    term->residue = cast(unsigned char*, malloc(sizeof(char) * RESIDUE_LEN));
     term->residue[0] = 0;
 
     Term_Initialized = true;
@@ -170,9 +181,11 @@ void Quit_Terminal(STD_TERM *term)
       #ifndef NO_TTY_ATTRIBUTES
         tcsetattr(0, TCSADRAIN, &Term_Attrs);
       #endif
+
+        rebRelease(term->buffer);
         free(term->residue);
-        free(term->buffer);
         free(term);
+
         rebRelease(Line_History);
         Line_History = nullptr;
     }
@@ -203,7 +216,7 @@ static bool Read_Bytes_Interrupted(STD_TERM *term, unsigned char *buf, int len)
 {
     // If we have leftovers:
     //
-    if (term->residue[0]) {
+    if (term->residue[0] != '\0') {
         int end = LEN_BYTES(term->residue);
         if (end < len)
             len = end;
@@ -216,7 +229,7 @@ static bool Read_Bytes_Interrupted(STD_TERM *term, unsigned char *buf, int len)
             if (errno == EINTR)
                 return true; // Ctrl-C or similar, see sigaction()/SIGINT
 
-            WRITE_STR("\r\nI/O terminated\r\n");
+            WRITE_STR("\nI/O terminated\n");
             Quit_Terminal(term); // something went wrong
             exit(100);
         }
@@ -232,7 +245,6 @@ static bool Read_Bytes_Interrupted(STD_TERM *term, unsigned char *buf, int len)
 //  Write_Char: C
 //
 // Write out repeated number of chars.
-// Unicode: not used
 //
 static void Write_Char(unsigned char c, int n)
 {
@@ -251,14 +263,12 @@ static void Write_Char(unsigned char c, int n)
 //
 static void Store_Line(STD_TERM *term)
 {
-    term->buffer[term->end] = '\0';
-
     // If max history, drop oldest line (but not first empty line)
     //
     if (Line_Count >= MAX_HISTORY)
         rebElide("remove next", Line_History, rebEND);
 
-    rebElide("append", Line_History, rebT(cs_cast(term->buffer)), rebEND);
+    rebElide("append", Line_History, "copy", term->buffer, rebEND);
 }
 
 
@@ -267,8 +277,6 @@ static void Store_Line(STD_TERM *term)
 //
 // Set the current buffer to the contents of the history
 // list at its current position. Clip at the ends.
-// Return the history line index number.
-// Unicode: ok
 //
 static void Recall_Line(STD_TERM *term)
 {
@@ -278,21 +286,21 @@ static void Recall_Line(STD_TERM *term)
     if (term->hist == 0)
         Write_Char(BEL, 1);  // try an audible alert if no previous history
 
-    if (term->hist >= Line_Count) {
-        // Special case: no "next" line:
+    // Rather than rebRelease() the buffer, we clear it and append to it if
+    // there is content to draw in.  This saves the GC some effort.
+    //
+    rebElide("clear", term->buffer, rebEND);
+
+    if (term->hist >= Line_Count) {  // no "next" line, so clear buffer
         term->hist = Line_Count;
-        term->buffer[0] = '\0';
-        term->pos = term->end = 0;
+        term->pos = 0;
     }
     else {
-        // Fetch prior line.  Note that rebSpellInto returns the number of
-        // UTF-8 bytes...not the number of characters (which is what the
-        // term->end and term->pos are supposed to be in terms of)
-        //
-        term->end = rebSpellInto(s_cast(term->buffer), TERM_BUF_LEN,
-            "pick", Line_History, rebI(term->hist + 1),  // 1-based
+        rebElide(
+            "append", term->buffer,  // see above GC note on CLEAR + APPEND
+                "pick", Line_History, rebI(term->hist + 1),  // 1-based
         rebEND);
-        term->pos = term->end;
+        term->pos = Term_End(term);
     }
 }
 
@@ -302,12 +310,13 @@ static void Recall_Line(STD_TERM *term)
 //
 // Clear all the chars from the current position to the end.
 // Reset cursor to current position.
-// Unicode: not used
 //
 static void Clear_Line(STD_TERM *term)
 {
-    Write_Char(' ', term->end - term->pos); // wipe prior line
-    Write_Char(BS, term->end - term->pos); // return to position
+    int num_codepoints_to_end = Term_Remain(term);
+
+    Write_Char(' ', num_codepoints_to_end);  // wipe to end of line...
+    Write_Char(BS, num_codepoints_to_end);  // ...then return to position
 }
 
 
@@ -315,12 +324,11 @@ static void Clear_Line(STD_TERM *term)
 //  Home_Line: C
 //
 // Reset cursor to home position.
-// Unicode: ok
 //
 static void Home_Line(STD_TERM *term)
 {
     while (term->pos > 0) {
-        STEP_BACKWARD(term);
+        --term->pos;
         Write_Char(BS, 1);
     }
 }
@@ -330,35 +338,24 @@ static void Home_Line(STD_TERM *term)
 //  End_Line: C
 //
 // Move cursor to end position.
-// Unicode: not used
 //
 static void End_Line(STD_TERM *term)
 {
-    int len = term->end - term->pos;
+    int num_codepoints = Term_Remain(term);
 
-    if (len > 0) {
-        WRITE_CHARS(term->buffer+term->pos, len);
-        term->pos = term->end;
+    if (num_codepoints != 0) {
+        size_t size;
+        unsigned char *utf8 = rebBytes(&size,
+            "skip", term->buffer, rebI(term->pos),
+        rebEND);
+
+        WRITE_UTF8(utf8, size);
+        term->pos += num_codepoints;
+
+        rebFree(utf8);
     }
 }
 
-//
-//  Strlen_UTF8: C
-//
-//  Count the character length (not byte length) of a UTF-8 string.
-//  !!! Used to calculate the correct number of BS to us in Show_Line().
-//      Would stepping through the UTF-8 string be better?
-//
-static int Strlen_UTF8(unsigned char *buffer, int byte_count)
-{
-    int char_count = 0;
-    int i = 0;
-        for(i = 0 ; i < byte_count ; i++)
-            if (not Is_Continuation_Byte_If_Utf8(buffer[i]))
-                char_count++;
-
-        return char_count;
-}
 
 //
 //  Show_Line: C
@@ -367,31 +364,45 @@ static int Strlen_UTF8(unsigned char *buffer, int byte_count)
 // Extra blanks can be specified to erase chars off end.
 // If blanks is negative, stay at end of line.
 // Reset the cursor back to current position.
-// Unicode: ok
 //
 static void Show_Line(STD_TERM *term, int blanks)
 {
-    int len;
-
-    // Clip bounds:
-    if (term->pos < 0) term->pos = 0;
-    else if (term->pos > term->end) term->pos = term->end;
+    // Clip bounds
+    //
+    int end = Term_End(term);
+    if (term->pos < 0)
+        term->pos = 0;
+    else if (term->pos > end)
+        term->pos = end;
 
     if (blanks >= 0) {
-        len = term->end - term->pos;
-        WRITE_CHARS(term->buffer+term->pos, len);
+        size_t num_bytes;
+        unsigned char *bytes = rebBytes(&num_bytes,
+            "skip", term->buffer, rebI(term->pos),
+        rebEND);
+
+        WRITE_UTF8(bytes, num_bytes);
+        rebFree(bytes);
     }
     else {
-        WRITE_CHARS(term->buffer, term->end);
+        size_t num_bytes;
+        unsigned char *bytes = rebBytes(&num_bytes,
+            term->buffer,
+        rebEND);
+
+        WRITE_UTF8(bytes, num_bytes);
+        rebFree(bytes);
+
         blanks = -blanks;
-        len = 0;
     }
 
     Write_Char(' ', blanks);
+    Write_Char(BS,  blanks);  // return to original position or end
 
-    // return to original position or end
-    Write_Char(BS,  blanks);
-    Write_Char(BS,  Strlen_UTF8(term->buffer+term->pos, len));
+    // We want to write as many backspace characters as there are *codepoints*
+    // in the buffer to end of line.
+    //
+    Write_Char(BS, Term_Remain(term));
 }
 
 
@@ -406,43 +417,42 @@ static const unsigned char *Insert_Char_Null_If_Interrupted(
     STD_TERM *term,
     unsigned char *buf,
     int limit,
-    const unsigned char *cp
+    const unsigned char *cp  // likely points into `buf` (possibly at end)
 ){
     int encoded_len = 1 + trailingBytesForUTF8[*cp];
+    assert(encoded_len <= 4);
 
-    if (term->end < TERM_BUF_LEN - encoded_len) { // avoid buffer overrun
+    // Build up an encoded UTF-8 character as continuous bytes so it can be
+    // inserted into a Rebol string.  The component bytes may span the passed
+    // in cp, and additional buffer reads.
+    //
+    char encoded[4];
+    int i;
+    for (i = 0; i < encoded_len; ++i) {
+        if (*cp == '\0') {
+            //
+            // Premature end, the UTF-8 data must have gotten split on
+            // a buffer boundary.  Refill the buffer with another read,
+            // where the remaining UTF-8 characters *should* be found.
+            //
+            if (Read_Bytes_Interrupted(term, buf, limit - 1))
+                return nullptr;  // signal interruption
 
-        if (term->pos < term->end) { // open space for it:
-            memmove(
-                term->buffer + term->pos + encoded_len, // dest pointer
-                term->buffer + term->pos, // source pointer
-                encoded_len + term->end - term->pos // length
-            );
+            cp = buf;
         }
-
-        int i;
-        for (i = 0; i < encoded_len; ++i) {
-            if (*cp == '\0') {
-                //
-                // Premature end, the UTF-8 data must have gotten split on
-                // a buffer boundary.  Refill the buffer with another read,
-                // where the remaining UTF-8 characters *should* be found.
-                //
-                if (Read_Bytes_Interrupted(term, buf, limit - 1))
-                    return NULL; // signal interruption
-
-                cp = buf;
-            }
-
-            WRITE_CHAR(cp);
-            term->buffer[term->pos] = *cp;
-            term->end++;
-            term->pos++;
-            ++cp;
-        }
-
-        Show_Line(term, 0);
+        assert(*cp != '\0');
+        encoded[i] = *cp;
+        ++cp;
     }
+
+    rebElide(
+        "insert skip", term->buffer, rebI(term->pos),
+            rebR(rebSizedText(encoded, encoded_len)),
+    rebEND);
+    WRITE_UTF8(encoded, encoded_len);
+    ++term->pos;
+
+    Show_Line(term, 0);
 
     return cp;
 }
@@ -453,32 +463,28 @@ static const unsigned char *Insert_Char_Null_If_Interrupted(
 //
 // Delete a char at the current position. Adjust end position.
 // Redisplay the line. Blank out extra char at end.
-// Unicode: ok
 //
 static void Delete_Char(STD_TERM *term, bool back)
 {
-    if (term->pos == term->end and not back)
-        return; // Ctrl-D at end of line
+    int end = Term_End(term);
+
+    if (term->pos == end and not back)
+        return;  // Ctrl-D (forward-delete) at end of line
 
     if (term->pos == 0 and back)
-        return; // backspace at beginning of line
+        return;  // backspace at beginning of line
 
     if (back)
-        STEP_BACKWARD(term);
+        --term->pos;
 
-    int encoded_len = 1 + trailingBytesForUTF8[term->buffer[term->pos]];
-    int len = encoded_len + term->end - term->pos;
+    if (term->pos >= 0 and end > 0) {
+        rebElide(
+            "remove skip", term->buffer, rebI(term->pos),
+        rebEND);
 
-    if (term->pos >= 0 && len > 0) {
-        memmove(
-            term->buffer + term->pos,
-            term->buffer + term->pos + encoded_len,
-            len
-        );
         if (back)
             Write_Char(BS, 1);
 
-        term->end -= encoded_len;
         Show_Line(term, 1);
     }
     else
@@ -490,21 +496,33 @@ static void Delete_Char(STD_TERM *term, bool back)
 //  Move_Cursor: C
 //
 // Move cursor right or left by one char.
-// Unicode: not yet supported!
 //
 static void Move_Cursor(STD_TERM *term, int count)
 {
     if (count < 0) {
+        //
+        // "backspace" in TERMIOS lets you move the cursor left without
+        //  knowing what character is there and without overwriting it.
+        //
         if (term->pos > 0) {
-            STEP_BACKWARD(term);
+            --term->pos;
             Write_Char(BS, 1);
         }
     }
     else {
-        if (term->pos < term->end) {
-            int encoded_len = CHAR_LEN(term->buffer[term->pos]);
-            WRITE_CHARS(term->buffer + term->pos, encoded_len);
-            term->pos += encoded_len;
+        // Moving right without affecting a character requires writing the
+        // character you know to be already there (via the buffer).
+        //
+        int end = Term_End(term);
+        if (term->pos < end) {
+            size_t encoded_size;
+            unsigned char *encoded_char = rebBytes(&encoded_size,
+                "to binary! pick", term->buffer, rebI(term->pos + 1),
+            rebEND);
+            WRITE_UTF8(encoded_char, encoded_size);
+            rebFree(encoded_char);
+
+            term->pos += 1;
         }
     }
 }
@@ -523,12 +541,12 @@ inline static void Unrecognized_Key_Sequence(const unsigned char* cp)
 {
     UNUSED(cp);
 
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     WRITE_STR("[KEY?]");
-#endif
+  #endif
 }
 
-extern int Read_Line(STD_TERM *term, unsigned char *result, int limit);
+extern REBVAL *Read_Line(STD_TERM *term);
 
 //
 //  Read_Line: C
@@ -536,22 +554,18 @@ extern int Read_Line(STD_TERM *term, unsigned char *result, int limit);
 // Read a line (as a sequence of bytes) from the terminal.  Handles line
 // editing and line history recall.
 //
-// !!! The line history is slated to be moved into userspace HOST-CONSOLE
-// code, storing STRING!s in Rebol BLOCK!s.  Do not invest heavily in
-// editing of that part of this code.
+// If HALT is encountered (e.g. a Ctrl-C), this routine will return nullptr.
+// If ESC is pressed, this will return a BLANK!.
+// Otherwise it will return a TEXT! of the read-in string.
 //
-// Returns number of bytes in line.  If a plain ESC is pressed, then the
-// result will be 0.  All successful results have at least a line feed, which
-// will be returned as part of the data.
-//
-int Read_Line(STD_TERM *term, unsigned char *result, int limit)
+REBVAL *Read_Line(STD_TERM *term)
 {
     term->pos = 0;
-    term->end = 0;
     term->hist = Line_Count;
-    term->buffer[0] = 0;
 
-restart:;
+    rebElide("clear", term->buffer, rebEND);
+
+  restart:;
     //
     // See notes on why Read_Bytes_Interrupted() can wind up splitting UTF-8
     // encodings (which can happen with pastes of text), and this is handled
@@ -562,7 +576,7 @@ restart:;
     // `restart`.  Thus, hitting an unknown escape sequence and a character
     // very fast after it may discard that character.
     //
-    unsigned char buf[READ_BUF_LEN]; // always '\0' terminated, hence `- 1`
+    unsigned char buf[READ_BUF_LEN]; // '\0' terminated, hence `- 1` below
     const unsigned char *cp = buf;
 
     if (Read_Bytes_Interrupted(term, buf, READ_BUF_LEN - 1))
@@ -570,10 +584,9 @@ restart:;
 
     while (*cp != '\0') {
         if (
-            (*cp >= 32 && *cp < 127) // 32 is space, 127 is DEL(ete)
-            || *cp > 127 // high-bit set UTF-8 start byte
+            (*cp >= 32 and *cp < 127)  // 32 is space, 127 is DEL(ete)
+            or *cp > 127  // high-bit set UTF-8 start byte
         ){
-            //
             // ASCII printable character or UTF-8
             //
             // https://en.wikipedia.org/wiki/ASCII
@@ -586,13 +599,13 @@ restart:;
             // backwards, if such a read is done.
             //
             cp = Insert_Char_Null_If_Interrupted(term, buf, READ_BUF_LEN, cp);
-            if (cp == NULL)
+            if (cp == nullptr)
                 goto return_halt;
 
             continue;
         }
 
-        if (*cp == ESC && cp[1] == '\0') {
+        if (*cp == ESC and cp[1] == '\0') {
             //
             // Plain Escape - Cancel Current Input (...not Halt Script)
             //
@@ -625,7 +638,7 @@ restart:;
             // there instead.
         }
 
-        if (*cp == ESC && cp[1] == '[') {
+        if (*cp == ESC and cp[1] == '[') {
             //
             // CSI Escape Sequences, VT100/VT220 Escape Sequences, etc:
             //
@@ -666,17 +679,20 @@ restart:;
 
               down_arrow:;
               case 'B': { // down arrow (VT100)
-                int len = term->end;
+                int old_end = Term_End(term);
 
                 ++term->hist;
 
                 Home_Line(term);
                 Recall_Line(term);
 
-                if (len <= term->end)
+                int new_end = Term_End(term);
+
+                int len;
+                if (old_end <= new_end)
                     len = 0;
                 else
-                    len = term->end - len;
+                    len = new_end - old_end;
 
                 Show_Line(term, len - 1); // len < 0 (stay at end)
                 break; }
@@ -870,19 +886,16 @@ restart:;
     // have to throw one in.
     //
     WRITE_STR("\n");
-    result[0] = ESC;
-    result[1] = '\0';
-    return 1;
+    return rebBlank();
 
   return_halt:
     WRITE_STR("\n"); // see note above on INPUT's display invariant
-    result[0] = '\0';
-    return 0;
+    return nullptr;
 
   line_end_reached:
     // Not at end of input? Save any unprocessed chars:
     if (*cp != '\0') {
-        if (LEN_BYTES(term->residue) + LEN_BYTES(cp) >= TERM_BUF_LEN - 1) {
+        if (LEN_BYTES(term->residue) + LEN_BYTES(cp) >= RESIDUE_LEN - 1) {
             //
             // avoid overrun
         }
@@ -890,12 +903,11 @@ restart:;
             strcat(s_cast(term->residue), cs_cast(cp));
     }
 
-    // Fill the output buffer:
-    int len = LEN_BYTES(term->buffer); // length of IO read
-    if (len >= limit - 1)
-        len = limit - 2;
-    strncpy(s_cast(result), s_cast(term->buffer), limit);
-    result[len++] = LF;
-    result[len] = '\0';
-    return len;
+    // We could return the term buffer directly and allocate a new buffer.
+    // But returning a copy lets the return result be a new allocation at the
+    // exact size of the final input (e.g. paging through the history and
+    // getting longer entries transiently won't affect the extra capacity of
+    // what is ultimately returned.)
+    //
+    return rebValue("copy", term->buffer, rebEND);
 }
