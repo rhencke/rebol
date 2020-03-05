@@ -101,36 +101,41 @@
 // dirent.d_type is a BSD extension, actually not part of POSIX
 // reformatted from: http://ports.haiku-files.org/wiki/CommonProblems
 // this comes from: http://ports.haiku-files.org/wiki/CommonProblems
-// modified for reformatting and to not use a variable-length-array
+//
+// modifications:
+// * use Rebol allocator instead of a variable-length-array (VLA)
+// * avoidance of warning on strncat: [-Werror=stringop-truncation]
 //
 static int Is_Dir(const char *path_utf8, const char *name_utf8)
 {
     size_t size_path = strsize(path_utf8);
     size_t size_name = strsize(name_utf8);
-
-    // !!! No clue why + 13 is needed, and not sure I want to know.
-    // It was in the original code, not second-guessing ATM.  --@HF
-    //
-    char *full_utf8 = rebAllocN(char, size_path + 1 + size_name + 1 + 13);
-
-    strncpy(full_utf8, path_utf8, size_path + 1); // include terminator
+    size_t size_full = size_path + size_name;
 
     // Avoid UNC-path "//name" on Cygwin.
+    if (size_path > 0 and path_utf8[size_path - 1] != '/')
+        size_full += 1;
+
+    // !!! No clue why + 13 is needed, and not sure I want to know.
+    // It was in the original FAQ code, not second-guessing ATM.  --@HF
     //
-    if (size_path > 0 && full_utf8[size_path - 1] != '/')
+    char *full_utf8 = rebAllocN(char, size_full + 1 + 13);
+
+    strncpy(full_utf8, path_utf8, size_path + 1);  // include terminator
+
+    // Avoid UNC-path "//name" on Cygwin.
+    if (size_path > 0 and path_utf8[size_path - 1] != '/')
         strcat(full_utf8, "/");
 
-    strncat(full_utf8, name_utf8, size_name);
+    strncat(full_utf8, name_utf8, size_full - 1);
 
     struct stat st;
     int stat_result = stat(full_utf8, &st);
 
     rebFree(full_utf8);
 
-    if (stat_result != 0)
-        return 0; // !!! What's the proper result?
-
-    return S_ISDIR(st.st_mode);
+    // !!! What's the proper result?
+    return (stat_result != 0) ? 0 : S_ISDIR(st.st_mode);
 }
 
 
