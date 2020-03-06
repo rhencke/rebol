@@ -122,10 +122,10 @@ REB_R MAKE_Char(
             uni = *bp;
         }
         else {
-            --len;
             bp = Back_Scan_UTF8_Char(&uni, bp, &len);
-            if (!bp || len != 0) // must be valid UTF8 and consume all data
-                goto bad_make;
+            --len;  // must decrement *after* (or Back_Scan() will fail)
+            if (bp == nullptr or len != 0)
+                goto bad_make;  // must be valid UTF8 and consume all data
         }
         return Init_Char_May_Fail(out, uni); }
 
@@ -324,5 +324,36 @@ REBTYPE(Char)
         fail (Error_Type_Limit_Raw(Datatype_From_Kind(REB_CHAR)));
 
     return Init_Char_May_Fail(D_OUT, cast(REBUNI, chr));
+}
+
+
+//
+//  trailing-bytes-for-utf8: native [
+//
+//  {Given the first byte of a UTF-8 encoding, how many bytes should follow}
+//
+//      return: [integer!]
+//      first-byte [integer!]
+//      /extended "Permit 4 or 5 trailing bytes, not legal in the UTF-8 spec"
+//  ]
+//
+REBNATIVE(trailing_bytes_for_utf8)
+//
+// !!! This is knowledge Rebol has, and it can be useful for anyone writing
+// code that processes UTF-8 (e.g. the terminal).  Might as well expose it.
+{
+    INCLUDE_PARAMS_OF_TRAILING_BYTES_FOR_UTF8;
+
+    REBINT byte = VAL_INT32(ARG(first_byte));
+    if (byte < 0 or byte > 255)
+        fail (Error_Out_Of_Range(ARG(first_byte)));
+
+    uint_fast8_t trail = trailingBytesForUTF8[cast(REBYTE, byte)];
+    if (trail > 3 and not REF(extended)) {
+        assert(trail == 4 or trail == 5);
+        fail ("Use /EXTENDED with TRAILNG-BYTES-FOR-UTF-8 for 4 or 5 bytes");
+    }
+
+    return Init_Integer(D_OUT, trail);
 }
 
