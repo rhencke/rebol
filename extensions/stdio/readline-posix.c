@@ -36,14 +36,19 @@
     #include <termios.h>
 #endif
 
+
+//=//// REBOL INCLUDES + HELPERS //////////////////////////////////////////=//
+
 #include "sys-core.h"
+
+#define xrebWord(cstr) \
+    rebValue("'" cstr, rebEND)  // C string literal should merge apostrophe
 
 
 //=//// CONFIGURATION /////////////////////////////////////////////////////=//
 
-#define RESIDUE_LEN 4096  // length of residue
-#define READ_BUF_LEN 64  // chars per read()
-#define MAX_HISTORY  300  // number of lines stored
+#define READ_BUF_LEN 64   // chars per read()
+#define MAX_HISTORY  300   // number of lines stored
 
 
 #define WRITE_CHAR(s) \
@@ -74,7 +79,8 @@ typedef struct term_data {
     int pos;  // cursor position within the line
     int hist;  // history position within the line history buffer
 
-    unsigned char *residue;
+    unsigned char buf[READ_BUF_LEN];  // '\0' terminated, needs -1 on read()
+    const unsigned char *cp;
 } STD_TERM;
 
 inline static int Term_End(STD_TERM *term)
@@ -158,8 +164,8 @@ STD_TERM *Init_Terminal(void)
     term->buffer = rebValue("{}", rebEND);
     rebUnmanage(term->buffer);
 
-    term->residue = cast(unsigned char*, malloc(sizeof(char) * RESIDUE_LEN));
-    term->residue[0] = 0;
+    term->buf[0] = '\0';  // start read() byte buffer out at empty
+    term->cp = term->buf;
 
     Term_Initialized = true;
 
@@ -183,7 +189,6 @@ void Quit_Terminal(STD_TERM *term)
       #endif
 
         rebRelease(term->buffer);
-        free(term->residue);
         free(term);
 
         rebRelease(Line_History);
@@ -202,7 +207,7 @@ void Quit_Terminal(STD_TERM *term)
 //
 // Note that The read of bytes might end up getting only part of an encoded
 // UTF-8 character.  But it's known how many bytes are expected from the
-// leading byte.  Input_Char() can handle it by requesting the missing ones.
+// leading byte.
 //
 // Escape sequences could also *theoretically* be split, and they have no
 // standard for telling how long the sequence could be.  (ESC '\0') could be a
@@ -212,32 +217,24 @@ void Quit_Terminal(STD_TERM *term)
 // are not *likely* to be pasted in a batch that could overflow READ_BUF_LEN
 // and be split up.
 //
-static bool Read_Bytes_Interrupted(STD_TERM *term, unsigned char *buf, int len)
+static bool Read_Bytes_Interrupted(STD_TERM *t)
 {
-    // If we have leftovers:
-    //
-    if (term->residue[0] != '\0') {
-        int end = LEN_BYTES(term->residue);
-        if (end < len)
-            len = end;
-        strncpy(s_cast(buf), s_cast(term->residue), len); // terminated below
-        memmove(term->residue, term->residue + len, end - len); // remove
-        term->residue[end - len] = '\0';
-    }
-    else {
-        if ((len = read(0, buf, len)) < 0) {
-            if (errno == EINTR)
-                return true; // Ctrl-C or similar, see sigaction()/SIGINT
+    assert(*t->cp == '\0');  // Don't read more bytes if buffer not exhausted
 
-            WRITE_STR("\nI/O terminated\n");
-            Quit_Terminal(term); // something went wrong
-            exit(100);
-        }
+    int len = read(0, t->buf, READ_BUF_LEN - 1);  // save space for '\0'
+    if (len < 0) {
+        if (errno == EINTR)
+            return true;  // Ctrl-C or similar, see sigaction()/SIGINT
+
+        WRITE_STR("\nI/O terminated\n");
+        Quit_Terminal(t);  // something went wrong
+        exit(100);
     }
 
-    buf[len] = '\0';
+    t->buf[len] = '\0';
+    t->cp = t->buf;
 
-    return false; // not interrupted, note we could return `len` if needed
+    return false;  // not interrupted (note we could return `len` if needed)
 }
 
 
@@ -407,58 +404,6 @@ static void Show_Line(STD_TERM *term, int blanks)
 
 
 //
-//  Insert_Char_Null_If_Interrupted: C
-//
-// * Insert a char at the current position.
-// * Adjust end position.
-// * Redisplay the line.
-//
-static const unsigned char *Insert_Char_Null_If_Interrupted(
-    STD_TERM *term,
-    unsigned char *buf,
-    int limit,
-    const unsigned char *cp  // likely points into `buf` (possibly at end)
-){
-    int encoded_len = 1 + trailingBytesForUTF8[*cp];
-    assert(encoded_len <= 4);
-
-    // Build up an encoded UTF-8 character as continuous bytes so it can be
-    // inserted into a Rebol string.  The component bytes may span the passed
-    // in cp, and additional buffer reads.
-    //
-    char encoded[4];
-    int i;
-    for (i = 0; i < encoded_len; ++i) {
-        if (*cp == '\0') {
-            //
-            // Premature end, the UTF-8 data must have gotten split on
-            // a buffer boundary.  Refill the buffer with another read,
-            // where the remaining UTF-8 characters *should* be found.
-            //
-            if (Read_Bytes_Interrupted(term, buf, limit - 1))
-                return nullptr;  // signal interruption
-
-            cp = buf;
-        }
-        assert(*cp != '\0');
-        encoded[i] = *cp;
-        ++cp;
-    }
-
-    rebElide(
-        "insert skip", term->buffer, rebI(term->pos),
-            rebR(rebSizedText(encoded, encoded_len)),
-    rebEND);
-    WRITE_UTF8(encoded, encoded_len);
-    ++term->pos;
-
-    Show_Line(term, 0);
-
-    return cp;
-}
-
-
-//
 //  Delete_Char: C
 //
 // Delete a char at the current position. Adjust end position.
@@ -537,297 +482,254 @@ static void Move_Cursor(STD_TERM *term, int count)
 // that people could see what the key registered as on their machine and
 // configure their console to respond to it.
 //
-inline static void Unrecognized_Key_Sequence(const unsigned char* cp)
+// !!! Given the way the code works, escape sequences should be able to span
+// buffer reads, and the current method of passing in subtracted codepoint
+// addresses wouldn't work since `cp` can change on spanned reads.  This
+// should probably be addressed rigorously if one wanted to actually do
+// something with `delta`, but code is preserved as it was for annotation.
+//
+inline static REBVAL *Unrecognized_Key_Sequence(STD_TERM *t, int delta)
 {
-    UNUSED(cp);
+    assert(delta <= 0);
+    UNUSED(delta);
 
-  #if !defined(NDEBUG)
-    WRITE_STR("[KEY?]");
-  #endif
+    // We don't really know how long an incomprehensible escape sequence is.
+    // For now, just drop all the data, pending better heuristics or ideas.
+    //
+    t->buf[0] = '\0';
+    t->cp = t->buf;
+
+    return rebText("[KEY?]");
 }
 
-extern REBVAL *Read_Line(STD_TERM *term);
 
 //
-//  Read_Line: C
+//  Try_Get_One_Console_Event: C
 //
-// Read a line (as a sequence of bytes) from the terminal.  Handles line
-// editing and line history recall.
+// This attempts to get one unit of "event" from the console.  It does not
+// use the Rebol EVENT! datatype at this time.  Instead it returns:
 //
-// If HALT is encountered (e.g. a Ctrl-C), this routine will return nullptr.
-// If ESC is pressed, this will return a BLANK!.
-// Otherwise it will return a TEXT! of the read-in string.
+//    CHAR! => a printable character
+//    WORD! => keystroke or control code
+//    TEXT! => depiction of an unknown key combination
+//    VOID! => interrupted by HALT or Ctrl-C
 //
-REBVAL *Read_Line(STD_TERM *term)
+// It does not do any printing or handling while fetching the event.
+//
+// Note Ctrl-C comes from the SIGINT signal and not from the physical detection
+// of the key combination "Ctrl + C", which this routine should not receive
+// due to deferring to the default UNIX behavior for that (otherwise, scripts
+// could not be cancelled unless they were waiting at an input prompt).
+//
+// !!! The idea is that if there is no event available, this routine will
+// return a nullptr.  That would allow some way of exiting the read() to
+// do another operation (process network requests for a real-time chat, etc.)
+// This is at the concept stage at the moment.
+//
+REBVAL *Try_Get_One_Console_Event(STD_TERM *t)
 {
-    term->pos = 0;
-    term->hist = Line_Count;
+    REBVAL *key = nullptr;
 
-    rebElide("clear", term->buffer, rebEND);
-
-  restart:;
-    //
     // See notes on why Read_Bytes_Interrupted() can wind up splitting UTF-8
-    // encodings (which can happen with pastes of text), and this is handled
-    // by Insert_Char_Null_If_Interrupted().
+    // encodings (which can happen with pastes of text).
     //
     // Also see notes there on why escape sequences are anticipated to come
-    // in one at a time.  Hence unrecognized escape sequences jump up here to
-    // `restart`.  Thus, hitting an unknown escape sequence and a character
-    // very fast after it may discard that character.
+    // in one at a time, and there's no good way of handling unrecognized
+    // sequences.
     //
-    unsigned char buf[READ_BUF_LEN]; // '\0' terminated, hence `- 1` below
-    const unsigned char *cp = buf;
+    if (*t->cp == '\0') {  // no residual bytes from a previous read pending
+        if (Read_Bytes_Interrupted(t))
+            return rebVoid();  // signal a HALT
 
-    if (Read_Bytes_Interrupted(term, buf, READ_BUF_LEN - 1))
-        goto return_halt;
+        assert(*t->cp != '\0');
+    }
 
-    while (*cp != '\0') {
-        if (
-            (*cp >= 32 and *cp < 127)  // 32 is space, 127 is DEL(ete)
-            or *cp > 127  // high-bit set UTF-8 start byte
-        ){
-            // ASCII printable character or UTF-8
-            //
-            // https://en.wikipedia.org/wiki/ASCII
-            // https://en.wikipedia.org/wiki/UTF-8
-            //
-            // Inserting a character may consume multiple bytes...and if the
-            // buffer end was reached on a partial input of a UTF-8 character,
-            // it may need to do its own read in order to get the missing
-            // bytes and reset the buffer pointer.  So it can adjust cp even
-            // backwards, if such a read is done.
-            //
-            cp = Insert_Char_Null_If_Interrupted(term, buf, READ_BUF_LEN, cp);
-            if (cp == nullptr)
-                goto return_halt;
+    if (
+        (*t->cp >= 32 and *t->cp < 127)  // 32 is space, 127 is DEL(ete)
+        or *t->cp > 127  // high-bit set UTF-8 start byte
+    ){
+    //=//// ASCII printable character or UTF-8 ////////////////////////////=//
+        //
+        // https://en.wikipedia.org/wiki/ASCII
+        // https://en.wikipedia.org/wiki/UTF-8
+        //
+        // A UTF-8 character may span multiple bytes...and if the buffer end
+        // was reached on a partial read() of a UTF-8 character, we may need
+        // to do more reading to get the missing bytes here.
 
-            continue;
-        }
+        int encoded_size = 1 + trailingBytesForUTF8[*t->cp];
+        assert(encoded_size <= 4);
 
-        if (*cp == ESC and cp[1] == '\0') {
-            //
-            // Plain Escape - Cancel Current Input (...not Halt Script)
-            //
-            // There are two distinct ways we want INPUT to be canceled.  One
-            // is in a way that a script can detect, and continue running:
-            //
-            //    print "Enter filename (ESC to return to main menu):"
-            //    if not filename: input [
-            //       return 'go-to-main-menu
-            //    ]
-            //
-            // The other kind of aborting would stop the script from running
-            // further entirely...and either return to the REPL or exit the
-            // Rebol process.  By near-universal convention in programming,
-            // this is Ctrl-C (SIGINT - Signal Interrupt).  ESC seems like
-            // a reasonable choice for the other.
-            //
-            // The way the notice of abort is wound up to the INPUT command
-            // through the (deprecated) R3-Alpha "OS Host" is by a convention
-            // that aborted lines will be an escape char and a terminator.
-            //
-            // The convention here seems to be that there's a terminator after
-            // the length returned.
-            //
-            goto return_blank;
-
-            // !!! See notes in the Windows Terminal usage of ReadConsole()
-            // about how ESC cannot be overridden when using ENABLE_LINE_INPUT
-            // to do anything other than clear the line.  Ctrl-D is used
-            // there instead.
-        }
-
-        if (*cp == ESC and cp[1] == '[') {
-            //
-            // CSI Escape Sequences, VT100/VT220 Escape Sequences, etc:
-            //
-            // https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_sequences
-            // http://ascii-table.com/ansi-escape-sequences-vt-100.php
-            // http://aperiodic.net/phil/archives/Geekery/term-function-keys.html
-            //
-            // While these are similar in beginning with ESC and '[', the
-            // actual codes vary.  HOME in CSI would be (ESC '[' '1' '~').
-            // But to HOME in VT100, it can be as simple as (ESC '[' 'H'),
-            // although there can be numbers between the '[' and 'H'.
-            //
-            // There's not much in the way of "rules" governing the format of
-            // sequences, though official CSI codes always fit this pattern
-            // with the following sequence:
-            //
-            //    the ESC then the '[' ("the CSI")
-            //    one of `0-9:;<=>?` ("parameter byte")
-            //    any number of `!"# $%&'()*+,-./` ("intermediate bytes")
-            //    one of `@A-Z[\]^_`a-z{|}~` ("final byte")
-            //
-            // But some codes might look like CSI codes while not actually
-            // fitting that rule.  e.g. the F8 function key on my machine
-            // generates (ESC '[' '1' '9' '~'), which is a VT220 code
-            // conflicting with the CSI interpretation of HOME above.
-            //
-            // Note: This kind of conflict confuses "linenoise", leading F8 to
-            // jump to the beginning of line and display a tilde:
-            //
-            // https://github.com/antirez/linenoise
-
-            cp += 2; // skip ESC and '['
-
-            switch (*cp) {
-              case 'A': // up arrow (VT100)
-                term->hist -= 2;
-                goto down_arrow;
-
-              down_arrow:;
-              case 'B': { // down arrow (VT100)
-                int old_end = Term_End(term);
-
-                ++term->hist;
-
-                Home_Line(term);
-                Recall_Line(term);
-
-                int new_end = Term_End(term);
-
-                int len;
-                if (old_end <= new_end)
-                    len = 0;
-                else
-                    len = new_end - old_end;
-
-                Show_Line(term, len - 1); // len < 0 (stay at end)
-                break; }
-
-              case 'D': // left arrow (VT100)
-                Move_Cursor(term, -1);
-                break;
-
-              case 'C': // right arrow (VT100)
-                Move_Cursor(term, 1);
-                break;
-
-              case '1': // home (CSI) or higher function keys (VT220)
-                if (cp[1] != '~') {
-                    Unrecognized_Key_Sequence(cp - 2);
-                    goto restart;
-                }
-                Home_Line(term);
-                ++cp; // remove 1, the ~ is consumed after the switch
-                break;
-
-              case '4': // end (CSI)
-                if (cp[1] != '~') {
-                    Unrecognized_Key_Sequence(cp - 2);
-                    goto restart;
-                }
-                End_Line(term);
-                ++cp; // remove 4, the ~ is consumed after the switch
-                break;
-
-              case '3': // delete (CSI)
-                if (cp[1] != '~') {
-                    Unrecognized_Key_Sequence(cp - 2);
-                    goto restart;
-                }
-                Delete_Char(term, false);
-                ++cp; // remove 3, the ~ is consumed after the switch
-                break;
-
-              case 'H': // home (VT100)
-                Home_Line(term);
-                break;
-
-              case 'F': // end !!! (in what standard?)
-                End_Line(term);
-                break;
-
-              case 'J': // erase to end of screen (VT100)
-                Clear_Line(term);
-                break;
-
-              default:
-                Unrecognized_Key_Sequence(cp - 2);
-                goto restart;
+        // `cp` can jump back to the beginning of the buffer on each read.
+        // So build up an encoded UTF-8 character as continuous bytes so it
+        // can be inserted into a Rebol string atomically.
+        //
+        char encoded[4];
+        int i;
+        for (i = 0; i < encoded_size; ++i) {
+            if (*t->cp == '\0') {
+                //
+                // Premature end, the UTF-8 data must have gotten split on
+                // a buffer boundary.  Refill the buffer with another read,
+                // where the remaining UTF-8 characters *should* be found.
+                //
+                if (Read_Bytes_Interrupted(t))
+                    return nullptr;  // signal a HALT
             }
-
-            ++cp;
-            continue;
+            assert(*t->cp != '\0');
+            encoded[i] = *t->cp;
+            ++t->cp;
         }
 
-        if (*cp == ESC) {
-            //
-            // non-CSI Escape Sequences
-            //
-            // http://ascii-table.com/ansi-escape-sequences-vt-100.php
+        key = rebValue(
+            "to char!", rebR(rebSizedBinary(encoded, encoded_size)),
+        rebEND);
+    }
+    else if (*t->cp == ESC and t->cp[1] == '\0') {
 
-            ++cp;
+    //=//// Plain Escape //////////////////////////////////////////////////=//
 
-            switch (*cp) {
-              case 'H':   // !!! "home" (in what standard??)
-              #if !defined(NDEBUG)
-                rebJumps(
-                    "FAIL {ESC H: please report your system info}",
-                    rebEND
-                );
-              #endif
-                Home_Line(term);
-                break;
+        key = xrebWord("escape");
+    }
+    else if (*t->cp == ESC and t->cp[1] == '[') {
 
-              case 'F':   // !!! "end" (in what standard??)
-              #if !defined(NDEBUG)
-                rebJumps(
-                    "FAIL {ESC F: please report your system info}",
-                    rebEND
-                );
-              #endif
-                End_Line(term);
-                break;
+    //=//// CSI Escape Sequences, VT100/VT220 Escape Sequences, etc. //////=//
+        //
+        // https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_sequences
+        // http://ascii-table.com/ansi-escape-sequences-vt-100.php
+        // http://aperiodic.net/phil/archives/Geekery/term-function-keys.html
+        //
+        // While these are similar in beginning with ESC and '[', the
+        // actual codes vary.  HOME in CSI would be (ESC '[' '1' '~').
+        // But to HOME in VT100, it can be as simple as (ESC '[' 'H'),
+        // although there can be numbers between the '[' and 'H'.
+        //
+        // There's not much in the way of "rules" governing the format of
+        // sequences, though official CSI codes always fit this pattern
+        // with the following sequence:
+        //
+        //    the ESC then the '[' ("the CSI")
+        //    one of `0-9:;<=>?` ("parameter byte")
+        //    any number of `!"# $%&'()*+,-./` ("intermediate bytes")
+        //    one of `@A-Z[\]^_`a-z{|}~` ("final byte")
+        //
+        // But some codes might look like CSI codes while not actually
+        // fitting that rule.  e.g. the F8 function key on my machine
+        // generates (ESC '[' '1' '9' '~'), which is a VT220 code
+        // conflicting with the CSI interpretation of HOME above.
+        //
+        // Note: This kind of conflict confuses "linenoise", leading F8 to
+        // jump to the beginning of line and display a tilde:
+        //
+        // https://github.com/antirez/linenoise
 
-              case '\0':
-                assert(false); // plain escape handled earlier for clarity
-                goto unrecognized;
+        t->cp += 2;  // skip ESC and '['
 
-              unrecognized:;
-              default:
-                Unrecognized_Key_Sequence(cp - 1);
-                goto restart;
-            }
+        switch (*t->cp) {
+          case 'A':  // up arrow (VT100)
+            key = xrebWord("up");
+            break;
 
-            ++cp;
-            continue;
+          case 'B':  // down arrow (VT100)
+            key = xrebWord("down");
+            break;
+
+          case 'D':  // left arrow (VT100)
+            key = xrebWord("left");
+            break;
+
+          case 'C':  // right arrow (VT100)
+            key = xrebWord("right");
+            break;
+
+          case '1':  // home (CSI) or higher function keys (VT220)
+            if (t->cp[1] != '~')
+                return Unrecognized_Key_Sequence(t, -2);
+
+            key = xrebWord("home");
+            ++t->cp;  // remove 1, the ~ is consumed after the switch
+            break;
+
+          case '4': // end (CSI)
+            if (t->cp[1] != '~')
+                return Unrecognized_Key_Sequence(t, -2);
+
+            key = xrebWord("end");
+            ++t->cp;  // remove 4, the ~ is consumed after the switch
+            break;
+
+          case '3':  // delete (CSI)
+            if (t->cp[1] != '~')
+                return Unrecognized_Key_Sequence(t, -2);
+
+            key = xrebWord("delete");
+            ++t->cp;  // remove 3, the ~ is consumed after the switch
+            break;
+
+          case 'H':  // home (VT100)
+            key = xrebWord("home");
+            break;
+
+          case 'F':  // end !!! (in what standard?)
+            key = xrebWord("end");
+            break;
+
+          case 'J':  // erase to end of screen (VT100)
+            key = xrebWord("clear");
+            break;
+
+          default:
+            return Unrecognized_Key_Sequence(t, -2);
         }
 
-        // C0 control codes and Bash-inspired Shortcuts
+        ++t->cp;
+    }
+    else if (*t->cp == ESC) {
+
+    //=//// non-CSI Escape Sequences //////////////////////////////////////=//
+        //
+        // http://ascii-table.com/ansi-escape-sequences-vt-100.php
+
+        ++t->cp;
+
+        switch (*t->cp) {
+          case 'H':   // !!! "home" (in what standard??)
+          #if !defined(NDEBUG)
+            rebJumps(
+                "FAIL {ESC H: please report your system info}",
+            rebEND);
+          #endif
+            key = xrebWord("home");
+            break;
+
+          case 'F':  // !!! "end" (in what standard??)
+          #if !defined(NDEBUG)
+            rebJumps(
+                "FAIL {ESC F: please report your system info}",
+            rebEND);
+          #endif
+            key = xrebWord("end");
+            break;
+
+          case '\0':
+            assert(false);  // plain escape handled earlier for clarity
+            key = xrebWord("escape");
+            break;
+
+          default:
+            return Unrecognized_Key_Sequence(t, -2);
+        }
+
+        ++t->cp;
+    }
+    else {
+
+    //=//// C0 Control Codes and Bash-inspired Shortcuts //////////////////=//
         //
         // https://en.wikipedia.org/wiki/C0_and_C1_control_codes
         // https://ss64.com/bash/syntax-keyboard.html
-        //
-        switch (*cp) {
-          case BS: // backspace (C0)
-          case DEL: // delete (C0)
-            Delete_Char(term, true);
-            break;
-
-          case CR: // carriage return (C0)
-            if (cp[1] == LF)
-                ++cp; // disregard the CR character, else treat as LF
-            goto line_feed;
-
-          line_feed:;
-          case LF: // line feed (C0)
-            WRITE_STR("\n");
-            Store_Line(term);
-            ++cp;
-            goto line_end_reached;
-
-          case 1: // CTRL-A, Beginning of Line (bash)
-            Home_Line(term);
-            break;
-
-          case 2: // CTRL-B, Backward One Character (bash)
-            Move_Cursor(term, -1);
-            break;
-
-          case 3: // CTRL-C, Interrupt (ANSI, <signal.h> is standard C)
+    
+        if (*t->cp == 3)  {  // CTRL-C, Interrupt (ANSI, <signal.h> is C89)
             //
             // It's theoretically possible to clear the termios `c_lflag` ISIG
             // in order to receive literal Ctrl-C, but we don't want to get
@@ -836,78 +738,250 @@ REBVAL *Read_Line(STD_TERM *term)
             //
             rebJumps(
                 "FAIL {Unexpected literal Ctrl-C in console}",
-                rebEND
-            );
+            rebEND);
+        }
+        else switch (*t->cp) {
+          case DEL:  // delete (C0)
+            //
+            // From Wikipedia:
+            // "On modern systems, terminal emulators typically turn keys
+            // marked "Delete" or "Del" into an escape sequence such as
+            // ^[[3~. Terminal emulators may produce DEL when backspace
+            // is pressed."
+            //
+            // We assume "modern" interpretation of DEL as backspace synonym.
+            //
+            goto backspace;
 
-          case 4: // CTRL-D, Synonym for Cancel Input (Windows Terminal Garbage)
-            //
-            // !!! In bash this is "Delete Character Under the Cursor".  But
-            // the Windows Terminal forces our hands to not use Escape for
-            // canceling input.  See notes regarding ReadConsole() along with
-            // ENABLE_LINE_INPUT.
-            //
-            // If one is forced to choose only one thing, it makes more sense
-            // to make this compatible with the Windows console so there's
-            // one shortcut you can learn that works on both platforms.
-            // Though ideally it would be configurable--and it could be, if
-            // the Windows version had to manage the edit buffer with as
-            // much manual code as this POSIX version does.
-            //
-          #if 0
-            Delete_Char(term, false);
-            break
-          #else
-            goto return_blank;
-          #endif
-
-          case 5: // CTRL-E, End of Line (bash)
-            End_Line(term);
+          case BS:  // backspace (C0)
+          backspace:
+            key = xrebWord("backspace");
             break;
 
-          case 6: // CTRL-F, Forward One Character (bash)
-            Move_Cursor(term, 1);
+          case CR:  // carriage return (C0)
+            if (t->cp[1] == LF)
+                ++t->cp;  // disregard the CR character, else treat as LF
+            goto line_feed;
+
+          line_feed:;
+          case LF:  // line feed (C0)
+            key = rebChar('\n');  // default case would do it, but be clear
             break;
 
           default:
-            Unrecognized_Key_Sequence(cp);
-            goto restart;
+            if (*t->cp >= 1 and *t->cp <= 26) {  // Ctrl-A, Ctrl-B, etc.
+                key = rebValue(
+                    "as word! unspaced [",
+                        "{ctrl-}", rebR(rebChar(*t->cp - 1 + 'a')),
+                    "]",
+                rebEND);
+            }
+            else
+                return Unrecognized_Key_Sequence(t, 0);
         }
-
-        ++cp;
+        ++t->cp;
     }
 
-    goto restart;
+    assert(key != nullptr);
+    return key;
+}
 
-  return_blank:
-    //
-    // INPUT has a display invariant that the author of the code expected
-    // a newline to be part of what the user contributed.  To keep the visual
-    // flow in the case of a cancellation key that didn't have a newline, we
-    // have to throw one in.
+
+extern REBVAL *Read_Line(STD_TERM *term);
+
+
+//
+//  Term_Insert: C
+//
+// Inserts a Rebol value (TEXT!, CHAR!, etc.) at the current cursor position.
+//
+void Term_Insert(STD_TERM *t, const REBVAL *v) {
+    REBVAL *text = rebValue("to text!", v, rebEND);
+
+    rebElide(
+        "insert skip", t->buffer, rebI(t->pos), text,
+    rebEND);
+
+    int len = rebUnboxInteger("length of", text, rebEND);
+
+    size_t encoded_size;
+    unsigned char *encoded = rebBytes(&encoded_size,
+        text,
+    rebEND);
+    WRITE_UTF8(encoded, encoded_size);
+    rebFree(encoded);
+
+    rebRelease(text);
+
+    t->pos += len;
+    Show_Line(t, 0);
+}
+
+
+//
+//  Read_Line: C
+//
+// Read a line (as a sequence of bytes) from the terminal.  Handles line
+// editing and line history recall.
+//
+// If HALT is encountered (e.g. a Ctrl-C), this routine will return VOID!
+// If ESC is pressed, this will return a BLANK!.
+// Otherwise it will return a TEXT! of the read-in string.
+//
+// !!! Read_Line is a transitional step as a C version of what should move to
+// be usermode Rebol, making decisions about communication with the terminal
+// on a keystroke-by-keystroke basis.
+//
+REBVAL *Read_Line(STD_TERM *t)
+{
+    t->pos = 0;
+    t->hist = Line_Count;
+
+    rebElide("clear", t->buffer, rebEND);
+
+    REBVAL *line = nullptr;
+    while (line == nullptr) {
+        REBVAL *e = Try_Get_One_Console_Event(t);  // (not an actual EVENT!)
+
+        if (e == nullptr) {
+            rebJumps(
+                "fail {nullptr interruption of terminal not done yet}",
+            rebEND);
+        }
+        else if (rebDid("void?", rebQ1(e), rebEND)) {
+            line = rebVoid();
+        }
+        else if (rebDidQ(e, "= newline", rebEND)) {
+            //
+            // !!! This saves a line in the "history", but it's not clear
+            // exactly long term what level this history should cut into
+            // the system.
+            //
+            Store_Line(t);
+
+            // We could return the term buffer directly and allocate a new
+            // buffer.  But returning a copy lets the return result be a new
+            // allocation at the exact size of the final input (e.g. paging
+            // through the history and getting longer entries transiently
+            // won't affect the extra capacity of what's ultimately returned.)
+            //
+            line = rebValue("copy", t->buffer, rebEND);
+        }
+        else if (rebDidQ("char?", e, rebEND)) {  // printable character
+            Term_Insert(t, e);
+        }
+        else if (rebDidQ("word?", e, rebEND)) {  // recognized "virtual key"
+            uint32_t ch = rebUnboxChar(
+                "to char! switch", rebQ1(e), "[",
+                    "'escape ['E]",
+
+                    "'up ['U]",
+                    "'down ['D]",
+                    "'ctrl-b",  // Backward One Character (bash)
+                        "'left ['L]",
+                    "'ctrl-f",  // Forward One Character (bash)
+                        "'right ['R]",
+
+                    "'backspace ['b]",
+                    "'ctrl-d",  // Delete Character Under Cursor (bash)
+                        "'delete ['d]",
+
+                    "'ctrl-a",  // Beginning of Line (bash)
+                        "'home ['h]",
+                    "'ctrl-e",  // CTRL-E, end of Line (bash)
+                        "'end ['e]",
+
+                    "'clear ['c]",
+
+                    "default [0]",
+                "]",
+            rebEND);
+
+            switch (ch) {
+              case 'E':  // ESCAPE
+                line = rebBlank();
+                break;
+
+              case 'U':  // UP
+                t->hist -= 2;  // overcompensate, then down arrow subtracts 1
+                goto down_arrow;  // ...has otherwise same updating code...
+
+              down_arrow:;
+              case 'D': {  // DOWN
+                int old_end = Term_End(t);
+
+                ++t->hist;
+
+                Home_Line(t);
+                Recall_Line(t);
+
+                int new_end = Term_End(t);
+
+                int len;
+                if (old_end <= new_end)
+                    len = 0;
+                else
+                    len = new_end - old_end;
+
+                Show_Line(t, len - 1);  // len < 0 (stay at end)
+                break; }
+
+              case 'L':  // LEFT
+                Move_Cursor(t, -1);
+                break;
+
+              case 'R':  // RIGHT
+                Move_Cursor(t, 1);
+                break;
+
+              case 'b':  // backspace
+                Delete_Char(t, true);
+                break;
+
+              case 'd':  // delete
+                Delete_Char(t, false);
+                break;
+
+              case 'h':  // home
+                Home_Line(t);
+                break;
+
+              case 'e':  // end
+                End_Line(t);
+                break;
+
+              case 'c':  // clear
+                Clear_Line(t);
+                break;
+
+              default:
+                rebJumps(
+                    "fail {Invalid key press returned from console}",
+                rebEND);
+            }
+        }
+        else if (rebDidQ("text?", e, rebEND)) {  // unrecognized key
+            //
+            // When an unrecognized key is hit, people may want to know that
+            // at least the keypress was received.  Or not.  For now, output
+            // a key message to say "we don't know what you hit".
+            //
+            // !!! In the future, this might do something more interesting to
+            // get the BINARY! information for the key sequence back up out of
+            // the terminal, so that people could see what the key registered
+            // as on their machine and configure the console to respond to it.
+            //
+            Term_Insert(t, e);
+        }
+
+        rebRelease(e);
+    }
+
+    // ASK has a display invariant that a newline is visually expected as part
+    // of what the user contributed.  We print one out whether we got a whole
+    // line or not (e.g. ESCAPE or HALT) to keep the visual flow.
     //
     WRITE_STR("\n");
-    return rebBlank();
 
-  return_halt:
-    WRITE_STR("\n"); // see note above on INPUT's display invariant
-    return nullptr;
-
-  line_end_reached:
-    // Not at end of input? Save any unprocessed chars:
-    if (*cp != '\0') {
-        if (LEN_BYTES(term->residue) + LEN_BYTES(cp) >= RESIDUE_LEN - 1) {
-            //
-            // avoid overrun
-        }
-        else
-            strcat(s_cast(term->residue), cs_cast(cp));
-    }
-
-    // We could return the term buffer directly and allocate a new buffer.
-    // But returning a copy lets the return result be a new allocation at the
-    // exact size of the final input (e.g. paging through the history and
-    // getting longer entries transiently won't affect the extra capacity of
-    // what is ultimately returned.)
-    //
-    return rebValue("copy", term->buffer, rebEND);
+    return line;
 }
