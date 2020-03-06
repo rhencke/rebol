@@ -100,11 +100,11 @@ REB_R MAKE_Char(
         fail (Error_Bad_Make_Parent(kind, opt_parent));
 
     switch(VAL_TYPE(arg)) {
-    case REB_CHAR:  // !!! is this really necessary for MAKE CHAR!?
+      case REB_CHAR:  // !!! is this really necessary for MAKE CHAR!?
         return Move_Value(out, arg);
 
-    case REB_INTEGER:
-    case REB_DECIMAL: {
+      case REB_INTEGER:
+      case REB_DECIMAL: {
         REBINT n = Int32(arg);
         return Init_Char_May_Fail(out, n); }
 
@@ -154,6 +154,29 @@ REB_R MAKE_Char(
 //
 REB_R TO_Char(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
+    // !!! We want `to char! 'x` to give #"x" back.  But `make char! "&nbsp;"`
+    // might be best having a different behavior than Rebol's historical
+    // answer of #"&".  Review.
+    //
+
+    REBCHR(const *) cp = nullptr;
+    if (ANY_STRING(arg))
+        cp = VAL_STRING_HEAD(arg);
+    else if (ANY_WORD(arg))
+        cp = STR_HEAD(VAL_WORD_SPELLING(arg));
+
+    if (cp) {
+        REBUNI c1;
+        cp = NEXT_CHR(&c1, cp);
+        if (c1 != '\0') {
+            REBUNI c2;
+            cp = NEXT_CHR(&c2, cp);
+            if (c2 == '\0')
+                return Init_Char_Unchecked(out, c1);
+        }
+        fail (Error_Bad_Cast_Raw(arg, Datatype_From_Kind(REB_CHAR)));
+    }
+
     return MAKE_Char(out, kind, nullptr, arg);
 }
 

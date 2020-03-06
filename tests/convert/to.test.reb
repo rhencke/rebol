@@ -16,3 +16,15 @@
 (lit (a b c) = to group! [a b c])
 (lit a/b/c = to path! [a b c])
 (lit a/b/c = to path! lit (a b c))
+
+; Single-character strings and words can TO-convert to CHAR!
+[
+    (#"x" = to char! 'x)
+    ('bad-cast = pick trap [to char! 'xx] 'id)
+
+    (#"x" = to char! "x")
+    ('bad-cast = pick trap [to char! 'xx] 'id)
+
+    ; !!! Should this be rethought, e.g. to return NULL?
+    ('bad-cast = pick trap [to char! ""] 'id)
+]
