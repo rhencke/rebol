@@ -321,6 +321,9 @@ e-lib: (make-emitter
     "Rebol External Library Interface" output-dir/rebol.h)
 
 e-lib/emit {
+    #ifndef REBOL_H_1020_0304  /* "include guard" allows multiple #includes */
+    #define REBOL_H_1020_0304  /* numbers in case REBOL_H defined elsewhere */
+
     /*
      * The goal is to make it possible that the only include file one needs
      * to make a simple Rebol library client is `#include "rebol.h"`.  Yet
@@ -681,6 +684,8 @@ e-lib/emit {
     #ifdef __cplusplus
     }
     #endif
+
+    #endif  /* REBOL_H_1020_0304 */
 }
 
 e-lib/write-emitted
