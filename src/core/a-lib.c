@@ -757,8 +757,15 @@ static void Run_Va_May_Fail(
 
     REBFLGS flags = EVAL_MASK_DEFAULT | FLAG_QUOTING_BYTE(quotes);
 
+    REBFLGS saved_sigmask = Eval_Sigmask;
+    Eval_Sigmask &= ~SIG_HALT;  // We don't want halt or Ctrl-C during APIs
+
     DECLARE_VA_FEED (feed, p, vaptr, flags);
-    if (Do_Feed_To_End_Maybe_Stale_Throws(out, feed)) {
+    bool threw = Do_Feed_To_End_Maybe_Stale_Throws(out, feed);
+    
+    Eval_Sigmask = saved_sigmask;
+
+    if (threw) {
         //
         // !!! Being able to THROW across C stacks is necessary in the general
         // case (consider implementing QUIT or HALT).  Probably need to be
