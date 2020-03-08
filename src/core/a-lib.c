@@ -1196,6 +1196,24 @@ unsigned char *RL_rebBytes(
         return nullptr;  // NULL is passed through, for opting out
     }
 
+    if (IS_CHAR(series)) {
+        //
+        // Needing the UTF-8 encoding of a character common (e.g. writing the
+        // terminal code).  We could make people run AS BINARY! on CHAR!, but
+        // it's more efficient to offer it as one of the fundamental things
+        // rebBytes() can handle (the character cell holds the encoded form).
+        //
+        *size_out = series->payload.Character.size_then_encoded[0];
+        char *result = rebAllocN(char, *size_out);  // no +1 needed...
+        assert(result[*size_out] == '\0');  // ...see rebRepossess() for why
+        memcpy(
+            result,
+            &series->payload.Character.size_then_encoded[1],
+            *size_out
+        );
+        return cast(unsigned char*, result);
+    }
+
     if (ANY_WORD(series) or ANY_STRING(series)) {
         *size_out = rebSpellIntoQ(nullptr, 0, series, rebEND);
         char *result = rebAllocN(char, *size_out);  // no +1 needed...
@@ -1213,7 +1231,7 @@ unsigned char *RL_rebBytes(
     if (IS_BINARY(series)) {
         *size_out = rebBytesIntoQ(nullptr, 0, series, rebEND);
         unsigned char *result = rebAllocN(REBYTE, *size_out);
-        assert(result[*size_out] == '\0');  // ...see rebRepossess() for why this is
+        assert(result[*size_out] == '\0');  // ...see rebRepossess() for why
         size_t check = rebBytesIntoQ(
             result,
             *size_out,
@@ -1224,7 +1242,7 @@ unsigned char *RL_rebBytes(
         return result;
     }
 
-    fail ("rebBytes() only works with ANY-STRING!/ANY-WORD!/BINARY!");
+    fail ("rebBytes() only works with ANY-STRING!/ANY-WORD!/BINARY!/CHAR!");
 }
 
 
