@@ -102,15 +102,6 @@ read-stdin: function [
     ]
 
     data: read system/ports/input
-    if 0 = length of data [
-        ;
-        ; !!! Zero-length data is the protocol being used to signal a halt in
-        ; the (deprecated) Host OS layer.  All those who READ from the
-        ; INPUT port shouldn't have to know this and retransmit the halt, so
-        ; it should probably be something the READ itself does.
-        ;
-        halt
-    ]
 
     all [
         1 = length of data

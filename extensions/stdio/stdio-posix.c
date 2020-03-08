@@ -37,36 +37,29 @@
 #include <unistd.h>
 #include <signal.h>
 
+#include "readline.h"
+extern REBVAL *Read_Line(STD_TERM *t);
+
+
 // Temporary globals: (either move or remove?!)
 static int Std_Inp = STDIN_FILENO;
 static int Std_Out = STDOUT_FILENO;
 
-#ifndef HAS_SMART_CONSOLE   // console line-editing and recall needed
-typedef struct term_data {
-    char *buffer;
-    char *residue;
-    char *out;
-    int pos;
-    int end;
-    int hist;
-} STD_TERM;
-
-extern STD_TERM *Init_Terminal();
-extern void Quit_Terminal(STD_TERM*);
-extern REBVAL *Read_Line(STD_TERM*);
-
-STD_TERM *Term_IO;
-#endif
+// !!! The only POSIX platform that did not offer "termios" features was
+// the Amiga.  Current plan for systems so old that they lack termios
+// features--should anyone build for them--is to use a plain scanf()/printf()
+// alternate implementation of the console, as opposed to complicate this
+// code with #ifdefs.
+//
+STD_TERM *Term_IO = nullptr;
 
 
 static void Close_Stdio(void)
 {
-#ifndef HAS_SMART_CONSOLE
     if (Term_IO) {
         Quit_Terminal(Term_IO);
-        Term_IO = 0;
+        Term_IO = nullptr;
     }
-#endif
 }
 
 
@@ -103,11 +96,8 @@ DEVICE_CMD Open_IO(REBREQ *io)
 
     if (not (req->modes & RDM_NULL)) {
 
-#ifndef HAS_SMART_CONSOLE
-        if (isatty(Std_Inp))
+        if (isatty(Std_Inp))  // is termios-capable (not redirected to a file)
             Term_IO = Init_Terminal();
-#endif
-        //printf("%x\r\n", req->requestee.handle);
     }
     else
         dev->flags |= SF_DEV_NULL;
@@ -147,25 +137,41 @@ DEVICE_CMD Write_IO(REBREQ *io)
 {
     struct rebol_devreq *req = Req(io);
 
-    long total;
-
     if (req->modes & RDM_NULL) {
         req->actual = req->length;
         return DR_DONE;
     }
 
     if (Std_Out >= 0) {
+        if (Term_IO) {
+            //
+            // We need to sync the cursor position with writes.  This means
+            // being UTF-8 aware, so the buffer we get has to be valid UTF-8
+            // when written to a terminal for stdio.  (Arbitrary bytes of data
+            // can be written when output is directed to cgi, but Term_IO
+            // would be null.)
+            //
+            // !!! Longer term, the currency of exchange wouldn't be byte
+            // buffers, but REBVAL*, in which case the UTF-8 nature of a TEXT!
+            // would be assured, and we wouldn't be wasting this creation
+            // of a new text and validating the UTF-8 *again*.
+            //
+            REBVAL *text = rebSizedText(
+                cs_cast(req->common.data),
+                req->length
+            );
+            Term_Insert(Term_IO, text);
+            rebRelease(text);
+        }
+        else {
+            long total = write(Std_Out, req->common.data, req->length);
 
-        total = write(Std_Out, req->common.data, req->length);
+            if (total < 0)
+                rebFail_OS(errno);
 
-        if (total < 0)
-            rebFail_OS(errno);
-
-        //if (req->flags & RRF_FLUSH) {
-            //FLUSH();
-        //}
-
-        req->actual = total;
+            assert(total == req->length);
+        }
+        req->actual = req->length;
     }
 
     return DR_DONE;
@@ -205,12 +211,10 @@ DEVICE_CMD Read_IO(REBREQ *io)
     req->actual = 0;
 
     if (Std_Inp >= 0) {
-      #ifndef HAS_SMART_CONSOLE  // falls through to stdin if not a console
-        if (Term_IO) {
+        if (Term_IO) {  // not redirected to a file, so termios enabled
             REBVAL *result = Read_Line(Term_IO);
-            if (result == nullptr) {  // HALT received
-                total = 0;
-                TERM_BIN_LEN(bin, 0);
+            if (rebDid("void?", rebQ1(result), rebEND)) {  // HALT received
+                rebHalt();  // can't do `rebElide("halt")` (it's a throw)
             }
             else if (rebDid("blank?", result, rebEND)) {  // ESCAPE received
                 total = 1;
@@ -225,9 +229,7 @@ DEVICE_CMD Read_IO(REBREQ *io)
             }
             rebRelease(result);  // nullptr tolerant
         }
-        else
-      #endif
-        {
+        else {  // fall through to stdio
             total = read(Std_Inp, BIN_HEAD(bin), len);  // restarts on signal
             if (total < 0)
                 rebFail_OS (errno);

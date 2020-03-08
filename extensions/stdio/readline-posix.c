@@ -39,7 +39,11 @@
 
 //=//// REBOL INCLUDES + HELPERS //////////////////////////////////////////=//
 
-#include "sys-core.h"
+#include <assert.h>
+#include <stdint.h>
+#include "reb-c.h"
+
+#include "readline.h"
 
 #define xrebWord(cstr) \
     rebValue("'" cstr, rebEND)  // C string literal should merge apostrophe
@@ -47,8 +51,14 @@
 
 //=//// CONFIGURATION /////////////////////////////////////////////////////=//
 
-#define READ_BUF_LEN 64   // chars per read()
-#define MAX_HISTORY  300   // number of lines stored
+enum {
+    BEL = 7,
+    BS = 8,
+    LF = 10,
+    CR = 13,
+    ESC = 27,
+    DEL = 127
+};
 
 
 #define WRITE_CHAR(s) \
@@ -74,38 +84,30 @@ inline static void WRITE_STR(const char *s) {
 }
 
 
-typedef struct term_data {
+struct Reb_Terminal_Struct {
     REBVAL *buffer;  // a TEXT! used as a buffer
-    int pos;  // cursor position within the line
-    int hist;  // history position within the line history buffer
+    unsigned int pos;  // cursor position within the line
 
     unsigned char buf[READ_BUF_LEN];  // '\0' terminated, needs -1 on read()
     const unsigned char *cp;
-} STD_TERM;
-
-inline static int Term_End(STD_TERM *term)
-  { return rebUnboxInteger("length of", term->buffer, rebEND); }
-
-inline static int Term_Remain(STD_TERM *term) {
-    return rebUnboxInteger(
-        "length of skip", term->buffer, rebI(term->pos),
-    rebEND);
-}
+};
 
 
 //=//// GLOBALS ///////////////////////////////////////////////////////////=//
 
 static bool Term_Initialized = false;  // Terminal init was successful
-static REBVAL *Line_History;  // Prior input lines (BLOCK!)
-#define Line_Count \
-    rebUnboxInteger("length of", Line_History, rebEND)
 
 #ifndef NO_TTY_ATTRIBUTES
     static struct termios Term_Attrs;  // Initial settings, restored on exit
 #endif
 
 
-extern STD_TERM *Init_Terminal(void);
+inline static unsigned int Term_End(STD_TERM *t)
+  { return rebUnboxInteger("length of", t->buffer, rebEND); }
+
+inline static unsigned int Term_Remain(STD_TERM *t)
+  { return Term_End(t) - t->pos; }
+
 
 //
 //  Init_Terminal: C
@@ -160,20 +162,44 @@ STD_TERM *Init_Terminal(void)
     Line_History = rebValue("[{}]", rebEND);  // current line is empty string
     rebUnmanage(Line_History);  // allow Line_History to live indefinitely
 
-    STD_TERM *term = cast(STD_TERM*, malloc(sizeof(STD_TERM)));
-    term->buffer = rebValue("{}", rebEND);
-    rebUnmanage(term->buffer);
+    STD_TERM *t = cast(STD_TERM*, malloc(sizeof(STD_TERM)));
+    t->buffer = rebValue("{}", rebEND);
+    rebUnmanage(t->buffer);
 
-    term->buf[0] = '\0';  // start read() byte buffer out at empty
-    term->cp = term->buf;
+    t->buf[0] = '\0';  // start read() byte buffer out at empty
+    t->cp = t->buf;
+    t->pos = 0;
 
     Term_Initialized = true;
 
-    return term;
+    return t;
 }
 
 
-extern void Quit_Terminal(STD_TERM *term);
+//
+//  Term_Pos: C
+//
+// The STD_TERM is opaque, but it holds onto a buffer.
+//
+int Term_Pos(STD_TERM *t)
+{
+    return t->pos;
+}
+
+
+//
+//  Term_Buffer: C
+//
+// This gives you a read-only perspective on the buffer.  You should not
+// change it directly because doing so would not be in sync with the cursor
+// position or what is visible on the display.  All changes need to go through
+// the terminal itself.
+//
+REBVAL *Term_Buffer(STD_TERM *t)
+{
+    return rebValue("const", t->buffer, rebEND);
+}
+
 
 //
 //  Quit_Terminal: C
@@ -181,15 +207,15 @@ extern void Quit_Terminal(STD_TERM *term);
 // Restore the terminal modes original entry settings,
 // in preparation for exit from program.
 //
-void Quit_Terminal(STD_TERM *term)
+void Quit_Terminal(STD_TERM *t)
 {
     if (Term_Initialized) {
       #ifndef NO_TTY_ATTRIBUTES
         tcsetattr(0, TCSADRAIN, &Term_Attrs);
       #endif
 
-        rebRelease(term->buffer);
-        free(term);
+        rebRelease(t->buffer);
+        free(t);
 
         rebRelease(Line_History);
         Line_History = nullptr;
@@ -243,7 +269,7 @@ static bool Read_Bytes_Interrupted(STD_TERM *t)
 //
 // Write out repeated number of chars.
 //
-static void Write_Char(unsigned char c, int n)
+void Write_Char(unsigned char c, int n)
 {
     unsigned char buf[4];
 
@@ -254,63 +280,17 @@ static void Write_Char(unsigned char c, int n)
 
 
 //
-//  Store_Line: C
-//
-// Stores a copy of the current buffer in the history list.
-//
-static void Store_Line(STD_TERM *term)
-{
-    // If max history, drop oldest line (but not first empty line)
-    //
-    if (Line_Count >= MAX_HISTORY)
-        rebElide("remove next", Line_History, rebEND);
-
-    rebElide("append", Line_History, "copy", term->buffer, rebEND);
-}
-
-
-//
-//  Recall_Line: C
-//
-// Set the current buffer to the contents of the history
-// list at its current position. Clip at the ends.
-//
-static void Recall_Line(STD_TERM *term)
-{
-    if (term->hist < 0)
-        term->hist = 0;
-
-    if (term->hist == 0)
-        Write_Char(BEL, 1);  // try an audible alert if no previous history
-
-    // Rather than rebRelease() the buffer, we clear it and append to it if
-    // there is content to draw in.  This saves the GC some effort.
-    //
-    rebElide("clear", term->buffer, rebEND);
-
-    if (term->hist >= Line_Count) {  // no "next" line, so clear buffer
-        term->hist = Line_Count;
-        term->pos = 0;
-    }
-    else {
-        rebElide(
-            "append", term->buffer,  // see above GC note on CLEAR + APPEND
-                "pick", Line_History, rebI(term->hist + 1),  // 1-based
-        rebEND);
-        term->pos = Term_End(term);
-    }
-}
-
-
-//
-//  Clear_Line: C
+//  Clear_Line_To_End: C
 //
 // Clear all the chars from the current position to the end.
 // Reset cursor to current position.
 //
-static void Clear_Line(STD_TERM *term)
+void Clear_Line_To_End(STD_TERM *t)
 {
-    int num_codepoints_to_end = Term_Remain(term);
+    int num_codepoints_to_end = Term_Remain(t);
+    rebElide(
+        "clear skip", t->buffer, rebI(t->pos),
+    rebEND);
 
     Write_Char(' ', num_codepoints_to_end);  // wipe to end of line...
     Write_Char(BS, num_codepoints_to_end);  // ...then return to position
@@ -318,39 +298,15 @@ static void Clear_Line(STD_TERM *term)
 
 
 //
-//  Home_Line: C
+//  Term_Seek: C
 //
 // Reset cursor to home position.
 //
-static void Home_Line(STD_TERM *term)
+void Term_Seek(STD_TERM *t, unsigned int pos)
 {
-    while (term->pos > 0) {
-        --term->pos;
-        Write_Char(BS, 1);
-    }
-}
-
-
-//
-//  End_Line: C
-//
-// Move cursor to end position.
-//
-static void End_Line(STD_TERM *term)
-{
-    int num_codepoints = Term_Remain(term);
-
-    if (num_codepoints != 0) {
-        size_t size;
-        unsigned char *utf8 = rebBytes(&size,
-            "skip", term->buffer, rebI(term->pos),
-        rebEND);
-
-        WRITE_UTF8(utf8, size);
-        term->pos += num_codepoints;
-
-        rebFree(utf8);
-    }
+    int delta = (pos < t->pos) ? -1 : 1;
+    while (pos != t->pos)
+        Move_Cursor(t, delta);
 }
 
 
@@ -362,20 +318,18 @@ static void End_Line(STD_TERM *term)
 // If blanks is negative, stay at end of line.
 // Reset the cursor back to current position.
 //
-static void Show_Line(STD_TERM *term, int blanks)
+static void Show_Line(STD_TERM *t, int blanks)
 {
     // Clip bounds
     //
-    int end = Term_End(term);
-    if (term->pos < 0)
-        term->pos = 0;
-    else if (term->pos > end)
-        term->pos = end;
+    unsigned int end = Term_End(t);
+    if (t->pos > end)
+        t->pos = end;
 
     if (blanks >= 0) {
         size_t num_bytes;
         unsigned char *bytes = rebBytes(&num_bytes,
-            "skip", term->buffer, rebI(term->pos),
+            "skip", t->buffer, rebI(t->pos),
         rebEND);
 
         WRITE_UTF8(bytes, num_bytes);
@@ -384,7 +338,7 @@ static void Show_Line(STD_TERM *term, int blanks)
     else {
         size_t num_bytes;
         unsigned char *bytes = rebBytes(&num_bytes,
-            term->buffer,
+            t->buffer,
         rebEND);
 
         WRITE_UTF8(bytes, num_bytes);
@@ -399,7 +353,7 @@ static void Show_Line(STD_TERM *term, int blanks)
     // We want to write as many backspace characters as there are *codepoints*
     // in the buffer to end of line.
     //
-    Write_Char(BS, Term_Remain(term));
+    Write_Char(BS, Term_Remain(t));
 }
 
 
@@ -409,31 +363,31 @@ static void Show_Line(STD_TERM *term, int blanks)
 // Delete a char at the current position. Adjust end position.
 // Redisplay the line. Blank out extra char at end.
 //
-static void Delete_Char(STD_TERM *term, bool back)
+void Delete_Char(STD_TERM *t, bool back)
 {
-    int end = Term_End(term);
+    unsigned int end = Term_End(t);
 
-    if (term->pos == end and not back)
+    if (t->pos == end and not back)
         return;  // Ctrl-D (forward-delete) at end of line
 
-    if (term->pos == 0 and back)
+    if (t->pos == 0 and back)
         return;  // backspace at beginning of line
 
     if (back)
-        --term->pos;
+        --t->pos;
 
-    if (term->pos >= 0 and end > 0) {
+    if (end > 0) {
         rebElide(
-            "remove skip", term->buffer, rebI(term->pos),
+            "remove skip", t->buffer, rebI(t->pos),
         rebEND);
 
         if (back)
             Write_Char(BS, 1);
 
-        Show_Line(term, 1);
+        Show_Line(t, 1);
     }
     else
-        term->pos = 0;
+        t->pos = 0;
 }
 
 
@@ -442,15 +396,15 @@ static void Delete_Char(STD_TERM *term, bool back)
 //
 // Move cursor right or left by one char.
 //
-static void Move_Cursor(STD_TERM *term, int count)
+void Move_Cursor(STD_TERM *t, int count)
 {
     if (count < 0) {
         //
         // "backspace" in TERMIOS lets you move the cursor left without
         //  knowing what character is there and without overwriting it.
         //
-        if (term->pos > 0) {
-            --term->pos;
+        if (t->pos > 0) {
+            --t->pos;
             Write_Char(BS, 1);
         }
     }
@@ -458,16 +412,16 @@ static void Move_Cursor(STD_TERM *term, int count)
         // Moving right without affecting a character requires writing the
         // character you know to be already there (via the buffer).
         //
-        int end = Term_End(term);
-        if (term->pos < end) {
+        unsigned int end = Term_End(t);
+        if (t->pos < end) {
             size_t encoded_size;
             unsigned char *encoded_char = rebBytes(&encoded_size,
-                "to binary! pick", term->buffer, rebI(term->pos + 1),
+                "to binary! pick", t->buffer, rebI(t->pos + 1),
             rebEND);
             WRITE_UTF8(encoded_char, encoded_size);
             rebFree(encoded_char);
 
-            term->pos += 1;
+            t->pos += 1;
         }
     }
 }
@@ -488,7 +442,7 @@ static void Move_Cursor(STD_TERM *term, int count)
 // should probably be addressed rigorously if one wanted to actually do
 // something with `delta`, but code is preserved as it was for annotation.
 //
-inline static REBVAL *Unrecognized_Key_Sequence(STD_TERM *t, int delta)
+REBVAL *Unrecognized_Key_Sequence(STD_TERM *t, int delta)
 {
     assert(delta <= 0);
     UNUSED(delta);
@@ -511,10 +465,16 @@ inline static REBVAL *Unrecognized_Key_Sequence(STD_TERM *t, int delta)
 //
 //    CHAR! => a printable character
 //    WORD! => keystroke or control code
-//    TEXT! => depiction of an unknown key combination
+//    TEXT! => printable characters to insert
 //    VOID! => interrupted by HALT or Ctrl-C
 //
 // It does not do any printing or handling while fetching the event.
+//
+// The reason it returns accrued TEXT! in runs (vs. always returning each
+// character individually) is because of pasting.  Taking the read() buffer
+// in per-line chunks is much faster than trying to process each character
+// insertion with its own code (it's noticeably slow).  But at typing speed
+// it's fine.
 //
 // Note Ctrl-C comes from the SIGINT signal and not from the physical detection
 // of the key combination "Ctrl + C", which this routine should not receive
@@ -526,9 +486,9 @@ inline static REBVAL *Unrecognized_Key_Sequence(STD_TERM *t, int delta)
 // do another operation (process network requests for a real-time chat, etc.)
 // This is at the concept stage at the moment.
 //
-REBVAL *Try_Get_One_Console_Event(STD_TERM *t)
+REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
 {
-    REBVAL *key = nullptr;
+    REBVAL *e = nullptr;  // the event to return
 
     // See notes on why Read_Bytes_Interrupted() can wind up splitting UTF-8
     // encodings (which can happen with pastes of text).
@@ -544,6 +504,9 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t)
         assert(*t->cp != '\0');
     }
 
+    char encoded[READ_BUF_LEN];
+    size_t encoded_size = 0;
+
     if (
         (*t->cp >= 32 and *t->cp < 127)  // 32 is space, 127 is DEL(ete)
         or *t->cp > 127  // high-bit set UTF-8 start byte
@@ -557,39 +520,64 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t)
         // was reached on a partial read() of a UTF-8 character, we may need
         // to do more reading to get the missing bytes here.
 
-        int encoded_size = 1 + trailingBytesForUTF8[*t->cp];
-        assert(encoded_size <= 4);
+      printable_char:;
 
-        // `cp` can jump back to the beginning of the buffer on each read.
-        // So build up an encoded UTF-8 character as continuous bytes so it
-        // can be inserted into a Rebol string atomically.
-        //
-        char encoded[4];
-        int i;
-        for (i = 0; i < encoded_size; ++i) {
-            if (*t->cp == '\0') {
-                //
-                // Premature end, the UTF-8 data must have gotten split on
-                // a buffer boundary.  Refill the buffer with another read,
-                // where the remaining UTF-8 characters *should* be found.
-                //
-                if (Read_Bytes_Interrupted(t))
-                    return nullptr;  // signal a HALT
-            }
-            assert(*t->cp != '\0');
-            encoded[i] = *t->cp;
-            ++t->cp;
-        }
-
-        key = rebValue(
-            "to char!", rebR(rebSizedBinary(encoded, encoded_size)),
+        int size = 1 + rebUnboxInteger(
+            "trailing-bytes-for-utf8",
+                rebR(rebInteger(cast(unsigned char, *t->cp))),
         rebEND);
+        assert(size <= 4);
+
+        if (encoded_size + size > READ_BUF_LEN) {
+            assert(not buffered);  // how did the buffer get so big?
+            e = rebSizedText(encoded, encoded_size);
+        }
+        else {
+            // `cp` can jump back to the beginning of the buffer on each read.
+            // So build up an encoded UTF-8 character as continuous bytes so
+            // it can be inserted into a Rebol string atomically.
+            //
+            int i;
+            for (i = 0; i < size; ++i) {
+                if (*t->cp == '\0') {
+                    //
+                    // Premature end, the UTF-8 data must have gotten split on
+                    // a buffer boundary.  Refill the buffer with another read,
+                    // where the remaining UTF-8 characters *should* be found.
+                    // (This should not block.)
+                    //
+                    if (Read_Bytes_Interrupted(t))
+                        return nullptr;  // signal a HALT
+                }
+                assert(*t->cp != '\0');
+                encoded[encoded_size] = *t->cp;
+                ++encoded_size;
+                ++t->cp;
+            }
+
+            if (not buffered) {
+                assert(encoded_size == 0);
+                e = rebValue(
+                    "to char!", rebR(rebSizedBinary(encoded, encoded_size)),
+                rebEND);
+            }
+            else {
+                if (
+                    (*t->cp >= 32 and *t->cp < 127)  // 32 is space, 127 DEL
+                    or *t->cp > 127  // high-bit set UTF-8 start byte
+                ){
+                    goto printable_char;
+                }
+                e = rebSizedText(encoded, encoded_size);
+            }
+        }
     }
     else if (*t->cp == ESC and t->cp[1] == '\0') {
 
     //=//// Plain Escape //////////////////////////////////////////////////=//
 
-        key = xrebWord("escape");
+        ++t->cp;  // consume from buffer
+        e = xrebWord("escape");
     }
     else if (*t->cp == ESC and t->cp[1] == '[') {
 
@@ -627,26 +615,26 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t)
 
         switch (*t->cp) {
           case 'A':  // up arrow (VT100)
-            key = xrebWord("up");
+            e = xrebWord("up");
             break;
 
           case 'B':  // down arrow (VT100)
-            key = xrebWord("down");
+            e = xrebWord("down");
             break;
 
           case 'D':  // left arrow (VT100)
-            key = xrebWord("left");
+            e = xrebWord("left");
             break;
 
           case 'C':  // right arrow (VT100)
-            key = xrebWord("right");
+            e = xrebWord("right");
             break;
 
           case '1':  // home (CSI) or higher function keys (VT220)
             if (t->cp[1] != '~')
                 return Unrecognized_Key_Sequence(t, -2);
 
-            key = xrebWord("home");
+            e = xrebWord("home");
             ++t->cp;  // remove 1, the ~ is consumed after the switch
             break;
 
@@ -654,7 +642,7 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t)
             if (t->cp[1] != '~')
                 return Unrecognized_Key_Sequence(t, -2);
 
-            key = xrebWord("end");
+            e = xrebWord("end");
             ++t->cp;  // remove 4, the ~ is consumed after the switch
             break;
 
@@ -662,20 +650,20 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t)
             if (t->cp[1] != '~')
                 return Unrecognized_Key_Sequence(t, -2);
 
-            key = xrebWord("delete");
+            e = xrebWord("delete");
             ++t->cp;  // remove 3, the ~ is consumed after the switch
             break;
 
           case 'H':  // home (VT100)
-            key = xrebWord("home");
+            e = xrebWord("home");
             break;
 
           case 'F':  // end !!! (in what standard?)
-            key = xrebWord("end");
+            e = xrebWord("end");
             break;
 
           case 'J':  // erase to end of screen (VT100)
-            key = xrebWord("clear");
+            e = xrebWord("clear");
             break;
 
           default:
@@ -699,7 +687,7 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t)
                 "FAIL {ESC H: please report your system info}",
             rebEND);
           #endif
-            key = xrebWord("home");
+            e = xrebWord("home");
             break;
 
           case 'F':  // !!! "end" (in what standard??)
@@ -708,12 +696,12 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t)
                 "FAIL {ESC F: please report your system info}",
             rebEND);
           #endif
-            key = xrebWord("end");
+            e = xrebWord("end");
             break;
 
           case '\0':
             assert(false);  // plain escape handled earlier for clarity
-            key = xrebWord("escape");
+            e = xrebWord("escape");
             break;
 
           default:
@@ -755,22 +743,22 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t)
 
           case BS:  // backspace (C0)
           backspace:
-            key = xrebWord("backspace");
+            e = xrebWord("backspace");
             break;
 
           case CR:  // carriage return (C0)
-            if (t->cp[1] == LF)
+            if (t->cp[1] == '\n')
                 ++t->cp;  // disregard the CR character, else treat as LF
             goto line_feed;
 
           line_feed:;
           case LF:  // line feed (C0)
-            key = rebChar('\n');  // default case would do it, but be clear
+            e = rebChar('\n');  // default case would do it, but be clear
             break;
 
           default:
             if (*t->cp >= 1 and *t->cp <= 26) {  // Ctrl-A, Ctrl-B, etc.
-                key = rebValue(
+                e = rebValue(
                     "as word! unspaced [",
                         "{ctrl-}", rebR(rebChar(*t->cp - 1 + 'a')),
                     "]",
@@ -782,206 +770,138 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t)
         ++t->cp;
     }
 
-    assert(key != nullptr);
-    return key;
+    assert(e != nullptr);
+    return e;
 }
 
 
-extern REBVAL *Read_Line(STD_TERM *term);
+//
+//  Term_Insert_Char: C
+//
+static void Term_Insert_Char(STD_TERM *t, uint32_t c)
+{
+    if (c == BS) {
+        if (t->pos > 0) {
+            rebElide("remove skip", t->buffer, rebI(t->pos), rebEND);
+            --t->pos;
+            Write_Char(BS, 1);
+        }
+    }
+    else if (c == LF) {
+        //
+        // !!! Currently, if a newline actually makes it into the terminal
+        // by asking to put it there, you see a newline visually, but the
+        // buffer content is lost.  You can't then backspace over it.  So
+        // perhaps obviously, the terminal handling code when it gets a
+        // LF *key* as input needs to copy the buffer content out before it
+        // decides to ask for the LF to be output visually.
+        //
+        rebElide("clear", t->buffer, rebEND);
+        t->pos = 0;
+        Write_Char(LF, 1);
+    }
+    else {
+        REBVAL *codepoint = rebChar(c);
+
+        size_t encoded_size;
+        unsigned char *encoded = rebBytes(&encoded_size,
+            "insert skip", t->buffer, rebI(t->pos), codepoint,
+            codepoint,  // fold returning of codepoint in with insertion
+        rebEND);
+        WRITE_UTF8(encoded, encoded_size);
+        rebFree(encoded);
+
+        rebRelease(codepoint);
+
+        ++t->pos;
+    }
+}
 
 
 //
 //  Term_Insert: C
 //
-// Inserts a Rebol value (TEXT!, CHAR!, etc.) at the current cursor position.
+// Inserts a Rebol value (TEXT!, CHAR!) at the current cursor position.
+// This is made complicated because we have to sync our internal knowledge
+// with what the last line in the terminal is showing...which means mirroring
+// its logic regarding cursor position, newlines, backspacing.
 //
 void Term_Insert(STD_TERM *t, const REBVAL *v) {
-    REBVAL *text = rebValue("to text!", v, rebEND);
+    if (rebDid("char?", v, rebEND)) {
+        Term_Insert_Char(t, rebUnboxChar(v, rebEND));
+        return;
+    }
 
-    rebElide(
-        "insert skip", t->buffer, rebI(t->pos), text,
-    rebEND);
+    int len = rebUnboxInteger("length of", v, rebEND);
 
-    int len = rebUnboxInteger("length of", text, rebEND);
+    if (rebDid("find", v, "backspace", rebEND)) {
+        //
+        // !!! The logic for backspace and how it interacts is nit-picky,
+        // and "reaches out" to possibly edit the existing buffer.  There's
+        // no particularly easy way to handle this, so for now just go
+        // through a slow character-by-character paste.  Assume this is rare.
+        //
+        int i;
+        for (i = 1; i <= len; ++i)
+            Term_Insert_Char(t, rebUnboxChar("pick", v, rebI(i), rebEND));
+    }
+    else {  // Finesse by doing one big write
+        //
+        // Systems may handle tabs differently, but we want our buffer to
+        // have the right number of spaces accounted for.  Just transform.
+        //
+        REBVAL *v_no_tab = rebValue(
+            "if find", v, "tab [",
+                "replace/all copy", v, "tab", "{    }"
+            "]",
+        rebEND);
 
-    size_t encoded_size;
-    unsigned char *encoded = rebBytes(&encoded_size,
-        text,
-    rebEND);
-    WRITE_UTF8(encoded, encoded_size);
-    rebFree(encoded);
+        size_t encoded_size;
+        unsigned char *encoded = rebBytes(&encoded_size,
+            v_no_tab ? v_no_tab : v,
+        rebEND);
 
-    rebRelease(text);
+        rebRelease(v_no_tab);  // null-tolerant
 
-    t->pos += len;
+        // Go ahead with the OS-level write, in case it can do some processing
+        // of that asynchronously in parallel with the following Rebol code.
+        //
+        WRITE_UTF8(encoded, encoded_size);
+        rebFree(encoded);
+
+        REBVAL *v_last_line = rebValue(
+            "next try find-last", v, "newline",
+        rebEND);
+
+        // If there were any newlines, then whatever is in the current line
+        // buffer will no longer be there.
+        //
+        if (v_last_line) {
+            rebElide("clear", t->buffer, rebEND);
+            t->pos = 0;
+        }
+
+        const REBVAL *insertion = v_last_line ? v_last_line : v;
+
+        t->pos += rebUnboxInteger(
+            "insert skip", t->buffer, rebI(t->pos), insertion,
+            "length of", insertion,
+        rebEND);
+
+        rebRelease(v_last_line);  // null-tolerant
+    }
+
     Show_Line(t, 0);
 }
 
 
 //
-//  Read_Line: C
+//  Term_Beep: C
 //
-// Read a line (as a sequence of bytes) from the terminal.  Handles line
-// editing and line history recall.
+// Trigger some beep or alert sound.
 //
-// If HALT is encountered (e.g. a Ctrl-C), this routine will return VOID!
-// If ESC is pressed, this will return a BLANK!.
-// Otherwise it will return a TEXT! of the read-in string.
-//
-// !!! Read_Line is a transitional step as a C version of what should move to
-// be usermode Rebol, making decisions about communication with the terminal
-// on a keystroke-by-keystroke basis.
-//
-REBVAL *Read_Line(STD_TERM *t)
+void Term_Beep(STD_TERM *t)
 {
-    t->pos = 0;
-    t->hist = Line_Count;
-
-    rebElide("clear", t->buffer, rebEND);
-
-    REBVAL *line = nullptr;
-    while (line == nullptr) {
-        REBVAL *e = Try_Get_One_Console_Event(t);  // (not an actual EVENT!)
-
-        if (e == nullptr) {
-            rebJumps(
-                "fail {nullptr interruption of terminal not done yet}",
-            rebEND);
-        }
-        else if (rebDid("void?", rebQ1(e), rebEND)) {
-            line = rebVoid();
-        }
-        else if (rebDidQ(e, "= newline", rebEND)) {
-            //
-            // !!! This saves a line in the "history", but it's not clear
-            // exactly long term what level this history should cut into
-            // the system.
-            //
-            Store_Line(t);
-
-            // We could return the term buffer directly and allocate a new
-            // buffer.  But returning a copy lets the return result be a new
-            // allocation at the exact size of the final input (e.g. paging
-            // through the history and getting longer entries transiently
-            // won't affect the extra capacity of what's ultimately returned.)
-            //
-            line = rebValue("copy", t->buffer, rebEND);
-        }
-        else if (rebDidQ("char?", e, rebEND)) {  // printable character
-            Term_Insert(t, e);
-        }
-        else if (rebDidQ("word?", e, rebEND)) {  // recognized "virtual key"
-            uint32_t ch = rebUnboxChar(
-                "to char! switch", rebQ1(e), "[",
-                    "'escape ['E]",
-
-                    "'up ['U]",
-                    "'down ['D]",
-                    "'ctrl-b",  // Backward One Character (bash)
-                        "'left ['L]",
-                    "'ctrl-f",  // Forward One Character (bash)
-                        "'right ['R]",
-
-                    "'backspace ['b]",
-                    "'ctrl-d",  // Delete Character Under Cursor (bash)
-                        "'delete ['d]",
-
-                    "'ctrl-a",  // Beginning of Line (bash)
-                        "'home ['h]",
-                    "'ctrl-e",  // CTRL-E, end of Line (bash)
-                        "'end ['e]",
-
-                    "'clear ['c]",
-
-                    "default [0]",
-                "]",
-            rebEND);
-
-            switch (ch) {
-              case 'E':  // ESCAPE
-                line = rebBlank();
-                break;
-
-              case 'U':  // UP
-                t->hist -= 2;  // overcompensate, then down arrow subtracts 1
-                goto down_arrow;  // ...has otherwise same updating code...
-
-              down_arrow:;
-              case 'D': {  // DOWN
-                int old_end = Term_End(t);
-
-                ++t->hist;
-
-                Home_Line(t);
-                Recall_Line(t);
-
-                int new_end = Term_End(t);
-
-                int len;
-                if (old_end <= new_end)
-                    len = 0;
-                else
-                    len = new_end - old_end;
-
-                Show_Line(t, len - 1);  // len < 0 (stay at end)
-                break; }
-
-              case 'L':  // LEFT
-                Move_Cursor(t, -1);
-                break;
-
-              case 'R':  // RIGHT
-                Move_Cursor(t, 1);
-                break;
-
-              case 'b':  // backspace
-                Delete_Char(t, true);
-                break;
-
-              case 'd':  // delete
-                Delete_Char(t, false);
-                break;
-
-              case 'h':  // home
-                Home_Line(t);
-                break;
-
-              case 'e':  // end
-                End_Line(t);
-                break;
-
-              case 'c':  // clear
-                Clear_Line(t);
-                break;
-
-              default:
-                rebJumps(
-                    "fail {Invalid key press returned from console}",
-                rebEND);
-            }
-        }
-        else if (rebDidQ("text?", e, rebEND)) {  // unrecognized key
-            //
-            // When an unrecognized key is hit, people may want to know that
-            // at least the keypress was received.  Or not.  For now, output
-            // a key message to say "we don't know what you hit".
-            //
-            // !!! In the future, this might do something more interesting to
-            // get the BINARY! information for the key sequence back up out of
-            // the terminal, so that people could see what the key registered
-            // as on their machine and configure the console to respond to it.
-            //
-            Term_Insert(t, e);
-        }
-
-        rebRelease(e);
-    }
-
-    // ASK has a display invariant that a newline is visually expected as part
-    // of what the user contributed.  We print one out whether we got a whole
-    // line or not (e.g. ESCAPE or HALT) to keep the visual flow.
-    //
-    WRITE_STR("\n");
-
-    return line;
+    UNUSED(t);
+    Write_Char(BEL, 1);
 }

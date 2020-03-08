@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2020 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -29,6 +29,226 @@
 #include "sys-core.h"
 
 EXTERN_C REBDEV Dev_StdIO;
+
+#include "readline.h"
+
+// The history mechanism is deliberately separated out from the line-editing
+// mechanics.  The I/O layer is only supposed to emit keystrokes and let the
+// higher level code (ultimately usermode Rebol) make decisions on what to
+// do with that.  No key is supposed to have an intrinsic "behavior".
+//
+#define MAX_HISTORY  300   // number of lines stored
+REBVAL *Line_History;  // Prior input lines (BLOCK!)
+int Line_History_Index;  // Current position in the line history
+#define Line_Count \
+    rebUnboxInteger("length of", Line_History, rebEND)
+
+
+extern REBVAL *Read_Line(STD_TERM *t);
+
+//
+//  Read_Line: C
+//
+// Read a line (as a sequence of bytes) from the terminal.  Handles line
+// editing and line history recall.
+//
+// If HALT is encountered (e.g. a Ctrl-C), this routine will return VOID!
+// If ESC is pressed, this will return a BLANK!.
+// Otherwise it will return a TEXT! of the read-in string.
+//
+// !!! Read_Line is a transitional step as a C version of what should move to
+// be usermode Rebol, making decisions about communication with the terminal
+// on a keystroke-by-keystroke basis.
+//
+REBVAL *Read_Line(STD_TERM *t)
+{
+    Line_History_Index = Line_Count;
+
+    // When we ask to read input, we may not be at the start of a line (e.g.
+    // there could be a prompt to the left).  We want a keystroke like Ctrl-A
+    // for "go to start of line" to seek the place we start at, not the end.
+    //
+    int original_column = Term_Pos(t);
+
+    REBVAL *line = nullptr;
+    while (line == nullptr) {
+        const bool buffered = true;
+        REBVAL *e = Try_Get_One_Console_Event(t, buffered);
+        // (^-- it's an ANY-VALUE!, not a R3-Alpha-style EVENT!)
+
+        if (e == nullptr) {
+            rebJumps(
+                "fail {nullptr interruption of terminal not done yet}",
+            rebEND);
+        }
+        else if (rebDid("void?", rebQ1(e), rebEND)) {
+            line = rebVoid();
+        }
+        else if (rebDidQ(e, "= newline", rebEND)) {
+            //
+            // !!! This saves a line in the "history", but it's not clear
+            // exactly long term what level this history should cut into
+            // the system.
+            //
+            // If max history, drop oldest line (but not first empty line)
+            //
+            if (Line_Count >= MAX_HISTORY)
+                rebElide("remove next", Line_History, rebEND);
+
+            // We don't want the terminal's whole line buffer--just the part
+            // after any prompt that was already on the line.
+            //
+            line = rebValue(
+                "copy skip", rebR(Term_Buffer(t)), rebI(original_column),
+            rebEND);
+
+            rebElide("append", Line_History, "copy", line, rebEND);
+        }
+        else if (rebDidQ("char?", e, rebEND)) {  // printable character
+            Term_Insert(t, e);
+        }
+        else if (rebDidQ("word?", e, rebEND)) {  // recognized "virtual key"
+            uint32_t ch = rebUnboxChar(
+                "to char! switch", rebQ1(e), "[",
+                    "'escape ['E]",
+
+                    "'up ['U]",
+                    "'down ['D]",
+                    "'ctrl-b",  // Backward One Character (bash)
+                        "'left ['L]",
+                    "'ctrl-f",  // Forward One Character (bash)
+                        "'right ['R]",
+
+                    "'backspace ['b]",
+                    "'ctrl-d",  // Delete Character Under Cursor (bash)
+                        "'delete ['d]",
+
+                    "'ctrl-a",  // Beginning of Line (bash)
+                        "'home ['h]",
+                    "'ctrl-e",  // CTRL-E, end of Line (bash)
+                        "'end ['e]",
+
+                    "'clear ['c]",
+
+                    "default [0]",
+                "]",
+            rebEND);
+
+            switch (ch) {
+              case 'E':  // ESCAPE
+                line = rebBlank();
+                break;
+
+              case 'U':  // UP
+                Line_History_Index -= 2;  // actually -1 (down_arrow adds 1)
+                goto down_arrow;  // ...has otherwise same updating code...
+
+              down_arrow:;
+              case 'D': {  // DOWN
+                ++Line_History_Index;
+
+                if (Line_History_Index < 0)
+                    Line_History_Index = 0;
+
+                if (Line_History_Index == 0)
+                    Term_Beep(t);  // !!! is an audible alert good?
+
+                Term_Seek(t, original_column);
+                Clear_Line_To_End(t);
+                assert(Term_Pos(t) == original_column);
+
+                if (Line_History_Index >= Line_Count) {  // no "next"
+                    Line_History_Index = Line_Count;  // we already cleared
+                }
+                else {
+                    REBVAL *line = rebValue(
+                        "pick", Line_History, rebI(Line_History_Index + 1),
+                    rebEND);
+
+                    Term_Insert(t, line);
+
+                  #if !defined(NDEBUG)
+                    int len = rebUnboxInteger("length of", line, rebEND);
+                    assert(Term_Pos(t) == len + original_column);
+                  #endif
+
+                    rebRelease(line);
+                }
+                break; }
+
+              case 'L':  // LEFT
+                if (Term_Pos(t) > original_column)
+                    Move_Cursor(t, -1);
+                break;
+
+              case 'R': {  // RIGHT
+                int len = rebUnboxInteger(
+                    "length of", rebR(Term_Buffer(t)), rebEND
+                );
+                if (Term_Pos(t) < len)
+                    Move_Cursor(t, 1);
+                break; }
+
+              case 'b':  // backspace
+                if (Term_Pos(t) > original_column)
+                    Delete_Char(t, true);
+                break;
+
+              case 'd': {  // delete
+                int len = rebUnboxInteger(
+                    "length of", rebR(Term_Buffer(t)), rebEND
+                );
+                if (Term_Pos(t) < len)
+                    Delete_Char(t, false);
+                break; }
+
+              case 'h':  // home
+                Term_Seek(t, original_column);
+                break;
+
+              case 'e': {  // end
+                int len = rebUnboxInteger(
+                    "length of", rebR(Term_Buffer(t)),
+                rebEND);
+                Term_Seek(t, len);
+                break; }
+
+              case 'c':  // clear (to end of line)
+                Clear_Line_To_End(t);
+                break;
+
+              default:
+                rebJumps(
+                    "fail {Invalid key press returned from console}",
+                rebEND);
+            }
+        }
+        else if (rebDidQ("text?", e, rebEND)) {  // unrecognized key
+            //
+            // When an unrecognized key is hit, people may want to know that
+            // at least the keypress was received.  Or not.  For now, output
+            // a key message to say "we don't know what you hit".
+            //
+            // !!! In the future, this might do something more interesting to
+            // get the BINARY! information for the key sequence back up out of
+            // the terminal, so that people could see what the key registered
+            // as on their machine and configure the console to respond to it.
+            //
+            Term_Insert(t, e);
+        }
+
+        rebRelease(e);
+    }
+
+    // ASK has a display invariant that a newline is visually expected as part
+    // of what the user contributed.  We print one out whether we got a whole
+    // line or not (e.g. ESCAPE or HALT) to keep the visual flow.
+    //
+    rebElide("write-stdout newline", rebEND);
+
+    return line;
+}
+
 
 //
 //  Console_Actor: C
