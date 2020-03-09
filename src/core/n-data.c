@@ -1178,6 +1178,7 @@ REBNATIVE(as)
       case REB_FILE:
       case REB_URL:
       case REB_EMAIL:
+      case REB_ISSUE:
         if (not Try_As_String(
             D_OUT, 
             new_kind,
