@@ -39,7 +39,6 @@
 //
 extern REBVAL *Line_History;  // BLOCK! of TEXT!s
 
-#define READ_BUF_LEN 64   // chars per read()
 
 // The terminal is an opaque type which varies per operating system.  This
 // is in C for now, but what it should evolve into is some kind of terminal
@@ -64,9 +63,29 @@ extern void Term_Beep(STD_TERM *t);
 
 extern void Quit_Terminal(STD_TERM *t);
 
-// This is the main workhorse routine that is implemented in both POSIX and
-// Windows very differently.  It returns an ANY-VALUE!, not a historical
-// R3-Alpha style "EVENT!" (which are too flaky and nebulous to be used
-// in this core Ren-C task).
+// This attempts to get one unit of "event" from the console.  It does not
+// use the Rebol EVENT! datatype at this time.  Instead it returns:
+//
+//    CHAR!, TEXT! => printable characters (includes space, but not newline)
+//    WORD! => keystroke or control code
+//    VOID! => interrupted by HALT or Ctrl-C
+//
+// It does not do any printing or handling while fetching the event.
+//
+// The reason it returns accrued TEXT! in runs (vs. always returning each
+// character individually) is because of pasting.  Taking the read() buffer
+// in per-line chunks is much faster than trying to process each character
+// insertion with its own code (it's noticeably slow).  But at typing speed
+// it's fine.
+//
+// Note Ctrl-C comes from the SIGINT signal and not from the physical detection
+// of the key combination "Ctrl + C", which this routine should not receive
+// due to deferring to the default UNIX behavior for that (otherwise, scripts
+// could not be cancelled unless they were waiting at an input prompt).
+//
+// !!! The idea is that if there is no event available, this routine will
+// return a nullptr.  That would allow some way of exiting the read() to
+// do another operation (process network requests for a real-time chat, etc.)
+// This is at the concept stage at the moment.
 //
 extern REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered);

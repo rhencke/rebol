@@ -32,6 +32,9 @@ EXTERN_C REBDEV Dev_StdIO;
 
 #include "readline.h"
 
+extern STD_TERM *Term_IO;
+STD_TERM *Term_IO = nullptr;
+
 // The history mechanism is deliberately separated out from the line-editing
 // mechanics.  The I/O layer is only supposed to emit keystrokes and let the
 // higher level code (ultimately usermode Rebol) make decisions on what to
@@ -104,7 +107,13 @@ REBVAL *Read_Line(STD_TERM *t)
 
             rebElide("append", Line_History, "copy", line, rebEND);
         }
-        else if (rebDidQ("char?", e, rebEND)) {  // printable character
+        else if (rebDidQ("match [text! char!]", e, rebEND)) {  // printable
+            //
+            // Because we are using the "buffered" mode, the terminal will
+            // accrue TEXT! in a batch until an "unbufferable" key event
+            // is gathered (which includes newlines).  Doing otherwise would
+            // lead to an even higher latency on pastes.
+            //
             Term_Insert(t, e);
         }
         else if (rebDidQ("word?", e, rebEND)) {  // recognized "virtual key"
@@ -135,6 +144,9 @@ REBVAL *Read_Line(STD_TERM *t)
             rebEND);
 
             switch (ch) {
+              case 0:  // Ignored (e.g. unknown Ctrl-XXX)
+                break;
+
               case 'E':  // ESCAPE
                 line = rebBlank();
                 break;
@@ -161,18 +173,18 @@ REBVAL *Read_Line(STD_TERM *t)
                     Line_History_Index = Line_Count;  // we already cleared
                 }
                 else {
-                    REBVAL *line = rebValue(
+                    REBVAL *recall = rebValue(
                         "pick", Line_History, rebI(Line_History_Index + 1),
                     rebEND);
 
-                    Term_Insert(t, line);
+                    Term_Insert(t, recall);
 
                   #if !defined(NDEBUG)
-                    int len = rebUnboxInteger("length of", line, rebEND);
+                    int len = rebUnboxInteger("length of", recall, rebEND);
                     assert(Term_Pos(t) == len + original_column);
                   #endif
 
-                    rebRelease(line);
+                    rebRelease(recall);
                 }
                 break; }
 
@@ -223,7 +235,7 @@ REBVAL *Read_Line(STD_TERM *t)
                 rebEND);
             }
         }
-        else if (rebDidQ("text?", e, rebEND)) {  // unrecognized key
+        else if (rebDidQ("issue?", e, rebEND)) {  // unrecognized key
             //
             // When an unrecognized key is hit, people may want to know that
             // at least the keypress was received.  Or not.  For now, output
@@ -234,7 +246,9 @@ REBVAL *Read_Line(STD_TERM *t)
             // the terminal, so that people could see what the key registered
             // as on their machine and configure the console to respond to it.
             //
-            Term_Insert(t, e);
+            REBVAL *text = rebValue("as text!", e, rebEND);
+            Term_Insert(t, text);
+            rebRelease(text);
         }
 
         rebRelease(e);
@@ -292,6 +306,26 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         // If not open, open it:
         if (not (Req(req)->flags & RRF_OPEN))
             OS_DO_DEVICE_SYNC(req, RDC_OPEN);
+
+        if (Req(req)->modes & RDM_NULL)
+            return rebValue("copy #{}", rebEND);
+
+        if (Term_IO) {
+            REBVAL *result = Read_Line(Term_IO);
+            if (rebDid("void?", rebQ1(result), rebEND)) {  // HALT received
+                rebRelease(result);
+                rebHalt();  // can't do `rebElide("halt")` (it's a throw)
+                return rebValue("const as binary! {halt}", rebEND);  // unseen
+            }
+            if (rebDid("blank?", result, rebEND)) {  // ESCAPE received
+                rebRelease(result);
+                return rebValue(
+                    "const to binary!", rebR(rebChar(ESC)),
+                rebEND);
+            }
+            assert(rebDid("text?", result, rebEND));
+            return rebValue("as binary!", rebR(result), rebEND);
+        }
 
         // !!! A fixed size buffer is used to gather console input.  This is
         // re-used between READ requests.

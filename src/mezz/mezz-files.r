@@ -107,12 +107,11 @@ read-stdin: function [
         1 = length of data
         escape = to-char data/1
     ] then [
-        ; Input Aborted (e.g. Ctrl-D on Windows, ESC on POSIX)--this does not
-        ; try and HALT the program overall like Ctrl-C, but gives the caller
-        ; the chance to process NULL and realize it as distinct from the user
-        ; just hitting enter on an empty line (empty string)
+        ; Input Aborted--this does not try and HALT the program overall like
+        ; Ctrl-C, but gives the caller the chance to process NULL as distinct
+        ; from the user just hitting enter on an empty line (empty string)
         ;
-        return null;
+        return null
     ]
 
     line: to-text data

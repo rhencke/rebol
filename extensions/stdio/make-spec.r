@@ -11,7 +11,7 @@ depends: compose [
 
     ((switch system-config/os-base [
         'Windows [
-            [%stdio/stdio-windows.c]
+            [%stdio/stdio-windows.c %stdio/readline-windows.c]
         ]
 
         default [

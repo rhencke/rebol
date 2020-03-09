@@ -1,5 +1,5 @@
 //
-//  File: %host-readline.c
+//  File: %readline-posix.c
 //  Summary: "Simple readline() line input handler"
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
@@ -28,7 +28,6 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h> //for read and write
 #include <errno.h>
 
@@ -46,7 +45,7 @@
 #include "readline.h"
 
 #define xrebWord(cstr) \
-    rebValue("'" cstr, rebEND)  // C string literal should merge apostrophe
+    rebValue("lit", cstr, rebEND)
 
 
 //=//// CONFIGURATION /////////////////////////////////////////////////////=//
@@ -61,28 +60,14 @@ enum {
 };
 
 
-#define WRITE_CHAR(s) \
-    do { \
-        if (write(1, s, 1) == -1) { \
-            /* Error here, or better to "just try to keep going"? */ \
-        } \
-    } while (0)
-
 #define WRITE_UTF8(s,n) \
     do { \
-        if (write(1, s, n) == -1) { \
+        if (write(STDOUT_FILENO, s, n) == -1) { \
             /* Error here, or better to "just try to keep going"? */ \
         } \
     } while (0)
 
-inline static void WRITE_STR(const char *s) {
-    do {
-        if (write(1, s, strlen(s)) == -1) {
-            /* Error here, or better to "just try to keep going"? */
-        }
-    } while (0);
-}
-
+#define READ_BUF_LEN 64
 
 struct Reb_Terminal_Struct {
     REBVAL *buffer;  // a TEXT! used as a buffer
@@ -90,16 +75,22 @@ struct Reb_Terminal_Struct {
 
     unsigned char buf[READ_BUF_LEN];  // '\0' terminated, needs -1 on read()
     const unsigned char *cp;
+
+    // In buffered mode, printable characters accumulate in a TEXT!, and are
+    // not sent until the input buffer triggers a non-bufferable event.  Then
+    // the buffer is sent, with the non-bufferable event held for next call.
+    //
+    REBVAL *e_pending;
+
+  #ifndef NO_TTY_ATTRIBUTES
+    struct termios original_attrs;
+  #endif
 };
 
 
 //=//// GLOBALS ///////////////////////////////////////////////////////////=//
 
 static bool Term_Initialized = false;  // Terminal init was successful
-
-#ifndef NO_TTY_ATTRIBUTES
-    static struct termios Term_Attrs;  // Initial settings, restored on exit
-#endif
 
 
 inline static unsigned int Term_End(STD_TERM *t)
@@ -118,7 +109,21 @@ inline static unsigned int Term_Remain(STD_TERM *t)
 //
 STD_TERM *Init_Terminal(void)
 {
-  #ifndef NO_TTY_ATTRIBUTES
+    assert(not Term_Initialized);
+
+  #ifdef NO_TTY_ATTRIBUTES
+    //
+    // !!! The only POSIX platform that did not offer "termios" features was
+    // the Amiga.  But it did its own line editing.
+    //
+    // Other platforms for POSIX systems that are old (or embedded) that lack
+    // termios features is use a plain scanf()/printf() implementation of
+    // the console, as opposed to complicate this code with #ifdefs.  That
+    // would give the added benefit of being used for C89-only platforms, so
+    // this code isn't cluttered with rebEND either.
+    //
+    return nullptr;
+  #else
     //
     // Good reference on termios:
     //
@@ -127,10 +132,12 @@ STD_TERM *Init_Terminal(void)
     // https://blog.nelhage.com/2010/01/a-brief-introduction-to-termios-signaling-and-job-control/
     //
     struct termios attrs;
+    if (tcgetattr(STDIN_FILENO, &attrs) == -1)
+        return nullptr;  // Note: errno is set if tcgetattr() fails
 
-    if (Term_Initialized || tcgetattr(0, &Term_Attrs)) return NULL;
+    STD_TERM *t = cast(STD_TERM*, malloc(sizeof(STD_TERM)));
 
-    attrs = Term_Attrs;
+    t->original_attrs = attrs;  // cache, to restore upon shutdown
 
     // Local modes.
     //
@@ -152,8 +159,7 @@ STD_TERM *Init_Terminal(void)
     attrs.c_cc[VMIN] = 1;   // min num of bytes for READ to return
     attrs.c_cc[VTIME] = 0;  // how long to wait for input
 
-    tcsetattr(0, TCSADRAIN, &attrs);
-  #endif
+    tcsetattr(STDIN_FILENO, TCSADRAIN, &attrs);
 
     // !!! Ultimately, we want to be able to recover line history from a
     // file across sessions.  It makes more sense for the logic doing that
@@ -162,7 +168,6 @@ STD_TERM *Init_Terminal(void)
     Line_History = rebValue("[{}]", rebEND);  // current line is empty string
     rebUnmanage(Line_History);  // allow Line_History to live indefinitely
 
-    STD_TERM *t = cast(STD_TERM*, malloc(sizeof(STD_TERM)));
     t->buffer = rebValue("{}", rebEND);
     rebUnmanage(t->buffer);
 
@@ -170,9 +175,11 @@ STD_TERM *Init_Terminal(void)
     t->cp = t->buf;
     t->pos = 0;
 
-    Term_Initialized = true;
+    t->e_pending = nullptr;
 
+    Term_Initialized = true;
     return t;
+  #endif
 }
 
 
@@ -209,19 +216,21 @@ REBVAL *Term_Buffer(STD_TERM *t)
 //
 void Quit_Terminal(STD_TERM *t)
 {
-    if (Term_Initialized) {
-      #ifndef NO_TTY_ATTRIBUTES
-        tcsetattr(0, TCSADRAIN, &Term_Attrs);
-      #endif
+  #ifdef NO_TTY_ATTRIBUTES
+    assert(!"Quit_Terminal called on non-termios build");
+  #else
+    assert(Term_Initialized);
 
-        rebRelease(t->buffer);
-        free(t);
+    tcsetattr(0, TCSADRAIN, &t->original_attrs);
 
-        rebRelease(Line_History);
-        Line_History = nullptr;
-    }
+    rebRelease(t->buffer);
+    free(t);
+
+    rebRelease(Line_History);
+    Line_History = nullptr;
 
     Term_Initialized = false;
+  #endif
 }
 
 
@@ -252,9 +261,7 @@ static bool Read_Bytes_Interrupted(STD_TERM *t)
         if (errno == EINTR)
             return true;  // Ctrl-C or similar, see sigaction()/SIGINT
 
-        WRITE_STR("\nI/O terminated\n");
-        Quit_Terminal(t);  // something went wrong
-        exit(100);
+        rebFail_OS (errno);
     }
 
     t->buf[len] = '\0';
@@ -271,11 +278,10 @@ static bool Read_Bytes_Interrupted(STD_TERM *t)
 //
 void Write_Char(unsigned char c, int n)
 {
-    unsigned char buf[4];
-
-    buf[0] = c;
     for (; n > 0; n--)
-        WRITE_CHAR(buf);
+        if (write(STDOUT_FILENO, &c, 1) == -1) {
+            // !!! Error here, or better to "just try to keep going"?
+        }
 }
 
 
@@ -453,42 +459,30 @@ REBVAL *Unrecognized_Key_Sequence(STD_TERM *t, int delta)
     t->buf[0] = '\0';
     t->cp = t->buf;
 
-    return rebText("[KEY?]");
+    return rebValue("as issue! {[KEY?]}", rebEND);
 }
 
 
 //
 //  Try_Get_One_Console_Event: C
 //
-// This attempts to get one unit of "event" from the console.  It does not
-// use the Rebol EVENT! datatype at this time.  Instead it returns:
-//
-//    CHAR! => a printable character
-//    WORD! => keystroke or control code
-//    TEXT! => printable characters to insert
-//    VOID! => interrupted by HALT or Ctrl-C
-//
-// It does not do any printing or handling while fetching the event.
-//
-// The reason it returns accrued TEXT! in runs (vs. always returning each
-// character individually) is because of pasting.  Taking the read() buffer
-// in per-line chunks is much faster than trying to process each character
-// insertion with its own code (it's noticeably slow).  But at typing speed
-// it's fine.
-//
-// Note Ctrl-C comes from the SIGINT signal and not from the physical detection
-// of the key combination "Ctrl + C", which this routine should not receive
-// due to deferring to the default UNIX behavior for that (otherwise, scripts
-// could not be cancelled unless they were waiting at an input prompt).
-//
-// !!! The idea is that if there is no event available, this routine will
-// return a nullptr.  That would allow some way of exiting the read() to
-// do another operation (process network requests for a real-time chat, etc.)
-// This is at the concept stage at the moment.
-//
 REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
 {
-    REBVAL *e = nullptr;  // the event to return
+    REBVAL *e = nullptr;  // *unbuffered* event to return
+    REBVAL *e_buffered = nullptr;  // buffered event
+
+    if (t->e_pending) {
+        e = t->e_pending;
+        t->e_pending = nullptr;
+        return e;
+    }
+
+  start_over:
+    assert(not e and not t->e_pending);
+    assert(
+        not e_buffered
+        or (buffered and rebDid("text?", e_buffered, rebEND))
+    );
 
     // See notes on why Read_Bytes_Interrupted() can wind up splitting UTF-8
     // encodings (which can happen with pastes of text).
@@ -498,14 +492,14 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
     // sequences.
     //
     if (*t->cp == '\0') {  // no residual bytes from a previous read pending
+        if (e_buffered)
+            return e_buffered;  // pass anything we gathered so far first
+
         if (Read_Bytes_Interrupted(t))
             return rebVoid();  // signal a HALT
 
         assert(*t->cp != '\0');
     }
-
-    char encoded[READ_BUF_LEN];
-    size_t encoded_size = 0;
 
     if (
         (*t->cp >= 32 and *t->cp < 127)  // 32 is space, 127 is DEL(ete)
@@ -520,57 +514,45 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
         // was reached on a partial read() of a UTF-8 character, we may need
         // to do more reading to get the missing bytes here.
 
-      printable_char:;
-
-        int size = 1 + rebUnboxInteger(
+        char encoded[4];
+        int encoded_size = 1 + rebUnboxInteger(
             "trailing-bytes-for-utf8",
                 rebR(rebInteger(cast(unsigned char, *t->cp))),
         rebEND);
-        assert(size <= 4);
+        assert(encoded_size <= 4);
 
-        if (encoded_size + size > READ_BUF_LEN) {
-            assert(not buffered);  // how did the buffer get so big?
-            e = rebSizedText(encoded, encoded_size);
+        // `cp` can jump back to the beginning of the buffer on each read.
+        // So build up an encoded UTF-8 character as continuous bytes so
+        // it can be inserted into a Rebol string atomically.
+        //
+        int i;
+        for (i = 0; i < encoded_size; ++i) {
+            if (*t->cp == '\0') {
+                //
+                // Premature end, the UTF-8 data must have gotten split on
+                // a buffer boundary.  Refill the buffer with another read,
+                // where the remaining UTF-8 characters *should* be found.
+                // (This should not block.)
+                //
+                if (Read_Bytes_Interrupted(t))
+                    return rebVoid();  // signal a HALT
+            }
+            assert(*t->cp != '\0');
+            encoded[i] = *t->cp;
+            ++t->cp;
+        }
+
+        REBVAL *char_bin = rebSizedBinary(encoded, encoded_size);
+        if (not buffered) {
+            e = rebValue("to char!", char_bin, rebEND);
         }
         else {
-            // `cp` can jump back to the beginning of the buffer on each read.
-            // So build up an encoded UTF-8 character as continuous bytes so
-            // it can be inserted into a Rebol string atomically.
-            //
-            int i;
-            for (i = 0; i < size; ++i) {
-                if (*t->cp == '\0') {
-                    //
-                    // Premature end, the UTF-8 data must have gotten split on
-                    // a buffer boundary.  Refill the buffer with another read,
-                    // where the remaining UTF-8 characters *should* be found.
-                    // (This should not block.)
-                    //
-                    if (Read_Bytes_Interrupted(t))
-                        return nullptr;  // signal a HALT
-                }
-                assert(*t->cp != '\0');
-                encoded[encoded_size] = *t->cp;
-                ++encoded_size;
-                ++t->cp;
-            }
-
-            if (not buffered) {
-                assert(encoded_size == 0);
-                e = rebValue(
-                    "to char!", rebR(rebSizedBinary(encoded, encoded_size)),
-                rebEND);
-            }
-            else {
-                if (
-                    (*t->cp >= 32 and *t->cp < 127)  // 32 is space, 127 DEL
-                    or *t->cp > 127  // high-bit set UTF-8 start byte
-                ){
-                    goto printable_char;
-                }
-                e = rebSizedText(encoded, encoded_size);
-            }
+            if (e_buffered)
+                rebElide("append", e_buffered, char_bin);
+            else
+                e_buffered = rebValue("as text!", char_bin, rebEND);
         }
+        rebRelease(char_bin);
     }
     else if (*t->cp == ESC and t->cp[1] == '\0') {
 
@@ -613,7 +595,9 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
 
         t->cp += 2;  // skip ESC and '['
 
-        switch (*t->cp) {
+        char first = *t->cp;
+        ++t->cp;
+        switch (first) {
           case 'A':  // up arrow (VT100)
             e = xrebWord("up");
             break;
@@ -631,27 +615,30 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
             break;
 
           case '1':  // home (CSI) or higher function keys (VT220)
-            if (t->cp[1] != '~')
-                return Unrecognized_Key_Sequence(t, -2);
-
-            e = xrebWord("home");
-            ++t->cp;  // remove 1, the ~ is consumed after the switch
+            if (t->cp[1] == '~') {
+                ++t->cp;
+                e = xrebWord("home");
+            }
+            else
+                e = Unrecognized_Key_Sequence(t, -3);
             break;
 
           case '4': // end (CSI)
-            if (t->cp[1] != '~')
-                return Unrecognized_Key_Sequence(t, -2);
-
-            e = xrebWord("end");
-            ++t->cp;  // remove 4, the ~ is consumed after the switch
+            if (t->cp[1] == '~') {
+                ++t->cp;
+                e = xrebWord("end");
+            }
+            else
+                e = Unrecognized_Key_Sequence(t, -3);
             break;
 
           case '3':  // delete (CSI)
-            if (t->cp[1] != '~')
-                return Unrecognized_Key_Sequence(t, -2);
-
-            e = xrebWord("delete");
-            ++t->cp;  // remove 3, the ~ is consumed after the switch
+            if (t->cp[1] == '~') {
+                ++t->cp;
+                e = xrebWord("delete");
+            }
+            else
+                e = Unrecognized_Key_Sequence(t, -2);
             break;
 
           case 'H':  // home (VT100)
@@ -667,10 +654,9 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
             break;
 
           default:
-            return Unrecognized_Key_Sequence(t, -2);
+            e = Unrecognized_Key_Sequence(t, -2);
+            break;
         }
-
-        ++t->cp;
     }
     else if (*t->cp == ESC) {
 
@@ -678,16 +664,19 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
         //
         // http://ascii-table.com/ansi-escape-sequences-vt-100.php
 
-        ++t->cp;
+        ++t->cp;  // skip ESC
 
-        switch (*t->cp) {
+        char first = *t->cp;
+        ++t->cp;
+        switch (first) {
           case 'H':   // !!! "home" (in what standard??)
           #if !defined(NDEBUG)
             rebJumps(
                 "FAIL {ESC H: please report your system info}",
             rebEND);
-          #endif
+          #else
             e = xrebWord("home");
+          #endif
             break;
 
           case 'F':  // !!! "end" (in what standard??)
@@ -695,8 +684,9 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
             rebJumps(
                 "FAIL {ESC F: please report your system info}",
             rebEND);
-          #endif
+          #else
             e = xrebWord("end");
+          #endif
             break;
 
           case '\0':
@@ -705,10 +695,9 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
             break;
 
           default:
-            return Unrecognized_Key_Sequence(t, -2);
+            e = Unrecognized_Key_Sequence(t, -3);
+            break;
         }
-
-        ++t->cp;
     }
     else {
 
@@ -717,7 +706,9 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
         // https://en.wikipedia.org/wiki/C0_and_C1_control_codes
         // https://ss64.com/bash/syntax-keyboard.html
     
-        if (*t->cp == 3)  {  // CTRL-C, Interrupt (ANSI, <signal.h> is C89)
+        char first = *t->cp;
+        ++t->cp;
+        if (first == 3)  {  // CTRL-C, Interrupt (ANSI, <signal.h> is C89)
             //
             // It's theoretically possible to clear the termios `c_lflag` ISIG
             // in order to receive literal Ctrl-C, but we don't want to get
@@ -728,7 +719,7 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
                 "FAIL {Unexpected literal Ctrl-C in console}",
             rebEND);
         }
-        else switch (*t->cp) {
+        else switch (first) {
           case DEL:  // delete (C0)
             //
             // From Wikipedia:
@@ -747,7 +738,7 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
             break;
 
           case CR:  // carriage return (C0)
-            if (t->cp[1] == '\n')
+            if (*t->cp == '\n')
                 ++t->cp;  // disregard the CR character, else treat as LF
             goto line_feed;
 
@@ -757,21 +748,28 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
             break;
 
           default:
-            if (*t->cp >= 1 and *t->cp <= 26) {  // Ctrl-A, Ctrl-B, etc.
+            if (first >= 1 and first <= 26) {  // Ctrl-A, Ctrl-B, etc.
                 e = rebValue(
                     "as word! unspaced [",
-                        "{ctrl-}", rebR(rebChar(*t->cp - 1 + 'a')),
+                        "{ctrl-}", rebR(rebChar(first - 1 + 'a')),
                     "]",
                 rebEND);
             }
             else
-                return Unrecognized_Key_Sequence(t, 0);
+                e = Unrecognized_Key_Sequence(t, -1);
         }
-        ++t->cp;
     }
 
-    assert(e != nullptr);
-    return e;
+    if (e != nullptr) {  // a non-buffered event was produced
+        if (e_buffered) {  // but we have pending buffered text...
+            t->e_pending = e;  // ...so make the non-buffered event pending
+            return e_buffered;  // and return the buffer first
+        }
+
+        return e;  // if no buffer in waiting, return non-buffered event
+    }
+
+    goto start_over;
 }
 
 

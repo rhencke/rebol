@@ -45,13 +45,7 @@ extern REBVAL *Read_Line(STD_TERM *t);
 static int Std_Inp = STDIN_FILENO;
 static int Std_Out = STDOUT_FILENO;
 
-// !!! The only POSIX platform that did not offer "termios" features was
-// the Amiga.  Current plan for systems so old that they lack termios
-// features--should anyone build for them--is to use a plain scanf()/printf()
-// alternate implementation of the console, as opposed to complicate this
-// code with #ifdefs.
-//
-STD_TERM *Term_IO = nullptr;
+extern STD_TERM *Term_IO;
 
 
 static void Close_Stdio(void)
@@ -203,39 +197,17 @@ DEVICE_CMD Read_IO(REBREQ *io)
     REBSER *bin = VAL_BINARY(req->common.binary);
     assert(SER_AVAIL(bin) >= req->length);
 
-    if (req->modes & RDM_NULL) {
-        TERM_BIN_LEN(bin, 0);
-        return DR_DONE;
-    }
+    // Null redirection (should be handled at PORT! level to not ask for read)
+    //
+    assert(not (req->modes & RDM_NULL));
+    assert(not Term_IO);  // should have handled in %p-stdio.h
 
     req->actual = 0;
 
-    if (Std_Inp >= 0) {
-        if (Term_IO) {  // not redirected to a file, so termios enabled
-            REBVAL *result = Read_Line(Term_IO);
-            if (rebDid("void?", rebQ1(result), rebEND)) {  // HALT received
-                rebHalt();  // can't do `rebElide("halt")` (it's a throw)
-            }
-            else if (rebDid("blank?", result, rebEND)) {  // ESCAPE received
-                total = 1;
-                *BIN_HEAD(bin) = ESC;
-                TERM_BIN_LEN(bin, 1);
-            }
-            else {
-                total = rebSpellInto(s_cast(BIN_HEAD(bin)), len,
-                    result,
-                rebEND);
-                TERM_BIN_LEN(bin, total);  // null terminated, but no length
-            }
-            rebRelease(result);  // nullptr tolerant
-        }
-        else {  // fall through to stdio
-            total = read(Std_Inp, BIN_HEAD(bin), len);  // restarts on signal
-            if (total < 0)
-                rebFail_OS (errno);
-            TERM_BIN_LEN(bin, total);
-        }
-    }
+    total = read(Std_Inp, BIN_HEAD(bin), len);  // restarts on signal
+    if (total < 0)
+        rebFail_OS (errno);
+    TERM_BIN_LEN(bin, total);
 
     return DR_DONE;
 }
