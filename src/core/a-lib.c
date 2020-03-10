@@ -1255,7 +1255,7 @@ unsigned char *RL_rebBytes(
 
 //=//// EXCEPTION HANDLING ////////////////////////////////////////////////=//
 //
-// There API is approaching exception handling with three different modes.
+// The API is approaching exception handling with three different modes.
 //
 // One is to use setjmp()/longjmp(), which is extremely dodgy.  But it's what
 // R3-Alpha used, and it's the only choice if one is sticking to ANSI C89-99:
@@ -1274,7 +1274,7 @@ unsigned char *RL_rebBytes(
 // the rebRescue() abstraction, as well as have destructors run safely.
 // (longjmp pulls the rug out from under execution, and doesn't stack unwind).
 //
-// The third exceptionmode is for JavaScript, where an emscripten build would
+// The third exceptio nmode is for JavaScript, where an emscripten build would
 // have to painstakingly emulate setjmp/longjmp.  Using inline JavaScript to
 // catch and throw is more efficient, and also provides the benefit of API
 // clients being able to use normal try/catch of a RebolError instead of

@@ -84,7 +84,7 @@ extern void Term_Insert(STD_TERM *t, const REBVAL *v);
 extern void Term_Seek(STD_TERM *t, unsigned int pos);
 extern void Move_Cursor(STD_TERM *t, int count);
 extern void Delete_Char(STD_TERM *t, bool back);
-extern void Clear_Line_To_End(STD_TERM *t);
+extern void Term_Clear_To_End(STD_TERM *t);
 
 extern void Term_Beep(STD_TERM *t);
 

@@ -26,3 +26,26 @@ system/ports/input: open [scheme: 'console]
 ; function, it would not affect existing specializations and usages.
 
 hijack 'lib/write-stdout :write-stdout
+
+
+; This is the tab-complete command.  It may be that managing the state as a
+; BLOCK! containing textual parts and a cursor would be cleaner, e.g.
+;
+;    ["before" | "after"]
+;
+; But for now it's the buffer to edit and the position the cursor was in.
+;
+tab-complete: func [
+    return: "new cursor position in the buffer"
+        [integer!]
+    buffer "buffer to edit into the new state (modified)"
+        [text!]
+    pos "where the cursor was prior to the edit (0-based)"
+        [integer!]
+][
+    clear buffer
+    insert buffer "For example"
+    return 3
+]
+
+sys/export [tab-complete]

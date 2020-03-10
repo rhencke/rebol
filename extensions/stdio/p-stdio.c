@@ -135,6 +135,8 @@ REBVAL *Read_Line(STD_TERM *t)
                     "'ctrl-d",  // Delete Character Under Cursor (bash)
                         "'delete ['d]",
 
+                    "'tab ['t]",  // completion logic (bash)
+
                     "'ctrl-a",  // Beginning of Line (bash)
                         "'home ['h]",
                     "'ctrl-e",  // CTRL-E, end of Line (bash)
@@ -169,7 +171,7 @@ REBVAL *Read_Line(STD_TERM *t)
                     Term_Beep(t);  // !!! is an audible alert good?
 
                 Term_Seek(t, original_column);
-                Clear_Line_To_End(t);
+                Term_Clear_To_End(t);
                 assert(Term_Pos(t) == original_column);
 
                 if (Line_History_Index >= Line_Count) {  // no "next"
@@ -229,8 +231,26 @@ REBVAL *Read_Line(STD_TERM *t)
                 break; }
 
               case 'c':  // clear (to end of line)
-                Clear_Line_To_End(t);
+                Term_Clear_To_End(t);
                 break;
+
+              case 't': {  // complete current selection
+                //
+                // Protocol for TAB-COMPLETE is currently to edit the string
+                // you give it directly, and return the new position.
+                //
+                REBVAL *buffer_copy = rebValue(
+                    "copy", rebR(Term_Buffer(t)),
+                rebEND);
+                int new_pos = rebUnboxInteger(
+                    "tab-complete", buffer_copy, rebI(Term_Pos(t)),
+                rebEND);
+                Term_Seek(t, original_column);
+                Term_Clear_To_End(t);
+                Term_Insert(t, buffer_copy);  // cursor at end of insertion
+                Term_Seek(t, original_column + new_pos);  // seek returned pos
+                rebRelease(buffer_copy);
+                break; }
 
               default:
                 rebJumps(

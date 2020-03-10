@@ -371,12 +371,12 @@ void Write_Char(uint32_t c, int n)
 
 
 //
-//  Clear_Line_To_End: C
+//  Term_Clear_To_End: C
 //
 // Clear all the chars from the current position to the end.
 // Reset cursor to current position.
 //
-void Clear_Line_To_End(STD_TERM *t)
+void Term_Clear_To_End(STD_TERM *t)
 {
     int num_codepoints_to_end = Term_Remain(t);
     rebElide("clear skip", t->buffer, rebI(t->pos));
@@ -639,6 +639,7 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
             { VK_TAB, "tab" },
             { VK_BACK, "backspace" },
             { VK_DELETE, "delete" },
+            { VK_TAB, "tab" },
             { 0, nullptr }
         };
 

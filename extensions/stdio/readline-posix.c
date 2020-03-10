@@ -266,12 +266,12 @@ void Write_Char(unsigned char c, int n)
 
 
 //
-//  Clear_Line_To_End: C
+//  Term_Clear_To_End: C
 //
 // Clear all the chars from the current position to the end.
 // Reset cursor to current position.
 //
-void Clear_Line_To_End(STD_TERM *t)
+void Term_Clear_To_End(STD_TERM *t)
 {
     int num_codepoints_to_end = Term_Remain(t);
     rebElide("clear skip", t->buffer, rebI(t->pos));
@@ -701,6 +701,10 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
             // We assume "modern" interpretation of DEL as backspace synonym.
             //
             goto backspace;
+
+          case '\t':  // tab (C0)
+            e = xrebWord("tab");
+            break;
 
           case BS:  // backspace (C0)
           backspace:
