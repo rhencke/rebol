@@ -114,8 +114,15 @@ read-stdin: function [
         return null
     ]
 
-    line: to-text data
+    line: as text! data  ; The data that comes from READ is mutable
+
+    ; !!! Protocol-wise, at the C level stdio implementations often have a
+    ; newline given back as part of the result.  It's not clear if READ with
+    ; a pure stdio should do this or not, but currently it does.  When you
+    ; use the smart terminal code it doesn't.  This should be standardized.
+    ;
     trim/with line newline
+
     line
 ]
 

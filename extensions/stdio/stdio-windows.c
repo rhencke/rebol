@@ -37,7 +37,10 @@
 #include "sys-core.h"
 
 #include "readline.h"
-extern STD_TERM *Term_IO;
+
+#if defined(REBOL_SMART_CONSOLE)
+    extern STD_TERM *Term_IO;
+#endif
 
 EXTERN_C REBDEV Dev_StdIO;
 
@@ -72,6 +75,12 @@ static void Close_Stdio(void)
 DEVICE_CMD Quit_IO(REBREQ *dr)
 {
     REBDEV *dev = (REBDEV*)dr; // just to keep compiler happy above
+
+  #if defined(REBOL_SMART_CONSOLE)
+    if (Term_IO)
+        Quit_Terminal(Term_IO);
+    Term_IO = nullptr;
+  #endif
 
     Close_Stdio();
     dev->flags &= ~RDF_OPEN;
@@ -116,8 +125,10 @@ DEVICE_CMD Open_IO(REBREQ *io)
             );
         }
 
+      #if defined(REBOL_SMART_CONSOLE)
         if (not Redir_Inp)
             Term_IO = Init_Terminal();
+      #endif
     }
     else
         dev->flags |= SF_DEV_NULL;
@@ -165,37 +176,8 @@ DEVICE_CMD Write_IO(REBREQ *io)
     if (Stdout_Handle == nullptr)
         return DR_DONE;
 
-    if (Redir_Out) {
-        if (req->modes & RFM_TEXT) {
-            //
-            // Writing UTF-8 text.  Currently no actual check is done to make
-            // sure that it's valid UTF-8, even invalid bytes would be written
-            // but this could be changed.
-        }
-
-        // !!! Historically, Rebol on Windows automatically "enlined" strings
-        // on write to turn LF to CR LF.  This was done in Prin_OS_String().
-        // However, the current idea is to be more prescriptive and not
-        // support this without a special codec.  In lieu of a more efficient
-        // codec method, those wishing to get CR LF will need to manually
-        // enline, or ADAPT their WRITE to do this automatically.
-        //
-        // Note that redirection on Windows does not use UTF-16 typically.
-        // Even CMD.EXE requires a /U switch to do so.
-
-        DWORD total_bytes;
-        BOOL ok = WriteFile(
-            Stdout_Handle,
-            req->common.data,
-            req->length,
-            &total_bytes,
-            0
-        );
-        if (not ok)
-            rebFail_OS (GetLastError());
-        UNUSED(total_bytes);
-    }
-    else {  // not redirected, so being sent to the console
+  #if defined(REBOL_SMART_CONSOLE)
+    if (Term_IO) {
         if (req->modes & RFM_TEXT) {
             //
             // !!! This is a wasteful step as the text initially came from
@@ -257,6 +239,48 @@ DEVICE_CMD Write_IO(REBREQ *io)
                 rebFail_OS (GetLastError());
             UNUSED(total_wide_chars);
         }
+    }
+    else
+  #endif
+    {
+        // !!! The concept of building C89 on Windows would require us to
+        // still go through a UTF-16 conversion process to write to the
+        // console if we were to write to the terminal...even though we would
+        // not have the rich line editing.  Rather than fixing this, it
+        // would be better to just go through printf()...thus having a generic
+        // answer for C89 builds on arbitrarily limited platforms, vs.
+        // catering to it here.
+        //
+        assert(Redir_Inp);
+
+        if (req->modes & RFM_TEXT) {
+            //
+            // Writing UTF-8 text.  Currently no actual check is done to make
+            // sure that it's valid UTF-8, even invalid bytes would be written
+            // but this could be changed.
+        }
+
+        // !!! Historically, Rebol on Windows automatically "enlined" strings
+        // on write to turn LF to CR LF.  This was done in Prin_OS_String().
+        // However, the current idea is to be more prescriptive and not
+        // support this without a special codec.  In lieu of a more efficient
+        // codec method, those wishing to get CR LF will need to manually
+        // enline, or ADAPT their WRITE to do this automatically.
+        //
+        // Note that redirection on Windows does not use UTF-16 typically.
+        // Even CMD.EXE requires a /U switch to do so.
+
+        DWORD total_bytes;
+        BOOL ok = WriteFile(
+            Stdout_Handle,
+            req->common.data,
+            req->length,
+            &total_bytes,
+            0
+        );
+        if (not ok)
+            rebFail_OS (GetLastError());
+        UNUSED(total_bytes);
     }
 
     req->actual = req->length;  // want byte count written, assume success

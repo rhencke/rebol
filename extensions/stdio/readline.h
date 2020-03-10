@@ -31,6 +31,33 @@
 // Windows and POSIX smart consoles.
 //
 
+
+// !!! Note: %reb-c.h must be included prior to this for proper CPLUSPLUS_11
+// detection (MSVC doesn't do this correctly).  We do not do it here because
+// of lack of include guards, but maybe we should put include guards in?
+//
+/* #include %reb-c.h */
+
+
+// If a POSIX system does not offer Termios features, we assume it might also
+// be old enough (or simple/embedded) to not support C99 and variadic macros.
+// Without variadic macros, we have to use REBOL_EXPLICIT_END and it makes the
+// code less pleasant.  We tie the two things together to say that there is
+// no concern for a "smart-terminal-based C89 build"...if you can only build
+// with C89 then another aspect of that constraint is that you aren't going
+// to get features like command history or tab completion.
+//
+#if defined (__STDC_VERSION__) && __STDC_VERSION__ < 199901L
+    // ...
+#elif !defined(CPLUSPLUS_11)
+    // ...C++11 standardized variadic macros in sync with C99's version...
+#elif !defined(TO_WINDOWS) and defined(NO_TTY_ATTRIBUTES)
+    // ...couldn't do terminal code even if we bothered with C89 support...
+#else
+// ...good enough to use both REBOL_IMPLICIT_END and terminal functions...
+
+#define REBOL_SMART_CONSOLE
+
 #include "rebol.h"
 
 // !!! The history mechanism will be disconnected from the line editing
@@ -89,3 +116,6 @@ extern void Quit_Terminal(STD_TERM *t);
 // This is at the concept stage at the moment.
 //
 extern REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered);
+
+
+#endif  // end guard against readline in pre-C99 compilers (would need rebEND)

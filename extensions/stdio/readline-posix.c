@@ -26,26 +26,27 @@
 // parts only for the common standard.
 //
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h> //for read and write
-#include <errno.h>
-
-#ifndef NO_TTY_ATTRIBUTES
-    #include <termios.h>
-#endif
-
-
-//=//// REBOL INCLUDES + HELPERS //////////////////////////////////////////=//
-
 #include <assert.h>
 #include <stdint.h>
 #include "reb-c.h"
 
-#include "readline.h"
+#include "readline.h"  // might define REBOL_SMART_CONSOLE
+
+#if defined(REBOL_SMART_CONSOLE)
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>  // has POSIX read() and write()
+#include <errno.h>
+
+#include <termios.h>
+
+
+//=//// REBOL INCLUDES + HELPERS //////////////////////////////////////////=//
+
 
 #define xrebWord(cstr) \
-    rebValue("lit", cstr, rebEND)
+    rebValue("lit", cstr)
 
 
 //=//// CONFIGURATION /////////////////////////////////////////////////////=//
@@ -82,9 +83,7 @@ struct Reb_Terminal_Struct {
     //
     REBVAL *e_pending;
 
-  #ifndef NO_TTY_ATTRIBUTES
     struct termios original_attrs;
-  #endif
 };
 
 
@@ -94,7 +93,7 @@ static bool Term_Initialized = false;  // Terminal init was successful
 
 
 inline static unsigned int Term_End(STD_TERM *t)
-  { return rebUnboxInteger("length of", t->buffer, rebEND); }
+  { return rebUnboxInteger("length of", t->buffer); }
 
 inline static unsigned int Term_Remain(STD_TERM *t)
   { return Term_End(t) - t->pos; }
@@ -111,20 +110,6 @@ STD_TERM *Init_Terminal(void)
 {
     assert(not Term_Initialized);
 
-  #ifdef NO_TTY_ATTRIBUTES
-    //
-    // !!! The only POSIX platform that did not offer "termios" features was
-    // the Amiga.  But it did its own line editing.
-    //
-    // Other platforms for POSIX systems that are old (or embedded) that lack
-    // termios features is use a plain scanf()/printf() implementation of
-    // the console, as opposed to complicate this code with #ifdefs.  That
-    // would give the added benefit of being used for C89-only platforms, so
-    // this code isn't cluttered with rebEND either.
-    //
-    return nullptr;
-  #else
-    //
     // Good reference on termios:
     //
     // https://blog.nelhage.com/2009/12/a-brief-introduction-to-termios/
@@ -165,10 +150,10 @@ STD_TERM *Init_Terminal(void)
     // file across sessions.  It makes more sense for the logic doing that
     // to be doing it in Rebol.  For starters, we just make it fresh.
     //
-    Line_History = rebValue("[{}]", rebEND);  // current line is empty string
+    Line_History = rebValue("[{}]");  // current line is empty string
     rebUnmanage(Line_History);  // allow Line_History to live indefinitely
 
-    t->buffer = rebValue("{}", rebEND);
+    t->buffer = rebValue("{}");
     rebUnmanage(t->buffer);
 
     t->buf[0] = '\0';  // start read() byte buffer out at empty
@@ -179,7 +164,6 @@ STD_TERM *Init_Terminal(void)
 
     Term_Initialized = true;
     return t;
-  #endif
 }
 
 
@@ -204,7 +188,7 @@ int Term_Pos(STD_TERM *t)
 //
 REBVAL *Term_Buffer(STD_TERM *t)
 {
-    return rebValue("const", t->buffer, rebEND);
+    return rebValue("const", t->buffer);
 }
 
 
@@ -216,9 +200,6 @@ REBVAL *Term_Buffer(STD_TERM *t)
 //
 void Quit_Terminal(STD_TERM *t)
 {
-  #ifdef NO_TTY_ATTRIBUTES
-    assert(!"Quit_Terminal called on non-termios build");
-  #else
     assert(Term_Initialized);
 
     tcsetattr(0, TCSADRAIN, &t->original_attrs);
@@ -230,7 +211,6 @@ void Quit_Terminal(STD_TERM *t)
     Line_History = nullptr;
 
     Term_Initialized = false;
-  #endif
 }
 
 
@@ -294,9 +274,7 @@ void Write_Char(unsigned char c, int n)
 void Clear_Line_To_End(STD_TERM *t)
 {
     int num_codepoints_to_end = Term_Remain(t);
-    rebElide(
-        "clear skip", t->buffer, rebI(t->pos),
-    rebEND);
+    rebElide("clear skip", t->buffer, rebI(t->pos));
 
     Write_Char(' ', num_codepoints_to_end);  // wipe to end of line...
     Write_Char(BS, num_codepoints_to_end);  // ...then return to position
@@ -335,8 +313,8 @@ static void Show_Line(STD_TERM *t, int blanks)
     if (blanks >= 0) {
         size_t num_bytes;
         unsigned char *bytes = rebBytes(&num_bytes,
-            "skip", t->buffer, rebI(t->pos),
-        rebEND);
+            "skip", t->buffer, rebI(t->pos)
+        );
 
         WRITE_UTF8(bytes, num_bytes);
         rebFree(bytes);
@@ -344,8 +322,8 @@ static void Show_Line(STD_TERM *t, int blanks)
     else {
         size_t num_bytes;
         unsigned char *bytes = rebBytes(&num_bytes,
-            t->buffer,
-        rebEND);
+            t->buffer
+        );
 
         WRITE_UTF8(bytes, num_bytes);
         rebFree(bytes);
@@ -383,9 +361,7 @@ void Delete_Char(STD_TERM *t, bool back)
         --t->pos;
 
     if (end > 0) {
-        rebElide(
-            "remove skip", t->buffer, rebI(t->pos),
-        rebEND);
+        rebElide("remove skip", t->buffer, rebI(t->pos));
 
         if (back)
             Write_Char(BS, 1);
@@ -422,8 +398,8 @@ void Move_Cursor(STD_TERM *t, int count)
         if (t->pos < end) {
             size_t encoded_size;
             unsigned char *encoded_char = rebBytes(&encoded_size,
-                "to binary! pick", t->buffer, rebI(t->pos + 1),
-            rebEND);
+                "to binary! pick", t->buffer, rebI(t->pos + 1)
+            );
             WRITE_UTF8(encoded_char, encoded_size);
             rebFree(encoded_char);
 
@@ -459,7 +435,7 @@ REBVAL *Unrecognized_Key_Sequence(STD_TERM *t, int delta)
     t->buf[0] = '\0';
     t->cp = t->buf;
 
-    return rebValue("as issue! {[KEY?]}", rebEND);
+    return rebValue("as issue! {[KEY?]}");
 }
 
 
@@ -481,7 +457,7 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
     assert(not e and not t->e_pending);
     assert(
         not e_buffered
-        or (buffered and rebDid("text?", e_buffered, rebEND))
+        or (buffered and rebDid("text?", e_buffered))
     );
 
     // See notes on why Read_Bytes_Interrupted() can wind up splitting UTF-8
@@ -517,8 +493,8 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
         char encoded[4];
         int encoded_size = 1 + rebUnboxInteger(
             "trailing-bytes-for-utf8",
-                rebR(rebInteger(cast(unsigned char, *t->cp))),
-        rebEND);
+                rebR(rebInteger(cast(unsigned char, *t->cp)))
+        );
         assert(encoded_size <= 4);
 
         // `cp` can jump back to the beginning of the buffer on each read.
@@ -544,13 +520,13 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
 
         REBVAL *char_bin = rebSizedBinary(encoded, encoded_size);
         if (not buffered) {
-            e = rebValue("to char!", char_bin, rebEND);
+            e = rebValue("to char!", char_bin);
         }
         else {
             if (e_buffered)
                 rebElide("append", e_buffered, char_bin);
             else
-                e_buffered = rebValue("as text!", char_bin, rebEND);
+                e_buffered = rebValue("as text!", char_bin);
         }
         rebRelease(char_bin);
     }
@@ -671,9 +647,7 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
         switch (first) {
           case 'H':   // !!! "home" (in what standard??)
           #if !defined(NDEBUG)
-            rebJumps(
-                "FAIL {ESC H: please report your system info}",
-            rebEND);
+            rebJumps("FAIL {ESC H: please report your system info}");
           #else
             e = xrebWord("home");
           #endif
@@ -681,9 +655,7 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
 
           case 'F':  // !!! "end" (in what standard??)
           #if !defined(NDEBUG)
-            rebJumps(
-                "FAIL {ESC F: please report your system info}",
-            rebEND);
+            rebJumps("FAIL {ESC F: please report your system info}");
           #else
             e = xrebWord("end");
           #endif
@@ -715,9 +687,7 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
             // involved at that level.  Using sigaction() on SIGINT and
             // causing EINTR is how we would like to be triggering HALT.
             //
-            rebJumps(
-                "FAIL {Unexpected literal Ctrl-C in console}",
-            rebEND);
+            rebJumps("FAIL {Unexpected literal Ctrl-C in console}");
         }
         else switch (first) {
           case DEL:  // delete (C0)
@@ -752,8 +722,8 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
                 e = rebValue(
                     "as word! unspaced [",
                         "{ctrl-}", rebR(rebChar(first - 1 + 'a')),
-                    "]",
-                rebEND);
+                    "]"
+                );
             }
             else
                 e = Unrecognized_Key_Sequence(t, -1);
@@ -780,7 +750,7 @@ static void Term_Insert_Char(STD_TERM *t, uint32_t c)
 {
     if (c == BS) {
         if (t->pos > 0) {
-            rebElide("remove skip", t->buffer, rebI(t->pos), rebEND);
+            rebElide("remove skip", t->buffer, rebI(t->pos));
             --t->pos;
             Write_Char(BS, 1);
         }
@@ -794,7 +764,7 @@ static void Term_Insert_Char(STD_TERM *t, uint32_t c)
         // LF *key* as input needs to copy the buffer content out before it
         // decides to ask for the LF to be output visually.
         //
-        rebElide("clear", t->buffer, rebEND);
+        rebElide("clear", t->buffer);
         t->pos = 0;
         Write_Char(LF, 1);
     }
@@ -804,8 +774,8 @@ static void Term_Insert_Char(STD_TERM *t, uint32_t c)
         size_t encoded_size;
         unsigned char *encoded = rebBytes(&encoded_size,
             "insert skip", t->buffer, rebI(t->pos), codepoint,
-            codepoint,  // fold returning of codepoint in with insertion
-        rebEND);
+            codepoint  // fold returning of codepoint in with insertion
+        );
         WRITE_UTF8(encoded, encoded_size);
         rebFree(encoded);
 
@@ -825,14 +795,14 @@ static void Term_Insert_Char(STD_TERM *t, uint32_t c)
 // its logic regarding cursor position, newlines, backspacing.
 //
 void Term_Insert(STD_TERM *t, const REBVAL *v) {
-    if (rebDid("char?", v, rebEND)) {
-        Term_Insert_Char(t, rebUnboxChar(v, rebEND));
+    if (rebDid("char?", v)) {
+        Term_Insert_Char(t, rebUnboxChar(v));
         return;
     }
 
-    int len = rebUnboxInteger("length of", v, rebEND);
+    int len = rebUnboxInteger("length of", v);
 
-    if (rebDid("find", v, "backspace", rebEND)) {
+    if (rebDid("find", v, "backspace")) {
         //
         // !!! The logic for backspace and how it interacts is nit-picky,
         // and "reaches out" to possibly edit the existing buffer.  There's
@@ -841,7 +811,7 @@ void Term_Insert(STD_TERM *t, const REBVAL *v) {
         //
         int i;
         for (i = 1; i <= len; ++i)
-            Term_Insert_Char(t, rebUnboxChar("pick", v, rebI(i), rebEND));
+            Term_Insert_Char(t, rebUnboxChar("pick", v, rebI(i)));
     }
     else {  // Finesse by doing one big write
         //
@@ -851,13 +821,13 @@ void Term_Insert(STD_TERM *t, const REBVAL *v) {
         REBVAL *v_no_tab = rebValue(
             "if find", v, "tab [",
                 "replace/all copy", v, "tab", "{    }"
-            "]",
-        rebEND);
+            "]"
+        );
 
         size_t encoded_size;
         unsigned char *encoded = rebBytes(&encoded_size,
-            v_no_tab ? v_no_tab : v,
-        rebEND);
+            v_no_tab ? v_no_tab : v
+        );
 
         rebRelease(v_no_tab);  // null-tolerant
 
@@ -867,15 +837,13 @@ void Term_Insert(STD_TERM *t, const REBVAL *v) {
         WRITE_UTF8(encoded, encoded_size);
         rebFree(encoded);
 
-        REBVAL *v_last_line = rebValue(
-            "next try find-last", v, "newline",
-        rebEND);
+        REBVAL *v_last_line = rebValue("next try find-last", v, "newline");
 
         // If there were any newlines, then whatever is in the current line
         // buffer will no longer be there.
         //
         if (v_last_line) {
-            rebElide("clear", t->buffer, rebEND);
+            rebElide("clear", t->buffer);
             t->pos = 0;
         }
 
@@ -883,8 +851,8 @@ void Term_Insert(STD_TERM *t, const REBVAL *v) {
 
         t->pos += rebUnboxInteger(
             "insert skip", t->buffer, rebI(t->pos), insertion,
-            "length of", insertion,
-        rebEND);
+            "length of", insertion
+        );
 
         rebRelease(v_last_line);  // null-tolerant
     }
@@ -903,3 +871,5 @@ void Term_Beep(STD_TERM *t)
     UNUSED(t);
     Write_Char(BEL, 1);
 }
+
+#endif  // end guard against readline in pre-C99 compilers (would need rebEND)

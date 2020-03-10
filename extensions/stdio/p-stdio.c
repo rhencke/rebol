@@ -32,8 +32,10 @@ EXTERN_C REBDEV Dev_StdIO;
 
 #include "readline.h"
 
-extern STD_TERM *Term_IO;
-STD_TERM *Term_IO = nullptr;
+#if defined(REBOL_SMART_CONSOLE)
+    extern STD_TERM *Term_IO;
+    STD_TERM *Term_IO = nullptr;
+#endif
 
 // The history mechanism is deliberately separated out from the line-editing
 // mechanics.  The I/O layer is only supposed to emit keystrokes and let the
@@ -46,6 +48,7 @@ int Line_History_Index;  // Current position in the line history
 #define Line_Count \
     rebUnboxInteger("length of", Line_History, rebEND)
 
+#if defined(REBOL_SMART_CONSOLE)
 
 extern REBVAL *Read_Line(STD_TERM *t);
 
@@ -263,6 +266,8 @@ REBVAL *Read_Line(STD_TERM *t)
     return line;
 }
 
+#endif  // if defined(REBOL_SMART_CONSOLE)
+
 
 //
 //  Console_Actor: C
@@ -310,6 +315,7 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         if (Req(req)->modes & RDM_NULL)
             return rebValue("copy #{}", rebEND);
 
+      #if defined(REBOL_SMART_CONSOLE)
         if (Term_IO) {
             REBVAL *result = Read_Line(Term_IO);
             if (rebDid("void?", rebQ1(result), rebEND)) {  // HALT received
@@ -326,6 +332,7 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
             assert(rebDid("text?", result, rebEND));
             return rebValue("as binary!", rebR(result), rebEND);
         }
+      #endif
 
         // !!! A fixed size buffer is used to gather console input.  This is
         // re-used between READ requests.

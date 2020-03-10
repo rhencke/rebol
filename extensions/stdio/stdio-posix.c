@@ -38,22 +38,25 @@
 #include <signal.h>
 
 #include "readline.h"
-extern REBVAL *Read_Line(STD_TERM *t);
 
 
 // Temporary globals: (either move or remove?!)
 static int Std_Inp = STDIN_FILENO;
 static int Std_Out = STDOUT_FILENO;
 
-extern STD_TERM *Term_IO;
+#if defined(REBOL_SMART_CONSOLE)
+    extern STD_TERM *Term_IO;
+#endif
 
 
 static void Close_Stdio(void)
 {
+  #if defined(REBOL_SMART_CONSOLE)
     if (Term_IO) {
         Quit_Terminal(Term_IO);
         Term_IO = nullptr;
     }
+  #endif
 }
 
 
@@ -90,8 +93,10 @@ DEVICE_CMD Open_IO(REBREQ *io)
 
     if (not (req->modes & RDM_NULL)) {
 
+      #if defined(REBOL_SMART_CONSOLE)
         if (isatty(Std_Inp))  // is termios-capable (not redirected to a file)
             Term_IO = Init_Terminal();
+      #endif
     }
     else
         dev->flags |= SF_DEV_NULL;
@@ -137,6 +142,7 @@ DEVICE_CMD Write_IO(REBREQ *io)
     }
 
     if (Std_Out >= 0) {
+      #if defined(REBOL_SMART_CONSOLE)
         if (Term_IO) {
             //
             // We need to sync the cursor position with writes.  This means
@@ -157,7 +163,9 @@ DEVICE_CMD Write_IO(REBREQ *io)
             Term_Insert(Term_IO, text);
             rebRelease(text);
         }
-        else {
+        else
+      #endif
+        {
             long total = write(Std_Out, req->common.data, req->length);
 
             if (total < 0)
@@ -200,7 +208,10 @@ DEVICE_CMD Read_IO(REBREQ *io)
     // Null redirection (should be handled at PORT! level to not ask for read)
     //
     assert(not (req->modes & RDM_NULL));
+
+  #if defined(REBOL_SMART_CONSOLE)
     assert(not Term_IO);  // should have handled in %p-stdio.h
+  #endif
 
     req->actual = 0;
 

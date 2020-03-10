@@ -26,24 +26,25 @@
 // parts only for the common standard.
 //
 
+#include <assert.h>
+#include <stdint.h>
+#include "reb-c.h"
+
+#include "readline.h"  // will define REBOL_SMART_CONSOLE (if not C89)
+
+#if defined(REBOL_SMART_CONSOLE)
+
 #include <stdlib.h>
 #include <stdio.h>
 
 #define WIN32_LEAN_AND_MEAN  // trim down the Win32 headers
 #include <windows.h>
-#undef IS_ERROR
 
 
 //=//// REBOL INCLUDES + HELPERS //////////////////////////////////////////=//
 
-#include <assert.h>
-#include <stdint.h>
-#include "reb-c.h"
-
-#include "readline.h"
-
 #define xrebWord(cstr) \
-    rebValue("lit", cstr, rebEND)
+    rebValue("lit", cstr)
 
 
 //=//// CONFIGURATION /////////////////////////////////////////////////////=//
@@ -143,7 +144,7 @@ static bool Term_Initialized = false;  // Terminal init was successful
 
 
 inline static unsigned int Term_End(STD_TERM *t)
-  { return rebUnboxInteger("length of", t->buffer, rebEND); }
+  { return rebUnboxInteger("length of", t->buffer); }
 
 inline static unsigned int Term_Remain(STD_TERM *t)
   { return Term_End(t) - t->pos; }
@@ -205,7 +206,7 @@ STD_TERM *Init_Terminal(void)
 
     t->original_mode = mode;
 
-    t->buffer = rebValue("{}", rebEND);
+    t->buffer = rebValue("{}");
     rebUnmanage(t->buffer);
 
     t->in = t->in_tail = t->buf;  // start read() byte buffer out at empty
@@ -231,7 +232,7 @@ STD_TERM *Init_Terminal(void)
     // file across sessions.  It makes more sense for the logic doing that
     // to be doing it in Rebol.  For starters, we just make it fresh.
     //
-    Line_History = rebValue("[{}]", rebEND);  // current line is empty string
+    Line_History = rebValue("[{}]");  // current line is empty string
     rebUnmanage(Line_History);  // allow Line_History to live indefinitely
 
     Term_Initialized = true;
@@ -260,7 +261,7 @@ int Term_Pos(STD_TERM *t)
 //
 REBVAL *Term_Buffer(STD_TERM *t)
 {
-    return rebValue("const", t->buffer, rebEND);
+    return rebValue("const", t->buffer);
 }
 
 
@@ -378,9 +379,7 @@ void Write_Char(uint32_t c, int n)
 void Clear_Line_To_End(STD_TERM *t)
 {
     int num_codepoints_to_end = Term_Remain(t);
-    rebElide(
-        "clear skip", t->buffer, rebI(t->pos),
-    rebEND);
+    rebElide("clear skip", t->buffer, rebI(t->pos));
 
     Write_Char(' ', num_codepoints_to_end);  // wipe to end of line...
     Write_Char(BS, num_codepoints_to_end);  // ...then return to position
@@ -419,8 +418,8 @@ static void Show_Line(STD_TERM *t, int blanks)
     if (blanks >= 0) {
         size_t num_bytes;
         unsigned char *bytes = rebBytes(&num_bytes,
-            "skip", t->buffer, rebI(t->pos),
-        rebEND);
+            "skip", t->buffer, rebI(t->pos)
+        );
 
         WRITE_UTF8(bytes, num_bytes);
         rebFree(bytes);
@@ -428,8 +427,8 @@ static void Show_Line(STD_TERM *t, int blanks)
     else {
         size_t num_bytes;
         unsigned char *bytes = rebBytes(&num_bytes,
-            t->buffer,
-        rebEND);
+            t->buffer
+        );
 
         WRITE_UTF8(bytes, num_bytes);
         rebFree(bytes);
@@ -467,9 +466,7 @@ void Delete_Char(STD_TERM *t, bool back)
         --t->pos;
 
     if (end > 0) {
-        rebElide(
-            "remove skip", t->buffer, rebI(t->pos),
-        rebEND);
+        rebElide("remove skip", t->buffer, rebI(t->pos));
 
         if (back)
             Write_Char(BS, 1);
@@ -506,8 +503,8 @@ void Move_Cursor(STD_TERM *t, int count)
         if (t->pos < end) {
             size_t encoded_size;
             unsigned char *encoded_char = rebBytes(&encoded_size,
-                "to binary! pick", t->buffer, rebI(t->pos + 1),
-            rebEND);
+                "to binary! pick", t->buffer, rebI(t->pos + 1)
+            );
             WRITE_UTF8(encoded_char, encoded_size);
             rebFree(encoded_char);
 
@@ -535,7 +532,7 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
     assert(not e and not t->e_pending);
     assert(
         not e_buffered
-        or (buffered and rebDid("text?", e_buffered, rebEND))
+        or (buffered and rebDid("text?", e_buffered))
     );
 
     if (t->in == t->in_tail) {  // no residual events from prior read
@@ -618,13 +615,9 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
         }
         else {
             if (e_buffered)
-                rebElide(
-                    "append", e_buffered, rebR(rebChar(codepoint)),
-                rebEND);
+                rebElide("append", e_buffered, rebR(rebChar(codepoint)));
             else
-                e_buffered = rebValue(
-                    "to text!", rebR(rebChar(codepoint)),
-                rebEND);
+                e_buffered = rebValue("to text!", rebR(rebChar(codepoint)));
         }
     }
     else if (
@@ -678,8 +671,8 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
             e = rebValue(
                 "as word! unspaced [",
                     "{ctrl-}", rebR(rebChar(wchar - 1 + 'a')),
-                "]",
-            rebEND);
+                "]"
+            );
         }
 
         assert(t->in->Event.KeyEvent.wRepeatCount > 0);
@@ -715,7 +708,7 @@ static void Term_Insert_Char(STD_TERM *t, uint32_t c)
 {
     if (c == BS) {
         if (t->pos > 0) {
-            rebElide("remove skip", t->buffer, rebI(t->pos), rebEND);
+            rebElide("remove skip", t->buffer, rebI(t->pos));
             --t->pos;
             Write_Char(BS, 1);
         }
@@ -729,7 +722,7 @@ static void Term_Insert_Char(STD_TERM *t, uint32_t c)
         // LF *key* as input needs to copy the buffer content out before it
         // decides to ask for the LF to be output visually.
         //
-        rebElide("clear", t->buffer, rebEND);
+        rebElide("clear", t->buffer);
         t->pos = 0;
         Write_Char(LF, 1);
     }
@@ -739,8 +732,8 @@ static void Term_Insert_Char(STD_TERM *t, uint32_t c)
         size_t encoded_size;
         unsigned char *encoded = rebBytes(&encoded_size,
             "insert skip", t->buffer, rebI(t->pos), codepoint,
-            codepoint,  // fold returning of codepoint in with insertion
-        rebEND);
+            codepoint  // fold returning of codepoint in with insertion
+        );
         WRITE_UTF8(encoded, encoded_size);
         rebFree(encoded);
 
@@ -760,14 +753,14 @@ static void Term_Insert_Char(STD_TERM *t, uint32_t c)
 // its logic regarding cursor position, newlines, backspacing.
 //
 void Term_Insert(STD_TERM *t, const REBVAL *v) {
-    if (rebDid("char?", v, rebEND)) {
-        Term_Insert_Char(t, rebUnboxChar(v, rebEND));
+    if (rebDid("char?", v)) {
+        Term_Insert_Char(t, rebUnboxChar(v));
         return;
     }
 
-    int len = rebUnboxInteger("length of", v, rebEND);
+    int len = rebUnboxInteger("length of", v);
 
-    if (rebDid("find", v, "backspace", rebEND)) {
+    if (rebDid("find", v, "backspace")) {
         //
         // !!! The logic for backspace and how it interacts is nit-picky,
         // and "reaches out" to possibly edit the existing buffer.  There's
@@ -776,7 +769,7 @@ void Term_Insert(STD_TERM *t, const REBVAL *v) {
         //
         int i;
         for (i = 1; i <= len; ++i)
-            Term_Insert_Char(t, rebUnboxChar("pick", v, rebI(i), rebEND));
+            Term_Insert_Char(t, rebUnboxChar("pick", v, rebI(i)));
     }
     else {  // Finesse by doing one big write
         //
@@ -786,13 +779,13 @@ void Term_Insert(STD_TERM *t, const REBVAL *v) {
         REBVAL *v_no_tab = rebValue(
             "if find", v, "tab [",
                 "replace/all copy", v, "tab", "{    }"
-            "]",
-        rebEND);
+            "]"
+        );
 
         size_t encoded_size;
         unsigned char *encoded = rebBytes(&encoded_size,
-            v_no_tab ? v_no_tab : v,
-        rebEND);
+            v_no_tab ? v_no_tab : v
+        );
 
         rebRelease(v_no_tab);  // null-tolerant
 
@@ -802,15 +795,13 @@ void Term_Insert(STD_TERM *t, const REBVAL *v) {
         WRITE_UTF8(encoded, encoded_size);
         rebFree(encoded);
 
-        REBVAL *v_last_line = rebValue(
-            "next try find-last", v, "newline",
-        rebEND);
+        REBVAL *v_last_line = rebValue("next try find-last", v, "newline");
 
         // If there were any newlines, then whatever is in the current line
         // buffer will no longer be there.
         //
         if (v_last_line) {
-            rebElide("clear", t->buffer, rebEND);
+            rebElide("clear", t->buffer);
             t->pos = 0;
         }
 
@@ -818,8 +809,8 @@ void Term_Insert(STD_TERM *t, const REBVAL *v) {
 
         t->pos += rebUnboxInteger(
             "insert skip", t->buffer, rebI(t->pos), insertion,
-            "length of", insertion,
-        rebEND);
+            "length of", insertion
+        );
 
         rebRelease(v_last_line);  // null-tolerant
     }
@@ -838,3 +829,5 @@ void Term_Beep(STD_TERM *t)
     UNUSED(t);
     Write_Char(BEL, 1);
 }
+
+#endif  // end guard against readline in pre-C99 compilers (would need rebEND)
