@@ -521,9 +521,14 @@ format: function [
     "Format a string according to the format dialect."
     rules {A block in the format dialect. E.g. [10 -10 #"-" 4]}
     values
-    /pad
+    /pad [char! integer!] {char or char code, but 0 -> #"0"}
 ][
     pad: default [space]
+    case [
+      pad = 0 [pad: #"0"]
+      integer? pad [pad: to-char pad]
+    ]
+
     rules: blockify :rules
     values: blockify :values
 
