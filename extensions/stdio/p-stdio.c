@@ -372,12 +372,16 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         Req(req)->common.binary = data;  // appends to tail (but it's empty)
         Req(req)->length = readbuf_size;
 
+        // Since we're not using the terminal code, we don't have per-char
+        // control to eliminate the CR characters.  Raw READ from stdio must
+        // be able to go byte level, however.  We'll have to deline it.
+        //
         OS_DO_DEVICE_SYNC(req, RDC_READ);
 
-        // Give back a BINARY! which is as large as the portion of the buffer
-        // that was used, and clear the buffer for reuse.
+        // Give back a BINARY! which is DELINE'd and as large as the portion
+        // of the buffer actually used, and clear the buffer for reuse.
         //
-        return rebValueQ("copy", data, "elide clear", data, rebEND); }
+        return rebValueQ("deline copy", data, "elide clear", data, rebEND); }
 
       case SYM_OPEN:
         Req(req)->flags |= RRF_OPEN;

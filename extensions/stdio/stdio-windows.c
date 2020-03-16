@@ -126,7 +126,12 @@ DEVICE_CMD Open_IO(REBREQ *io)
         }
 
       #if defined(REBOL_SMART_CONSOLE)
-        if (not Redir_Inp)
+        //
+        // We can't sensibly manage the character position for an editing
+        // buffer if either the input or output are redirected.  This means
+        // no smart terminal functions (including history) are available.
+        //
+        if (not Redir_Inp and not Redir_Out)
             Term_IO = Init_Terminal();
       #endif
     }
@@ -251,7 +256,7 @@ DEVICE_CMD Write_IO(REBREQ *io)
         // answer for C89 builds on arbitrarily limited platforms, vs.
         // catering to it here.
         //
-        assert(Redir_Inp);
+        assert(Redir_Inp or Redir_Out);
 
         if (req->modes & RFM_TEXT) {
             //
@@ -321,13 +326,9 @@ DEVICE_CMD Read_IO(REBREQ *io)
         return DR_DONE;
     }
 
-    if (Redir_Inp == 0) {  // %p-stdio.c should call %readline-windows.c
-        assert(!"Trying to read from Windows console in %stdio-windows.c");
-        return DR_DONE;
-    }
-
     // While Windows historically uses UCS-2/UTF-16 in its console I/O, the
-    // redirection to file is byte-oriented, so you get UTF-8.
+    // plain ReadFile() style calls are byte-oriented, so you get whatever
+    // code page is in use.
 
     DWORD total;
     BOOL ok = ReadFile(
