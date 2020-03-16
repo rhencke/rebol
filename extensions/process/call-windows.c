@@ -58,6 +58,134 @@
 
 
 //
+//  Try_Init_Startupinfo_Sink: C
+//
+// Output and Error code is nearly identical and is factored into a
+// subroutine.
+//
+// Note: If it returns `false` GetLastError() is tested to return a message,
+// so the caller assumes the Windows error state is meaningful upon return.
+//
+static bool Try_Init_Startupinfo_Sink(
+    HANDLE *hsink,  // will be set, is either &si.hStdOutput, &si.hStdError
+    HANDLE *hwrite,  // set to match `hsink` unless hsink doesn't need closing
+    HANDLE *hread,  // write may have "read" side if pipe captures variables
+    DWORD std_handle_id,  // e.g. STD_OUTPUT_HANDLE, STD_ERROR_HANDLE
+    const REBVAL *arg  // argument e.g. /OUTPUT or /ERROR for behavior
+){
+    SECURITY_ATTRIBUTES sa;
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.lpSecurityDescriptor = nullptr;
+    sa.bInheritHandle = TRUE;
+
+    assert(*hread == 0 and *hwrite == 0);
+    *hsink = INVALID_HANDLE_VALUE;  // this function must set unless error
+
+    if (IS_NULLED(arg)) {  // write normally (usually to console)
+        *hsink = GetStdHandle(std_handle_id);
+    }
+    else switch (VAL_TYPE(arg)) {
+      case REB_LOGIC:
+        if (VAL_LOGIC(arg)) {
+            //
+            // !!! This said true was "inherit", but hwrite was not being
+            // set to anything...?  So is this supposed to be able to deal
+            // with shell-based redirection of the parent in a way that is
+            // distinct, saying if the r3 process was redirected to a file
+            // then the default is *not* to also redirect the child?  There
+            // was no comment on this.
+            //
+            if (not SetHandleInformation(
+                *hwrite, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT
+            )){
+                return false;
+            }
+            *hsink = *hwrite;
+        }
+        else {
+            // Not documented, but this is how to make a /dev/null on Windows
+            // https://stackoverflow.com/a/25609668
+            //
+            *hwrite = CreateFile(
+                L"NUL",
+                GENERIC_WRITE,
+                0,
+                &sa,  // just says inherithandles = true
+                OPEN_EXISTING,
+                0,
+                NULL
+            );
+            if (*hwrite == INVALID_HANDLE_VALUE)
+                return false;
+            *hsink = *hwrite;
+        break; }
+
+      case REB_TEXT:  // write to pre-existing TEXT!
+      case REB_BINARY:  // write to pre-existing BINARY!
+        if (not CreatePipe(hread, hwrite, NULL, 0))
+            return false;
+
+        // make child side handle inheritable
+        //
+        if (not SetHandleInformation(
+            *hwrite, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT
+        )){
+            return false;
+        }
+        *hsink = *hwrite;
+        break;
+
+      case REB_FILE: {  // write to file
+        WCHAR *local_wide = rebSpellWideQ(
+            "file-to-local", arg,
+        rebEND);
+
+        // !!! This was done in two steps, is this necessary?
+
+        *hwrite = CreateFile(
+            local_wide,
+            GENERIC_WRITE,  // desired mode
+            0,  // shared mode
+            &sa,  // security attributes
+            CREATE_NEW,  // creation disposition
+            FILE_ATTRIBUTE_NORMAL,  // flag and attributes
+            nullptr  // template
+        );
+
+        if (
+            *hwrite == INVALID_HANDLE_VALUE
+            and GetLastError() == ERROR_FILE_EXISTS
+        ){
+            *hwrite = CreateFile(
+                local_wide,
+                GENERIC_WRITE,  // desired mode
+                0,  // shared mode
+                &sa,  // security attributes
+                OPEN_EXISTING,  // creation disposition
+                FILE_ATTRIBUTE_NORMAL,  // flag and attributes
+                nullptr  // template
+            );
+        }
+        rebFree(local_wide);
+
+        if (*hwrite == INVALID_HANDLE_VALUE)
+            return false;
+
+        *hsink = *hwrite;
+        break; }
+
+      default:
+        panic (arg);  // CALL's type checking should have screened the types
+    }
+
+    assert(*hsink != INVALID_HANDLE_VALUE);
+    assert(*hwrite == 0 or *hwrite == *hsink);
+
+    return true;  // succeeded
+}
+
+
+//
 //  Call_Core: C
 //
 REB_R Call_Core(REBFRM *frame_) {
@@ -132,13 +260,6 @@ REB_R Call_Core(REBFRM *frame_) {
     REBU64 pid = 1020;  // avoid uninitialized warning, garbage value
     DWORD exit_code = 304;  // ...same...
 
-  #ifdef GET_IS_NT_FLAG  // !!! Why was this here?
-    bool is_NT;
-    OSVERSIONINFO info;
-    GetVersionEx(&info);
-    is_NT = info.dwPlatformId >= VER_PLATFORM_WIN32_NT;
-  #endif
-
     REBINT result = -1;
     REBINT ret = 0;
 
@@ -158,6 +279,11 @@ REB_R Call_Core(REBFRM *frame_) {
     si.cbReserved2 = 0;
     si.lpReserved2 = nullptr;
 
+    // We don't want to close standard handles.  So we only close handles that
+    // *we open* with CreateFile.  So we track this separate list of handles
+    // rather than using the ones in the STARTUPINFO to know to close them.
+    // https://devblogs.microsoft.com/oldnewthing/20130307-00/?p=5033
+    //
     HANDLE hOutputRead = 0;
     HANDLE hOutputWrite = 0;
     HANDLE hInputWrite = 0;
@@ -182,14 +308,35 @@ REB_R Call_Core(REBFRM *frame_) {
         si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
     }
     else switch (VAL_TYPE(ARG(input))) {
-      case REB_BLANK:  // act like there's no console input available at all
-        si.hStdInput = 0;
-        break;
-
+      case REB_LOGIC:
+        if (VAL_LOGIC(ARG(input))) {  // !!! make inheritable (correct?)
+            if (not SetHandleInformation(
+                hInputRead,
+                HANDLE_FLAG_INHERIT,
+                HANDLE_FLAG_INHERIT
+            )){
+                goto stdin_error;
+            }
+            si.hStdInput = hInputRead;
+        }
+        else {
+            // Not documented, but this is how to make a /dev/null on Windows
+            // https://stackoverflow.com/a/25609668
+            //
+            si.hStdInput = hInputRead = CreateFile(
+                L"NUL",
+                GENERIC_READ,
+                0,
+                &sa,  // just says inherithandles = true
+                OPEN_EXISTING,
+                0,
+                NULL
+             );  // don't offer any stdin
+        break; }
       case REB_TEXT: {  // feed standard input from TEXT!
         //
         // See notes at top of file about why UTF-16/UCS-2 are not used here.
-        // Pipes and file reirects are generally understood in Windows to
+        // Pipes and file redirects are generally understood in Windows to
         // *not* use those encodings, and transmit raw bytes.
         //
         inbuf_size = rebSpellIntoQ(nullptr, 0, ARG(input), rebEND);
@@ -241,131 +388,28 @@ REB_R Call_Core(REBFRM *frame_) {
         panic (ARG(input));
     }
 
-    // !!! Output and Error code is nearly identical and should be factored
-    // into a subroutine.
-
     //=//// OUTPUT SINK SETUP /////////////////////////////////////////////=//
 
-    if (not REF(output)) {  // outbuf stdout normally (usually to console)
-        si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-    }
-    else switch (VAL_TYPE(ARG(output))) {
-      case REB_BLANK:  // discard outbuf (e.g. don't print to stdout)
-        si.hStdOutput = 0;
-        break;
-
-      case REB_TEXT:  // write stdout outbuf to pre-existing TEXT!
-      case REB_BINARY:  // write stdout outbuf to pre-existing BINARY!
-        if (not CreatePipe(&hOutputRead, &hOutputWrite, NULL, 0))
-            goto stdout_error;
-
-        // make child side handle inheritable
-        //
-        if (not SetHandleInformation(
-            hOutputWrite, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT
-        )){
-            goto stdout_error;
-        }
-        si.hStdOutput = hOutputWrite;
-        break;
-
-      case REB_FILE: {  // write stdout outbuf to file
-        WCHAR *local_wide = rebSpellWideQ(
-            "file-to-local", ARG(output),
-        rebEND);
-
-        si.hStdOutput = CreateFile(
-            local_wide,
-            GENERIC_WRITE,  // desired mode
-            0,  // shared mode
-            &sa,  // security attributes
-            CREATE_NEW,  // creation disposition
-            FILE_ATTRIBUTE_NORMAL,  // flag and attributes
-            nullptr  // template
-        );
-
-        if (
-            si.hStdOutput == INVALID_HANDLE_VALUE
-            and GetLastError() == ERROR_FILE_EXISTS
-        ){
-            si.hStdOutput = CreateFile(
-                local_wide,
-                GENERIC_WRITE,  // desired mode
-                0,  // shared mode
-                &sa,  // security attributes
-                OPEN_EXISTING,  // creation disposition
-                FILE_ATTRIBUTE_NORMAL,  // flag and attributes
-                nullptr  // template
-            );
-        }
-
-        rebFree(local_wide);
-        break; }
-
-      default:
-        panic (ARG(output));
+    if (not Try_Init_Startupinfo_Sink(
+        &si.hStdOutput,
+        &hOutputWrite,
+        &hOutputRead,
+        STD_OUTPUT_HANDLE,
+        ARG(output)
+    )){
+        goto stdout_error;
     }
 
-    //=//// ERROR SINK SETUP //////////////////////////////////////////////=//
+    //=//// ERROR SINK SETUP ////./////////////////////////////////////////=//
 
-    if (not REF(error)) {  // outbuf stderr normally (usually same as stdout)
-        si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
-    }
-    else switch (VAL_TYPE(ARG(error))) {
-      case REB_BLANK:  // suppress stderr outbuf entirely
-        si.hStdError = 0;
-        break;
-
-      case REB_TEXT:  // write stderr outbuf to pre-existing TEXT!
-      case REB_BINARY:  // write stderr outbuf to pre-existing BINARY!
-        if (not CreatePipe(&hErrorRead, &hErrorWrite, NULL, 0))
-            goto stderr_error;
-
-        // make child side handle inheritable
-        //
-        if (not SetHandleInformation(
-            hErrorWrite, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT
-        )){
-            goto stderr_error;
-        }
-        si.hStdError = hErrorWrite;
-        break;
-
-      case REB_FILE: {  // write stderr outbuf to file
-        WCHAR *local_wide = rebSpellWideQ(
-            "file-to-local", ARG(output),
-        rebEND);
-
-        si.hStdError = CreateFile(
-            local_wide,
-            GENERIC_WRITE,  // desired mode
-            0,  // shared mode
-            &sa,  // security attributes
-            CREATE_NEW,  // creation disposition
-            FILE_ATTRIBUTE_NORMAL,  // flag and attributes
-            nullptr  // template
-        );
-
-        if (
-            si.hStdError == INVALID_HANDLE_VALUE
-            and GetLastError() == ERROR_FILE_EXISTS
-        ){
-            si.hStdError = CreateFile(
-                local_wide,
-                GENERIC_WRITE,  // desired mode
-                0,  // shared mode
-                &sa,  // security attributes
-                OPEN_EXISTING,  // creation disposition
-                FILE_ATTRIBUTE_NORMAL,  // flag and attributes
-                nullptr  // template
-            );
-        }
-
-        rebFree(local_wide);
-        break; }
-
-      default:
-        panic (ARG(error));
+    if (not Try_Init_Startupinfo_Sink(
+        &si.hStdError,
+        &hErrorWrite,
+        &hErrorRead,
+        STD_ERROR_HANDLE,
+        ARG(error)
+    )){
+        goto stderr_error;
     }
 
     //=//// COMMAND AND ARGUMENTS SETUP ///////////////////////////////////=//
