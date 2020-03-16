@@ -375,14 +375,15 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
 
         // Since we're not using the terminal code, we don't have per-char
         // control to eliminate the CR characters.  Raw READ from stdio must
-        // be able to go byte level, however.  We'll have to deline it.
+        // be able to go byte level, however.  Those wishing to interpret
+        // Windows data as text with lines will thus have to deline it (!)
         //
         OS_DO_DEVICE_SYNC(req, RDC_READ);
 
-        // Give back a BINARY! which is DELINE'd and as large as the portion
-        // of the buffer actually used, and clear the buffer for reuse.
+        // Give back a BINARY! which is as large as the portion of the buffer
+        // actually used, and clear the buffer for reuse.
         //
-        return rebValueQ("deline copy", data, "elide clear", data, rebEND); }
+        return rebValueQ("copy", data, "elide clear", data, rebEND); }
 
       case SYM_OPEN:
         Req(req)->flags |= RRF_OPEN;

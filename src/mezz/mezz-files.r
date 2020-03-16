@@ -77,16 +77,16 @@ clean-path: function [
 ]
 
 
-read-stdin: function [
-    {Inputs a line of text from the console. New-line character is removed.}
+read-line: function [
+    {Inputs a line of text from the console (no newline)}
 
-    return: "Null if the input was aborted (via ESCAPE, Ctrl-D, etc.)"
+    return: "Null if the input was aborted (e.g. via ESCAPE)"
         [<opt> text!]
     /hide "Mask input with a * character"
 ][
     if hide [
         fail [
-            "READ-STDIN/HIDE not yet implemented:"
+            "READ-LINE/HIDE not yet implemented:"
             https://github.com/rebol/rebol-issues/issues/476
         ]
     ]
@@ -114,16 +114,24 @@ read-stdin: function [
         return null
     ]
 
-    line: as text! data  ; The data that comes from READ is mutable
+    ; !!! On Windows, reading lines gives CR LF sequences.  It has to be that
+    ; the stdio port itself stays "pure" if it is to work with CGI, etc.  This
+    ; balance of agnostic byte-level READ/WRITE has to be balanced with the
+    ; typical desire to non-agnostically work with strings.  For now, we do
+    ; the DELINE here for Windows.
+    ;
+    line: either 3 = fourth system/version [  ; Windows (32-bit or 64-bit)
+        deline data
+    ][
+        as text! data  ; The data that comes from READ is mutable
+    ]
 
     ; !!! Protocol-wise, at the C level stdio implementations often have a
-    ; newline given back as part of the result.  It's not clear if READ with
-    ; a pure stdio should do this or not, but currently it does.  When you
-    ; use the smart terminal code it doesn't.  This should be standardized.
+    ; newline given back with the result (and the lack of a newline can show
+    ; your buffer wasn't big enough, so you expand it).  Per-key console
+    ; implementation can do differently.  Should standardize.
     ;
-    trim/with line newline
-
-    line
+    return trim/with line newline
 ]
 
 
@@ -173,7 +181,7 @@ ask: function [
             write-stdout space  ; space after prompt is implicit
         ]
 
-        line: read-stdin else [
+        line: read-line else [
             ;
             ; NULL signals a "cancel" was recieved by reading standard input.
             ; This is distinct from HALT (would not return from READ-STDIN).
