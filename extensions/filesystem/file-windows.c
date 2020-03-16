@@ -352,7 +352,12 @@ DEVICE_CMD Read_File(REBREQ *file)
             rebFail_OS (GetLastError());
     }
 
-    assert(sizeof(DWORD) == sizeof(req->actual));
+    // !!! There used to be an assert here about the read size.  If bigger
+    // reads are wanted, this would have to change to multiple reads or
+    // another API.
+    //
+    if (req->actual > UINT32_MAX)
+        fail ("ReadFile() amount exceeds size of DWORD");
 
     if (not ReadFile(
         req->requestee.handle,

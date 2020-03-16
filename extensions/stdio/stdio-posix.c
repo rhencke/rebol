@@ -171,7 +171,7 @@ DEVICE_CMD Write_IO(REBREQ *io)
             if (total < 0)
                 rebFail_OS(errno);
 
-            assert(total == req->length);
+            assert(cast(size_t, total) == req->length);
         }
         req->actual = req->length;
     }

@@ -184,8 +184,8 @@ struct rebol_devreq {
         unsigned char *data;
         REBVAL *binary;  // !!! outlives the rebreq (on stack or in port_ctx)
     } common;
-    uint32_t length;        // length to transfer
-    uint32_t actual;        // length actually transferred
+    size_t length;  // length to transfer
+    size_t actual;  // length actually transferred
 };
 
 
