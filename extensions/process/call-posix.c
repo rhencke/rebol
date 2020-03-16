@@ -893,37 +893,30 @@ REB_R Call_Core(REBFRM *frame_) {
     rebFree(m_cast(char**, argv));
 
     if (IS_TEXT(ARG(output))) {
-        if (outbuf_used > 0) {
-            REBVAL *output_val = rebSizedText(outbuf, outbuf_used);
-            rebElide("append", ARG(output), output_val, rebEND);
-            rebRelease(output_val);
-        }
+        REBVAL *output_val = rebRepossess(outbuf, outbuf_used);
+        rebElide("insert", ARG(output), output_val, rebEND);
+        rebRelease(output_val);
     }
-    else if (IS_BINARY(ARG(output))) {
-        if (outbuf_used > 0) {
-            REBVAL *output_val = rebSizedBinary(outbuf, outbuf_used);
-            rebElide("append", ARG(output), output_val, rebEND);
-            rebRelease(output_val);
-        }
+    else if (IS_BINARY(ARG(output))) {  // same (but could be different...)
+        REBVAL *output_val = rebRepossess(outbuf, outbuf_used);
+        rebElide("insert", ARG(output), output_val, rebEND);
+        rebRelease(output_val);
     }
     else
         assert(outbuf == nullptr);
-    rebFree(outbuf);  // legal if outbuf is nullptr
 
     if (IS_TEXT(ARG(error))) {
-        if (errbuf_used > 0) {
-            REBVAL *error_val = rebSizedText(errbuf, errbuf_used);
-            rebElide("append", ARG(error), error_val, rebEND);
-            rebRelease(error_val);
-        }
-    } else if (IS_BINARY(ARG(error))) {
-        if (errbuf_used > 0) {
-            REBVAL *error_val = rebSizedBinary(errbuf, errbuf_used);
-            rebElide("append", ARG(error), error_val, rebEND);
-            rebRelease(error_val);
-        }
+        REBVAL *error_val = rebRepossess(errbuf, errbuf_used);
+        rebElide("insert", ARG(error), error_val, rebEND);
+        rebRelease(error_val);
     }
-    rebFree(errbuf);  // legal if errbuf is nullptr
+    else if (IS_BINARY(ARG(error))) {  // same (but could be different...)
+        REBVAL *error_val = rebRepossess(errbuf, errbuf_used);
+        rebElide("insert", ARG(error), error_val, rebEND);
+        rebRelease(error_val);
+    }
+    else
+        assert(errbuf == nullptr);
 
     if (inbuf != nullptr)
         rebFree(inbuf);

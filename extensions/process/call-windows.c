@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 Atronix Engineering
-// Copyright 2012-2019 Rebol Open Source Contributors
+// Copyright 2012-2020 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -418,6 +418,10 @@ REB_R Call_Core(REBFRM *frame_) {
         //
         // Do not pass /U for UCS-2, see notes at top of file.
         //
+        // !!! This seems it would be better to be detected and done in
+        // usermode, perhaps as an AUGMENT on platforms that wish to offer
+        // the facility.
+        //
         const WCHAR *sh = L"cmd.exe /C \"";  // Note: begin surround quotes
 
         REBLEN len = wcslen(sh) + wcslen(call)
@@ -475,14 +479,14 @@ REB_R Call_Core(REBFRM *frame_) {
             outbuf_capacity = BUF_SIZE_CHUNK;
             outbuf_used = 0;
 
-            outbuf = cast(char*, malloc(outbuf_capacity));
+            outbuf = rebAllocN(char, outbuf_capacity);
             handles[count++] = hOutputRead;
         }
         if (hErrorRead != NULL) {
             errbuf_capacity = BUF_SIZE_CHUNK;
             errbuf_used = 0;
 
-            errbuf = cast(char*, malloc(errbuf_capacity));
+            errbuf = rebAllocN(char, errbuf_capacity);
             handles[count++] = hErrorRead;
         }
 
@@ -505,7 +509,7 @@ REB_R Call_Core(REBFRM *frame_) {
                 if (handles[i] == hInputWrite) {
                     if (not WriteFile(
                         hInputWrite,
-                        cast(char*, inbuf) + inbuf_pos,
+                        inbuf + inbuf_pos,
                         inbuf_size - inbuf_pos,
                         &n,
                         NULL
@@ -540,7 +544,7 @@ REB_R Call_Core(REBFRM *frame_) {
                 else if (handles[i] == hOutputRead) {
                     if (not ReadFile(
                         hOutputRead,
-                        cast(char*, outbuf) + outbuf_used,
+                        outbuf + outbuf_used,
                         outbuf_capacity - outbuf_used,
                         &n,
                         nullptr
@@ -559,9 +563,9 @@ REB_R Call_Core(REBFRM *frame_) {
                         if (outbuf_used >= outbuf_capacity) {
                             outbuf_capacity += BUF_SIZE_CHUNK;
                             outbuf = cast(char*,
-                                realloc(outbuf, outbuf_capacity)
+                                rebRealloc(outbuf, outbuf_capacity)
                             );
-                            if (outbuf == NULL)
+                            if (outbuf == NULL)  // !!! never with rebRealloc
                                 goto kill;
                         }
                     }
@@ -569,7 +573,7 @@ REB_R Call_Core(REBFRM *frame_) {
                 else if (handles[i] == hErrorRead) {
                     if (not ReadFile(
                         hErrorRead,
-                        cast(char*, errbuf) + errbuf_used,
+                        errbuf + errbuf_used,
                         errbuf_capacity - errbuf_used,
                         &n,
                         NULL
@@ -588,9 +592,9 @@ REB_R Call_Core(REBFRM *frame_) {
                         if (errbuf_used >= errbuf_capacity) {
                             errbuf_capacity += BUF_SIZE_CHUNK;
                             errbuf = cast(char*,
-                                realloc(errbuf, errbuf_capacity)
+                                rebRealloc(errbuf, errbuf_capacity)
                             );
-                            if (errbuf == NULL)
+                            if (errbuf == NULL)  // !!! never with rebRealloc
                                 goto kill;
                         }
                     }
@@ -690,40 +694,36 @@ REB_R Call_Core(REBFRM *frame_) {
 
     rebFree(m_cast(REBWCHAR**, argv));
 
+    // We can actually recover the rebAlloc'd buffers as BINARY!.  If the
+    // target is TEXT!, we DELINE it first to eliminate any CRs.  Note the
+    // remarks at the top of file about how piped data is not generally
+    // assumed to be UCS-2.
+    //
     if (IS_TEXT(ARG(output))) {
-        if (outbuf_used > 0) {  // not wide chars, see notes at top of file
-            REBVAL *output_val = rebSizedText(outbuf, outbuf_used);
-            rebElide("append", ARG(output), output_val, rebEND);
-            rebRelease(output_val);
-        }
+        REBVAL *output_val = rebRepossess(outbuf, outbuf_used);
+        rebElide("insert", ARG(output), "deline", output_val, rebEND);
+        rebRelease(output_val);
     }
-    else if (IS_BINARY(ARG(output))) {  // can text/binary both append binary?
-        if (outbuf_used > 0) {
-            REBVAL *output_val = rebSizedBinary(outbuf, outbuf_used);
-            rebElide("append", ARG(output), output_val, rebEND);
-            rebRelease(output_val);
-        }
+    else if (IS_BINARY(ARG(output))) {
+        REBVAL *output_val = rebRepossess(outbuf, outbuf_used);
+        rebElide("insert", ARG(output), output_val, rebEND);
+        rebRelease(output_val);
     }
     else
         assert(outbuf == nullptr);
-    free(outbuf);  // legal for outbuf=nullptr
 
     if (IS_TEXT(ARG(error))) {
-        if (errbuf_used > 0) {  // not wide chars, see notes at top of file
-            REBVAL *error_val = rebSizedText(errbuf, errbuf_used);
-            rebElide("append", ARG(error), error_val, rebEND);
-            rebRelease(error_val);
-        }
-    } else if (IS_BINARY(ARG(error))) {  // can text/binary both append binary?
-        if (errbuf_used > 0) {
-            REBVAL *error_val = rebSizedBinary(errbuf, errbuf_used);
-            rebElide("append", ARG(error), error_val, rebEND);
-            rebRelease(error_val);
-        }
+        REBVAL *error_val = rebRepossess(errbuf, errbuf_used);
+        rebElide("insert", ARG(error), "deline", error_val, rebEND);
+        rebRelease(error_val);
+    }
+    else if (IS_BINARY(ARG(error))) {
+        REBVAL *error_val = rebRepossess(errbuf, errbuf_used);
+        rebElide("append", ARG(error), error_val, rebEND);
+        rebRelease(error_val);
     }
     else
         assert(errbuf == nullptr);
-    free(errbuf);  // legal for errbuf=nullptr
 
     if (inbuf != nullptr)
         rebFree(inbuf);
