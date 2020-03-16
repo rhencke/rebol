@@ -432,8 +432,7 @@ REBVAL *Unrecognized_Key_Sequence(STD_TERM *t, int delta)
     // We don't really know how long an incomprehensible escape sequence is.
     // For now, just drop all the data, pending better heuristics or ideas.
     //
-    t->buf[0] = '\0';
-    t->cp = t->buf;
+    Term_Abandon_Pending_Events(t);
 
     return rebValue("as issue! {[KEY?]}");
 }
@@ -744,6 +743,16 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
     }
 
     goto start_over;
+}
+
+
+//
+//  Term_Abandon_Pending_Events: C
+//
+void Term_Abandon_Pending_Events(STD_TERM *t)
+{
+    t->buf[0] = '\0';
+    t->cp = t->buf;
 }
 
 

@@ -117,5 +117,11 @@ extern void Quit_Terminal(STD_TERM *t);
 //
 extern REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered);
 
+// !!! This is what ESCAPE does; it's probably something that should be
+// done at a more granular level of spooling ahead "peeked" console events
+// vs. needing a separate API entry point.
+//
+extern void Term_Abandon_Pending_Events(STD_TERM *t);
+
 
 #endif  // end guard against readline in pre-C99 compilers (would need rebEND)

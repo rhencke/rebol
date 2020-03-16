@@ -163,6 +163,15 @@ inline static unsigned int Term_Remain(STD_TERM *t)
 #endif
 
 
+#if !defined(NDEBUG)
+    //
+    // We use a special menu event in the debug build to "poison" the tail and
+    // notice overruns of t->in_tail.
+    //
+    #define MENU_ID_TRASH_DEBUG 10203
+#endif
+
+
 //
 //  Init_Terminal: C
 //
@@ -305,15 +314,15 @@ void Quit_Terminal(STD_TERM *t)
 
 
 //
-//  Read_Input_Events_Interrupted: C
+//  Read_Input_Records_Interrupted: C
 //
-// Read the next "chunk" of console input events into the buffer.
+// Read the next "chunk" of console input records into the buffer.
 //
 // !!! Note that if Emoji is supported, it may be that they come in as two
 // input events (surrogate pair?)...which means they might split across
 // two buffer reads.  Look into this
 //
-static bool Read_Input_Events_Interrupted(STD_TERM *t)
+static bool Read_Input_Records_Interrupted(STD_TERM *t)
 {
     assert(t->in == t->in_tail);  // Don't read more if buffer not consumed
     assert(t->e_pending == nullptr);  // Don't read if event is pending
@@ -334,7 +343,7 @@ static bool Read_Input_Events_Interrupted(STD_TERM *t)
 
   #if !defined(NDEBUG)
     t->in_tail->EventType = MENU_EVENT;
-    t->in_tail->Event.MenuEvent.dwCommandId = 10203;
+    t->in_tail->Event.MenuEvent.dwCommandId = MENU_ID_TRASH_DEBUG;
   #endif
  
     CHECK_INPUT_RECORDS(t);
@@ -539,7 +548,7 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
         if (e_buffered)
             return e_buffered;  // pass anything we gathered so far first
 
-        if (Read_Input_Events_Interrupted(t))
+        if (Read_Input_Records_Interrupted(t))
             return rebVoid();  // signal a HALT
 
         assert(t->in != t->in_tail);
@@ -559,11 +568,7 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
     }
     else if (t->in->EventType == MENU_EVENT) {
       #if !defined(NDEBUG)
-        //
-        // We use a special menu event in the debug build to "poison" the
-        // tail and notice overruns of t->in_tail.
-        //
-        assert(t->in->Event.MenuEvent.dwCommandId != 10203);
+        assert(t->in->Event.MenuEvent.dwCommandId != MENU_ID_TRASH_DEBUG);
       #endif
 
         // Ignore menu events.  They are likely not interesting, because the
@@ -571,16 +576,12 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
         // can't add new menu items and get which one was clicked (Raymond
         // Chen of MS Windows fame has said "even if you could get it to
         // work, it's not supported".)
-        //
-        ++t->in;
     }
     else if (
         t->in->EventType == KEY_EVENT and not t->in->Event.KeyEvent.bKeyDown
     ){
         // We ignore key up events for now, but an unbuffered mode might
         // want to give them back.
-        //
-        ++t->in;
     }
     else if (
         t->in->EventType == KEY_EVENT
@@ -650,13 +651,6 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
             e = rebChar('\n');
         }
         if (not e and vkey == VK_ESCAPE) {
-            //
-            // We want escape to halt any pending input.  Perhaps this should
-            // not just clear the console buffer, but peek and repeatedly
-            // clear until it settles.
-            //
-            t->in_tail = t->buf;
-            t->in = t->buf;
             e = xrebWord("escape");
         }
         if (not e) {
@@ -677,11 +671,13 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
         }
 
         assert(t->in->Event.KeyEvent.wRepeatCount > 0);
-        if (--t->in->Event.KeyEvent.wRepeatCount == 0)
-            ++t->in;  // consume event if no more repeats
+        if (e) {
+            if (--t->in->Event.KeyEvent.wRepeatCount == 0)
+                ++t->in;  // consume event if no more repeats
+        }
     }
     else {
-        ++t->in;  // some generic other event, so throw it out
+        // some generic other event, so throw it out
     }
 
     if (e != nullptr) {  // a non-buffered event was produced
@@ -693,12 +689,28 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
         return e;  // if no buffer in waiting, return non-buffered event
     }
 
-    // !!! This will screw up the repeated key count strategy
+    // If an `e` is not generated, then the input record will be thrown out
+    // and we will start over.  Branches generating `e` values are expected to
+    // consume the input records that they translated to Rebol "events".
     //
     if (t->in != t->in_tail)
-        ++t->in;  // Each branch has the option to advance or not
+        ++t->in;
 
     goto start_over;
+}
+
+
+//
+//  Term_Abandon_Pending_Events: C
+//
+void Term_Abandon_Pending_Events(STD_TERM *t)
+{
+    t->in = t->in_tail = t->buf;
+
+  #if !defined(NDEBUG)
+    t->buf[0].EventType = MENU_EVENT;
+    t->buf[0].Event.MenuEvent.dwCommandId = MENU_ID_TRASH_DEBUG;
+  #endif
 }
 
 
