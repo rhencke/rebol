@@ -292,9 +292,38 @@ inline static REBYTE *SER_LAST_RAW(size_t w, REBSER *s) {
 
 inline static void EXPAND_SERIES_TAIL(REBSER *s, REBLEN delta) {
     if (SER_FITS(s, delta))
-        SET_SERIES_USED(s, SER_USED(s) + delta);
+        SET_SERIES_USED(s, SER_USED(s) + delta);  // no termination implied
     else
-        Expand_Series(s, SER_USED(s), delta);
+        Expand_Series(s, SER_USED(s), delta);  // currently terminates
+
+    // !!! R3-Alpha had a premise of not terminating arrays when it did not
+    // have to, but the invariants of when termination happened was unclear.
+    // Ren-C has tried to ferret out the places where termination was and
+    // wasn't happening via asserts and address sanitizer; while not "over
+    // terminating" redundantly.  To try and make it clear this does not
+    // terminate, we poison even if it calls into Expand_Series, which
+    // *does* terminate.
+    //
+  #if !defined(NDEBUG)
+    if (IS_SER_ARRAY(s)) {  // trash to ensure termination (if not implicit)
+        RELVAL *tail = SER_TAIL(RELVAL, s);
+        if (
+            (tail->header.bits & NODE_FLAG_CELL)
+            and not (
+                IS_END(tail)
+                and (tail->header.bits & CELL_FLAG_PROTECTED)
+            )
+        ){
+            mutable_SECOND_BYTE(tail->header.bits) = REB_T_TRASH;
+        }
+    }
+    else if (SER_WIDE(s) == 1)  // presume BINARY! or ANY-STRING! (?)
+        *SER_TAIL_RAW(1, s) = 0xFE;  // invalid UTF-8 byte, e.g. poisonous
+    else {
+        // Assume other series (like GC_Mark_Stack) don't necessarily
+        // terminate.
+    }
+  #endif
 }
 
 //
@@ -315,9 +344,25 @@ inline static void TERM_SEQUENCE_LEN(REBSER *s, REBLEN len) {
 #ifdef NDEBUG
     #define ASSERT_SERIES_TERM(s) \
         NOOP
+
+    #define ASSERT_SERIES_TERM_IF_NEEDED(s) \
+        NOOP
 #else
     #define ASSERT_SERIES_TERM(s) \
         Assert_Series_Term_Core(s)
+
+    inline static void ASSERT_SERIES_TERM_IF_NEEDED(REBSER *s) {
+        if (
+            IS_SER_ARRAY(s)
+            or (
+                SER_WIDE(s) == 1
+                and s != TG_Byte_Buf
+                and s != SER(TG_Mold_Buf)
+            )
+        ){
+            Assert_Series_Term_Core(s);
+        }
+    }
 #endif
 
 // Just a No-Op note to point out when a series may-or-may-not be terminated

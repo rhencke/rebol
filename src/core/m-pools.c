@@ -683,10 +683,14 @@ void Free_Unbiased_Series_Data(char *unbiased, REBLEN total)
 //
 void Expand_Series(REBSER *s, REBLEN index, REBLEN delta)
 {
-    assert(index <= SER_USED(s));
-    if (delta & 0x80000000) fail (Error_Past_End_Raw()); // 2GB max
+    ASSERT_SERIES_TERM_IF_NEEDED(s);
 
-    if (delta == 0) return;
+    assert(index <= SER_USED(s));
+    if (delta & 0x80000000)
+        fail (Error_Past_End_Raw()); // 2GB max
+
+    if (delta == 0)
+        return;
 
     REBLEN used_old = SER_USED(s);
 
@@ -718,6 +722,7 @@ void Expand_Series(REBSER *s, REBLEN index, REBLEN delta)
                 Prep_Non_Stack_Cell(ARR_AT(ARR(s), index));
         }
       #endif
+        ASSERT_SERIES_TERM_IF_NEEDED(s);
         return;
     }
 
@@ -748,8 +753,6 @@ void Expand_Series(REBSER *s, REBLEN index, REBLEN delta)
             )
         );
 
-        TERM_SERIES(s);
-
       #if !defined(NDEBUG)
         if (IS_SER_ARRAY(s)) {
             //
@@ -768,7 +771,7 @@ void Expand_Series(REBSER *s, REBLEN index, REBLEN delta)
             }
         }
       #endif
-
+        TERM_SERIES(s);
         return;
     }
 
@@ -865,8 +868,6 @@ void Expand_Series(REBSER *s, REBLEN index, REBLEN delta)
     );
     s->content.dynamic.used = used_old + delta;
 
-    TERM_SERIES(s);
-
     if (was_dynamic) {
         //
         // We have to de-bias the data pointer before we can free it.
@@ -880,6 +881,7 @@ void Expand_Series(REBSER *s, REBLEN index, REBLEN delta)
   #endif
 
     assert(NOT_SERIES_FLAG(s, MARKED));
+    TERM_SERIES(s);
 }
 
 
