@@ -90,7 +90,7 @@ REBSTR *Decode_UTF16(
     bool little_endian,
     bool crlf_to_lf
 ){
-    REBSTR *s = Make_Unicode(len);
+    REBSTR *s = Make_String(len * 2);  // !!! conservative, 4 bytes per 2...
 
     bool expect_lf = false;
     bool ascii = true;

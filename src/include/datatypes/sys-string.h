@@ -151,8 +151,10 @@
         return codepoint;
     }
 
-    inline static REBYTE* WRITE_CHR(REBYTE* bp, REBUNI codepoint) {
-        return bp + Encode_UTF8_Char(bp, codepoint);
+    inline static REBYTE* WRITE_CHR(REBYTE* bp, REBUNI c) {
+        REBSIZ size = Encoded_Size_For_Codepoint(c);
+        Encode_UTF8_Char(bp, c, size);
+        return bp + size;
     }
 #else
     // C++ build uses templates to expand REBCHR(*) and REBCHR(const*) into
@@ -242,9 +244,9 @@
         }
 
         REBUNI code() {
-            REBUNI codepoint;
-            next(&codepoint);
-            return codepoint;
+            REBUNI c;
+            next(&c);
+            return c;
         }
 
         REBSIZ operator-(const REBYTE *rhs)
@@ -295,11 +297,10 @@
         RebchrPtr skip(REBUNI *out, REBINT delta)
           { return nonconst(REBCHR(const*)::skip(out, delta)); }
 
-        RebchrPtr write(REBUNI codepoint) {
-            return RebchrPtr {
-                m_cast(REBYTE*, bp)
-                    + Encode_UTF8_Char(m_cast(REBYTE*, bp), codepoint)
-            };
+        RebchrPtr write(REBUNI c) {
+            REBSIZ size = Encoded_Size_For_Codepoint(c);
+            Encode_UTF8_Char(m_cast(REBYTE*, bp), c, size);
+            return RebchrPtr {m_cast(REBYTE*, bp) + size};
         }
 
         operator void*() { return m_cast(REBYTE*, bp); }  // implicit cast
@@ -312,7 +313,7 @@
     #define BACK_STR(cp)                    (cp).back_only()
     #define SKIP_CHR(out,cp,delta)          (cp).skip((out), (delta))
     #define CHR_CODE(cp)                    (cp).code()
-    #define WRITE_CHR(cp, codepoint)        (cp).write(codepoint)
+    #define WRITE_CHR(cp, c)                (cp).write(c)
 #endif
 
 
@@ -803,31 +804,59 @@ inline static REBUNI GET_CHAR_AT(REBSTR *s, REBLEN n) {
     return c;
 }
 
+
+// !!! This code is a subset of what Modify_String() can also handle.  Having
+// it is an optimization that may-or-may-not be worth the added complexity of
+// having more than one way of doing a CHANGE to a character.  Review.
+//
 inline static void SET_CHAR_AT(REBSTR *s, REBLEN n, REBUNI c) {
     assert(not IS_STR_SYMBOL(s));
     assert(n < STR_LEN(s));
 
     REBCHR(*) cp = STR_AT(s, n);
+    REBCHR(*) old_next_cp = NEXT_STR(cp);  // scans fast (for leading bytes)
 
-    // If the codepoint we are writing is the same size as the codepoint that
-    // is already there, then we can just ues WRITE_CHR() and be done.
-    //
-    REBSIZ size_old = 1 + trailingBytesForUTF8[*cast(REBYTE*, cp)];
-    REBSIZ size_new = Encoded_Size_For_Codepoint(c);
-    if (size_new == size_old) {
-        // common case... no memory shuffling needed
+    REBSIZ size = Encoded_Size_For_Codepoint(c);
+    REBSIZ old_size = old_next_cp - cp;
+    if (size == old_size) {
+        // common case... no memory shuffling needed, no bookmarks need
+        // to be updated.
     }
-    else if (size_old > size_new) {  // shuffle forward, not memcpy, overlaps!
-        REBYTE *later = cast(REBYTE*, cp) + (size_old - size_new);
-        memmove(cp, later, STR_TAIL(s) - later);  // not memcpy()!
-    }
-    else {  // need backward, may need series expansion, not memcpy, overlaps!
-        EXPAND_SERIES_TAIL(SER(s), size_new - size_old);
-        REBYTE *later = cast(REBYTE*, cp) + (size_new - size_old);
-        memmove(cp, later, STR_TAIL(s) - later);  // not memcpy()!
+    else {
+        size_t cp_offset = cp - STR_HEAD(s);  // for updating bookmark, expand
+
+        int delta = size - old_size;
+        if (delta < 0) {  // shuffle forward, memmove() vs memcpy(), overlaps!
+            memmove(cp + size, old_next_cp, STR_TAIL(s) - old_next_cp);
+
+            // We are maintaining the same length, but for debuggability the
+            // string code doesn't let you change the SER_USED() without
+            // assigning the length.  (See #ifdef DEBUG_UTF8_EVERYWHERE)
+            //
+            REBLEN len = STR_LEN(s);
+            SET_SERIES_USED(SER(s), SER_USED(SER(s)) + delta);
+            MISC(SER(s)).length = len;
+        }
+        else {
+            EXPAND_SERIES_TAIL(SER(s), delta);  // this adds to SERIES_USED
+            cp = STR_HEAD(s) + cp_offset;  // refresh `cp` (may reallocate!)
+            REBYTE *later = cast(REBYTE*, cp) + delta;
+            memmove(later, cp, STR_TAIL(s) - later);  // may not be terminated
+        }
+
+        *STR_TAIL(s) = '\0';  // add terminator
+
+        // `cp` still is the start of the character for the index we were
+        // dealing with.  Only update bookmark if it's an offset *after*
+        // that character position...
+        //
+        REBBMK *book = LINK(s).bookmarks;
+        if (book and BMK_OFFSET(book) > cp_offset)
+            BMK_OFFSET(book) += delta;
     }
 
-    WRITE_CHR(cp, c);
+    Encode_UTF8_Char(cp, c, size);
+    ASSERT_SERIES_TERM(SER(s));
 }
 
 inline static REBLEN Num_Codepoints_For_Bytes(

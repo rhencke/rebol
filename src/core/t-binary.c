@@ -271,8 +271,11 @@ static REBSER *MAKE_TO_Binary_Common(const REBVAL *arg)
         return Copy_Bytes(VAL_TUPLE(arg), VAL_TUPLE_LEN(arg));
 
     case REB_CHAR: {
-        REBSER *bin = Make_Binary(6);
-        TERM_SEQUENCE_LEN(bin, Encode_UTF8_Char(BIN_HEAD(bin), VAL_CHAR(arg)));
+        REBUNI c = VAL_CHAR(arg);
+        REBSIZ encoded_size = Encoded_Size_For_Codepoint(c);
+        REBSER *bin = Make_Binary(encoded_size);
+        Encode_UTF8_Char(BIN_HEAD(bin), c, encoded_size);
+        TERM_SEQUENCE_LEN(bin, encoded_size);
         return bin;
     }
 

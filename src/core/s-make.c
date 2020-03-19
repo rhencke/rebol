@@ -30,9 +30,8 @@
 //  Make_String_Core: C
 //
 // Makes a series to hold a string with enough capacity for a certain amount
-// of encoded data.  Make_Unicode() is how more conservative guesses might
-// be made, but better to either know -or- go via the mold buffer to get
-// the exact right length.
+// of encoded data.  Note that this is not a guarantee of being able to hold
+// more than `encoded_capacity / UNI_ENCODED_MAX` unencoded codepoints...
 //
 REBSTR *Make_String_Core(REBSIZ encoded_capacity, REBFLGS flags)
 {
@@ -45,24 +44,6 @@ REBSTR *Make_String_Core(REBSIZ encoded_capacity, REBFLGS flags)
     LINK(s).bookmarks = nullptr;  // generated on demand
     TERM_SERIES(s);
     return STR(s);
-}
-
-
-//
-//  Make_Unicode: C
-//
-// !!! This is a very conservative string generator for UTF-8 content which
-// assumes that you could need as much as 4 bytes per codepoint.  It's not a
-// new issue, considering that R3-Alpha had to come up with a string size
-// not knowing whether the string would need 1 or 2 byte codepoints.  But
-// for internal strings, getting this wrong and not doing an expansion could
-// be a bug.  Just make big strings for now.
-//
-REBSTR *Make_Unicode(REBLEN codepoint_capacity)
-{
-    REBSTR *s = Make_String(codepoint_capacity * 2);
-    ASSERT_SERIES_TERM(SER(s));
-    return s;
 }
 
 
@@ -82,20 +63,6 @@ REBSER *Copy_Bytes(const REBYTE *src, REBINT len)
     TERM_SEQUENCE_LEN(dst, len);
 
     return dst;
-}
-
-
-//
-//  Insert_Char: C
-//
-// Insert a unicode char into a string.
-//
-void Insert_Char(REBSTR *dst, REBLEN index, REBLEN chr)
-{
-    if (index > STR_LEN(dst))
-        index = STR_LEN(dst);
-    Expand_Series(SER(dst), index, 4);  // !!! 4 is max codepoint size, review
-    SET_CHAR_AT(dst, index, chr);
 }
 
 
@@ -130,24 +97,21 @@ REBSTR *Copy_String_At_Limit(const RELVAL *src, REBINT limit)
 // resizing checks if an invalid UTF-8 byte were used to mark the end of the
 // capacity (the way END markers are used on the data stack?)
 //
-REBSTR *Append_Codepoint(REBSTR *dst, REBUNI codepoint)
+REBSTR *Append_Codepoint(REBSTR *dst, REBUNI c)
 {
-    assert(codepoint <= MAX_UNI);
+    assert(c <= MAX_UNI);
     assert(not IS_STR_SYMBOL(dst));
 
     REBLEN old_len = STR_LEN(dst);
 
-    // 4 bytes maximum for UTF-8 encoded character (6 is a lie)
-    //
-    // https://stackoverflow.com/a/9533324/211160
-    //
     REBSIZ tail = STR_SIZE(dst);
-    EXPAND_SERIES_TAIL(SER(dst), 4); // !!! Conservative, assume big codepoint
-    tail += Encode_UTF8_Char(BIN_AT(SER(dst), tail), codepoint);
+    REBSIZ encoded_size = Encoded_Size_For_Codepoint(c);
+    EXPAND_SERIES_TAIL(SER(dst), encoded_size);
+    Encode_UTF8_Char(BIN_AT(SER(dst), tail), c, encoded_size);
 
-    // "length" grew by 1 codepoint, but "size" grew by 1 to 4 bytes
+    // "length" grew by 1 codepoint, but "size" grew by 1 to UNI_MAX_ENCODED
     //
-    TERM_STR_LEN_SIZE(dst, old_len + 1, tail);
+    TERM_STR_LEN_SIZE(dst, old_len + 1, tail + encoded_size);
 
     return dst;
 }
@@ -158,12 +122,12 @@ REBSTR *Append_Codepoint(REBSTR *dst, REBUNI codepoint)
 //
 // Create a string that holds a single codepoint.
 //
-REBSTR *Make_Codepoint_String(REBUNI codepoint)
+REBSTR *Make_Codepoint_String(REBUNI c)
 {
-    assert(codepoint <= MAX_UNI);
-
-    REBSTR *s = Make_Unicode(1);
-    TERM_STR_LEN_SIZE(s, 1, Encode_UTF8_Char(STR_HEAD(s), codepoint));
+    REBSIZ size = Encoded_Size_For_Codepoint(c);
+    REBSTR *s = Make_String(size);
+    Encode_UTF8_Char(STR_HEAD(s), c, size);
+    TERM_STR_LEN_SIZE(s, 1, size);
     return s;
 }
 
@@ -438,10 +402,11 @@ void Join_Binary_In_Byte_Buf(const REBVAL *blk, REBINT limit)
             break; }
 
         case REB_CHAR: {
-            EXPAND_SERIES_TAIL(buf, 6);
-            REBLEN len =
-                Encode_UTF8_Char(BIN_AT(buf, tail), VAL_CHAR(val));
-            SET_SERIES_LEN(buf, tail + len);
+            REBUNI c = VAL_CHAR(val);
+            REBSIZ encoded_size = Encoded_Size_For_Codepoint(c);
+            EXPAND_SERIES_TAIL(buf, encoded_size);
+            Encode_UTF8_Char(BIN_AT(buf, tail), c, encoded_size);
+            SET_SERIES_LEN(buf, tail + encoded_size);
             break; }
 
         default:

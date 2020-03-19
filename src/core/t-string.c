@@ -367,11 +367,16 @@ REB_R MAKE_String(
 
     if (IS_INTEGER(def)) {
         //
+        // !!! We can't really know how many bytes to allocate for a certain
+        // number of codepoints.  UTF-8 may take up to UNI_ENCODED_MAX bytes
+        // (typically 4) per CHAR!.  For now we just assume the integer is
+        // the expected *byte* capacity, not length, as we can do that.
+        //
         // !!! R3-Alpha tolerated decimal, e.g. `make text! 3.14`, which
         // is semantically nebulous (round up, down?) and generally bad.
         // Red continues this behavior.
         //
-        return Init_Any_String(out, kind, Make_Unicode(Int32s(def, 0)));
+        return Init_Any_String(out, kind, Make_String(Int32s(def, 0)));
     }
 
     if (IS_BLOCK(def)) {

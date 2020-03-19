@@ -24,20 +24,11 @@
 // when UTF-8 encoded.  It's inexpensive to do the encoding at the time of
 // initializing the cell, and almost always necessary to have it available.
 //
-// Historically there is some disagremeent on UTF-8 codepoint maximum size:
-//
-//     "UTF-8 was originally specified to allow codepoints with up to
-//     31 bits (or 6 bytes). But with RFC3629, this was reduced to 4
-//     bytes max. to be more compatible to UTF-16."  So depending on
-//     which RFC you consider "the UTF-8", max size is either 4 or 6.
-//
-// Rebol generally assumes 4, which goes with the general consensus:
-//
-// https://stackoverflow.com/a/9533324/211160
-//
 // The encoded payload takes the whole 8 bytes of a 32-bit payload.  The first
 // is used for the encoded length, then the encoding, then a null terminator.
-// This should leave two bytes for something else if it were needed.
+// This leaves 6 bytes for the encoded size, which is the maximum the
+// implementation could use (though see UNI_ENCODED_SIZE_MAX for notes on
+// why it has been typically limited to 4).
 //
 //=//// NOTES /////////////////////////////////////////////////////////////=//
 //
@@ -76,6 +67,29 @@
 //     remains attached.
 //
 
+//=//// MAXIMUM CODEPOINT SIZE ////////////////////////////////////////////=//
+//
+// Historically there is some disagremeent on UTF-8 codepoint maximum size:
+//
+//     "UTF-8 was originally specified to allow codepoints with up to
+//     31 bits (or 6 bytes). But with RFC3629, this was reduced to 4
+//     bytes max. to be more compatible to UTF-16."  So depending on
+//     which RFC you consider "the UTF-8", max size is either 4 or 6.
+//
+// The general consensus is thus 4 bytes:
+//
+// https://stackoverflow.com/a/9533324
+//
+// BUT since Rebol is "idealistic" and not interested in UTF-16 in the long
+// tail of things, we will likely want to build on what the protocol is
+// abstractly capable of...thinking of "strings" as any case of numbers where
+// the smaller numbers are more common than the big ones.  Then any limits
+// would be part of the codecs and defaults, vs. core implementation limits.
+// For the moment several places assume 4, which should be re-evaluated...
+// so be sure to use this constant instead of just "4" to help find them.
+//
+#define UNI_ENCODED_MAX 4
+
 #if !defined(__cplusplus)
     #define VAL_CHAR(v) \
         EXTRA(Character, (v)).codepoint
@@ -93,7 +107,7 @@
 
 inline static REBYTE VAL_CHAR_ENCODED_SIZE(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_CHAR);
-    assert(PAYLOAD(Character, (v)).size_then_encoded[0] <= 4);
+    assert(PAYLOAD(Character, (v)).size_then_encoded[0] <= UNI_ENCODED_MAX);
     return PAYLOAD(Character, (v)).size_then_encoded[0];
 }
 
@@ -128,26 +142,28 @@ inline static uint_fast8_t Encoded_Size_For_Codepoint(REBUNI c) {
     if (c < cast(uint32_t, 0x10000))
         return 3;
    if (c <= UNI_MAX_LEGAL_UTF32)
-        return 4;
+        return UNI_ENCODED_MAX;
 
     /*len = 3;
     c = UNI_REPLACEMENT_CHAR; */  // previous code could tolerate
 
-    fail ("Codepoint is greater than maximum legal UTF-32 value");        
+    fail ("Codepoint is greater than maximum legal UTF-32 value");
 }
 
-// Converts a single char to UTF8 code-point.
-// Returns length of char stored in dst.
-// Be sure dst has at least 4 bytes available.
+// Encodes a single codepoint with known size (see WRITE_CHR() for wrapper)
+// Be sure dst has at least `encoded_size` bytes available.
 //
-inline static uint_fast8_t Encode_UTF8_Char(REBYTE *dst, REBUNI c) {
+inline static void Encode_UTF8_Char(
+    REBYTE *dst,
+    REBUNI c,
+    uint_fast8_t encoded_size  // must match Encoded_Size_For_Codepoint(c)
+){
     const uint32_t mask = 0xBF;
     const uint32_t mark = 0x80;
 
-    uint_fast8_t len = Encoded_Size_For_Codepoint(c);
-    dst += len;
+    dst += encoded_size;
 
-    switch (len) {
+    switch (encoded_size) {
       case 4:
         *--dst = cast(REBYTE, (c | mark) & mask);
         c >>= 6;  // falls through
@@ -158,25 +174,26 @@ inline static uint_fast8_t Encode_UTF8_Char(REBYTE *dst, REBUNI c) {
         *--dst = cast(REBYTE, (c | mark) & mask);
         c >>= 6;  // falls through
       case 1:
-        *--dst = cast(REBYTE, c | firstByteMark[len]);
+        *--dst = cast(REBYTE, c | firstByteMark[encoded_size]);
     }
-
-    return len;
 }
+
 
 // If you know that a codepoint is good (e.g. it came from an ANY-STRING!)
 // this routine can be used.
 //
-inline static REBVAL *Init_Char_Unchecked(RELVAL *out, REBUNI uni) {
+inline static REBVAL *Init_Char_Unchecked(RELVAL *out, REBUNI c) {
     RESET_CELL(out, REB_CHAR, CELL_MASK_NONE);
-    VAL_CHAR(out) = uni;
+    VAL_CHAR(out) = c;
 
-    REBYTE len = Encode_UTF8_Char(
+    REBSIZ size = Encoded_Size_For_Codepoint(c);
+    Encode_UTF8_Char(
         &PAYLOAD(Character, out).size_then_encoded[1],
-        uni
+        c,
+        size
     );
-    PAYLOAD(Character, out).size_then_encoded[0] = len;
-    PAYLOAD(Character, out).size_then_encoded[len + 1] = '\0';
+    PAYLOAD(Character, out).size_then_encoded[0] = size;
+    PAYLOAD(Character, out).size_then_encoded[size + 1] = '\0';
     return cast(REBVAL*, out);
 }
 

@@ -322,8 +322,10 @@ REBNATIVE(enhex)
         REBYTE encoded[6];
         REBLEN encoded_size;
 
-        if (c >= 0x80)  // all non-ASCII characters *must* be percent encoded
-            encoded_size = Encode_UTF8_Char(encoded, c);
+        if (c >= 0x80) {  // all non-ASCII characters *must* be percent encoded
+            encoded_size = Encoded_Size_For_Codepoint(c);
+            Encode_UTF8_Char(encoded, c, encoded_size);
+        }
         else {
             // "Everything else must be url-encoded".  Rebol's LEX_MAP does
             // not have a bit for this in particular, though maybe it could

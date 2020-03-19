@@ -1036,7 +1036,7 @@ const REBYTE *Scan_Email(
 ) {
     TRASH_CELL_IF_DEBUG(out);
 
-    REBSTR *s = Make_Unicode(len);
+    REBSTR *s = Make_String(len * 2);  // !!! guess...use mold buffer instead?
     REBCHR(*) up = STR_HEAD(s);
 
     REBLEN num_chars = 0;
@@ -1417,7 +1417,7 @@ REBNATIVE(scan_net_header)
         // correctly, it would need to use NEXT_CHR to count the characters
         // in the loop above.  Better to convert to usermode.
 
-        REBSTR *string = Make_Unicode(len);
+        REBSTR *string = Make_String(len * 2);
         REBCHR(*) str = STR_HEAD(string);
         cp = start;
 

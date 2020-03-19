@@ -170,3 +170,41 @@
 (#"Ā" = add #"^(01)" #"^(ff)")
 (#"Ā" = add #"^(ff)" #"^(01)")
 (#"Ǿ" = add #"^(ff)" #"^(ff)")
+
+(
+    random/seed "let's be deterministic"
+    codepoints: [
+        #"b"  ; 1 utf-8 byte
+        #"à"  ; 2 utf-8 bytes encoded
+        #"漢"  ; 3 utf-8 bytes encoded
+        #"😺"  ; 4 utf-8 bytes encoded
+    ]
+    count-up size 4 [
+        c: codepoints/(size)
+        if size != length of to binary! c [
+            fail "test character doesn't match expected size"
+        ]
+        repeat len 64 [
+            s: copy {}
+            e: copy {}
+            picks: copy []
+            repeat i len [
+                append s random/only codepoints
+                append e c
+                append picks i
+            ]
+            random picks  ; randomize positions so not always in order
+            for-each i picks [
+                comment [
+                    print [{Trying} i {/} len {in} mold s]
+                ]
+                s/(i): c
+                if len != length of s [
+                    fail ["Length not" len "for" mold s]
+                ]
+            ]
+            if not s = e [fail ["Mismatch:" mold s "=>" mold e]]
+        ]
+        true
+    ]
+)

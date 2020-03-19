@@ -96,9 +96,11 @@ REB_R MAKE_Word(
         return out;
     }
     else if (IS_CHAR(arg)) {
-        REBYTE buf[8];
-        REBLEN len = Encode_UTF8_Char(&buf[0], VAL_CHAR(arg));
-        if (NULL == Scan_Any_Word(out, kind, &buf[0], len))
+        REBUNI c = VAL_CHAR(arg);
+        REBSIZ encoded_size = Encoded_Size_For_Codepoint(c);
+        REBYTE buf[UNI_ENCODED_MAX];
+        Encode_UTF8_Char(buf, c, encoded_size);
+        if (nullptr == Scan_Any_Word(out, kind, buf, encoded_size))
             fail (Error_Bad_Char_Raw(arg));
         return out;
     }
