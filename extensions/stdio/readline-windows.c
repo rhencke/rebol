@@ -61,6 +61,20 @@ enum {
 
 #define READ_BUF_LEN 64   // input events read at a time from console
 
+// Codepoints 0xD800 to 0xDFFF are reserved for "UTF-16 surrogates".  Though
+// it is technically possible for UTF-8 or UCS-4 to encode these directly,
+// they aren't supposed to...and Ren-C prohibits loading them.  (It should
+// also prevent saving them, but does not currently.)
+//
+// Windows Terminal API sends DWORD "unicode" characters, which means high
+// codepoints are done as two events.  We have to piece that together.
+//
+#define UNI_SUR_HIGH_START  (WCHAR)0xD800
+#define UNI_SUR_HIGH_END    (WCHAR)0xDBFF
+#define UNI_SUR_LOW_START   (WCHAR)0xDC00
+#define UNI_SUR_LOW_END     (WCHAR)0xDFFF
+
+
 struct Reb_Terminal_Struct {
     REBVAL *buffer;  // a TEXT! used as a buffer
     unsigned int pos;  // cursor position within the line
@@ -86,6 +100,19 @@ struct Reb_Terminal_Struct {
     // in the terminal state to return on the next call.
     //
     REBVAL *e_pending;
+
+    // Windows key input records from the terminal have a field for the
+    // `Event.KeyEvent.uChar.UnicodeChar` that is only a WCHAR, so high
+    // codepoints use UTF-16 and "surrogate pairs".  But these two key events
+    // can span a read of input records by exceeding the buffer.  Hence we
+    // might have to hold over a surrogate.  The guarantees in this area may
+    // be fuzzy--e.g. might a Ctrl-Key signal come in-between a surrogate?
+    // Are they guaranteed to be paired?  To try and be robust, we track a
+    // pending surrogate, and hold it in the terminal state so we don't lose
+    // repeats in unbuffered modes that send repeats as individual chars.
+    //
+    WCHAR surrogate;
+    WORD repeat_surrogate;
 };
 
 static HANDLE Stdin_Handle = nullptr;
@@ -224,6 +251,9 @@ STD_TERM *Init_Terminal(void)
 
     t->e_pending = nullptr;
 
+    t->surrogate = '\0';
+    t->repeat_surrogate = 0;
+
     // Get the terminal dimensions (note we get events when resizes happen)
     // https://stackoverflow.com/a/12642749
     //
@@ -327,11 +357,20 @@ static bool Read_Input_Records_Interrupted(STD_TERM *t)
     assert(t->in == t->in_tail);  // Don't read more if buffer not consumed
     assert(t->e_pending == nullptr);  // Don't read if event is pending
 
+    // Idea: Flip out of ENABLED_PROCESSED_INPUT for a PeekConsoleInput
+    // phase, so we can look at Ctrl-V and menu events like Paste.  Then we
+    // would have the opportunity to do better processing for just that
+    // (e.g. reading directly off the clipboard and receiving Emoji even in
+    // old Windows Command Prompts).  We'll want to switch to PeekConsoleInput
+    // anyway if we are going to have any processing while we are waiting for
+    // input.  A disadvantage of this is that it may undermine more advanced
+    // consoles like Windows Terminal, so it should be an option only.
+
     DWORD num_events;
-    if (not ReadConsoleInput( 
-        Stdin_Handle,  // input buffer handle 
-        t->buf,  // buffer to read into 
-        READ_BUF_LEN - 1,  // size of read buffer 
+    if (not ReadConsoleInput(
+        Stdin_Handle,  // input buffer handle
+        t->buf,  // buffer to read into
+        READ_BUF_LEN - 1,  // size of read buffer
         &num_events
     )){
         rebFail_OS (GetLastError());
@@ -596,29 +635,70 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
 
         assert(t->in->Event.KeyEvent.wRepeatCount > 0);
 
-        // !!! It's not clear how Windows Terminal intends to handle high
-        // codepoints such as Emoji; they are perhaps "surrogate pair"
-        // events, and thus could be split across two different event
-        // reads the way UTF-8 can get split on POSIX.  Review.
+        // High codepoints such as Emoji are encoded on Windows as "surrogate
+        // pairs"...so multiple `KeyEvent`s.  Thus they can be split across
+        // two different event reads (similar to how UTF-8 multi-byte encoded
+        // characters can get split on POSIX read()s).  We have to account for
+        // a potential need to re-fetch.
         //
-        uint32_t codepoint = t->in->Event.KeyEvent.uChar.UnicodeChar;
-
-        // The terminal events may contain a repeat count for a key that
-        // is pressed multiple times.  If this is the case, we do not
-        // advance the input record pointer...but decrement the count.
+        // Note: Windows Console's "paste" event does not appear to have the
+        // logic in it to do surrogate pair events to ReadConsoleInput() (not
+        // that it matters much, as it couldn't display them anyway).  But
+        // you can manually enter Emoji using the Windows On-Screen keyboard
+        // in tablet mode, and that does send the events.  More future-forward
+        // apps like "Windows Terminal" are supposed to work.
         //
-        assert(t->in->Event.KeyEvent.wRepeatCount > 0);
-        if (--t->in->Event.KeyEvent.wRepeatCount == 0)
-            ++t->in;  // "consume" the event if all the repeats are done
-
-        if (not buffered) {  // one CHAR! at a time
-            e = rebChar(codepoint);
+        WCHAR wchar = t->in->Event.KeyEvent.uChar.UnicodeChar;
+        if (wchar >= UNI_SUR_HIGH_START and wchar <= UNI_SUR_HIGH_END) {
+            assert(t->surrogate == '\0');
+            assert(t->repeat_surrogate == 0);
+            t->surrogate = wchar;
+            t->repeat_surrogate = t->in->Event.KeyEvent.wRepeatCount;
+            ++t->in;
+            goto start_over;
         }
-        else {
-            if (e_buffered)
-                rebElide("append", e_buffered, rebR(rebChar(codepoint)));
-            else
-                e_buffered = rebValue("to text!", rebR(rebChar(codepoint)));
+
+        uint32_t codepoint;
+        if (wchar >= UNI_SUR_LOW_START and wchar <= UNI_SUR_LOW_END) {
+            assert(t->surrogate != 0);
+            assert(t->repeat_surrogate == t->in->Event.KeyEvent.wRepeatCount);
+            codepoint = t->surrogate;
+            codepoint -= UNI_SUR_HIGH_START;
+            codepoint *= 0x400;
+            codepoint += wchar;
+            codepoint -= UNI_SUR_LOW_START;
+            codepoint += 0x10000;
+            printf("Codepoint: %u\n", codepoint);
+        }
+        else
+            codepoint = wchar;
+
+        if (not buffered) {  // one CHAR! at a time desired, separate repeats
+            e = rebChar(codepoint);
+
+            // The terminal events may contain a repeat count for a key that
+            // is pressed multiple times.  If this is the case, we do not
+            // advance the input record pointer...but decrement the count.
+            //
+            assert(t->in->Event.KeyEvent.wRepeatCount > 0);
+            if (--t->in->Event.KeyEvent.wRepeatCount == 0) {
+                ++t->in;  // "consume" the event if all the repeats are done
+                t->surrogate = '\0';  // may or may not have been set
+                t->repeat_surrogate = 0;
+            }
+        }
+        else {  // we are buffering
+            if (not e_buffered)
+                e_buffered = rebText("");
+
+            rebElide(
+                "append/dup", e_buffered, rebR(rebChar(codepoint)),
+                    rebI(t->in->Event.KeyEvent.wRepeatCount)
+            );
+
+            ++t->in;  // we took all the repeats into account in one step
+            t->surrogate = '\0';  // may or may not have been set
+            t->repeat_surrogate = 0;
         }
     }
     else if (

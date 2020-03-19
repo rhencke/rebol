@@ -676,7 +676,7 @@ REBVAL *Try_Get_One_Console_Event(STD_TERM *t, bool buffered)
         //
         // https://en.wikipedia.org/wiki/C0_and_C1_control_codes
         // https://ss64.com/bash/syntax-keyboard.html
-    
+
         char first = *t->cp;
         ++t->cp;
         if (first == 3)  {  // CTRL-C, Interrupt (ANSI, <signal.h> is C89)
