@@ -1180,7 +1180,7 @@ REBNATIVE(as)
       case REB_EMAIL:
       case REB_ISSUE:
         if (not Try_As_String(
-            D_OUT, 
+            D_OUT,
             new_kind,
             v,
             quotes,

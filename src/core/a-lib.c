@@ -762,7 +762,7 @@ static void Run_Va_May_Fail(
 
     DECLARE_VA_FEED (feed, p, vaptr, flags);
     bool threw = Do_Feed_To_End_Maybe_Stale_Throws(out, feed);
-    
+
     Eval_Sigmask = saved_sigmask;
 
     if (threw) {
