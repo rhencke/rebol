@@ -1198,23 +1198,19 @@ REBNATIVE(js_eval_p)
     //
     // !!! All other types come back as VOID!.  Should they error?
     //
-    // !!! There was an emscripten link step error when `addr` was factored
-    // out in the code below.  But giving each branch its own `addr` seemed
-    // to work around whatever bug that was:
-    // https://github.com/emscripten-core/emscripten/issues/8731
-    //
+    heapaddr_t addr;
     if (REF(local)) {
-        heapaddr_t addr = MAIN_THREAD_EM_ASM_INT(
+        addr = MAIN_THREAD_EM_ASM_INT(
             { return reb.Box(eval(UTF8ToString($0))) },  // direct (local)
             utf8
         );
-        return cast(REBVAL*, addr);  // evaluator takes ownership of handle
     }
-
-    heapaddr_t addr = MAIN_THREAD_EM_ASM_INT(
-        { return reb.Box((1,eval)(UTF8ToString($0))) },  // indirect
-        utf8
-    );
+    else {
+        heapaddr_t addr = MAIN_THREAD_EM_ASM_INT(
+            { return reb.Box((1,eval)(UTF8ToString($0))) },  // indirect
+            utf8
+        );
+    }
     return cast(REBVAL*, addr);  // evaluator takes ownership of handle
 }
 
