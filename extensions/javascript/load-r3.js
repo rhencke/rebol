@@ -195,12 +195,23 @@ let base_dir = null
 let git_commit = null
 let me = document.querySelector('script[src$="/load-r3.js"]')
 
-let args = location.search
-    ? location.search.substring(1).split('&')
+let js_args = location.search
+    ? location.search.substring(1).split('&')  // substring, first char is `?`
     : []
 
-for (let i = 0; i < args.length; i++) {
-    let a = decodeURIComponent(args[i]).split("=")  // makes array
+// We build a Rebol arguments block programmatically out of anything we do
+// not specifically understand in the %load-r3.js script.  This allows the
+// code to handle it as `system/options/args` without having to worry about
+// filtering out loader options.  However we must build it as a string here
+// since libRebol isn't loaded yet.
+//
+// !!! Review this idea and see if it could be improved on.  Also, what if
+// the Rebol script wants to know something about these options?
+//
+let reb_args = "["
+
+for (let i = 0; i < js_args.length; i++) {
+    let a = decodeURIComponent(js_args[i]).split("=")  // makes array
     if (a.length == 1) {  // simple switch with no arguments, e.g. ?debug
         if (a[0] == 'debug') {
             is_debug = true
@@ -211,17 +222,18 @@ for (let i = 0; i < args.length; i++) {
         } else if (a[0] == 'tracing_on') {
             config.tracing_on = true
         } else
-            throw Error("Unknown switch in URL:", args[i])
+            reb_args += a[0] + ": true "  // look like being set to true
     }
     else if (a.length = 2) {  // combination key/val, e.g. "git_commit=<hash>"
         if (a[0] == 'git_commit') {
             git_commit = a[1]
         } else
-            throw Error("Unknown key in URL:", args[i])
+            reb_args += a[0] + ": {" + a[1] + "} "
     }
     else
         throw Error("URL switches either ?switch or ?key=bar, separate by &")
 }
+reb_args += "]"
 
 if (is_debug) {
     let old_alert = window.alert
@@ -572,6 +584,11 @@ return assign_git_commit_promiser(os_id)  // sets git_commit
     }
 
     reb.Startup()  // Sets up memory pools, symbols, base, sys, mezzanine...
+
+    // Take the `?foo=bar&baz` style of options passed in the URL that the
+    // loader didn't use and pass them as system/options/args
+    //
+    reb.Elide("system/options/args:", reb_args)
 
     // Scripts have to have an idea of what the "current directory is" when
     // they are running.  If a resource is requested as a FILE! (as opposed
