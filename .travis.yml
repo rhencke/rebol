@@ -138,7 +138,7 @@ matrix:
     # https://github.com/hostilefork/replpad-js
     #
     - os: linux
-      dist: xenial  # Recommended default as of Mar-2020
+      dist: bionic  # Trying instead of xenial to check Firefox Marionette
       language: c
       env:
         - NUMBER=1
@@ -153,6 +153,10 @@ matrix:
         - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS=-  # requests inclusion of no extensions (default?)
         - FF_SHARED_MEMORY=true
+      addons:
+        apt:
+          packages:
+            - net-tools  # for netstat/etc. diagnosing network issues
 
     # [2] Emscripten, wasm + asyncify, release
     #
@@ -167,7 +171,7 @@ matrix:
     # This build varation is created as a fallback.
     #
     - os: linux
-      dist: xenial  # Recommended default as of Mar-2020
+      dist: xenial  # Travis recommended distribution as of Mar-2020
       language: c
       env:
         - NUMBER=2
@@ -182,6 +186,10 @@ matrix:
         - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS=-  # requests inclusion of no extensions (default?)
         - FF_SHARED_MEMORY=false
+      addons:
+        apt:
+          packages:
+            - net-tools  # for netstat/etc. diagnosing network issues
 
     # [3] OSX x64, debug, clang++
     #
@@ -1141,6 +1149,10 @@ script:
     #
     # http://stackoverflow.com/a/42547424/211160
     #
+    # NOTE: This is only one Travis "step" because the `upload` function is
+    # not shared across steps.  That's not necessarily a great reason to
+    # do it this way; we'd prefer more of this to be done with Rebol scripts.
+    #
     - |
       if [[ ${TRAVIS_BRANCH} != "master" || ${TRAVIS_PULL_REQUEST} != "false" || ${R3_EXIT_STATUS} != 0 ]]; then
         exit 0  # skip the deploy step
@@ -1165,6 +1177,135 @@ script:
 
       for i in $OS_ID/*; do upload $i; done
 
+      # Start out by defaulting that we will greenlight the build and bump
+      # the commit check...but if the browser REPL deployment doesn't pass
+      # a test, we will change our answer and keep serving users the previous
+      # commit via the old %last-deploy.short-hash
+      #
+      export DONT_GREENLIGHT_BUILD=0
+
+      # Esmcripten build: copy load-r3.js to travis-builds/
+      # (not in subdir of 0.16.x because loader needs to pick between them)
+      #
+      # Note: This is a weak link in the test-before-deploy strategy.  Because
+      # there's not a way to override the singular loader, a change must be
+      # deployed before we can test any build (even a non-"greenlit" one).
+      #
+      if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]; then
+        cp ../extensions/javascript/load-r3.js .
+        upload load-r3.js
+      fi
+
+      # Generally we want to run testing before deployment.  For native builds
+      # it is expected that the committer runs them (it would be nice to have
+      # the build farm check as well, but that hasn't been too much of a
+      # problem).  But web builds breaking is.  So we want to check the
+      # deployment before "green-lighting" the %last-deploy.short-hash
+      #
+      # We do this currently in the web builds with a "headless" Firefox (e.g.
+      # no GUI Window), automated through the Python's `marionette_driver`:
+      #
+      # https://firefox-source-docs.mozilla.org/python/marionette_driver.html
+      #
+      # The Marionette httpd server for control exists only in Firefox (with
+      # a default port 2828) and is only enabled if you use `-marionette`.
+      #
+      # https://vakila.github.io/blog/marionette-act-i-automation/
+      #
+      # Comparable-but-incompatible APIs to control running browsers exist for
+      # Chrome and others.  The W3C's "WebDriver" initiative standardizes a
+      # "ODBC for browser control" which translates a common API into calls
+      # with plugins for each particular browser.  The layer is bulky and is
+      # typically used with "Selenium" which is even bulkier.  To be lighter
+      # we just use Python with raw Marionette (it is likely not difficult to
+      # just use Rebol to send the http requests, also.)
+      #
+      # Long term we might have to do more than this simple test, but in the
+      # 80/20 rule it's going to deliver on catching most of the breakages.
+      #
+      if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]; then
+        $PIP install marionette-driver --user  # Python Install Package
+
+        # Create a Firefox profile in the current directory that we can tweak
+        # (as finding the default one's auto-generated name is a pain)
+        #
+        firefox -headless -CreateProfile "ff-profile $(pwd)/ff-profile"
+
+        ######################################################################
+        #
+        # !!! We'd like 0.16.1 to pass the pthread builds test by configuring
+        # Firefox to use pthreads.  We can do the configuration--but right now
+        # pthreads are not working in Firefox due to issues with headers:
+        #
+        # https://bugzilla.mozilla.org/show_bug.cgi?id=1586217
+        # https://github.com/emscripten-core/emscripten/issues/10014
+        #
+        # Until that is sorted out, we're just going to have to hope that the
+        # Asyncify build test is good enough to mark passing both builds.
+        # So what we're really testing is if Firefox is downgrading the
+        # build to Asyncify.  :-(  Chrome with pthreads will just need to be
+        # hoped to work.
+        #
+        ######################################################################
+        #
+        export FF_SHARED_MEMORY=false
+
+        # The way to set `about:config` flags in preferences is via %user.js
+        #
+        # https://askubuntu.com/a/313662/137769
+        # http://kb.mozillazine.org/User.js_file
+        #
+        # Rebol's more optimal "Pthreads" web build requires shared memory
+        # and WebAssembly threads, which Firefox does not enable by default
+        # at time of writing (Mar-2020).  Hence the less-optimial "Asyncify"
+        # build provides a fallback, and %load-r3.js detects which to use.
+        #
+        # Even if this default changes, explicitly setting the flag to `true`
+        # for the Pthreads deployment test and `false` for the Asyncify test
+        # gives the right coverage for the corresponding build.
+        #
+        # !!! See above comments about why we only test the 0.16.2 build
+        # (non-pthreads) due to 0.16.1 not working in Firefox at the moment.
+        #
+        # The Marionette port for control defaults to 2828, and can be
+        # overridden on the command line by `--marionette-port <port>`.  But
+        # to show another place to set it, here's the profile setting.
+        #
+        # Unfortunately Travis and HereDoc aren't very compatible, so we use
+        # plain ECHO instead to make our user.js file:
+        #
+        # https://en.wikipedia.org/wiki/Here_document#Unix_shells
+        # https://travis-ci.community/t/2756
+        {
+            echo "user_pref(\"javascript.options.shared_memory\", ${FF_SHARED_MEMORY});"
+            echo "user_pref(\"marionette.port\", 2828);"  # should be default
+        } > $(pwd)/ff-profile/user.js
+
+        # We keep the Python test script for the browser build in the GitHub
+        # replpad-js repository.  Fetch it.
+        #
+        wget https://raw.githubusercontent.com/hostilefork/replpad-js/master/tests/test-repl-ff.py
+
+        # Start Firefox headless with the marionette automation enabled
+        # (the `&` starts it in the background)
+        #
+        firefox -headless --profile ff-profile -marionette  &
+        sleep 5  # Give Firefox time to spin up (should be in cache now)
+
+        echo "Running netstat -lntu: Marionette should be listening on 2828"
+        netstat -lntu
+        ps aux | grep firefox
+
+        # Run the script.  The result will be 0 if the test was sucessful.
+        # Note that we ask the REPL to be instantiated with the libr3.js we
+        # just uploaded that has not been "greenlit" by uploading the
+        # `last-deploy.short-hash`...so we must pass the current commit in
+        # explicitly to be asked for in the URL.
+        #
+        python test-repl-ff.py --shorthash "${GIT_COMMIT_SHORT}"
+        export DONT_GREENLIGHT_BUILD=$?  # captures last command exit code
+      fi
+
       # Each ${OS_ID} directory contains several builds for recent commits.
       # Since they are served statically from S3, we don't have a query to
       # serve the most recent one that successfully built (based on a date
@@ -1175,20 +1316,28 @@ script:
       # However, the upload might take a while...or fail part way through.
       # Hence, we make this the last file uploaded--so that when the browser
       # tries to fetch files for that ID, they'll all be there.
-
-      # -n option to echo means "no newline at end" (it's not a "text file"
-      # so there is no standard enforcing that it have one...and it's
-      # easier in the client to not have it)
       #
-      echo -n "${GIT_COMMIT_SHORT}" > ${OS_ID}/last-deploy.short-hash
-      upload ${OS_ID}/last-deploy.short-hash
-
-      # Esmcripten build: copy load-r3.js to travis-builds/
-      # (not in subdir of 0.16.x because loader needs to pick between them)
-      #
-      if [[ $OS_ID = 0.16.1 || $OS_ID = 0.16.2 ]]; then
-          cp ../extensions/javascript/load-r3.js .
-          upload load-r3.js
+      if (( $DONT_GREENLIGHT_BUILD != 0 )); then
+        echo "=== DON'T GREENLIGHT BUILD! ==="
+        exit 1
+      else
+        #
+        # -n option to echo means "no newline at end" (it's not a "text file"
+        # so there is no standard enforcing that it have one...and it's
+        # easier in the client to not have it)
+        #
+        echo -n "${GIT_COMMIT_SHORT}" > ${OS_ID}/last-deploy.short-hash
+        upload ${OS_ID}/last-deploy.short-hash
       fi
+
+
+after_script:
+  - sleep 3  # https://github.com/travis-ci/travis-ci/issues/6018
+  - echo "== END OF TEST LOG (success) =="
+
+after_failure:
+  - sleep 3  # https://github.com/travis-ci/travis-ci/issues/6018
+  - echo "== END OF TEST LOG (failure) =="
+
 
 # vim: set et sw=2:

@@ -6,7 +6,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Copyright (c) 2018-2019 hostilefork.com
+// Copyright (c) 2018-2020 hostilefork.com
 //
 // See README.md and CREDITS.md for more information
 //
@@ -187,9 +187,12 @@ config.info("Use Asyncify => " + use_asyncify)
 //
 //     http://localhost:8000/replpad-js/index.html?local
 //
+// !!! These settings are evolving in something of an ad-hoc way and need to
+// be thought out more systematically.
 
 let is_debug = false
 let base_dir = null
+let git_commit = null
 let me = document.querySelector('script[src$="/load-r3.js"]')
 
 let args = location.search
@@ -197,16 +200,27 @@ let args = location.search
     : []
 
 for (let i = 0; i < args.length; i++) {
-    args[i] = decodeURIComponent(args[i])
-    if (args[i] == 'debug') {
-        is_debug = true
-    } else if (args[i] == 'local') {
-        base_dir = "./"
-    } else if (args[i] == 'remote') {
-        base_dir = "https://metaeducation.s3.amazonaws.com/travis-builds/"
-    } else if (args[i] == 'tracing_on') {
-        config.tracing_on = true
+    let a = decodeURIComponent(args[i]).split("=")  // makes array
+    if (a.length == 1) {  // simple switch with no arguments, e.g. ?debug
+        if (a[0] == 'debug') {
+            is_debug = true
+        } else if (a[0] == 'local') {
+            base_dir = "./"
+        } else if (a[0] == 'remote') {
+            base_dir = "https://metaeducation.s3.amazonaws.com/travis-builds/"
+        } else if (a[0] == 'tracing_on') {
+            config.tracing_on = true
+        } else
+            throw Error("Unknown switch in URL:", args[i])
     }
+    else if (a.length = 2) {  // combination key/val, e.g. "git_commit=<hash>"
+        if (a[0] == 'git_commit') {
+            git_commit = a[1]
+        } else
+            throw Error("Unknown key in URL:", args[i])
+    }
+    else
+        throw Error("URL switches either ?switch or ?key=bar, separate by &")
 }
 
 if (is_debug) {
@@ -259,14 +273,15 @@ let load_js_promiser = (url) => new Promise(function(resolve, reject) {
     }
 })
 
-// For hosted builds, this variable is fetched from:
+// For hosted builds, the `git_commit` variable is fetched from:
 // https://metaeducation.s3.amazonaws.com/travis-builds/${OS_ID}/last-deploy.short-hash
 // that contains `${GIT_COMMIT_SHORT}`, see comments in .travis.yml
 // If not fetching a particular commit, it must be set to at least ""
-//
-let git_commit = undefined
 
 let assign_git_commit_promiser = (os_id) => {  // assigns, but no return value
+    if (git_commit)  // already assigned by `?git_commit=<hash>` in URL
+        return Promise.resolve(undefined);
+
     if (base_dir != "https://metaeducation.s3.amazonaws.com/travis-builds/") {
         git_commit = ""
         config.log("Base URL is not s3 location, not using git_commit in URL")
