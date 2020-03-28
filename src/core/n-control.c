@@ -672,7 +672,7 @@ REBNATIVE(match)
 
 
 //
-//  matches: enfix native[
+//  matches: enfix native [
 //
 //  {Check value using tests (match types, TRUE or FALSE, or filter action)}
 //
