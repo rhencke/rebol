@@ -152,10 +152,12 @@ gen-obj: func [
     /F "cflags" [block!]
     /main "for main object"
     <local>
-    flags
+    prefer-O2 rigorous standard cplusplus flags
 ][
     prefer-O2: false  ; overrides -Os setting to give -O2, e.g. for %c-eval.c
-
+    standard: user-config/standard  ; may have a per-file override
+    rigorous: user-config/rigorous  ; may have a per-file override
+    cplusplus: false  ; determined for just this file
     flags: make block! 8
 
     ; Microsoft shouldn't bother having the C warning that foo() in standard
@@ -167,7 +169,7 @@ gen-obj: func [
     ;
     ;     'function' : no function prototype given:
     ;     converting '()' to '(void)'
-
+    ;
     append flags <msc:/wd4255>
 
     ; The May 2018 update of Visual Studio 2017 added a warning for when you
@@ -177,6 +179,366 @@ gen-obj: func [
     ;
     append flags <msc:/wd4574>
 
+    if block? s [
+        for-each flag next s [
+            switch flag [
+                #no-c++ [
+                    standard: 'c
+                ]
+            ]
+        ]
+    ]
+
+    ; Add flags to take into account whether building as C or C++, and which
+    ; version of the standard.  Note if the particular file is third party and
+    ; can only be compiled as C, we may have overridden that above.
+    ;
+    insert flags opt switch standard [
+        'c [
+            _
+        ]
+        'gnu89 'c99 'gnu99 'c11 [
+            to tag! unspaced ["gnu:--std=" standard]
+        ]
+        'c++ [
+            cfg-cplusplus: cplusplus: true
+            [
+                <gnu:-x c++>
+                <msc:/TP>
+            ]
+        ]
+        'c++98 'c++0x 'c++11 'c++14 'c++17 'c++latest [
+            cfg-cplusplus: cplusplus: true
+            compose [
+                ; Compile C files as C++.
+                ;
+                ; !!! Original code appeared to make it so that if a Visual
+                ; Studio project was created, `/TP` option gets removed and it
+                ; was translated into XML under the <CompileAs> option.  But
+                ; that meant extensions weren't getting the option, so it has
+                ; been disabled pending review.
+                ;
+                ; !!! For some reason, clang has deprecated`-x c++`, though
+                ; it still works.  It is not possible to disable the warning,
+                ; so RIGOROUS can not be used with clang in C++ builds...
+                ; the files would (sadly) need to be renamed to .cpp or .cxx
+                ;
+                <msc:/TP>
+                <gnu:-x c++>
+
+                ; C++ standard, MSVC only supports "c++14/17/latest"
+                ;
+                (to tag! unspaced ["gnu:--std=" user-config/standard])
+                (to tag! unspaced [
+                    "msc:/std:" lowercase to text! user-config/standard
+                ])
+
+                ; There is a shim for `nullptr` used, that's warned about even
+                ; when building as pre-C++11 where it was introduced, unless
+                ; you disable that warning.
+                ;
+                ((if user-config/standard = 'c++98 [<gnu:-Wno-c++0x-compat>]))
+
+                ; Note: The C and C++ user-config/standards do not dictate if
+                ; `char` is signed or unsigned.  If you think environments
+                ; all settled on them being signed, they're not... Android NDK
+                ; uses unsigned:
+                ;
+                ; http://stackoverflow.com/questions/7414355/
+                ;
+                ; In order to give the option some exercise, make GCC C++
+                ; builds use unsigned chars.
+                ;
+                <gnu:-funsigned-char>
+ 
+                ; MSVC never bumped the __cplusplus version past 1997, even if
+                ; you compile with C++17.  Hence CPLUSPLUS_11 is used by Rebol
+                ; code as the switch for most C++ behaviors, and we have to
+                ; define that explicitly.
+                ;
+                <msc:/DCPLUSPLUS_11>
+            ]
+        ]
+
+        fail [
+            "STANDARD should be one of"
+            "[c gnu89 gnu99 c99 c11 c++ c++11 c++14 c++17 c++latest]"
+            "not" (user-config/standard)
+        ]
+    ]
+
+    ; The `rigorous: yes` setting in the config turns the warnings up to where
+    ; they are considered errors.  However, there are a *lot* of warnings
+    ; when you turn things all the way up...and not all of them are relevant.
+    ; Still we'd like to get the best information from any good ones, so
+    ; they're turned off on a case-by-case basis.
+    ;
+    append flags opt switch rigorous [
+        #[true] 'yes 'on 'true [
+            compose [
+                <gnu:-Werror> <msc:/WX>  ; convert warnings to errors
+
+                ; If you use pedantic in a C build on an older GNU compiler,
+                ; (that defaults to thinking it's a C89 compiler), it will
+                ; complain about using `//` style comments.  There is no
+                ; way to turn this complaint off.  So don't use pedantic
+                ; warnings unless you're at c99 or higher, or C++.
+                ;
+                (
+                    if not find [c gnu89] standard [
+                        <gnu:--pedantic>
+                    ]
+                )
+
+                <gnu:-Wextra>
+                <gnu:-Wall> <msc:/Wall>
+
+                <gnu:-Wchar-subscripts>
+                <gnu:-Wwrite-strings>
+                <gnu:-Wundef>
+                <gnu:-Wformat=2>
+                <gnu:-Wdisabled-optimization>
+                <gnu:-Wlogical-op>
+                <gnu:-Wredundant-decls>
+                <gnu:-Woverflow>
+                <gnu:-Wpointer-arith>
+                <gnu:-Wparentheses>
+                <gnu:-Wmain>
+                <gnu:-Wtype-limits>
+                <gnu:-Wclobbered>
+
+                ; Neither C++98 nor C89 had "long long" integers, but they
+                ; were fairly pervasive before being present in the standard.
+                ;
+                <gnu:-Wno-long-long>
+
+                ; When constness is being deliberately cast away, `m_cast` is
+                ; used (for "m"utability).  However, this is just a plain cast
+                ; in C as it has no const_cast.  Since the C language has no
+                ; way to say you're doing a mutability cast on purpose, the
+                ; warning can't be used... but assume the C++ build covers it.
+                ;
+                ; !!! This is only checked by default in *release* C++ builds,
+                ; because the performance and debug-stepping impact of the
+                ; template stubs when they aren't inlined is too troublesome.
+                (
+                    either all [
+                        cplusplus
+                        find app-config/definitions "NDEBUG"
+                    ][
+                        <gnu:-Wcast-qual>
+                    ][
+                        <gnu:-Wno-cast-qual>
+                    ]
+                )
+
+                ;   'bytes' bytes padding added after construct 'member_name'
+                ;
+                ; Disable warning C4820; just tells you struct is not an
+                ; exactly round size for the platform.
+                ;
+                <msc:/wd4820>
+
+                ; Without disabling this, you likely get:
+                ;
+                ;   '_WIN32_WINNT_WIN10_TH2' is not defined as a preprocessor
+                ;   macro, replacing with '0' for '#if/#elif'
+                ;
+                ; Seems to be some mistake on Microsoft's part, that some
+                ; report can be remedied by using WIN32_LEAN_AND_MEAN:
+                ;
+                ; https://stackoverflow.com/q/11040133/
+                ;
+                ; But then if you include <winioctl.h> (where the problem is)
+                ; you'd still have it.
+                ;
+                <msc:/wd4668>
+
+                ; There are a currently a lot of places where `int` is passed
+                ; to REBLEN, where the signs mismatch.  Disable C4365:
+                ;
+                ;  'action' : conversion from 'type_1' to 'type_2',
+                ;  signed/unsigned mismatch
+                ;
+                ; and C4245:
+                ;
+                ;  'conversion' : conversion from 'type1' to 'type2',
+                ;  signed/unsigned mismatch
+                ;
+                <msc:/wd4365> <msc:/wd4245>
+                <gnu:-Wsign-compare>
+
+                ; The majority of Rebol's C code was written with little
+                ; attention to overflow in arithmetic.  In many places a
+                ; bigger type is converted into a smaller type without an
+                ; explicit cast.  (REBI64 => SQLUSMALLINT, REBINT => REBYTE).
+                ; Disable C4242:
+                ;
+                ;   'identifier' : conversion from 'type1' to 'type2',
+                ;   possible loss of data
+                ;
+                ; The issue needs systemic review.
+                ;
+                <msc:/wd4242>
+                <gnu:-Wno-conversion> <gnu:-Wno-strict-overflow>
+                ;<gnu:-Wstrict-overflow=5>
+
+                ; When an inline function is not referenced, there can be a
+                ; warning about this; but it makes little sense to do so since
+                ; there are a many standard library functions in includes that
+                ; are inline which one does not use (C4514):
+                ;
+                ;   'function' : unreferenced inline function has been removed
+                ;
+                ; Inlining is at the compiler's discretion, it may choose to
+                ; ignore the `inline` keyword.  Usually it won't tell you it
+                ; did, but disable the warning that tells you (C4710):
+                ;
+                ;   function' : function not inlined
+                ;
+                ; There's also an "informational" warning telling you that a
+                ; function was chosen for inlining when it wasn't requested,
+                ; so disable that also (C4711):
+                ;
+                ;   function 'function' selected for inline expansion
+                ;
+                <msc:/wd4514>
+                <msc:/wd4710>
+                <msc:/wd4711>
+
+                ; It's useful to know when function pointers are assigned to
+                ; an incompatible type of function pointer.  But Rebol relies
+                ; on the ability to have a kind of "void*-for-functions", e.g.
+                ; CFUNC, which holds arbitrary function pointers.  There seems
+                ; to be no way to get function pointer type checking allowing
+                ; downcasts and upcasts from just that pointer type, so it
+                ; has to be completely disabled (or managed with #pragma,
+                ; which we seek to avoid using in the codebase)
+                ;
+                ;  'operator/operation' : unsafe conversion from
+                ;  'type of expression' to 'type required'
+                ;
+                <msc:/wd4191>
+
+                ; Though we make sure all enum values are handled with a
+                ; `default:`, this warning doesn't let you use default:` at
+                ; all...forcing every case to be handled explicitly.
+                ;
+                ;   enumerator 'identifier' in switch of enum 'enumeration'
+                ;   is not explicitly handled by a case label
+                ;
+                <msc:/wd4061>
+
+                ; setjmp() / longjmp() can't be combined with C++ objects due
+                ; to bypassing destructors.  Yet Microsoft's compiler seems to
+                ; think even "POD" (plain-old-data) structs qualify as
+                ; "C++ objects", so they run destructors (?)
+                ;
+                ;   interaction between 'function' and C++ object destruction
+                ;   is non-portable
+                ;
+                ; This is lousy, since it would be a VERY useful warning, if
+                ; not as uninformative as "your C++ program is using setjmp".
+                ;
+                ; https://stackoverflow.com/q/45384718/
+                ;
+                <msc:/wd4611>
+
+                ; Assignment within conditional expressions is tolerated in
+                ; core if parentheses are used.  `if ((x = 10) != y) {...}`
+                ;
+                ;   assignment within conditional expression
+                ;
+                <msc:/wd4706>
+
+                ; gethostbyname() is deprecated by Microsoft, but dealing with
+                ; that is not a priority now.  It's supposed to be replaced
+                ; with getaddrinfo() or GetAddrInfoW().  This bypasses the
+                ; deprecation warning for now via a #define
+                ;
+                <msc:/D_WINSOCK_DEPRECATED_NO_WARNINGS>
+
+                ; This warning happens a lot in a 32-bit builds if you use
+                ; float instead of double in Microsoft Visual C++:
+                ;
+                ;  storing 32-bit float result in memory, possible loss
+                ;  of performance
+                ;
+                <msc:/wd4738>
+
+                ; For some reason, even if you don't actually invoke moves or
+                ; copy constructors, MSVC warns you that you wouldn't be able
+                ; to if you ever did.  :-/
+                ;
+                <msc:/wd5026>
+                <msc:/wd4626>
+                <msc:/wd5027>
+                <msc:/wd4625>
+
+                ; If a function hasn't been explicitly declared as nothrow,
+                ; passing it to extern "C" routines gets a warning.  This is a
+                ; C codebase being built as C++, so there shouldn't be throws.
+                ;
+                <msc:/wd5039>
+
+                ; Microsoft's own xlocale/xlocnum/etc. files trigger SEH
+                ; warnings in VC2017 after an update.  Apparently they don't
+                ; care--presumably because they're focused on VC2019 now.
+                ;
+                <msc:/wd4571>
+
+                ; Same deal with format strings not being string literals.
+                ; Headers in string from MSVC screws this up.
+                ;
+                <msc:/wd4774>
+
+                ; There's really no winning with Spectre mitigation warnings.
+                ; Early on it seemed simple changes could make them go away:
+                ;
+                ; https://stackoverflow.com/q/50399940/
+                ;
+                ; But each version of the compiler adds more, thus it looks
+                ; like if you use a comparison operator you will get these.
+                ; It's a losing battle, so just disable the warning.
+                ;
+                <msc:/wd5045>
+
+                ;   Arithmetic overflow: Using operator '*' on a 4 byte value
+                ;   and then casting the result to a 8 byte value. Cast the
+                ;   value to the wider type before calling operator '*' to
+                ;   avoid overflow
+                ;
+                ; Overflow issues are widespread in Rebol, and this warning
+                ; is not particularly high priority in the scope of what the
+                ; project is exploring.  Disable for now.
+                ;
+                <msc:/wd26451>
+
+                ;   The enum type xxx is unscoped. Prefer 'enum class' over
+                ;   'enum'
+                ;   xxx is uninitialized.  Always initialize a member...
+                ;
+                ; Ren-C is C, so C++-specific warnings when building as C++
+                ; are not relevant.
+                ;
+                <msc:/wd26812>
+                <msc:/wd26495>
+            ]
+        ]
+        _ #[false] 'no 'off 'false [
+            _
+        ]
+
+        fail ["RIGOROUS [yes no \logic!\] not" (rigorous)]
+    ]
+
+    ; Now add the flags for the project overall.
+    ;
+    append flags opt F
+
+    ; Now add build flags overridden by the inclusion of the specific file
+    ; (e.g. third party files we don't want to edit to remove warnings from)
+    ;
     if block? s [
         for-each flag next s [
             append flags opt switch flag [
@@ -231,6 +593,11 @@ gen-obj: func [
                     _
                 ]
 
+                #no-c++ [
+                    standard: 'c
+                    _
+                ]
+
                 default [
                     ensure [text! tag!] flag
                 ]
@@ -239,8 +606,9 @@ gen-obj: func [
         s: s/1
     ]
 
-    append flags opt F  ; cflags
-
+    ; With the flags and settings ready, make a rebmake object and ask it
+    ; to build the requested object file.
+    ;
     make rebmake/object-file-class compose [
         source: to-file case [
             dir [join dir s]
@@ -746,82 +1114,7 @@ switch user-config/optimize [
     ]
 ]
 
-cfg-cplusplus: false
-;standard
-append app-config/cflags opt switch user-config/standard [
-    'c [
-        _
-    ]
-    'gnu89 'c99 'gnu99 'c11 [
-        to tag! unspaced ["gnu:--std=" user-config/standard]
-    ]
-    'c++ [
-        cfg-cplusplus: true
-        [
-            <gnu:-x c++>
-            <msc:/TP>
-        ]
-    ]
-    'c++98 'c++0x 'c++11 'c++14 'c++17 'c++latest [
-
-        cfg-cplusplus: true
-        compose [
-            ; Compile C files as C++.
-            ;
-            ; !!! The original code appeared to make it so that if a Visual
-            ; Studio project was created, the /TP option gets removed and it
-            ; was translated into XML under the <CompileAs> option.  But
-            ; that meant extensions weren't getting the option, so it has
-            ; been disabled pending review.
-            ;
-            ; !!! For some reason, clang has deprecated this ability, though
-            ; it still works.  It is not possible to disable the deprecation,
-            ; so RIGOROUS can not be used with clang when building as C++...
-            ; the files would (sadly) need to be renamed to .cpp or .cxx
-            ;
-            <msc:/TP>
-            <gnu:-x c++>
-
-            ; C++ standard, MSVC only supports "c++14/17/latest"
-            ;
-            (to tag! unspaced ["gnu:--std=" user-config/standard])
-            (to tag! unspaced [
-                "msc:/std:" lowercase to text! user-config/standard
-            ])
-
-            ; There is a shim for `nullptr` used, which is warned about even
-            ; when building as pre-C++11 where it was introduced, unless you
-            ; disable that warning.
-            ;
-            ((if user-config/standard = 'c++98 [<gnu:-Wno-c++0x-compat>]))
-
-            ; Note: The C and C++ user-config/standards do not dictate if
-            ; `char` is signed or unsigned.  Lest anyone think environments
-            ; all settled on them being signed, they're not... Android NDK
-            ; uses unsigned:
-            ;
-            ; http://stackoverflow.com/questions/7414355/
-            ;
-            ; In order to give the option some exercise, make GCC C++ builds
-            ; use unsigned chars.
-            ;
-            <gnu:-funsigned-char>
- 
-            ; MSVC never bumped their __cplusplus version past 1997, even if
-            ; you compile with C++17.  Hence CPLUSPLUS_11 is used by Rebol
-            ; code as the switch for most C++ behaviors, and we have to
-            ; define that explicitly.
-            ;
-            <msc:/DCPLUSPLUS_11>
-        ]
-    ]
-
-    fail [
-        "STANDARD should be one of"
-        "[c gnu89 gnu99 c99 c11 c++ c++11 c++14 c++17 c++latest]"
-        "not" (user-config/standard)
-    ]
-]
+cfg-cplusplus: false  ; gets set to true if linked as c++ overall
 
 ; pre-vista switch
 ; Example. Mingw32 does not have access to windows console api prior to vista.
@@ -842,267 +1135,6 @@ append app-config/definitions opt switch user-config/pre-vista [
     fail ["PRE-VISTA [yes no \logic!\] not" (user-config/pre-vista)]
 ]
 
-cfg-rigorous: false
-append app-config/cflags opt switch user-config/rigorous [
-    #[true] 'yes 'on 'true [
-        cfg-rigorous: true
-        compose [
-            <gnu:-Werror> <msc:/WX>  ; convert warnings to errors
-
-            ; If you use pedantic in a C build on an older GNU compiler,
-            ; (that defaults to thinking it's a C89 compiler), it will
-            ; complain about using `//` style comments.  There is no
-            ; way to turn this complaint off.  So don't use pedantic
-            ; warnings unless you're at c99 or higher, or C++.
-            ;
-            (
-                any [
-                    cfg-cplusplus | not find [c gnu89] user-config/standard
-                ] then [
-                    <gnu:--pedantic>
-                ]
-            )
-
-            <gnu:-Wextra>
-            <gnu:-Wall> <msc:/Wall>
-
-            <gnu:-Wchar-subscripts>
-            <gnu:-Wwrite-strings>
-            <gnu:-Wundef>
-            <gnu:-Wformat=2>
-            <gnu:-Wdisabled-optimization>
-            <gnu:-Wlogical-op>
-            <gnu:-Wredundant-decls>
-            <gnu:-Woverflow>
-            <gnu:-Wpointer-arith>
-            <gnu:-Wparentheses>
-            <gnu:-Wmain>
-            <gnu:-Wtype-limits>
-            <gnu:-Wclobbered>
-
-            ; Neither C++98 nor C89 had "long long" integers, but they
-            ; were fairly pervasive before being present in the standard.
-            ;
-            <gnu:-Wno-long-long>
-
-            ; When constness is being deliberately cast away, `m_cast` is
-            ; used (for "m"utability).  However, this is just a plain cast
-            ; in C as it has no const_cast.  Since the C language has no
-            ; way to say you're doing a mutability cast on purpose, the
-            ; warning can't be used... but assume the C++ build covers it.
-            ;
-            ; !!! This is only checked by default in *release* C++ builds,
-            ; because the performance and debug-stepping impact of the
-            ; template stubs when they aren't inlined is too troublesome.
-            (
-                either all [
-                    cfg-cplusplus
-                    find app-config/definitions "NDEBUG"
-                ][
-                    <gnu:-Wcast-qual>
-                ][
-                    <gnu:-Wno-cast-qual>
-                ]
-            )
-
-            ;     'bytes' bytes padding added after construct 'member_name'
-            ;
-            ; Disable warning C4820; just tells you struct is not an exactly
-            ; round size for the platform.
-            ;
-            <msc:/wd4820>
-
-            ; Without disabling this, you likely get:
-            ;
-            ;     '_WIN32_WINNT_WIN10_TH2' is not defined as a preprocessor
-            ;     macro, replacing with '0' for '#if/#elif'
-            ;
-            ; Which seems to be some mistake on Microsoft's part, that some
-            ; report can be remedied by using WIN32_LEAN_AND_MEAN:
-            ;
-            ; https://stackoverflow.com/q/11040133/
-            ;
-            ; But then if you include <winioctl.h> (where the problem occurs)
-            ; you'd still have it.
-            ;
-            <msc:/wd4668>
-
-            ; There are a currently a lot of places in the code where `int` is
-            ; passed to REBLEN, where the signs mismatch.  Disable C4365:
-            ;
-            ;    'action' : conversion from 'type_1' to 'type_2',
-            ;    signed/unsigned mismatch
-            ;
-            ; and C4245:
-            ;
-            ;    'conversion' : conversion from 'type1' to 'type2',
-            ;    signed/unsigned mismatch
-            ;
-            <msc:/wd4365> <msc:/wd4245>
-            <gnu:-Wsign-compare>
-
-            ; The majority of Rebol's C code was written with little
-            ; attention to overflow in arithmetic.  There are a lot of places
-            ; in the code where a bigger type is converted into a smaller type
-            ; without an explicit cast.  (e.g. REBI64 => SQLUSMALLINT,
-            ; REBINT => REBYTE).  Disable C4242:
-            ;
-            ;     'identifier' : conversion from 'type1' to 'type2', possible
-            ;     loss of data
-            ;
-            ; The issue needs systemic review.
-            ;
-            <msc:/wd4242>
-            <gnu:-Wno-conversion> <gnu:-Wno-strict-overflow>
-            ;<gnu:-Wstrict-overflow=5>
-
-            ; When an inline function is not referenced, there can be a
-            ; warning about this; but it makes little sense to do so since
-            ; there are a lot of standard library functions in includes that
-            ; are inline which one does not use (C4514):
-            ;
-            ;     'function' : unreferenced inline function has been removed
-            ;
-            ; Inlining is at the compiler's discretion, it may choose to
-            ; ignore the `inline` keyword.  Usually it won't tell you it did
-            ; this, but disable the warning that tells you (C4710):
-            ;
-            ;     function' : function not inlined
-            ;
-            ; There's also an "informational" warning telling you that a
-            ; function was chosen for inlining when it wasn't requested, so
-            ; disable that also (C4711):
-            ;
-            ;     function 'function' selected for inline expansion
-            ;
-            <msc:/wd4514>
-            <msc:/wd4710>
-            <msc:/wd4711>
-
-            ; It's useful to be told when a function pointer is assigned to
-            ; an incompatible type of function pointer.  However, Rebol relies
-            ; on the ability to have a kind of "void*-for-functions", e.g.
-            ; CFUNC, which holds arbitrary function pointers.  There seems to
-            ; be no way to enable function pointer type checking that allows
-            ; downcasts and upcasts from just that pointer type, so it pretty
-            ; much has to be completely disabled (or managed with #pragma,
-            ; which we seek to avoid using in the codebase)
-            ;
-            ;    'operator/operation' : unsafe conversion from
-            ;    'type of expression' to 'type required'
-            ;
-            <msc:/wd4191>
-
-            ; Though we make sure all enum values are handled at least with a
-            ; default:, this warning basically doesn't let you use default:
-            ; at all...forcing every case to be handled explicitly.
-            ;
-            ;     enumerator 'identifier' in switch of enum 'enumeration'
-            ;     is not explicitly handled by a case label
-            ;
-            <msc:/wd4061>
-
-            ; setjmp() and longjmp() cannot be combined with C++ objects due
-            ; to bypassing destructors.  Yet the Microsoft compiler seems to
-            ; think even "POD" (plain-old-data) structs qualify as
-            ; "C++ objects", so they run destructors (?)
-            ;
-            ;     interaction between 'function' and C++ object destruction
-            ;     is non-portable
-            ;
-            ; This is lousy, because it would be a VERY useful warning, if it
-            ; weren't as uninformative as "your C++ program is using setjmp".
-            ;
-            ; https://stackoverflow.com/q/45384718/
-            ;
-            <msc:/wd4611>
-
-            ; Assignment within conditional expressions is tolerated in the
-            ; core so long as parentheses are used.  if ((x = 10) != y) {...}
-            ;
-            ;     assignment within conditional expression
-            ;
-            <msc:/wd4706>
-
-            ; gethostbyname() is deprecated by Microsoft, but dealing with
-            ; that is not a present priority.  It is supposed to be replaced
-            ; with getaddrinfo() or GetAddrInfoW().  This bypasses the
-            ; deprecation warning for now via a #define
-            ;
-            <msc:/D_WINSOCK_DEPRECATED_NO_WARNINGS>
-
-            ; This warning happens a lot in a 32-bit build if you use float
-            ; instead of double in Microsoft Visual C++:
-            ;
-            ;    storing 32-bit float result in memory, possible loss
-            ;    of performance
-            ;
-            <msc:/wd4738>
-
-            ; For some reason, even if you don't actually invoke moves or
-            ; copy constructors, MSVC warns you that you wouldn't be able to
-            ; if you ever did.  :-/
-            ;
-            <msc:/wd5026>
-            <msc:/wd4626>
-            <msc:/wd5027>
-            <msc:/wd4625>
-
-            ; If a function hasn't been explicitly declared as nothrow, then
-            ; passing it to extern "C" routines gets a warning.  This is a C
-            ; codebase being built as C++, so there shouldn't be throws.
-            ;
-            <msc:/wd5039>
-
-            ; Microsoft's own xlocale/xlocnum/etc. files trigger a SEH warning
-            ; in VC2017 after an update.  Apparently they don't care--
-            ; presumably because they're focused on VC2019 now.
-            ;
-            <msc:/wd4571>
-
-            ; Same deal with format strings not being string literals.
-            ; Headers in string from MSVC screws this up.
-            ;
-            <msc:/wd4774>
-
-            ; There's really no winning with the Spectre mitigation warnings.
-            ; Early on it seemed simple changes could make them go away:
-            ;
-            ; https://stackoverflow.com/q/50399940/
-            ;
-            ; But each version of the compiler adds more, to where it looks
-            ; like if you use a comparison operator you will get these.  It's
-            ; more or less a losing battle, so just disable the warning.
-            ;
-            <msc:/wd5045>
-
-            ; "Arithmetic overflow: Using operator '*' on a 4 byte value and
-            ; then casting the result to a 8 byte value. Cast the value to the
-            ; wider type before calling operator '*' to avoid overflow"
-            ;
-            ; Overflow issues are unfortunately widespread, and this warning
-            ; is not particularly high priority in the scope of what the
-            ; project is exploring.  Disable for now.
-            ;
-            <msc:/wd26451>
-
-            ; "The enum type xxx is unscoped. Prefer 'enum class' over 'enum'"
-            ; "Variable xxx is uninitialized.  Always initialize a member..."
-            ;
-            ; Ren-C is C, so C++-specific warnings when building as C++ are
-            ; not relevant.
-            ;
-            <msc:/wd26812>
-            <msc:/wd26495>
-        ]
-    ]
-    _ #[false] 'no 'off 'false [
-        cfg-rigorous: false
-        _
-    ]
-
-    fail ["RIGOROUS [yes no \logic!\] not" (user-config/rigorous)]
-]
 
 append app-config/ldflags opt switch user-config/static [
     _ 'no 'off 'false #[false] [
