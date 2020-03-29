@@ -21,10 +21,10 @@ REBOL [
 ; These must be listed explicitly in order for the words to be collected
 ; as legal "globals" for the mezzanine context (otherwise SET would fail)
 
-; Note that TO-LOGIC, TO-INTEGER, and TO-TEXT are currently their own natives
-; (even with additional refinements), and thus should not be overwritten here.
+; Note that TO-LOGIC and TO-TEXT are currently their own natives (even with
+; additional refinements), and thus should not be overwritten here.
 
-to-decimal: to-percent: to-money: to-char: to-pair:
+to-integer: to-decimal: to-percent: to-money: to-char: to-pair:
 to-tuple: to-time: to-date: to-binary: to-file: to-email: to-url: to-tag:
 to-bitset: to-image: to-vector: to-block: to-group:
 to-path: to-set-path: to-get-path: to-map: to-datatype: to-typeset:
@@ -51,6 +51,7 @@ use [word] [
         ]
     ]
 ]
+
 
 ; !!! Refinements are actually PATH! now, but TO PATH! of a WORD! assumes you
 ; want a 2-element path with a blank at the head that looks like a refinement

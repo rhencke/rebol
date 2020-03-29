@@ -72,12 +72,8 @@ REB_R MAKE_Integer(
         // binaries unsigned by default.  Before getting things any
         // weirder should probably leave it as is.
     }
-    else {
-        // use signed logic by default (use TO-INTEGER/UNSIGNED to force
-        // unsigned interpretation or error if that doesn't make sense)
-
+    else
         Value_To_Int64(out, arg, false);
-    }
 
     return out;
 }
@@ -91,9 +87,6 @@ REB_R TO_Integer(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     assert(kind == REB_INTEGER);
     UNUSED(kind);
 
-    // use signed logic by default (use TO-INTEGER/UNSIGNED to force
-    // unsigned interpretation or error if that doesn't make sense)
-
     Value_To_Int64(out, arg, false);
     return out;
 }
@@ -105,10 +98,9 @@ REB_R TO_Integer(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 // Interpret `value` as a 64-bit integer and return it in `out`.
 //
 // If `no_sign` is true then use that to inform an ambiguous conversion
-// (e.g. TO-INTEGER/UNSIGNED #{FF} is 255 instead of -1).  However, it
-// won't contradict the sign of unambiguous source.  So the string "-1"
-// will raise an error if you try to convert it unsigned.  (For this,
-// use `abs to-integer "-1"` and not `to-integer/unsigned "-1"`.)
+// (e.g. #{FF} is 255 instead of -1).  However, it won't contradict the sign
+// of unambiguous source.  So the string "-1" will raise an error if you try
+// to convert it unsigned.  (For this, use `abs to-integer "-1"`.)
 //
 // Because Rebol's INTEGER! uses a signed REBI64 and not an unsigned
 // REBU64, a request for unsigned interpretation is limited to using
@@ -138,121 +130,31 @@ void Value_To_Int64(REBVAL *out, const REBVAL *value, bool no_sign)
     }
     else if (IS_BINARY(value)) { // must be before ANY_STRING() test...
 
-        // Rebol3 creates 8-byte big endian for signed 64-bit integers.
-        // Rebol2 created 4-byte big endian for signed 32-bit integers.
+        // !!! While historical Rebol TO INTEGER! of BINARY! would interpret
+        // the bytes as a big-endian form of their internal representations,
+        // wanting to futureproof for BigNum integers has changed Ren-C's
+        // point of view...delegating that highly parameterized conversion
+        // to operations currently called ENBIN and DEBIN.
         //
-        // Values originating in file formats from other systems vary widely.
-        // Note that in C the default interpretation of single bytes in most
-        // implementations of a `char` is signed.
+        // https://forum.rebol.info/t/1270
         //
-        // We assume big-Endian for decoding (clients can REVERSE if they
-        // want little-Endian).  Also by default assume that any missing
-        // sign-extended to 64-bits based on the most significant byte
+        // This is a stopgap while ENBIN and DEBIN are hammered out which
+        // preserves the old behavior in the TO INTEGER! case.
         //
-        //     #{01020304} => #{0000000001020304}
-        //     #{DECAFBAD} => #{FFFFFFFFDECAFBAD}
-        //
-        // To override this interpretation and always generate an unsigned
-        // result, pass in `no_sign`.  (Used by TO-INTEGER/UNSIGNED)
-        //
-        // If under these rules a number cannot be represented within the
-        // numeric range of the system's INTEGER!, it will error.  This
-        // attempts to "future-proof" for other integer sizes and as an
-        // interface could support BigNums in the future.
-
         REBYTE *bp = VAL_BIN_AT(value);
         REBLEN n = VAL_LEN_AT(value);
-        bool negative;
-        REBINT fill;
-
-    #if !defined(NDEBUG)
-        //
-        // This is what R3-Alpha did.
-        //
-        if (LEGACY(OPTIONS_FOREVER_64_BIT_INTS)) {
-            REBI64 i = 0;
-            if (n > sizeof(REBI64)) n = sizeof(REBI64);
-            for (; n; n--, bp++)
-                i = cast(REBI64, (cast(REBU64, i) << 8) | *bp);
-
-            Init_Integer(out, i);
-
-            // There was no TO-INTEGER/UNSIGNED in R3-Alpha, so even if
-            // running in compatibility mode we can check the sign if used.
-            //
-            goto check_sign;
-        }
-    #endif
-
         if (n == 0) {
-            //
-            // !!! Should #{} empty binary be 0 or error?  (Historically, 0)
-            //
             Init_Integer(out, 0);
             return;
         }
-
-        // default signedness interpretation to high-bit of first byte, but
-        // override if the function was called with `no_sign`
-        //
-        negative = no_sign ? false : (*bp >= 0x80);
-
-        // Consume any leading 0x00 bytes (or 0xFF if negative)
-        //
-        while (n != 0 && *bp == (negative ? 0xFF : 0x00)) {
-            ++bp;
-            --n;
-        }
-
-        // If we were consuming 0xFFs and passed to a byte that didn't have
-        // its high bit set, we overstepped our bounds!  Go back one.
-        //
-        if (negative && n > 0 && *bp < 0x80) {
-            --bp;
-            ++n;
-        }
-
-        // All 0x00 bytes must mean 0 (or all 0xFF means -1 if negative)
-        //
-        if (n == 0) {
-            if (negative) {
-                assert(!no_sign);
-                Init_Integer(out, -1);
-            } else
-                Init_Integer(out, 0);
-            return;
-        }
-
-        // Not using BigNums (yet) so max representation is 8 bytes after
-        // leading 0x00 or 0xFF stripped away
-        //
-        if (n > 8)
-            fail (Error_Out_Of_Range_Raw(value));
-
-        REBI64 i = 0;
-
-        // Pad out to make sure any missing upper bytes match sign
-        for (fill = n; fill < 8; fill++)
-            i = cast(REBI64,
-                (cast(REBU64, i) << 8) | (negative ? 0xFF : 0x00)
-            );
-
-        // Use binary data bytes to fill in the up-to-8 lower bytes
-        //
-        while (n != 0) {
-            i = cast(REBI64, (cast(REBU64, i) << 8) | *bp);
-            bp++;
-            n--;
-        }
-
-        if (no_sign && i < 0) {
-            //
-            // bits may become signed via shift due to 63-bit limit
-            //
-            fail (Error_Out_Of_Range_Raw(value));
-        }
-
-        Init_Integer(out, i);
+        REBVAL *sign = (*bp >= 0x80)
+            ? rebValue("''+/-", rebEND)
+            : rebValue("''+", rebEND);
+        REBVAL *result = rebValue(
+            "debin [be", rebR(sign), "]", value,
+            rebEND);
+        Move_Value(out, result);
+        rebRelease(result);
         return;
     }
     else if (IS_ISSUE(value)) {
@@ -332,29 +234,6 @@ void Value_To_Int64(REBVAL *out, const REBVAL *value, bool no_sign)
 check_sign:
     if (no_sign && VAL_INT64(out) < 0)
         fail (Error_Positive_Raw());
-}
-
-
-//
-//  to-integer: native [
-//
-//  {Synonym of TO INTEGER! when used without refinements, adds /UNSIGNED.}
-//
-//      value [
-//      integer! decimal! percent! money! char! time!
-//      issue! binary! any-string!
-//      ]
-//      /unsigned
-//      {For BINARY! interpret as unsigned, otherwise error if signed.}
-//  ]
-//
-REBNATIVE(to_integer)
-{
-    INCLUDE_PARAMS_OF_TO_INTEGER;
-
-    Value_To_Int64(D_OUT, ARG(value), did REF(unsigned));
-
-    return D_OUT;
 }
 
 

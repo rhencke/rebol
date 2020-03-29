@@ -138,11 +138,6 @@ options: make object! [  ; Options supplied to REBOL during startup
     file-types: copy [
         %.reb %.r3 %.r rebol
     ]
-
-    ; Legacy Behaviors Options (paid attention to only by debug builds)
-
-    forever-64-bit-ints: false
-    unlocked-source: false
 ]
 
 script: make object! [

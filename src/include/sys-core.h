@@ -439,22 +439,6 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "reb-device.h"
 
 
-
-// Most of Ren-C's backwards compatibility with R3-Alpha is attempted through
-// usermode "shim" functions.  But some things affect fundamental mechanics
-// and can't be done that way.  So in the debug build, system/options
-// contains some flags that enable the old behavior to be turned on.
-//
-// !!! These are not meant to be kept around long term.
-//
-#if !defined(NDEBUG)
-    #define LEGACY(option) ( \
-        (PG_Boot_Phase >= BOOT_ERRORS) \
-        and IS_TRUTHY(Get_System(SYS_OPTIONS, (option))) \
-    )
-#endif
-
-
 #include "sys-eval.h"  // low-level single-step evaluation API
 #include "sys-do.h"  // higher-level evaluate-until-end API
 

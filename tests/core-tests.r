@@ -133,6 +133,7 @@
 %control/quit.test.reb
 %convert/as-binary.test.reb
 %convert/as-string.test.reb
+%convert/enbin.test.reb
 %convert/encode.test.reb
 %convert/load.test.reb
 %convert/mold.test.reb

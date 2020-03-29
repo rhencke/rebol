@@ -115,13 +115,12 @@ elf-format: context [
 
         either mode = 'read [
             bin: copy/part begin num-bytes
-            if endian = 'little [reverse bin]
-            set name (to-integer/unsigned bin)
+            set name debin [(either endian = 'little ['le] ['be]) +] bin
         ][
             val: ensure integer! get name
-            bin: skip (tail of to-binary val) (negate num-bytes) ; big endian
-            if endian = 'little [reverse bin]
-            change begin bin
+            change begin enbin [
+                (either endian = 'little ['le] ['be]) + (num-bytes)
+            ] val
         ]
     ]
 
@@ -543,41 +542,35 @@ elf-format: context [
 ; https://msdn.microsoft.com/en-us/library/windows/desktop/ms680547(v=vs.85).aspx
 ;
 pe-format: context [
-    encap-section-name: ".rebolE" ;limited to 8 bytes
+    encap-section-name: ".rebolE"  ; Limited to 8 bytes
 
-    b1: b2: b3: b4: b5: b6: b7: b8: u16: u32: u64: uintptr: _
+    buf: _
+    u16: u32: uintptr: _
     err: _
     fail-at: _
 
-    byte: complement charset []
-    u16-le: [copy b1 byte copy b2 byte
-            (u16: (shift to-integer/unsigned b2 8)
-            or+ to-integer/unsigned b1)]
-    u32-le: [copy b1 byte copy b2 byte
-            copy b3 byte copy b4 byte
-            (u32: (shift to-integer/unsigned b4 24)
-            or+ (shift to-integer/unsigned b3 16)
-            or+ (shift to-integer/unsigned b2 8)
-            or+ to-integer/unsigned b1)]
-    u64-le: [copy b1 byte copy b2 byte
-            copy b3 byte copy b4 byte
-            copy b5 byte copy b6 byte
-            copy b7 byte copy b8 byte
-            (u64: (shift to-integer/unsigned b8 56)
-            or+ (shift to-integer/unsigned b7 48)
-            or+ (shift to-integer/unsigned b3 40)
-            or+ (shift to-integer/unsigned b5 32)
-            or+ (shift to-integer/unsigned b4 24)
-            or+ (shift to-integer/unsigned b3 16)
-            or+ (shift to-integer/unsigned b2 8)
-            or+ to-integer/unsigned b1)]
+    u16-le: [copy buf 2 skip (u16: debin [LE + 2] buf)]
+    u32-le: [copy buf 4 skip (u32: debin [LE + 4] buf)]
 
-    uintptr-le:
-    uintptr-32-le: [u32-le (uintptr: u32)]
-    uintptr-64-le: [u64-le (uintptr: u64)]
+    ; Note: `uintptr-64-le` uses a signed interpretation (+/-) even though it
+    ; is supposed to be an unsigned integer the size of a platform pointer in
+    ; the actual format (C's <stdint.h> `uintptr_t`).  That's because Ren-C
+    ; inherited R3-Alpha's INTEGER! which can hold 64-bit values but is
+    ; interpreted as signed.  Hence positive values can only go up to 63 bits.
+    ; If arithmetic is not needed and values are merely read and written back
+    ; (as this code does), the negative interpretation when the high bit is
+    ; set won't cause a problem.
+    ;
+    uintptr-32-le: [copy buf 4 skip (uintptr: debin [LE + 4] buf)]
+    uintptr-64-le: [
+        copy buf 8 skip
+        (uintptr: debin [LE +/- 8] buf)  ; See note above for why +/-
+    ]
+
+    uintptr-le: uintptr-32-le  ; assume 32-bit unless discovered otherwise
 
     gen-rule: function [
-        "Collect all set-words in @rule and make an object out of them and save it in @name"
+        "Collect set-words in @rule to make into an object saved in @name"
         rule [block!]
         'name [word!]
         /skip "Do not collect these words"
@@ -1182,7 +1175,7 @@ generic-format: context [
                 print "Binary contains encap version 0 data block."
 
                 size-location: skip sig-location -8
-                embed-size: to-integer/unsigned copy/part size-location 8
+                embed-size: debin [be +] copy/part size-location 8
                 print ["Existing embedded data is" embed-size "bytes long."]
 
                 print ["Trimming out existing embedded data."]
@@ -1206,8 +1199,7 @@ generic-format: context [
 
         append executable embedding
 
-        size-as-binary: to-binary length of embedding
-        assert [8 = length of size-as-binary]
+        size-as-binary: enbin [be + 8] length of embedding
         append executable size-as-binary
 
         append executable signature
@@ -1225,7 +1217,7 @@ generic-format: context [
 
         if test-sig != signature [return null]
 
-        embed-size: to-integer/unsigned (
+        embed-size: debin [be +] (
             read/seek/part file (info/size - sig-length - 8) 8
         )
 

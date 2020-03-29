@@ -19,7 +19,7 @@ sys/make-scheme [
                 copy path [to slash | end] skip
                 copy speed to end
             ]
-            attempt [port/spec/speed: to-integer/unsigned speed]
+            attempt [port/spec/speed: to-integer speed]
             port/spec/path: to file! path
         ]
         return

@@ -214,12 +214,19 @@ emit: function [
     ]
 ]
 
-to-bin: func [
-    val [integer!]
-    width [integer!]
-][
-    skip tail of to binary! val negate width
-]
+; Network formats generally use big-endian byte ordering.  The concept seems
+; to have originated with wanting to see most significant part of a routing
+; hierarchy first (in contrast with little-endian, which helps for arithmetic
+; that wants to process the least-significant part first and carry upward)
+;
+; !!! These shorthands cover what's needed and are chosen to clearly separate
+; the number of bytes from the number being encoded (both integers).
+;
+to-1bin: (=> enbin [be + 1])
+to-2bin: (=> enbin [be + 2])
+to-3bin: (=> enbin [be + 3])
+to-4bin: (=> enbin [be + 4])
+to-8bin: (=> enbin [be + 8])
 
 make-tls-error: func [
     message [text! block!]
@@ -325,7 +332,7 @@ parse-asn: function [
                 size: byte and+ 127
                 if not zero? (byte and+ 128) [  ; long form
                     old-size: size
-                    size: to-integer/unsigned copy/part next data old-size
+                    size: debin [be +] copy/part next data old-size
                     data: skip data old-size
                 ]
                 if zero? size [
@@ -472,7 +479,7 @@ client-hello: function [
     ;     opaque random_bytes[28];
     ; } Random;
     ;
-    ctx/client-random: to-bin to-integer difference now/precise 1-Jan-1970 4
+    ctx/client-random: to-4bin to-integer difference now/precise 1-Jan-1970
     random/seed now/time/precise
     loop 28 [append ctx/client-random (random-secure 256) - 1]
 
@@ -485,7 +492,7 @@ client-hello: function [
         max-ver-bytes               ; max supported version by client
         ctx/client-random           ; 4 bytes gmt unix time + 28 random bytes
         #{00}                       ; session ID length
-        to-bin length of cs-data 2  ; cipher suites length
+        to-2bin length of cs-data   ; cipher suites length
         cs-data                     ; cipher suites list
 
         comment {
@@ -537,8 +544,8 @@ client-hello: function [
         #{02 02}                    ; SHA1 DSA
         #{02 03}                    ; ecdsa_sha1
     ]
-    change extension_length (to-bin (length of signatures_length) 2)
-    change signatures_length (to-bin (length of signature_algorithms) 2)
+    change extension_length to-2bin (length of signatures_length)
+    change signatures_length to-2bin (length of signature_algorithms)
 
     ; https://en.wikipedia.org/wiki/Server_Name_Indication
     ; Sending the server name you're trying to connect to allows the same host
@@ -557,11 +564,11 @@ client-hello: function [
             #{00 00}                    ; name list length (filled in after)
           list_item_1:
             #{00}                       ; server name type (host_name=0)
-            to-bin (length of server-name-bin) 2 ; server name length
+            to-2bin (length of server-name-bin)  ; server name length
             server-name-bin             ; server name
         ]
-        change extension_length (to-bin (length of list_length) 2)
-        change list_length (to-bin (length of list_item_1) 2)
+        change extension_length to-2bin (length of list_length) 
+        change list_length to-2bin (length of list_item_1)
     ]
 
     ; When your cipher suites mention ECHDE, that doesn't imply any particular
@@ -582,8 +589,8 @@ client-hello: function [
             ; https://tools.ietf.org/html/rfc8422#section-5.1.1
             #{00 17}                    ; hex iana code for secp256r1=23
         ]
-        change curves_length (to-bin (length of curves_list) 2)
-        change extension_length (to-bin (length of Curves) 2)
+        change curves_length to-2bin (length of curves_list)
+        change extension_length to-2bin (length of Curves)
     ]
 
     ; During elliptic curve (EC) cryptography the client and server will
@@ -607,8 +614,8 @@ client-hello: function [
           supported_formats:
             #{00}                       ; uncompressed form (server MUST do)
         ]
-        change formats_length (to-bin (length of supported_formats) 1)
-        change extension_length (to-bin (length of PointsFormat) 2)
+        change formats_length to-1bin (length of supported_formats)
+        change extension_length to-2bin (length of PointsFormat)
     ]
 
     ; These extensions are commonly sent by OpenSSL or browsers, so turning
@@ -625,9 +632,9 @@ client-hello: function [
 
     ; update the embedded lengths to correct values
     ;
-    change fragment-length (to-bin (length of Handshake) 2)
-    change message-length (to-bin (length of ClientHello) 3)
-    change ExtensionsLength (to-bin (length of Extensions) 2)
+    change fragment-length to-2bin (length of Handshake)
+    change message-length to-3bin (length of ClientHello)
+    change ExtensionsLength to-2bin (length of Extensions)
 
     append ctx/handshake-messages Handshake
 ]
@@ -651,7 +658,7 @@ client-key-exchange: function [
 
             ; supply encrypted pre-master-secret to server
             key-data: rsa ctx/pre-master-secret rsa-key
-            key-len: to-bin length of key-data 2  ; Two bytes for this case
+            key-len: to-2bin length of key-data  ; Two bytes for this case
         ]
 
         <dhe-dss>
@@ -661,7 +668,7 @@ client-key-exchange: function [
 
             ; supply the client's public key to server
             key-data: ctx/dh-keypair/public
-            key-len: to-bin length of key-data 2  ; Two bytes for this case
+            key-len: to-2bin length of key-data  ; Two bytes for this case
         ]
 
         <echde-rsa> [
@@ -674,7 +681,7 @@ client-key-exchange: function [
             key-data: join-all [
                 #{04} ctx/ecdh-keypair/public/x ctx/ecdh-keypair/public/y
             ]
-            key-len: to-bin length of key-data 1  ; One byte for this case
+            key-len: to-1bin length of key-data  ; One byte for this case
         ]
     ]
 
@@ -698,8 +705,8 @@ client-key-exchange: function [
 
     ; update the embedded lengths to correct values
     ;
-    change ssl-record-length (to-bin (length of ssl-record) 2)
-    change message-length (to-bin (length of message) 3)
+    change ssl-record-length to-2bin (length of ssl-record)
+    change message-length to-3bin (length of message)
 
     ; make all secure data
     ;
@@ -758,7 +765,7 @@ encrypted-handshake-msg: function [
     emit ctx [
         #{16}                         ; protocol type (22=Handshake)
         ctx/ver-bytes                 ; protocol version
-        to-bin length of encrypted 2  ; length of SSL record data
+        to-2bin length of encrypted  ; length of SSL record data
         encrypted
     ]
     append ctx/handshake-messages unencrypted
@@ -774,7 +781,7 @@ application-data: function [
     emit ctx [
         #{17}                         ; protocol type (23=Application)
         ctx/ver-bytes                 ; protocol version
-        to-bin length of encrypted 2  ; length of SSL record data
+        to-2bin length of encrypted  ; length of SSL record data
         encrypted
     ]
 ]
@@ -787,7 +794,7 @@ alert-close-notify: function [
     emit ctx [
         #{15}                         ; protocol type (21=Alert)
         ctx/ver-bytes                 ; protocol version
-        to-bin length of encrypted 2  ; length of SSL record data
+        to-2bin length of encrypted  ; length of SSL record data
         encrypted
     ]
 ]
@@ -859,10 +866,10 @@ encrypt-data: function [
     ; https://tools.ietf.org/html/rfc5246#section-6.2.3.1
     ;
     MAC: checksum/method/key join-all [
-        to-bin ctx/seq-num-w 8              ; sequence number (64-bit int)
+        to-8bin ctx/seq-num-w               ; sequence number (64-bit int)
         type                                ; msg type
         ctx/ver-bytes                       ; version
-        to-bin length of content 2          ; msg content length
+        to-2bin length of content           ; msg content length
         content                             ; msg content
     ] (to word! ctx/hash-method) ctx/client-mac-key
 
@@ -874,7 +881,7 @@ encrypt-data: function [
             remainder (1 + (length of data)) ctx/block-size
         )
         len: 1 + padding
-        append data head of insert/dup make binary! len to-bin padding 1 len
+        append data head of insert/dup make binary! len to-1bin padding len
     ]
 
     switch ctx/crypt-method [
@@ -951,7 +958,7 @@ parse-protocol: function [
             fail ["unknown/invalid protocol type:" data/1]
         ]
         version: select bytes-to-version copy/part at data 2 2
-        size: to-integer/unsigned copy/part at data 4 2
+        size: debin [be +] copy/part at data 4 2
         messages: copy/part at data 6 size
     ]
 ]
@@ -980,7 +987,7 @@ grab: enfixed func [
 ]
 
 grab-int: enfixed enclose 'grab func [f [frame!]] [
-    return set f/left (to-integer/unsigned do copy f)
+    return set f/left (debin [be +] do copy f)
 ]
 
 
@@ -1054,7 +1061,7 @@ parse-messages: function [
         if ctx/block-size [
             ; deal with padding in CBC mode
             data: copy/part data (
-                ((length of data) - 1) - (to-integer/unsigned last data)
+                ((length of data) - 1) - (last data)
             )
             debug ["depadding..."]
             if ctx/version > 1.0 [
@@ -1095,7 +1102,7 @@ parse-messages: function [
                     if ctx/encrypted? [#encrypted-handshake] else [msg-type]
                 )
 
-                len: to-integer/unsigned copy/part (skip data 1) 3
+                len: debin [be +] copy/part (skip data 1) 3
 
                 ; We don't mess with the data pointer itself as we use it, so
                 ; make a copy of the data.  Skip the 4 bytes we used.
@@ -1394,10 +1401,10 @@ parse-messages: function [
                     mac: copy/part skip data len + 4 ctx/hash-size
 
                     mac-check: checksum/method/key join-all [
-                        to-bin ctx/seq-num-r 8  ; 64-bit sequence number
+                        to-8bin ctx/seq-num-r   ; 64-bit sequence number
                         #{16}                   ; msg type
                         ctx/ver-bytes           ; version
-                        to-bin len + 4 2        ; msg content length
+                        to-2bin len + 4         ; msg content length
                         copy/part data len + 4
                     ] (to word! ctx/hash-method) ctx/server-mac-key
 
@@ -1429,10 +1436,10 @@ parse-messages: function [
             len: length of msg-obj/content
             mac: copy/part skip data len ctx/hash-size
             mac-check: checksum/method/key join-all [
-                to-bin ctx/seq-num-r 8  ; sequence number (64-bit int in R3)
+                to-8bin ctx/seq-num-r   ; sequence number (64-bit int in R3)
                 #{17}                   ; msg type
                 ctx/ver-bytes           ; version
-                to-bin len 2            ; msg content length
+                to-2bin len             ; msg content length
                 msg-obj/content         ; content
             ] (to word! ctx/hash-method) ctx/server-mac-key
 
@@ -1650,7 +1657,7 @@ tls-read-data: function [
     ; to test a size?
     ;
     while [5 = length of copy/part data 5] [
-        len: 5 + to-integer/unsigned copy/part at data 4 2
+        len: 5 + debin [be +] copy/part at data 4 2
 
         debug ["reading bytes:" len]
 

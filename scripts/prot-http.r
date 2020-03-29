@@ -301,8 +301,9 @@ check-response: function [port] [
         info/headers: headers: construct/with/only d1 http-response-headers
         info/name: to file! any [spec/path %/]
         if headers/content-length [
-            info/size: (headers/content-length:
-                    to-integer/unsigned headers/content-length)
+            info/size: (
+                headers/content-length: to-integer headers/content-length
+            )
         ]
         if headers/last-modified [
             info/date: try attempt [idate-to-date headers/last-modified]
@@ -577,10 +578,10 @@ check-data: function [
                 copy chunk-size some hex-digits thru crlfbin mk1: to end
             ]][
                 ; The chunk size is in the byte stream as ASCII chars
-                ; forming a hex string.  ISSUE! can decode that.
-                chunk-size: (
-                    to-integer/unsigned to issue! to text! chunk-size
-                )
+                ; forming a hex string.  DEBASE to get a BINARY! and then
+                ; DEBIN to get an integer.
+                ;
+                chunk-size: debin [be +] (debase/base as text! chunk-size 16)
 
                 if chunk-size = 0 [
                     parse mk1 [
