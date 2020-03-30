@@ -37,7 +37,6 @@ depends: [
     ]
 
     %crypt/dh/dh.c
-    %crypt/rc4/rc4.c
     %crypt/rsa/rsa.c
 
     ; If you're using a platform that mbedTLS has been designed for,
@@ -49,6 +48,12 @@ depends: [
     [%crypt/mbedtls/library/platform_util.c  #no-c++]
 
     [%crypt/mbedtls/library/sha256.c  #no-c++]
+
+    ; !!! RC4 is a weak cipher and no longer used, but was included as
+    ; part of Saphirion's cipher suites in the original TLS.  Should
+    ; be a separate extension you can exclude...but keeping for now.
+    ;
+    [%crypt/mbedtls/library/arc4.c  #no-c++]
 
     %crypt/easy-ecc/ecc.c
 

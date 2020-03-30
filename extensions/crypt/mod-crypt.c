@@ -29,7 +29,6 @@
 // set of "current" crypto is included by default.
 //
 
-#include "rc4/rc4.h"
 #include "rsa/rsa.h" // defines gCryptProv and rng_fd (used in Init/Shutdown)
 #include "dh/dh.h"
 #include "aes/aes.h"
@@ -54,6 +53,7 @@
 #include "sys-core.h"
 
 #include "mbedtls/sha256.h"
+#include "mbedtls/arc4.h"  // RC4 is technically trademarked, so it's "ARC4"
 
 #include "sys-zlib.h"  // needed for the ADLER32 hash
 
@@ -253,8 +253,10 @@ REBNATIVE(checksum)
 
 static void cleanup_rc4_ctx(const REBVAL *v)
 {
-    RC4_CTX *rc4_ctx = VAL_HANDLE_POINTER(RC4_CTX, v);
-    FREE(RC4_CTX, rc4_ctx);
+    struct mbedtls_arc4_context *ctx
+        = VAL_HANDLE_POINTER(struct mbedtls_arc4_context, v);
+    mbedtls_arc4_free(ctx);
+    FREE(struct mbedtls_arc4_context, ctx);
 }
 
 
@@ -280,18 +282,14 @@ REBNATIVE(rc4_key)
 {
     CRYPT_INCLUDE_PARAMS_OF_RC4_KEY;
 
-    RC4_CTX *rc4_ctx = ALLOC_ZEROFILL(RC4_CTX);
-
-    RC4_setup(
-        rc4_ctx,
-        VAL_BIN_AT(ARG(key)),
-        VAL_LEN_AT(ARG(key))
-    );
+    struct mbedtls_arc4_context *ctx = ALLOC(struct mbedtls_arc4_context);
+    mbedtls_arc4_init(ctx);
+    mbedtls_arc4_setup(ctx, VAL_BIN_AT(ARG(key)), VAL_LEN_AT(ARG(key)));
 
     return Init_Handle_Cdata_Managed(
         D_OUT,
-        rc4_ctx,
-        sizeof(RC4_CTX),
+        ctx,
+        sizeof(struct mbedtls_arc4_context),
         &cleanup_rc4_ctx
     );
 }
@@ -302,7 +300,7 @@ REBNATIVE(rc4_key)
 //
 //  "Encrypt/decrypt data (modifies) using RC4 algorithm."
 //
-//      return: [logic!]
+//      return: <void>
 //      ctx "Stream cipher context"
 //          [handle!]
 //      data "Data to encrypt/decrypt (modified)"
@@ -316,21 +314,25 @@ REBNATIVE(rc4_stream)
     REBVAL *data = ARG(data);
 
     if (VAL_HANDLE_CLEANER(ARG(ctx)) != cleanup_rc4_ctx)
-        rebJumps("fail [{Not a RC4 Context:}", ARG(ctx), "]", rebEND);
+        rebJumps ("fail [{Not a RC4 Context:}", ARG(ctx), "]", rebEND);
 
-    RC4_CTX *rc4_ctx = VAL_HANDLE_POINTER(RC4_CTX, ARG(ctx));
+    struct mbedtls_arc4_context *ctx
+        = VAL_HANDLE_POINTER(struct mbedtls_arc4_context, ARG(ctx));
 
-    RC4_crypt(
-        rc4_ctx,
+    REBVAL *error = nullptr;
+
+    IF_NOT_0(cleanup, error, mbedtls_arc4_crypt(
+        ctx,
+        VAL_LEN_AT(data),
         VAL_BIN_AT(data),  // input "message"
-        VAL_BIN_AT(data),  // output (same, since it modifies)
-        VAL_LEN_AT(data)
-    );
+        VAL_BIN_AT(data)  // output (same, since it modifies)
+    ));
 
-    // !!! In %host-core.c this used to fall through to return the first arg,
-    // a refinement, which was true in this case.  :-/
-    //
-    return rebLogic(true);
+  cleanup:
+     if (error)
+        rebJumps ("fail", error, rebEND);
+
+    return rebVoid();
 }
 
 
