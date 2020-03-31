@@ -183,7 +183,23 @@ gen-obj: func [
         for-each flag next s [
             switch flag [
                 #no-c++ [
-                    standard: 'c
+                    ;
+                    ; !!! The cfg-cplusplus flag is currently set if any files
+                    ; are C++.  This means that it's a fair indication that
+                    ; a previous call to this routine noticed a C++ compiler
+                    ; is in effect, e.g. the config maps `gcc` tool to `%g++`.
+                    ;
+                    if cfg-cplusplus [
+                        standard: 'c
+
+                        ; Here we inject "compile as c", but to limit the
+                        ; impact (e.g. on C compilers that don't know what -x
+                        ; is) we only add the flag if it's a C++ build.  MSVC
+                        ; does not need this because it uses the same
+                        ; compiler and only needs switches to turn C++ *on*.
+                        ;
+                        append flags <gnu:-x c>
+                    ]
                 ]
             ]
         ]
