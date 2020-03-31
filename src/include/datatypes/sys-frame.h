@@ -808,13 +808,13 @@ inline static void Drop_Action(REBFRM *f) {
 // parameter or refinement, e.g. with `PAR(foo)` or `PAR(bar)`.
 
 #define PARAM(n,name) \
-    static const int p_##name = n
+    static const int p_##name##_ = n
 
 #define ARG(name) \
-    FRM_ARG(frame_, (p_##name))
+    FRM_ARG(frame_, (p_##name##_))
 
 #define PAR(name) \
-    ACT_PARAM(FRM_PHASE(frame_), (p_##name))  // a REB_P_XXX pseudovalue
+    ACT_PARAM(FRM_PHASE(frame_), (p_##name##_))  // a REB_P_XXX pseudovalue
 
 #define REF(name) \
     NULLIFY_NULLED(ARG(name))
