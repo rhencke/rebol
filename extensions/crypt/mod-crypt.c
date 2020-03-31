@@ -30,7 +30,6 @@
 //
 
 #include "rsa/rsa.h" // defines gCryptProv and rng_fd (used in Init/Shutdown)
-#include "dh/dh.h"
 #include "aes/aes.h"
 
 // The "Easy ECC" supports four elliptic curves, but is only set up to do one
@@ -51,6 +50,8 @@
     #undef IS_ERROR  // winerror.h defines, so undef it to avoid the warning
 #endif
 #include "sys-core.h"
+
+#include "mbedtls/dhm.h"  // Diffie-Hellman (credits Merkel, by their request)
 
 #include "mbedtls/sha256.h"
 #include "mbedtls/arc4.h"  // RC4 is technically trademarked, so it's "ARC4"
@@ -568,99 +569,297 @@ REBNATIVE(rsa)
 //
 //  "Generate a new Diffie-Hellman private/public key pair"
 //
-//      return: "Diffie-Hellman object, with P, PRIVATE, and PUBLIC members"
+//      return: "Diffie-Hellman object with [MODULUS PRIVATE-KEY PUBLIC-KEY]"
 //          [object!]
-//      g "generator"
+//      modulus "Public 'p', best if https://en.wikipedia.org/wiki/Safe_prime"
 //          [binary!]
-//      p "modulus (saved in the object)"
+//      base "Public 'g', generator, less than modulus and usually prime"
 //          [binary!]
+//      /insecure "Don't raise errors if base/modulus choice becomes suspect"
 //  ]
 //
 REBNATIVE(dh_generate_keypair)
-//
-// !!! A comment in the original Saphirion code said "NOT YET IMPLEMENTED" on:
-//
-//     /generate
-//         size [integer!] "Key length"
-//         generator [integer!] "Generator number"
 {
     CRYPT_INCLUDE_PARAMS_OF_DH_GENERATE_KEYPAIR;
 
-    DH_CTX dh_ctx;
-    memset(&dh_ctx, 0, sizeof(dh_ctx));
+    REBVAL *g = ARG(base);
+    REBYTE *g_data = VAL_BIN_AT(g);
+    REBLEN g_size = rebUnbox("length of", g, rebEND);
 
-    dh_ctx.g = VAL_BIN_AT(ARG(g));
-    dh_ctx.glen = rebUnbox("length of", ARG(g), rebEND);
+    REBVAL *p = ARG(modulus);
+    REBYTE *p_data = VAL_BIN_AT(p);
+    REBLEN p_size = rebUnbox("length of", p, rebEND);
 
-    dh_ctx.p = VAL_BIN_AT(ARG(p));
-    dh_ctx.len = rebUnbox("length of", ARG(p), rebEND);
+    struct mbedtls_dhm_context ctx;
+    mbedtls_dhm_init(&ctx);
 
-    // Generate the private and public keys into memory that can be
-    // rebRepossess()'d as the memory backing a BINARY! series
+    REBVAL *result = nullptr;
+    REBVAL *error = nullptr;
+
+    // We avoid calling mbedtls_dhm_set_group() to assign the `G`, `P`, and
+    // `len` fields, to not need intermediate mbedtls_mpi variables.  At time
+    // of writing the code is equivalent--but if this breaks, use that method.
     //
-    dh_ctx.x = rebAllocN(REBYTE, dh_ctx.len);  // x => private key
-    memset(dh_ctx.x, 0, dh_ctx.len);
-    dh_ctx.gx = rebAllocN(REBYTE, dh_ctx.len);  // gx => public key
-    memset(dh_ctx.gx, 0, dh_ctx.len);
+    IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(&ctx.G, g_data, g_size));
+    IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(&ctx.P, p_data, p_size));
+    assert(mbedtls_mpi_size(&ctx.P) == p_size);  // should reflect what we set
+    ctx.len = p_size;  // length of P is length of private and public keys
 
-    DH_generate_key(&dh_ctx);
+    // !!! OpenSSL includes a DH_check() routine that checks for suitability
+    // of the Diffie Hellman parameters.  There doesn't appear to be an
+    // equivalent in mbedTLS at time of writing.  It might be nice to add all
+    // the checks if /INSECURE is not used--or should /UNCHECKED be different?
+    //
+    // https://github.com/openssl/openssl/blob/master/crypto/dh/dh_check.c
 
-    return rebValue(
+    // The algorithms theoretically can work with a base greater than the
+    // modulus.  But mbedTLS isn't expecting that, so you can get errors on
+    // some cases and not others.  We'll pay the cost of validating that you
+    // are not doing it (mbedTLS does not check--and lets you get away with
+    // it sometimes, but not others).
+    //
+    if (mbedtls_mpi_cmp_mpi(&ctx.G, &ctx.P) >= 0)
+        rebJumps (
+            "fail [",
+                "{Don't use base >= modulus in Diffie-Hellman.}",
+                "{e.g. `2 mod 7` is the same as `9 mod 7` or `16 mod 7`}",
+            "]",
+        rebEND);
+
+    // If you remove all the leading #{00} bytes from `p`, then the private
+    // and public keys will be guaranteed to be no larger than that (due to
+    // being `mod p`, they'll always be less).  The implementation might
+    // want to ask for the smaller size, or a bigger size if more arithmetic
+    // or padding is planned later on those keys.  Just use `p_size` for now.
+    //
+  blockscope {
+    REBLEN x_size = p_size;
+    REBLEN gx_size = p_size;
+
+    // We will put the private and public keys into memory that can be
+    // rebRepossess()'d as the memory backing a BINARY! series.  (This memory
+    // will be automatically freed in case of a FAIL call.)
+    //
+    REBYTE *gx = rebAllocN(REBYTE, gx_size);  // gx => public key
+    REBYTE *x = rebAllocN(REBYTE, x_size);  // x => private key
+
+    // The "make_public" routine expects to be giving back a public key as
+    // bytes, so it takes that buffer for output.  But it keeps the private
+    // key inside the context...so we have to extract that separately.
+    //
+  try_again_even_if_poor_primes: ;  // semicolon needed before declaration
+    int ret = mbedtls_dhm_make_public(
+        &ctx,
+        x_size,  // x_size (size of private key, bigger may avoid compaction)
+        gx,  // output buffer (for public key returned)
+        gx_size,  // olen (only ctx.len needed, bigger may avoid compaction)
+        &get_random,  // f_rng (random number generator function)
+        nullptr  // p_rng (first parameter tunneled to f_rng--unused ATM)
+    );
+
+    // mbedTLS will notify you if it discovers the base and modulus you were
+    // using is unsafe w.r.t. this attack:
+    //
+    // http://www.cl.cam.ac.uk/~rja14/Papers/psandqs.pdf
+    // http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2005-2643
+    //
+    // It can't generically notice a-priori for large base and modulus if
+    // such properties will be exposed.  So you only get this error if it
+    // runs the randomized secret calculation and happens across a worrying
+    // result.  But if you get such an error it means you should be skeptical
+    // of using those numbers...and choose something more attack-resistant.
+    //
+    if (ret == MBEDTLS_ERR_DHM_BAD_INPUT_DATA) {
+        if (mbedtls_mpi_cmp_int(&ctx.P, 0) == 0)
+            rebJumps (
+                "fail {Cannot use 0 as modulus for Diffie-Hellman}",
+            rebEND);
+
+        if (REF(insecure))
+            goto try_again_even_if_poor_primes;  // for educational use only!
+
+        rebJumps (
+            "fail [",
+                "{Suspiciously poor base and modulus usage was detected.}",
+                "{It's unwise to use arbitrary primes vs. constructed ones:}",
+                "{https://www.cl.cam.ac.uk/~rja14/Papers/psandqs.pdf}",
+                "{/INSECURE can override (for educational purposes, only!)}",
+            "]",
+            rebEND);
+    }
+    else if (ret == MBEDTLS_ERR_DHM_MAKE_PUBLIC_FAILED) {
+        if (mbedtls_mpi_cmp_int(&ctx.P, 5) < 0)
+            rebJumps (
+                "fail {Modulus cannot be less than 5 for Diffie-Hellman}",
+            rebEND);
+
+        // !!! Checking for safe primes is should probably be done by default,
+        // but here's some code using a probabilistic test after failure.
+        // It can be kept here for future consideration.  Rounds chosen to
+        // scale to get 2^-80 chance of error for 4096 bits.
+        //
+        const int rounds = ((ctx.len / 32) + 1) * 10;
+        int test = mbedtls_mpi_is_prime_ext(
+            &ctx.P,
+            rounds,
+            &get_random,
+            nullptr
+        );
+        if (test == MBEDTLS_ERR_MPI_NOT_ACCEPTABLE) {
+            rebJumps (
+                "fail [",
+                    "{Couldn't use base and modulus to generate keys.}",
+                    "{Probabilistic test suggests modulus likely not prime?}"
+                "]",
+                rebEND);
+        }
+
+        rebJumps (
+            "fail [",
+                "{Couldn't use base and modulus to generate keys,}",
+                "{even though modulus does appear to be prime...}",
+            "]",
+            rebEND);
+    }
+    else
+        IF_NOT_0(cleanup, error, ret);
+
+    // We actually want to expose the private key vs. keep it locked up in
+    // a C structure context (we dispose the context and make new ones if
+    // we need them).  So extract it into a binary.
+    //
+    IF_NOT_0(cleanup, error, mbedtls_mpi_write_binary(&ctx.X, x, x_size));
+
+    result = rebValue(
         "make object! [",
-            "p:", ARG(p),
-            "private:", rebR(rebRepossess(dh_ctx.x, dh_ctx.len)),
-            "public:", rebR(rebRepossess(dh_ctx.gx, dh_ctx.len)),
+            "modulus:", p,
+            "private-key:", rebR(rebRepossess(x, x_size)),
+            "public-key:", rebR(rebRepossess(gx, gx_size)),
         "]",
     rebEND);
+  }
+
+  cleanup:
+    mbedtls_dhm_free(&ctx);  // should free any assigned bignum fields
+
+    if (error)
+        rebJumps ("fail", error, rebEND);
+
+    return result;
 }
 
 
 //
-//  export dh-compute-key: native [
+//  export dh-compute-secret: native [
 //
-//  "Computes key from a private/public key pair and the peer's public key."
+//  "Compute secret from a private/public key pair and the peer's public key"
 //
-//      return: "Negotiated key"
+//      return: "Negotiated shared secret (same size as public/private keys)"
 //          [binary!]
 //      obj "The Diffie-Hellman key object"
 //          [object!]
-//      public-key "Peer's public key"
+//      peer-key "Peer's public key"
 //          [binary!]
 //  ]
 //
-REBNATIVE(dh_compute_key)
+REBNATIVE(dh_compute_secret)
 {
-    CRYPT_INCLUDE_PARAMS_OF_DH_COMPUTE_KEY;
-
-    DH_CTX dh_ctx;
-    memset(&dh_ctx, 0, sizeof(dh_ctx));
+    CRYPT_INCLUDE_PARAMS_OF_DH_COMPUTE_SECRET;
 
     REBVAL *obj = ARG(obj);
 
+    // Extract fields up front, so that if they fail we don't have to TRAP it
+    // to clean up an initialized dhm_context...
+    //
     // !!! used to ensure object only had other fields SELF, PUB-KEY, G
     // otherwise gave Error(RE_EXT_CRYPT_INVALID_KEY_FIELD)
+    //
+    REBVAL *p = rebValue("ensure binary! pick", obj, "'modulus", rebEND);
+    REBYTE *p_data = VAL_BIN_AT(p);
+    REBLEN p_size = rebUnbox("length of", p, rebEND);
 
-    REBVAL *p = rebValue("ensure binary! pick", obj, "'p", rebEND);
-    REBVAL *priv_key = rebValue("ensure binary! pick", obj, "'private", rebEND);
+    REBVAL *x = rebValue("ensure binary! pick", obj, "'private-key", rebEND);
+    REBYTE *x_data = VAL_BIN_AT(x);
+    REBLEN x_size = rebUnbox("length of", x, rebEND);
 
-    dh_ctx.p = VAL_BIN_AT(p);
-    dh_ctx.len = rebUnbox("length of", p, rebEND);
+    REBVAL *gy = ARG(peer_key);
+    REBYTE *gy_data = VAL_BIN_AT(gy);
+    REBLEN gy_size = rebUnbox("length of", x, rebEND);
 
-    dh_ctx.x = VAL_BIN_AT(priv_key);
-    // !!! No length check here, should there be?
+    REBVAL *result = nullptr;
+    REBVAL *error = nullptr;
 
-    dh_ctx.gy = VAL_BIN_AT(ARG(public_key));
-    // !!! No length check here, should there be?
+    struct mbedtls_dhm_context ctx;
+    mbedtls_dhm_init(&ctx);
 
-    dh_ctx.k = rebAllocN(REBYTE, dh_ctx.len);
-    memset(dh_ctx.k, 0, dh_ctx.len);
-
-    DH_compute_key(&dh_ctx);
-
+    IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(&ctx.P, p_data, p_size));
+    assert(mbedtls_mpi_size(&ctx.P) == p_size);  // should reflect what we set
+    ctx.len = p_size;  // length of P is length of private and public keys
     rebRelease(p);
-    rebRelease(priv_key);
 
-    return rebRepossess(dh_ctx.k, dh_ctx.len);
+    IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(&ctx.X, x_data, x_size));
+    rebRelease(x);
+
+    IF_NOT_0(
+        cleanup,
+        error,
+        mbedtls_mpi_read_binary(&ctx.GY, gy_data, gy_size)
+    );
+
+  blockscope {
+    REBLEN s_size = ctx.len;  // shared key is same size as modulus/etc.
+    REBYTE *s = rebAllocN(REBYTE, s_size);  // shared key buffer
+
+    size_t olen;
+    int ret = mbedtls_dhm_calc_secret(
+        &ctx,
+        s,  // output buffer for the "shared secret" key
+        s_size,  // output_size (at least ctx.len, more may avoid compaction)
+        &olen,  // actual number of bytes written to `k`
+        &get_random,  // f_rng random number generator
+        nullptr  // p_rng parameter tunneled to f_rng (not used ATM)
+    );
+
+    // See remarks on DH-GENERATE-KEYPAIR for why this check is performed
+    // unless /INSECURE is used.  *BUT* note that we deliberately don't allow
+    // the cases of detectably sketchy private keys to pass by even with the
+    // /INSECURE setting.  Instead, a new attempt is made.  So the only way
+    // this happens is if the peer came from a less checked implementation.
+    //
+    // (There is no way to "try again" with unmodified mbedTLS code with a
+    // suspect key to make a shared secret--it's not randomization, it is a
+    // calculation.  Adding /INSECURE would require changing mbedTLS itself
+    // to participate in decoding insecure keys.)
+    //
+    if (ret == MBEDTLS_ERR_DHM_BAD_INPUT_DATA) {
+        rebJumps (
+            "fail [",
+                "{Suspiciously poor base and modulus usage was detected.}",
+                "{It's unwise to use random primes vs. constructed ones.}",
+                "{https://www.cl.cam.ac.uk/~rja14/Papers/psandqs.pdf}",
+                "{If keys originated from Rebol, please report this!}",
+            "]",
+            rebEND);
+    }
+    else
+        IF_NOT_0(cleanup, error, ret);
+
+    // !!! The multiple precision number system affords leading zeros, and
+    // can optimize them out.  So 7 could be #{0007} or #{07}.  We could
+    // pad the secret if we wanted to, but there's no obvious reason 
+    //
+    assert(s_size >= olen);
+
+    result = rebRepossess(s, s_size);
+  }
+
+  cleanup:
+    mbedtls_dhm_free(&ctx);
+
+    if (error)
+        rebJumps ("fail", error, rebEND);
+
+    return result;
 }
 
 
@@ -870,11 +1069,11 @@ REBNATIVE(ecc_generate_keypair)
 
     return rebValue(
         "make object! [",
-            "public: make object! [",
+            "public-key: make object! [",
                 "x:", rebR(rebRepossess(p_publicX, ECC_BYTES)),
                 "y:", rebR(rebRepossess(p_publicY, ECC_BYTES)),
             "]",
-            "private:", rebR(rebRepossess(p_privateKey, ECC_BYTES)),
+            "private-key:", rebR(rebRepossess(p_privateKey, ECC_BYTES)),
         "]",
     rebEND);
 }

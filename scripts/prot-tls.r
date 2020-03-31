@@ -663,23 +663,25 @@ client-key-exchange: function [
 
         <dhe-dss>
         <dhe-rsa> [
-            ctx/dh-keypair: dh-generate-keypair ctx/dh-g ctx/dh-p
-            ctx/pre-master-secret: dh-compute-key ctx/dh-keypair ctx/dh-pub
+            ctx/dh-keypair: dh-generate-keypair ctx/dh-p ctx/dh-g
+            ctx/pre-master-secret: dh-compute-secret ctx/dh-keypair ctx/dh-pub
 
             ; supply the client's public key to server
-            key-data: ctx/dh-keypair/public
+            key-data: ctx/dh-keypair/public-key
             key-len: to-2bin length of key-data  ; Two bytes for this case
         ]
 
         <echde-rsa> [
             ctx/ecdh-keypair: ecc-generate-keypair  ; specifically secp256r1
             ctx/pre-master-secret: (
-                ecdh-shared-secret ctx/ecdh-keypair/private ctx/ecdh-pub
+                ecdh-shared-secret ctx/ecdh-keypair/private-key ctx/ecdh-pub
             )
 
             ; we use the 65-byte uncompressed format to send our key back
             key-data: join-all [
-                #{04} ctx/ecdh-keypair/public/x ctx/ecdh-keypair/public/y
+                #{04}
+                ctx/ecdh-keypair/public-key/x
+                ctx/ecdh-keypair/public-key/y
             ]
             key-len: to-1bin length of key-data  ; One byte for this case
         ]

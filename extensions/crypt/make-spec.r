@@ -36,7 +36,6 @@ depends: [
         <msc:/wd5045>  ; https://stackoverflow.com/q/50399940
     ]
 
-    %crypt/dh/dh.c
     %crypt/rsa/rsa.c
 
     ; If you're using a platform that mbedTLS has been designed for,
@@ -47,6 +46,12 @@ depends: [
     [%crypt/mbedtls/library/platform.c  #no-c++]
     [%crypt/mbedtls/library/platform_util.c  #no-c++]
 
+    ; The current plan is to embed the bignum implementation into Rebol itself
+    ; to power its INTEGER! type (when the integers exceed the cell size).
+    ; So it should be shareable across the various crypto that uses it.
+    ;
+    [%crypt/mbedtls/library/bignum.c  #no-c++]
+
     [%crypt/mbedtls/library/sha256.c  #no-c++]
 
     ; !!! RC4 is a weak cipher and no longer used, but was included as
@@ -54,6 +59,13 @@ depends: [
     ; be a separate extension you can exclude...but keeping for now.
     ;
     [%crypt/mbedtls/library/arc4.c  #no-c++]
+
+    ; !!! Plain Diffie-Hellman(-Merkel) is considered weaker than the
+    ; Elliptic Curve Diffie-Hellman (ECDH).  It was an easier first test case
+    ; to replace the %dh.h and %dh.c code, however.  Separate extensions for
+    ; each crypto again would be preferable.
+    ;
+    [%crypt/mbedtls/library/dhm.c  #no-c++]
 
     %crypt/easy-ecc/ecc.c
 
