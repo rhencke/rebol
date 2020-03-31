@@ -48,43 +48,13 @@
 #include "rsa.h"
 
 
-// Initialized by the CRYPT extension entry point, shut down by the exit code
-//
-#ifdef TO_WINDOWS
-    HCRYPTPROV gCryptProv = 0;
-#else
-    int rng_fd = -1;
-#endif
-
-/**
- * Set a series of bytes with a random number. Individual bytes can be 0
- */
-EXP_FUNC int STDCALL get_random(int num_rand_bytes, uint8_t *rand_data)
-{
-#ifdef TO_WINDOWS
-    if (CryptGenRandom(gCryptProv, num_rand_bytes, rand_data) != 0)
-        return 0; // success
-#else
-    if (rng_fd != -1 && read(rng_fd, rand_data, num_rand_bytes) != -1)
-        return 0; // success
-#endif
-
-    // !!! If this routine cannot generate random numbers, it is a serious
-    // error which cannot continue.  The organization of this code doesn't
-    // currently include Rebol's failure tools, so for now we assert and
-    // force an exit should this happen.
-
-    assert(0);
-    exit(EXIT_FAILURE);
-}
-
 /**
  * Set a series of bytes with a random number. Individual bytes are not zero.
  */
 int get_random_NZ(int num_rand_bytes, uint8_t *rand_data)
 {
     int i;
-    if (get_random(num_rand_bytes, rand_data))
+    if (get_random(NULL, rand_data, num_rand_bytes))
         return -1;
 
     for (i = 0; i < num_rand_bytes; i++)

@@ -60,10 +60,8 @@
 #include "tmp-mod-crypt.h"
 
 
-// !!! Rebol2/R3-Alpha historically had a polymorphic CHECKSUM function which
-// you would pass a WORD! identifying which hash you wanted.  It had no
-// extension model whereby usermode code could add more checksums (as either
-// native code or Rebol code)...there was a fixed C table of checksums.
+#include "md5/u-md5.h"  // exposed via `CHECKSUM 'MD5` (see notes)
+#include "sha1/u-sha1.h"  // exposed via `CHECKSUM 'SHA1` (see notes)
 
 
 // Most routines in mbedTLS return either `void` or an `int` code which is
@@ -86,14 +84,72 @@
     } while (0)
 
 
+//=//// RANDOM NUMBER GENERATION //////////////////////////////////////////=//
 //
-// How this would shape up is an open question.  However, since there is no
-// need for the checksum in the interpreter core, it is moved out to the
-// Crypt extension.  Ideally each would be its own extension.
+// The generation of "random enough numbers" is a deep topic in cryptography.
+// mbedTLS doesn't build in a random generator and allows you to pick one that
+// is "as random as you feel you need" and can take advantage of any special
+// "entropy sources" you have access to (e.g. the user waving a mouse around
+// while the numbers are generated).  The prototype of the generator is:
+//
+//     int (*f_rng)(void *p_rng, unsigned char *output, size_t len);
+//
+// Each function that takes a random number generator also takes a pointer
+// you can tunnel through (the first parameter), if it has some non-global
+// state it needs to use.
+//
+// mbedTLS offers %ctr_drbg.h and %ctr_drbg.c for standardized functions which
+// implement a "Counter mode Deterministic Random Byte Generator":
+//
+// https://tls.mbed.org/kb/how-to/add-a-random-generator
+//
+// !!! Currently we just use the code from Saphirion, given that TLS is not
+// even checking the certificates it gets.
+//
 
-#include "md5/u-md5.h"  // exposed via CHECKSUM
-#include "sha1/u-sha1.h"  // exposed via CHECKSUM
+// Initialized by the CRYPT extension entry point, shut down by the exit code
+//
+#ifdef TO_WINDOWS
+    HCRYPTPROV gCryptProv = 0;
+#else
+    int rng_fd = -1;
+#endif
 
+int get_random(void *p_rng, unsigned char *output, size_t output_len)
+{
+    assert(p_rng == nullptr);  // parameter currently not used
+    UNUSED(p_rng);
+
+  #ifdef TO_WINDOWS
+    if (CryptGenRandom(gCryptProv, output_len, output) != 0)
+        return 0;  // success
+  #else
+    if (rng_fd != -1 && read(rng_fd, output, output_len) != -1)
+        return 0;  // success
+  #endif
+
+  rebJumps ("fail {Random number generation did not succeed}");
+}
+
+
+
+//=//// CHECKSUM "EXTENSIBLE WITH PLUG-INS" NATIVE ////////////////////////=//
+//
+// Rather than pollute the namespace with functions that had every name of
+// every algorithm (`sha256 my-data`, `md5 my-data`) Rebol had a CHECKSUM
+// that effectively namespaced it (e.g. `checksum/method my-data 'sha256`).
+// This suffered from somewhat the same problem as ENCODE and DECODE in that
+// parameterization was not sorted out; instead leading to a hodgepodge of
+// refinements that may or may not apply to each algorithm.
+//
+// Additionally: the idea that there is some default CHECKSUM the language
+// would endorse for all time when no /METHOD is given is suspect.  It may
+// be that a transient "only good for this run" sum (which wouldn't serialize)
+// could be repurposed for this use.
+//
+// !!! For now, the CHECKSUM function is left as-is for MD5 and SHA1, but
+// the idea should be reviewed for its merits.
+//
 
 // Table of has functions and parameters:
 static struct {
@@ -110,8 +166,7 @@ static struct {
     {SHA1, SHA1_Init, SHA1_Update, SHA1_Final, SHA1_CtxSize, SYM_SHA1, 20, 64},
     {MD5, MD5_Init, MD5_Update, MD5_Final, MD5_CtxSize, SYM_MD5, 16, 64},
 
-    {NULL, NULL, NULL, NULL, NULL, SYM_0, 0, 0}
-
+    {nullptr, nullptr, nullptr, nullptr, nullptr, SYM_0, 0, 0}
 };
 
 //
@@ -126,7 +181,7 @@ static struct {
 //      /secure "Returns a cryptographically secure checksum"
 //      /hash "Returns a hash value with given size"
 //          [integer!]
-//      /method "Method to use (SHA1, MD5, CRC32)"
+//      /method "Method to use [SHA1 MD5] (see also CRC32 native)"
 //          [word!]
 //      /key "Returns keyed HMAC value"
 //          [binary! text!]
@@ -249,6 +304,21 @@ REBNATIVE(checksum)
     return D_OUT;
 }
 
+
+//=//// INDIVIDUAL CRYPTO NATIVES /////////////////////////////////////////=//
+//
+// These natives are the hodgepodge of choices that implemented "enough TLS"
+// to let Rebol communicate with HTTPS sites.  The first ones originated
+// from Saphirion's %host-core.c:
+//
+// https://github.com/zsx/r3/blob/atronix/src/os/host-core.c
+//
+// !!! The effort to improve these has been ongoing and gradual.  Current
+// focus is on building on the shared/vetted/maintained architecture of
+// mbedTLS, instead of the mix of standalone clips from the Internet and some
+// custom code from Saphirion.  But eventually this should aim to make
+// inclusion of each crypto a separate extension for more modularity.
+//
 
 
 static void cleanup_rc4_ctx(const REBVAL *v)
@@ -872,26 +942,26 @@ REBNATIVE(init_crypto)
     CRYPT_INCLUDE_PARAMS_OF_INIT_CRYPTO;
 
   #ifdef TO_WINDOWS
-    if (!CryptAcquireContextW(
-        &gCryptProv, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT
-    )) {
-        // !!! There is no good way to return failure here as the
-        // routine is designed, and it appears that in some cases
-        // a zero initialization worked in the past.  Assert in the
-        // debug build but continue silently otherwise.
-        assert(false);
-        gCryptProv = 0;
+    if (CryptAcquireContextW(
+        &gCryptProv,
+        0,
+        0,
+        PROV_RSA_FULL,
+        CRYPT_VERIFYCONTEXT | CRYPT_SILENT
+    )){
+        return rebVoid();
     }
+    gCryptProv = 0;
   #else
     rng_fd = open("/dev/urandom", O_RDONLY);
-    if (rng_fd == -1) {
-        // We don't crash the release client now, but we will later
-        // if they try to generate random numbers
-        assert(false);
-    }
+    if (rng_fd != -1)
+        return rebVoid();
   #endif
 
-    return Init_Void(D_OUT);
+    // !!! Should we fail here, or wait to fail until the system tries to
+    // generate random data and cannot?
+    //
+    fail ("INIT-CRYPTO couldn't initialize random number generation");
 }
 
 
@@ -900,6 +970,7 @@ REBNATIVE(init_crypto)
 //
 //  {Shut down random number generators and OS-provided crypto services}
 //
+//      return: [void!]
 //  ]
 //
 REBNATIVE(shutdown_crypto)
@@ -907,11 +978,15 @@ REBNATIVE(shutdown_crypto)
     CRYPT_INCLUDE_PARAMS_OF_SHUTDOWN_CRYPTO;
 
   #ifdef TO_WINDOWS
-    if (gCryptProv != 0)
+    if (gCryptProv != 0) {
         CryptReleaseContext(gCryptProv, 0);
+        gCryptProv = 0;
+    }
   #else
-    if (rng_fd != -1)
+    if (rng_fd != -1) {
         close(rng_fd);
+        rng_fd = -1;
+    }
   #endif
 
     return Init_Void(D_OUT);

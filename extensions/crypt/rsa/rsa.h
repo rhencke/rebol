@@ -128,7 +128,7 @@ void RSA_print(const RSA_CTX *ctx);
 EXP_FUNC void STDCALL RNG_initialize(void);
 EXP_FUNC void STDCALL RNG_custom_init(const uint8_t *seed_buf, int size);
 EXP_FUNC void STDCALL RNG_terminate(void);
-EXP_FUNC int STDCALL get_random(int num_rand_bytes, uint8_t *rand_data);
+EXP_FUNC int get_random(void *p_rng, unsigned char *output, size_t output_len);
 int get_random_NZ(int num_rand_bytes, uint8_t *rand_data);
 
 
