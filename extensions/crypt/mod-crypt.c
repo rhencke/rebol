@@ -30,7 +30,7 @@
 //
 
 #include "rsa/rsa.h" // defines gCryptProv and rng_fd (used in Init/Shutdown)
-#include "aes/aes.h"
+#include "mbedtls/cipher.h"
 
 // The "Easy ECC" supports four elliptic curves, but is only set up to do one
 // of them at a time you pick with a #define.  We pick secp256r1, in part
@@ -865,8 +865,10 @@ REBNATIVE(dh_compute_secret)
 
 static void cleanup_aes_ctx(const REBVAL *v)
 {
-    AES_CTX *aes_ctx = VAL_HANDLE_POINTER(AES_CTX, v);
-    FREE(AES_CTX, aes_ctx);
+    struct mbedtls_cipher_context_t *ctx
+        = VAL_HANDLE_POINTER(struct mbedtls_cipher_context_t, v);
+    mbedtls_cipher_free(ctx);
+    FREE(struct mbedtls_cipher_context_t, ctx);
 }
 
 
@@ -887,44 +889,73 @@ REBNATIVE(aes_key)
 {
     CRYPT_INCLUDE_PARAMS_OF_AES_KEY;
 
-    uint8_t iv[AES_IV_SIZE];
-
-    if (IS_BINARY(ARG(iv))) {
-        if (VAL_LEN_AT(ARG(iv)) < AES_IV_SIZE)
-            fail ("Length of initialization vector less than AES size");
-
-        memcpy(iv, VAL_BIN_AT(ARG(iv)), AES_IV_SIZE);
-    }
-    else {
-        assert(IS_BLANK(ARG(iv)));
-        memset(iv, 0, AES_IV_SIZE);
-    }
-
-    REBINT len = VAL_LEN_AT(ARG(key)) << 3;
-    if (len != 128 and len != 256) {
+    REBYTE *p_key = VAL_BIN_AT(ARG(key));
+    REBINT keybits = VAL_LEN_AT(ARG(key)) << 3;
+    if (keybits != 128 and keybits != 192 and keybits != 256) {
         DECLARE_LOCAL (i);
-        Init_Integer(i, len);
+        Init_Integer(i, keybits);
         rebJumps(
-            "fail [{AES key length has to be 16 or 32, not:}", rebI(len), "]",
+            "fail [{AES bits must be [128 192 256], not}", rebI(keybits), "]",
         rebEND);
     }
 
-    AES_CTX *aes_ctx = ALLOC_ZEROFILL(AES_CTX);
-
-    AES_set_key(
-        aes_ctx,
-        cast(const uint8_t*, VAL_BIN_AT(ARG(key))),
-        cast(const uint8_t*, iv),
-        (len == 128) ? AES_MODE_128 : AES_MODE_256
+    const mbedtls_cipher_info_t *info = mbedtls_cipher_info_from_values(
+        MBEDTLS_CIPHER_ID_AES,
+        keybits,
+        MBEDTLS_MODE_CBC
     );
 
-    if (REF(decrypt))
-        AES_convert_key(aes_ctx);
+    struct mbedtls_cipher_context_t *ctx
+        = ALLOC(struct mbedtls_cipher_context_t);
+    mbedtls_cipher_init(ctx);
+
+    REBVAL *error = nullptr;
+
+    IF_NOT_0(cleanup, error, mbedtls_cipher_setup(ctx, info));
+
+    IF_NOT_0(cleanup, error, mbedtls_cipher_setkey(
+        ctx,
+        p_key,
+        keybits,
+        REF(decrypt) ? MBEDTLS_DECRYPT : MBEDTLS_ENCRYPT
+    ));
+
+    // !!! Looking at the %ssl_tls.c file for mbedTLS for how they initialize
+    // AES CBC ciphers, they use PADDING_NONE...which is not the default
+    // (default is PKCS7).  For parity, is this right?
+    //
+    IF_NOT_0(cleanup, error,
+        mbedtls_cipher_set_padding_mode(ctx, MBEDTLS_PADDING_NONE)
+    );
+
+  blockscope {
+    size_t blocksize = mbedtls_cipher_get_block_size(ctx);
+    if (IS_BINARY(ARG(iv))) {
+        if (VAL_LEN_AT(ARG(iv)) != blocksize) {
+            error = rebValue("make error! [",
+                "Initialization vector block size not", rebI(blocksize),
+            "]", rebEND);
+            goto cleanup;
+        }
+
+        IF_NOT_0(cleanup, error,
+            mbedtls_cipher_set_iv(ctx, VAL_BIN_AT(ARG(iv)), blocksize)
+        );
+    }
+    else
+        assert(IS_BLANK(ARG(iv)));
+  }
+
+  cleanup:
+    if (error) {
+        mbedtls_cipher_free(ctx);
+        rebJumps ("fail", error, rebEND);
+    }
 
     return Init_Handle_Cdata_Managed(
         D_OUT,
-        aes_ctx,
-        sizeof(AES_CTX),
+        ctx,
+        sizeof(struct mbedtls_cipher_context_t),
         &cleanup_aes_ctx
     );
 }
@@ -951,51 +982,63 @@ REBNATIVE(aes_stream)
             "fail [{Not a AES context:}", ARG(ctx), "]", rebEND
         );
 
-    AES_CTX *aes_ctx = VAL_HANDLE_POINTER(AES_CTX, ARG(ctx));
+    struct mbedtls_cipher_context_t *ctx
+        = VAL_HANDLE_POINTER(struct mbedtls_cipher_context_t, ARG(ctx));
 
-    REBYTE *dataBuffer = VAL_BIN_AT(ARG(data));
-    REBINT len = VAL_LEN_AT(ARG(data));
+    REBYTE *input = VAL_BIN_AT(ARG(data));
+    REBINT ilen = VAL_LEN_AT(ARG(data));
 
-    if (len == 0)
-        return nullptr; // !!! Is NULL a good result for 0 data?
+    if (ilen == 0)
+        return nullptr;  // !!! Is NULL a good result for 0 data?
 
-    REBINT pad_len = (((len - 1) >> 4) << 4) + AES_BLOCKSIZE;
+    REBVAL *error = nullptr;
+    REBVAL *result = nullptr;
+
+    // output data buffer must be at least the input length plus block size.
+    //
+    size_t blocksize = mbedtls_cipher_get_block_size(ctx);
+    assert(blocksize == 16);  // !!! to be generalized...
+
+    // !!! Saphir's AES code worked with zero-padded chunks, so you always
+    // got a multiple of 16 bytes out.  That doesn't seem optimal for a
+    // "streaming cipher" because for the output to be useful, your input
+    // has to come pre-chunked; you should be able to add one byte at a time
+    // if you want.  For starters the code is kept compatible just to excise
+    // the old AES implementation--but this needs to change, maybe to
+    // a PORT! model of some kind.
+    //
+    REBINT pad_len = (((ilen - 1) >> 4) << 4) + blocksize;
 
     REBYTE *pad_data;
-    if (len < pad_len) {
+    if (ilen < pad_len) {
         //
         //  make new data input with zero-padding
         //
         pad_data = rebAllocN(REBYTE, pad_len);
         memset(pad_data, 0, pad_len);
-        memcpy(pad_data, dataBuffer, len);
-        dataBuffer = pad_data;
+        memcpy(pad_data, input, ilen);
+        input = pad_data;
     }
     else
         pad_data = nullptr;
 
-    REBYTE *data_out = rebAllocN(REBYTE, pad_len);
-    memset(data_out, 0, pad_len);
+    REBYTE *output = rebAllocN(REBYTE, ilen + blocksize);
 
-    if (aes_ctx->key_mode == AES_MODE_DECRYPT)
-        AES_cbc_decrypt(
-            aes_ctx,
-            cast(const uint8_t*, dataBuffer),
-            data_out,
-            pad_len
-        );
-    else
-        AES_cbc_encrypt(
-            aes_ctx,
-            cast(const uint8_t*, dataBuffer),
-            data_out,
-            pad_len
-        );
+    size_t olen;
+    IF_NOT_0(cleanup, error,
+        mbedtls_cipher_update(ctx, input, pad_len, output, &olen)
+    );
 
+    result = rebRepossess(output, olen);
+
+  cleanup:
     if (pad_data)
         rebFree(pad_data);
 
-    return rebRepossess(data_out, pad_len);
+    if (error)
+        rebJumps ("fail", error, rebEND);
+
+    return result;
 }
 
 

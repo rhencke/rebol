@@ -22,6 +22,13 @@
 // at the cost of about 30% of performance.  It's the kind of tradeoff that
 // might be interesting for Rebol builds to offer (e.g. an extension setting
 // when SHA256 is its own extension).
+//
+// MBEDTLS_AESNI_C was enabled by default but is REBDISABLE'd.  It would add
+// support for native 64-bit instructions that could make AES a bit faster,
+// at the cost of a larger executable and more files to include and link in.
+// This option does not appear to work on Windows...in any case, it's not
+// clear whether it's worth it or not.
+
 
 /**
  * \file config.h
@@ -2078,7 +2085,7 @@
  *
  * This modules adds support for the AES-NI instructions on x86-64
  */
-#define MBEDTLS_AESNI_C
+// REBDISABLE #define MBEDTLS_AESNI_C
 
 /**
  * \def MBEDTLS_AES_C
@@ -2818,7 +2825,7 @@
  *
  * This modules adds support for the VIA PadLock on x86.
  */
-#define MBEDTLS_PADLOCK_C
+// REBDISABLE #define MBEDTLS_PADLOCK_C
 
 /**
  * \def MBEDTLS_PEM_PARSE_C
