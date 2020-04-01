@@ -16,6 +16,12 @@
 // This should make it relatively easy to sync up the configuration with a
 // subsequent release of `config.h`!
 
+// Notes:
+//
+// MBEDTLS_SHA256_SMALLER could use a 0.5k implementation instead of 2.0k
+// at the cost of about 30% of performance.  It's the kind of tradeoff that
+// might be interesting for Rebol builds to offer (e.g. an extension setting
+// when SHA256 is its own extension).
 
 /**
  * \file config.h

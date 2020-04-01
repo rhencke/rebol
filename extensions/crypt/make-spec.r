@@ -9,7 +9,11 @@ includes: reduce [
     ; and `#include "rsa/rsa.h" can be found by %dh.c
     ;
     repo-dir/extensions/crypt
+    repo-dir/extensions/crypt/mbedtls/include  ; w/subdir %mbedtls
     %prep/extensions/crypt ;for %tmp-extensions-crypt-init.inc
+]
+definitions: [
+    {MBEDTLS_CONFIG_FILE="mbedtls-rebol-config.h"}
 ]
 depends: [
     [
@@ -35,7 +39,17 @@ depends: [
     %crypt/dh/dh.c
     %crypt/rc4/rc4.c
     %crypt/rsa/rsa.c
-    %crypt/sha256/sha256.c
+
+    ; If you're using a platform that mbedTLS has been designed for,
+    ; you can take the standard settings of what "malloc" and "free"
+    ; and "printf" are supposed to be.  (Hopefully it won't actually
+    ; use printf in release code...) 
+    ;
+    [%crypt/mbedtls/library/platform.c  #no-c++]
+    [%crypt/mbedtls/library/platform_util.c  #no-c++]
+
+    [%crypt/mbedtls/library/sha256.c  #no-c++]
+
     %crypt/easy-ecc/ecc.c
 
     [%crypt/md5/u-md5.c <implicit-fallthru>]

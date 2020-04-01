@@ -53,7 +53,7 @@
 #endif
 #include "sys-core.h"
 
-#include "sha256/sha256.h" // depends on %reb-c.h for u8, u32, u64
+#include "mbedtls/sha256.h"
 
 #include "sys-zlib.h"  // needed for the ADLER32 hash
 
@@ -64,6 +64,28 @@
 // you would pass a WORD! identifying which hash you wanted.  It had no
 // extension model whereby usermode code could add more checksums (as either
 // native code or Rebol code)...there was a fixed C table of checksums.
+
+
+// Most routines in mbedTLS return either `void` or an `int` code which is
+// 0 on success and negative numbers on error.  This macro helps generalize
+// the pattern of trying to build a result and having a cleanup (similar
+// ones exist inside mbedTLS itself, e.g. MBEDTLS_MPI_CHK() in %bignum.h)
+//
+// !!! We probably do not need to have non-debug builds use up memory by
+// integrating the string table translating all those negative numbers into
+// specific errors.  But a debug build might want to.  For now, one error.
+//
+#define IF_NOT_0(label,error,call) \
+    do { \
+        assert(error == nullptr); \
+        int mbedtls_ret = (call);  /* don't use (call) more than once! */ \
+        if (mbedtls_ret != 0) { \
+            error = rebValue("make error! {mbedTLS error}", rebEND); \
+            goto label; \
+        } \
+    } while (0)
+
+
 //
 // How this would shape up is an open question.  However, since there is no
 // need for the checksum in the interpreter core, it is moved out to the
@@ -724,14 +746,33 @@ REBNATIVE(sha256)
     REBSIZ size;
     const REBYTE *bp = VAL_BYTES_AT(&size, ARG(data));
 
-    SHA256_CTX ctx;
+    struct mbedtls_sha256_context ctx;
+    mbedtls_sha256_init(&ctx);
 
-    sha256_init(&ctx);
-    sha256_update(&ctx, bp, size);
+    REBVAL *result = nullptr;
+    REBVAL *error = nullptr;
 
-    REBYTE *buf = rebAllocN(REBYTE, SHA256_BLOCK_SIZE);
-    sha256_final(&ctx, buf);
-    return rebRepossess(buf, SHA256_BLOCK_SIZE);
+    const int is224 = 0;  // could do sha224 if needed...
+    IF_NOT_0(cleanup, error, mbedtls_sha256_starts_ret(&ctx, is224));
+
+    IF_NOT_0(cleanup, error, mbedtls_sha256_update_ret(&ctx, bp, size));
+
+  blockscope {
+    const size_t sha256_digest_size = 32;
+
+    REBYTE *buf = rebAllocN(REBYTE, sha256_digest_size);  // freed if FAIL
+    IF_NOT_0(cleanup, error, mbedtls_sha256_finish_ret(&ctx, buf));
+
+    result = rebRepossess(buf, sha256_digest_size);
+  }
+
+  cleanup:
+    mbedtls_sha256_free(&ctx);
+
+    if (error)
+        rebJumps ("fail", error, rebEND);
+
+    return result;
 }
 
 
