@@ -343,7 +343,7 @@ Special internal defines used by RT, not Host-Kit developers:
     // Linux, where it has seemed to work out (MinGW64 build on Cygwin made
     // invalid REBVAL sizes with this on)
     //
-    #if defined(ENDIAN_LITTLE) && defined(TO_LINUX)
+    #if defined(ENDIAN_LITTLE) && defined(TO_LINUX_X64)
         #define DEBUG_USE_BITFIELD_HEADER_PUNS
     #endif
 #endif

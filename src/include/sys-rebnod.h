@@ -312,6 +312,13 @@ inline static uintptr_t FLAG_SECOND_UINT16(uint16_t u)
 // able to signal the IS_END() test for REBVAL.  See Endlike_Header()
 //
 
+// If this turns out not to be true on some weird platform (e.g. you have an
+// integer type faster than an integer the size of a pointer that is *bigger*
+// than a pointer) then there needs to be a #define to disable uint_fast32_t
+// for the `bits` field of the header below.
+//
+STATIC_ASSERT(sizeof(uint_fast32_t) <= sizeof(uintptr_t));
+
 union Reb_Header {
     //
     // unsigned integer that's the size of a platform pointer (e.g. 32-bits on
