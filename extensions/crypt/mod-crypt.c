@@ -30,6 +30,14 @@
 //
 
 #include "rsa/rsa.h" // defines gCryptProv and rng_fd (used in Init/Shutdown)
+
+// mbedTLS has separate functions for each message digest (SHA256, MD5, etc)
+// and each streaming cipher (RC4, AES...) which you would have to link to
+// directly with the proper parameterization.  But it also has abstraction
+// layers that can list the available methods linked in, look them up by
+// name, and interface with generically.
+//
+#include "mbedtls/md.h"
 #include "mbedtls/cipher.h"
 
 // The "Easy ECC" supports four elliptic curves, but is only set up to do one
@@ -53,16 +61,12 @@
 
 #include "mbedtls/dhm.h"  // Diffie-Hellman (credits Merkel, by their request)
 
-#include "mbedtls/sha256.h"
 #include "mbedtls/arc4.h"  // RC4 is technically trademarked, so it's "ARC4"
 
 #include "sys-zlib.h"  // needed for the ADLER32 hash
 
 #include "tmp-mod-crypt.h"
 
-
-#include "md5/u-md5.h"  // exposed via `CHECKSUM 'MD5` (see notes)
-#include "sha1/u-sha1.h"  // exposed via `CHECKSUM 'SHA1` (see notes)
 
 
 // Most routines in mbedTLS return either `void` or an `int` code which is
@@ -148,40 +152,19 @@ int get_random(void *p_rng, unsigned char *output, size_t output_len)
 // be that a transient "only good for this run" sum (which wouldn't serialize)
 // could be repurposed for this use.
 //
-// !!! For now, the CHECKSUM function is left as-is for MD5 and SHA1, but
-// the idea should be reviewed for its merits.
-//
 
-// Table of has functions and parameters:
-static struct {
-    REBYTE *(*digest)(const REBYTE *, REBLEN, REBYTE *);
-    void (*init)(void *);
-    void (*update)(void *, const REBYTE *, REBLEN);
-    void (*final)(REBYTE *, void *);
-    int (*ctxsize)(void);
-    REBSYM sym;
-    REBLEN len;
-    REBLEN hmacblock;
-} digests[] = {
-
-    {SHA1, SHA1_Init, SHA1_Update, SHA1_Final, SHA1_CtxSize, SYM_SHA1, 20, 64},
-    {MD5, MD5_Init, MD5_Update, MD5_Final, MD5_CtxSize, SYM_MD5, 16, 64},
-
-    {nullptr, nullptr, nullptr, nullptr, nullptr, SYM_0, 0, 0}
-};
 
 //
 //  export checksum: native [
 //
 //  "Computes a checksum, CRC, or hash."
 //
-//      data [binary!]
-//      /part "Length of data"
+//      return: "Warning: likely to be changed to always be BINARY!"
+//          [binary! integer!]  ; see note below
+//      data "Input data to digest (TEXT! is interpreted as UTF-8 bytes)"
+//          [binary! text!]
+//      /part "Length of data to use, default is current index to series end"
 //          [any-value!]
-//      /tcp "Returns an Internet TCP 16-bit checksum"
-//      /secure "Returns a cryptographically secure checksum"
-//      /hash "Returns a hash value with given size"
-//          [integer!]
 //      /method "Method to use [SHA1 MD5] (see also CRC32 native)"
 //          [word!]
 //      /key "Returns keyed HMAC value"
@@ -189,120 +172,130 @@ static struct {
 //  ]
 //
 REBNATIVE(checksum)
+//
+// !!! The return value of this function was initially integers, and expanded
+// to be either INTEGER! or BINARY!.  Allowing integer results gives some
+// potential performance benefits over a binary with the same number of bits,
+// although if a binary conversion is then done then it costs more.  Also, it
+// introduces the question of signedness, which was inconsistent.  Moving to
+// where checksum is always a BINARY! is probably what should be done.
+//
+// !!! There was a /SECURE option which wasn't used for anything.
+//
+// !!! There was a /HASH option that took an integer and claimed to "return
+// a hash value with given size".  But what it did was:
+//
+//    REBINT sum = VAL_INT32(ARG(hash));
+//    if (sum <= 1)
+//        sum = 1;
+//    Init_Integer(D_OUT, Hash_Bytes(data, len) % sum);
+//
+// As nothing used it, it's not clear what this was for.  Currently removed.
 {
     CRYPT_INCLUDE_PARAMS_OF_CHECKSUM;
+
+    if (not REF(method))
+        rebJumps("fail {Plain CHECKSUM not supported, use /METHOD}", rebEND);
 
     REBLEN len = Part_Len_May_Modify_Index(ARG(data), ARG(part));
     REBYTE *data = VAL_RAW_DATA_AT(ARG(data));  // after Part_Len, may change
 
-    REBSYM sym;
-    if (REF(method)) {
-        sym = VAL_WORD_SYM(ARG(method));
-        if (sym == SYM_0)  // not in %words.r, no SYM_XXX constant
-            fail (PAR(method));
-    }
-    else
-        sym = SYM_SHA1;
+    // Turn the method into a string and look it up in the table that mbedTLS
+    // builds in when you `#include "md.h"`.  How many entries are in this
+    // table depend on the config settings (see %mbedtls-rebol-config.h)
+    //
+    char *method_name = rebSpellQ("uppercase to text!", ARG(method), rebEND);
+    const mbedtls_md_info_t *info = mbedtls_md_info_from_string(method_name);
+    rebFree(method_name);
 
-    // If method, secure, or key... find matching digest:
-    if (REF(method) || REF(secure) || REF(key)) {
-        if (sym == SYM_CRC32) {
-            if (REF(secure) || REF(key))
-                fail (Error_Bad_Refines_Raw());
+    if (info != nullptr) {
+        int hmac = REF(key) ? 1 : 0;  // !!! int, but seems to be a boolean?
 
-            // CRC32 is typically an unsigned 32-bit number and uses the full
-            // range of values.  Yet Rebol chose to export this as a signed
-            // integer via CHECKSUM.  Perhaps (?) to generate a value that
-            // could be used by Rebol2, as it only had 32-bit signed INTEGER!.
-            //
-            REBINT crc32 = cast(int32_t, crc32_z(0L, data, len));
-            return Init_Integer(D_OUT, crc32);
+        unsigned char md_size = mbedtls_md_get_size(info);
+        REBYTE *output = rebAllocN(REBYTE, md_size);
+
+        REBVAL *error = nullptr;
+        REBVAL *result = nullptr;
+
+        struct mbedtls_md_context_t ctx;
+        mbedtls_md_init(&ctx);
+        IF_NOT_0(cleanup, error, mbedtls_md_setup(&ctx, info, hmac));
+
+        if (hmac) {
+            REBSIZ key_size;
+            const REBYTE *key_bytes = VAL_BYTES_AT(&key_size, ARG(key));
+
+            IF_NOT_0(cleanup, error,
+                mbedtls_md_hmac_starts(&ctx, key_bytes, key_size)
+            );
+            IF_NOT_0(cleanup, error, mbedtls_md_hmac_update(&ctx, data, len));
+            IF_NOT_0(cleanup, error, mbedtls_md_hmac_finish(&ctx, output));
+        }
+        else {
+            IF_NOT_0(cleanup, error, mbedtls_md_starts(&ctx));
+            IF_NOT_0(cleanup, error, mbedtls_md_update(&ctx, data, len));
+            IF_NOT_0(cleanup, error, mbedtls_md_finish(&ctx, output));
         }
 
-        if (sym == SYM_ADLER32) {
-            if (REF(secure) || REF(key))
-                fail (Error_Bad_Refines_Raw());
+        result = rebRepossess(output, md_size);
 
-            // adler32() is a Saphirion addition since 64-bit INTEGER! was
-            // available in Rebol3, and did not convert the unsigned result
-            // of the adler calculation to a signed integer.
-            //
-            uLong adler = z_adler32(0L, data, len);
-            return Init_Integer(D_OUT, adler);
-        }
+      cleanup:
+        mbedtls_md_free(&ctx);
+        if (error)
+            rebJumps ("fail", error, rebEND);
 
-        REBLEN i;
-        for (i = 0; i != sizeof(digests) / sizeof(digests[0]); i++) {
-            if (!SAME_SYM_NONZERO(digests[i].sym, sym))
-                continue;
-
-            REBSER *digest = Make_Series(digests[i].len + 1, sizeof(char));
-
-            if (not REF(key))
-                digests[i].digest(data, len, BIN_HEAD(digest));
-            else {
-                REBLEN blocklen = digests[i].hmacblock;
-
-                REBYTE tmpdigest[20]; // size must be max of all digest[].len
-
-                REBSIZ key_size;
-                const REBYTE *key_bytes = VAL_BYTES_AT(&key_size, ARG(key));
-
-                if (key_size > blocklen) {
-                    digests[i].digest(key_bytes, key_size, tmpdigest);
-                    key_bytes = tmpdigest;
-                    key_size = digests[i].len;
-                }
-
-                REBYTE ipad[64]; // size must be max of all digest[].hmacblock
-                memset(ipad, 0, blocklen);
-                memcpy(ipad, key_bytes, key_size);
-
-                REBYTE opad[64]; // size must be max of all digest[].hmacblock
-                memset(opad, 0, blocklen);
-                memcpy(opad, key_bytes, key_size);
-
-                REBLEN j;
-                for (j = 0; j < blocklen; j++) {
-                    ipad[j] ^= 0x36; // !!! why do people write this kind of
-                    opad[j] ^= 0x5c; // thing without a comment? !!! :-(
-                }
-
-                char *ctx = ALLOC_N(char, digests[i].ctxsize());
-                digests[i].init(ctx);
-                digests[i].update(ctx,ipad,blocklen);
-                digests[i].update(ctx, data, len);
-                digests[i].final(tmpdigest,ctx);
-                digests[i].init(ctx);
-                digests[i].update(ctx,opad,blocklen);
-                digests[i].update(ctx,tmpdigest,digests[i].len);
-                digests[i].final(BIN_HEAD(digest),ctx);
-
-                FREE_N(char, digests[i].ctxsize(), ctx);
-            }
-
-            TERM_BIN_LEN(digest, digests[i].len);
-            return Init_Binary(D_OUT, digest);
-        }
-
-        fail (PAR(method));
+        return result;
     }
-    else if (REF(tcp)) {
-        REBINT ipc = Compute_IPC(data, len);
-        Init_Integer(D_OUT, ipc);
-    }
-    else if (REF(hash)) {
-        REBINT sum = VAL_INT32(ARG(hash));
-        if (sum <= 1)
-            sum = 1;
 
-        REBINT hash = Hash_Bytes(data, len) % sum;
-        Init_Integer(D_OUT, hash);
-    }
-    else
+    if (REF(key))
+        rebJumps ("fail {/METHOD does not support HMAC keying}", rebEND);
+
+    // Look up some internally available methods based on the WORD!
+    //
+    // !!! Note: There used to be entries in %words.r for the methods.  It
+    // is proposed that extensions be able to plug into an agreed upon
+    // (but not shipped in the executable) allocation of words to numbers
+    // in order to do faster lookups from C.  For now we use libRebol.
+    //
+    if (rebDidQ("'CRC24 =", ARG(method), rebEND)) {
         Init_Integer(D_OUT, Compute_CRC24(data, len));
+        return D_OUT;
+    }
+    if (rebDidQ("'CRC32 =", ARG(method), rebEND)) {
+        //
+        // CRC32 is a hash needed for gzip which is a sunk cost, and it
+        // was exposed in R3-Alpha.  It is typically an unsigned 32-bit
+        // number and uses the full range of values.  Yet R3-Alpha chose to
+        // export this as a signed integer via CHECKSUM, presumably to
+        // generate a value that could be used by Rebol2, as it only had
+        // 32-bit signed INTEGER!.
+        //
+        REBINT crc32 = cast(int32_t, crc32_z(0L, data, len));
+        return Init_Integer(D_OUT, crc32);
+    }
+    else if (rebDidQ("'ADLER32 =", ARG(method), rebEND)) {
+        //
+        // ADLER32 is a hash available in zlib which is a sunk cost, so
+        // it was exposed by Saphirion.  That happened after 64-bit
+        // integers were available, and did not convert the unsigned
+        // result of the adler calculation to a signed integer.
+        //
+        uLong adler = z_adler32(0L, data, len);
+        return Init_Integer(D_OUT, adler);
+    }
+    else if (rebDidQ("'TCP =", ARG(method), rebEND)) {
+        //
+        // !!! This was an "Internet TCP 16-bit checksum" that was initially
+        // a refinement (presumably because adding table entries was a pain).
+        // It does not seem to be used?
+        //
+        REBINT ipc = Compute_IPC(data, len);
+        return Init_Integer(D_OUT, ipc);
+    }
 
-    return D_OUT;
+    rebJumps (
+        "fail [{Unknown CHECKSUM method:}", rebQ1(ARG(method)), "]",
+     rebEND);
 }
 
 
@@ -1034,54 +1027,6 @@ REBNATIVE(aes_stream)
   cleanup:
     if (pad_data)
         rebFree(pad_data);
-
-    if (error)
-        rebJumps ("fail", error, rebEND);
-
-    return result;
-}
-
-
-//
-//  export sha256: native [
-//
-//  {Calculate a SHA256 hash value from binary data.}
-//
-//      return: "32-byte binary hash"
-//          [binary!]
-//      data "Data to hash, TEXT! will be converted to UTF-8"
-//          [binary! text!]
-//  ]
-//
-REBNATIVE(sha256)
-{
-    CRYPT_INCLUDE_PARAMS_OF_SHA256;
-
-    REBSIZ size;
-    const REBYTE *bp = VAL_BYTES_AT(&size, ARG(data));
-
-    struct mbedtls_sha256_context ctx;
-    mbedtls_sha256_init(&ctx);
-
-    REBVAL *result = nullptr;
-    REBVAL *error = nullptr;
-
-    const int is224 = 0;  // could do sha224 if needed...
-    IF_NOT_0(cleanup, error, mbedtls_sha256_starts_ret(&ctx, is224));
-
-    IF_NOT_0(cleanup, error, mbedtls_sha256_update_ret(&ctx, bp, size));
-
-  blockscope {
-    const size_t sha256_digest_size = 32;
-
-    REBYTE *buf = rebAllocN(REBYTE, sha256_digest_size);  // freed if FAIL
-    IF_NOT_0(cleanup, error, mbedtls_sha256_finish_ret(&ctx, buf));
-
-    result = rebRepossess(buf, sha256_digest_size);
-  }
-
-  cleanup:
-    mbedtls_sha256_free(&ctx);
 
     if (error)
         rebJumps ("fail", error, rebEND);

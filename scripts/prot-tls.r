@@ -821,7 +821,7 @@ finished: function [
         ;
         ; For now, assume all supported cipher suites use SHA256.
         ;
-        sha256 ctx/handshake-messages
+        checksum/method ctx/handshake-messages 'sha256
     ]
 
     return join-all [
@@ -1373,7 +1373,7 @@ parse-messages: function [
                                 checksum/method ctx/handshake-messages 'sha1
                             ]
                         ] else [
-                            sha256 ctx/handshake-messages
+                            checksum/method ctx/handshake-messages 'sha256
                         ]
                         if (
                             bin <> applique 'prf [
@@ -1540,8 +1540,8 @@ prf: function [
     p-sha256: copy #{}
     a: seed  ; A(0)
     while [output-length > length of p-sha256] [
-        a: hmac-sha256 secret a
-        append p-sha256 hmac-sha256 secret join-all [a seed]
+        a: checksum/method/key a 'sha256 secret
+        append p-sha256 checksum/method/key join-all [a seed] 'sha256 secret
     ]
     take/last/part p-sha256 ((length of p-sha256) - output-length)
     return p-sha256

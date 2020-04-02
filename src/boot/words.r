@@ -270,10 +270,7 @@ double
 control
 shift
 
-; Checksum
-sha1
-md4
-md5
+; Checksum (CHECKSUM-CORE only, others are looked up by string or libRebol)
 crc32
 adler32
 

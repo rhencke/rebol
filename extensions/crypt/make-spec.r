@@ -41,21 +41,30 @@ depends: [
     ;
     [%crypt/mbedtls/library/bignum.c  #no-c++]
 
-    [%crypt/mbedtls/library/sha256.c  #no-c++]
-
-    ; Generic cipher abstraction layer (write code to one C interface, get all
-    ; the ciphers adapted to it for "free")
+    ; Generic message digest and cipher abstraction layers (write code to one
+    ; C interface, get all the digests and ciphers adapted to it for "free",
+    ; as well as be able to list and query which ones were built in by name)
     ;
+    [%crypt/mbedtls/library/md.c  #no-c++]
     [%crypt/mbedtls/library/cipher.c  #no-c++]
     [%crypt/mbedtls/library/cipher_wrap.c  #no-c++]
 
-    [%crypt/mbedtls/library/aes.c  #no-c++]
-
-    ; !!! RC4 is a weak cipher and no longer used, but was included as
-    ; part of Saphirion's cipher suites in the original TLS.  Should
-    ; be a separate extension you can exclude...but keeping for now.
+    ; MESSAGE DIGESTS
     ;
-    [%crypt/mbedtls/library/arc4.c  #no-c++]
+    ; !!! RC4, MD5, and SHA1 are all considered weak by modern standards.
+    ; But they were in R3-Alpha, and outside of bytes taken up in the EXE
+    ; don't cost extra to support (the generic MD wrapper handles them)
+    ;
+    [%crypt/mbedtls/library/sha256.c  #no-c++]
+    [%crypt/mbedtls/library/sha512.c  #no-c++]
+    [%crypt/mbedtls/library/ripemd160.c  #no-c++]  ; used by BitCoin :-/
+    [%crypt/mbedtls/library/md5.c  #no-c++]  ; !!! weak
+    [%crypt/mbedtls/library/sha1.c  #no-c++]  ; !!! weak
+
+    ; BLOCK CIPHERS
+    ;
+    [%crypt/mbedtls/library/aes.c  #no-c++]
+    [%crypt/mbedtls/library/arc4.c  #no-c++]  ; !!! weak
 
     ; !!! Plain Diffie-Hellman(-Merkel) is considered weaker than the
     ; Elliptic Curve Diffie-Hellman (ECDH).  It was an easier first test case
@@ -65,12 +74,4 @@ depends: [
     [%crypt/mbedtls/library/dhm.c  #no-c++]
 
     %crypt/easy-ecc/ecc.c
-
-    [%crypt/md5/u-md5.c <implicit-fallthru>]
-
-    [
-        %crypt/sha1/u-sha1.c
-        <implicit-fallthru>
-        <no-hidden-local>
-    ]
 ]

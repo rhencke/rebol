@@ -11,28 +11,6 @@ REBOL [
 ;
 init-crypto
 
-hmac-sha256: function [
-    {computes the hmac-sha256 for message m using key k}
-
-    k [binary!]
-    m [binary!]
-][
-    key: copy k
-    message: copy m
-    blocksize: 64
-    if blocksize < length of key [
-        key: sha256 key
-    ]
-    if blocksize > length of key [
-        insert/dup tail key #{00} (blocksize - length of key)
-    ]
-    insert/dup opad: copy #{} #{5C} blocksize
-    insert/dup ipad: copy #{} #{36} blocksize
-    o_key_pad: opad xor+ key
-    i_key_pad: ipad xor+ key
-    sha256 join o_key_pad (sha256 join i_key_pad message)
-]
-
 
 rsa-make-key: func [
     {Creates a key object for RSA algorithm.}
@@ -53,4 +31,4 @@ rsa-make-key: func [
 
 ; !!! Kludgey export mechanism; review correct approach for modules
 ;
-sys/export [hmac-sha256 rsa-make-key]
+sys/export [rsa-make-key]

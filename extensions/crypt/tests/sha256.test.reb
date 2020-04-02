@@ -35,3 +35,53 @@
         true
     )
 ]
+
+
+(
+    ; This is the usermode implementation of SHA256 with a HMAC (e.g.
+    ; integrating a password into the hashing process).  That is now supported
+    ; by the mbedTLS generalized %md.h interface for all hashes.  But rather
+    ; than get rid of the usermode sha256 code, this just tests it against
+    ; the native version (which is much more likely to be testing if this
+    ; code breaks for some reason than anything wrong with mbedTLS).
+    ;
+    hmac-sha256: function [
+        {computes the hmac-sha256 for message m using key k}
+
+        m [binary! text!]
+        k [binary! text!]
+    ][
+        key: as binary! copy k
+        message: as binary! copy m
+        blocksize: 64
+        if blocksize < length of key [
+            key: sha256 key
+        ]
+        if blocksize > length of key [
+            insert/dup tail key #{00} (blocksize - length of key)
+        ]
+        insert/dup opad: copy #{} #{5C} blocksize
+        insert/dup ipad: copy #{} #{36} blocksize
+        o_key_pad: opad xor+ key
+        i_key_pad: ipad xor+ key
+        sha256 join o_key_pad (sha256 join i_key_pad message)
+    ]
+
+    random/seed "Deterministic Behavior Desired"
+    loop 100 [
+        data-len: random 1024
+        data: make binary! data-len
+        loop data-len [append data (random 256) - 1]
+
+        key-len: random 512
+        key: make binary! key-len
+        loop key-len [append data (random 256) - 1]
+
+        a: hmac-sha256 data key
+        b: checksum/method/key data 'sha256 key
+        if a != b [
+            fail ["Mismatched HMAC-SHA256 for" mold data "with" mold key]
+        ]
+    ]
+    true
+)
