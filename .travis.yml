@@ -282,7 +282,7 @@ matrix:
         - NUMBER=6
         - CONFIG=generic.r
         - OS_ID=0.4.4
-        - DEBUG=none
+        - DEBUG=symbols  # needed for Valgrind to give meaningful stacks
         - STANDARD=gnu89  # Note: ZeroMQ extension needs C99 or C++11
         - RIGOROUS=yes
         - STATIC=yes
@@ -290,11 +290,14 @@ matrix:
         - ARCH_CFLAGS=-m32
         - WITH_FFI=no
         - EXTENSIONS="Signal + TCC +"
+        - RUNNER="valgrind --track-origins=yes"
         # 32-bit version does not have ODBC or ZeroMQ
       addons:
         apt:
           packages:
             - gcc-multilib
+            - valgrind  # helpful since there's no ASAN for better crashes
+            - libc-dbg:i386  # needed for valgrind on 32-bit
             # - unixodbc-dev:i386 # for ODBC extension; stopped installing
             # - libzmq3-dev:i386 # ZeroMQ:i386 stopped installing in Nov-2018
             - texinfo  # for makeinfo, required to build FFI
@@ -975,7 +978,7 @@ script:
     #
     - |
       if [[ $OS_ID = 0.4.40 || $OS_ID = 0.4.4 || $OS_ID = 0.2.40 ]]; then
-          ./r3 --do "print {Testing...} quit either find to-text read https://example.com {<h1>Example Domain</h1>} [0] [1]"
+          $RUNNER ./r3 --do "print {Testing...} quit either find to-text read https://example.com {<h1>Example Domain</h1>} [0] [1]"
           R3_EXIT_STATUS=$?
       else
           R3_EXIT_STATUS=0
@@ -986,7 +989,7 @@ script:
     - |
       if [[ -z $WITH_FFI || $WITH_FFI != no ]]; then
         if [[ $OS_ID = 0.4.40 || $OS_ID = 0.4.4 ]]; then
-          ./r3 ../tests/misc/qsort_r.r
+          $RUNNER ./r3 ../tests/misc/qsort_r.r
           R3_EXIT_STATUS=$?
         else
           R3_EXIT_STATUS=0
@@ -1011,7 +1014,7 @@ script:
       export LIBREBOL_INCLUDE_DIR="${TOP_DIR}/build/prep/include"
       if [[ (! -z $TCC) && ($TCC != no) ]]; then
         if [[ $OS_ID = 0.4.40 ]]; then
-          ./r3 ../tests/misc/fib.r
+          $RUNNER ./r3 ../tests/misc/fib.r
           R3_EXIT_STATUS=$?
         elif [[ $OS_ID = 0.4.4 ]]; then
           #
@@ -1023,7 +1026,7 @@ script:
           # for library directories to override `/usr/lib` with.
           #
           export REBOL_TCC_EXTENSION_32BIT_ON_64BIT=1
-          ./r3 ../tests/misc/fib.r
+          $RUNNER ./r3 ../tests/misc/fib.r
           R3_EXIT_STATUS=$?
         fi
       else
