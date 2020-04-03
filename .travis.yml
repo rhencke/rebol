@@ -275,7 +275,20 @@ matrix:
       #
       # 32-bit Release Linux Build
       #
+      # Travis-CI does not offer 32-bit containers, and 32-bit builds are
+      # being phased out on desktop and server platforms in general.  But they
+      # are common on embedded systems for the foreseeable future.  So though
+      # cross-compiling and debugging is painful (in part because so many
+      # fewer people do it that updates and testing lag on these toolchains).
+      # we do it anyway.
+      #
+      # !!! Optimized builds with the version of the toolchain on Xenial seem
+      # to have strange bugs with inlining, that disappear when you inline the
+      # code manually.  Investigation suggests no violation of the C standard
+      # on Ren-C's part, and upgrading to bionic appears to resolve the issue.
+      #
       os: linux
+      dist: bionic  # Xenial cross-compile toolchain seems to have inline bug
       sudo: required  # "containers will be retired soon"
       language: c
       env:
