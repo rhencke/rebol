@@ -460,19 +460,27 @@ inline static REBVAL *RESET_CUSTOM_CELL(
 }
 
 
+// See notes on ALIGN_SIZE regarding why we check this, and when it does and
+// does not apply (some platforms need this invariant for `double` to work).
+//
 // This is another case where the debug build doesn't inline functions, and
 // for such central routines the overhead of passing 3 args is on the radar.
 // Run the risk of repeating macro args to speed up this critical check.
 //
-#define ALIGN_CHECK_CELL_EVIL_MACRO(c,file,line) \
-    if (cast(uintptr_t, (c)) % ALIGN_SIZE != 0) { \
-        printf( \
-            "Cell address %p not aligned to %d bytes\n", \
-            cast(const void*, (c)), \
-            cast(int, ALIGN_SIZE) \
-        ); \
-        panic_at ((c), file, line); \
-    }
+#ifdef DEBUG_DONT_CHECK_ALIGN
+    #define ALIGN_CHECK_CELL_EVIL_MACRO(c,file,line) \
+        NOOP
+#else
+    #define ALIGN_CHECK_CELL_EVIL_MACRO(c,file,line) \
+        if (cast(uintptr_t, (c)) % ALIGN_SIZE != 0) { \
+            printf( \
+                "Cell address %p not aligned to %d bytes\n", \
+                cast(const void*, (c)), \
+                cast(int, ALIGN_SIZE) \
+            ); \
+            panic_at ((c), file, line); \
+        }
+#endif
 
 #define CELL_MASK_NON_STACK \
     (NODE_FLAG_NODE | NODE_FLAG_CELL)

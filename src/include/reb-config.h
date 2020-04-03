@@ -349,6 +349,21 @@ Special internal defines used by RT, not Host-Kit developers:
 #endif
 
 
+// System V ABI for X86 says alignment can be 4 bytes for double.  However,
+// you can change this in the compiler settings.  We should either sync with
+// that setting or just skip it, and assume that we do enough checking on the
+// 64-bit builds.
+// 
+// https://stackoverflow.com/q/14893802/
+//
+// !!! We are overpaying for the ALIGN_SIZE if it's not needed for double,
+// so perhaps it is that which should be configurable in the build settings...
+//
+#if defined(ENDIAN_LITTLE) && defined(TO_LINUX_X86)
+    #define DEBUG_DONT_CHECK_ALIGN
+#endif
+
+
 // UTF-8 Everywhere is a particularly large system change, which requires
 // careful bookkeeping to allow the caching of positions to work.  These
 // checks are too slow to run on most builds, but should be turned on if
