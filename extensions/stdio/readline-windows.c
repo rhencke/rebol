@@ -258,7 +258,7 @@ STD_TERM *Init_Terminal(void)
     // https://stackoverflow.com/a/12642749
     //
     CONSOLE_SCREEN_BUFFER_INFO csbi;
-    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
+    if (GetConsoleScreenBufferInfo(Stdout_Handle, &csbi)) {
         t->columns = csbi.srWindow.Right - csbi.srWindow.Left + 1;
         t->rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
     }
@@ -343,6 +343,31 @@ void Quit_Terminal(STD_TERM *t)
 #endif
 
 
+#if defined(NDEBUG)
+    #define ENSURE_COHERENT_POSITION_DEBUG(t) \
+        NOOP
+#else
+    void ENSURE_COHERENT_POSITION_DEBUG(STD_TERM *t) {
+        CONSOLE_SCREEN_BUFFER_INFO info;
+        if (not GetConsoleScreenBufferInfo(Stdout_Handle, &info))
+            assert(!"GetConsoleScreenBufferInfo() failed");
+        if (cast(unsigned, info.dwCursorPosition.X) == t->pos)
+            return;  // coherent
+        if (t->pos >= t->columns)
+            return;  // let it slide when you've gone to next line
+        if (rebNot(
+            "for-each c", t->buffer, "[",
+                "if (to integer! c) > 65535 [break]",
+                "true",
+            "]",
+        rebEND)){
+            return;  // assume emoji/etc. will mess up Windows Terminal
+        }
+        assert(!"Console position is not coherent with terminal state");
+    }
+#endif
+
+
 //
 //  Read_Input_Records_Interrupted: C
 //
@@ -384,7 +409,7 @@ static bool Read_Input_Records_Interrupted(STD_TERM *t)
     t->in_tail->EventType = MENU_EVENT;
     t->in_tail->Event.MenuEvent.dwCommandId = MENU_ID_TRASH_DEBUG;
   #endif
- 
+
     CHECK_INPUT_RECORDS(t);
     return false;  // not interrupted (note we could return `len` if needed)
 }
@@ -457,6 +482,8 @@ void Term_Seek(STD_TERM *t, unsigned int pos)
 //
 static void Show_Line(STD_TERM *t, int blanks)
 {
+    ENSURE_COHERENT_POSITION_DEBUG(t);
+
     // Clip bounds
     //
     unsigned int end = Term_End(t);
@@ -491,6 +518,8 @@ static void Show_Line(STD_TERM *t, int blanks)
     // in the buffer to end of line.
     //
     Write_Char(BS, Term_Remain(t));
+
+    ENSURE_COHERENT_POSITION_DEBUG(t);
 }
 
 
@@ -846,8 +875,11 @@ static void Term_Insert_Char(STD_TERM *t, uint32_t c)
 // its logic regarding cursor position, newlines, backspacing.
 //
 void Term_Insert(STD_TERM *t, const REBVAL *v) {
+    ENSURE_COHERENT_POSITION_DEBUG(t);
+
     if (rebDid("char?", v)) {
         Term_Insert_Char(t, rebUnboxChar(v));
+        ENSURE_COHERENT_POSITION_DEBUG(t);
         return;
     }
 
@@ -909,6 +941,7 @@ void Term_Insert(STD_TERM *t, const REBVAL *v) {
     }
 
     Show_Line(t, 0);
+    ENSURE_COHERENT_POSITION_DEBUG(t);
 }
 
 
