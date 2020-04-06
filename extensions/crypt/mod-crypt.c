@@ -161,17 +161,23 @@ int get_random(void *p_rng, unsigned char *output, size_t output_len)
 //
 //      return: "Warning: likely to be changed to always be BINARY!"
 //          [binary! integer!]  ; see note below
+//      :settings "Temporarily literal word, evaluative after /METHOD purged"
+//          [<skip> lit-word!]
 //      data "Input data to digest (TEXT! is interpreted as UTF-8 bytes)"
 //          [binary! text!]
 //      /part "Length of data to use, default is current index to series end"
 //          [any-value!]
-//      /method "Method to use [SHA1 MD5] (see also CRC32 native)"
+//      /method "Supply a method name (deprecated, use `settings`)"
 //          [word!]
 //      /key "Returns keyed HMAC value"
 //          [binary! text!]
 //  ]
 //
 REBNATIVE(checksum)
+//
+// !!! The /METHOD refinement is being removed because you pretty much always
+// need to supply a method.  As an interim compatibility measure, it is kept
+// but the preference is to say e.g. `checksum 'sha256 data`.
 //
 // !!! The return value of this function was initially integers, and expanded
 // to be either INTEGER! or BINARY!.  Allowing integer results gives some
@@ -194,9 +200,6 @@ REBNATIVE(checksum)
 {
     CRYPT_INCLUDE_PARAMS_OF_CHECKSUM;
 
-    if (not REF(method))
-        rebJumps("fail {Plain CHECKSUM not supported, use /METHOD}", rebEND);
-
     REBLEN len = Part_Len_May_Modify_Index(ARG(data), ARG(part));
     REBYTE *data = VAL_RAW_DATA_AT(ARG(data));  // after Part_Len, may change
 
@@ -204,7 +207,14 @@ REBNATIVE(checksum)
     // builds in when you `#include "md.h"`.  How many entries are in this
     // table depend on the config settings (see %mbedtls-rebol-config.h)
     //
-    char *method_name = rebSpellQ("uppercase to text!", ARG(method), rebEND);
+    char *method_name = rebSpellQ(
+        "all [", REF(method), REF(settings), "] then [",
+            "fail {Specify SETTINGS or /METHOD for CHECKSUM, not both}",
+        "]",
+        "uppercase try to text! try any [", REF(method), REF(settings), "]",
+    rebEND);
+    if (method_name == nullptr)
+        fail ("Must specify SETTINGS for CHECKSUM");
     const mbedtls_md_info_t *info = mbedtls_md_info_from_string(method_name);
     rebFree(method_name);
 
@@ -839,7 +849,7 @@ REBNATIVE(dh_compute_secret)
 
     // !!! The multiple precision number system affords leading zeros, and
     // can optimize them out.  So 7 could be #{0007} or #{07}.  We could
-    // pad the secret if we wanted to, but there's no obvious reason 
+    // pad the secret if we wanted to, but there's no obvious reason
     //
     assert(s_size >= olen);
 
@@ -913,9 +923,8 @@ REBNATIVE(aes_key)
         REF(decrypt) ? MBEDTLS_DECRYPT : MBEDTLS_ENCRYPT
     ));
 
-    // !!! Looking at the %ssl_tls.c file for mbedTLS for how they initialize
-    // AES CBC ciphers, they use PADDING_NONE...which is not the default
-    // (default is PKCS7).  For parity, is this right?
+    // Default padding mode is PKCS7, but TLS won't work unless you use zeros.
+    // (Shown also by the %ssl_tls.c file for mbedTLS, see AES CBC ciphers.)
     //
     IF_NOT_0(cleanup, error,
         mbedtls_cipher_set_padding_mode(ctx, MBEDTLS_PADDING_NONE)

@@ -1164,7 +1164,7 @@ cloaker: helper [function [  ; specialized as CLOAK and DECLOAK
             append src key/(1 + modulo (i - 1) klen)
         ]
 
-        key: checksum/method src 'sha1
+        key: checksum 'sha1 src
         assert [length of key = 20]  ; size of an SHA1 hash
         klen: 20
     ]

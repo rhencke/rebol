@@ -11,7 +11,7 @@
         ; Simple non-empty cases
         ;
         "Rebol" #{C8537DEDCA2810F48C80008DBCBDA9AC2FA60382C7F073118DDDEDEEEE65FF47}
-        #{1020BFDBFD0304} #{165825199DB849EAFE254E3339FD651748EBF845CAD94C238424EAF344647F98} 
+        #{1020BFDBFD0304} #{165825199DB849EAFE254E3339FD651748EBF845CAD94C238424EAF344647F98}
     ] true)
 
     ; plain hash test
@@ -78,7 +78,7 @@
         loop key-len [append data (random 256) - 1]
 
         a: hmac-sha256 data key
-        b: checksum/method/key data 'sha256 key
+        b: checksum/key 'sha256 data key
         if a != b [
             fail ["Mismatched HMAC-SHA256 for" mold data "with" mold key]
         ]

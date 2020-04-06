@@ -28,17 +28,14 @@ do-core-tests: function [return: <void>] [
     ; calculate interpreter checksum
     case [
         #"/" = first try match file! system/options/boot [
-            interpreter-checksum: checksum/method read-binary
-                system/options/boot 'sha1
+            check: checksum 'sha1 read-binary system/options/boot
         ]
         text? system/script/args [
-            interpreter-checksum: checksum/method read-binary
-                local-to-file system/script/args 'sha1
+            check: checksum 'sha1 read-binary local-to-file system/script/args
         ]
     ] else [
         ; use system/build
-        interpreter-checksum: checksum/method to binary!
-            mold system/build 'sha1
+        check: checksum 'sha1 to binary! mold system/build
     ]
 
     log-file-prefix: copy %r
@@ -48,7 +45,7 @@ do-core-tests: function [return: <void>] [
     ]
 
     print "Testing ..."
-    result: do-recover %core-tests.r flags interpreter-checksum log-file-prefix
+    result: do-recover %core-tests.r flags check log-file-prefix
     set [log-file summary] result
 
     print ["Done, see the log file:" log-file]

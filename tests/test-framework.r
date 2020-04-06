@@ -132,7 +132,7 @@ make object! compose [
         allowed-flags: flags
 
         ; calculate test checksum
-        test-checksum: checksum/method read-binary file 'sha1
+        test-checksum: checksum 'sha1 read-binary file
 
         log-file: log-file-prefix
 

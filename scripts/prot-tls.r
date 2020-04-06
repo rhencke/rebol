@@ -811,8 +811,8 @@ finished: function [
 
     seed: if ctx/version < 1.2 [
         join-all [
-            checksum/method ctx/handshake-messages 'md5
-            checksum/method ctx/handshake-messages 'sha1
+            checksum 'md5 ctx/handshake-messages
+            checksum 'sha1 ctx/handshake-messages
         ]
     ] else [
         ; "The Hash MUST be the Hash used as the basis for the PRF.  Any
@@ -821,7 +821,7 @@ finished: function [
         ;
         ; For now, assume all supported cipher suites use SHA256.
         ;
-        checksum/method ctx/handshake-messages 'sha256
+        checksum 'sha256 ctx/handshake-messages
     ]
 
     return join-all [
@@ -1369,11 +1369,11 @@ parse-messages: function [
                         ]
                         seed: if ctx/version < 1.2 [
                             join-all [
-                                checksum/method ctx/handshake-messages 'md5
-                                checksum/method ctx/handshake-messages 'sha1
+                                checksum 'md5 ctx/handshake-messages
+                                checksum 'sha1 ctx/handshake-messages
                             ]
                         ] else [
-                            checksum/method ctx/handshake-messages 'sha256
+                            checksum 'sha256 ctx/handshake-messages
                         ]
                         if (
                             bin <> applique 'prf [
@@ -1515,15 +1515,15 @@ prf: function [
         p-md5: copy #{}
         a: seed  ; A(0)
         while [output-length > length of p-md5] [
-            a: checksum/method/key a 'md5 s-1 ; A(n)
-            append p-md5 checksum/method/key join-all [a seed] 'md5 s-1
+            a: checksum/key 'md5 a s-1 ; A(n)
+            append p-md5 checksum/key 'md5 join-all [a seed] 'md5 s-1
         ]
 
         p-sha1: copy #{}
         a: seed  ; A(0)
         while [output-length > length of p-sha1] [
-            a: checksum/method/key a 'sha1 s-2 ; A(n)
-            append p-sha1 checksum/method/key join-all [a seed] 'sha1 s-2
+            a: checksum/key 'sha1 a s-2 ; A(n)
+            append p-sha1 checksum/key 'sha1 join-all [a seed] s-2
         ]
         return (
             (copy/part p-md5 output-length)
@@ -1540,8 +1540,8 @@ prf: function [
     p-sha256: copy #{}
     a: seed  ; A(0)
     while [output-length > length of p-sha256] [
-        a: checksum/method/key a 'sha256 secret
-        append p-sha256 checksum/method/key join-all [a seed] 'sha256 secret
+        a: checksum/key 'sha256 a secret
+        append p-sha256 checksum/key 'sha256 join-all [a seed] secret
     ]
     take/last/part p-sha256 ((length of p-sha256) - output-length)
     return p-sha256
