@@ -40,12 +40,7 @@
 #include "mbedtls/md.h"
 #include "mbedtls/cipher.h"
 
-// The "Easy ECC" supports four elliptic curves, but is only set up to do one
-// of them at a time you pick with a #define.  We pick secp256r1, in part
-// because Discourse supports it on the Rebol forum.
-//
-#define ECC_CURVE secp256r1
-#include "easy-ecc/ecc.h"
+#include "mbedtls/ecdh.h"  // Elliptic curve (Diffie-Hellman)
 
 // %bigint_impl.h defines min and max, which triggers warnings in clang about
 // C++ compatibility even if building as C...due to some header file that
@@ -1044,6 +1039,8 @@ REBNATIVE(aes_stream)
 }
 
 
+#define ECC_BYTES 32  // number of bytes for SECP256R1 coordinates
+
 //
 //  export ecc-generate-keypair: native [
 //      {Generates an uncompressed secp256r1 key}
@@ -1056,15 +1053,39 @@ REBNATIVE(ecc_generate_keypair)
 {
     CRYPT_INCLUDE_PARAMS_OF_ECC_GENERATE_KEYPAIR;
 
+    // A change in mbedTLS ecdh code means there's a context variable inside
+    // the context (ctx.ctx) when not using MBEDTLS_ECDH_LEGACY_CONTEXT
+    //
+    struct mbedtls_ecdh_context ctx;
+    mbedtls_ecdh_init(&ctx);
+
+    REBVAL *error = nullptr;
+    REBVAL *result = nullptr;
+
+    IF_NOT_0(cleanup, error,
+        mbedtls_ecdh_setup(&ctx, MBEDTLS_ECP_DP_SECP256R1)
+    );
+
+    IF_NOT_0(cleanup, error, mbedtls_ecdh_gen_public(
+        &ctx.ctx.mbed_ecdh.grp,
+        &ctx.ctx.mbed_ecdh.d,  // private key
+        &ctx.ctx.mbed_ecdh.Q,  // public key (X, Y)
+        &get_random,  // f_rng, random number generator
+        nullptr  // p_rng, parameter tunneled to random generator (unused atm)
+    ));
+
     // Allocate into memory that can be retaken directly as BINARY! in Rebol
     //
+  blockscope {
     uint8_t *p_publicX = rebAllocN(uint8_t, ECC_BYTES);
     uint8_t *p_publicY = rebAllocN(uint8_t, ECC_BYTES);
     uint8_t *p_privateKey = rebAllocN(uint8_t, ECC_BYTES);
-    if (1 != ecc_make_key_xy(p_publicX, p_publicY, p_privateKey))
-        fail ("ecc_make_key_xy() did not return 1");
 
-    return rebValue(
+    mbedtls_mpi_write_binary(&ctx.ctx.mbed_ecdh.Q.X, p_publicX, ECC_BYTES);
+    mbedtls_mpi_write_binary(&ctx.ctx.mbed_ecdh.Q.Y, p_publicY, ECC_BYTES);
+    mbedtls_mpi_write_binary(&ctx.ctx.mbed_ecdh.d, p_privateKey, ECC_BYTES);
+
+    result = rebValue(
         "make object! [",
             "public-key: make object! [",
                 "x:", rebR(rebRepossess(p_publicX, ECC_BYTES)),
@@ -1073,6 +1094,14 @@ REBNATIVE(ecc_generate_keypair)
             "private-key:", rebR(rebRepossess(p_privateKey, ECC_BYTES)),
         "]",
     rebEND);
+  }
+
+  cleanup:
+    mbedtls_ecdh_free(&ctx);
+    if (error)
+        rebJumps ("fail", error, rebEND);
+
+    return result;
 }
 
 
@@ -1092,7 +1121,7 @@ REBNATIVE(ecdh_shared_secret)
 
     assert(ECC_BYTES == 32);
 
-    uint8_t public_key[ECC_BYTES * 2];
+    unsigned char public_key[ECC_BYTES * 2];
     rebBytesInto(public_key, ECC_BYTES * 2, "use [bin] [",
         "bin: either binary?", ARG(public), "[", ARG(public), "] [",
             "append copy pick", ARG(public), "'x", "pick", ARG(public), "'y"
@@ -1103,25 +1132,68 @@ REBNATIVE(ecdh_shared_secret)
         "bin",
     "]", rebEND);
 
-    uint8_t private_key[ECC_BYTES];
-    rebBytesInto(private_key, ECC_BYTES,
+    // A change in mbedTLS ecdh code means there's a context variable inside
+    // the context (ctx.ctx) when not using MBEDTLS_ECDH_LEGACY_CONTEXT
+    //
+    struct mbedtls_ecdh_context ctx;
+    mbedtls_ecdh_init(&ctx);
+
+    REBVAL *result = nullptr;
+    REBVAL *error = nullptr;
+
+    IF_NOT_0(cleanup, error,
+        mbedtls_ecdh_setup(&ctx, MBEDTLS_ECP_DP_SECP256R1)
+    );
+
+    IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(
+        &ctx.ctx.mbed_ecdh.Qp.X,
+        public_key,
+        ECC_BYTES
+    ));
+    IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(
+        &ctx.ctx.mbed_ecdh.Qp.Y,
+        public_key + ECC_BYTES,
+        ECC_BYTES
+    ));
+    IF_NOT_0(cleanup, error, mbedtls_mpi_lset( &ctx.ctx.mbed_ecdh.Qp.Z, 1 ));
+
+    rebElide(
         "if 32 != length of", ARG(private), "[",
             "fail {Size of PRIVATE key must be 32 bytes for secp256r1}"
         "]",
         ARG(private),
     rebEND);
 
-    uint8_t *secret = rebAllocN(uint8_t, ECC_BYTES);
-    if (1 != ecdh_shared_secret_xy(
-        public_key,  // x component
-        public_key + ECC_BYTES,  // y component
-        private_key,
-        secret
-    )){
-        fail ("ecdh_shared_secret_xy() did not return 1");
-    }
+    IF_NOT_0(cleanup, error,
+        mbedtls_mpi_read_binary(
+            &ctx.ctx.mbed_ecdh.d,
+            VAL_BIN_AT(ARG(private)),
+            ECC_BYTES
+        )
+    );
 
-    return rebRepossess(secret, ECC_BYTES);
+  blockscope {
+    uint8_t *secret = rebAllocN(uint8_t, ECC_BYTES);
+    size_t olen;
+    IF_NOT_0(cleanup, error, mbedtls_ecdh_calc_secret(
+        &ctx,
+        &olen,
+        secret,
+        ECC_BYTES,
+        &get_random,
+        nullptr
+    ));
+    assert(olen == ECC_BYTES);
+    result = rebRepossess(secret, ECC_BYTES);
+  }
+
+  cleanup:
+    mbedtls_ecdh_free(&ctx);
+
+    if (error)
+        rebJumps ("fail", error, rebEND);
+
+    return result;
 }
 
 

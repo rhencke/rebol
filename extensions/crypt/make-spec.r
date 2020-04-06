@@ -73,5 +73,18 @@ depends: [
     ;
     [%crypt/mbedtls/library/dhm.c  #no-c++]
 
-    %crypt/easy-ecc/ecc.c
+    [
+        %crypt/mbedtls/library/ecdh.c
+        #no-c++
+
+        <msc:/wd4065>  ; switch contains `default` but no case labels
+        ; ^-- (triggered when MBEDTLS_ECDH_LEGACY_CONTEXT is disabled)
+    ]
+    [%crypt/mbedtls/library/ecp.c  #no-c++]  ; also needed for ECDHE
+    [
+        %crypt/mbedtls/library/ecp_curves.c
+        #no-c++
+
+        <msc:/wd4127>  ; conditional expression is constant
+     ]  ; also needed for ECDHE
 ]
