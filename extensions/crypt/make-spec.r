@@ -4,28 +4,17 @@ name: 'Crypt
 loadable: no ;tls depends on this, so it has to be builtin
 source: %crypt/mod-crypt.c
 includes: reduce [
-    ;
-    ; Added so `#include "bigint/bigint.h` can be found by %rsa.h
-    ; and `#include "rsa/rsa.h" can be found by %dh.c
-    ;
     repo-dir/extensions/crypt
     repo-dir/extensions/crypt/mbedtls/include  ; w/subdir %mbedtls
-    %prep/extensions/crypt ;for %tmp-extensions-crypt-init.inc
+    %prep/extensions/crypt  ; for %tmp-extensions-crypt-init.inc
 ]
 definitions: [
     {MBEDTLS_CONFIG_FILE="mbedtls-rebol-config.h"}
 ]
 depends: [
-    [
-        %crypt/bigint/bigint.c
-
-        ; See above remarks on Spectre.  This may be a priority to
-        ; address, if bigint is used in INTEGER!.
-        ;
-        <msc:/wd5045>  ; https://stackoverflow.com/q/50399940
-    ]
-
-    %crypt/rsa/rsa.c
+    [%crypt/mbedtls/library/rsa.c  #no-c++]
+    [%crypt/mbedtls/library/rsa_internal.c  #no-c++]
+    [%crypt/mbedtls/library/oid.c  #no-c++]  ; !!! Is this really needed?
 
     ; If you're using a platform that mbedTLS has been designed for,
     ; you can take the standard settings of what "malloc" and "free"

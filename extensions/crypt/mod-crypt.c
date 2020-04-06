@@ -29,7 +29,7 @@
 // set of "current" crypto is included by default.
 //
 
-#include "rsa/rsa.h" // defines gCryptProv and rng_fd (used in Init/Shutdown)
+#include "mbedtls/rsa.h"
 
 // mbedTLS has separate functions for each message digest (SHA256, MD5, etc)
 // and each streaming cipher (RC4, AES...) which you would have to link to
@@ -42,16 +42,22 @@
 
 #include "mbedtls/ecdh.h"  // Elliptic curve (Diffie-Hellman)
 
-// %bigint_impl.h defines min and max, which triggers warnings in clang about
-// C++ compatibility even if building as C...due to some header file that
-// sys-core.h includes.
-//
-#undef min
-#undef max
+#ifdef TO_WINDOWS
+    #undef _WIN32_WINNT  // https://forum.rebol.info/t/326/4
+    #define _WIN32_WINNT 0x0501  // Minimum API target: WinXP
+    #define WIN32_LEAN_AND_MEAN  // trim down the Win32 headers
+    #include <windows.h>
+    #include <wincrypt.h>
 
-#ifdef IS_ERROR
-    #undef IS_ERROR  // winerror.h defines, so undef it to avoid the warning
+    #undef IS_ERROR  // %windows.h defines this, but so does %sys-core.h
+
+    #undef min
+    #undef max
+#else
+    #include <fcntl.h>
+    #include <unistd.h>
 #endif
+
 #include "sys-core.h"
 
 #include "mbedtls/dhm.h"  // Diffie-Hellman (credits Merkel, by their request)
@@ -427,9 +433,26 @@ REBNATIVE(rsa)
     REBVAL *n = rebValue("ensure binary! pick", obj, "'n", rebEND);
     REBVAL *e = rebValue("ensure binary! pick", obj, "'e", rebEND);
 
-    RSA_CTX *rsa_ctx = NULL;
+    int hash_id = MBEDTLS_MD_NONE;  // could pass a hash here...
+    struct mbedtls_rsa_context ctx;
+    mbedtls_rsa_init(&ctx, MBEDTLS_RSA_PKCS_V15, hash_id);
 
-    REBINT binary_len;
+    REBVAL *error = nullptr;
+    REBVAL *result = nullptr;
+
+    size_t binary_len = rebUnbox("length of", n, rebEND);
+
+    // Public exponents - required
+    //
+    IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(
+        &ctx.N, VAL_BIN_AT(n), binary_len));
+    IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(
+        &ctx.E, VAL_BIN_AT(e), rebUnbox("length of", e, rebEND)));
+    rebRelease(n);
+    rebRelease(e);
+
+    ctx.len = binary_len;
+
     if (REF(private)) {
         REBVAL *d = rebValue("ensure binary! pick", obj, "'d", rebEND);
 
@@ -448,33 +471,33 @@ REBNATIVE(rsa)
         // should be possible...locked until released.
         //
         binary_len = rebUnbox("length of", d, rebEND);
-        RSA_priv_key_new(
-            &rsa_ctx
-            ,
-            VAL_BIN_AT(n)
-            , rebUnbox("length of", n, rebEND)
-            ,
-            VAL_BIN_AT(e)
-            , rebUnbox("length of", e, rebEND)
-            ,
-            VAL_BIN_AT(d)
-            , binary_len // taken as `length of d` above
-            ,
-            p ? VAL_BIN_AT(p) : NULL
-            , p ? rebUnbox("length of", p, rebEND) : 0
-            ,
-            q ? VAL_BIN_AT(q) : NULL
-            , q ? rebUnbox("length of", q, rebEND) : 0
-            ,
-            dp ? VAL_BIN_AT(dp) : NULL
-            , dp ? rebUnbox("length of", dp, rebEND) : 0
-            ,
-            dq ? VAL_BIN_AT(dq) : NULL
-            , dp ? rebUnbox("length of", dq, rebEND) : 0
-            ,
-            qinv ? VAL_BIN_AT(qinv) : NULL
-            , qinv ? rebUnbox("length of", qinv, rebEND) : 0
-        );
+
+        IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(
+            &ctx.D, VAL_BIN_AT(d), binary_len));
+
+        if (p)
+            IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(
+                &ctx.P, VAL_BIN_AT(p), rebUnbox("length of", p)));
+        if (q)
+            IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(
+                &ctx.Q, VAL_BIN_AT(q), rebUnbox("length of", q)));
+        if (dp)
+            IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(
+                &ctx.DP, VAL_BIN_AT(dp), rebUnbox("length of", dp)));
+        if (dq)
+            IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(
+                &ctx.DQ, VAL_BIN_AT(dq), rebUnbox("length of", dq)));
+        if (qinv)
+            IF_NOT_0(cleanup, error, mbedtls_mpi_read_binary(
+                &ctx.QP, VAL_BIN_AT(qinv), rebUnbox("length of", qinv)));
+
+        IF_NOT_0(cleanup, error, mbedtls_rsa_gen_key(
+            &ctx,
+            &get_random,  // f_rng, random number generating function
+            nullptr,  // tunneled parameter to f_rng (unused atm, so nullptr)
+            binary_len * 8,  // number of bits in key
+            65537  // this is what mbedTLS %gen_key.c uses for exponent (?)
+        ));
 
         rebRelease(d);
         rebRelease(p);
@@ -483,29 +506,12 @@ REBNATIVE(rsa)
         rebRelease(dq);
         rebRelease(qinv);
     }
-    else {
-        binary_len = rebUnbox("length of", n, rebEND);
-        RSA_pub_key_new(
-            &rsa_ctx
-            ,
-            VAL_BIN_AT(n)
-            , binary_len // taken as `length of n` above
-            ,
-            VAL_BIN_AT(e)
-            , rebUnbox("length of", e, rebEND)
-        );
-    }
-
-    rebRelease(n);
-    rebRelease(e);
 
     // !!! See notes above about direct binary access via libRebol
     //
+  blockscope {
     REBYTE *dataBuffer = VAL_BIN_AT(ARG(data));
     REBINT data_len = rebUnbox("length of", ARG(data), rebEND);
-
-    BI_CTX *bi_ctx = rsa_ctx->bi_ctx;
-    bigint *data_bi = bi_import(bi_ctx, dataBuffer, data_len);
 
     // Buffer suitable for recapturing as a BINARY! for either the encrypted
     // or decrypted data
@@ -513,52 +519,40 @@ REBNATIVE(rsa)
     REBYTE *crypted = rebAllocN(REBYTE, binary_len);
 
     if (REF(decrypt)) {
-        int result = RSA_decrypt(
-            rsa_ctx,
+        size_t olen;
+        IF_NOT_0(cleanup, error, mbedtls_rsa_pkcs1_decrypt(
+            &ctx,
+            &get_random,
+            nullptr,
+            REF(private) ? MBEDTLS_RSA_PRIVATE : MBEDTLS_RSA_PUBLIC,
+            &olen,
             dataBuffer,
             crypted,
-            binary_len,
-            REF(private) ? 1 : 0
-        );
-
-        if (result == -1) {
-            bi_free(rsa_ctx->bi_ctx, data_bi);
-            RSA_free(rsa_ctx);
-
-            rebFree(crypted); // would free automatically due to failure...
-            rebJumps(
-                "fail [{Failed to decrypt:}", ARG(data), "]", rebEND
-            );
-        }
-
-        assert(result == binary_len); // was this true?
+            binary_len
+        ));
+        assert(olen == binary_len);
     }
     else {
-        int result = RSA_encrypt(
-            rsa_ctx,
-            dataBuffer,
+        IF_NOT_0(cleanup, error, mbedtls_rsa_pkcs1_encrypt(
+            &ctx,
+            &get_random,
+            nullptr,
+            REF(private) ? MBEDTLS_RSA_PRIVATE : MBEDTLS_RSA_PUBLIC,
             data_len,
-            crypted,
-            REF(private) ? 1 : 0
-        );
-
-        if (result == -1) {
-            bi_free(rsa_ctx->bi_ctx, data_bi);
-            RSA_free(rsa_ctx);
-
-            rebFree(crypted); // would free automatically due to failure...
-            rebJumps(
-                "fail [{Failed to encrypt:}", ARG(data), "]", rebEND
-            );
-        }
-
-        // !!! any invariant here?
+            dataBuffer,
+            crypted
+        ));
     }
 
-    bi_free(rsa_ctx->bi_ctx, data_bi);
-    RSA_free(rsa_ctx);
+    result = rebRepossess(crypted, binary_len);
+  }
 
-    return rebRepossess(crypted, binary_len);
+  cleanup:
+    mbedtls_rsa_free(&ctx);
+    if (error)
+        rebJumps ("fail", error, rebEND);
+
+    return result;
 }
 
 
