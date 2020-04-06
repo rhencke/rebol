@@ -41,3 +41,5 @@
     insert a #"^(00)"
     a == #{00}
 )
+
+('bad-path-pick = pick trap [pick #{00} 'x] 'id)

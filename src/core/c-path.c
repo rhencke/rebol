@@ -608,14 +608,16 @@ REBNATIVE(pick)
     PATH_HOOK *hook = Path_Hook_For_Type_Of(D_OUT);
 
     REB_R r = hook(pvs, PVS_PICKER(pvs), NULL);
-    if (not r or r == pvs->out or GET_CELL_FLAG(r, ROOT))
+    if (not r or r == pvs->out)  // common cases
+        return r;
+    if (IS_END(r)) {
+        assert(r == R_UNHANDLED);
+        fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
+    }
+    if (GET_CELL_FLAG(r, ROOT))
         return r;
 
     switch (KIND_BYTE(r)) {
-      case REB_0_END:
-        assert(r == R_UNHANDLED);
-        fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
-
       case REB_R_INVISIBLE:
         assert(false); // only SETs should do this
         break;
