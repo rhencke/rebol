@@ -734,6 +734,7 @@ load-module: func [
     let name0
     let mod0
     let ver0
+    let hdr0
     let override?
     let pos
     all [
