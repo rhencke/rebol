@@ -496,6 +496,15 @@ bool Form_Reduce_Throws(
         or IS_CHAR(delimiter) or IS_TEXT(delimiter)
     );
 
+    // Initially Ren-C advocated treating blank the same as null, to be the
+    // "less noisy" null since it was legal to fetch with plain WORD!.  Now
+    // that plain words fetch nulls without error, it's more interesting for
+    // dialects to leverage blanks for unique meaning.  Space is particularly
+    // nice when used in DELIMIT scenarios.
+    //
+    if (IS_BLANK(delimiter))
+        delimiter = SPACE_VALUE;
+
     DECLARE_MOLD (mo);
     Push_Mold(mo);
 
@@ -519,7 +528,7 @@ bool Form_Reduce_Throws(
             break;
         }
 
-        if (IS_NULLED_OR_BLANK(out))
+        if (IS_NULLED(out))
             continue;  // opt-out and maybe keep option open to return NULL
 
         nothing = false;
@@ -528,7 +537,11 @@ bool Form_Reduce_Throws(
             Append_Codepoint(mo->series, VAL_CHAR(out));
             pending = false;
         }
-        else if (IS_NULLED_OR_BLANK(delimiter))
+        else if (IS_BLANK(out)) {
+            Append_Codepoint(mo->series, ' ');
+            pending = false;
+        }
+        else if (IS_NULLED(delimiter))
             Form_Value(mo, out);
         else {
             if (pending)

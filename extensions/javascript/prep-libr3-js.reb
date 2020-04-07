@@ -931,7 +931,7 @@ write output-dir/libr3.exports.json json-collect [
 write/lines output-dir/asyncify-blacklist.json collect-lines [
     keep "["
     for-next names load %asyncify-blacklist.r [
-        keep unspaced [{    "} names/1 {"} if not last? names [","]]
+        keep unspaced [_ _ _ _ {"} names/1 {"} if not last? names [","]]
     ]
     keep "]"
 ]

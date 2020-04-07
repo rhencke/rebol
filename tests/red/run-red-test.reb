@@ -56,7 +56,7 @@ runner: function [
     :look [<opt> any-value! <...>]
 ][
     if name [
-        write-stdout unspaced ["#" name space]
+        write-stdout unspaced ["#" name _]
     ]
 
     any-newlines: _

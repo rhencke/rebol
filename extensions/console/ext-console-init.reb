@@ -676,7 +676,7 @@ ext-console-impl: function [
                 ; transcripts, potentially to replay them without running
                 ; program output or evaluation results.
                 ;
-                write-stdout unspaced [unclosed #"\" space space]
+                write-stdout unspaced [unclosed "\" _ _]
                 emit [reduce [  ; reduce will runs in sandbox
                     ((<*> result))  ; splice previous inert literal lines
                     system/console/input-hook  ; hook to run in sandbox
