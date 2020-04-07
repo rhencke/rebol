@@ -636,8 +636,8 @@ gen-obj: func [
                 join %main/ (last ensure path! s)
             ] [s]
         cflags: either empty? flags [_] [flags]
-        definitions: D
-        includes: I
+        definitions: try D
+        includes: try I
         ((if prefer-O2 [[optimization: #prefer-O2-optimization]]))
     ]
 ]
