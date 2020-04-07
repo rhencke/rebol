@@ -359,7 +359,7 @@ Special internal defines used by RT, not Host-Kit developers:
 // !!! We are overpaying for the ALIGN_SIZE if it's not needed for double,
 // so perhaps it is that which should be configurable in the build settings...
 //
-#if defined(ENDIAN_LITTLE) && defined(TO_LINUX_X86)
+#if defined(TO_WINDOWS_X86) || defined(TO_LINUX_X86)
     #define DEBUG_DONT_CHECK_ALIGN
 #endif
 
