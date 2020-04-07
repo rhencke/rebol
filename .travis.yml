@@ -410,7 +410,7 @@ matrix:
         - OS_ID=0.3.1
         - DEBUG=none
         - CROSS_PREFIX=i686-w64-mingw32-  # trailing hyphen is intentional
-        - STANDARD=c
+        - STANDARD=c99
         - RIGOROUS=yes
         - STATIC=yes
         - TCC=i386-win32-tcc
@@ -441,7 +441,7 @@ matrix:
         - OS_ID=0.3.40
         - DEBUG=asserts
         - CROSS_PREFIX=x86_64-w64-mingw32-  # trailing hyphen is intentional
-        - STANDARD=c
+        - STANDARD=c99
         - RIGOROUS=yes
         - STATIC=yes
         - TCC=x86_64-win32-tcc

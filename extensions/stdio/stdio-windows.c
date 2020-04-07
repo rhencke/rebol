@@ -256,7 +256,9 @@ DEVICE_CMD Write_IO(REBREQ *io)
         // answer for C89 builds on arbitrarily limited platforms, vs.
         // catering to it here.
         //
-        assert(Redir_Inp or Redir_Out);
+      #if defined(REBOL_SMART_CONSOLE)
+        assert(Redir_Inp or Redir_Out);  // should have used smarts otherwise
+      #endif
 
         if (req->modes & RFM_TEXT) {
             //
