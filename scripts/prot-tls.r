@@ -672,9 +672,11 @@ client-key-exchange: function [
         ]
 
         <echde-rsa> [
-            ctx/ecdh-keypair: ecc-generate-keypair  ; specifically secp256r1
+            ctx/ecdh-keypair: ecc-generate-keypair 'secp256r1
+
             ctx/pre-master-secret: (
-                ecdh-shared-secret ctx/ecdh-keypair/private-key ctx/ecdh-pub
+                ecdh-shared-secret 'secp256r1
+                    ctx/ecdh-keypair/private-key ctx/ecdh-pub
             )
 
             ; we use the 65-byte uncompressed format to send our key back
