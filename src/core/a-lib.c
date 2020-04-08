@@ -385,6 +385,12 @@ void RL_rebShutdown(bool clean)
     // need it--to see if it triggers any alerts.
     //
     UNUSED(clean);
+
+    // Shutdown, Startup, and then shutdown again to make sure we can do so
+    // in case a system wanted to uninitialize then reinitialize.
+    //
+    Shutdown_Core();
+    Startup_Core();
   #endif
 
     // Everything Shutdown_Core() does pertains to getting a no-leak state
