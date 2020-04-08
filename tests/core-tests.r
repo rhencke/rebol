@@ -161,6 +161,7 @@
 %functions/invisible.test.reb
 %functions/let.test.reb
 %functions/modal.test.reb
+%functions/multi.test.reb
 %functions/oneshot.test.reb
 %functions/redescribe.test.reb
 %functions/redo.test.reb

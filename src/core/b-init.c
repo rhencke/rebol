@@ -333,6 +333,7 @@ static void Init_Action_Spec_Tags(void)
     Root_Dequote_Tag = Make_Locked_Tag("dequote");
     Root_Requote_Tag = Make_Locked_Tag("requote");
     Root_Const_Tag = Make_Locked_Tag("const");
+    Root_Output_Tag = Make_Locked_Tag("output");
 
     // !!! Needed for bootstrap, as `@arg` won't LOAD in old r3
     //
@@ -352,6 +353,7 @@ static void Shutdown_Action_Spec_Tags(void)
     rebRelease(Root_Dequote_Tag);
     rebRelease(Root_Requote_Tag);
     rebRelease(Root_Const_Tag);
+    rebRelease(Root_Output_Tag);
 
     rebRelease(Root_Modal_Tag);  // !!! only needed for bootstrap with old r3
 }

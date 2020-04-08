@@ -1327,16 +1327,7 @@ REBVAL *RL_rebRescue(
     // now pretend to be applying a dummy native.
     //
     DECLARE_END_FRAME (f, EVAL_MASK_DEFAULT);  // not FULLY_SPECIALIZED
-    Push_Frame(nullptr, f);
-
-    REBSTR *opt_label = NULL;
-
-    Push_Action(f, PG_Dummy_Action, UNBOUND);
-    Begin_Prefix_Action(f, opt_label);
-    assert(IS_END(f->arg));
-    f->param = END_NODE;  // signal all arguments gathered
-    f->arg = m_cast(REBVAL*, END_NODE);
-    f->special = END_NODE;
+    Push_Dummy_Frame(f);
 
   #ifdef DEBUG_ENSURE_FRAME_EVALUATES
     f->was_eval_called = true;  // "fake" frame, okay to lie
@@ -1356,14 +1347,7 @@ REBVAL *RL_rebRescue(
 
     REBVAL *result = (*dangerous)(opaque);
 
-    Drop_Action(f);
-
-    // !!! To abstract how the system deals with exception handling, the
-    // rebRescue() routine started being used in lieu of PUSH_TRAP/DROP_TRAP
-    // internally to the system.  Some of these system routines accumulate
-    // stack state, so Drop_Frame_Unbalanced() must be used.
-    //
-    Drop_Frame_Unbalanced(f);
+    Drop_Dummy_Frame_Unbalanced(f);
 
     DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
 

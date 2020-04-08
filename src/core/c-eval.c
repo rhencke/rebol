@@ -2166,7 +2166,42 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                 = mutable_KIND_BYTE(spare)
                 = mutable_MIRROR_BYTE(spare)
                 = REB_SET_BLOCK;
-            goto set_block_with_out;
+
+            // !!! This code used to be jumped to as part of the implementation of
+            // SET-BLOCK!, as "set_block_with_out".  It is likely to be discarded
+            // in light of the new purpose of SET-BLOCK! as multiple returns,
+            // but was moved here for now.
+
+            if (IS_NULLED(f->out)) // `[x y]: null` is illegal
+                fail (Error_Need_Non_Null_Core(v, *specifier));
+
+            const RELVAL *dest = VAL_ARRAY_AT(v);
+
+            const RELVAL *src;
+            if (IS_BLOCK(f->out))
+                src = VAL_ARRAY_AT(f->out);
+            else
+                src = f->out;
+
+            for (
+                ;
+                NOT_END(dest);
+                ++dest,
+                IS_END(src) or not IS_BLOCK(f->out) ? NOOP : (++src, NOOP)
+            ){
+                Set_Opt_Polymorphic_May_Fail(
+                    dest,
+                    *specifier,
+                    IS_END(src) ? BLANK_VALUE : src,  // R3-Alpha blanks > END
+                    IS_BLOCK(f->out)
+                        ? VAL_SPECIFIER(f->out)
+                        : SPECIFIED,
+                    false,  // not /ANY, e.g. voids are not legal
+                    false  // doesn't use "hard" semantics on groups in paths
+                );
+            }
+
+            break;
         }
 
         fail (Error_Bad_Set_Group_Raw()); }
@@ -2192,43 +2227,141 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
 //==//// SET-BLOCK! //////////////////////////////////////////////////////==//
 //
-// Synonym for SET on the produced thing.
+// The evaluator treats SET-BLOCK! specially as a means for implementing
+// multiple return values.  The trick is that it does so by pre-loading
+// arguments in the frame with variables to update, in a way that could have
+// historically been achieved with passing a WORD! or PATH! to a refinement.
+// So if there was a function that updates a variable you pass in by name:
+//
+//     result: updating-function/update arg1 arg2 'var
+//
+// The /UPDATE parameter is marked as being effectively a "return value", so
+// that equivalent behavior can be achieved with:
+//
+//     [result var]: updating-function arg1 arg2
+//
+// !!! This is an extremely slow-running prototype of the desired behavior.
+// It is a mock up intended to find any flaws in the concept before writing
+// a faster native version that would require rewiring the evaluator somewhat.
 
       case REB_SET_BLOCK: {
-        if (Rightward_Evaluate_Nonvoid_Into_Out_Throws(f, v))
-            goto return_thrown;
+        assert(NOT_EVAL_FLAG(f, NEXT_ARG_FROM_OUT));
 
-      set_block_with_out:
+        if (VAL_LEN_AT(v) == 0)
+            fail ("SET-BLOCK! must not be empty for now.");
 
-        if (IS_NULLED(f->out)) // `[x y]: null` is illegal
-            fail (Error_Need_Non_Null_Core(v, *specifier));
-
-        const RELVAL *dest = VAL_ARRAY_AT(v);
-
-        const RELVAL *src;
-        if (IS_BLOCK(f->out))
-            src = VAL_ARRAY_AT(f->out);
-        else
-            src = f->out;
-
-        for (
-            ;
-            NOT_END(dest);
-            ++dest, IS_END(src) or not IS_BLOCK(f->out) ? NOOP : (++src, NOOP)
-        ){
-            Set_Opt_Polymorphic_May_Fail(
-                dest,
-                *specifier,
-                IS_END(src) ? BLANK_VALUE : src,  // R3-Alpha blanks after END
-                IS_BLOCK(f->out)
-                    ? VAL_SPECIFIER(f->out)
-                    : SPECIFIED,
-                false,  // not /ANY, e.g. voids are not legal
-                false  // doesn't use "hard" semantics on groups in paths
-            );
+        RELVAL *check = VAL_ARRAY_AT(v);
+        for (; NOT_END(check); ++check) {
+            if (IS_BLANK(check) or IS_WORD(check) or IS_PATH(check))
+                continue;
+            fail ("SET-BLOCK! elements must be WORD/PATH/BLANK for now.");
         }
 
-        break; }
+        if (not IS_WORD(*next) or IS_PATH(*next) or IS_ACTION(*next))
+            fail ("SET_BLOCK! must be followed by WORD/PATH/ACTION for now.");
+
+        // Turn SET-BLOCK! into a BLOCK! in `f->out` for easier processing.
+        //
+        Derelativize(f->out, v, *specifier);
+        mutable_KIND_BYTE(f->out) = REB_BLOCK;
+        mutable_MIRROR_BYTE(f->out) = REB_BLOCK;
+
+        // Get the next argument as an ACTION!, specialized if necessary, into
+        // the `spare`.  We'll specialize it further to set any output
+        // arguments to words from the left hand side.
+        //
+        if (Get_If_Word_Or_Path_Throws(
+            spare,
+            nullptr,
+            *next,
+            *specifier,
+            false
+        )){
+            goto return_thrown;
+        }
+
+        if (not IS_ACTION(spare))
+            fail ("SET-BLOCK! is only allowed to have ACTION! on right ATM.");
+
+        // Find all the "output" parameters.  Right now that's any parameter
+        // which is marked as being legal to be word! or path! *specifically*.
+        //
+        const REBU64 ts_out = FLAGIT_KIND(REB_TS_REFINEMENT)
+            | FLAGIT_KIND(REB_NULLED)
+            | FLAGIT_KIND(REB_WORD)
+            | FLAGIT_KIND(REB_PATH);
+
+        REBDSP dsp_outputs = DSP;
+        REBVAL *temp = VAL_ACT_PARAMS_HEAD(spare);
+        for (; NOT_END(temp); ++temp) {
+            if (not TYPE_CHECK_EXACT_BITS(temp, ts_out))
+                continue;
+            Init_Word(DS_PUSH(), VAL_TYPESET_STRING(temp));
+        }
+
+        DECLARE_LOCAL(outputs);
+        Init_Block(outputs, Pop_Stack_Values(dsp_outputs));
+        PUSH_GC_GUARD(outputs);
+
+        // !!! You generally don't want to use the API inside the evaluator
+        // (this is only a temporary measure).  But if you do, you can't use
+        // it inside of a function that has not fulfilled its arguments.
+        // So imagine `10 = [a b]: some-func`... the `=` is building a frame
+        // with two arguments, and it has the 10 fulfilled but the other
+        // cell is invalid bits.  So when the API handle tries to attach its
+        // ownership it forces reification of a frame that's partial.  We
+        // have to give the API handle a fulfilled frame to stick to, so
+        // we wrap in a function that we make look like it ran and got all
+        // its arguments.
+        //
+        DECLARE_END_FRAME(dummy, EVAL_MASK_DEFAULT);
+        Push_Dummy_Frame(dummy);
+
+        // Now create a function to splice in to the execution stream that
+        // specializes what we are calling so the output parameters have
+        // been preloaded with the words or paths from the left block.
+        //
+        REBVAL *specialized = rebValue(
+            "enclose specialize", rebQ1(spare), "collect [ use [block] [",
+                "block: next", f->out,
+                "for-each output", outputs, "["
+                    "if tail? block [break]",  // no more outputs wanted
+                    "if block/1 [",  // interested in this result
+                        "keep setify output",
+                        "output: compose block/1",  // pre-compose for safety
+                        "set/any output void",  // void in case func doesn't
+                        "keep quote output",
+                    "]",
+                    "block: next block",
+                "]",
+                "if not tail? block [fail {Too many multi-returns}]",
+            "] ] func [f] [",
+                "if first", f->out, "[",
+                    "set/any first", f->out, "do f",
+                "] else [do f]",
+            "]",
+        rebEND);
+
+        DROP_GC_GUARD(outputs);
+
+        Move_Value(spare, specialized);
+        rebRelease(specialized);
+
+        Drop_Dummy_Frame_Unbalanced(dummy);
+
+        // Toss away the pending WORD!/PATH!/ACTION! that was in the execution
+        // stream previously.
+        //
+        Fetch_Next_Forget_Lookback(f);
+
+        // Interject the function with our multiple return arguments and
+        // return value assignment step.
+        //
+        gotten = spare;
+        v = spare;
+        kind.byte = KIND_BYTE(v);
+
+        goto reevaluate; }
 
 
 //==//////////////////////////////////////////////////////////////////////==//
