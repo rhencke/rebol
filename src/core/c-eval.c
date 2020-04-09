@@ -2257,7 +2257,7 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
             fail ("SET-BLOCK! elements must be WORD/PATH/BLANK for now.");
         }
 
-        if (not IS_WORD(*next) or IS_PATH(*next) or IS_ACTION(*next))
+        if (not (IS_WORD(*next) or IS_PATH(*next) or IS_ACTION(*next)))
             fail ("SET_BLOCK! must be followed by WORD/PATH/ACTION for now.");
 
         // Turn SET-BLOCK! into a BLOCK! in `f->out` for easier processing.
@@ -2328,14 +2328,17 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                     "if tail? block [break]",  // no more outputs wanted
                     "if block/1 [",  // interested in this result
                         "keep setify output",
-                        "output: compose block/1",  // pre-compose for safety
-                        "set/any output void",  // void in case func doesn't
-                        "keep quote output",
+                        "keep quote compose block/1",  // pre-compose, safety
                     "]",
                     "block: next block",
                 "]",
                 "if not tail? block [fail {Too many multi-returns}]",
             "] ] func [f] [",
+                "for-each output", outputs, "[",
+                    "if f/(output) [",  // void in case func doesn't (null?)
+                        "set/any f/(output) void",
+                    "]",
+                "]",
                 "if first", f->out, "[",
                     "set/any first", f->out, "do f",
                 "] else [do f]",
