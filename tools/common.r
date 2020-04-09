@@ -379,9 +379,11 @@ stripload: function [
 
     return: "[header contents] or just contents, w/o comments or indentation"
         [text! block!]
-    file "File to read without using LOAD (avoids bootstrap scan differences)"
-        [file!]
+    source "Code to process without LOAD (avoids bootstrap scan differences)"
+        [text! file!]
     /header "Request a block with both the header and contents (no [])"
+    /gather "Collect what look like top-level declarations into variable"
+        [word!]
 ][
     ; Removing spacing and comments from a Rebol file is not exactly trivial
     ; without LOAD.  But not impossible...and any tough cases in the mezzanine
@@ -418,6 +420,8 @@ stripload: function [
             |
             "^^}"  ; (actually `^}`) escaped brace, never count
             |
+            {^^"}  ; (actually `^"`) escaped quote, never count
+            |
             "{" (if <Q> != last pushed [append pushed <B>])
             |
             "}" (if <B> = last pushed [take/last pushed])
@@ -434,8 +438,51 @@ stripload: function [
         end
     ]
 
-    text: as text! read file
-    contents: find/tail text "^/]"
+    either text? source [
+        contents: source  ; useful for debugging STRIPLOAD from console
+    ][
+        text: as text! read source
+        contents: find/tail text "^/]"
+    ]
+
+    ; This is a somewhat dodgy substitute for finding "top-level declarations"
+    ; because it only finds things that look like SET-WORD! that are at the
+    ; beginning of a line.  However, if we required the file to be LOAD-able
+    ; by a bootstrap Rebol, that would create a dependency that would make
+    ; it hard to use new scanner constructs in the mezzanine.
+    ;
+    ; Currently this is only used by the SYS context in order to generate top
+    ; #define constants for easy access to the functions there.
+    ;
+    if gather [
+        assert [block? get gather]
+        append get gather collect [
+            for-next t text [
+                newline-pos: find t newline else [tail text]
+                colon-pos: find/part t ":" newline-pos
+                if unset? 'colon-pos [
+                    t: newline-pos
+                    continue
+                ]
+                space-pos: find/part t space colon-pos
+                if set? 'space-pos [
+                    t: newline-pos
+                    continue
+                ]
+                str: copy/part t colon-pos
+                all [
+                    not find str ";"
+                    not find str "{"
+                    not find str "}"
+                    not find str {"}
+                    not find str "/"
+                ] then [
+                    keep as word! str
+                ]
+                t: newline-pos
+            ]
+        ]
+    ]
 
     if header [
         if not header: copy/part (find/tail text "[") (find text "^/]") [

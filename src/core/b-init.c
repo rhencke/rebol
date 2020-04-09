@@ -1091,6 +1091,22 @@ static void Startup_Sys(REBARR *boot_sys) {
 }
 
 
+#if !defined(NDEBUG)
+//
+//  Get_Sys_Function_Debug: C
+//
+// See remarks on Get_Sys_Function.  (Double-check the heuristic for getting
+// SYS context ID numbers in the context without using LOAD.)
+//
+REBVAL *Get_Sys_Function_Debug(REBLEN index, const char *name)
+{
+    const char *key = STR_UTF8(VAL_KEY_SPELLING(CTX_KEY(Sys_Context, index)));
+    assert(strcmp(key, name) == 0);
+    return CTX_VAR(Sys_Context, index);
+}
+#endif
+
+
 // By this point in the boot, it's possible to trap failures and exit in
 // a graceful fashion.  This is the routine protected by rebRescue() so that
 // initialization can handle exceptions.
@@ -1101,7 +1117,7 @@ static REBVAL *Startup_Mezzanine(BOOT_BLK *boot)
 
     Startup_Sys(VAL_ARRAY(&boot->sys));
 
-    REBVAL *finish_init = CTX_VAR(Sys_Context, SYS_CTX_FINISH_INIT_CORE);
+    REBVAL *finish_init = Get_Sys_Function(FINISH_INIT_CORE);
     assert(IS_ACTION(finish_init));
 
     // The FINISH-INIT-CORE function should likely do very little.  But right
