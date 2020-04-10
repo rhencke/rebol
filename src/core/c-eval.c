@@ -2339,9 +2339,9 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
                         "set/any f/(output) void",
                     "]",
                 "]",
-                "if first", f->out, "[",
+                "either first", f->out, "[",
                     "set/any first", f->out, "do f",
-                "] else [do f]",
+                "] [do f]",
             "]",
         rebEND);
 
