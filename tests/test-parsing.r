@@ -35,10 +35,9 @@ make object! [
         any [
             position:
 
-            ["{" | {"}] (
-                ; handle string using TRANSCODE
+            ["{" | {"}] (  ; handle string using TRANSCODE
                 success-rule: trap [
-                    position: transcode/next 'dummy position
+                    [_ position]: transcode position
                 ] then [
                     [end skip]
                 ] else [
@@ -123,7 +122,9 @@ make object! [
 
         single-value: parsing-at x [
             trap [
-                next-position: transcode/next (lit value:) x
+                value: _  ; !!! for collecting with SET-WORD!, evolving
+                next-position: _  ; !!! ...same
+                [value next-position]: transcode x
             ] else [
                 type: in types 'val
                 next-position

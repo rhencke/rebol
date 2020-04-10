@@ -298,26 +298,33 @@ lib/read: read: enclose 'lib-read function [f [frame!]] [
     bin
 ]
 
-transcode: function [  ; !!! TBD: migrate this shim to redbol.reb
-    return: [text! binary!]
-    var [any-word!]
+transcode: function [
+    return: [<opt> any-value!]
     source [text! binary!]
-    /next
-    /only
-    /relax
+    /next [word!]
+    ; /relax not supported in shim... it could be
 ][
-    set [var pos:] lib/transcode/(next)/(only)/(relax)
+    values: lib/transcode/(either next ['next] [blank])
         either text? source [to binary! source] [source]
+    pos: take/last values
+    assert [binary? pos]
 
-    ; In order to return a text position in pre-UTF-8 everywhere, we fake it
-    ; by seeing how much binary was consumed and assume skipping that many
-    ; bytes will sync us.  (From @rgchris's LOAD-NEXT)
-    ;
-    if text? source [
-        pos: skip source subtract (length of source) (length of to text! pos)
+    if next [
+        assert [1 >= length of values]
+
+        ; In order to return a text position in pre-UTF-8 everywhere, fake it
+        ; by seeing how much binary was consumed and assume skipping that many
+        ; bytes will sync us.  (From @rgchris's LOAD-NEXT).
+        ;
+        if text? source [
+            rest: to text! pos
+            pos: skip source subtract (length of source) (length of rest)
+        ]
+        set next pos
+        return pick values 1  ; may be null
     ]
 
-    return pos
+    return values
 ]
 
 reeval: :eval

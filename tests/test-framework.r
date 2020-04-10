@@ -167,9 +167,8 @@ make object! compose [
                         any whitespace
                         [
                             position: "%" (
-                                next-position:
-                                    transcode/next 'value
-                                    position
+                                next_position: _  ; !!! for SET-WORD! gather
+                                [value next-position]: transcode position
                             )
                             :next-position
                                 |

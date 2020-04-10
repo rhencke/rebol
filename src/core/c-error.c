@@ -499,10 +499,12 @@ void Set_Location_Of_Error(
         REBLIN line = MISC(f->feed->array).line;
 
         REBSYM file_sym = STR_SYMBOL(file);
-        if (file_sym != SYM___ANONYMOUS__)
-            Init_Word(&vars->file, file);
-        if (line != 0)
-            Init_Integer(&vars->line, line);
+        if (IS_NULLED_OR_BLANK(&vars->file)) {
+            if (file_sym != SYM___ANONYMOUS__)
+                Init_Word(&vars->file, file);
+            if (line != 0)
+                Init_Integer(&vars->line, line);
+        }
     }
 }
 

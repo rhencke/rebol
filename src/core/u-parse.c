@@ -688,22 +688,21 @@ static REB_R Parse_One_Rule(
             REBSIZ size;
             const REBYTE *bp = VAL_BYTES_AT(&size, P_INPUT_VALUE);
 
+            SCAN_LEVEL level;
             SCAN_STATE ss;
-            Init_Scan_State(&ss, filename, start_line, bp, size);
-            ss.opts |= SCAN_FLAG_NEXT;  // _ONLY?
-            ss.opts |= SCAN_FLAG_RELAX;  // error is parse failure
+            Init_Scan_Level(&level, &ss, filename, start_line, bp, size);
+            level.opts |= SCAN_FLAG_NEXT;  // _ONLY?
 
             REBDSP dsp_orig = DSP;
-            Scan_To_Stack_Relaxed(&ss);
+            if (Scan_To_Stack_Relaxed_Failed(&level)) {
+                DS_DROP();
+                return R_UNHANDLED;
+            }
+
             if (DSP == dsp_orig)
                 return R_UNHANDLED;  // nothing was scanned
 
             assert(DSP == dsp_orig + 1);  // only adds one value to stack
-
-            if (IS_ERROR(DS_TOP)) {
-                DS_DROP();
-                return R_UNHANDLED;
-            }
 
             enum Reb_Kind kind = VAL_TYPE(DS_TOP);
             if (IS_DATATYPE(rule)) {

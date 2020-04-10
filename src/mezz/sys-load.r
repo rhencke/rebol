@@ -90,16 +90,24 @@ mixin?: func [
 load-header: function [
     {Loads script header object and body binary (not loaded).}
 
-    return: "[header OBJECT!, body BINARY!, end] or error WORD!"
-        [block! word!]
+    return: "header OBJECT! if present, or error WORD!"
+        [<opt> object! word!]
     source "Source code (text! will be UTF-8 encoded)"
         [binary! text!]
+    /file "Where source is being loaded from"
+        [file! url!]
     /only "Only process header, don't decompress body"
     /required "Script header is required"
+    /body [<output>]  ; [binary! block!]
+    /line [<output>]  ; integer!
+    /final [<output>]  ; binary!
 
     <static>
     non-ws (make bitset! [not 1 - 32])
 ][
+    let line-out: line  ; we use LINE for the line number inside the body
+    line: 1
+
     ; This function decodes the script header from the script body.  It checks
     ; the header 'compress and 'content options, and supports length-specified
     ; or script-in-a-block embedding.
@@ -137,12 +145,10 @@ load-header: function [
     if not (data: script? tmp) [  ; !!! Review: SCRIPT? doesn't return LOGIC!
         ; no script header found
         return either required ['no-header] [
-            reduce [
-                _  ; no header object
-                tmp  ; body text
-                1  ; line number
-                tail of tmp  ; end of script
-            ]
+            if body [set body tmp]
+            if line-out [set line-out line]  ; e.g. line 1
+            if final [set final tail of tmp]
+            return null  ; no header object
         ]
     ]
 
@@ -153,12 +159,17 @@ load-header: function [
 
     ; get 'rebol keyword
 
-    line: 1
-    rest: transcode/only (lit key:) data 'line
+    let key
+    let rest
+    [key rest]: transcode/file/line data file 'line
 
     ; get header block
 
-    rest: transcode/next/relax/line (lit hdr:) rest 'line
+    let hdr
+    let error
+    [hdr rest error]: transcode/file/line rest file 'line
+
+    if error [fail error]
 
     if not block? :hdr [
         return 'no-header  ; header block is incomplete
@@ -178,7 +189,6 @@ load-header: function [
         append hdr compose [content (data)]  ; as of start of header
     ]
 
-    if 13 = rest/1 [rest: next rest] ; skip CR
     if 10 = rest/1 [rest: next rest | line: me + 1]  ; skip LF
 
     if integer? tmp: select hdr 'length [
@@ -188,9 +198,13 @@ load-header: function [
     ]
 
     if only [  ; when it's /ONLY, decompression is not performed
-        return reduce [hdr rest end]
+        if body [set body rest]
+        if line-out [set line-out line]
+        if final [set final end]
+        return hdr
     ]
 
+    let binary
     if :key = 'rebol [
         ; regular script, binary or script encoded compression supported
         case [
@@ -208,7 +222,7 @@ load-header: function [
                         ; uses transcode, leading whitespace and comments
                         ; are tolerated before the literal.
                         ;
-                        transcode/next (lit binary:) rest
+                        [binary rest]: transcode/file/line rest file 'line
                         gunzip binary
                     ]
                 ] else [
@@ -219,9 +233,9 @@ load-header: function [
     ] else [
         ; block-embedded script, only script compression
 
-        end: transcode/next (lit data:) data  ; decode embedded script
+        let data
+        data: transcode data  ; decode embedded script
         rest: skip data 2  ; !!! what is this skipping ("hdr/length" ??)
-        ; check end?
 
         if find hdr/options 'compress [  ; script encoded only
             rest: attempt [gunzip first rest] else [
@@ -230,17 +244,13 @@ load-header: function [
         ]
     ]
 
-    ; Return a BLOCK! with 4 elements in it
-    ;
-    return reduce [
-        ensure object! hdr
-        elide (
-            ensure [block! blank!] hdr/options
-        )
-        ensure [binary! block!] rest
-        ensure integer! line
-        ensure binary! end
-    ]
+    if body [set body ensure [binary! block!] rest]
+    if line-out [set line-out ensure integer! line]
+    if final [set final ensure binary! end]
+
+    ensure object! hdr
+    ensure [block! blank!] hdr/options
+    return hdr
 ]
 
 
@@ -352,25 +362,25 @@ load: function [
     ; Try to load the header, handle error
 
     if not self/all [
-        set [hdr: data: line:] either object? data [
+        hdr: line: _  ; for SET-WORD! gathering, evolving...
+        either object? data [
             fail "Code has not been updated for LOAD-EXT-MODULE"
             load-ext-module data
         ][
-            load-header data
+            [hdr data line]: load-header/file data file
         ]
 
         if word? hdr [cause-error 'syntax hdr source]
     ]
 
-    ensure [object! blank!] hdr: default [_]
+    ensure [blank! object!] hdr: default [_]
     ensure [binary! block! text!] data
 
     ; Convert code to block, insert header if requested
 
     if not block? data [
         assert [match [binary! text!] data]  ; UTF-8
-        end: transcode/file/line (lit data:) data file 'line
-        assert [empty? end]  ; should have gone to completion
+        data: transcode/file/line data file 'line
     ]
 
     if header [
@@ -683,7 +693,9 @@ load-module: func [
     if null? hdr [
         ; Only happens for string, binary or non-extension file/url source
 
-        set [hdr: code: line:] load-header/required data
+        [hdr code line]: load-header/file/required data (
+            match [file! url!] source
+        )
         case [
             word? hdr [cause-error 'syntax hdr source]
             import [
