@@ -368,7 +368,7 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         // windows when too large a request is made (e.g. Windows 7).  The
         // issue arose in the Go language as well:
         //
-        // https://github.com/golang/go/issues/1367
+        // https://github.com/golang/go/issues/13697
 		  
         const REBLEN readbuf_size = 30 * 1024;  // may back off to smaller size
 

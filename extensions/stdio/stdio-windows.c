@@ -354,7 +354,7 @@ DEVICE_CMD Read_IO(REBREQ *io)
             // Windows (notably Windows 7) can return this error when the
             // length of the read request is too large.  How large is unknown.
             //
-            // https://github.com/golang/go/issues/1367
+            // https://github.com/golang/go/issues/13697
             //
             // To address this, we back the size off and try again a few
             // times before actually raising an error.
