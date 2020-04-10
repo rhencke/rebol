@@ -98,13 +98,12 @@
     )
 
     (
-        loaded: load/header #{
+        [loaded header]: load #{
             5245424F4C205B0A202020207469746C653A20226D7920636F6465220A202020
             206F7074696F6E733A205B636F6D70726573735D0A5D0A1F8B08000000000000
             0A335430D433523034B0323250502A492D2E5152282D4E2D7248AD48CC2DC849
             D54BCECF55882E2E4D5248CAC94FCE8EE502000B388CB030000000
         }
-        header: take loaded
         did all [
             header/title = "my code"
             header/options = [compress]
@@ -113,10 +112,9 @@
     )
 
     (
-        loaded: load/header (
+        [loaded header]: load (
             save/header/compress blank data [title: "my code"] 'script
         )
-        header: take loaded
         did all [
             header/title = "my code"
             header/options = [compress]
@@ -125,7 +123,7 @@
     )
 
     (
-        loaded: load/header #{
+        loaded: load #{
             5245424F4C205B0A202020207469746C653A20226D7920636F6465220A202020
             206F7074696F6E733A205B636F6D70726573735D0A5D0A3634237B0A48347349
             4141414141414141436A4E554D4E517A556A4130734449795546417153533075
@@ -141,10 +139,9 @@
     )
 
     (
-        loaded: load/header (
+        [loaded header]: load (
             save/header blank data [title: "my code" options: [compress]]
         )
-        header: take loaded
         did all [
             header/title = "my code"
             header/options = [compress]
@@ -153,13 +150,12 @@
     )
 
     (
-        loaded: load/header #{
+        [loaded header]: load #{
             5245424F4C205B0A202020207469746C653A20226D7920636F6465220A202020
             206F7074696F6E733A205B636F6D70726573735D0A5D0A1F8B08000000000000
             0A335430D433523034B0323250502A492D2E5152282D4E2D7248AD48CC2DC849
             D54BCECF55882E2E4D5248CAC94FCE8EE502000B388CB030000000
         }
-        header: take loaded
         did all [
             header/title = "my code"
             header/options = [compress]

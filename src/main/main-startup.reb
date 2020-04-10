@@ -795,7 +795,7 @@ comment [
             false  ; signal the `AND []` that there's no embedded code
         ]
         binary! [ ; single script
-            code: load/header/type boot-embedded 'unbound
+            [code header]: load/type boot-embedded 'unbound
             true
         ]
         block! [
@@ -812,7 +812,7 @@ comment [
             if not binary? main [
                 die "Could not find %main.reb in encapped zip file"
             ]
-            code: load/header/type main 'unbound
+            [code header]: load/type main 'unbound
             true
         ]
 

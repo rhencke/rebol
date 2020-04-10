@@ -377,11 +377,12 @@ relative-to-path: func [
 stripload: function [
     {Get an equivalent to MOLD/FLAT (plus no comments) without using LOAD}
 
-    return: "[header contents] or just contents, w/o comments or indentation"
-        [text! block!]
+    return: "contents, w/o comments or indentation"
+        [text!]
     source "Code to process without LOAD (avoids bootstrap scan differences)"
         [text! file!]
-    /header "Request a block with both the header and contents (no [])"
+    /header "Request the header as text"
+        [word! path!]  ; would be <output>, but that's not in bootstrap r3
     /gather "Collect what look like top-level declarations into variable"
         [word!]
 ][
@@ -485,12 +486,13 @@ stripload: function [
     ]
 
     if header [
-        if not header: copy/part (find/tail text "[") (find text "^/]") [
+        if not hdr: copy/part (find/tail text "[") (find text "^/]") [
             fail ["Couldn't locate header in STRIPLOAD of" file]
         ]
-        parse header rule else [
+        parse hdr rule else [
             fail ["STRIPLOAD failed to munge header of" file]
         ]
+        set header hdr
     ]
 
     parse contents rule else [
@@ -499,10 +501,6 @@ stripload: function [
 
     if not empty? pushed [
         fail ["String delimiter stack imbalance while parsing" file]
-    ]
-
-    if header [
-        return reduce [header contents]
     ]
 
     return contents

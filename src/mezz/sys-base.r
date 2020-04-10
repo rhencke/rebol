@@ -109,19 +109,18 @@ do*: func [
     ; LOAD it will trigger before the failure of changing the working dir)
     ; It is loaded as UNBOUND so that DO-NEEDS runs before INTERN.
     ;
-    let code: ensure block! (load/header/type source 'unbound)
+    let hdr
+    let code
+    [code hdr]: load/type source 'unbound
 
-    ; LOAD/header returns a block with the header object in the first
-    ; position, or will cause an error.  No exceptions, not even for
-    ; directories or media.  "Load of URL has no special block forms." <-- ???
-    ;
     ; !!! This used to LOCK the header, but the module processing wants to
     ; do some manipulation to it.  Review.  In the meantime, in order to
     ; allow mutation of the OBJECT! we have to actually TAKE the hdr out
     ; of the returned result to avoid LOCKing it when the code array is locked
     ; because even with series not at their head, LOCK NEXT CODE will lock it.
     ;
-    let hdr: ensure [object! blank!] take code
+    ensure block! code
+    ensure [object! blank!] hdr: default [_]
     let is-module: 'module = select hdr 'type
 
     let result

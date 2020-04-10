@@ -255,7 +255,6 @@ load-header: function [
 
 
 ; !!! This is an idiom that should be done with something like <unbound>
-; (For bootstrap, don't use anything too tricky so older Ren-C can load this)
 ;
 no-all: make object! [all: _]
 no-all/all: void
@@ -264,9 +263,12 @@ protect 'no-all/all
 load: function [
     {Loads code or data from a file, URL, text string, or binary.}
 
+    return: "Loaded code (may be single-value if /header or /all not used)"
+        [any-value!]
     source "Source or block of sources"
         [file! url! text! binary! block!]
-    /header "Result includes REBOL header object "
+    /header "Request the Rebol header object be returned as well"
+        [<output>]
     /all "Load all values (cannot be used with /HEADER)"
     /type "E.g. rebol, text, markup, jpeg... (by default, auto-detected)"
         [word!]
@@ -383,10 +385,6 @@ load: function [
         data: transcode/file/line data file 'line
     ]
 
-    if header [
-        insert data hdr
-    ]
-
     ; Bind code to user context
 
     none [
@@ -397,17 +395,23 @@ load: function [
         data: intern data
     ]
 
-    ; If appropriate and possible, return singular data value
-
-    any [
+    ; If appropriate and possible, return singular data value.
+    ;
+    ; !!! How good an idea is this, really?  People are used to saying
+    ; load "10" and getting `10`, not `[10]`.  But it seems like this makes
+    ; the process have some variability to it that makes it a poor default.
+    ;
+    none [
         self/all
-        header
-        empty? data
-        1 < length of data
-    ] else [
+        header  ; technically doesn't prevent returning single value (?)
+        (length of data) <> 1
+    ] then [
         data: first data
     ]
 
+    if header [
+        set header opt hdr
+    ]
     return :data
 ]
 

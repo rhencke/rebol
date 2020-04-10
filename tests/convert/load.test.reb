@@ -28,8 +28,11 @@
 ; R2 bug
 (
      x: 1
-     error? trap [x: load/header ""]
-     not error? x
+     x: load/header "" 'header
+     did all [
+        x = []
+        null? header
+     ]
 )
 
 [#1421 (

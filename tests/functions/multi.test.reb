@@ -24,13 +24,13 @@
             assert [void? get/any z]
             set z <z-result>
         ]
-            
+
         return 304
     ]
     true)
 
     (304 = test 1020)
-    
+
     (did all [
         304 = [a]: test 1020
         a = 304
