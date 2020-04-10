@@ -410,7 +410,7 @@ matrix:
         - OS_ID=0.3.1
         - DEBUG=none
         - CROSS_PREFIX=i686-w64-mingw32-  # trailing hyphen is intentional
-        - STANDARD=c99
+        - STANDARD=gnu89  # no smart terminal features in C89 build, test that
         - RIGOROUS=yes
         - STATIC=yes
         - TCC=i386-win32-tcc
@@ -418,7 +418,7 @@ matrix:
         - ARCH_CFLAGS=-m32
         - WITH_FFI=no  # was "dynamic"
         - ODBC_REQUIRES_LTDL=no
-        - EXTENSIONS="ODBC + Clipboard + TCC +"
+        - EXTENSIONS="Clipboard + TCC +"  # note ODBC requires C99
       addons:
         apt:
           packages:
@@ -441,7 +441,7 @@ matrix:
         - OS_ID=0.3.40
         - DEBUG=asserts
         - CROSS_PREFIX=x86_64-w64-mingw32-  # trailing hyphen is intentional
-        - STANDARD=c99
+        - STANDARD=c99  # should have smart terminal featuers in C99 build
         - RIGOROUS=yes
         - STATIC=yes
         - TCC=x86_64-win32-tcc
