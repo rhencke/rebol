@@ -623,6 +623,18 @@ e-lib/emit {
      * explicitly, this gives a harmless but slightly inefficient repetition.
      */
     #if !defined(REBOL_EXPLICIT_END)
+      /*
+       * Clients who #include "rebol.h" are not expected to use %sys-core.h
+       * internal APIs (including %sys-core.h gets %rebol.h automatically).
+       * But for some debugging scenarios, adding the internal API as an
+       * "overlay" gives extra functions for recompiling test code that can
+       * do things like invasively pick apart cell structure.  If that is
+       * the case, then this allows %sys-core.h to detect that %rebol.h
+       * was already included and is using explicit ends (the core uses
+       * explicit ones, but that is harmlessly redundant for a debug build...
+       * each call will just have two rebENDs--one explicit, one implicit).
+       */
+      #define REBOL_IMPLICIT_END
 
       #if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
         /* C99 or above */

@@ -37,6 +37,9 @@
 // taken advantage of if they are available.
 //
 
+#ifndef REB_C_H_1020_0304  // "include guard" allows multiple #includes
+#define REB_C_H_1020_0304  // numbers in case REB_C_H defined elsewhere
+
 
 //=//// EXPECTS <stdint.h> OR "pstdint.h" SHIM INCLUDED ///////////////////=//
 //
@@ -1048,3 +1051,6 @@
         ));
     }
 #endif
+
+
+#endif  // !defined(REB_C_H_1020_0304)

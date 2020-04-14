@@ -341,8 +341,7 @@ REB_R Console_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
             REBVAL *result = Read_Line(Term_IO);
             if (rebDid("void?", rebQ1(result), rebEND)) {  // HALT received
                 rebRelease(result);
-                rebHalt();  // can't do `rebElide("halt")` (it's a throw)
-                return rebValue("const as binary! {halt}", rebEND);  // unseen
+                return rebVoid();
             }
             if (rebDid("blank?", result, rebEND)) {  // ESCAPE received
                 rebRelease(result);

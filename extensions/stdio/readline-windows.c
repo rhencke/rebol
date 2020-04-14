@@ -49,30 +49,38 @@
 
 //=//// CONFIGURATION /////////////////////////////////////////////////////=//
 
-enum {
-    BEL = 7,
-    BS = 8,
-    LF = 10,
-    CR = 13,
-    ESC = 27,
-    DEL = 127
-};
+#if defined(DEBUG_OVERLAY_SYS_CORE)
+    #undef IS_ERROR
+    #undef min
+    #undef max
+    #undef RL_API  // hack :-/
+    #include "sys-core.h"  // extra internal API to pick apart cells in debug
+#else
+    enum {
+        BEL = 7,
+        BS = 8,
+        LF = 10,
+        CR = 13,
+        ESC = 27,
+        DEL = 127
+    };
+
+    // Codepoints 0xD800 to 0xDFFF are reserved for "UTF-16 surrogates".
+    // It is technically possible for UTF-8 or UCS-4 to encode these directly,
+    // they aren't supposed to...and Ren-C prohibits loading them.  (It should
+    // also prevent saving them, but does not currently.)
+    //
+    // Windows Terminal API sends DWORD "unicode" characters, which means high
+    // codepoints are done as two events.  We have to piece that together.
+    //
+    #define UNI_SUR_HIGH_START  (WCHAR)0xD800
+    #define UNI_SUR_HIGH_END    (WCHAR)0xDBFF
+    #define UNI_SUR_LOW_START   (WCHAR)0xDC00
+    #define UNI_SUR_LOW_END     (WCHAR)0xDFFF
+#endif
 
 
 #define READ_BUF_LEN 64   // input events read at a time from console
-
-// Codepoints 0xD800 to 0xDFFF are reserved for "UTF-16 surrogates".  Though
-// it is technically possible for UTF-8 or UCS-4 to encode these directly,
-// they aren't supposed to...and Ren-C prohibits loading them.  (It should
-// also prevent saving them, but does not currently.)
-//
-// Windows Terminal API sends DWORD "unicode" characters, which means high
-// codepoints are done as two events.  We have to piece that together.
-//
-#define UNI_SUR_HIGH_START  (WCHAR)0xD800
-#define UNI_SUR_HIGH_END    (WCHAR)0xDBFF
-#define UNI_SUR_LOW_START   (WCHAR)0xDC00
-#define UNI_SUR_LOW_END     (WCHAR)0xDFFF
 
 
 struct Reb_Terminal_Struct {
@@ -411,7 +419,7 @@ static bool Read_Input_Records_Interrupted(STD_TERM *t)
   #endif
 
     CHECK_INPUT_RECORDS(t);
-    return false;  // not interrupted (note we could return `len` if needed)
+    return rebWasHalting();
 }
 
 
