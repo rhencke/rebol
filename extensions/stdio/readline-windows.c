@@ -351,10 +351,14 @@ void Quit_Terminal(STD_TERM *t)
 #endif
 
 
-#if defined(NDEBUG)
-    #define ENSURE_COHERENT_POSITION_DEBUG(t) \
-        NOOP
-#else
+// If you can printf(), then there are ways to adjust the console position
+// that never go through the smart terminal.  This will intrinsically not
+// have the right cursor index, so this invariant won't hold.
+//
+// Enable this code when trying to debug a particular console issue, but it
+// is a disruptive assert otherwise.
+//
+#if defined(DEBUG_ENSURE_CONSOLE_POSITION)
     void ENSURE_COHERENT_POSITION_DEBUG(STD_TERM *t) {
         CONSOLE_SCREEN_BUFFER_INFO info;
         if (not GetConsoleScreenBufferInfo(Stdout_Handle, &info))
@@ -373,6 +377,9 @@ void Quit_Terminal(STD_TERM *t)
         }
         assert(!"Console position is not coherent with terminal state");
     }
+#else
+    #define ENSURE_COHERENT_POSITION_DEBUG(t) \
+        NOOP
 #endif
 
 
