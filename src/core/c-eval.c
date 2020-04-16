@@ -311,22 +311,28 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 // LIT ran, it would get deferred until after the RETURN.  This is not
 // consistent with the pattern people expect.
 //
-void Lookahead_To_Sync_Enfix_Defer_Flag(struct Reb_Feed *feed) {
+// Returns TRUE if it set the flag.
+//
+bool Lookahead_To_Sync_Enfix_Defer_Flag(struct Reb_Feed *feed) {
     assert(NOT_FEED_FLAG(feed, DEFERRING_ENFIX));
     assert(not feed->gotten);
 
     CLEAR_FEED_FLAG(feed, NO_LOOKAHEAD);
 
     if (not IS_WORD(feed->value))
-        return;
+        return false;
 
     feed->gotten = Try_Get_Opt_Var(feed->value, feed->specifier);
 
     if (not feed->gotten or not IS_ACTION(feed->gotten))
-        return;
+        return false;
+
+    if (NOT_ACTION_FLAG(VAL_ACTION(feed->gotten), ENFIXED))
+        return false;
 
     if (GET_ACTION_FLAG(VAL_ACTION(feed->gotten), DEFERS_LOOKBACK))
         SET_FEED_FLAG(feed, DEFERRING_ENFIX);
+    return true;
 }
 
 
@@ -1398,24 +1404,76 @@ bool Eval_Internal_Maybe_Stale_Throws(REBFRM * const f)
 
     //=//// SOFT QUOTED ARG-OR-REFINEMENT-ARG  ////////////////////////////=//
 
+        // Quotes from the right already "win" over quotes from the left, in
+        // a case like `help left-quoter` where they point at teach other.
+        // But there's also an issue where something sits between quoting
+        // constructs like the `[x]` in between the `else` and `=>`:
+        // 
+        //     if condition [...] else [x] => [...]
+        //
+        // Here the neutral [x] is meant to be a left argument to the lambda,
+        // producing the effect of:
+        //
+        //     if condition [...] else ([x] => [...])
+        //
+        // To get this effect, we need a different kind of deferment that
+        // hops over a unit of material.  Soft quoting is unique in that it
+        // means we can do that hop over exactly one unit without breaking
+        // the evaluator mechanics of feeding one element at a time with
+        // "no takebacks".
+        //
+        // First, we cache the quoted argument into the frame slot.  This is
+        // the common case of what is desired.  But if we advance the feed and
+        // notice a quoting enfix construct afterward looking left, we call
+        // into a nested evaluator before finishing the operation.
+
               case REB_P_SOFT_QUOTE:
-                if (not IS_QUOTABLY_SOFT(*next)) {
-                    Literal_Next_In_Frame(f->arg, f); // CELL_FLAG_UNEVALUATED
-                }
-                else {
-                    if (Eval_Value_Throws(f->arg, *next, *specifier)) {
+                Literal_Next_In_Frame(f->arg, f);  // CELL_FLAG_UNEVALUATED
+
+                // See remarks on Lookahead_To_Sync_Enfix_Defer_Flag().  We
+                // have to account for enfix deferrals in cases like:
+                //
+                //     return if false '[foo] else '[bar]
+                if (
+                    Lookahead_To_Sync_Enfix_Defer_Flag(f->feed) and
+                    GET_ACTION_FLAG(VAL_ACTION(f->feed->gotten), QUOTES_FIRST)
+                ){
+                    // We need to defer and let the right hand quote that is
+                    // quoting leftward win.  We use the EVAL_FLAG_POST_SWITCH
+                    // flag to jump into a subframe where subframe->out is
+                    // the f->arg, and it knows to get the arg from there.
+
+                    REBFLGS flags = EVAL_MASK_DEFAULT
+                        | EVAL_FLAG_FULFILLING_ARG
+                        | EVAL_FLAG_POST_SWITCH
+                        | EVAL_FLAG_INERT_OPTIMIZATION;
+
+                    if (IS_VOID(*next))  // Eval_Step() has callers test this
+                        fail (Error_Void_Evaluation_Raw());  // must be quoted
+
+                    DECLARE_FRAME (subframe, f->feed, flags);
+
+                    Push_Frame(f->arg, subframe);
+                    bool threw = Eval_Throws(subframe);
+                    Drop_Frame(subframe);
+
+                    if (threw) {
                         Move_Value(f->out, f->arg);
                         goto abort_action;
                     }
-                    Fetch_Next_Forget_Lookback(f);
                 }
-
-                // Have to account for enfix deferrals in cases like:
-                //
-                //     return if false '[foo] else '[bar]
-                //
-                Lookahead_To_Sync_Enfix_Defer_Flag(f->feed);
-
+                else if (IS_QUOTABLY_SOFT(f->arg)) {
+                    //
+                    // We did not defer the quoted argument.  If the argument
+                    // is something like a GROUP!, GET-WORD!, or GET-PATH!...
+                    // it has to be evaluated.
+                    //
+                    Move_Value(spare, f->arg);
+                    if (Eval_Value_Throws(f->arg, spare, *specifier)) {
+                        Move_Value(f->out, f->arg);
+                        goto abort_action;
+                    }
+                }
                 break;
 
               default:

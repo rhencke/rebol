@@ -999,10 +999,10 @@ pe-format: context [
     ][
         trap [
             parse-exe exe-data
-        ] then (lambda err [
+        ] then err => [
             ;print ["Failed to parse exe:" err]
             return null
-        ])
+        ]
 
         ;check if there's section name conflicts
 
