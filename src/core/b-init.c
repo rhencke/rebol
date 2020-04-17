@@ -1205,7 +1205,7 @@ void Startup_Core(void)
     fail (Error_No_Value_Raw(BLANK_VALUE)); // same as panic (crash)
   #endif
 
-  #ifndef NDEBUG
+  #ifdef DEBUG_ENABLE_ALWAYS_MALLOC
     PG_Always_Malloc = false;
   #endif
 

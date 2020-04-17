@@ -75,11 +75,11 @@ PVAR REB_OPTS *Reb_Opts;
     PVAR bool PG_Probe_Failures; // helpful especially for boot errors & panics
 #endif
 
-#if defined(INCLUDE_CALLGRIND_NATIVE)
+#ifdef INCLUDE_CALLGRIND_NATIVE
     PVAR bool PG_Callgrind_On;
 #endif
 
-#ifndef NDEBUG
+#ifdef DEBUG_ENABLE_ALWAYS_MALLOC
     PVAR bool PG_Always_Malloc;   // For memory-related troubleshooting
 #endif
 

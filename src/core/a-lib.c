@@ -377,7 +377,7 @@ void RL_rebShutdown(bool clean)
     //
     OS_Quit_Devices(0);
 
-  #if defined(NDEBUG)
+  #if defined(NDEBUG) && !defined(INCLUDE_CALLGRIND_NATIVE)
     if (not clean)
         return;  // Only do the work above this line in an unclean shutdown
   #else
