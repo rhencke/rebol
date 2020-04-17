@@ -125,30 +125,31 @@
         return m_cast(REBYTE*, bp);
     }
 
+    inline static REBUNI CHR_CODE(const REBYTE *bp) {
+        REBUNI codepoint;
+        NEXT_CHR(&codepoint, bp);
+        return codepoint;
+    }
+
     inline static REBYTE* SKIP_CHR(
         REBUNI *codepoint_out,
         const REBYTE *bp,
         REBINT delta
     ){
-        REBINT n = delta;
-        while (n != 0) {
-            if (delta > 0) {
-                bp = NEXT_CHR(codepoint_out, bp);
-                --n;
-            }
-            else {
-                bp = BACK_CHR(codepoint_out, bp);
-                ++n;
+        if (delta > 0) {
+            while (delta != 0) {
+                bp = NEXT_STR(bp);
+                --delta;
             }
         }
+        else {
+            while (delta != 0) {
+                bp = BACK_STR(bp);
+                ++delta;
+            }
+        }
+        *codepoint_out = CHR_CODE(bp);
         return m_cast(REBYTE*, bp);
-    }
-
-
-    inline static REBUNI CHR_CODE(const REBYTE *bp) {
-        REBUNI codepoint;
-        NEXT_CHR(&codepoint, bp);
-        return codepoint;
     }
 
     inline static REBYTE* WRITE_CHR(REBYTE* bp, REBUNI c) {
@@ -227,27 +228,28 @@
             return RebchrPtr {t};
         }
 
-        RebchrPtr skip(REBUNI *out, REBINT delta) {
-            assert(delta != 0);
-            REBINT n = delta;
-            const REBYTE *t = bp;  // shouldn't be used
-            while (n != 0) {
-                if (delta > 0) {
-                    t = next(out).bp;
-                    --n;
-                }
-                else {
-                    t = back(out).bp;
-                    ++n;
-                }
-            }
-            return RebchrPtr {t};
-        }
-
         REBUNI code() {
             REBUNI c;
             next(&c);
             return c;
+        }
+
+        RebchrPtr skip(REBUNI *out, REBINT delta) {
+            RebchrPtr t = *this;
+            if (delta > 0) {
+                while (delta != 0) {
+                    t = t.next_only();
+                    --delta;
+                }
+            }
+            else {
+                while (delta != 0) {
+                    t = t.back_only();
+                    ++delta;
+                }
+            }
+            *out = t.code();
+            return RebchrPtr {t.bp};
         }
 
         REBSIZ operator-(const REBYTE *rhs)
@@ -328,8 +330,8 @@
     #define BACK_CHR(out, cp)               (cp).back(out)
     #define NEXT_STR(cp)                    (cp).next_only()
     #define BACK_STR(cp)                    (cp).back_only()
-    #define SKIP_CHR(out,cp,delta)          (cp).skip((out), (delta))
     #define CHR_CODE(cp)                    (cp).code()
+    #define SKIP_CHR(out,cp,delta)          (cp).skip((out), (delta))
     #define WRITE_CHR(cp, c)                (cp).write(c)
 #endif
 
