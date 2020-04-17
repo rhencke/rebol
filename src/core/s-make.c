@@ -99,6 +99,11 @@ REBSTR *Copy_String_At_Limit(const RELVAL *src, REBINT limit)
 //
 REBSTR *Append_Codepoint(REBSTR *dst, REBUNI c)
 {
+    if (c == '\0') {
+        assert(!"Zero byte being added to string.");  // caller should handle
+        fail (Error_Illegal_Zero_Byte_Raw());  // don't crash release build
+    }
+
     assert(c <= MAX_UNI);
     assert(not IS_STR_SYMBOL(dst));
 

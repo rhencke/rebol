@@ -7,7 +7,18 @@
 ; alternative literal form
 ("" == #[text! ""])
 ("" == make text! 0)
-("^@" = "^(00)")
+
+; !!! The test system uses TRANSCODE to get past strings with illegal content.
+; That runs into trouble when trying to literally depict strings which should
+; not be able to load.  Use BINARY! to depict.
+(
+    e: trap [transcode #{225E4022}]  ; byte sequence for ^^@ in quotes
+    e/id = 'illegal-zero-byte
+)(
+    e: trap [transcode #{225E2830302922}]  ; byte sequence for ^^(00) in quotes
+    e/id = 'illegal-zero-byte
+)
+
 ("^A" = "^(01)")
 ("^B" = "^(02)")
 ("^C" = "^(03)")
@@ -135,7 +146,6 @@
 ("}" = "^(7D)")
 ("~" = "^(7E)")
 ("^~" = "^(7F)")
-("^(null)" = "^(00)")
 ("^(line)" = "^(0A)")
 ("^/" = "^(0A)")
 ("^(tab)" = "^(09)")

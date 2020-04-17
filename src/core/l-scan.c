@@ -474,6 +474,9 @@ static const REBYTE *Scan_Quote_Push_Mold(
 
         ++src;
 
+        if (c == '\0')  // e.g. ^(00) or ^@
+            fail (Error_Illegal_Zero_Byte_Raw());  // legal CHAR!, not string
+
         Append_Codepoint(mo->series, c);
     }
 
@@ -559,6 +562,9 @@ const REBYTE *Scan_Item_Push_Mold(
         }
 
         ++bp;
+
+        if (c == '\0')  // e.g. ^(00) or ^@
+            fail (Error_Illegal_Zero_Byte_Raw());  // legal CHAR!, not string
 
         Append_Codepoint(mo->series, c);
     }

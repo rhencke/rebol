@@ -654,7 +654,7 @@ pe-format: context [
     ] DOS-header
 
     PE-header-rule: [
-        "PE^@^@" | fail-at: (err: 'missing-PE-signature) fail
+        "PE" #{0000} | fail-at: (err: 'missing-PE-signature) fail
     ]
 
     COFF-header: _

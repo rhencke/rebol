@@ -56,7 +56,7 @@
     :a-value == a-value
 )
 (
-    a-value: #"^@"
+    a-value: NUL
     :a-value == a-value
 )
 (

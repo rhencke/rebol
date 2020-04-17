@@ -228,16 +228,16 @@ enum {
 #define UNICODE_CASES 0x2E00  // size of unicode folding table
 
 inline static REBUNI UP_CASE(REBUNI c)
-  { return c < UNICODE_CASES ? Upper_Cases[c] : c; }
+  { assert(c != '\0'); return c < UNICODE_CASES ? Upper_Cases[c] : c; }
 
 inline static REBUNI LO_CASE(REBUNI c)
-  { return c < UNICODE_CASES ? Lower_Cases[c] : c; }
+  { assert(c != '\0'); return c < UNICODE_CASES ? Lower_Cases[c] : c; }
 
 inline static bool IS_WHITE(REBUNI c)
-  { return c <= 32 and ((White_Chars[c] & 1) != 0); }
+  { assert(c != '\0'); return c <= 32 and ((White_Chars[c] & 1) != 0); }
 
 inline static bool IS_SPACE(REBUNI c)
-  { return c <= 32 and ((White_Chars[c] & 2) != 0); }
+  { assert(c != '\0'); return c <= 32 and ((White_Chars[c] & 2) != 0); }
 
 
 extern const char trailingBytesForUTF8[256];  // defined in %t-char.c

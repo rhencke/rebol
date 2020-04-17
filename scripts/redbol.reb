@@ -368,7 +368,7 @@ to-rebol-file: emulate [:local-to-file]
 why?: emulate [does [lib/why]]  ; not exported yet, :why not bound
 
 null: emulate [
-    #"^@" ; NUL in Ren-C https://en.wikipedia.org/wiki/Null_character
+    make char! 0  ; NUL in Ren-C https://en.wikipedia.org/wiki/Null_character
 ]
 
 ; Ren-C's VOID! is nearly identical to UNSET!, but the concept is that

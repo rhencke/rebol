@@ -40,10 +40,7 @@
 ]
 
 [#84
-    (equal? mold make bitset! "^(00)" "make bitset! #{80}")
-]
-[#84
-    (equal? mold/all make bitset! "^(00)" "#[bitset! #{80}]")
+    (equal? mold/all (make bitset! #{80}) "#[bitset! #{80}]")
 ]
 
 

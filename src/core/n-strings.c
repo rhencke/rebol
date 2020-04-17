@@ -524,6 +524,14 @@ REBNATIVE(dehex)
                 if (next == NULL)
                     fail ("Bad UTF-8 sequence in %XX of dehex");
             }
+
+            // !!! Should you be able to give a BINARY! to be dehexed and then
+            // get a BINARY! back that permits internal zero chars?  This
+            // would not be guaranteeing UTF-8 compatibility.  Seems dodgy.
+            //
+            if (decoded == '\0')
+                fail (Error_Illegal_Zero_Byte_Raw());
+
             Append_Codepoint(mo->series, decoded);
             --scan_size; // one less (see why it's called "Back_Scan")
 

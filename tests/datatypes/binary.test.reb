@@ -17,7 +17,6 @@
 (#{00} == 2#{00000000})
 (#{000000} == 64#{AAAA})
 (#{} == make binary! 0)
-(#{00} == to binary! "^(00)")
 ; minimum
 (binary? #{})
 ; alternative literal representation
@@ -38,7 +37,7 @@
 
 (
     a: make binary! 0
-    insert a #"^(00)"
+    insert a make char! 0
     a == #{00}
 )
 
