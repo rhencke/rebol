@@ -759,7 +759,7 @@ static REBIXO To_Thru_Block_Rule(
     DECLARE_LOCAL (cell); // holds evaluated rules (use frame cell instead?)
 
     REBLEN pos = P_POS;
-    for (; pos <= SER_LEN(P_INPUT); ++pos) {
+    for (; pos < SER_LEN(P_INPUT); ++pos) {
         const RELVAL *blk = VAL_ARRAY_HEAD(rule_block);
         for (; NOT_END(blk); blk++) {
             if (IS_BAR(blk))

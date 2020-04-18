@@ -563,3 +563,17 @@
     (not parse "aabb" [some [#"a"] reject some [#"b"]])
     (not parse "aabb" [some [#"a" reject] to end])
 ]
+
+; !!! R3-Alpha introduced a controversial "must make progress" rule, where
+; something like an empty string does not make progress on a string parse
+; so even if it doesn't fail, it fails the whole parse.  Red has all of
+; these tests pass.  Ren-C is questioning the progress rule, believing the
+; benefit of infinite-loop-avoidance is not worth the sacrifice of logic.
+[
+    (not parse "ab" [to [""] "ab" end])
+    (did parse "ab" [to ["a"] "ab" end])
+    (did parse "ab" [to ["ab"] "ab" end])
+    (not parse "ab" [thru [""] "ab" end])
+    (did parse "ab" [thru ["a"] "b" end])
+    (not parse "ab" [thru ["ab"] "" end])
+]
