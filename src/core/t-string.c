@@ -285,7 +285,8 @@ REBLEN find_string(
             return index;  // empty binaries / strings are matches
 
         const REBYTE *pbytes = VAL_BIN_AT(pattern);
-        REBSIZ offset = cast(REBYTE*, STR_AT(str, index)) - STR_HEAD(str);
+        REBSIZ offset =
+            cast(REBYTE*, STR_AT(str, index)) - cast(REBYTE*, STR_HEAD(str));
         REBLEN result = Find_Bin_In_Bin(
             SER(str),
             offset,

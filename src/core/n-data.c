@@ -1081,7 +1081,7 @@ bool Try_As_String(
 
             REBCHR(*) cp = STR_HEAD(str);
             REBLEN len = STR_LEN(str);
-            while (index < len and cp != at_ptr) {
+            while (index < len and cast(REBYTE*, cp) != at_ptr) {
                 ++index;
                 cp = NEXT_STR(cp);
             }

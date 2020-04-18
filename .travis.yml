@@ -205,6 +205,7 @@ matrix:
         - CONFIG=generic-c++.r
         - OS_ID=0.2.40
         - DEBUG=asserts
+        - CFLAGS="{-DDEBUG_UTF8_EVERYWHERE}"  # keep this debug mode working
         - STANDARD=c++11
         - RIGOROUS=no
         - STATIC=no  # static linking switch not honored
@@ -915,7 +916,7 @@ script:
           # we do not apply it to any of the binaries which are uploaded to s3
           # -- not even debug ones.
           #
-          r3-one ../make.r CONFIG="../configs/${CONFIG}" TARGET=makefile STANDARD="$STANDARD" OS_ID="$OS_ID" RIGOROUS="$RIGOROUS" DEBUG=sanitize OPTIMIZE=2 STATIC=no ODBC_REQUIRES_LTDL="$ODBC_REQUIRES_LTDL" EXTENSIONS="$EXTENSIONS" $EXTRA
+          r3-one ../make.r CONFIG="../configs/${CONFIG}" TARGET=makefile STANDARD="$STANDARD" OS_ID="$OS_ID" RIGOROUS="$RIGOROUS" DEBUG=sanitize OPTIMIZE=2 STATIC=no CFLAGS="$CFLAGS" ODBC_REQUIRES_LTDL="$ODBC_REQUIRES_LTDL" EXTENSIONS="$EXTENSIONS" $EXTRA
           make clean prep folders
           make -j "$MAKE_JOBS"
 

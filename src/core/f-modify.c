@@ -473,7 +473,7 @@ REBLEN Modify_String_Or_Binary(
     // !!! Bad first implementation; improve.
     //
     if (IS_SER_STRING(dst_ser)) {
-        REBCHR(const *) t = src_ptr + src_size_raw;
+        REBCHR(const*) t = cast(REBCHR(const*), src_ptr + src_size_raw);
         while (src_len_raw > limit) {
             t = BACK_STR(t);
             --src_len_raw;
@@ -630,17 +630,18 @@ REBLEN Modify_String_Or_Binary(
     // unified with the mold buffer?)
 
     if (bookmark) {
-        if (BMK_INDEX(bookmark) > STR_LEN(STR(dst_ser))) {  // past active
+        REBSTR *dst_str = STR(dst_ser);
+        if (BMK_INDEX(bookmark) > STR_LEN(dst_str)) {  // past active
             assert(sym == SYM_CHANGE);  // only change removes material
-            Free_Bookmarks_Maybe_Null(STR(dst_ser));
+            Free_Bookmarks_Maybe_Null(dst_str);
         }
         else {
           #if defined(DEBUG_BOOKMARKS_ON_MODIFY)
-            Check_Bookmarks_Debug(dst_ser);
+            Check_Bookmarks_Debug(dst_str);
           #endif
 
-            if (STR_LEN(STR(dst_ser)) < sizeof(REBVAL))  // not kept if small
-                Free_Bookmarks_Maybe_Null(STR(dst_ser));
+            if (STR_LEN(dst_str) < sizeof(REBVAL))  // not kept if small
+                Free_Bookmarks_Maybe_Null(dst_str);
         }
     }
 

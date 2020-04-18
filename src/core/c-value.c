@@ -130,7 +130,7 @@ inline static void Probe_Molded_Value(const REBVAL *v)
     Push_Mold(mo);
     Mold_Value(mo, v);
 
-    printf("%s\n", STR_AT(mo->series, mo->index));
+    printf("%s\n", cast(const char*, STR_AT(mo->series, mo->index)));
     fflush(stdout);
 
     Drop_Mold(mo);
@@ -249,7 +249,7 @@ void* Probe_Core_Debug(
     }
 
     if (mo->offset != STR_LEN(mo->series))
-        printf("%s\n", STR_AT(mo->series, mo->index));
+        printf("%s\n", cast(const char*, STR_AT(mo->series, mo->index)));
     fflush(stdout);
 
     Drop_Mold(mo);

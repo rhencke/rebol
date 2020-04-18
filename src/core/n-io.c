@@ -110,7 +110,7 @@ REBNATIVE(write_stdout)
         PROBE(v);
     }
     else if (IS_TEXT(v)) {
-        printf("%s", STR_HEAD(VAL_STRING(v)));
+        printf("%s", cast(const char*, STR_HEAD(VAL_STRING(v))));
         fflush(stdout);
     }
     else {
