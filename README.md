@@ -136,7 +136,7 @@ streamline and document it!  Since it's now *all* written in Rebol, that
 should be more possible--and maybe even a little "fun" (?))*
 
 [15]: https://github.com/metaeducation/ren-c/wiki/On-Building-Ren-C-With-Cpp-Compilers 
-[16]: https://github.com/metaeducation/ren-c/blob/master/make/tools/systems.r
+[16]: https://github.com/metaeducation/ren-c/blob/master/tools/systems.r
 
 [100]: https://raw.githubusercontent.com/metaeducation/ren-c/master/docs/ren-c-logo.png
 [101]: https://travis-ci.com/metaeducation/ren-c.svg?branch=master
