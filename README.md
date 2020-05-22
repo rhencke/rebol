@@ -69,7 +69,7 @@ usage between the [mainline builds][7], community builds, and those made by
 To promote community's participation in public forums, development discussion
 for Ren-C generally takes place in the [`Rebol*` StackOverflow Chat][10].
 
-[10]: http://rebolsource.net/go/chat-faq
+[10]: https://chat.stackoverflow.com/rooms/291/rebol
 
 There is [a Discourse forum][11] available for more long-form discussion.
 
